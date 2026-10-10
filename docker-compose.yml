@@ -84,6 +84,18 @@ services:
       OLLAMA_URL: "http://ollama:11434"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
       PROVIDER_MODELS: "${PROVIDER_MODELS:-qwen2.5:7b}"
+      # B-29a: KI-Antrieb – ollama (Vorgabe) oder openai (vLLM, SGLang, TensorFold; docs/PROVIDER.md).
+      # KI_URL mit /v1, nur dieser Rechner oder Heimnetz; KI_SCHLUESSEL nur, wenn der Dienst einen verlangt.
+      KI_ANTRIEB: "${KI_ANTRIEB:-ollama}"
+      KI_URL: "${KI_URL:-}"
+      KI_SCHLUESSEL: "${KI_SCHLUESSEL:-}"
+      # 11.3d1a: Agent auf dem Knoten (offene Räume, wer fragt, zahlt) – eigener Schlüssel in ~/.freedom/agent-key
+      KNOTEN_AGENT: "${KNOTEN_AGENT:-0}"
+      AGENT_NAME: "${AGENT_NAME:-}"
+      AGENT_ABOUT: "${AGENT_ABOUT:-}"
+      AGENT_PERSONA: "${AGENT_PERSONA:-}"
+      AGENT_MODELL: "${AGENT_MODELL:-}"
+      AGENT_BESITZER: "${AGENT_BESITZER:-}"
       # E9-3: Modelle geprueft laden (docker compose exec node npm run modell -- <name> --aus-registry,
       # docs/PROVIDER.md); passt es in den Speicher? Leer: Arbeitsspeicher des Rechners
       MODELL_SPEICHER_GB: "${MODELL_SPEICHER_GB:-}"

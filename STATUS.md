@@ -7348,6 +7348,416 @@ Quelltext-Test folgt dem neuen Namen `fb`), Leak 73 + 1 todo; mls 13; tsc ×3, B
 `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test,
 Website-Bau und reproduzierbarer Build grün.
 
+## Schritt E9-3b – Modelle in der Selbstprüfung und im Status des eigenen Knotens
+
+Zweiter Teil von E9-3 (Entwurf `docs/E9-ENTWURF.md`, V3 A, Freigabe 08.10.):
+`pruefeEinrichtung()` sollte ungeprüfte Modelle mit eigener Kennung melden (wie B-11c), und den
+Fortschritt beim Laden sieht der Besitzer über den Status des eigenen Knotens (B-11).
+
+**Knoten:**
+- **`modell-pruefung.ts` (neu):** `pruefeModelle()` liefert je Modell eine Kennung:
+  - `modell.geprueft`: gegen das Manifest geprüft, Fingerabdruck bei Ollama gleich – mit
+    Dateien und Bytes.
+  - `modell.ungeprueft`: aus `PROVIDER_MODELS` angeboten, ohne Prüfung gegen ein Manifest.
+  - `modell.veraendert`: Ollama hat unter dem Namen inzwischen etwas anderes.
+  - `modell.fehltBeiOllama`: nicht bei Ollama, nicht im Angebot.
+  - `modell.fehltImAngebot`: Ollama kennt keins – die Liste bleibt im Angebot (B-41), Aufträge
+    scheitern.
+  - `modell.ollamaStumm`: Ollama antwortete nicht, keine Aussage.
+  - `modell.wartet`: gewünscht, noch nicht dran.
+  - Das letzte gescheiterte Laden je Name, aus der Kennung von `ladeModell()` abgeleitet
+    (`modellFall()`: `passt.nicht` → `modell.passtNicht`). Ein älteres Scheitern zählt nicht,
+    wenn derselbe Name wieder gewünscht ist.
+- **Sätze:** nur in `MODELL_TEXT`. `npm run modell` nimmt dieselben; seine eigene Tabelle fiel weg.
+- **`npm run pruefen`:** zeigt die Modelle nach Lightning und SOL. Der Exit-Code hängt wie bisher
+  nur an Lightning und SOL.
+- **`main.ts`:**
+  - Der Status an den Besitzer (5077) trägt `modellPruefung`: Befunde und was gerade lädt (aus
+    `modelle.json`).
+  - Ollama wird einmal je Angebot gefragt; Namen und Fingerabdrücke kommen aus derselben Antwort
+    (`ollamaStand`).
+  - Angebot und Status lesen `PROVIDER_MODELS` über `providerModelle()`.
+
+**Protokoll** (`knoten-status.ts`, `docs/PROTOCOL.md` §24):
+- **Neues Feld:** `modellPruefung` mit `befunde` (höchstens 30: Name, Stufe, `modell.…`, Werte
+  wie bei `einrichtung`) und `laeuft` (Name, Schritt, seit, beim Laden Bytes).
+- **Eigenes Feld, nicht in `einrichtung`:** Eine App vor E9-3b läse sonst den ganzen Status nicht
+  mehr, sie übergeht das neue Feld.
+- **Nichts Unlesbares:** `knotenStatusText()` schickt nichts, was `leseKnotenStatus()` abwiese.
+  Ein Modellname aus der Umgebung mit Steuerzeichen fällt weg, statt den Status unlesbar zu
+  machen.
+
+**App** (`knoten-status-ansicht.ts`):
+- **Anzeige unter „Einrichtung“:** „Modelle (Prüfung gegen das Manifest)“ mit einer Zeile je
+  Modell (`modellZeile()`) und dem Fortschritt (`ladenZeile()`, Schritt, Anteil höchstens
+  100 %).
+- **Ältere Knoten:** Bei einem Knoten vor E9-3b steht das ehrlich da.
+- **Texte:** je Kennung ein Text in beiden Sprachen (`MODELL_TEXT`). Ein Test vergleicht die
+  Kennungen mit dem Knoten.
+
+**Echt gestartet:** `npm run pruefen` gegen eine Ollama-Attrappe (`/api/tags`) mit gemerktem
+Stand und Wünschen in einem frischen `HOME`. Die Ausgabe nennt:
+- geprüft,
+- verändert (anderer Fingerabdruck),
+- ungeprüft (`nemotron-3.5-lightning` → `:latest`),
+- fehlt bei Ollama,
+- wartet,
+- „braucht etwa 48 GB, das Gerät hat 32 GB“.
+
+**Tests:**
+- **protocol** `knoten-status.test.ts` (+2): Hin und zurück; alles Kaputte ist null; der
+  Schreiber lässt Unlesbares weg.
+- **node** `modell-pruefung.test.ts` (+7):
+  - jede Kennung;
+  - jeder Ausgang von `ladeModell()` hat einen Satz;
+  - Weg durch den Provider (Antwort an den Besitzer, Name mit Steuerzeichen fällt weg);
+  - Verdrahtung.
+- **app** `knoten-status.test.ts` (+2): Zeilen, Fortschritt, Kennungen gleich denen des Knotens.
+- **Angepasst, nicht abgeschwächt** (B-11b/c): Zwei Tests zählten die Zeilen der Anzeige. Dazu
+  kommt die Zeile zu den Modellen; geprüft wird sie jetzt mit.
+
+**Prüfungen:** protocol 1257 grün (+2, 6 übersprungen), node 356 grün (+7, ohne Netz 7
+übersprungen; mit Netz 357), app 1029 (+2), Leak 73 + 1 todo, mls 13; tsc überall, Build,
+`check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: `main` mit E9-3b, damit die App die Modelle im Status zeigt. Ohne Update steht dort
+„dieser Knoten meldet keine Prüfung“.
+
+## Schritt B-29a – KI-Antrieb wählbar (OpenAI-kompatibel: vLLM, SGLang, TensorFold)
+
+Erster Teil von B-29 (Sammlung, Anhang E). Der Knoten sprach nur Ollama. Ollama arbeitet
+gleichzeitige Anfragen von Haus aus nacheinander ab; vLLM, SGLang und TensorFold bündeln sie.
+B-29 ist dreigeteilt:
+- **B-29a (dieser Schritt):** Antrieb wählbar.
+- **B-29b:** Messskript – dasselbe Modell, Durchsatz bei einer und bei N gleichzeitigen Anfragen.
+- **B-29c:** Gewichte außerhalb von Ollama gegen das Manifest prüfen.
+
+TensorFold ist OpenAI-kompatibel, die Sammlung hatte „prüfen“ vermerkt.
+
+**Knoten:**
+- **`ki-antrieb.ts` (neu):** `antriebAusUmgebung()` wählt über `KI_ANTRIEB`:
+  - `ollama` (Vorgabe): `OLLAMA_URL` wie bisher.
+  - `openai`: `KI_URL` mit `/v1` (Vorgabe vLLM `http://127.0.0.1:8000/v1`), optional
+    `KI_SCHLUESSEL` als Bearer.
+- **`KI_URL` nur dieser Rechner oder das Heimnetz** (`lokaleAntriebAdresse()`): localhost, private
+  Adresse, Name ohne Punkt (Docker-Dienst), `.local`/`.lan`/`.internal`/`.home.arpa`; ohne
+  Zugangsdaten. Ein Dienst im Internet wäre ein Dritter, der die Fragen der Kunden liest.
+  Ungültig → der Knoten startet nicht, nie still Ollama.
+- **`inference.ts`:** Alle Aufrufe (Werkzeug-Schleife, Swarm, Richter, Strom) gehen über `rufe()`.
+  - Ollama: `/api/chat` wie bisher.
+  - OpenAI-kompatibel: `/chat/completions` mit `max_tokens`. Werkzeug-Argumente kommen als
+    JSON-Text, die Antwort des Werkzeugs trägt `tool_call_id` (`werkzeugRunde()`).
+  - Fehler des Dienstes nur mit Status, nie mit seinem Text (der kann die Frage enthalten).
+  - Der Strom kommt in einem Stück, ohne Denkspur wie bei Ollama.
+  - Systemprompt, Werkzeuge und `ohneWerkzeuge` sind für beide gleich.
+- **Modelle:** `antriebModelle()` fragt `/v1/models`, nur Kennungen (begrenzt, ohne
+  Steuerzeichen) und ohne Fingerabdruck. Ins Angebot kommt aus `PROVIDER_MODELS`, was der Antrieb
+  nennt (B-41 wie bisher).
+- **Geprüft laden** (`ModellDienst`) geht nur mit Ollama. Mit einem anderen Antrieb:
+  - wartet der Takt, und das Log sagt es;
+  - nennt `pruefeModelle(…, antrieb)` eigene Kennungen: `modell.nurOllama`,
+    `modell.ungeprueftAntrieb`, `modell.fehltBeimAntrieb`, `modell.antriebKenntKeins`,
+    `modell.antriebStumm`, `modell.ladenNurOllama`;
+  - heißt nie etwas „geprüft“.
+- **`npm run pruefen`:** fragt den gewählten Antrieb. Bei ungültiger Einstellung zeigt es
+  „✗ KI-Antrieb: …“ und endet mit 1.
+
+**App:** je neue Kennung ein Text in beiden Sprachen (`knoten-status-ansicht.ts`,
+`texte/settings.ts`). Der Test aus E9-3b vergleicht die Kennungen mit dem Knoten.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „KI-Antrieb“, mit den Schaltern für Werkzeug-Aufrufe bei vLLM und
+  SGLang).
+- `docker-compose.yml` reicht `KI_ANTRIEB`, `KI_URL`, `KI_SCHLUESSEL` durch.
+- Fallstrick in `packages/node/CLAUDE.md`.
+- Sammlung (B-29 geteilt), FORTSCHRITT.
+
+**Echt gestartet:** `npm run pruefen` gegen eine OpenAI-Attrappe (`/v1/models`) in einem frischen
+`HOME`, mit Schlüssel:
+- Das bekannte Modell erscheint als „angeboten, aber nicht gegen ein Manifest geprüft … mit diesem
+  KI-Antrieb geht das noch nicht“.
+- Das unbekannte Modell erscheint als „der KI-Antrieb (KI_URL) kennt das Modell nicht“.
+- Die Attrappe bekam den Schlüssel; in der Ausgabe steht er nicht.
+- Mit `KI_URL=https://api.example.com/v1`: „✗ KI-Antrieb: KI_URL muss auf diesen Rechner oder ins
+  Heimnetz zeigen …“, Exit 1.
+
+Der erste Lauf zeigte bei OpenAI noch den Rat „npm run modell -- <name> --aus-registry“, der dort
+nicht hilft. Daher gibt es jetzt die eigene Kennung `modell.ungeprueftAntrieb`.
+
+**Tests:**
+- **node** `ki-antrieb.test.ts` (+9):
+  - Adressregeln;
+  - Wahl aus der Umgebung;
+  - Anfrage mit Systemprompt, Werkzeugen, Grenze, Schlüssel;
+  - `ohneWerkzeuge`;
+  - Werkzeug-Runde mit `tool_call_id`;
+  - Fehler ohne Text des Dienstes;
+  - Strom ohne Denkspur;
+  - Modellliste;
+  - Selbstprüfung mit OpenAI;
+  - Verdrahtung (kein Schlüssel in Log-Zeilen).
+- **Angepasst, nicht abgeschwächt:**
+  - `modell-laden.test.ts` und `modell-pruefung.test.ts` erwarten den Aufruf über
+    `antriebModelle(antrieb)`.
+  - `angebot-modell.test.ts` prüft jetzt, dass die gesuchte Stelle gefunden wird. Vorher wäre ein
+    `indexOf` von -1 still durchgegangen.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `01a6fc1` (`main` c6bc12c + B-29a), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 365 grün (+9, ohne Netz 7 übersprungen; mit Netz 366), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – ohne `KI_ANTRIEB` arbeitet der Knoten wie bisher mit Ollama.
+
+## Schritt B-29b – Messskript für den KI-Antrieb
+
+Zweiter Teil von B-29 (Sammlung, Anhang E): Welcher Antrieb auf dem GX10 läuft (Ollama, vLLM,
+SGLang, TensorFold), entscheidet eine Messung (MENSCH, M-7). Gemessen wird dasselbe Modell bei
+einer und bei N gleichzeitigen Anfragen.
+
+**Knoten:**
+- **`messung.ts` (neu):**
+  - `leseMessWunsch()`: Aufruf geprüft – höchstens 8 Stufen von 1 bis 64, 1 bis 512 Anfragen,
+    16 bis 4096 Tokens; sonst ein Grund.
+  - `missStufe()`: höchstens N Anfragen zugleich, bis alle gestellt sind. Feste, wechselnde
+    Übungsfragen über `complete()` mit `ohneWerkzeuge` – derselbe Weg wie echte Anfragen, ohne
+    Websuche. Fehler nur mit Namen.
+  - `werteAus()`: Tokens je Sekunde über die Wanduhr, Antworten je Minute, Median und p95.
+    Tokens je Sekunde nur, wenn der Antrieb sie für jede Anfrage nennt – sonst „–“, nie
+    hochrechnen.
+  - `messTabelle()`: der Faktor gegenüber der ersten Stufe, über Tokens oder (wenn nicht alle sie
+    haben) über Antworten je Minute, nie gemischt.
+- **`npm run messen` (`messen.ts`):**
+  - nimmt den Antrieb wie der Knoten (`antriebAusUmgebung()`) und das Modell aus `--modell` oder
+    das erste aus `PROVIDER_MODELS`;
+  - wärmt mit einer Anfrage auf, die nicht zählt;
+  - zeigt Antworten nie;
+  - bei Ollama mit dem Hinweis auf `OLLAMA_NUM_PARALLEL`;
+  - Exit 1 bei ungültigem Aufruf, ungültigem oder stummem Antrieb, gescheitertem Aufwärmen.
+
+**Doku:** `docs/PROVIDER.md` (Abschnitt „Welcher Antrieb? Messen“), Fallstrick in
+`packages/node/CLAUDE.md`, Sammlung und FORTSCHRITT (B-29b ✓).
+
+**Echt gestartet:** `npm run messen -- --gleichzeitig 1,4,8 --tokens 100` gegen zwei
+OpenAI-Attrappen mit 200 ms je Antwort:
+
+| gleichzeitig | nacheinander (wie Ollama ab Werk) | bündelnd (wie vLLM) |
+|---|---|---|
+| 1 | Faktor 1,00, Median 0,20 s | Faktor 1,00, Median 0,20 s |
+| 4 | Faktor 1,01, Median 0,80 s | Faktor 3,91, Median 0,21 s |
+| 8 | Faktor 1,01, Median 1,61 s | Faktor 7,88, Median 0,21 s |
+
+Jeweils Exit 1 mit eigenem Satz bei:
+- falschem Modell („Aufwärmen gescheitert (Error) – stimmt der Modellname beim Antrieb?“);
+- `--gleichzeitig 0`;
+- einer Adresse im Internet;
+- einem nicht erreichbaren Antrieb.
+
+**Tests:** node `messung.test.ts` (+6):
+- Aufruf (Vorgaben, Sortierung, zwölf ungültige Fälle);
+- höchstens N zugleich, ohne Werkzeuge, mit Modell und Grenze, Fragen wechseln;
+- Fehler nur mit Namen;
+- Auswertung (Wanduhr, Median, p95, ohne Tokens keine Zahl, Faktor nie gemischt);
+- durch den echten Antrieb (OpenAI-kompatibel und Ollama);
+- Verdrahtung (keine Antworten, kein Schlüssel auf dem Bildschirm).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `88874ee` (`main` 25bbb19 + B-29b), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 371 grün (+6, ohne Netz 7 übersprungen; mit Netz 372), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – das Skript läuft am Knoten, wenn der MENSCH misst.
+
+## Schritt 11.3d1a – Agent auf dem Knoten: offene Räume, „wer fragt, zahlt“
+
+Erster Teil von 11.3d (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P4, P5, F5; an
+Spur B übergeben 09.10.). 11.3d ist geteilt:
+- **d1a (dieser Schritt):** der Knoten, offene Räume, „wer fragt, zahlt“.
+- **d1b:** die App zeigt den Preis und schickt den Auftrag mit Verweis.
+- **d2:** private Räume mit einem MLS-Konto im Knoten.
+- **d3:** Budget des Einladers (Pfand im Zahlkanal), nach M-2.
+
+**Protokoll** (`agent-raum.ts`, neu):
+- Aus der App (`agent-antwort.ts`, 11.3c2a) hierher gezogen: `entscheide()` (neu mit `ausBudget`),
+  `istAgentIm()`, `darfSchreibenIm()`, `agentAntwortEvent()`, `agentHinweisEvent()` und der Prompt als
+  `agentPromptMit()` mit festen Grenzen. App und Knoten entscheiden so mit denselben Regeln.
+- Die App behält ihre Schnittstelle; `agentPrompt()` nimmt die Grenzen aus `VERLAUF_UMFANG`.
+- **Neu: `definitionDesGruenders()`.** Die Definition hat `d` = `space:<kennung>`. Die App suchte bis
+  hier nach `d` = `<kennung>` und fand den Schalter der Agentenketten nie, Ketten blieben in offenen
+  Räumen immer aus. Behoben in `shell/agenten-lauschen.ts` (Spur A, eine Zeile).
+
+**Knoten** (`knoten-agent.ts`, neu):
+- **Einstellung:** `KNOTEN_AGENT=1` mit `AGENT_NAME` (Pflicht), `AGENT_ABOUT`, `AGENT_PERSONA`,
+  `AGENT_MODELL`, `AGENT_BESITZER`; ungültig → kein Start.
+- **Schlüssel:** eigener in `~/.freedom/agent-key` (0600, über `ladeKnotenSchluessel()`), nie der des
+  Knotens (geprüft).
+- **Karte** (38090, Knoten, „wer fragt“, `provider` = der Knoten) beim Start und mit jedem Erneuern
+  des Angebots; die Persona steht nicht darin.
+- **Auftrag** (`dvm-provider.ts`):
+  - Ein Verweis (`leseAuftragsVerweis()`) nur aus einem Umschlag.
+  - `KnotenAgent.pruefe()` nach der Zahlungsprüfung, vor dem Rechnen. Die Erwähnung muss es im Raum
+    geben (signiert, Kind 42, Kennung), mit dem Stand des Raums und `entscheide()` mit
+    `ausBudget: false` – nie auf Agenten.
+  - Gerechnet wird nur Persona, Verlauf und Erwähnung aus dem Raum, nie die Eingabe des Auftrags.
+  - Erst die Antwort im Raum (Kind 42 vom Agenten), dann das Ergebnis versiegelt an den Fragenden.
+  - Scheitert das Rechnen, ist die Erwähnung wieder frei.
+- **Einmal:** Jede Erwähnung beantwortet er höchstens einmal (`agent-beantwortet.json`, nur Ids, 0600).
+- **Ablehnungen:** vor dem Rechnen als `AgentAbgelehnt` mit `["fall", …]` in der Rückmeldung – nie mit
+  Text aus dem Raum oder von Relays.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „Agent auf dem Knoten“), `docs/PROTOCOL.md` §32 (Prüfung, Kennungen).
+- Fallstricke in `packages/node`, `packages/protocol`, `packages/app`.
+- Karte `phase-11.md` (11.3d geteilt), FORTSCHRITT, `docker-compose.yml`.
+
+**Echt gestartet:** der Knoten mit eigenem Relay (`RELAY_ENABLED=1`), Agent an, OpenAI-Attrappe als
+Antrieb (B-29a). Ein Skript spielt Raum, Rollen, Erwähnung und einen versiegelten, bezahlten Auftrag
+über `ws://` durch:
+- Die Karte ist da („Lektor, knoten, fragender, provider = der Knoten“).
+- Die Antwort steht im Raum vom Agenten (`space`, `h`, `e` … `reply` auf die Erwähnung, `p` … `mention`
+  des Fragenden).
+- Ein zweiter bezahlter Auftrag für dieselbe Erwähnung bringt keine zweite Antwort; im Log steht nur
+  „agent-schon-beantwortet“.
+- Kein Klartext im Log; `agent-key` und `agent-beantwortet.json` mit 0600.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+2): Definition des Gründers (`space:<kennung>`, nur vom Gründer,
+  die neueste); „wer fragt, zahlt“ nie auf Agenten; Prompt mit festen Grenzen.
+- **node** `knoten-agent.test.ts` (+7):
+  - Einstellung;
+  - Karte;
+  - der ganze Weg durch den Provider (Prompt aus dem Raum statt der Eingabe, Antwort im Raum und
+    versiegelt, bezahlt, kein Klartext im Log);
+  - einmal, auch nach einem Neustart;
+  - Ablehnungen mit Kennung;
+  - offen abgelehnt;
+  - Verdrahtung.
+- **app:** unverändert grün (die Bausteine kommen jetzt aus dem Protokoll).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `d87e0d0` (`main` cf3c89a + 11.3d1a): protocol 1259 grün (+2, 6 übersprungen), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün. Knoten im ersten Lauf 376 grün, 2 rot: Die Verdrahtungstests aus B-12a und B-13a lesen „keypair, weckBuch, turn,“ zusammenhängend, und `agent: knotenAgent` stand dazwischen – jetzt dahinter (Tests unverändert); danach node 378 grün (+7, ohne Netz 7 übersprungen; mit Netz 379), `check-wiring --streng` Exit 0.
+
+Knoten-Stand: `main` mit 11.3d1a, nur wer einen Agenten auf dem Knoten will (`KNOTEN_AGENT=1`); sonst
+kein Update nötig.
+
+## Schritt 11.3d1b1 – Agenten per „@Name“ erwähnen
+
+Erster Teil von 11.3d1b (App), geteilt: **d1b1** Erwähnen per Name, **d1b2** der bezahlte Auftrag an
+einen Agenten auf dem Knoten (Preis, Verweis, Datenschutz). Anlass: Die App setzte in Räumen eine
+Erwähnung nur beim Antworten (erwähnt wird der Autor). Einen Agenten, der noch nichts geschrieben
+hatte, konnte niemand ansprechen – weder auf dem Gerät (11.3c) noch auf dem Knoten (11.3d1a).
+
+**Protokoll** (`agent-raum.ts`):
+- `erwaehnteAgenten(text, karten)`:
+  - „@Name“ als ganzes Wort, ohne Groß- und Kleinschreibung;
+  - nur aus den gegebenen Karten, nie aus dem Text allein;
+  - höchstens fünf (`AT_ERWAEHNUNGEN`), in der Reihenfolge des Textes;
+  - teilen sich zwei Agenten einen Namen, erwähnt sie keinen – nie den falschen.
+
+**App** (`shell/tabs/raeume.ts`, Spur C, klein gehalten):
+- **Offener Raum:** Beim Öffnen lädt die App die Karten der Mitglieder mit der Rolle `agent`
+  (`agentKartenIm()`, `aktuelleAgentKarten()`).
+- **Privater Raum:** Karten der Gruppe (`raumAgentKarten()`).
+- **Beim Senden** kommen die erwähnten Agenten in den Bezug, offen als `p` … `mention`, privat im
+  inneren Event. Die Sendezeilen selbst bleiben, wie der Leak-Test und der Test aus 11.4c sie lesen.
+- Das gilt für Agenten auf dem Gerät wie auf dem Knoten. Ein Agent auf dem Knoten antwortet erst mit
+  d1b2, wenn jemand den Auftrag bezahlt.
+
+**Doku:** `docs/PROTOCOL.md` §32, Fallstrick in `packages/app/CLAUDE.md`, Karte `phase-11.md`,
+FORTSCHRITT.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+1): 13 Fälle (Satzende, Klammern, zwei Namen, Mail-Adresse,
+  Wortteil, doppelter Name, Sonderzeichen im Namen), höchstens fünf, ohne Karten niemand.
+- **app** `agent-antwort.test.ts` (+1): Verdrahtung – Karten offen und privat, Erwähnungen in den
+  Bezug, beide Sendewege.
+- **Angepasst, nicht abgeschwächt** (`raum-thread.test.ts`, C.2c): `bezug` ist jetzt `let` mit Typ;
+  der Test prüft weiter, dass er aus `antwortBezug()` kommt.
+
+**Erster Prüflauf:** drei rote Prüfungen, alle durch eigene Änderungen.
+- Der Test aus 11.4c und der Leak-Test „private Räume senden über MLS“ lesen die Zeilen in
+  `raeume.ts` wörtlich. Meine erste Fassung hatte dort eine eigene Variable `erwaehnt`. Jetzt laufen
+  die Erwähnungen über `bezug`, und beide Tests sind unverändert grün.
+- `check-wiring --streng`: Zwei Ausnahmen waren veraltet (`aktuelleAgentKarten`, `leseAgentKarte`
+  sind jetzt verdrahtet), sie sind entfernt.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `fe2c85b` (`main` b223939 + 11.3d1b1), `GESAMT fail=0`: protocol 1260 grün (+1, 6 übersprungen), node 378 grün (ohne Netz 7 übersprungen; mit Netz 379), app 1030 (+1), Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig.
+
+## Schritt 11.3d1b2 – Agenten auf dem Knoten fragen: Preis, Auftrag, Verweis
+
+Zweiter Teil von 11.3d1b (App), nach d1b1 („@Name“). Seit 11.3d1a beantwortet ein Agent auf dem Knoten
+eine Erwähnung nur, wenn ihm jemand einen bezahlten, versiegelten Auftrag mit Verweis schickt („wer
+fragt, zahlt“). Diesen Auftrag schickt jetzt die App.
+
+**App:**
+- **`knoten-agent-wahl.ts` (neu, ohne DOM):**
+  - `zuBezahlen()`: nur erwähnte Agenten, deren Karte `knoten`, `fragender` und den Knoten (`provider`)
+    nennt; in der Reihenfolge der Erwähnungen, jeder einmal, nie man selbst.
+  - `ablehnungsText()`: ein Text je Kennung aus PROTOCOL §32, Unbekanntes mit der Kennung – nie Text
+    vom Knoten.
+- **`shell/knoten-agent-fragen.ts` (neu):** `frageKnotenAgenten()` nach dem Senden im offenen Raum.
+  - Je Agent prüft die App zuerst den Knoten: Er braucht ein Angebot für versiegelte Aufträge
+    (`privatFaehig()`).
+  - Danach den Zahlweg: Mit SOL geht es nur mit Zahlkanal; mit Lightning braucht es eine Wallet und eine
+    Adresse des Knotens.
+  - Erst dann zeigt sie den Preis: höchstens 100 sats wie bei Agenten auf dem Gerät, dazu die Rate aus
+    dem Angebot, in sats und SOL.
+  - Ohne Bestätigung geht nichts hinaus.
+- **`shell/bezahlter-auftrag.ts` (neu):** der Auftrag.
+  - Versiegelt von einem frischen Sitzungsschlüssel je Frage.
+  - Im Kern eine feste Eingabe und der Verweis (`auftragsVerweisTags()`: Adresse des Raums, Id der
+    Erwähnung).
+  - Bezahlt wie jede KI-Anfrage: Lightning nach A+, höchstens das Gebot, oder eine Gutschrift im
+    Zahlkanal.
+  - Ablehnungen kommen nur mit ihrer Kennung zurück.
+  - Derselbe Weg wie `frageUndZahle()` in `agenten-lauschen.ts` (11.3c, Spur A). Dort ist er mit dem
+    Budget des Erstellers verflochten und bleibt unverändert.
+- **Kein zweiter Versuch von selbst:** Im Zahlkanal bliebe die Gutschrift der ersten Anfrage offen, die
+  zweite läge ein Gebot höher.
+- **`shell/tabs/raeume.ts` (Spur C, klein gehalten):**
+  - Die Karten im offenen Raum tragen jetzt `betrieb`, `bezahlung`, `provider`, `modell`.
+  - Nach `publish(ev)` ruft der offene Weg `frageKnotenAgenten()` auf; der private Weg ruft es nie auf
+    (Gruppen kommen mit 11.3d2).
+
+**Datenschutz:** neue Grenze „agent-knoten“ (Protokoll, Bericht in beiden Sprachen):
+- Der Knoten kann den Auftrag der öffentlichen Nachricht zuordnen.
+- Über einen Zahlkanal kann er so auch deine anderen Anfragen über diesen Kanal zuordnen.
+- Die Antwort steht öffentlich im Raum.
+- Relays sehen nur den Umschlag.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 und `docs/PROVIDER.md` („Fragen“; „Noch nicht“ ohne d1b).
+- Fallstrick in `packages/app/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Tests:**
+- **app** `knoten-agent-fragen.test.ts` (+4):
+  - Auswahl, mit Gerät, Einlader, ohne Knoten, sich selbst, Reihenfolge und Dopplung.
+  - Der Verweis steht nur im versiegelten Kern: außen nur `p`, die Id nicht im Chiffrat. Der Knoten
+    liest den Verweis, Absender ist der Sitzungsschlüssel.
+  - Jede Kennung aus dem Quelltext des Knotens hat einen Text in beiden Sprachen mit `{name}`, die
+    Preistexte nennen Preis und Rate.
+  - Verdrahtung:
+    - nur offen und erst nach dem Senden;
+    - Zahlweg und Wallet vor dem Preis, Bestätigung vor dem Auftrag;
+    - frischer Schlüssel, feste Eingabe, Verweis nur in `extraTags`;
+    - nur der Umschlag geht hinaus, das Gebot ist vorher gemerkt, abgerechnet über `rechneAntwortAb()`.
+- **protocol** `privacy-facts.test.ts`: „agent-knoten“ in der Liste der Aussagen ohne Leak-Regel; was der
+  Knoten nach dem Öffnen liest, sieht kein Mitschnitt.
+
+**Prüfungen:**
+- protocol 1260 grün (6 übersprungen); node 378 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz, 385 wie vorher); app 1034 grün (vorher 1030); mls 13 grün;
+  Leak-Tests 73 grün + 1 `todo` (unverändert).
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und
+  `build-site.sh`: grün.
+- Erster Lauf: `check-wiring --streng` rot – die Ausnahme für `auftragsVerweisTags` war veraltet
+  (jetzt verdrahtet). Sie ist entfernt.
+
+**MENSCH (Geld, Devnet/Testnet):** einen Knoten mit `KNOTEN_AGENT=1` in einen offenen Raum holen
+(Rolle `agent`), ihn mit „@Name“ erwähnen, den Preis bestätigen.
+- Mit Lightning-Testnet-Wallet: Antwort im Raum, Zahlung höchstens 100 sats.
+- Mit Zahlkanal auf Devnet: Gutschrift höchstens 100 sats zum Kurs des Knotens.
+- Ein zweites „Fragen“ zur selben Nachricht: „schon beantwortet“, nichts bezahlt.
+
+Knoten-Stand: `main` mit 11.3d1a – wer einen Agenten auf dem Knoten betreibt, hat ihn schon; sonst kein
+Update nötig.
+
 ## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
 
 Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
@@ -7374,8 +7784,8 @@ Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben l
 (`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
 `wiring-ausnahmen.txt` (nur noch Tests).
 
-**Prüfungen:** protocol 1260 grün (+5, 6 übersprungen; mit LIZ), node 350, app 1027, Leak 73 + 1
-todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
+**Prüfungen:** protocol 1265 grün (+5, 6 übersprungen; mit `main` bis 11.3d1b2), node 379, app 1034,
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
 `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
 grün.
 
