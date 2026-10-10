@@ -699,6 +699,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Verbindung je Aufruf mehr (`autoReconnect: false` + `close()`), ein Test findet das. Wer eine holt
   (`hole()`), gibt sie zurück (`gib()`, sonst bleibt sie offen) – am einfachsten über `mit()`. `frageAn()`
   gibt nur gültig Signiertes weiter, auch von fremden Relays.
+  Scheitert eine Nebenverbindung in `mit()`, ist ihre Adresse `NEBEN_GRENZEN.aussetzenMs` lang ausgesetzt
+  (A-26, nur im Speicher, `ausgesetzt()` → `OutboxLeser` → `outboxPlan(…, { aussetzen })`); ein Erfolg hebt das
+  auf. Keine Rangliste daraus bauen und nichts davon speichern.
 - **Ersatzschlüssel nur über `ersatz-datei.ts`** (seit B-28, Nutzertest T-2): „Diebstahl
   vorbeugen“ fragt vor dem Erzeugen nach einer Passphrase (nur mit `verschluesselungMoeglich()`);
   mit ihr entsteht die Datei nur über `baueErsatzDatei()` im Format des Tresors

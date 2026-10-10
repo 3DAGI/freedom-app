@@ -8,7 +8,8 @@
  *
  * - Die Listen der Autoren kommen aus dem Pool und bleiben zehn Minuten im
  *   Speicher; `outboxPlan()` (Protokoll) prüft sie und bündelt je Relay.
- * - Relays, die schon im Pool sind, fragt der Pool; nur die übrigen einzeln.
+ * - Relays, die schon im Pool sind, fragt der Pool; nur die übrigen einzeln. Seit A-24 kennt der Plan
+ *   den Pool (zählt mit, belegt keinen Platz), seit A-26 lässt er Relays aus, die gerade scheiterten.
  * - Von fremden Relays zählt nur, was gültig signiert ist und von einem der
  *   gefragten Autoren stammt.
  */
@@ -28,6 +29,10 @@ export class OutboxLeser {
     pool: () => Promise<Pool>;
     /** Nur an diesen Relays fragen (kurze eigene Verbindungen). */
     frageAn: (filter: RelayFilter, urls: readonly string[]) => Promise<NostrEvent[]>;
+    /** Fremde Relays, die gerade nicht zu erreichen waren (A-26) – nicht einplanen. */
+    ausgesetzt?: () => Iterable<string>;
+    /** Läuft die Seite über Tor (.onion)? Dann auch `ws://…onion` (A-25). */
+    onion?: () => boolean;
     jetzt?: () => number;
   }) {}
 
@@ -36,7 +41,8 @@ export class OutboxLeser {
     const pool = await this.p.pool();
     const [ausPool, listen] = await Promise.all([pool.query(filter), this.listenVon(filter.authors, pool)]);
     const imPool = new Set(pool.urls.map(normalizeRelayUrl));
-    const plan = [...outboxPlan(listen, filter.authors)].filter(([url]) => !imPool.has(url));
+    const plan = [...outboxPlan(listen, filter.authors, { imPool: pool.urls, onion: this.p.onion?.(), aussetzen: this.p.ausgesetzt?.() })]
+      .filter(([url]) => !imPool.has(url));
     const weitere = await Promise.all(plan.map(([url, authors]) => this.p.frageAn({ ...filter, authors }, [url]).catch(() => [])));
     const gesucht = new Set(filter.authors);
     const alle = new Map(ausPool.map((ev) => [ev.id, ev]));
