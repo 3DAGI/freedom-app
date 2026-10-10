@@ -8088,4 +8088,5 @@ Befunde aus dem Vergleich A-23 (`docs/OUTBOX-VERGLEICH.md`).
 mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
 Website-Bau und reproduzierbarer Build grün. Smoke-Test: im ersten Lauf rot im Abschnitt „raum“
 (Zeitüberschreitung beim Warten auf `#code-ref-wahl`, Code-Reiter eines Repos), in drei weiteren
-Läufen bestanden; der Pfad berührt den Outbox-Plan nicht (lokale Relays fallen dort schon vorher heraus).
+Läufen bestanden; Ursache offen. Der Outbox-Plan bleibt im Smoke-Test vor und nach der Änderung
+leer: Die einzige NIP-65-Liste dort ist die eigene, und deren Schreib-Relays stehen im Pool.
