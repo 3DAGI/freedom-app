@@ -8111,5 +8111,4 @@ Code eines Raum-Repos, ändern ihn und stellen einen Patch in den Raum; annehmen
 
 **Prüfungen:** nur Dokumente – protocol 1269, node 389 (je 6 übersprungen), app 1040 grün
 (unverändert), Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
-`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build – Ergebnisse im
-Pull Request.
+`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.
