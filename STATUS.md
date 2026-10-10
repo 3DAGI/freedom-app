@@ -7854,6 +7854,68 @@ liest alles im Raum mit, was er wie ablegt, und dass der Betreiber den Schalter 
 Knoten-Stand: `main` mit 11.3d2a, nur wer private Räume für den Agenten will (`AGENT_PRIVAT`); sonst kein
 Update nötig. Das Docker-Image enthält jetzt `packages/mls`.
 
+## Schritt 11.3d2b – Agent auf dem Knoten antwortet in privaten Räumen
+
+Zweiter Teil von 11.3d2. Seit 11.3d2a ist der Agent Mitglied privater Räume (`AGENT_PRIVAT`); jetzt
+antwortet er dort wie im offenen Raum. Er antwortet nur auf einen bezahlten, versiegelten Auftrag mit
+Verweis („wer fragt, zahlt“).
+
+**Knoten** (`knoten-agent.ts`):
+- **`pruefePrivat()`:** ein Verweis mit Gruppen-Id statt Adresse.
+  - Nur Gruppen, in denen der Agent Mitglied ist (`nutzePrivat()` mit dem Konto aus 11.3d2a); sonst
+    `agent-privat`.
+  - Der Raum kommt aus dem, was der Agent als Mitglied liest (`gruppenRaum()` mit Admins und
+    Mitgliedern aus MLS). Die Definition gilt nur von einem Admin, Agenten erkennt er an ihrer Karte.
+  - Entschieden wird mit `entscheide()` und `ausBudget: false`, wie im offenen Raum.
+  - Fehlt die Erwähnung im Gelesenen, gleicht er einmal ab.
+- **Gerechnet** werden nur Persona, Verlauf und Erwähnung aus der Gruppe, nie die Eingabe des Auftrags.
+- **Antwort:** als inneres Event der Gruppe (`raumAgentAntwort()` über `KnotenMls.sende()`), nie offen.
+  Dieselbe Antwort geht versiegelt an den Fragenden.
+- **Jede Erwähnung höchstens einmal.** Die Ablehnungen tragen dieselben Kennungen wie im offenen Raum.
+
+**Protokoll (Befund):**
+- MDK vergibt Gruppen-Ids mit 16 Byte (32 Zeichen Hex). Der Verweis (`auftragsVerweisTags()`, 11.3b2)
+  verlangte 64 Zeichen – keine echte Gruppe passte.
+- Jetzt gilt wie bei Meldungen: 32 bis 64 Zeichen.
+- Gefunden im echten Lauf, nicht von den Tests: Die nahmen `"ee".repeat(32)`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 (Verweis mit Gruppe, Antwort in privaten Räumen) und `docs/PROVIDER.md`.
+- Fallstricke in `packages/node/CLAUDE.md` und `packages/protocol/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Echt gestartet:**
+- **Aufbau:** Knoten mit eigenem Relay, `AGENT_PRIVAT=alle`, OpenAI-Attrappe. Das Gründer-Skript (echte
+  Engine, WebSocket):
+  - gründet einen privaten Raum mit dem Agenten;
+  - schreibt einen Satz und, eine Sekunde später, die Erwähnung;
+  - schickt einen versiegelten Auftrag mit der Gruppe im Verweis.
+- **Ergebnis:**
+  - Die Antwort steht in der Gruppe vom Agenten (`h` allgemein, `e` … `reply` auf die Erwähnung, `p` …
+    `mention` des Fragenden).
+  - Kein Kind 42 im Relay.
+  - Das Ergebnis ist versiegelt beim Fragenden – abholbar nur angemeldet als der Sitzungsschlüssel, denn
+    das Relay des Knotens gibt Umschläge nur so heraus.
+  - Kein Klartext im Log.
+
+**Tests:**
+- **node** `knoten-agent-privat.test.ts` (+3), mit echter Engine, Gründer wie in der App und Provider wie
+  im Knoten:
+  - der ganze Weg: Prompt aus der Gruppe, Antwort als inneres Event, versiegelt an den Fragenden, nichts
+    offen, kein Klartext im Log, einmal;
+  - Ablehnungen: fremde Gruppe, unbekannte Erwähnung, Kanal ohne Schreibrecht des Agenten;
+  - Verdrahtung.
+- **protocol** `agent-auftrag.test.ts`: Gruppen-Id von MDK (32 Zeichen) und vier ungültige Formen.
+- **Unverändert grün:** `knoten-agent.test.ts` (der Fall `agent-privat` ohne Konto gilt weiter).
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen); node 388 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 385); app 1034 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`:
+  grün.
+
+Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
 ## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
 
 Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
@@ -7880,7 +7942,7 @@ Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben l
 (`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
 `wiring-ausnahmen.txt` (nur noch Tests).
 
-**Prüfungen:** protocol 1266 grün (+5, 6 übersprungen; mit `main` bis 11.3d2a), node 386, app 1034,
+**Prüfungen:** protocol PROTO grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node NODE, app APP,
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
 `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
 grün.

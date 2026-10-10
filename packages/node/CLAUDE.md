@@ -176,3 +176,9 @@ Bereichs unten anhängen.
   die Fabrik `relayAn` aus `main.ts` – die einzige Stelle mit `new WebSocketRelay(` (Test in
   `tor.test.ts`). Aufrufe des Kontos nur über `exklusiv()`. Test-Relays brauchen `wss://`-Adressen –
   MDK lehnt andere Schemata beim Gründen ab.
+  Antworten in privaten Räumen (seit 11.3d2b) nur über `KnotenAgent.pruefePrivat()` – nur Gruppen, in
+  denen der Agent Mitglied ist (`nutzePrivat()` nur mit dem Konto aus `AGENT_PRIVAT`), der Raum aus
+  `gruppenRaum()` mit Admins und Mitgliedern aus MLS, Agenten an ihrer Karte, die Antwort nur als inneres
+  Event (`raumAgentAntwort()` über `KnotenMls.sende()`) – nie offen. Fehlt die Erwähnung, einmal abgleichen.
+  Der Kontext nimmt nur Nachrichten vor der Erwähnung; die Engine stempelt in Sekunden – im Test eine
+  Sekunde dazwischen.
