@@ -7404,3 +7404,21 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 `leseQrAusBild()` über `JsQrErkenner`.
 
 **Prüfungen:** PRUEFUNGEN
+
+## Schritt A-12-Entwurf – Gemeinsame Kasse für Räume über Squads
+
+Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
+legt fest, wie; kein Code.
+
+- Befunde, auf der Kette abgefragt: Squads v4 (`SQDS4ep…`) ist auf Mainnet unveränderlich (keine
+  Upgrade-Berechtigung), auf Devnet upgradebar und ein anderer Stand (andere Prüfsumme);
+  Gebühr fürs Anlegen auf beiden Netzen 0, änderbar durch Squads. SDK `@sqds/multisig` 2.1.4 (MIT)
+  für den Browser gebündelt 772 KB ohne web3.js, an web3.js v1 gebunden; Programm AGPL-3.0,
+  nur aufgerufen.
+- Vorschläge V1–V7: eigene Anweisungen nach der IDL statt SDK, getestet gegen beide Programme im
+  Validator; ohne Verwalter; Recht „kasse“ erlaubt, die Kette entscheidet; frische Adresse je
+  Raum und Mitglied; Grenze „raum-kasse“ im Bericht; Stimmen nur auf der Kette; nur SOL, nur
+  Devnet bis M-8, Teilschritte A-12a–e.
+- Fragen W1–W5 an den MENSCHEN.
+
+**Prüfungen:** PRUEFUNGEN
