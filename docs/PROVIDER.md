@@ -341,9 +341,11 @@ AGENT_PRIVAT=besitzer                              # freiwillig: private Räume 
     Zustand.
   - Geht `agent-mls.json` verloren, sind die Gruppen weg – mit `agent-key`
     sichern.
-  - Antworten in privaten Räumen kommen mit 11.3d2b.
-- **Noch nicht:** Antworten in privaten Räumen (11.3d2b) und das Budget des
-  Einladers (11.3d3, nach dem Upgrade des Zahlkanals).
+  - **Antworten** (seit 11.3d2b) wie im offenen Raum: nur auf einen bezahlten
+    Auftrag mit Verweis, dieselben Prüfungen, die Antwort verschlüsselt in der
+    Gruppe. Aus der App fragen lässt sich das mit 11.3d2c.
+- **Noch nicht:** Fragen und Einladen aus der App in privaten Räumen (11.3d2c)
+  und das Budget des Einladers (11.3d3, nach dem Upgrade des Zahlkanals).
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 
