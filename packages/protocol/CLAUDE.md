@@ -48,3 +48,10 @@ Fallstricke dieses Bereichs unten anhängen.
   nie aus einer Angabe des Agenten. Kontext nur über `agentKontext()` (nie andere Kanäle, Räume, DMs), der
   Verweis nur im versiegelten Kern (`auftragsVerweisTags()`), Gutschriften des Monatsbudgets nur über
   `naechsteStufe()` (kumulativ, eine Stufe über dem Verbrauchten).
+  Entscheiden, Prompt und Antwort-Event (seit 11.3d1a) nur über `agent-raum.ts` – App und Knoten teilen
+  `entscheide()`, `agentPromptMit()`, `agentAntwortEvent()`; den Schalter der Ketten nur über
+  `definitionDesGruenders()` (`d` ist `space:<kennung>` – bis 11.3d1a suchte die App nach der Kennung allein
+  und fand ihn nie).
+  Gruppen-Ids von MDK haben 16 Byte (32 Zeichen Hex) – im Verweis (`auftragsVerweisTags()`) wie bei Meldungen
+  32 bis 64 Zeichen; bis 11.3d2b verlangte er 64, und keine echte Gruppe passte. Neue Prüfungen für Gruppen-Ids
+  mit einer echten Gruppe testen, nicht mit `"ab".repeat(32)`.

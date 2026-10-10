@@ -772,6 +772,7 @@ Aufträge.
 | `relay` | `events`, `verbindungen` – oder `null` |
 | `weckSchluessel` | seit B-12a, darf fehlen: öffentlicher VAPID-Schlüssel des Knotens (P-256, unkomprimiert, base64url, 87 Zeichen) |
 | `einrichtung` | seit B-11c, darf fehlen: Befunde der Selbstprüfung beim Start, höchstens 40, je `schiene` (`lightning`, `sol`), `stufe` (`ok`, `hinweis`, `fehler`), `fall` (`ln.…`/`sol.…`) und `werte` (höchstens 6, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben) |
+| `modellPruefung` | seit E9-3b, darf fehlen: `befunde` (höchstens 30, je `name` des Modells wie bei `modelle`, `stufe`, `fall` (`modell.…`) und `werte` wie bei `einrichtung`) und `laeuft` (darf fehlen: `name`, `schritt` (`manifest`, `vorpruefung`, `laden`, `pruefen`), `seit`, beim Laden `geladen` und `gesamt` in Bytes). Ein eigenes Feld, nicht in `einrichtung` – ältere Apps übergehen es. Was der Leser abwiese, schickt der Knoten nicht. |
 
 Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
 kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus
@@ -1043,8 +1044,44 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   ohne Thread nur Nachrichten ohne Thread, nur davor, in den Grenzen des Fragenden
   (`agentKontext()`); andere Agenten gekennzeichnet.
 - **Verweis im Auftrag** an einen Knoten-Agenten, nur im versiegelten Kern:
-  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]`,
+  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]` (Gruppe: 32 bis 64 Zeichen Hex –
+  MDK vergibt 16 Byte; bis 11.3d2b nahm der Baustein nur 64 und keine echte Gruppe),
   `["agent-erwaehnung", <Id>]`.
+- **Agent auf dem Knoten** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“): Der
+  Knoten nimmt den Verweis nur aus einem Umschlag, prüft die Erwähnung mit dem
+  Stand des Raums (`entscheide()` mit `ausBudget: false`, die Definition nur über
+  `definitionDesGruenders()`, `d` = `space:<kennung>`) und rechnet nur Persona,
+  Verlauf und Erwähnung aus dem Raum – nie die Eingabe des Auftrags. Jede Erwähnung
+  beantwortet er höchstens einmal. Abgelehnt wird vor dem Rechnen, als Rückmeldung
+  (7000, `error`) mit `["fall", <kennung>]`: `agent-nur-versiegelt`, `agent-keiner`,
+  `agent-privat` (Gruppen erst mit 11.3d2), `agent-nur-text`, `agent-schon-beantwortet`,
+  `agent-keine-erwaehnung`, `agent-kein-raum`, `agent-raum-nicht-erreichbar`,
+  `agent-nicht-veroeffentlicht` und `agent-<grund>` aus `entscheide()`
+  (`agent-kein-schreibrecht`, `agent-ohne-budget` …).
+- **Agent auf dem Knoten in privaten Räumen** (seit 11.3d2a): eigenes MLS-Konto
+  des Agenten (Schlüssel des Agenten, nie der des Knotens). Er veröffentlicht
+  Kind 10002 und 10050 mit den Relays des Knotens und ein KeyPackage (30443,
+  fester d-Tag, neu nach jedem Beitritt). Einladungen (Kind 444 im Umschlag)
+  nimmt er nur nach dem Schalter des Betreibers an (`besitzer`: nur vom
+  Besitzer, `alle`), höchstens 20 Gruppen. Danach sendet er seine Karte als
+  inneres Event. Antworten (seit 11.3d2b) nur auf einen bezahlten Auftrag mit der
+  Gruppe im Verweis: dieselben Regeln (`entscheide()` mit `ausBudget: false`), der
+  Raum aus dem, was er als Mitglied liest (`gruppenRaum()`), die Antwort als
+  inneres Event (Art 9, `raumAgentAntwort()`). Ablehnung `agent-privat`, wenn er
+  nicht Mitglied der Gruppe ist oder der Knoten keine privaten Räume zulässt.
+- **„@Name“** (seit 11.3d1b1): Die App setzt `p` … `mention` für Agenten, deren Name
+  im Text als ganzes Wort nach „@“ steht – ohne Groß/klein, nur Agenten des Raums
+  (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der
+  Gruppe), höchstens fünf; teilen sich zwei Agenten einen Namen, erwähnt sie keinen
+  (`erwaehnteAgenten()`).
+- **Fragen an einen Agenten auf dem Knoten** (seit 11.3d1b2): Nach dem Senden im
+  offenen Raum zeigt die App für jeden erwähnten Agenten, dessen Karte `betrieb`
+  `knoten`, `bezahlung` `fragender` und `provider` nennt, den Preis (Gebot
+  höchstens 100 sats wie bei Agenten auf dem Gerät) und schickt erst nach der
+  Bestätigung einen versiegelten Auftrag an den Knoten: von einem frischen
+  Sitzungsschlüssel, mit fester Eingabe und dem Verweis im Kern, bezahlt wie jede
+  KI-Anfrage (Lightning nach A+ oder Gutschrift im Zahlkanal). Grenze
+  „agent-knoten“ im Datenschutzbericht.
 - **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
   die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
   (Art 9). Höchstens 4000 Zeichen.

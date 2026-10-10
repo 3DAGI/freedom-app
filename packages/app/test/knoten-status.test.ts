@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { STATUS_ROLLEN, type KnotenStatus } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
-import { EINRICHTUNG_TEXT, ROLLEN_TEXT, befundZeile, statusZeilen } from "../src/knoten-status-ansicht.js";
+import { EINRICHTUNG_TEXT, MODELL_TEXT, ROLLEN_TEXT, SCHRITT_TEXT, befundZeile, ladenZeile, modellZeile, statusZeilen } from "../src/knoten-status-ansicht.js";
 import { settings } from "../src/texte/settings.js";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
@@ -40,9 +40,10 @@ test("B-11b: Zeilen auf Deutsch – Rollen übersetzt, Modelle wie gemeldet, Bet
     assert.equal(leer[2], "Modelle: keine");
     assert.match(leer[4]!, /84 sats \(SOL: kein Kurs\)/);
     assert.equal(leer[5], "Speicher: 0 MB belegt (ohne Grenze), 0 Stücke für mich gehalten");
-    assert.equal(leer.length, 7, "dazu die Zeile zur Einrichtung (B-11c)");
-    assert.equal(leer.at(-1), "Einrichtung: noch nicht geprüft – oder der Knoten ist älter als B-11c", "ohne Prüfung nie „alles gut“");
-    assert.equal(statusZeilen({ ...status(), speicher: null, relay: null }).length, 6);
+    assert.equal(leer.length, 8, "dazu die Zeilen zur Einrichtung (B-11c) und zu den Modellen (E9-3b)");
+    assert.equal(leer.at(-2), "Einrichtung: noch nicht geprüft – oder der Knoten ist älter als B-11c", "ohne Prüfung nie „alles gut“");
+    assert.equal(leer.at(-1), "Modelle: dieser Knoten meldet keine Prüfung – er ist älter als E9-3b");
+    assert.equal(statusZeilen({ ...status(), speicher: null, relay: null }).length, 7);
   } finally {
     setLang("en");
   }
@@ -98,7 +99,7 @@ test("B-11c: Befunde der Einrichtung – Text aus der Kennung, SOL aus Lamports,
       "✗ Lightning: Die Lightning-Adresse ist nicht erreichbar (AbortError)");
     assert.equal(befundZeile({ schiene: "sol", stufe: "hinweis", fall: "sol.neuerFall", werte: {} }), "! SOL: Befund sol.neuerFall – diese App kennt ihn noch nicht");
     const z = statusZeilen({ ...status(), einrichtung: [{ schiene: "sol", stufe: "ok", fall: "sol.kanalAn", werte: {} }] });
-    assert.deepEqual(z.slice(-2), ["Einrichtung (Prüfung beim Start):", "✓ SOL: Zahlkanal an"]);
+    assert.deepEqual(z.slice(-3, -1), ["Einrichtung (Prüfung beim Start):", "✓ SOL: Zahlkanal an"], "danach die Zeile zu den Modellen (E9-3b)");
   } finally {
     setLang("en");
   }
@@ -115,6 +116,47 @@ test("B-11c: jede Kennung des Knotens hat einen Text in beiden Sprachen – und 
   assert.ok(faelle.size >= 27, `${faelle.size} Kennungen`);
   assert.deepEqual(Object.keys(EINRICHTUNG_TEXT).sort(), [...faelle].sort());
   for (const k of [...Object.values(EINRICHTUNG_TEXT), "set.statusEinrichtung", "set.statusEinrichtungFehlt", "set.einUnbekannt", "set.schieneLightning", "set.schieneSol"]) {
+    assert.ok(settings[k]?.de && settings[k]?.en, k);
+  }
+});
+
+test("E9-3b: Modelle im Status – Zeile je Modell, Fortschritt, ältere Knoten ehrlich", () => {
+  setLang("de");
+  try {
+    assert.equal(modellZeile({ name: "qwen3.8:27b", stufe: "ok", fall: "modell.geprueft", werte: { dateien: 4, bytes: 17_000_000_000 } }),
+      "✓ qwen3.8:27b: geprüft gegen das Manifest (4 Dateien, 17 GB), im Angebot");
+    assert.equal(modellZeile({ name: "llama4:70b", stufe: "fehler", fall: "modell.passtNicht", werte: { brauchtGb: 48, hatGb: 32 } }),
+      "✗ llama4:70b: braucht etwa 48 GB, das Gerät hat 32 GB");
+    assert.equal(modellZeile({ name: "<b>x</b>", stufe: "hinweis", fall: "modell.neuerFall", werte: {} }),
+      "! <b>x</b>: Befund modell.neuerFall – diese App kennt ihn noch nicht", "Name nur als Text, Unbekanntes nur mit Kennung");
+    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "laden", geladen: 1_000_000_000, gesamt: 4_000_000_000, seit: 1 }),
+      "… mistral:7b: Ollama lädt – 25 % von etwa 4 GB");
+    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "laden", geladen: 5, gesamt: 4, seit: 1 }), "… mistral:7b: Ollama lädt – 100 % von etwa 0 GB", "nie über 100 %");
+    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "pruefen", seit: 1 }), "… mistral:7b: Schichten prüfen");
+    const z = statusZeilen({ ...status(), modellPruefung: {
+      befunde: [{ name: "nemotron-3.5-lightning", stufe: "hinweis", fall: "modell.ungeprueft", werte: {} }],
+      laeuft: { name: "mistral:7b", schritt: "manifest", seit: 1 },
+    } });
+    assert.deepEqual(z.slice(-3), [
+      "Modelle (Prüfung gegen das Manifest):",
+      "… mistral:7b: Manifest suchen",
+      "! nemotron-3.5-lightning: angeboten, aber nicht gegen ein Manifest geprüft (PROVIDER_MODELS) – am Knoten: npm run modell -- <name> --aus-registry",
+    ]);
+    assert.deepEqual(statusZeilen({ ...status(), modellPruefung: { befunde: [] } }).slice(-2), ["Modelle (Prüfung gegen das Manifest):", "keine Modelle gemeldet"]);
+    assert.equal(statusZeilen(status()).at(-1), "Modelle: dieser Knoten meldet keine Prüfung – er ist älter als E9-3b", "nie „alles gut“ erfinden");
+  } finally {
+    setLang("en");
+  }
+  assert.equal(modellZeile({ name: "a:1", stufe: "fehler", fall: "modell.ollamaLaden", werte: { fehler: "OllamaFehler" } }), "✗ a:1: Ollama did not download (OllamaFehler)");
+});
+
+test("E9-3b: jede Modell-Kennung des Knotens hat einen Text in beiden Sprachen – und keine ohne Knoten", () => {
+  const knoten = readFileSync(new URL("../../node/src/modell-pruefung.ts", import.meta.url), "utf8");
+  const faelle = new Set([...knoten.matchAll(/"(modell\.[a-zA-Z]+)"/g)].map((m) => m[1]!));
+  assert.ok(faelle.size >= 21, `${faelle.size} Kennungen`);
+  assert.deepEqual(Object.keys(MODELL_TEXT).sort(), [...faelle].sort());
+  assert.deepEqual(Object.keys(SCHRITT_TEXT).sort(), ["laden", "manifest", "pruefen", "vorpruefung"]);
+  for (const k of [...Object.values(MODELL_TEXT), ...Object.values(SCHRITT_TEXT), "set.statusModellPruefung", "set.statusModelleFehlt", "set.statusModelleKeine", "set.modLaedt", "set.modLaedtAnteil"]) {
     assert.ok(settings[k]?.de && settings[k]?.en, k);
   }
 });
