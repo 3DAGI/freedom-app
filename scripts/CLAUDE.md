@@ -47,6 +47,10 @@ dieses Bereichs unten anhängen.
   Kontrast erst messen, wenn Einblendungen fertig sind (`ANIMATIONEN_FERTIG`,
   `document.getAnimations()`): Seiten und Unterreiter blenden sich über `opacity`
   ein (`fs-in`), mitten darin maß „zugang“ 2,92:1 (P5c2, beim Einmergen von `main`).
+  Nach einem Upload zeichnet `ladeNip34Repos()` die Repo-Seite erst später neu – bis dahin
+  zeigt „Code“ das alte, schon gelesene Bundle ohne „Code laden“ (A-30: im vollen Lauf
+  gelegentlich rot, mit vierfach gedrosselter CPU immer). Auf den Knopf warten, nie klicken
+  und hoffen. Nachstellen lässt sich Langsamkeit mit CDP `Emulation.setCPUThrottlingRate`.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*

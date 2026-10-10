@@ -3499,9 +3499,14 @@ def raum_pruefen(browser, url: str) -> dict:
             if zahl_38042() > vorher_b:
                 break
             s.wait_for_timeout(200)
-        s.wait_for_timeout(300)
         ev("() => document.querySelector('#repo-seite [data-reiter=code]')?.click()")
-        s.wait_for_timeout(200)
+        # Auf den Knopf warten, nicht auf eine feste Pause (A-29): Bis `ladeNip34Repos()` die Seite neu zeichnet, zeigt
+        # der Reiter das alte, schon gelesene Bundle ohne „Code laden“ – ein Klick ginge ins Leere, im vollen Lauf
+        # gelegentlich (mit vierfach gedrosselter CPU immer). Danach steht der Knopf für das neue Bundle da.
+        try:
+            s.wait_for_function("() => !!document.querySelector('#repo-seite .code-laden')", timeout=15000)
+        except Exception:
+            pass
         ev("() => document.querySelector('#repo-seite .code-laden')?.click()")
         try:
             s.wait_for_function("() => !!document.querySelector('#repo-seite .code-readme table') || !!document.querySelector('#repo-seite .repo-fehler')?.textContent", timeout=15000)

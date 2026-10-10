@@ -8137,3 +8137,24 @@ tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --str
 reproduzierbarer Build grün (`freedom.html` bitgleich mit 11.5-Entwurf). Smoke-Test: rot im Abschnitt
 „raum“ (`#code-ref-wahl`, derselbe Wackler wie bei A-24 bis A-26); der Abschnitt allein 12 von 12 grün –
 die App ist unverändert, Ursache wird gesucht.
+
+## Schritt A-30 – Smoke-Test „raum“: auf „Code laden“ warten
+
+Der Smoke-Test war bei A-24 bis A-26 und bei A-29 je einmal rot im Abschnitt „raum“
+(`TimeoutError … waiting for locator("#code-ref-wahl")`), allein 12 von 12 grün.
+
+- **Ursache:** Nach dem zweiten Upload („kiste.bundle“) wartete der Test, bis das Event beim
+  Relay war, plus 300 + 200 ms, und klickte dann auf „Code laden“. `ladeNip34Repos()` zeichnet die
+  Repo-Seite aber erst danach neu; bis dahin zeigt „Code“ das alte, schon gelesene Bundle – ohne
+  Knopf. Der Klick ging ins Leere, nach dem Neuzeichnen stand „Code laden“ für das neue Bundle da,
+  ungeklickt. Belegt mit vierfach gedrosselter CPU (CDP `Emulation.setCPUThrottlingRate`): 2 von 2
+  rot, Zustand beim Timeout: Reiter „Code“ aktiv, „Code laden“ da und bedienbar, kein Inhalt.
+- **Korrektur** (`scripts/smoke_test.py`, Bereich Spur C): nach dem Upload auf den Knopf warten
+  (`wait_for_function`, 15 s), dann klicken – keine feste Pause mehr. Mit Korrektur lief der Schritt
+  auch vierfach gedrosselt durch; mit doppelter Drosselung ohne und mit Korrektur keine Befunde am
+  Code-Reiter (andere Stellen wurden bei Drosselung rot – im normalen Lauf und in der CI nie).
+- Fallstrick in `scripts/CLAUDE.md` („Smoke-Test auch in der CI“).
+
+**Prüfungen:** protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test
+(voller Lauf, mit Korrektur), Website-Bau und reproduzierbarer Build grün.
