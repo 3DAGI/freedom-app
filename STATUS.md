@@ -7505,3 +7505,59 @@ nicht hilft. Daher gibt es jetzt die eigene Kennung `modell.ungeprueftAntrieb`.
 **Prüfungen:** Alle Befehle aus CLAUDE.md auf `01a6fc1` (`main` c6bc12c + B-29a), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 365 grün (+9, ohne Netz 7 übersprungen; mit Netz 366), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
 
 Knoten-Stand: kein Update nötig – ohne `KI_ANTRIEB` arbeitet der Knoten wie bisher mit Ollama.
+
+## Schritt B-29b – Messskript für den KI-Antrieb
+
+Zweiter Teil von B-29 (Sammlung, Anhang E): Welcher Antrieb auf dem GX10 läuft (Ollama, vLLM,
+SGLang, TensorFold), entscheidet eine Messung (MENSCH, M-7). Gemessen wird dasselbe Modell bei
+einer und bei N gleichzeitigen Anfragen.
+
+**Knoten:**
+- **`messung.ts` (neu):**
+  - `leseMessWunsch()`: Aufruf geprüft – höchstens 8 Stufen von 1 bis 64, 1 bis 512 Anfragen,
+    16 bis 4096 Tokens; sonst ein Grund.
+  - `missStufe()`: höchstens N Anfragen zugleich, bis alle gestellt sind. Feste, wechselnde
+    Übungsfragen über `complete()` mit `ohneWerkzeuge` – derselbe Weg wie echte Anfragen, ohne
+    Websuche. Fehler nur mit Namen.
+  - `werteAus()`: Tokens je Sekunde über die Wanduhr, Antworten je Minute, Median und p95.
+    Tokens je Sekunde nur, wenn der Antrieb sie für jede Anfrage nennt – sonst „–“, nie
+    hochrechnen.
+  - `messTabelle()`: der Faktor gegenüber der ersten Stufe, über Tokens oder (wenn nicht alle sie
+    haben) über Antworten je Minute, nie gemischt.
+- **`npm run messen` (`messen.ts`):**
+  - nimmt den Antrieb wie der Knoten (`antriebAusUmgebung()`) und das Modell aus `--modell` oder
+    das erste aus `PROVIDER_MODELS`;
+  - wärmt mit einer Anfrage auf, die nicht zählt;
+  - zeigt Antworten nie;
+  - bei Ollama mit dem Hinweis auf `OLLAMA_NUM_PARALLEL`;
+  - Exit 1 bei ungültigem Aufruf, ungültigem oder stummem Antrieb, gescheitertem Aufwärmen.
+
+**Doku:** `docs/PROVIDER.md` (Abschnitt „Welcher Antrieb? Messen“), Fallstrick in
+`packages/node/CLAUDE.md`, Sammlung und FORTSCHRITT (B-29b ✓).
+
+**Echt gestartet:** `npm run messen -- --gleichzeitig 1,4,8 --tokens 100` gegen zwei
+OpenAI-Attrappen mit 200 ms je Antwort:
+
+| gleichzeitig | nacheinander (wie Ollama ab Werk) | bündelnd (wie vLLM) |
+|---|---|---|
+| 1 | Faktor 1,00, Median 0,20 s | Faktor 1,00, Median 0,20 s |
+| 4 | Faktor 1,01, Median 0,80 s | Faktor 3,91, Median 0,21 s |
+| 8 | Faktor 1,01, Median 1,61 s | Faktor 7,88, Median 0,21 s |
+
+Jeweils Exit 1 mit eigenem Satz bei:
+- falschem Modell („Aufwärmen gescheitert (Error) – stimmt der Modellname beim Antrieb?“);
+- `--gleichzeitig 0`;
+- einer Adresse im Internet;
+- einem nicht erreichbaren Antrieb.
+
+**Tests:** node `messung.test.ts` (+6):
+- Aufruf (Vorgaben, Sortierung, zwölf ungültige Fälle);
+- höchstens N zugleich, ohne Werkzeuge, mit Modell und Grenze, Fragen wechseln;
+- Fehler nur mit Namen;
+- Auswertung (Wanduhr, Median, p95, ohne Tokens keine Zahl, Faktor nie gemischt);
+- durch den echten Antrieb (OpenAI-kompatibel und Ollama);
+- Verdrahtung (keine Antworten, kein Schlüssel auf dem Bildschirm).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `88874ee` (`main` 25bbb19 + B-29b), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 371 grün (+6, ohne Netz 7 übersprungen; mit Netz 372), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – das Skript läuft am Knoten, wenn der MENSCH misst.
