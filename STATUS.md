@@ -8090,3 +8090,25 @@ Website-Bau und reproduzierbarer Build grün. Smoke-Test: im ersten Lauf rot im 
 (Zeitüberschreitung beim Warten auf `#code-ref-wahl`, Code-Reiter eines Repos), in drei weiteren
 Läufen bestanden; Ursache offen. Der Outbox-Plan bleibt im Smoke-Test vor und nach der Änderung
 leer: Die einzige NIP-65-Liste dort ist die eigene, und deren Schreib-Relays stehen im Pool.
+
+## Schritt 11.5-Entwurf – Agenten an Raum-Repos
+
+Entwurf `docs/REPO-AGENTEN-ENTWURF.md` (Spur A, mit Spur B; wartet auf Freigabe). Agenten holen den
+Code eines Raum-Repos, ändern ihn und stellen einen Patch in den Raum; annehmen nur Menschen mit Recht.
+
+- **Befunde:** Agenten-Aufträge laufen heute ohne Werkzeuge (`agent-nur-text`); der Knoten führt
+  Werkzeuge im Auftrag gar nicht aus (`main.ts` ohne `ToolRegistry`), `file_io` hätte einen Ordner
+  für alle Aufträge (neu A-29 in der Sammlung); im Docker-Bild fehlt git; der Kopf eines Bundles steht
+  nur im Bundle (`headSha: "local"`); der Bundle-Leser der App passt auch in den Knoten; Agentenketten
+  auf dem Knoten erst mit dem Budget des Einladers (11.3d3, nach M-2).
+- **Vorschläge V1–V9:** Repo-Auftrag als Erwähnung mit Tag aufs Repo; zuerst nur der Agent auf dem
+  Knoten; Code nur aus dem Bundle des Raums, Arbeitskopie nur im Speicher; sechs Werkzeuge nur an der
+  Arbeitskopie (kein Netz, keine Shell, kein Ausführen); der Knoten baut und prüft den Patch und
+  reicht ihn ein (offen 1617 vom Agenten, privat als inneres Event); `patchStatus()` zählt „angenommen“
+  nie von Agenten; Aufteilung 11.5a1–d.
+- **Fragen W1–W5:** git als Programm oder eigener Leser und Schreiber (Empfehlung: eigener, im
+  Speicher); wer beauftragen darf; Code ausführen; Autor im Commit; Obergrenze des Preises.
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 389 (je 6 übersprungen), app 1040 grün
+(unverändert), Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
+`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.

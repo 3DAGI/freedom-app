@@ -31,7 +31,7 @@ jeweils als Option.
 | 11.4a | Repos in öffentlichen Räumen: Repo-Ankündigung (NIP-34, 30617) mit Verweis auf den Raum, Rechte aus den Raum-Rollen – **FERTIG** (Recht `repos_pflegen`, `raum-repo.ts`, Format in `docs/PROTOCOL.md` 18) | B | ~250 |
 | 11.4b | Repos in privaten Räumen: Repo-Verweis, Bundle-Schlüssel und Patches nur als innere Events der MLS-Gruppe – nie offen. Aufgeteilt (Spur B): **b1 Protokoll – FERTIG** (innere Events, `raumReposPrivat()`, Leak-Regel `raum-repo-privat`, Aussage „raum-repos“ mit echter Engine), **b2 App – FERTIG** (Repos privater Räume aus dem MLS-Verlauf als eigene Karten; Ankündigen, Einstellungen, Patch, Status und neue Version gehen nur in die Gruppe, Bundle-Verweis samt Schlüssel nur dort; ehrliche Texte „nur Mitglieder“) | B | ~350 |
 | 11.4c | Oberfläche: Raum-Repos auf der Repo-Seite und im Raum (mit C.3) – **FERTIG** (Liste „Repos“ im Raum nur bestätigt, Repo-Seite mit „Zum Raum“, „Repo anlegen“ im Raum-Menü nach Recht) | C | ~250 |
-| 11.5 | **Entwurf**, dann Bau: Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7) holen, ändern, als Patch in den Raum stellen; angenommen wird nur durch ein Mitglied mit Recht, nie von selbst | A + B | nach 11.3/11.4 |
+| 11.5 | **Entwurf**, dann Bau: Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7) holen, ändern, als Patch in den Raum stellen; angenommen wird nur durch ein Mitglied mit Recht, nie von selbst – **Entwurf geschrieben 10.10.** (`docs/REPO-AGENTEN-ENTWURF.md`: V1–V9, W1–W5; wartet auf Freigabe) | A + B | nach 11.3/11.4 |
 
 Reihenfolge Spur A: 11.1a → 11.1b → 11.2a → 11.2b → 11.3a (freigegeben
 08.10.) → 11.3b–d (Monatsbudget beim Knoten nach dem Devnet-Deploy) →
