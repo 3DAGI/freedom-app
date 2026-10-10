@@ -1062,6 +1062,14 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der
   Gruppe), höchstens fünf; teilen sich zwei Agenten einen Namen, erwähnt sie keinen
   (`erwaehnteAgenten()`).
+- **Fragen an einen Agenten auf dem Knoten** (seit 11.3d1b2): Nach dem Senden im
+  offenen Raum zeigt die App für jeden erwähnten Agenten, dessen Karte `betrieb`
+  `knoten`, `bezahlung` `fragender` und `provider` nennt, den Preis (Gebot
+  höchstens 100 sats wie bei Agenten auf dem Gerät) und schickt erst nach der
+  Bestätigung einen versiegelten Auftrag an den Knoten: von einem frischen
+  Sitzungsschlüssel, mit fester Eingabe und dem Verweis im Kern, bezahlt wie jede
+  KI-Anfrage (Lightning nach A+ oder Gutschrift im Zahlkanal). Grenze
+  „agent-knoten“ im Datenschutzbericht.
 - **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
   die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
   (Art 9). Höchstens 4000 Zeichen.
