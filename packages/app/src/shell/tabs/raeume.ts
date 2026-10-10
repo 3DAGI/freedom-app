@@ -1043,8 +1043,13 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
   if (agenten.length) bezug = { ...bezug, erwaehnt: [...new Set([...(bezug?.erwaehnt ?? []), ...agenten])] };
   if (spacesUi.privat) {
     // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
-    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, bezug).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
-    else {
+    const gesendet = await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, bezug).catch(() => null);
+    if (gesendet) {
+      // Agenten auf einem Knoten: wer fragt, zahlt – der Verweis nennt die Gruppe und das innere Event (11.3d2c)
+      const gruppe = spacesUi.privat.gruppe;
+      if (agenten.length) void import("../knoten-agent-fragen.js").then((m) => m.frageKnotenAgenten({ raum: gruppe, erwaehnung: gesendet, erwaehnt: agenten, karten }));
+      await oeffneRaum(spacesUi.spaceId);
+    } else {
       toast(t("komm.nichtGesendet"), true);
       input.value = text;
     }
@@ -1207,9 +1212,14 @@ async function ladeEin(): Promise<void> {
   });
   if (!w) return;
   const pk = wen(w);
+  // Ein Agent auf einem Knoten liest als Mitglied alles mit – vorher sagen, danach im Raum (11.3d2c, Entwurf P2)
+  const { knotenAgentKarte, meldeKnotenAgentImRaum } = await import("../knoten-agent-fragen.js");
+  const agent = await knotenAgentKarte(pk);
+  if (agent && !(await bestaetige({ titel: t("agentKnoten.einladenTitel", { name: agent.name }), text: t("agentKnoten.einladenText", { name: agent.name }), ok: t("komm.einladen") }))) return;
   toast(t("komm.ladeEin"));
   const r = await ladeInPrivatenRaum(raum, pk).catch((e) => fehlerText(e));
-  toast(r === "eingeladen" ? t("komm.eingeladen", { name: kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: einladungsText(r) }), r !== "eingeladen");
+  if (r === "eingeladen" && agent) await meldeKnotenAgentImRaum(raum, agent.name);
+  toast(r === "eingeladen" ? t("komm.eingeladen", { name: agent?.name ?? kontaktName(pk) }) : t("komm.nichtEingeladen", { grund: einladungsText(r) }), r !== "eingeladen");
   await oeffneRaum(spacesUi.spaceId!);
 }
 

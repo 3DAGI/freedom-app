@@ -123,3 +123,34 @@ test("11.3d1b2: verdrahtet – nach dem Senden im offenen Raum, Preis vor dem Au
   assert.match(b, /return \{ art: "abgelehnt", \.\.\.\(fall \? \{ fall \} : \{\}\) \};/, "Ablehnung nur mit Kennung");
   assert.doesNotMatch(b, /\.content/, "nie Text vom Knoten");
 });
+
+test("11.3d2c: privat – nach dem Senden die Gruppe im Verweis; Einladen eines Knoten-Agenten nur nach Warnung, danach der Hinweis im Raum", () => {
+  const raeume = lies("shell/tabs/raeume.ts");
+  const senden = raeume.slice(raeume.indexOf("async function sendeRaumNachricht"), raeume.indexOf("const nurTresorFehlt"));
+  const privat = senden.slice(senden.indexOf("if (spacesUi.privat) {"), senden.indexOf("const { buildChannelMessage }"));
+  assert.match(privat, /const gesendet = await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text, bezug\)\.catch\(\(\) => null\);\n\s+if \(gesendet\) \{/);
+  assert.match(privat, /m\.frageKnotenAgenten\(\{ raum: gruppe, erwaehnung: gesendet, erwaehnt: agenten, karten \}\)/, "Gruppe und die Id des inneren Events");
+  assert.ok(privat.indexOf("frageKnotenAgenten") > privat.indexOf("if (gesendet) {") && privat.indexOf("frageKnotenAgenten") < privat.indexOf("} else {"), "nur, wenn gesendet");
+  assert.match(senden, /const karten = spacesUi\.privat \? raumAgentKarten\(spacesUi\.privat\.ereignisse\) : spacesUi\.agentKarten;/, "Karten der Gruppe");
+
+  const ein = raeume.slice(raeume.indexOf("async function ladeEin"), raeume.indexOf("/**\n * Moderieren"));
+  const stelle = (s: string): number => {
+    const n = ein.indexOf(s);
+    assert.ok(n >= 0, s);
+    return n;
+  };
+  assert.ok(stelle("const agent = await knotenAgentKarte(pk);") < stelle("await bestaetige({ titel: t(\"agentKnoten.einladenTitel\""));
+  assert.ok(stelle("t(\"agentKnoten.einladenText\", { name: agent.name })") < stelle("await ladeInPrivatenRaum(raum, pk)"), "erst die Warnung, dann einladen");
+  assert.match(ein, /if \(agent && !\(await bestaetige\([^\n]*\)\)\) return;/, "abgelehnt → nicht eingeladen");
+  assert.match(ein, /if \(r === "eingeladen" && agent\) await meldeKnotenAgentImRaum\(raum, agent\.name\);/, "Hinweis nur nach der Einladung");
+
+  const q = lies("shell/knoten-agent-fragen.ts");
+  assert.match(q, /return aktuelleAgentKarten\(evs\)\.find\(\(k\) => k\.agent === pk && k\.betrieb === "knoten"\) \?\? null;/, "nur Agenten auf einem Knoten, signiert vom Agenten");
+  assert.match(q, /await sendePrivat\(raum\.gruppe, kanal, t\("agentKnoten\.hinweisRaum", \{ name \}\)\)/, "Hinweis nur als inneres Event");
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  for (const s of ["einladenTitel", "einladenText", "hinweisRaum"]) {
+    for (const sprache of ["de", "en"] as const) assert.ok(texte[`agentKnoten.${s}`]?.[sprache].includes("{name}"), `${s} ${sprache}`);
+  }
+  assert.match(texte["agentKnoten.einladenText"]!.de, /liest der Knoten alles in diesem Raum mit/);
+  assert.match(lies("shell/raum-mls.ts"), /return mlsSendeEventId\(gruppe, raumNachricht\(\{ kanal, text, \.\.\.bezug \}\)\);/);
+});

@@ -16,7 +16,7 @@ import {
   type Channel, type GruppenRaum, type InneresEvent, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
-import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSetzeAdmins } from "./mls-konto.js";
+import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSendeEventId, mlsSetzeAdmins } from "./mls-konto.js";
 import { posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
 
@@ -83,8 +83,9 @@ export async function ladePrivatenRaum(gruppe: string): Promise<PrivaterRaum | n
 }
 
 /** Seit C.2c mit Bezug: Thread (`threadRoot`), Antwort auf (`replyTo`), Erwähnte – Ids der inneren Events. */
-export function sendePrivat(gruppe: string, kanal: string, text: string, bezug: { threadRoot?: string; replyTo?: string; erwaehnt?: string[] } = {}): Promise<boolean> {
-  return mlsSendeEvent(gruppe, raumNachricht({ kanal, text, ...bezug }));
+/** Eine Nachricht in den privaten Raum – zurück die Id des inneren Events (wie bei allen Mitgliedern), sonst null. */
+export function sendePrivat(gruppe: string, kanal: string, text: string, bezug: { threadRoot?: string; replyTo?: string; erwaehnt?: string[] } = {}): Promise<string | null> {
+  return mlsSendeEventId(gruppe, raumNachricht({ kanal, text, ...bezug }));
 }
 
 /**

@@ -744,6 +744,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `bezahlterAuftrag()`: frische `KiSitzungen` je Frage, feste Eingabe, der Verweis (`auftragsVerweisTags()`) nur in
   `extraTags` des Kerns; Ablehnungen nur über ihre Kennung (`ablehnungsText()`), nie Text vom Knoten. Kein
   zweiter Versuch von selbst – im Zahlkanal hielte die offene erste Gutschrift die zweite um ein Gebot höher.
+  Privat (seit 11.3d2c) ebenso nach `sendePrivat()` – es liefert die Id des inneren Events (`mlsSendeEventId()`),
+  und die steht als `erwaehnung` im Verweis, die Gruppe als `raum`; nie die Id eines Relay-Events. Einen Agenten,
+  dessen Karte `knoten` nennt (`knotenAgentKarte()`), lädt `ladeEin()` nur nach `bestaetige()` mit der Warnung
+  ein; danach schreibt `meldeKnotenAgentImRaum()` den Pflicht-Hinweis als inneres Event in den ersten Kanal.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
