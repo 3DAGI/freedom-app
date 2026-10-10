@@ -7942,7 +7942,7 @@ Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben l
 (`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
 `wiring-ausnahmen.txt` (nur noch Tests).
 
-**Prüfungen:** protocol PROTO grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node NODE, app APP,
+**Prüfungen:** protocol 1266 grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node 389, app 1034,
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
 `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
 grün.
