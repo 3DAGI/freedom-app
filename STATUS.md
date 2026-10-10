@@ -7347,3 +7347,34 @@ dann nach 20 s zusätzlich den nächsten (seine Antwort zählt weiter). Der GX10
 Quelltext-Test folgt dem neuen Namen `fb`), Leak 73 + 1 todo; mls 13; tsc ×3, Build,
 `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test,
 Website-Bau und reproduzierbarer Build grün.
+
+## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
+
+Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
+
+**Neu:**
+
+- Abhängigkeit `shamir-secret-sharing` 0.0.4 (Privy, Apache-2.0, ohne Abhängigkeiten,
+  85 KB entpackt, rund 13 KB Code; geprüft von Cure53 und Zellic), exakt gepinnt im Protokoll.
+- `protocol/src/succession.ts`: `teileGeheimnis()` (Fassung 2, async; kopiert das Geheimnis
+  und nullt die Kopie – die Bibliothek nimmt kein `Buffer`), `setzeGeheimnisZusammen()` (beide
+  Fassungen, nie gemischt), `ANTEIL_FASSUNG`; `splitSecret()`/`combineShares()` bleiben als
+  Fassung 1 (Lesen alter Anteile, Tests).
+- `protocol/src/nachfolge-anteile.ts`: Anteil (38077) und Übergabe (38079) tragen
+  `["fassung", "2"]`; ohne Tag Fassung 1, eine unbekannte Fassung wird abgelehnt;
+  `setzeNachfolgeZusammen()` ist async und setzt je Teilung mit der richtigen Fassung zusammen.
+- App: `richteNachfolgeEin()` (`tabs/settings.ts`) teilt über `teileGeheimnis()`,
+  `setzeZusammen()` (`nachfolge-ui.ts`) wartet; Texte für `teile-fassungen` und
+  `geheimnis-leer` (de/en); Whitepaper nennt die geprüfte Bibliothek.
+- Sammlung: Spur A übernimmt Anhang E (A-17 bis A-23), A-12 angelegt (Squads, Entwurf
+  zuerst), RM2 geprüft (B1 Vorauszahlung oder B2 keine Sitzungen auf Kredit – Frage an den
+  MENSCHEN).
+
+**Verdrahtet:** `shell/tabs/settings.ts` (`teileGeheimnis()`), `shell/nachfolge-ui.ts`
+(`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
+`wiring-ausnahmen.txt` (nur noch Tests).
+
+**Prüfungen:** protocol 1260 grün (+5, 6 übersprungen; mit LIZ), node 350, app 1027, Leak 73 + 1
+todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
+`check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
+grün.
