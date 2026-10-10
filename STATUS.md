@@ -8132,4 +8132,8 @@ Heute nicht wirksam, weil `main.ts` keine `ToolRegistry` übergibt; getrennt, be
 **Verdrahtet:** `node/src/dvm-provider.ts` (`parseToolCalls()` mit `auftrag: request.id`,
 `this.toolRegistry.vergiss(request.id)` nach der Werkzeug-Schleife).
 
-**Prüfungen:** siehe Pull Request.
+**Prüfungen:** protocol 1269, node 390 (+1; je 6 übersprungen), app 1040 grün, Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Website-Bau und
+reproduzierbarer Build grün (`freedom.html` bitgleich mit 11.5-Entwurf). Smoke-Test: rot im Abschnitt
+„raum“ (`#code-ref-wahl`, derselbe Wackler wie bei A-24 bis A-26); der Abschnitt allein 12 von 12 grün –
+die App ist unverändert, Ursache wird gesucht.
