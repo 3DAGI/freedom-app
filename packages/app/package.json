@@ -1,6 +1,7 @@
 {
   "name": "@freedomstack/app",
   "version": "0.1.0",
+  "license": "EUPL-1.2",
   "type": "module",
   "description": "FreedomStack App: ein Download \u2014 Chat, KI-Marktplatz, Wallet, Verdienen",
   "scripts": {

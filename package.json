@@ -1,6 +1,7 @@
 {
   "name": "freedomstack",
   "private": true,
+  "license": "EUPL-1.2",
   "type": "module",
   "workspaces": ["packages/*"]
 }
