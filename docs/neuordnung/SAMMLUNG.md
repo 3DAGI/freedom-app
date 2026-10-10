@@ -201,7 +201,10 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-20 | **QR-Scannen auch in Firefox und Safari** (Anhang E: qr-scanner bzw. zxing): heute erkennt nur der Browser (`BarcodeDetector`, Chromium). | `fertig` (A-20) – jsQR 1.4.0 (Apache-2.0, ohne Abhängigkeiten; +345 KB in `freedom.html`, die App ist unminifiziert, rund 58 KB gzip) liest, wo der Browser keinen `BarcodeDetector` hat; ohne Worker, im Gerät |
 | A-21 | **@solana/kit statt web3.js v1** (Anhang E): Nachfolger, kleineres Bundle. | `frei` – groß (Wallet, Zahlkanal, HTLC, Relayer), erst ein Plan mit Teilschritten; Borsh-Layouts bleiben |
 | A-22 | **Boltz-Backend als Vorlage** für den Ablauf des Liquiditätsgebers (Anhang E). | `frei` – nur Vergleich mit `docs/SWAPS.md`, Befunde als eigene Punkte |
-| A-23 | **Relay-Auswahl im Outbox-Modell wie NDK, Welshman, applesauce** (Anhang E). | `frei` – nur Vergleich mit `outbox.ts` (5.4b), Befunde als eigene Punkte |
+| A-23 | **Relay-Auswahl im Outbox-Modell wie NDK, Welshman, applesauce** (Anhang E). | `fertig` (Vergleich, [`docs/OUTBOX-VERGLEICH.md`](../OUTBOX-VERGLEICH.md), 10.10.) – Befunde als A-24 bis A-26; Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte), Posteingang gleich |
+| A-24 | **Outbox: alle Autoren abdecken** (A-23, B1): `outboxPlan()` nimmt die acht meistgenannten Relays – Autoren auf seltenen Relays fallen heraus, Relays des Pools belegen Plätze und werden erst danach gestrichen. | `frei` – Adressen des Pools in den Plan (abgedeckt, kein Platz), dann gierig wie applesauce, Ziel zwei Relays je Autor wie NDK, höchstens acht fremde |
+| A-25 | **Outbox: keine fremden `ws://`** (A-23, B2): unverschlüsselt sähe jeder auf dem Weg, nach welchen Autoren die App fragt; aus https blockt der Browser sie ohnehin. | `frei` – fremde Relays im Plan nur `wss://` (`.onion` nur über Tor); eigene Relays unverändert |
+| A-26 | **Outbox: kaputte Relays aussetzen** (A-23, B3): ein fremdes Relay, das nicht antwortet, wird bei jeder Abfrage neu eingeplant. | `frei` – Fehlschläge nur im Speicher, eine Viertelstunde nicht einplanen; keine Rangliste, nichts gespeichert |
 
 ---
 
@@ -433,7 +436,7 @@ Abhängigkeit = STOPP-Punkt; neues WASM nur nach Freigabe, CSP).
 | qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | A-20 (erledigt) |
 | @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | A-21 |
 | Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | A-22 |
-| NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | A-23 |
+| NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | A-23 (Vergleich erledigt; A-24 bis A-26) |
 | isomorphic-git, ngit | Git im Browser (Diff, Blame, Patches anwenden); `git clone nostr://…` | App | C | |
 | micromark | Markdown nach CommonMark und GFM einlesen, Ausgabe bleibt `markdownDom()` | App | C | |
 

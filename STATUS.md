@@ -7405,7 +7405,7 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 
 **Prüfungen:** PRUEFUNGEN
 
-## Schritt A-12-Entwurf – Gemeinsame Kasse für Räume über Squads
+## Schritt A-12-Entwurf, A-23 – Gemeinsame Kasse über Squads; Vergleich der Outbox-Auswahl
 
 Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
 legt fest, wie; kein Code.
@@ -7420,5 +7420,9 @@ legt fest, wie; kein Code.
   Raum und Mitglied; Grenze „raum-kasse“ im Bericht; Stimmen nur auf der Kette; nur SOL, nur
   Devnet bis M-8, Teilschritte A-12a–e.
 - Fragen W1–W5 an den MENSCHEN.
+- A-23 (`docs/OUTBOX-VERGLEICH.md`): `outboxPlan()` neben NDK 3.0.3, Welshman 0.8.16 und
+  applesauce 6.2.0 (Quelltext gelesen). Befunde als neue Punkte: A-24 alle Autoren abdecken
+  (gierig, Pool zählt mit, zwei Relays je Autor), A-25 keine fremden `ws://`, A-26 kaputte Relays
+  eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
 
 **Prüfungen:** PRUEFUNGEN
