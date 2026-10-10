@@ -295,7 +295,8 @@ test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm r
   assert.match(main, /\.\.\.gepruefteModelle,\n  \]\)\];/);
   assert.match(main, /modelle: angebotModelle,/);
   // Seit B-41 fragt das Angebot dazwischen Ollama, welche Modelle es hat (`nurBeiOllama()`)
-  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    ollamaNamen = await ollamaTags\(ollamaUrl\)[^\n]*\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
+  // Seit B-29a fragt es den gewählten KI-Antrieb (Ollama: `/api/tags`)
+  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    ollamaNamen = await antriebModelle\(antrieb\)[^\n]*\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
   assert.match(main, /if \(await modellDienst\.arbeite\(\)\.catch\(\(\) => false\)\) await pool\.publish\(\(await baueAngebot\(\)\)\.ev\)/);
   assert.match(quelle("../src/dvm-provider.ts"), /const offeredModels = this\.cfg\.modelle\?\.\(\) \?\?/);
   const cli = quelle("../src/modell.ts");

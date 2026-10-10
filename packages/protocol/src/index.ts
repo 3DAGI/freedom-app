@@ -133,3 +133,4 @@ export * from "./sicherheitscode.js";
 export * from "./raum-planung.js";
 export * from "./agent-karte.js";
 export * from "./agent-auftrag.js";
+export * from "./agent-raum.js";

@@ -63,6 +63,8 @@ test("B-41: Verdrahtung – das Angebot fragt Ollama bei jedem Erneuern, der Pro
   const provider = readFileSync(new URL("../src/dvm-provider.ts", import.meta.url), "utf8");
   assert.match(main, /const angebotModelle = \(\) => \(ollamaNamen \? nurBeiOllama\(alleAngebotenen\(\), ollamaNamen\)\.modelle : alleAngebotenen\(\)\)/);
   const angebot = main.slice(main.indexOf("const baueAngebot = async () => {"));
-  assert.ok(angebot.indexOf("ollamaNamen = await ollamaTags(ollamaUrl)") < angebot.indexOf("const models = angebotModelle();"), "erst fragen, dann anbieten");
+  // Seit B-29a der gewählte KI-Antrieb (Ollama oder OpenAI-kompatibel)
+  const fragen = angebot.indexOf("ollamaNamen = await antriebModelle(antrieb)");
+  assert.ok(fragen > 0 && fragen < angebot.indexOf("const models = angebotModelle();"), "erst fragen, dann anbieten");
   assert.match(provider, /const requestedModel = modelParam && offeredModels\.includes\(modelParam\) \? modelParam : offeredModels\[0\];/);
 });
