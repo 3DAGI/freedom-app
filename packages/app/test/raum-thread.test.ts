@@ -80,7 +80,8 @@ test("C.2c: verdrahtet – „n Antworten“ und „Antworten“ öffnen den Thr
   assert.match(raeume, /b\.dataset\.root = m\.id;\s*b\.addEventListener\("click", \(\) => oeffneThread\(m\.id\)\);/);
   assert.match(raeume, /knopf\(t\("raum\.antworten"\), "antworten", \(\) => oeffneThread\(m\.threadRoot \?\? m\.id, m\.id\)\)/);
   const senden = raeume.slice(raeume.indexOf("async function sendeRaumNachricht"), raeume.indexOf("/**\n * Einen Raum anlegen."));
-  assert.match(senden, /const bezug = ziel \? antwortBezug\(ziel, state\.keypair\.pk\) : undefined;/);
+  // Seit 11.3d1b1 `let` mit Typ – „@Name“ ergänzt danach die Erwähnungen von Agenten (agent-antwort.test.ts)
+  assert.match(senden, /(?:const|let) bezug(?:: [^=\n]+)? = ziel \? antwortBezug\(ziel, state\.keypair\.pk\) : undefined;/);
   assert.match(senden, /threadRoot: bezug\?\.threadRoot, replyTo: bezug\?\.replyTo,/);
   assert.match(senden, /if \(imThread && !ziel\) return;/, "im Thread nie ohne Bezug senden");
   // Der Bezug im Thread nur als Text

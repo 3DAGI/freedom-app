@@ -134,3 +134,27 @@ export function agentAntwortEvent(p: { agent: string; kennung: string; auf: Raum
 export function agentHinweisEvent(p: { agent: string; kennung: string; kanal: string; text: string; jetzt?: number }): UnsignedEvent {
   return buildChannelMessage({ authorPubkey: p.agent, spaceId: p.kennung, channelId: p.kanal, content: p.text, mentions: [] }, p.jetzt);
 }
+
+/** Höchstens so viele Agenten erwähnt eine Nachricht über „@Name“ (11.3d1b1). */
+export const AT_ERWAEHNUNGEN = 5;
+
+/**
+ * Agenten, die ein Text mit „@Name“ anspricht (11.3d1b1) – nur aus den gegebenen
+ * Karten (die Agenten dieses Raums), ohne Rücksicht auf Groß- und Kleinschreibung,
+ * als ganzes Wort. Teilen sich zwei Agenten einen Namen, erwähnt er keinen von
+ * beiden – nie den falschen. In der Reihenfolge des Textes, höchstens `AT_ERWAEHNUNGEN`.
+ */
+export function erwaehnteAgenten(text: string, karten: readonly { agent: string; name: string }[]): string[] {
+  const je = new Map<string, string>();
+  for (const k of karten) je.set(k.agent, k.name.trim());
+  const zahl = new Map<string, number>();
+  for (const n of je.values()) zahl.set(n.toLowerCase(), (zahl.get(n.toLowerCase()) ?? 0) + 1);
+  const treffer: { agent: string; stelle: number }[] = [];
+  for (const [agent, name] of je) {
+    if (!name || zahl.get(name.toLowerCase())! > 1) continue;
+    const muster = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = new RegExp(`(?:^|[^\\p{L}\\p{N}_])@${muster}(?![\\p{L}\\p{N}_])`, "iu").exec(text);
+    if (m) treffer.push({ agent, stelle: m.index });
+  }
+  return treffer.sort((a, b) => a.stelle - b.stelle).slice(0, AT_ERWAEHNUNGEN).map((t) => t.agent);
+}
