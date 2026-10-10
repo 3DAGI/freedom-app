@@ -43,18 +43,21 @@ Alle drei stehen unter MIT. Keine wird eingebunden; es geht nur um den Ablauf.
   werden erst danach gestrichen. Es öffnen sich also weniger als acht fremde Relays, und Autoren,
   die der Pool schon abdeckt, verdrängen andere. NDK rechnet bestehende Verbindungen zuerst an.
   **Vorschlag:** `outboxPlan()` bekommt die Adressen des Pools. Was der Pool abdeckt, zählt als
-  abgedeckt und belegt keinen Platz. Danach wählt es gierig, mit einem Ziel von zwei Relays je
-  Autor (wie NDK) und höchstens acht fremden Relays.
+  abgedeckt und belegt keinen Platz. Danach wählt es gierig in Stufen: jeder Autor erst ein Relay,
+  dann das zweite, bis zum Ziel (heute drei, `OUTBOX_JE_AUTOR`), höchstens acht fremde Relays.
+  *Umgesetzt mit A-24.*
 - **B2 – `ws://` fremder Relays (→ A-25).** `schreibRelays()` lässt `ws://` durch. Aus der
   Pages-Fassung (https) blockt der Browser solche Verbindungen (gemischte Inhalte); sie kosten nur
   einen Platz. In der Hülle gingen sie unverschlüsselt hinaus, und jeder auf dem Weg sähe, nach
   welchen Autoren die App fragt. Welshman lässt `ws://` außer .onion nur auf Wunsch zu.
   **Vorschlag:** Für fremde Relays im Outbox-Plan nur `wss://` nehmen, dazu `ws://…onion`, wenn
-  der Weg über Tor geht. Eigene Relays (Satz, Knoten im Heimnetz) bleiben, wie sie sind.
+  der Weg über Tor geht. Eigene Relays (Satz, Knoten im Heimnetz) bleiben, wie sie sind. *Umgesetzt
+  mit A-25.*
 - **B3 – Kaputte Relays (→ A-26).** Ein fremdes Relay, das nicht antwortet, fragt Freedom bei der
   nächsten Abfrage wieder, und es kostet wieder einen Platz. Welshman wertet nach Qualität.
   **Vorschlag:** Nebenverbindungen merken sich Fehlschläge nur im Speicher, eine Viertelstunde
-  lang. So lange plant `outboxPlan()` das Relay nicht ein. Keine Rangliste, nichts gespeichert.
+  lang. So lange plant `outboxPlan()` das Relay nicht ein. Keine Rangliste, nichts gespeichert. *Umgesetzt
+  mit A-26.*
 - **B4 – Indexer: bewusst nicht.** Welshman holt Listen (0, 3, 10002, 10050) von Indexer-Relays
   wie purplepag.es. So findet es Listen, die im eigenen Pool fehlen. Ein Indexer erführe aber,
   wessen Listen man sucht, also den Kreis der Kontakte. Freedom liest Listen weiter nur im Pool

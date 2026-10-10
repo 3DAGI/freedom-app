@@ -81,6 +81,20 @@ test("A-16: mit() gibt zurück, auch wenn die Arbeit scheitert", async () => {
   assert.deepEqual(zu, ["wss://x"], "zurückgegeben – nach der Ruhezeit zu");
 });
 
+test("A-26: eine Verbindung scheitert – die Adresse ist eine Viertelstunde ausgesetzt, ein Erfolg hebt das auf", async () => {
+  const { n, vergeht } = aufbau();
+  await assert.rejects(n.mit("wss://tot", "ich", async () => { throw new Error("Connect-Timeout"); }));
+  assert.deepEqual([...n.ausgesetzt()], ["wss://tot"], "je Adresse, gleich für welche Identität");
+  vergeht(NEBEN_GRENZEN.aussetzenMs - 1);
+  assert.deepEqual([...n.ausgesetzt()], ["wss://tot"]);
+  vergeht(1);
+  assert.deepEqual([...n.ausgesetzt()], [], "danach wieder eingeplant");
+  await assert.rejects(n.mit("wss://wackel", "", async () => { throw new Error("weg"); }));
+  await n.mit("wss://wackel", "", async () => []);
+  assert.deepEqual([...n.ausgesetzt()], [], "wieder erreichbar");
+  assert.equal(NEBEN_GRENZEN.aussetzenMs, 15 * 60_000);
+});
+
 test("A-16: verdrahtet – Pool-Relays über den Pool, die übrigen über Nebenverbindungen", () => {
   const s = lies("shell/state.ts");
   const teil = (von: string, bis: string) => s.slice(s.indexOf(von), s.indexOf(bis, s.indexOf(von) + 1));
@@ -97,4 +111,5 @@ test("A-16: verdrahtet – Pool-Relays über den Pool, die übrigen über Nebenv
   assert.match(abo, /neben\.gib\(u, art\)/);
   assert.doesNotMatch(s, /autoReconnect: false/, "keine Wegwerf-Verbindung je Aufruf mehr");
   assert.match(s, /const nebenArt = \(\): string => state\.keypair\?\.pk \?\? "";/, "je Identität");
+  assert.match(s, /new OutboxLeser\(\{[^}]*ausgesetzt: \(\) => neben\.ausgesetzt\(\)/, "A-26: der Outbox-Plan lässt gescheiterte aus");
 });

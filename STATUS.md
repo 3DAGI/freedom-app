@@ -7426,3 +7426,24 @@ legt fest, wie; kein Code.
   eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
 
 **Prüfungen:** PRUEFUNGEN
+
+## Schritt A-24, A-25, A-26 – Outbox: alle Autoren, kein fremdes `ws://`, gescheiterte Relays aussetzen
+
+Befunde aus dem Vergleich A-23 (`docs/OUTBOX-VERGLEICH.md`).
+
+- **A-24** (`protocol/src/relay-start.ts`): `outboxPlan()` wählt gierig in Stufen – jeder Autor
+  erst ein Relay, dann das zweite, bis `OUTBOX_JE_AUTOR` (drei); immer das Relay, das die meisten
+  Autoren der Stufe erreicht, höchstens acht. Neu `imPool`: Relays des Pools zählen für ihre Autoren
+  mit und belegen keinen Platz (bis hier belegten sie einen der acht und wurden erst danach
+  gestrichen). Bis hier nahm der Plan die acht meistgenannten – wer nur auf seltenen Relays schrieb,
+  fiel je nach Alphabet heraus.
+- **A-25**: fremde Relays nur über `wss://`; `ws://…onion` nur mit `onion` (die App: Seite über
+  .onion). Aus https blockte der Browser `ws://` ohnehin, in der Hülle ging es unverschlüsselt.
+- **A-26** (`app/src/neben-verbindungen.ts`): scheitert eine Nebenverbindung in `mit()`, ist die
+  Adresse eine Viertelstunde ausgesetzt (`ausgesetzt()`, nur im Speicher, ein Erfolg hebt es auf);
+  `OutboxLeser` reicht Pool, Aussetzer und .onion an den Plan.
+
+**Verdrahtet:** `app/src/outbox-lesen.ts` (`outboxPlan(…, { imPool, onion, aussetzen })`),
+`app/src/shell/state.ts` (`new OutboxLeser({ …, ausgesetzt: () => neben.ausgesetzt(), onion })`).
+
+**Prüfungen:** PRUEFUNGEN
