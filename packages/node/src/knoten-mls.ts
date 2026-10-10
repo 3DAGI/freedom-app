@@ -215,13 +215,19 @@ export class KnotenMls {
     if (standNeu) this.ablage.speichere("raumstand", Buffer.from(JSON.stringify(Object.fromEntries(this.stand)), "utf8"));
   }
 
-  /** Eigene Relay-Listen (10002, 10050) und ein KeyPackage – an die Relays des Knotens. */
-  async veroeffentliche(): Promise<void> {
+  /**
+   * Eigene Relay-Listen (10002, 10050) und ein KeyPackage – an die Relays des Knotens. Zurück: wie
+   * viele Relays der Posteingang nennt – ohne öffentliches Relay keines, dann stellt keine App eine
+   * Einladung zu.
+   */
+  async veroeffentliche(): Promise<{ posteingang: number }> {
     const { pool } = this.p.umgebung;
     const sk = this.p.schluessel.sk;
+    const posteingang = buildDmRelayList(this.pk, pool.urls, this.jetzt());
     await pool.publish(signEvent(buildRelayList(this.pk, pool.urls.map((url) => ({ url })), this.jetzt()), sk));
-    await pool.publish(signEvent(buildDmRelayList(this.pk, pool.urls, this.jetzt()), sk));
+    await pool.publish(signEvent(posteingang, sk));
     await this.neuesKeyPackage();
+    return { posteingang: posteingang.tags.length };
   }
 
   private async neuesKeyPackage(): Promise<void> {

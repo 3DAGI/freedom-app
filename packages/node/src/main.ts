@@ -664,7 +664,8 @@ async function main(): Promise<void> {
   // abgleichen – ins Log nur Kennungen und Zahlen, nie Inhalt, nie die Kennung einer Gruppe
   if (knotenMls) {
     const mls = knotenMls;
-    await mls.veroeffentliche().catch((e) => console.warn(`[agent] KeyPackage nicht veröffentlicht (${(e as Error).name})`));
+    const listen = await mls.veroeffentliche().catch((e) => console.warn(`[agent] KeyPackage nicht veröffentlicht (${(e as Error).name})`));
+    if (listen?.posteingang === 0) console.warn("[agent] Posteingang leer – kein öffentliches Relay in RELAYS, Apps können keine Einladungen zustellen");
     let laeuft = false;
     const mlsTakt = async () => {
       if (laeuft) return;

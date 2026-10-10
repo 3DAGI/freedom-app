@@ -81,7 +81,7 @@ async function liest(pool: OutboxPool, mls: Mls): Promise<InneresEvent[]> {
 test("11.3d2a: Listen und KeyPackage, Einladung annehmen, Karte als inneres Event", async () => {
   const w = welt();
   const k = w.starte();
-  await k.veroeffentliche();
+  assert.deepEqual(await k.veroeffentliche(), { posteingang: 1 });
   const eigene = await w.pool.query({ authors: [w.agent.pk] });
   assert.deepEqual(eigene.map((e) => e.kind).sort(), [KIND_RELAY_LIST, KIND_DM_RELAYS, KIND_KEY_PACKAGE].sort());
 
@@ -221,6 +221,7 @@ test("11.3d2a: verdrahtet – nur mit AGENT_PRIVAT, Relays über die eine Fabrik
   assert.match(main, /karte: knotenAgent\.kartenDaten\(\), ordner: dirname\(agentSchluesselDatei\(\)\),/, "neben dem Schlüssel des Agenten");
   assert.match(main, /umgebung: \{ pool, neuesRelay: relayAn, pruefeRelay: async \(url\) => !!torProxy \|\| \(await checkUrlSafe\(url\.replace\(\/\^wss:\/, "https:"\)\)\)\.allowed \}/);
   assert.match(main, /const r = await mls\.abgleich\(\);/);
+  assert.match(main, /if \(listen\?\.posteingang === 0\) console\.warn\(/, "leerer Posteingang wird gesagt");
   assert.match(main, /pool\.addRelay\(intern\);\n[^\n]*\n\s+if \(knotenMls\) knotenMls\.nutzePosteingang\(relayRole\.alsRelay\(knotenMls\.pk\)\);/, "Umschläge an den Agenten im eigenen Relay");
   assert.match(main, /"fall" in a \? `\[agent\] Einladung abgelehnt: \$\{a\.fall\}` : `\[agent\] privatem Raum beigetreten \(\$\{mls\.gruppen\(\)\.length\} Gruppen\)`/);
   const modul = quelle("../src/knoten-mls.ts");
