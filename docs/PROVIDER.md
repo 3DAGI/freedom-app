@@ -225,6 +225,30 @@ PROVIDER_MODELS=Qwen/Qwen2.5-7B-Instruct   # genau die Namen aus <KI_URL>/models
   aus `npm run modell` warten. Die Gewichte eines anderen Antriebs gegen ein
   Manifest prüfen, kommt mit B-29c.
 
+### Welcher Antrieb? Messen (B-29b)
+
+```bash
+cd ~/freedomstack/packages/node
+npm run messen -- --gleichzeitig 1,4,8          # Modell: das erste aus PROVIDER_MODELS
+npm run messen -- --modell <name> --anfragen 16 --tokens 256
+# Docker: docker compose exec node npm run messen -- --gleichzeitig 1,4,8
+```
+
+- **Was es misst:** mit derselben Umgebung wie der Knoten, je Stufe:
+  - Tokens je Sekunde über alle gleichzeitigen Anfragen;
+  - Antworten je Minute;
+  - Median und p95 der Dauer einer Antwort;
+  - den Faktor gegenüber der ersten Stufe.
+- **Ein Faktor nahe 1** heißt: Der Antrieb arbeitet nacheinander. Ollama
+  bedient gleichzeitige Anfragen nur bis `OLLAMA_NUM_PARALLEL` (Umgebung des
+  Ollama-Dienstes).
+- **Ablauf:** Es stellt feste Übungsfragen ohne Werkzeuge, über denselben Weg
+  wie echte Anfragen. Vorher kommt eine Anfrage zum Aufwärmen (Modell laden),
+  die nicht zählt.
+- **Ausgabe:** Antworten zeigt es nicht, Fehler nur mit Namen.
+- **Wann:** am besten, solange der Knoten keine Aufträge bedient. Für einen
+  fairen Vergleich zweier Antriebe dasselbe Modell und dieselben Zahlen nehmen.
+
 ## Modelle laden, geprüft (E9-3)
 
 ```bash
