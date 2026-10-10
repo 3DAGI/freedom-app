@@ -7677,3 +7677,83 @@ FORTSCHRITT.
 **Prüfungen:** Alle Befehle aus CLAUDE.md auf `fe2c85b` (`main` b223939 + 11.3d1b1), `GESAMT fail=0`: protocol 1260 grün (+1, 6 übersprungen), node 378 grün (ohne Netz 7 übersprungen; mit Netz 379), app 1030 (+1), Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
 
 Knoten-Stand: kein Update nötig.
+
+## Schritt 11.3d1b2 – Agenten auf dem Knoten fragen: Preis, Auftrag, Verweis
+
+Zweiter Teil von 11.3d1b (App), nach d1b1 („@Name“). Seit 11.3d1a beantwortet ein Agent auf dem Knoten
+eine Erwähnung nur, wenn ihm jemand einen bezahlten, versiegelten Auftrag mit Verweis schickt („wer
+fragt, zahlt“). Diesen Auftrag schickt jetzt die App.
+
+**App:**
+- **`knoten-agent-wahl.ts` (neu, ohne DOM):**
+  - `zuBezahlen()`: nur erwähnte Agenten, deren Karte `knoten`, `fragender` und den Knoten (`provider`)
+    nennt; in der Reihenfolge der Erwähnungen, jeder einmal, nie man selbst.
+  - `ablehnungsText()`: ein Text je Kennung aus PROTOCOL §32, Unbekanntes mit der Kennung – nie Text
+    vom Knoten.
+- **`shell/knoten-agent-fragen.ts` (neu):** `frageKnotenAgenten()` nach dem Senden im offenen Raum.
+  - Je Agent prüft die App zuerst den Knoten: Er braucht ein Angebot für versiegelte Aufträge
+    (`privatFaehig()`).
+  - Danach den Zahlweg: Mit SOL geht es nur mit Zahlkanal; mit Lightning braucht es eine Wallet und eine
+    Adresse des Knotens.
+  - Erst dann zeigt sie den Preis: höchstens 100 sats wie bei Agenten auf dem Gerät, dazu die Rate aus
+    dem Angebot, in sats und SOL.
+  - Ohne Bestätigung geht nichts hinaus.
+- **`shell/bezahlter-auftrag.ts` (neu):** der Auftrag.
+  - Versiegelt von einem frischen Sitzungsschlüssel je Frage.
+  - Im Kern eine feste Eingabe und der Verweis (`auftragsVerweisTags()`: Adresse des Raums, Id der
+    Erwähnung).
+  - Bezahlt wie jede KI-Anfrage: Lightning nach A+, höchstens das Gebot, oder eine Gutschrift im
+    Zahlkanal.
+  - Ablehnungen kommen nur mit ihrer Kennung zurück.
+  - Derselbe Weg wie `frageUndZahle()` in `agenten-lauschen.ts` (11.3c, Spur A). Dort ist er mit dem
+    Budget des Erstellers verflochten und bleibt unverändert.
+- **Kein zweiter Versuch von selbst:** Im Zahlkanal bliebe die Gutschrift der ersten Anfrage offen, die
+  zweite läge ein Gebot höher.
+- **`shell/tabs/raeume.ts` (Spur C, klein gehalten):**
+  - Die Karten im offenen Raum tragen jetzt `betrieb`, `bezahlung`, `provider`, `modell`.
+  - Nach `publish(ev)` ruft der offene Weg `frageKnotenAgenten()` auf; der private Weg ruft es nie auf
+    (Gruppen kommen mit 11.3d2).
+
+**Datenschutz:** neue Grenze „agent-knoten“ (Protokoll, Bericht in beiden Sprachen):
+- Der Knoten kann den Auftrag der öffentlichen Nachricht zuordnen.
+- Über einen Zahlkanal kann er so auch deine anderen Anfragen über diesen Kanal zuordnen.
+- Die Antwort steht öffentlich im Raum.
+- Relays sehen nur den Umschlag.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 und `docs/PROVIDER.md` („Fragen“; „Noch nicht“ ohne d1b).
+- Fallstrick in `packages/app/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Tests:**
+- **app** `knoten-agent-fragen.test.ts` (+4):
+  - Auswahl, mit Gerät, Einlader, ohne Knoten, sich selbst, Reihenfolge und Dopplung.
+  - Der Verweis steht nur im versiegelten Kern: außen nur `p`, die Id nicht im Chiffrat. Der Knoten
+    liest den Verweis, Absender ist der Sitzungsschlüssel.
+  - Jede Kennung aus dem Quelltext des Knotens hat einen Text in beiden Sprachen mit `{name}`, die
+    Preistexte nennen Preis und Rate.
+  - Verdrahtung:
+    - nur offen und erst nach dem Senden;
+    - Zahlweg und Wallet vor dem Preis, Bestätigung vor dem Auftrag;
+    - frischer Schlüssel, feste Eingabe, Verweis nur in `extraTags`;
+    - nur der Umschlag geht hinaus, das Gebot ist vorher gemerkt, abgerechnet über `rechneAntwortAb()`.
+- **protocol** `privacy-facts.test.ts`: „agent-knoten“ in der Liste der Aussagen ohne Leak-Regel; was der
+  Knoten nach dem Öffnen liest, sieht kein Mitschnitt.
+
+**Prüfungen:**
+- protocol 1260 grün (6 übersprungen); node 378 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz, 385 wie vorher); app 1034 grün (vorher 1030); mls 13 grün;
+  Leak-Tests 73 grün + 1 `todo` (unverändert).
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und
+  `build-site.sh`: grün.
+- Erster Lauf: `check-wiring --streng` rot – die Ausnahme für `auftragsVerweisTags` war veraltet
+  (jetzt verdrahtet). Sie ist entfernt.
+
+**MENSCH (Geld, Devnet/Testnet):** einen Knoten mit `KNOTEN_AGENT=1` in einen offenen Raum holen
+(Rolle `agent`), ihn mit „@Name“ erwähnen, den Preis bestätigen.
+- Mit Lightning-Testnet-Wallet: Antwort im Raum, Zahlung höchstens 100 sats.
+- Mit Zahlkanal auf Devnet: Gutschrift höchstens 100 sats zum Kurs des Knotens.
+- Ein zweites „Fragen“ zur selben Nachricht: „schon beantwortet“, nichts bezahlt.
+
+Knoten-Stand: `main` mit 11.3d1a – wer einen Agenten auf dem Knoten betreibt, hat ihn schon; sonst kein
+Update nötig.
