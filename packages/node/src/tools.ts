@@ -52,6 +52,11 @@ export interface ToolCall {
   name: string;
   /** Tool-Input (Query, Pfad, URL, Prompt). */
   input: string;
+  /**
+   * Auftrag (Id der Anfrage, A-29): `file_io` arbeitet dann nur in einem
+   * eigenen Ordner je Auftrag – ein Auftrag sieht nie, was ein anderer schrieb.
+   */
+  auftrag?: string;
 }
 
 export interface ToolResult {
@@ -64,7 +69,11 @@ export interface ToolResult {
 export interface ToolExecutor {
   canHandle(kind: number): boolean;
   run(call: ToolCall): Promise<ToolResult>;
+  /** Was der Auftrag hinterließ, löschen (A-29) – nach seinen Werkzeugen. */
+  vergiss?(auftrag: string): Promise<void>;
 }
+
+const AUFTRAG = /^[0-9a-f]{64}$/;
 
 /** web_search: DuckDuckGo Instant Answer API (kostenlos, kein Key) – nur dieser Host. */
 export class WebSearchExecutor implements ToolExecutor {
@@ -93,11 +102,35 @@ export class WebSearchExecutor implements ToolExecutor {
 export class FileIoExecutor implements ToolExecutor {
   constructor(private workspaceDir: string) {}
   canHandle(kind: number): boolean { return kind === KIND_DVM_FILE_IO; }
+
+  /**
+   * Ordner des Auftrags (A-29): `<workspace>/<auftrag>`, 0700, beim ersten
+   * Gebrauch angelegt. Ohne Auftrag der Workspace selbst – nur für den
+   * direkten Aufruf; der Provider gibt immer einen mit.
+   */
+  private async ordner(call: ToolCall): Promise<string> {
+    if (call.auftrag === undefined) return this.workspaceDir;
+    if (!AUFTRAG.test(call.auftrag)) throw new Error("ungueltiger auftrag");
+    const { mkdir } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const ordner = join(this.workspaceDir, call.auftrag);
+    await mkdir(ordner, { recursive: true, mode: 0o700 });
+    return ordner;
+  }
+
+  async vergiss(auftrag: string): Promise<void> {
+    if (!AUFTRAG.test(auftrag)) return;
+    const { rm } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    await rm(join(this.workspaceDir, auftrag), { recursive: true, force: true });
+  }
+
   async run(call: ToolCall): Promise<ToolResult> {
     const start = Date.now();
     try {
       const { lstat, readFile, realpath, writeFile } = await import("node:fs/promises");
       const { dirname, join, normalize } = await import("node:path");
+      const workspaceDir = await this.ordner(call);
       // call.input Format: "read <path>" oder "write <path> <content>"
       const [op, ...rest] = call.input.split(" ");
       const requested = rest[0] ?? "";
@@ -106,8 +139,8 @@ export class FileIoExecutor implements ToolExecutor {
         throw new Error("absolute pfade sind nicht erlaubt");
       }
       if (requested.includes("\0")) throw new Error("ungueltiger pfad");
-      const root = normalize(this.workspaceDir).replace(/\/+$/, "") + "/";
-      const target = normalize(join(this.workspaceDir, requested));
+      const root = normalize(workspaceDir).replace(/\/+$/, "") + "/";
+      const target = normalize(join(workspaceDir, requested));
       // startsWith(root) MIT Trennzeichen: sonst passiert "/tmp/ws-evil" die
       // Pruefung gegen die Basis "/tmp/ws".
       if (!(target + "/").startsWith(root)) {
@@ -115,7 +148,7 @@ export class FileIoExecutor implements ToolExecutor {
       }
       // Symlinks (8.7): der echte Pfad muss im echten Workspace liegen – ein Link
       // im Workspace auf /etc wuerde die Pruefung oben sonst umgehen.
-      const echteWurzel = (await realpath(this.workspaceDir)).replace(/\/+$/, "") + "/";
+      const echteWurzel = (await realpath(workspaceDir)).replace(/\/+$/, "") + "/";
       const echterOrdner = await realpath(dirname(target)).catch(() => null);
       if (!echterOrdner || !(echterOrdner + "/").startsWith(echteWurzel)) throw new Error("pfad ausserhalb workspace");
       const info = await lstat(target).catch(() => null);
@@ -257,6 +290,12 @@ export class ToolRegistry {
   private executors: ToolExecutor[] = [];
   constructor(private grenzen: { zeitMs: number; zeitMsMedien: number } = WERKZEUG_GRENZEN) {}
   register(e: ToolExecutor): void { this.executors.push(e); }
+  /** Was ein Auftrag in den Werkzeugen hinterließ, löschen (A-29) – Fehler nur als Name. */
+  async vergiss(auftrag: string): Promise<void> {
+    for (const e of this.executors) {
+      await e.vergiss?.(auftrag).catch((f: unknown) => console.warn(`[werkzeuge] aufräumen gescheitert: ${(f as Error).name}`));
+    }
+  }
   async run(call: ToolCall): Promise<ToolResult> {
     const ex = this.executors.find((e) => e.canHandle(call.kind));
     if (!ex) {

@@ -231,4 +231,5 @@ Shell, kein Netz und kein Geld. Je Repo-Auftrag gibt es nur diese:
 ## Neuer Punkt für die Sammlung
 
 - **A-29:** `file_io` je Auftrag trennen (Befund 2), bevor es verdrahtet wird.
-  Heute ist es nicht verdrahtet und wirkt also nicht.
+  Heute ist es nicht verdrahtet und wirkt also nicht. **Erledigt 10.10.** – je
+  Auftrag ein eigener Ordner, nach den Werkzeugen gelöscht.
