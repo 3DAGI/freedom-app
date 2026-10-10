@@ -7405,7 +7405,7 @@ Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
 
 **Prüfungen:** PRUEFUNGEN
 
-## Schritt A-12-Entwurf, A-23 – Gemeinsame Kasse über Squads; Vergleich der Outbox-Auswahl
+## Schritt A-12-Entwurf, A-23, A-22 – Kasse über Squads; Vergleiche Outbox-Auswahl und Boltz
 
 Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
 legt fest, wie; kein Code.
@@ -7424,6 +7424,10 @@ legt fest, wie; kein Code.
   applesauce 6.2.0 (Quelltext gelesen). Befunde als neue Punkte: A-24 alle Autoren abdecken
   (gierig, Pool zählt mit, zwei Relays je Autor), A-25 keine fremden `ws://`, A-26 kaputte Relays
   eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
+- A-22 (`docs/BOLTZ-VERGLEICH.md`): Ablauf des LP neben dem Boltz-Backend (Lifecycle-Doku).
+  Zwei Entscheidungen für den MENSCHEN: A-27 Reihenfolge in Richtung 1 wie Boltz (erst zahlt der
+  Kunde in die Hold-Invoice, dann sperrt der LP – ohne Vorab-Gebühr; Vorschlag: so lassen), A-28
+  Rückgabe vor Ablauf in Richtung 2 (neue Anweisung im HTLC-Programm; Vorschlag: ja, mit 0.G).
 
 **Prüfungen:** PRUEFUNGEN
 

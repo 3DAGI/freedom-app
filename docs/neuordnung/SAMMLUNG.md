@@ -200,11 +200,13 @@ andere Spuren und stehen deshalb hier, nicht in deren Abschnitten:
 | A-19 | **Nachfolge mit der Shamir-Bibliothek von Privy** (SH1 A, Anhang E). | `fertig` (SH1) – Fassung 2 über `teileGeheimnis()`, Fassung 1 bleibt lesbar |
 | A-20 | **QR-Scannen auch in Firefox und Safari** (Anhang E: qr-scanner bzw. zxing): heute erkennt nur der Browser (`BarcodeDetector`, Chromium). | `fertig` (A-20) – jsQR 1.4.0 (Apache-2.0, ohne Abhängigkeiten; +345 KB in `freedom.html`, die App ist unminifiziert, rund 58 KB gzip) liest, wo der Browser keinen `BarcodeDetector` hat; ohne Worker, im Gerät |
 | A-21 | **@solana/kit statt web3.js v1** (Anhang E): Nachfolger, kleineres Bundle. | `frei` – groß (Wallet, Zahlkanal, HTLC, Relayer), erst ein Plan mit Teilschritten; Borsh-Layouts bleiben |
-| A-22 | **Boltz-Backend als Vorlage** für den Ablauf des Liquiditätsgebers (Anhang E). | `frei` – nur Vergleich mit `docs/SWAPS.md`, Befunde als eigene Punkte |
+| A-22 | **Boltz-Backend als Vorlage** für den Ablauf des Liquiditätsgebers (Anhang E). | `fertig` (Vergleich, [`docs/BOLTZ-VERGLEICH.md`](../BOLTZ-VERGLEICH.md), 10.10.) – Befunde als A-27 und A-28 (beide Entscheidungen); Frist der Rechnung, Rückholen, Wiederanlauf und Rückhol-Wächter gleich oder besser |
 | A-23 | **Relay-Auswahl im Outbox-Modell wie NDK, Welshman, applesauce** (Anhang E). | `fertig` (Vergleich, [`docs/OUTBOX-VERGLEICH.md`](../OUTBOX-VERGLEICH.md), 10.10.) – Befunde als A-24 bis A-26; Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte), Posteingang gleich |
 | A-24 | **Outbox: alle Autoren abdecken** (A-23, B1): `outboxPlan()` nimmt die acht meistgenannten Relays – Autoren auf seltenen Relays fallen heraus, Relays des Pools belegen Plätze und werden erst danach gestrichen. | `fertig` (A-24) – `outboxPlan()` bekommt die Adressen des Pools (zählen mit, belegen keinen Platz) und wählt gierig in Stufen: jeder Autor erst ein Relay, dann das zweite, bis `OUTBOX_JE_AUTOR` (drei, unverändert), höchstens acht fremde; ein gewähltes Relay fragt nach allen Autoren, die dort schreiben |
 | A-25 | **Outbox: keine fremden `ws://`** (A-23, B2): unverschlüsselt sähe jeder auf dem Weg, nach welchen Autoren die App fragt; aus https blockt der Browser sie ohnehin. | `fertig` (A-25) – fremde Relays im Plan nur `wss://`, `ws://…onion` nur, wenn die Seite selbst über .onion läuft; eigene Relays unverändert |
 | A-26 | **Outbox: kaputte Relays aussetzen** (A-23, B3): ein fremdes Relay, das nicht antwortet, wird bei jeder Abfrage neu eingeplant. | `fertig` (A-26) – `Nebenverbindungen.ausgesetzt()`: eine Adresse, deren Verbindung scheiterte, eine Viertelstunde nicht einplanen; nur im Speicher, ein Erfolg hebt es auf |
+| A-27 | **Swap Lightning → SOL: Reihenfolge wie Boltz?** (A-22, B1): Boltz sperrt erst, wenn der Kunde in die Hold-Invoice gezahlt hat – keine Vorab-Gebühr nötig; bei uns sperrt der LP zuerst und verlangt deshalb `vorab_sats` (4.6d). | `Entscheidung` – umgedreht trüge der Kunde das Risiko einer Blockade (sats hängen bis zum Ende der Hold-Invoice, nichts geht verloren), und „erst zahlen, wenn die Gegenleistung auf der Kette liegt“ fiele; Ablauf und Nachrichten ändern sich (STOPP). Vorschlag Spur A: so lassen |
+| A-28 | **Swap SOL → Lightning: Rückgabe vor Ablauf** (A-22, B2): scheitert die Zahlung des LP, wartet der Kunde bis `T_sol` (Stunden); Boltz gibt sofort frei. | `Entscheidung` – braucht eine Anweisung „zurückgeben“ im HTLC-Programm (nur der Empfänger signiert, Geld nur an den Sperrenden) = Programmänderung mit Upgrade, Programm-ID noch ungeklärt (0.G). Vorschlag Spur A: ja, zusammen mit 0.G |
 
 ---
 
@@ -435,7 +437,7 @@ Abhängigkeit = STOPP-Punkt; neues WASM nur nach Freigabe, CSP).
 | Shamir von Privy | auditierte Nachfolge-Anteile | App, Protokoll | A | SH1 → A-19 (erledigt) |
 | qr-scanner bzw. zxing | QR-Scannen auch in Firefox und Safari | App | A | A-20 (erledigt) |
 | @solana/kit | Nachfolger von web3.js v1, kleineres Bundle | App, Protokoll | A | A-21 |
-| Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | A-22 |
+| Boltz-Backend | Vorlage für den Ablauf eines Liquiditätsgebers | Vorlage | A | A-22 (Vergleich erledigt; A-27, A-28 Entscheidungen) |
 | NDK, Welshman, applesauce | Relay-Auswahl im Outbox-Modell | Vorlage, nicht die Bibliothek | A | A-23 (Vergleich erledigt; A-24 bis A-26) |
 | isomorphic-git, ngit | Git im Browser (Diff, Blame, Patches anwenden); `git clone nostr://…` | App | C | |
 | micromark | Markdown nach CommonMark und GFM einlesen, Ausgabe bleibt `markdownDom()` | App | C | |
