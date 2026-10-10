@@ -56,6 +56,15 @@ export function signEvent(e: UnsignedEvent, sk: Uint8Array): NostrEvent {
   return { ...e, id, sig };
 }
 
+/**
+ * Eine fertige Event-Kennung signieren (BIP-340) – für Brücken, die nur die
+ * Kennung reichen: den MLS-Kontobeweis eines Agenten im Knoten (11.3d2a).
+ */
+export function signiereId(id: string, sk: Uint8Array): string {
+  if (!/^[0-9a-f]{64}$/.test(id)) throw new Error("Kennung ungültig");
+  return toHex(schnorr.sign(fromHex(id), sk));
+}
+
 const HEX64 = /^[0-9a-f]{64}$/;
 const HEX128 = /^[0-9a-f]{128}$/;
 

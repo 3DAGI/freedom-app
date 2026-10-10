@@ -7758,6 +7758,164 @@ fragt, zahlt“). Diesen Auftrag schickt jetzt die App.
 Knoten-Stand: `main` mit 11.3d1a – wer einen Agenten auf dem Knoten betreibt, hat ihn schon; sonst kein
 Update nötig.
 
+## Schritt 11.3d2a – Agent auf dem Knoten tritt privaten Räumen bei
+
+Erster Teil von 11.3d2 (private Räume), geteilt:
+- **d2a (dieser Schritt):** das MLS-Konto im Knoten.
+- **d2b:** antworten in privaten Räumen.
+- **d2c:** die App lädt Knoten-Agenten ein und bezahlt Fragen.
+
+**MENSCH 10.10.2026:**
+- Schalter `besitzer|alle`.
+- Raumstand verschlüsselt auf der Platte, Chat nur im Speicher.
+
+**Knoten:**
+- **`knoten-mls.ts` (neu):** eigenes MLS-Konto mit dem Schlüssel des Agenten (nie dem des Knotens). Die
+  Engine kommt aus `@freedomstack/mls`, der Kontobeweis über `signiereId()`.
+  - **Veröffentlicht:** Relay-Listen (10002, 10050) und ein KeyPackage (30443, fester Platz, neu nach jedem
+    Beitritt).
+  - **Einladungen** nur mit `AGENT_PRIVAT`:
+    - `besitzer` – nur von `AGENT_BESITZER`;
+    - `alle` – von jedem;
+    - höchstens 20 Gruppen.
+  - **Nach dem Beitritt** die Karte als inneres Event (Knoten, „wer fragt, zahlt“).
+  - **Abgleich** alle 15 Sekunden: Einladungen, dann je Gruppe alle Nachrichten in ihrer Reihenfolge.
+    Was die Engine zurückhält, kommt mit `fortschreiten()`; was sie dabei sendet, geht an die Gruppe.
+  - **Auf der Platte nur verschlüsselt** (AES-256-GCM wie `MlsZustand` der App, alles 0600):
+    - `agent-mls.json` (Schlüssel, Platz) – beschädigt heißt kein Start, nie ersetzt;
+    - `agent-mls.zustand`;
+    - `agent-mls.raumstand` (Definition, Rollen, Zuweisungen, Karten, Agentenlisten).
+  - **Chat** nur im Speicher, je Gruppe die letzten 50.
+  - **Fremde Relays** einer Gruppe nur `wss://`, plausibel und geprüft (ohne Tor `checkUrlSafe()`),
+    höchstens 10.
+- **`main.ts`:**
+  - Relays entstehen weiter an einer Stelle (`relayAn`, über Tor wie alle).
+  - Einladungen im eigenen Relay liest der Agent über `alsRelay(agent)` – als Knoten angemeldet sähe er
+    keine Umschläge an sich.
+  - Ins Log nur Kennungen und Zahlen. Ein leerer Posteingang (kein öffentliches Relay) wird gesagt.
+- **Docker-Image** mit `packages/mls` (Quelle und gebaute Engine).
+
+**Befund:** Die Engine (MDK) behält verarbeitete Nachrichten in ihrem Zustand und stellt sie nach einem
+Neustart erneut zu, wenn die Relays sie noch haben.
+- Der Knoten legt keinen eigenen Chat-Verlauf an. Die Engine behält ihn aber wie bei jedem Mitglied in
+  ihrem verschlüsselten Zustand.
+- Datenschutzaussage, `PROVIDER.md` und Fallstrick sagen das so.
+- Für 11.3d2b: Ein erneut zugestelltes „neu“ heißt nicht „unbeantwortet“.
+
+**Datenschutz:** neue Grenze „agent-knoten-privat“ (Protokoll, Bericht in beiden Sprachen) – der Knoten
+liest alles im Raum mit, was er wie ablegt, und dass der Betreiber den Schalter setzen muss.
+
+**Protokoll:** `signiereId()` (BIP-340 über eine fertige Kennung) für Brücken, die nur die Kennung reichen.
+
+**Doku:**
+- `docs/PROVIDER.md` (private Räume, Dateien, Sicherung).
+- `docs/PROTOCOL.md` §32.
+- Fallstrick in `packages/node/CLAUDE.md` – Ausnahme von „Kein Klartext im Knoten“, nur hier.
+- Karte `phase-11.md`, FORTSCHRITT, `docker-compose.yml` (`AGENT_PRIVAT`).
+
+**Echt gestartet:**
+- **Aufbau:** der Knoten mit eigenem Relay (`ws://127.0.0.1`), `KNOTEN_AGENT=1`, `AGENT_PRIVAT=alle`,
+  OpenAI-Attrappe. Ein Gründer-Skript (wie die App, echte Engine, über WebSocket) holt das KeyPackage des
+  Agenten, gründet einen privaten Raum, lädt ihn ein und sendet Raumstand und eine Erwähnung.
+- **Ergebnis:**
+  - Im Log nur „[agent] privatem Raum beigetreten (1 Gruppen)“.
+  - Der Gründer liest die Karte des Agenten in der Gruppe („Lektor, knoten, fragender“, vom Agenten,
+    `provider` gesetzt).
+  - Die Dateien sind 0600 (Zustand 3,6 MB).
+  - Der Probetext steht weder im Log noch in einer Datei.
+- **Befund:** Der Posteingang (10050) war leer – nur `127.0.0.1` in `RELAYS`, das ist kein brauchbarer
+  Posteingang. Das sagt der Knoten jetzt im Log.
+
+**Tests:**
+- **node** `knoten-mls.test.ts` (+7), mit der echten Engine und einem Gründer wie in der App:
+  - Listen und KeyPackage;
+  - Einladung annehmen, Karte beim Gründer;
+  - Raumstand und Chat;
+  - Ablage verschlüsselt (0600, kein Klartext), Neustart, beschädigte Schlüsseldatei;
+  - Schalter `besitzer` und Grenze;
+  - fremde Relays;
+  - Posteingang im eigenen Relay;
+  - `AGENT_PRIVAT`;
+  - Verdrahtung.
+- **protocol** `event.test.ts` (+1): `signiereId()`.
+- **Angepasst, nicht abgeschwächt** (`tor.test.ts`): Die Fabrik heißt jetzt `relayAn`. Der Test prüft
+  weiter, dass es genau eine Stelle mit `new WebSocketRelay(` gibt und dass `RELAYS` über sie verbunden
+  wird.
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen, vorher 1260); node 385 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz; vorher 378 + 7); app 1034 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`:
+  grün.
+
+**MENSCH:** Am GX10 mit `AGENT_PRIVAT=besitzer` und `AGENT_BESITZER` starten; die Dateien
+`~/.freedom/agent-mls.*` mit `agent-key` sichern.
+
+Knoten-Stand: `main` mit 11.3d2a, nur wer private Räume für den Agenten will (`AGENT_PRIVAT`); sonst kein
+Update nötig. Das Docker-Image enthält jetzt `packages/mls`.
+
+## Schritt 11.3d2b – Agent auf dem Knoten antwortet in privaten Räumen
+
+Zweiter Teil von 11.3d2. Seit 11.3d2a ist der Agent Mitglied privater Räume (`AGENT_PRIVAT`); jetzt
+antwortet er dort wie im offenen Raum. Er antwortet nur auf einen bezahlten, versiegelten Auftrag mit
+Verweis („wer fragt, zahlt“).
+
+**Knoten** (`knoten-agent.ts`):
+- **`pruefePrivat()`:** ein Verweis mit Gruppen-Id statt Adresse.
+  - Nur Gruppen, in denen der Agent Mitglied ist (`nutzePrivat()` mit dem Konto aus 11.3d2a); sonst
+    `agent-privat`.
+  - Der Raum kommt aus dem, was der Agent als Mitglied liest (`gruppenRaum()` mit Admins und
+    Mitgliedern aus MLS). Die Definition gilt nur von einem Admin, Agenten erkennt er an ihrer Karte.
+  - Entschieden wird mit `entscheide()` und `ausBudget: false`, wie im offenen Raum.
+  - Fehlt die Erwähnung im Gelesenen, gleicht er einmal ab.
+- **Gerechnet** werden nur Persona, Verlauf und Erwähnung aus der Gruppe, nie die Eingabe des Auftrags.
+- **Antwort:** als inneres Event der Gruppe (`raumAgentAntwort()` über `KnotenMls.sende()`), nie offen.
+  Dieselbe Antwort geht versiegelt an den Fragenden.
+- **Jede Erwähnung höchstens einmal.** Die Ablehnungen tragen dieselben Kennungen wie im offenen Raum.
+
+**Protokoll (Befund):**
+- MDK vergibt Gruppen-Ids mit 16 Byte (32 Zeichen Hex). Der Verweis (`auftragsVerweisTags()`, 11.3b2)
+  verlangte 64 Zeichen – keine echte Gruppe passte.
+- Jetzt gilt wie bei Meldungen: 32 bis 64 Zeichen.
+- Gefunden im echten Lauf, nicht von den Tests: Die nahmen `"ee".repeat(32)`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 (Verweis mit Gruppe, Antwort in privaten Räumen) und `docs/PROVIDER.md`.
+- Fallstricke in `packages/node/CLAUDE.md` und `packages/protocol/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Echt gestartet:**
+- **Aufbau:** Knoten mit eigenem Relay, `AGENT_PRIVAT=alle`, OpenAI-Attrappe. Das Gründer-Skript (echte
+  Engine, WebSocket):
+  - gründet einen privaten Raum mit dem Agenten;
+  - schreibt einen Satz und, eine Sekunde später, die Erwähnung;
+  - schickt einen versiegelten Auftrag mit der Gruppe im Verweis.
+- **Ergebnis:**
+  - Die Antwort steht in der Gruppe vom Agenten (`h` allgemein, `e` … `reply` auf die Erwähnung, `p` …
+    `mention` des Fragenden).
+  - Kein Kind 42 im Relay.
+  - Das Ergebnis ist versiegelt beim Fragenden – abholbar nur angemeldet als der Sitzungsschlüssel, denn
+    das Relay des Knotens gibt Umschläge nur so heraus.
+  - Kein Klartext im Log.
+
+**Tests:**
+- **node** `knoten-agent-privat.test.ts` (+3), mit echter Engine, Gründer wie in der App und Provider wie
+  im Knoten:
+  - der ganze Weg: Prompt aus der Gruppe, Antwort als inneres Event, versiegelt an den Fragenden, nichts
+    offen, kein Klartext im Log, einmal;
+  - Ablehnungen: fremde Gruppe, unbekannte Erwähnung, Kanal ohne Schreibrecht des Agenten;
+  - Verdrahtung.
+- **protocol** `agent-auftrag.test.ts`: Gruppen-Id von MDK (32 Zeichen) und vier ungültige Formen.
+- **Unverändert grün:** `knoten-agent.test.ts` (der Fall `agent-privat` ohne Konto gilt weiter).
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen); node 388 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 385); app 1034 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`:
+  grün.
+
+Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
 ## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
 
 Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
@@ -7784,7 +7942,7 @@ Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben l
 (`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
 `wiring-ausnahmen.txt` (nur noch Tests).
 
-**Prüfungen:** protocol 1265 grün (+5, 6 übersprungen; mit `main` bis 11.3d1b2), node 379, app 1034,
+**Prüfungen:** protocol 1266 grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node 389, app 1034,
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
 `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
 grün.

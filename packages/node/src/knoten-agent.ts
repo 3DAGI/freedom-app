@@ -17,16 +17,17 @@
  * - **Kein Klartext im Knoten:** Raum und Antwort nur für den Auftrag im Speicher;
  *   gemerkt werden nur die Ids beantworteter Erwähnungen.
  *
- * Private Räume (eigenes MLS-Konto im Knoten) kommen mit 11.3d2, das Budget des
- * Einladers (Pfand im Zahlkanal) mit 11.3d3.
+ * Private Räume (`AGENT_PRIVAT`): beitreten seit 11.3d2a (`knoten-mls.ts`), antworten seit 11.3d2b –
+ * derselbe Auftrag mit der Gruppe im Verweis, die Antwort als inneres Event;
+ * das Budget des Einladers (Pfand im Zahlkanal) mit 11.3d3.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   AuftragsBremse, KIND_CHANNEL_MESSAGE, KIND_RAUM_KANAL, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
-  agentAntwortEvent, agentPromptMit, ausRaumEvent, baueAgentKarte, definitionDesGruenders, entscheide, istAgentIm, leseRaumAdresse,
-  raumZustandFuer, signEvent, verifyEvent,
-  type AgentVerlaufGrenzen, type NostrEvent, type RaumNachricht, type RelayFilter,
+  agentAntwortEvent, agentPromptMit, ausRaumEvent, baueAgentKarte, definitionDesGruenders, entscheide, gruppenRaum, istAgentIm, leseRaumAdresse,
+  raumAgentAntwort, raumAgentKarten, raumZustandFuer, signEvent, verifyEvent,
+  type AgentKarteDaten, type AgentVerlaufGrenzen, type InneresEvent, type InneresSenden, type NostrEvent, type RaumNachricht, type RelayFilter,
 } from "@freedomstack/protocol";
 
 export const agentSchluesselDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "agent-key");
@@ -43,6 +44,8 @@ export interface KnotenAgentEinstellung {
   persona: string;
   modell?: string;
   besitzer?: string;
+  /** Private Räume (11.3d2a): Einladungen nur vom Besitzer oder von allen – ohne Angabe keine. */
+  privat?: "besitzer" | "alle";
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -51,7 +54,8 @@ const textOk = (s: string, max: number) => s.trim() !== "" && [...s].length <= m
 
 /**
  * Aus der Umgebung: `KNOTEN_AGENT=1` schaltet ihn ein; `AGENT_NAME` (Pflicht),
- * `AGENT_ABOUT`, `AGENT_PERSONA`, `AGENT_MODELL`, `AGENT_BESITZER` (Hex).
+ * `AGENT_ABOUT`, `AGENT_PERSONA`, `AGENT_MODELL`, `AGENT_BESITZER` (Hex),
+ * `AGENT_PRIVAT` (`besitzer` oder `alle`, 11.3d2a).
  * `null`: aus. Ungültig: ein Grund – dann startet der Knoten nicht.
  */
 export function agentAusUmgebung(env: Record<string, string | undefined>):
@@ -72,7 +76,15 @@ export function agentAusUmgebung(env: Record<string, string | undefined>):
   if (modell !== undefined && !textOk(modell, 128)) return { grund: "AGENT_MODELL ist ungültig" };
   const besitzer = env.AGENT_BESITZER?.trim().toLowerCase() || undefined;
   if (besitzer !== undefined && !HEX64.test(besitzer)) return { grund: "AGENT_BESITZER ist kein Schlüssel (64 Zeichen Hex)" };
-  return { einstellung: { name, persona, ...(about ? { about } : {}), ...(modell ? { modell } : {}), ...(besitzer ? { besitzer } : {}) } };
+  const privat = (env.AGENT_PRIVAT ?? "").trim();
+  if (privat !== "" && privat !== "besitzer" && privat !== "alle") return { grund: "AGENT_PRIVAT ist weder besitzer noch alle" };
+  if (privat === "besitzer" && !besitzer) return { grund: "AGENT_PRIVAT=besitzer braucht AGENT_BESITZER" };
+  return {
+    einstellung: {
+      name, persona, ...(about ? { about } : {}), ...(modell ? { modell } : {}), ...(besitzer ? { besitzer } : {}),
+      ...(privat === "besitzer" || privat === "alle" ? { privat } : {}),
+    },
+  };
 }
 
 /** Ablehnung mit Kennung – die App erkennt den Fall am Tag `fall`, nie am Text. */
@@ -83,10 +95,21 @@ export class AgentAbgelehnt extends Error {
   }
 }
 
-/** Ein geprüfter Auftrag: die Erwähnung, der Raum, der Text für das Modell. */
+/** Was der Agent von seinem MLS-Konto braucht (`KnotenMls`, 11.3d2a) – private Räume. */
+export interface PrivateRaeume {
+  gruppen(): string[];
+  ereignisse(gruppe: string): InneresEvent[];
+  admins(gruppe: string): string[];
+  mitglieder(gruppe: string): string[];
+  abgleich(): Promise<unknown>;
+  sende(gruppe: string, s: InneresSenden): Promise<string | null>;
+}
+
+/** Ein geprüfter Auftrag: die Erwähnung, der Raum, der Text für das Modell – im privaten Raum mit der Gruppe. */
 export interface AgentAuftrag {
   nachricht: RaumNachricht;
   kennung: string;
+  gruppe?: string;
   prompt: string;
 }
 
@@ -101,6 +124,7 @@ export class KnotenAgent {
   private readonly bremse = new AuftragsBremse();
   private readonly beantwortet: string[];
   private readonly inArbeit = new Set<string>();
+  private privat?: PrivateRaeume;
 
   constructor(private readonly p: {
     schluessel: { sk: Uint8Array; pk: string };
@@ -126,13 +150,18 @@ export class KnotenAgent {
     return this.p.einstellung.modell;
   }
 
-  /** Karte (38090): Betrieb Knoten, „wer fragt, zahlt“, der Knoten rechnet – signiert vom Agenten. */
-  karte(): NostrEvent {
+  /** Angaben der Karte: Betrieb Knoten, „wer fragt, zahlt“, der Knoten rechnet – offen wie im privaten Raum (11.3d2a). */
+  kartenDaten(): AgentKarteDaten {
     const e = this.p.einstellung;
-    return signEvent(baueAgentKarte(this.pk, {
+    return {
       name: e.name, betrieb: "knoten", bezahlung: "fragender", provider: this.p.knoten,
       ...(e.about ? { about: e.about } : {}), ...(e.modell ? { modell: e.modell } : {}), ...(e.besitzer ? { besitzer: e.besitzer } : {}),
-    }, this.jetzt()), this.sk);
+    };
+  }
+
+  /** Karte (38090) für offene Räume – signiert vom Agenten. */
+  karte(): NostrEvent {
+    return signEvent(baueAgentKarte(this.pk, this.kartenDaten(), this.jetzt()), this.sk);
   }
 
   /**
@@ -141,12 +170,12 @@ export class KnotenAgent {
    * reserviert, bis `antworte()` oder `gib()` sie abschließt.
    */
   async pruefe(verweis: { raum: string; erwaehnung: string }): Promise<AgentAuftrag> {
-    const ort = leseRaumAdresse(verweis.raum);
-    // Private Räume (Gruppen-Id statt Adresse) erst mit 11.3d2
-    if (!ort) throw new AgentAbgelehnt("agent-privat");
     if (this.beantwortet.includes(verweis.erwaehnung) || this.inArbeit.has(verweis.erwaehnung)) {
       throw new AgentAbgelehnt("agent-schon-beantwortet");
     }
+    const ort = leseRaumAdresse(verweis.raum);
+    // Gruppen-Id statt Adresse: privater Raum (11.3d2b) – nur mit eigenem MLS-Konto
+    if (!ort) return this.pruefePrivat(verweis);
     // Fehler der Relays nie weiterreichen – nach außen nur Kennungen
     const frage = (f: RelayFilter) => this.p.pool.query(f).catch(() => { throw new AgentAbgelehnt("agent-raum-nicht-erreichbar"); });
     const ev = (await frage({ ids: [verweis.erwaehnung], limit: 1 })).find((e) => e.id === verweis.erwaehnung);
@@ -178,15 +207,63 @@ export class KnotenAgent {
     return { nachricht: e.nachricht, kennung, prompt };
   }
 
-  /** Die Antwort im Raum veröffentlichen (Kind 42 vom Agenten) und die Erwähnung als beantwortet merken. */
-  async antworte(a: AgentAuftrag, text: string): Promise<NostrEvent> {
-    const ev = signEvent(agentAntwortEvent({ agent: this.pk, kennung: a.kennung, auf: a.nachricht, text, jetzt: this.jetzt() }), this.sk);
+  /** Das MLS-Konto des Agenten (11.3d2a) – ohne gibt es keine privaten Räume. */
+  nutzePrivat(z: PrivateRaeume): void {
+    this.privat = z;
+  }
+
+  /**
+   * Privater Raum (11.3d2b): dieselben Regeln, der Raum aus dem, was der Agent als Mitglied liest
+   * (`gruppenRaum()` mit Admins und Mitgliedern aus MLS). Fehlt die Erwähnung noch, einmal abgleichen.
+   */
+  private async pruefePrivat(v: { raum: string; erwaehnung: string }): Promise<AgentAuftrag> {
+    const z = this.privat;
+    if (!z || !z.gruppen().includes(v.raum)) throw new AgentAbgelehnt("agent-privat");
+    const lies = () => {
+      const ereignisse = z.ereignisse(v.raum);
+      const admins = z.admins(v.raum);
+      return { ereignisse, admins, raum: gruppenRaum(v.raum, ereignisse, { admins, mitglieder: z.mitglieder(v.raum) }) };
+    };
+    let r = lies();
+    if (!r.raum.nachrichten.some((n) => n.id === v.erwaehnung)) {
+      await z.abgleich().catch(() => undefined);
+      r = lies();
+    }
+    const ev = r.raum.nachrichten.find((n) => n.id === v.erwaehnung);
+    if (!ev) throw new AgentAbgelehnt("agent-keine-erwaehnung");
+    if (!r.raum.zustand.space) throw new AgentAbgelehnt("agent-kein-raum");
+    // Schalter der Agentenketten: in der Definition eines Admins (F5); Agenten an ihrer Karte
+    const definition = r.ereignisse.filter((e) => e.art === KIND_SPACE && (e.admin ?? r.admins.includes(e.von))).sort((a, b) => b.zeit - a.zeit)[0]?.tags ?? [];
+    const agenten = new Set(raumAgentKarten(r.ereignisse).map((k) => k.agent));
+    const istAgent = (pk: string): boolean => agenten.has(pk);
+    const e = entscheide({
+      agent: this.pk, ev, alle: r.raum.nachrichten, stand: r.raum.zustand, definition, bremse: this.bremse, jetzt: this.jetzt(), istAgent, ausBudget: false,
+    });
+    if (e.art !== "antworten") throw new AgentAbgelehnt(`agent-${e.grund}`);
+    this.inArbeit.add(ev.id);
+    const nachrichten = r.raum.nachrichten.map(ausRaumEvent).filter((n): n is RaumNachricht => n !== null);
+    const prompt = agentPromptMit({
+      agent: this.pk, persona: this.p.einstellung.persona, nachricht: e.nachricht, alle: nachrichten, istAgent, grenzen: AGENT_VERLAUF_KNOTEN,
+    });
+    return { nachricht: e.nachricht, kennung: v.raum, gruppe: v.raum, prompt };
+  }
+
+  /**
+   * Die Antwort im Raum veröffentlichen – offen Kind 42 vom Agenten, privat ein inneres Event der
+   * Gruppe (11.3d2b) – und die Erwähnung als beantwortet merken.
+   */
+  async antworte(a: AgentAuftrag, text: string): Promise<void> {
     try {
-      await this.p.pool.publish(ev).catch(() => { throw new AgentAbgelehnt("agent-nicht-veroeffentlicht"); });
+      if (a.gruppe) {
+        const inneres = await this.privat?.sende(a.gruppe, raumAgentAntwort(a.nachricht, text)).catch(() => null);
+        if (!inneres) throw new AgentAbgelehnt("agent-nicht-veroeffentlicht");
+      } else {
+        const ev = signEvent(agentAntwortEvent({ agent: this.pk, kennung: a.kennung, auf: a.nachricht, text, jetzt: this.jetzt() }), this.sk);
+        await this.p.pool.publish(ev).catch(() => { throw new AgentAbgelehnt("agent-nicht-veroeffentlicht"); });
+      }
       this.beantwortet.push(a.nachricht.id);
       if (this.beantwortet.length > AGENT_KNOTEN_GRENZEN.gemerkt) this.beantwortet.splice(0, this.beantwortet.length - AGENT_KNOTEN_GRENZEN.gemerkt);
       if (this.p.datei) schreibeGemerkt(this.p.datei, this.beantwortet);
-      return ev;
     } finally {
       this.inArbeit.delete(a.nachricht.id);
     }

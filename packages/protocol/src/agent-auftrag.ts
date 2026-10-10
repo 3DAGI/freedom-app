@@ -187,7 +187,9 @@ export function leseAuftragsVerweis(tags: readonly (readonly string[])[]): { rau
   return raum && erwaehnung && gueltigerRaum(raum) && HEX64.test(erwaehnung) ? { raum, erwaehnung } : null;
 }
 
-const gueltigerRaum = (r: string) => HEX64.test(r) || leseRaumAdresse(r) !== null;
+/** Gruppen-Ids von MDK sind 16 Byte (32 Zeichen Hex) – wie bei Meldungen 32 bis 64 Zeichen (bis 11.3d2b nur 64: keine echte Gruppe passte). */
+const GRUPPE_HEX = /^[0-9a-f]{32,64}$/;
+const gueltigerRaum = (r: string) => GRUPPE_HEX.test(r) || leseRaumAdresse(r) !== null;
 
 // ------------------------------------------------------------ Antwort (P3)
 

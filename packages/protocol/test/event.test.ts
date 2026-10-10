@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateKeypair, buildEvent, signEvent, verifyEvent, computeEventId, serializeEvent } from "../src/event.js";
+import { generateKeypair, buildEvent, signEvent, signiereId, verifyEvent, computeEventId, serializeEvent } from "../src/event.js";
 import { buildProfile, parseProfile, payoutAddress } from "../src/profile.js";
 import { mineEvent, verifyPow, eventDifficulty, countLeadingZeroBits } from "../src/pow.js";
 import { KIND_PROFILE } from "../src/kinds.js";
@@ -11,6 +11,16 @@ test("Event: echte Schnorr-Signatur verifiziert", () => {
   assert.equal(ev.id.length, 64);
   assert.equal(ev.sig.length, 128);
   assert.ok(verifyEvent(ev));
+});
+
+test("11.3d2a: signiereId – dieselbe Signatur wie signEvent, nur gültige Kennungen", () => {
+  const kp = generateKeypair();
+  const u = buildEvent(kp.pk, 450, [["d", "x"]], "Beweis", 1_700_000_000);
+  const id = computeEventId(u);
+  const ev = { ...u, id, sig: signiereId(id, kp.sk) };
+  assert.ok(verifyEvent(ev), "eine gültige BIP-340-Signatur über die Kennung");
+  assert.ok(!verifyEvent({ ...ev, sig: signiereId(id, generateKeypair().sk) }), "mit fremdem Schlüssel ungültig");
+  for (const falsch of ["", id.slice(1), id.toUpperCase(), `${id}00`, "zz".repeat(32)]) assert.throws(() => signiereId(falsch, kp.sk), /Kennung ungültig/);
 });
 
 test("Event: Manipulation des Contents wird erkannt", () => {

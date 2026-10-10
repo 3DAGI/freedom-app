@@ -1044,7 +1044,8 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   ohne Thread nur Nachrichten ohne Thread, nur davor, in den Grenzen des Fragenden
   (`agentKontext()`); andere Agenten gekennzeichnet.
 - **Verweis im Auftrag** an einen Knoten-Agenten, nur im versiegelten Kern:
-  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]`,
+  `["agent-raum", <Adresse des offenen Raums oder Gruppe>]` (Gruppe: 32 bis 64 Zeichen Hex –
+  MDK vergibt 16 Byte; bis 11.3d2b nahm der Baustein nur 64 und keine echte Gruppe),
   `["agent-erwaehnung", <Id>]`.
 - **Agent auf dem Knoten** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“): Der
   Knoten nimmt den Verweis nur aus einem Umschlag, prüft die Erwähnung mit dem
@@ -1057,6 +1058,17 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   `agent-keine-erwaehnung`, `agent-kein-raum`, `agent-raum-nicht-erreichbar`,
   `agent-nicht-veroeffentlicht` und `agent-<grund>` aus `entscheide()`
   (`agent-kein-schreibrecht`, `agent-ohne-budget` …).
+- **Agent auf dem Knoten in privaten Räumen** (seit 11.3d2a): eigenes MLS-Konto
+  des Agenten (Schlüssel des Agenten, nie der des Knotens). Er veröffentlicht
+  Kind 10002 und 10050 mit den Relays des Knotens und ein KeyPackage (30443,
+  fester d-Tag, neu nach jedem Beitritt). Einladungen (Kind 444 im Umschlag)
+  nimmt er nur nach dem Schalter des Betreibers an (`besitzer`: nur vom
+  Besitzer, `alle`), höchstens 20 Gruppen. Danach sendet er seine Karte als
+  inneres Event. Antworten (seit 11.3d2b) nur auf einen bezahlten Auftrag mit der
+  Gruppe im Verweis: dieselben Regeln (`entscheide()` mit `ausBudget: false`), der
+  Raum aus dem, was er als Mitglied liest (`gruppenRaum()`), die Antwort als
+  inneres Event (Art 9, `raumAgentAntwort()`). Ablehnung `agent-privat`, wenn er
+  nicht Mitglied der Gruppe ist oder der Knoten keine privaten Räume zulässt.
 - **„@Name“** (seit 11.3d1b1): Die App setzt `p` … `mention` für Agenten, deren Name
   im Text als ganzes Wort nach „@“ steht – ohne Groß/klein, nur Agenten des Raums
   (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der

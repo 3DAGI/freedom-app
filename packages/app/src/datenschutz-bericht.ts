@@ -63,6 +63,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "agent-raum": ["ds.fAgentRaum"],
   "agent-geraet": ["ds.fAgentGeraet", "ds.gAgentGeraet"],
   "agent-knoten": ["ds.fAgentKnoten", "ds.gAgentKnoten"],
+  "agent-knoten-privat": ["ds.fAgentKnotenPrivat", "ds.gAgentKnotenPrivat"],
   "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
   "mesh-geraet": ["ds.fMeshGeraet", "ds.gMeshGeraet"],
   "ki-zahlung": ["ds.fKiZahlung"],

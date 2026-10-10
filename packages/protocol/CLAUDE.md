@@ -52,3 +52,6 @@ Fallstricke dieses Bereichs unten anhängen.
   `entscheide()`, `agentPromptMit()`, `agentAntwortEvent()`; den Schalter der Ketten nur über
   `definitionDesGruenders()` (`d` ist `space:<kennung>` – bis 11.3d1a suchte die App nach der Kennung allein
   und fand ihn nie).
+  Gruppen-Ids von MDK haben 16 Byte (32 Zeichen Hex) – im Verweis (`auftragsVerweisTags()`) wie bei Meldungen
+  32 bis 64 Zeichen; bis 11.3d2b verlangte er 64, und keine echte Gruppe passte. Neue Prüfungen für Gruppen-Ids
+  mit einer echten Gruppe testen, nicht mit `"ab".repeat(32)`.
