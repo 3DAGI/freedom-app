@@ -8003,3 +8003,32 @@ Dritter Teil von 11.3d2 – damit sind private Räume fertig:
 - Zahlung höchstens 100 sats (Lightning-Testnet bzw. Gutschrift im Zahlkanal auf Devnet).
 
 Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
+
+## Schritt A-20 – QR-Scannen auch in Firefox und Safari; A-17-Entwurf
+
+Sammlung A-20 (Anhang E). Bis hier erkannte nur der Browser QR-Codes (`BarcodeDetector`, nur
+Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
+
+**Neu:**
+
+- Abhängigkeit `jsqr` 1.4.0 (Apache-2.0, ohne Abhängigkeiten), exakt gepinnt in der App;
+  `freedom.html` wächst um 345 KB (die App ist unminifiziert, rund 58 KB gzip). Ohne Worker –
+  ein Worker passt nicht in die eine Datei.
+- `shell/qr-ui.ts`: `leseQrAusBild()` (jsQR, beide Helligkeiten), `JsQrErkenner` (Bild auf
+  `SCAN_BREITE_MAX` = 640 px verkleinert), `waehleErkenner()` – `BarcodeDetector`, wo es ihn
+  gibt, sonst jsQR; `kannScannen()` braucht nur noch die Kamera-Schnittstelle. Das Bild bleibt
+  im Gerät.
+- Smoke-Test („qr“): Gerät C ohne `BarcodeDetector` – die Kamera-Attrappe zeichnet den echten
+  QR-Pfad des Gerätecodes, jsQR liest ihn ins Feld, die Kamera ist danach aus.
+- Regel „QR-Codes nur über `shell/qr-ui.ts`“ in der Wurzel-`CLAUDE.md` angepasst.
+- **A-17-Entwurf** (`docs/E4B-ENTWURF.md`): eingebaute Lightning-Wallet nach E4b D – Befunde
+  (Breez SDK Spark 0.26.1: MIT, WASM 5,1 MB gzip, API-Schlüssel für Mainnet; cashu-ts 4.11.0),
+  Vorschläge V1–V6, Fragen W1–W5 an den MENSCHEN. Kein Code.
+
+**Verdrahtet:** `shell/qr-ui.ts:207` (`waehleErkenner()` im Klick von `scanKnopf()`);
+`leseQrAusBild()` über `JsQrErkenner`.
+
+**Prüfungen:** protocol 1266, node 389 (je 6 übersprungen), app 1038 grün (+2; mit `main` bis 11.3d2c), Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test
+(mit jsQR ohne `BarcodeDetector`), Website-Bau und reproduzierbarer Build grün.

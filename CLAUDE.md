@@ -47,9 +47,9 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, 11.3c3b, L2-1, L2-2, LIZ, E9-3b, B-29a, B-29b, 11.3d1a, 11.3d1b1, 11.3d1b2, 11.3d2a, 11.3d2b, SH1, 11.3d2c): protocol 1266 grün (6 übersprungen), node 389 grün
+Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, 11.3c3b, L2-1, L2-2, LIZ, E9-3b, B-29a, B-29b, 11.3d1a, 11.3d1b1, 11.3d1b2, 11.3d2a, 11.3d2b, SH1, 11.3d2c, A-20, A-17-Entwurf): protocol 1266 grün (6 übersprungen), node 389 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 1036 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 1038 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -372,9 +372,12 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Schlüssel trägt (Gerätecode), nur mit `geheim: true`: auf Klick, Warnung
   vorher, nach `QR_SICHTBAR_MS` weg, nie speichern, nie als Bild exportieren;
   den Schlüssel vor dem Zeigen nullen. Kamera nur auf Klick über `scanKnopf()`
-  (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
-  aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
-  Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+  (Feld `scannen: true`), erkannt im Gerät – vom Browser (`BarcodeDetector`), sonst
+  seit A-20 von jsQR (`jsqr` 1.4.0, exakt gepinnt, `leseQrAusBild()`, Bild auf
+  `SCAN_BREITE_MAX` verkleinert) –, danach aus; ohne Kamera-Schnittstelle der Hinweis
+  zum Einfügen. Das Bild geht nie ins Netz. Der Smoke-Test („qr“) ersetzt Kamera und
+  Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`); ohne `BarcodeDetector`
+  zeigt die Kamera-Attrappe den echten QR-Pfad des Gerätecodes, und jsQR liest ihn.
 - **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
   frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
   oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
