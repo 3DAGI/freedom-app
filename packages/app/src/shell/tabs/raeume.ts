@@ -328,11 +328,11 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     }
     spacesUi.state = raumZustandFuer(adresse, struktur) ?? null;
     spacesUi.messages = nachrichten;
-    // Agenten des Raums (Rolle `agent`) mit ihrer Karte – „@Name“ erwähnt sie (11.3d1b1)
-    spacesUi.agentKarten = await agentKartenIm(spacesUi.state, pool);
     // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
     const ziel = raumZiel();
     if (ziel && "adresse" in ziel) merkeRaumAdresse(ziel.adresse);
+    // Agenten des Raums (Rolle `agent`) mit ihrer Karte – „@Name“ erwähnt sie (11.3d1b1)
+    spacesUi.agentKarten = await agentKartenIm(spacesUi.state, pool);
     // Neues anderer kommt ab jetzt von selbst (B-25)
     void lauscheImRaum(adresse, kennung);
   } catch (e) {
@@ -1030,17 +1030,18 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
   // Im Thread (C.2c): Verweis auf die oberste Nachricht und, wo gewählt, auf die Antwort
   const ziel = imThread && spacesUi.thread ? spacesUi.verlauf?.alle.get(spacesUi.thread.ziel) : undefined;
   if (imThread && !ziel) return;
-  const bezug = ziel ? antwortBezug(ziel, state.keypair.pk) : undefined;
+  let bezug: { threadRoot?: string; replyTo?: string; erwaehnt: string[] } | undefined = ziel ? antwortBezug(ziel, state.keypair.pk) : undefined;
   if (spacesUi.thread) spacesUi.thread.ziel = spacesUi.thread.root;
   const text = input.value.trim();
   input.value = "";
   // „@Name“ erwähnt Agenten des Raums (11.3d1b1) – offen aus ihren Karten, privat aus denen der Gruppe
   const { erwaehnteAgenten, raumAgentKarten } = await import("@freedomstack/protocol");
   const karten = spacesUi.privat ? raumAgentKarten(spacesUi.privat.ereignisse) : spacesUi.agentKarten;
-  const erwaehnt = [...new Set([...(bezug?.erwaehnt ?? []), ...erwaehnteAgenten(text, karten)])];
+  const agenten = erwaehnteAgenten(text, karten);
+  if (agenten.length) bezug = { ...bezug, erwaehnt: [...new Set([...(bezug?.erwaehnt ?? []), ...agenten])] };
   if (spacesUi.privat) {
     // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
-    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, { ...bezug, erwaehnt }).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
+    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, bezug).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
     else {
       toast(t("komm.nichtGesendet"), true);
       input.value = text;
@@ -1051,7 +1052,7 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
     const { buildChannelMessage } = await import("@freedomstack/protocol");
     const ev = await signiere(buildChannelMessage({
       authorPubkey: state.keypair.pk, spaceId: offeneKennung()!,
-      channelId: spacesUi.channelId, content: text, mentions: erwaehnt,
+      channelId: spacesUi.channelId, content: text, mentions: bezug?.erwaehnt ?? [],
       threadRoot: bezug?.threadRoot, replyTo: bezug?.replyTo,
     } as never));
     await (await ensurePool()).publish(ev);
