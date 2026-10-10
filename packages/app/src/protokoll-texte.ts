@@ -569,6 +569,8 @@ const FEHLER: Record<string, string> = {
   "teile-mindestens": "pf.teileMindestens",
   "teile-laengen": "pf.teileLaengen",
   "teile-doppelt": "pf.teileDoppelt",
+  "teile-fassungen": "pf.teileFassungen",
+  "geheimnis-leer": "pf.geheimnisLeer",
   "anteile-zu-wenig": "pf.anteileZuWenig",
   "anteile-passen-nicht": "pf.anteilePassenNicht",
   "geraet-selbst": "pf.geraetSelbst",
