@@ -8155,4 +8155,6 @@ Der Smoke-Test war bei A-24 bis A-26 und bei A-29 je einmal rot im Abschnitt „
   Code-Reiter (andere Stellen wurden bei Drosselung rot – im normalen Lauf und in der CI nie).
 - Fallstrick in `scripts/CLAUDE.md` („Smoke-Test auch in der CI“).
 
-**Prüfungen:** siehe Pull Request.
+**Prüfungen:** protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test
+(voller Lauf, mit Korrektur), Website-Bau und reproduzierbarer Build grün.
