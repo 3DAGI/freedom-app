@@ -7378,3 +7378,29 @@ Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben l
 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
 `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
 grün.
+
+## Schritt A-20 – QR-Scannen auch in Firefox und Safari; A-17-Entwurf
+
+Sammlung A-20 (Anhang E). Bis hier erkannte nur der Browser QR-Codes (`BarcodeDetector`, nur
+Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
+
+**Neu:**
+
+- Abhängigkeit `jsqr` 1.4.0 (Apache-2.0, ohne Abhängigkeiten), exakt gepinnt in der App;
+  `freedom.html` wächst um 345 KB (die App ist unminifiziert, rund 58 KB gzip). Ohne Worker –
+  ein Worker passt nicht in die eine Datei.
+- `shell/qr-ui.ts`: `leseQrAusBild()` (jsQR, beide Helligkeiten), `JsQrErkenner` (Bild auf
+  `SCAN_BREITE_MAX` = 640 px verkleinert), `waehleErkenner()` – `BarcodeDetector`, wo es ihn
+  gibt, sonst jsQR; `kannScannen()` braucht nur noch die Kamera-Schnittstelle. Das Bild bleibt
+  im Gerät.
+- Smoke-Test („qr“): Gerät C ohne `BarcodeDetector` – die Kamera-Attrappe zeichnet den echten
+  QR-Pfad des Gerätecodes, jsQR liest ihn ins Feld, die Kamera ist danach aus.
+- Regel „QR-Codes nur über `shell/qr-ui.ts`“ in der Wurzel-`CLAUDE.md` angepasst.
+- **A-17-Entwurf** (`docs/E4B-ENTWURF.md`): eingebaute Lightning-Wallet nach E4b D – Befunde
+  (Breez SDK Spark 0.26.1: MIT, WASM 5,1 MB gzip, API-Schlüssel für Mainnet; cashu-ts 4.11.0),
+  Vorschläge V1–V6, Fragen W1–W5 an den MENSCHEN. Kein Code.
+
+**Verdrahtet:** `shell/qr-ui.ts:207` (`waehleErkenner()` im Klick von `scanKnopf()`);
+`leseQrAusBild()` über `JsQrErkenner`.
+
+**Prüfungen:** PRUEFUNGEN
