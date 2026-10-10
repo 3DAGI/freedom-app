@@ -314,6 +314,8 @@ async function main(): Promise<void> {
         console.error(`[agent] MLS-Konto nicht lesbar (${(e as Error).name}) – der Knoten startet nicht`);
         process.exit(1);
       }
+      // Antworten in privaten Räumen (11.3d2b): dieselben Regeln, der Raum aus dem, was der Agent als Mitglied liest
+      knotenAgent.nutzePrivat(knotenMls);
       console.log(`[agent] private Räume: Einladungen von ${einladen === "alle" ? "allen" : "AGENT_BESITZER"}, höchstens ${KNOTEN_MLS_GRENZEN.gruppen} Gruppen`);
     }
   }

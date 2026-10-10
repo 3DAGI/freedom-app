@@ -15,7 +15,8 @@
  *   geprüft (`pruefeRelay`), höchstens `KNOTEN_MLS_GRENZEN.relays`, über `neuesRelay` aus
  *   `main.ts` (über Tor wie alle Verbindungen des Knotens).
  * - Nach dem Beitritt sendet der Agent seine Karte als inneres Event (Leak-Regel
- *   `agent-raum-privat`) und ein neues KeyPackage. Antworten kommen mit 11.3d2b.
+ *   `agent-raum-privat`) und ein neues KeyPackage. Geantwortet wird (seit 11.3d2b) nur auf
+ *   einen bezahlten Auftrag – `KnotenAgent.pruefe()` liest den Raum über `ereignisse()`.
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
