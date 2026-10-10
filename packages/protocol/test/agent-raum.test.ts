@@ -7,13 +7,14 @@
  *  - Definitionen anderer zählen nie; je Raum die neueste
  *  - „Wer fragt, zahlt“ (`ausBudget: false`): nie auf einen Agenten, auch mit Agentenketten
  *  - Prompt mit festen Grenzen (Knoten): Persona, Verlauf bis zur Erwähnung, Pseudonyme
+ *  - „@Name“ (11.3d1b1): nur Agenten aus den Karten, ganzes Wort, ohne Groß/klein, nie mehrdeutig
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeypair, signEvent } from "../src/event.js";
 import { AGENT_ROLLE, mitAgentRolle } from "../src/agent-karte.js";
 import { AuftragsBremse, ausRaumEvent, type RaumNachricht } from "../src/agent-auftrag.js";
-import { agentPromptMit, definitionDesGruenders, entscheide, istAgentIm } from "../src/agent-raum.js";
+import { AT_ERWAEHNUNGEN, agentPromptMit, definitionDesGruenders, entscheide, erwaehnteAgenten, istAgentIm } from "../src/agent-raum.js";
 import { buildChannelMessage, buildRoleGrant, buildRoles, buildSpace, buildSpaceState } from "../src/spaces.js";
 
 const gruender = generateKeypair(), fremd = generateKeypair(), agent = generateKeypair(), agent2 = generateKeypair(), mensch = generateKeypair();
@@ -53,4 +54,21 @@ test("11.3d1a: „wer fragt, zahlt“ – nie auf einen Agenten, auch mit Agente
   const p = agentPromptMit({ agent: agent.pk, persona: "P", nachricht: alle[1]!, alle, istAgent: istAgentIm(stand), grenzen: { nachrichten: 6, zeichen: 3000, jeNachricht: 10 } });
   assert.equal(p, `[Rolle]:\nP\n\n[Bisheriger Verlauf]:\nPerson 1: ${"x".repeat(10)} …\n\n[Nachricht von Person 1]:\n@A1 hilf`);
   assert.ok(!p.includes(mensch.pk), "nie Schlüssel");
+});
+
+test("11.3d1b1: „@Name“ erwähnt Agenten des Raums – ganzes Wort, ohne Groß/klein, nie den falschen", () => {
+  const k = [
+    { agent: "a".repeat(64), name: "Lektor" }, { agent: "b".repeat(64), name: "Code Helfer" },
+    { agent: "c".repeat(64), name: "Max" }, { agent: "d".repeat(64), name: "max" }, { agent: "e".repeat(64), name: "C++ (Bot)" },
+  ];
+  const [a, b, , , e] = k.map((x) => x.agent);
+  for (const [text, erwartet] of [
+    ["@Lektor bitte", [a]], ["Hallo @lektor!", [a]], ["(@Lektor)", [a]], ["@Code Helfer und @Lektor", [b, a]],
+    ["Frage an @C++ (Bot) jetzt", [e]],
+    ["mail@Lektor.de", []], ["x@Lektor", []], ["@Lektoren", []], ["Lektor ohne at", []],
+    ["@Max", []], ["@max", []],
+  ] as const) assert.deepEqual(erwaehnteAgenten(text, k), erwartet, text);
+  const viele = Array.from({ length: AT_ERWAEHNUNGEN + 2 }, (_, i) => ({ agent: String(i).repeat(64).slice(0, 64), name: `A${i}` }));
+  assert.equal(erwaehnteAgenten(viele.map((x) => `@${x.name}`).join(" "), viele).length, AT_ERWAEHNUNGEN, "höchstens fünf");
+  assert.deepEqual(erwaehnteAgenten("@Lektor", []), [], "ohne Karten niemand – nie aus dem Text allein");
 });

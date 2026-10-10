@@ -54,11 +54,13 @@ interface SpaceUiState {
   massnahmen: unknown[];
   /** Ausgeblendetes trotzdem zeigen (B-19) – nur für diese Sitzung, je Raum. */
   alleZeigen: Set<string>;
+  /** Karten der Agenten im offenen Raum (Rolle `agent`) – für „@Name“ (11.3d1b1). Privat kommen sie aus der Gruppe. */
+  agentKarten: { agent: string; name: string }[];
 }
 
 const spacesUi: SpaceUiState = {
   spaceId: null, channelId: null, state: null, messages: [], lastRead: new Map(), privat: null, verlauf: null, thread: null,
-  massnahmen: [], alleZeigen: new Set(),
+  massnahmen: [], alleZeigen: new Set(), agentKarten: [],
 };
 
 /**
@@ -326,6 +328,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     }
     spacesUi.state = raumZustandFuer(adresse, struktur) ?? null;
     spacesUi.messages = nachrichten;
+    // Agenten des Raums (Rolle `agent`) mit ihrer Karte – „@Name“ erwähnt sie (11.3d1b1)
+    spacesUi.agentKarten = await agentKartenIm(spacesUi.state, pool);
     // Repos dieses Raums (11.4c) lädt die Repo-Liste ab jetzt mit
     const ziel = raumZiel();
     if (ziel && "adresse" in ziel) merkeRaumAdresse(ziel.adresse);
@@ -1006,6 +1010,19 @@ async function aendereMitglied(tun: () => Promise<boolean>): Promise<void> {
   if (ok && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId);
 }
 
+/**
+ * Karten der Agenten eines offenen Raums (11.3d1b1): nur Mitglieder mit der Rolle
+ * `agent`, je Agent die neueste gültige Karte (`aktuelleAgentKarten()`). Ohne Netz leer.
+ */
+async function agentKartenIm(stand: unknown, pool: Awaited<ReturnType<typeof ensurePool>>): Promise<{ agent: string; name: string }[]> {
+  const { KIND_AGENT_KARTE, aktuelleAgentKarten, istAgentIm } = await import("@freedomstack/protocol");
+  const s = stand as Parameters<typeof istAgentIm>[0] | null;
+  const agenten = s ? [...s.grants.keys()].filter(istAgentIm(s)) : [];
+  if (!agenten.length) return [];
+  const karten = await pool.query({ kinds: [KIND_AGENT_KARTE], authors: agenten, limit: 100 }).catch(() => []);
+  return aktuelleAgentKarten(karten).filter((k) => agenten.includes(k.agent)).map((k) => ({ agent: k.agent, name: k.name }));
+}
+
 /** Nachricht senden. */
 async function sendeRaumNachricht(imThread = false): Promise<void> {
   const input = $(imThread ? "#thread-msg" : "#space-msg") as HTMLInputElement | null;
@@ -1017,9 +1034,13 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
   if (spacesUi.thread) spacesUi.thread.ziel = spacesUi.thread.root;
   const text = input.value.trim();
   input.value = "";
+  // „@Name“ erwähnt Agenten des Raums (11.3d1b1) – offen aus ihren Karten, privat aus denen der Gruppe
+  const { erwaehnteAgenten, raumAgentKarten } = await import("@freedomstack/protocol");
+  const karten = spacesUi.privat ? raumAgentKarten(spacesUi.privat.ereignisse) : spacesUi.agentKarten;
+  const erwaehnt = [...new Set([...(bezug?.erwaehnt ?? []), ...erwaehnteAgenten(text, karten)])];
   if (spacesUi.privat) {
     // Privat (2.3b): verschlüsselt in die Gruppe – Relays sehen nur Kind 445
-    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, bezug).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
+    if (await sendePrivat(spacesUi.privat.gruppe, spacesUi.channelId, text, { ...bezug, erwaehnt }).catch(() => false)) await oeffneRaum(spacesUi.spaceId);
     else {
       toast(t("komm.nichtGesendet"), true);
       input.value = text;
@@ -1030,7 +1051,7 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
     const { buildChannelMessage } = await import("@freedomstack/protocol");
     const ev = await signiere(buildChannelMessage({
       authorPubkey: state.keypair.pk, spaceId: offeneKennung()!,
-      channelId: spacesUi.channelId, content: text, mentions: bezug?.erwaehnt ?? [],
+      channelId: spacesUi.channelId, content: text, mentions: erwaehnt,
       threadRoot: bezug?.threadRoot, replyTo: bezug?.replyTo,
     } as never));
     await (await ensurePool()).publish(ev);

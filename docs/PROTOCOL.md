@@ -1057,6 +1057,11 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   `agent-keine-erwaehnung`, `agent-kein-raum`, `agent-raum-nicht-erreichbar`,
   `agent-nicht-veroeffentlicht` und `agent-<grund>` aus `entscheide()`
   (`agent-kein-schreibrecht`, `agent-ohne-budget` …).
+- **„@Name“** (seit 11.3d1b1): Die App setzt `p` … `mention` für Agenten, deren Name
+  im Text als ganzes Wort nach „@“ steht – ohne Groß/klein, nur Agenten des Raums
+  (offen: Mitglieder mit der Rolle `agent` und gültiger Karte; privat: Karten der
+  Gruppe), höchstens fünf; teilen sich zwei Agenten einen Namen, erwähnt sie keinen
+  (`erwaehnteAgenten()`).
 - **Antwort:** offen Kind 42 mit `h`, `e` … `root` (im Thread), `e` … `reply` auf
   die Erwähnung und `p` … `mention` des Fragenden; privat dasselbe als inneres Event
   (Art 9). Höchstens 4000 Zeichen.

@@ -733,6 +733,8 @@ Fallstricke dieses Bereichs unten anhängen.
   beantwortet nur, was nach dem Abo kam. Agenten im privaten Raum erkennt man an ihrer Karte (`agentRaum().agenten`),
   nicht an einer Rolle; geschrieben wird nur über `agentSendet()` (inneres Event, gleich in den eigenen Verlauf).
   Auftrag und Bezahlung teilen offene und private Räume (`frageUndZahle()`).
+  Erwähnt wird (seit 11.3d1b1) auch über „@Name“ im Text – nur über `erwaehnteAgenten()` mit den Karten des
+  Raums (offen `agentKartenIm()`: Rolle `agent`, gültige Karte; privat `raumAgentKarten()`), nie aus dem Text allein.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch

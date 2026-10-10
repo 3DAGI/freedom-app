@@ -13,6 +13,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   AGENT_AUFTRAG, AGENT_ROLLE, AuftragsBremse, ausRaumEvent, buildChannelMessage, buildRoleGrant, buildRoles, buildSpace,
   buildSpaceState, generateKeypair, mitAgentRolle, signEvent, type NostrEvent, type RaumNachricht,
@@ -103,4 +104,14 @@ test("11.3c2a: Sitzungsschlüssel je Agent und Raum", () => {
   assert.equal(s.fuer(agent.pk, "r1").fuer("prov"), a);
   assert.notEqual(s.fuer(agent.pk, "r2").fuer("prov").publicKey(), a.publicKey(), "anderer Raum");
   assert.notEqual(s.fuer(agent2.pk, "r1").fuer("prov").publicKey(), a.publicKey(), "anderer Agent");
+});
+
+test("11.3d1b1: Verdrahtung – „@Name“ beim Senden im Raum, offen aus den Karten der Agenten, privat aus der Gruppe", () => {
+  const raeume = readFileSync(new URL("../src/shell/tabs/raeume.ts", import.meta.url), "utf8");
+  assert.match(raeume, /const karten = spacesUi\.privat \? raumAgentKarten\(spacesUi\.privat\.ereignisse\) : spacesUi\.agentKarten;/);
+  assert.match(raeume, /const erwaehnt = \[\.\.\.new Set\(\[\.\.\.\(bezug\?\.erwaehnt \?\? \[\]\), \.\.\.erwaehnteAgenten\(text, karten\)\]\)\];/);
+  assert.match(raeume, /sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text, \{ \.\.\.bezug, erwaehnt \}\)/);
+  assert.match(raeume, /content: text, mentions: erwaehnt,/);
+  assert.match(raeume, /spacesUi\.agentKarten = await agentKartenIm\(spacesUi\.state, pool\);/);
+  assert.match(raeume, /\.filter\(istAgentIm\(s\)\)/, "nur Mitglieder mit der Rolle agent");
 });
