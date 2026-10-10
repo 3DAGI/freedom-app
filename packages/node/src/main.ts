@@ -12,7 +12,7 @@
  *   - publiziert Results + Leistungs-Events
  *   - verwahrt NICHTS (non-custodial by design)
  */
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { totalmem } from "node:os";
 import {
@@ -39,6 +39,8 @@ import { ModellDienst, leseStand, leseWuensche, modellDatei, nurBeiOllama, ollam
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
+import { KNOTEN_MLS_GRENZEN, KnotenMls } from "./knoten-mls.js";
+import { checkUrlSafe } from "./url-guard.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
@@ -206,9 +208,11 @@ async function main(): Promise<void> {
     : "[gratis] aus (GRATIS_TOKENS_TAG=0)");
   if (torProxy) console.log(`[tor] Relays über Tor (SOCKS ${torProxy.host}:${torProxy.port}) – Solana-RPC, LND und Ollama nicht`);
   const verbinde = torProxy ? torWebSocket(torProxy) : undefined;
+  // Die einzige Stelle, an der Relay-Verbindungen entstehen – auch die zu Relays privater Räume (11.3d2a)
+  const relayAn = (url: string) => new WebSocketRelay(url, { verbinde });
   const relays = useMemory
     ? [new MemoryRelay("mem://local")]
-    : relayUrls.map((url) => new WebSocketRelay(url, { verbinde }));
+    : relayUrls.map((url) => relayAn(url));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
 
   // Modelle laden (E9-3a, V3 A): Manifest nur vom eigenen Schlüssel des Knotens (Kuratoren über
@@ -281,6 +285,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   let knotenAgent: KnotenAgent | undefined;
+  let knotenMls: KnotenMls | undefined;
   if (agentWahl?.einstellung) {
     let s: KnotenSchluessel;
     try {
@@ -295,6 +300,22 @@ async function main(): Promise<void> {
     }
     knotenAgent = new KnotenAgent({ schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei() });
     console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
+    // Private Räume (11.3d2a, MENSCH 10.10.): nur mit AGENT_PRIVAT – eigenes MLS-Konto, Stand verschlüsselt, Chat nur im Speicher
+    const einladen = agentWahl.einstellung.privat;
+    if (einladen) {
+      try {
+        knotenMls = KnotenMls.starte({
+          schluessel: s, einladen, ...(agentWahl.einstellung.besitzer ? { besitzer: agentWahl.einstellung.besitzer } : {}),
+          karte: knotenAgent.kartenDaten(), ordner: dirname(agentSchluesselDatei()),
+          // Fremde Relays nur öffentlich – über Tor erreicht der Knoten sein Heimnetz ohnehin nicht
+          umgebung: { pool, neuesRelay: relayAn, pruefeRelay: async (url) => !!torProxy || (await checkUrlSafe(url.replace(/^wss:/, "https:"))).allowed },
+        });
+      } catch (e) {
+        console.error(`[agent] MLS-Konto nicht lesbar (${(e as Error).name}) – der Knoten startet nicht`);
+        process.exit(1);
+      }
+      console.log(`[agent] private Räume: Einladungen von ${einladen === "alle" ? "allen" : "AGENT_BESITZER"}, höchstens ${KNOTEN_MLS_GRENZEN.gruppen} Gruppen`);
+    }
   }
   const provider = new DvmProvider(
     {
@@ -492,6 +513,8 @@ async function main(): Promise<void> {
     const intern = relayRole.alsRelay(keypair.pk);
     pool.removeRelay(intern.url);
     pool.addRelay(intern);
+    // Einladungen an den Agenten (11.3d2a) liegen hier nur für ihn – angemeldet als er, nur zum Lesen dieser Umschläge
+    if (knotenMls) knotenMls.nutzePosteingang(relayRole.alsRelay(knotenMls.pk));
   } else if (process.env.APP_SHA256?.trim()) {
     console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
   }
@@ -625,6 +648,8 @@ async function main(): Promise<void> {
   // Events aelter als 24h — ohne Refresh verschwindet der Provider; nach zwei
   // verpassten Erneuerungen steht er hinter frischen (L2-1, `angebotVeraltet()`).
   const CAPS_REFRESH_MS = ANGEBOT_TAKT_SEK * 1000; // 30 Minuten
+  /** So oft gleicht der Agent seine privaten Räume ab (11.3d2a). */
+  const AGENT_MLS_TAKT_MS = 15_000;
   setInterval(async () => {
     try {
       await pool.publish((await baueAngebot()).ev);
@@ -634,6 +659,30 @@ async function main(): Promise<void> {
       console.error("[caps-refresh] Fehler:", err);
     }
   }, CAPS_REFRESH_MS);
+
+  // Private Räume (11.3d2a): Listen und KeyPackage veröffentlichen, dann Einladungen und Gruppen im Takt
+  // abgleichen – ins Log nur Kennungen und Zahlen, nie Inhalt, nie die Kennung einer Gruppe
+  if (knotenMls) {
+    const mls = knotenMls;
+    await mls.veroeffentliche().catch((e) => console.warn(`[agent] KeyPackage nicht veröffentlicht (${(e as Error).name})`));
+    let laeuft = false;
+    const mlsTakt = async () => {
+      if (laeuft) return;
+      laeuft = true;
+      try {
+        const r = await mls.abgleich();
+        for (const a of r.einladungen) {
+          console.log("fall" in a ? `[agent] Einladung abgelehnt: ${a.fall}` : `[agent] privatem Raum beigetreten (${mls.gruppen().length} Gruppen)`);
+        }
+      } catch (e) {
+        console.warn(`[agent] Abgleich privater Räume gescheitert (${(e as Error).name})`);
+      } finally {
+        laeuft = false;
+      }
+    };
+    void mlsTakt();
+    setInterval(() => void mlsTakt(), AGENT_MLS_TAKT_MS);
+  }
 
   // Modelle laden (E9-3a): gewünscht über `npm run modell`, einmal je Minute nachsehen – eines nach dem anderen;
   // kam eines dazu, gleich ein neues Angebot
