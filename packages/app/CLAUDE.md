@@ -735,6 +735,12 @@ Fallstricke dieses Bereichs unten anhängen.
   Auftrag und Bezahlung teilen offene und private Räume (`frageUndZahle()`).
   Erwähnt wird (seit 11.3d1b1) auch über „@Name“ im Text – nur über `erwaehnteAgenten()` mit den Karten des
   Raums (offen `agentKartenIm()`: Rolle `agent`, gültige Karte; privat `raumAgentKarten()`), nie aus dem Text allein.
+  Agenten auf dem Knoten fragt die App (seit 11.3d1b2) nur über `frageKnotenAgenten()` (`shell/knoten-agent-fragen.ts`)
+  nach dem Senden im offenen Raum: nur wen `zuBezahlen()` nennt (Karte: Knoten, „wer fragt, zahlt“, `provider`), erst
+  Zahlweg und Wallet prüfen, dann den Preis bestätigen lassen – ohne Bestätigung kein Auftrag. Der Auftrag nur über
+  `bezahlterAuftrag()`: frische `KiSitzungen` je Frage, feste Eingabe, der Verweis (`auftragsVerweisTags()`) nur in
+  `extraTags` des Kerns; Ablehnungen nur über ihre Kennung (`ablehnungsText()`), nie Text vom Knoten. Kein
+  zweiter Versuch von selbst – im Zahlkanal hielte die offene erste Gutschrift die zweite um ein Gebot höher.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch

@@ -321,8 +321,12 @@ AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit d
 - **In den Raum** holt ihn der Gründer: Rolle `agent` für seinen Schlüssel (er
   steht im Log, `[agent] … pubkey=…`).
 - **Ungültige Angaben** halten den Knoten an (`[agent] … – der Knoten startet nicht`).
-- **Noch nicht:** private Räume (11.3d2), das Budget des Einladers (11.3d3,
-  nach dem Upgrade des Zahlkanals) und das Fragen aus der App (11.3d1b).
+- **Fragen** (seit 11.3d1b2): Wer den Agenten im Raum mit „@Name“ erwähnt,
+  sieht in der App den Preis (höchstens 100 sats je Antwort, mit der Rate deines
+  Angebots) und schickt nach der Bestätigung einen versiegelten Auftrag mit
+  Verweis an deinen Knoten – über Lightning oder einen Zahlkanal zu dir.
+- **Noch nicht:** private Räume (11.3d2) und das Budget des Einladers (11.3d3,
+  nach dem Upgrade des Zahlkanals).
 
 ## Anrufe über den eigenen Knoten (B-13, im Aufbau)
 

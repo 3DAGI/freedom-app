@@ -26,6 +26,7 @@ import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
 import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
+import type { RaumAgentKarte } from "../../knoten-agent-wahl.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
@@ -55,7 +56,7 @@ interface SpaceUiState {
   /** Ausgeblendetes trotzdem zeigen (B-19) – nur für diese Sitzung, je Raum. */
   alleZeigen: Set<string>;
   /** Karten der Agenten im offenen Raum (Rolle `agent`) – für „@Name“ (11.3d1b1). Privat kommen sie aus der Gruppe. */
-  agentKarten: { agent: string; name: string }[];
+  agentKarten: RaumAgentKarte[];
 }
 
 const spacesUi: SpaceUiState = {
@@ -1014,13 +1015,14 @@ async function aendereMitglied(tun: () => Promise<boolean>): Promise<void> {
  * Karten der Agenten eines offenen Raums (11.3d1b1): nur Mitglieder mit der Rolle
  * `agent`, je Agent die neueste gültige Karte (`aktuelleAgentKarten()`). Ohne Netz leer.
  */
-async function agentKartenIm(stand: unknown, pool: Awaited<ReturnType<typeof ensurePool>>): Promise<{ agent: string; name: string }[]> {
+async function agentKartenIm(stand: unknown, pool: Awaited<ReturnType<typeof ensurePool>>): Promise<RaumAgentKarte[]> {
   const { KIND_AGENT_KARTE, aktuelleAgentKarten, istAgentIm } = await import("@freedomstack/protocol");
   const s = stand as Parameters<typeof istAgentIm>[0] | null;
   const agenten = s ? [...s.grants.keys()].filter(istAgentIm(s)) : [];
   if (!agenten.length) return [];
   const karten = await pool.query({ kinds: [KIND_AGENT_KARTE], authors: agenten, limit: 100 }).catch(() => []);
-  return aktuelleAgentKarten(karten).filter((k) => agenten.includes(k.agent)).map((k) => ({ agent: k.agent, name: k.name }));
+  return aktuelleAgentKarten(karten).filter((k) => agenten.includes(k.agent))
+    .map((k) => ({ agent: k.agent, name: k.name, betrieb: k.betrieb, bezahlung: k.bezahlung, provider: k.provider, modell: k.modell }));
 }
 
 /** Nachricht senden. */
@@ -1058,6 +1060,11 @@ async function sendeRaumNachricht(imThread = false): Promise<void> {
     await (await ensurePool()).publish(ev);
     spacesUi.messages.push(ev);
     await oeffneKanal(spacesUi.channelId);
+    // Agenten auf einem Knoten antworten erst, wenn jemand zahlt – wer fragt (11.3d1b2)
+    const ort = raumZiel();
+    if (agenten.length && ort && "adresse" in ort) {
+      void import("../knoten-agent-fragen.js").then((m) => m.frageKnotenAgenten({ raum: ort.adresse, erwaehnung: ev.id, erwaehnt: agenten, karten: spacesUi.agentKarten }));
+    }
   } catch (e) {
     toast(fehlerText(e), true);
     input.value = text;
