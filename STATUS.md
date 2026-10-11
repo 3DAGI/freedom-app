@@ -8175,4 +8175,6 @@ Nur Dokumente. Entscheidungen des MENSCHEN vom 11.10.2026 eingetragen:
   Website auf Englisch.
 - **RM2:** B1 und B2 passen nicht – „einmal zahlen, viele Nachrichten“ bleibt; in Besprechung.
 
-**Prüfungen:** siehe Pull Request.
+**Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
