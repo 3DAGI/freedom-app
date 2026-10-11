@@ -6,7 +6,8 @@ NUT-12); Cashu immer als verwahrt benennen und die Mint nennen
 (`docs/neuordnung/SAMMLUNG.md`, Abschnitt 5, E4b; Anhang E). Dieser Entwurf
 legt fest, *wie*. Freizugeben sind die Vorschläge V1–V6 und die Antworten auf
 die Fragen W1–W5. „Wie vorgeschlagen“ genügt; jede Frage lässt sich einzeln
-anders entscheiden.
+anders entscheiden. **Freigegeben am 11.10.2026 (MENSCH): wie vorgeschlagen**
+(Abschnitt „Entscheidungen vom 11.10.2026“ am Ende).
 
 ## Worum es geht
 
@@ -85,3 +86,16 @@ Quellen: Breez SDK Spark (Getting Started, Install JavaScript, Testing), npm
 Kein Code, keine neue Abhängigkeit in diesem Schritt. Die Abhängigkeiten
 (`@breeztech/breez-sdk-spark`, `@cashu/cashu-ts`) kommen erst mit A-17a bzw.
 A-17c, mit Größe und Lizenz im Pull Request.
+
+## Entscheidungen vom 11.10.2026 (MENSCH)
+
+Wie vorgeschlagen:
+
+| Nr. | Entscheidung |
+|---|---|
+| V1–V6 | wie vorgeschlagen |
+| W1 | **B** – eigene Datei neben der App (`freedom-spark.wasm`), nur auf Klick geladen, feste Prüfsumme im Bundle, reproduzierbar gebaut, veröffentlicht über `pages.yml` |
+| W2 | **A** – aus der Merkphrase der Identität, eigener fester Pfad |
+| W3 | **Ja** – Vorgabe für Lightning, wenn kein NWC verbunden ist, mit Rückfrage vor dem ersten Aufladen |
+| W4 | **10.000 sats** Höchstbetrag für Cashu |
+| W5 | **Ja** – der MENSCH beantragt den API-Schlüssel bei Breez und legt ihn als Secret ab |

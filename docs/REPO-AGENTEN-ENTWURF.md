@@ -1,6 +1,9 @@
 # Agenten an Raum-Repos – Entwurf (Schritt 11.5)
 
-Stand 10.10.2026, Spur A (mit Spur B). **Wartet auf Freigabe (MENSCH).**
+Stand 10.10.2026, Spur A (mit Spur B). **Freigegeben am 11.10.2026 (MENSCH)** – mit einer
+Änderung bei W3: Der Agent soll Code ausführen können. Wie (Harness, Sandbox) ist noch in
+Besprechung, ebenso die neue Frage W6 (Netz in der Sandbox). Abschnitt „Entscheidungen vom
+11.10.2026“ am Ende; er gilt vor den Vorschlägen darüber.
 Karte `docs/ausbau/phase-11.md`, Zeile 11.5:
 
 > Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7)
@@ -233,3 +236,89 @@ Shell, kein Netz und kein Geld. Je Repo-Auftrag gibt es nur diese:
 - **A-29:** `file_io` je Auftrag trennen (Befund 2), bevor es verdrahtet wird.
   Heute ist es nicht verdrahtet und wirkt also nicht. **Erledigt 10.10.** – je
   Auftrag ein eigener Ordner, nach den Werkzeugen gelöscht.
+
+## Entscheidungen vom 11.10.2026 (MENSCH)
+
+Dieser Abschnitt gilt vor den Vorschlägen oben.
+
+| Nr. | Entscheidung |
+|---|---|
+| V1–V9 | wie vorgeschlagen – außer dem, was W3 ändert: Arbeitskopie (V3), Werkzeuge (V4), Aufteilung (V9); dafür gilt der Vorschlag unten, sobald er besprochen ist |
+| W1 | **B** – eigener Leser und Schreiber, kein git im Knoten; wo die Arbeitskopie liegt, hängt an W3 |
+| W2 | **A** – jedes Mitglied mit Schreibrecht, es zahlt selbst |
+| W3 | **Der Agent führt Code aus** – Wunsch MENSCH: „Agent muss coden können, damit Vibecoding möglich ist.“ Mit welchem Harness und in welcher Sandbox: **in Besprechung** (Vorschlag Spur A unten) |
+| W4 | **A** – der Agent als Autor, Adresse unter `.invalid` |
+| W5 | **A** – Obergrenze vorher bestätigen |
+
+### Vorschlag zu W3: Harness (in Besprechung)
+
+Verglichen am 11.10.2026 nach den Angaben der Projekte selbst:
+
+| | Atomic Agent (B-30) | Hermes Agent (Nous Research) | mini-swe-agent (SWE-bench-Team) |
+|---|---|---|---|
+| Sprache, Lizenz | TypeScript, MIT | Python und Node, MIT | Python, MIT |
+| Umfang | „Developer preview“, „APIs, commands, config, and behavior are still moving“ | großes Produkt (rund 51 000 Commits), eigene Gateways, keine Bibliotheks-Schnittstelle | Kern rund 100 Zeilen: ein Werkzeug (bash), lineare Historie |
+| Ausführen | Shell mit Freigabe durch einen Menschen; keine Sandbox des Betriebssystems, Befehle erben die Umgebung samt `.env` | sieben Ausführungsorte (lokal, Docker, SSH, Singularity, Modal, Daytona, Vercel Sandbox) | jeder Befehl ein eigener Prozess (`subprocess.run`), Umgebungen lokal, Docker/Podman, Singularity/Apptainer, bubblewrap |
+| Gedächtnis | dauerhaft in `~/.atomic-agent` | dauerhaft in `~/.hermes`, lernt aus Verläufen | keines |
+
+- **Vorschlag: mini-swe-agent als Vorlage, nachgebaut in TypeScript im Knoten.**
+  - Der Kern ist klein genug, um ihn ganz zu verstehen und stabil zu übernehmen. Es entsteht
+    keine Abhängigkeit, die sich unter uns ändert.
+  - Weil jeder Befehl ein eigener Prozess ist, läuft jeder einzeln in der Sandbox. Eine
+    Shell, die zwischen Befehlen weiterlebt, gibt es nicht.
+  - Ohne Gedächtnis passt er zur Regel für Aufträge Fremder (AG1: flüchtig, Arbeitsordner je
+    Auftrag, danach gelöscht).
+  - Übernommene Texte (Anweisungen an das Modell) tragen den MIT-Hinweis des Projekts.
+- **Atomic Agent** bleibt für die eigenen Wege (B-30, AG1 A: Dieses Gerät, Mein Knoten). Für
+  Fremde taugt er nicht: Seine Freigaben setzen einen Menschen an der Tastatur voraus, und
+  er hat keine Sandbox des Betriebssystems.
+- **Hermes Agent** ist ein ganzes Produkt mit eigenem dauerhaftem Gedächtnis und ohne
+  Bibliotheks-Schnittstelle. Ihn einzubinden hieße, ein zweites Agenten-System neben dem
+  Knoten zu betreiben – nicht stabil zu übernehmen.
+
+### Vorschlag zu W3: Regeln fürs Ausführen
+
+- **Nur in bubblewrap.** Jeder Befehl läuft in `bwrap` mit eigenen Namensräumen (Nutzer,
+  Prozesse, Netz, IPC, Hostname), `--die-with-parent`, `--new-session`.
+  - Schreibbar ist nur der Arbeitsordner des Auftrags. System-Verzeichnisse sind nur lesbar,
+    das Home des Knotens und `~/.freedom` (Schlüssel, Kopplung, Kasse) sind nicht sichtbar.
+  - Die Umgebung ist leer bis auf `PATH` und `HOME`; keine Variable des Knotens kommt hinein.
+  - Dieselbe Sandbox nutzt B-31 (MCP, MC1: ausführende Werkzeuge nur in bubblewrap) – ein
+    Baustein für beide.
+- **Ohne Sandbox kein Ausführen.** Fehlt `bwrap` oder sind Nutzer-Namensräume gesperrt
+  (Docker-Seccomp, AppArmor ab Ubuntu 24.04), sagt die Selbstprüfung das. Der Agent
+  arbeitet dann wie in V4 – nur lesen und schreiben. Nie direkt auf dem Rechner.
+- **Arbeitsordner im Arbeitsspeicher.** Je Auftrag ein Ordner auf einem tmpfs (0700), darin
+  der Stand am Kopf des Bundles. Nach dem Auftrag wird er gelöscht, auch wenn er scheitert.
+  So bleibt „Kein Klartext im Knoten“: nichts auf der Platte.
+- **Grenzen (Vorgabe, der Betreiber kann sie senken):** 60 s je Befehl, 30 min und
+  50 Schritte je Auftrag, 512 MB im Arbeitsordner, Speicher und Prozesse je Befehl begrenzt.
+  Die Ausgabe je Befehl geht gekürzt an das Modell zurück.
+- **Netz:** im ersten Bau keines (eigener Netz-Namensraum ohne Verbindung) – siehe W6.
+- **Werkzeuge in der Sandbox:** was das Bild des Knotens mitbringt (Node.js, npm ohne Netz,
+  die Shell). git braucht es nicht, den Patch baut der Knoten (V5).
+- **Fremder Text steuert jetzt echten Code.** Die Grenze ist die Sandbox: Darin liegen keine
+  Geheimnisse des Knotens, hinaus geht nur der Patch, und den nimmt nur ein Mensch an (V6).
+- **Kosten:** Gerechnet wird nach Tokens bis zur Obergrenze (W5). Die Rechenzeit der Sandbox
+  trägt der Betreiber; ein eigener Preis dafür ist ein späterer Schritt.
+
+### Vorschlag zu W3: Aufteilung (ersetzt V9, sobald W3 geklärt ist)
+
+| Schritt | Inhalt | Spur | Umfang |
+|---|---|---|---|
+| 11.5s | Sandbox-Baustein (`bwrap`, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 |
+| 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 |
+| 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 |
+| 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 |
+| 11.5c | Knoten: Ablauf wie mini-swe-agent (ein Werkzeug bash, jeder Befehl in der Sandbox), Bundle holen, Patch einreichen, Antwort im Raum | A | ~400, ggf. zwei Teile |
+| 11.5d | App: „Agent beauftragen“, Obergrenze, Kennzeichen an Patches von Agenten | A (Oberfläche mit C) | ~250 |
+
+### Neue Frage
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| W6 | Darf Code in der Sandbox ins Netz (etwa `npm install`)? | A nie – nur, was im Repo und im Bild des Knotens liegt · B nur lesend (GET) über einen Proxy des Knotens zu einer festen Liste von Paket-Registries (npm, PyPI), begrenzt · C frei | **B** – Vibecoding ohne Pakete ist eng. Frei (C) erreichte fremder Code vom Knoten aus jede Adresse, auch das Heimnetz, und der Betreiber trüge das. Nur lesend, damit niemand den Code eines privaten Raums über `npm publish` hinausträgt. Bis zur Antwort baut 11.5 A |
+
+Quellen (11.10.2026): [atomic-agent](https://github.com/AtomicBot-ai/atomic-agent),
+[hermes-agent](https://github.com/NousResearch/hermes-agent),
+[mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent).

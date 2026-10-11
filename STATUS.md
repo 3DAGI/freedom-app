@@ -8158,3 +8158,23 @@ Der Smoke-Test war bei A-24 bis A-26 und bei A-29 je einmal rot im Abschnitt „
 **Prüfungen:** protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert), Leak 73 + 1 todo;
 mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test
 (voller Lauf, mit Korrektur), Website-Bau und reproduzierbarer Build grün.
+
+## Schritt Entscheidungen 11.10. – 11.5, A-12, A-17, A-21, A-27, A-28, 0.G
+
+Nur Dokumente. Entscheidungen des MENSCHEN vom 11.10.2026 eingetragen:
+
+- **11.5** (`docs/REPO-AGENTEN-ENTWURF.md`): freigegeben; W1 B, W2 A, W4 A, W5 A. W3 geändert: Der
+  Agent soll Code ausführen können (Vibecoding). Mit welchem Harness und in welcher Sandbox, ist in
+  Besprechung – Vorschlag Spur A im Entwurf (Ablauf von mini-swe-agent, in TypeScript nachgebaut,
+  jeder Befehl in bubblewrap), dazu die neue Frage W6 (Netz in der Sandbox).
+- **A-12** (`docs/KASSE-ENTWURF.md`): freigegeben; W2 geändert – beim Anlegen wählbar: „Gründer
+  entscheidet“ oder „Mehrheit“ (DAO).
+- **A-17** (`docs/E4B-ENTWURF.md`), **A-21** (`docs/KIT-PLAN.md`): wie vorgeschlagen.
+- **A-27:** so lassen. **A-28:** ja, zusammen mit 0.G. **0.G (M-1):** A – bei `B6W19U…` bleiben,
+  vorausgesetzt, das Upgrade-Recht liegt beim MENSCHEN. **M-6:** erst die Texte der App, dann die
+  Website auf Englisch.
+- **RM2:** B1 und B2 passen nicht – „einmal zahlen, viele Nachrichten“ bleibt; in Besprechung.
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.

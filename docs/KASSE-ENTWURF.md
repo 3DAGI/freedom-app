@@ -4,7 +4,9 @@ Stand 10.10.2026, Spur A. **Entschieden 09.10.2026 (MENSCH):** kein eigenes Prog
 stattdessen Squads anbinden, die geprüfte Mehrfachsignatur auf Solana
 (`docs/neuordnung/SAMMLUNG.md`, A-12). Dieser Entwurf legt fest, *wie*. Freizugeben
 sind die Vorschläge V1–V7 und die Antworten auf die Fragen W1–W5. „Wie vorgeschlagen“
-genügt; jede Frage lässt sich einzeln anders entscheiden.
+genügt; jede Frage lässt sich einzeln anders entscheiden. **Freigegeben am 11.10.2026
+(MENSCH)** – mit einer Änderung bei W2 (Abschnitt „Entscheidungen vom 11.10.2026“ am Ende;
+er gilt vor den Vorschlägen darüber).
 
 ## Worum es geht
 
@@ -95,3 +97,37 @@ mit esbuild).
 Er enthält keinen Code, keine neue Abhängigkeit und keinen Deploy (Squads läuft schon).
 Spending Limits (kleine Auszahlungen ohne Abstimmung) und Kassen für SPL-Token kommen
 frühestens nach A-12d, als eigener Punkt.
+
+## Entscheidungen vom 11.10.2026 (MENSCH)
+
+Dieser Abschnitt gilt vor den Vorschlägen oben.
+
+| Nr. | Entscheidung |
+|---|---|
+| V1–V7 | wie vorgeschlagen |
+| W1 | **B** – eigene Anweisungen nach der IDL, kein SDK |
+| W2 | **Wählbar beim Anlegen** – Wunsch MENSCH: „ob der Gründer entscheiden kann oder ob DAO mit Mehrheitsrecht“. Ausgestaltung unten |
+| W3 | **0** als Vorgabe, 1 h oder 24 h wählbar |
+| W4 | **Neues Recht „kasse“** |
+| W5 | **Ja**, auch in offenen Räumen, mit Hinweis beim Anlegen |
+
+### Zwei Arten von Kasse (W2)
+
+Squads gibt jedem Mitglied eigene Rechte: vorschlagen, abstimmen, ausführen (Initiate, Vote,
+Execute). Daraus werden zwei Arten, gewählt beim Anlegen:
+
+- **„Gründer entscheidet“:**
+  - Nur der Gründer darf abstimmen und ausführen; die Schwelle ist 1.
+  - Die übrigen Mitglieder mit dem Recht „kasse“ dürfen Auszahlungen vorschlagen.
+  - Mitglieder und Art ändert nur der Gründer, über eine Abstimmung mit seiner einen Stimme.
+  - Ehrlich gesagt heißt das: Über das Geld verfügt der Gründer allein. Freedom verwahrt
+    trotzdem nichts. Die App sagt das beim Anlegen und bei jeder Einzahlung.
+- **„Mehrheit“ (DAO):**
+  - Jedes Mitglied darf vorschlagen, abstimmen und ausführen.
+  - Die Schwelle ist die Mehrheit, mindestens 2.
+  - Mitglieder, Schwelle und Art ändert nur eine Abstimmung mit derselben Schwelle (V2).
+
+Für beide gilt: `config_authority` bleibt leer (V2). Kein Schlüssel ändert die Kasse am
+Programm vorbei, auch nicht der des Gründers. Die Art steht auf der Kette (Rechte und
+Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist eine
+Änderung der Konfiguration und macht offene Vorschläge ungültig (`staleTransactionIndex`).
