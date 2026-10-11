@@ -2,7 +2,8 @@
 
 Stand 10.10.2026, Spur A. Sammlung A-21 (Anhang E): Lohnt der Wechsel, und wie geht er in
 Schritten, die jeder für sich grün sind? Kein Code. Neue Abhängigkeiten sind ein STOPP-Punkt.
-Freizugeben sind deshalb die Abhängigkeiten und die Antworten auf W1–W3.
+Freizugeben sind deshalb die Abhängigkeiten und die Antworten auf W1–W3. **Freigegeben am
+11.10.2026 (MENSCH): wie vorgeschlagen** (Abschnitt „Entscheidungen vom 11.10.2026“ am Ende).
 
 ## Befunde (gemessen am 10.10.2026)
 
@@ -76,3 +77,13 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
 
 Er enthält keinen Code und keine neue Abhängigkeit. Die Messwerte stammen aus einem eigenen
 Ordner außerhalb des Repos.
+
+## Entscheidungen vom 11.10.2026 (MENSCH)
+
+Wie vorgeschlagen:
+
+| Nr. | Entscheidung |
+|---|---|
+| W1 | **Freigegeben:** `@solana/kit` (MIT) und `@solana-program/system` (Apache-2.0), exakt gepinnt |
+| W2 | **Ja** – Signieren über `@noble/curves`, Schlüssel nur kurz, danach genullt |
+| W3 | **A-21a und A-21b vor A-12a**, der Rest danach – die Anweisungen der Kasse entstehen gleich für kit |
