@@ -2,8 +2,9 @@
 
 Stand 10.10.2026, Spur A (mit Spur B). **Freigegeben am 11.10.2026 (MENSCH)** – mit einer
 Änderung bei W3: Der Agent soll Code ausführen können. Wie (Harness, Sandbox) ist noch in
-Besprechung, ebenso die neue Frage W6 (Netz in der Sandbox). Abschnitt „Entscheidungen vom
-11.10.2026“ am Ende; er gilt vor den Vorschlägen darüber.
+Besprechung; die Recherche dazu (alle Open-Source-Harnesses, Netz, private Räume) steht am
+Ende, mit den Fragen W3a, W6a und W7. W6 ist B. Abschnitt „Entscheidungen vom 11.10.2026“
+am Ende; er gilt vor den Vorschlägen darüber.
 Karte `docs/ausbau/phase-11.md`, Zeile 11.5:
 
 > Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7)
@@ -249,76 +250,280 @@ Dieser Abschnitt gilt vor den Vorschlägen oben.
 | W3 | **Der Agent führt Code aus** – Wunsch MENSCH: „Agent muss coden können, damit Vibecoding möglich ist.“ Mit welchem Harness und in welcher Sandbox: **in Besprechung** (Vorschlag Spur A unten) |
 | W4 | **A** – der Agent als Autor, Adresse unter `.invalid` |
 | W5 | **A** – Obergrenze vorher bestätigen |
+| W6 | **B** – „Sandbox mit Netzzugang wie geregelt“: nur lesend über den Knoten zu einer festen Liste von Registries; die Ausgestaltung (W6a) und private Räume (W7) unten sind noch zu bestätigen |
 
-### Vorschlag zu W3: Harness (in Besprechung)
+### Recherche zu W3: Harness (11.10.2026, in Besprechung)
 
-Verglichen am 11.10.2026 nach den Angaben der Projekte selbst:
+Auftrag MENSCH: „alle verfügbaren Open-Source-Harnesses bedenken und recherchieren, welche
+andere dafür verwenden“. Gesucht ist ein Ablauf, den der Knoten für Aufträge Fremder stabil
+übernehmen kann.
 
-| | Atomic Agent (B-30) | Hermes Agent (Nous Research) | mini-swe-agent (SWE-bench-Team) |
-|---|---|---|---|
-| Sprache, Lizenz | TypeScript, MIT | Python und Node, MIT | Python, MIT |
-| Umfang | „Developer preview“, „APIs, commands, config, and behavior are still moving“ | großes Produkt (rund 51 000 Commits), eigene Gateways, keine Bibliotheks-Schnittstelle | Kern rund 100 Zeilen: ein Werkzeug (bash), lineare Historie |
-| Ausführen | Shell mit Freigabe durch einen Menschen; keine Sandbox des Betriebssystems, Befehle erben die Umgebung samt `.env` | sieben Ausführungsorte (lokal, Docker, SSH, Singularity, Modal, Daytona, Vercel Sandbox) | jeder Befehl ein eigener Prozess (`subprocess.run`), Umgebungen lokal, Docker/Podman, Singularity/Apptainer, bubblewrap |
-| Gedächtnis | dauerhaft in `~/.atomic-agent` | dauerhaft in `~/.hermes`, lernt aus Verläufen | keines |
+**Was der Harness hier können muss:**
 
-- **Vorschlag: mini-swe-agent als Vorlage, nachgebaut in TypeScript im Knoten.**
-  - Der Kern ist klein genug, um ihn ganz zu verstehen und stabil zu übernehmen. Es entsteht
-    keine Abhängigkeit, die sich unter uns ändert.
-  - Weil jeder Befehl ein eigener Prozess ist, läuft jeder einzeln in der Sandbox. Eine
-    Shell, die zwischen Befehlen weiterlebt, gibt es nicht.
-  - Ohne Gedächtnis passt er zur Regel für Aufträge Fremder (AG1: flüchtig, Arbeitsordner je
-    Auftrag, danach gelöscht).
-  - Übernommene Texte (Anweisungen an das Modell) tragen den MIT-Hinweis des Projekts.
-- **Atomic Agent** bleibt für die eigenen Wege (B-30, AG1 A: Dieses Gerät, Mein Knoten). Für
-  Fremde taugt er nicht: Seine Freigaben setzen einen Menschen an der Tastatur voraus, und
-  er hat keine Sandbox des Betriebssystems.
-- **Hermes Agent** ist ein ganzes Produkt mit eigenem dauerhaftem Gedächtnis und ohne
-  Bibliotheks-Schnittstelle. Ihn einzubinden hieße, ein zweites Agenten-System neben dem
-  Knoten zu betreiben – nicht stabil zu übernehmen.
+| Nr. | Kriterium | Warum |
+|---|---|---|
+| K1 | läuft ohne Bildschirm im Knoten, je Auftrag neu | Aufträge kommen aus dem Raum; niemand sitzt an der Tastatur |
+| K2 | jeder Befehl lässt sich einzeln in unsere Sandbox schicken | die Grenze ist die Sandbox (Regeln unten), nicht der Harness |
+| K3 | kein Gedächtnis, keine Zustandsdateien, keine eigenen Zugänge | AG1: Aufträge Fremder flüchtig; „Kein Klartext im Knoten“ |
+| K4 | eigenes Modell des Knotens (Ollama, OpenAI-kompatibel), auch ohne Tool-Calling | nicht jedes lokale Modell beherrscht Tool-Calling |
+| K5 | Lizenz MIT oder Apache-2.0 | EUPL-1.2; starkes Copyleft (GPL, AGPL) zöge das Ganze unter seine Lizenz |
+| K6 | stabil: klein, verstanden, gepflegt, nicht im Umbau | „stabil kopieren“ (MENSCH) |
+
+**Die Kandidaten.** Stand 11.10.2026. Sterne nach dem Vergleich von pinggy.io (29.08.2026),
+sonst nach Angaben der Projekte.
+
+| Harness | Lizenz, Sprache | Einbetten | Ausführen, Sandbox | Stand | K1–K6 |
+|---|---|---|---|---|---|
+| **mini-swe-agent** (SWE-bench-Team, Princeton/Stanford) | MIT, Python | Bibliothek (`DefaultAgent`), Kern rund 100 Zeilen | jeder Befehl ein eigener Prozess; Umgebungen lokal, Docker/Podman, Singularity, bubblewrap (experimentell) | Harness des offiziellen SWE-bench-Vergleichs „Bash only“; Nutzer laut Projekt Meta, NVIDIA, IBM, Essential AI, Nebius, Anyscale | alle – nachgebaut in TypeScript |
+| SWE-agent | MIT, Python | CLI, GitHub Action | Docker | vom selben Team durch mini-swe-agent abgelöst | K6 ✗ |
+| **Pi** (Mario Zechner, heute Earendil) | MIT, TypeScript | SDK (`createAgentSession`), RPC; Motor von OpenClaw | vier Werkzeuge (read, write, edit, bash), keine Sandbox, keine Rückfragen | 1.1.0; `pi-coding-agent` 23 MB entpackt, `pi-ai` zieht die SDKs von OpenAI, Google, Anthropic und AWS; Paketname 2026 gewechselt | K2 nur über eigene Werkzeuge, K6 ✗ |
+| OpenCode (anomalyco, vormals sst) | MIT, TypeScript | Server und SDK; `/oc` im Issue → Zweig und PR in GitHub Actions | keine eigene Sandbox | rund 202 000 Sterne, sehr aktiv | K3 ✗ (eigene Zustandsordner, Erweiterungen, LSP), K6 ✗ (großes Produkt) |
+| OpenHands | MIT (Kern), Python | Software Agent SDK 1.0, Agent-Server (REST, WebSocket) | Docker je Sitzung (Bild mit VS Code und VNC) | rund 85 000 Sterne | K1 ✓; Docker und Python im Knoten, K6 ✗ |
+| Codex CLI (OpenAI) | Apache-2.0, Rust | `codex exec`, SDK | **beste eingebaute Sandbox:** bubblewrap und seccomp, Netz aus, Proxy-Brücke | rund 119 000 Sterne | K3 ✗ (`~/.codex`, Anmeldung), K6 ✗ (schnelle Versionen) – **Vorbild für unsere Sandbox** |
+| Goose (Block, seit April 2026 Linux Foundation) | Apache-2.0, Rust | CLI, Server | keine eigene Sandbox | rund 54 000 Sterne | K2 ✗, K6 ✗ |
+| Aider | Apache-2.0, Python | CLI | keine; arbeitet mit git | keine Commits seit 22.05.2026 | K6 ✗ |
+| Cline, Kilo Code | Apache-2.0 bzw. MIT, TypeScript | VS-Code-Erweiterung, neu auch CLI und SDK | keine eigene | aktiv | K1 schwach, K6 ✗ |
+| Roo Code | Apache-2.0 | – | – | archiviert am 15.05.2026 | ✗ |
+| Gemini CLI, Qwen Code | Apache-2.0, TypeScript | CLI | Docker/Podman, macOS Seatbelt | Gemini CLI für die meisten am 18.06.2026 eingestellt; Qwen Code ist ein Fork davon | K6 ✗ |
+| DeepSeek Harness | MIT | alles als Plugin | Sandbox als Plugin; Quellen widersprechen sich | Entwickler-Vorschau 0.1.2-alpha (13.08.2026), Brüche angekündigt | K6 ✗ |
+| Grok Build (xAI) | Apache-2.0, Rust | CLI | nicht beschrieben | 1.0 am 07.08.2026 | K6 ✗ (zu neu) |
+| Crush (Charm) | FSL-1.1-MIT | – | – | vor 1.0 | K5 ✗ (erst nach Jahren offen) |
+| Plandex, Trae Agent | MIT | – | – | ruhen seit Okt. 2025 bzw. Feb. 2026 | K6 ✗ |
+| smolagents (Hugging Face) | Apache-2.0, Python | Bibliothek | Code-Agenten mit E2B oder Docker | Baukasten für eigene Agenten, kein Coding-Harness | teils |
+| Hermes Agent (Nous Research) | MIT, Python und Node | keine Bibliotheks-Schnittstelle | sieben Ausführungsorte | großes Produkt mit eigenem Gedächtnis (`~/.hermes`) | K3 ✗, K6 ✗ |
+| Atomic Agent (B-30) | MIT, TypeScript | `atomic-agent serve` | Freigaben durch einen Menschen, keine Sandbox | „developer preview“ | für Fremde ✗ – bleibt für eigene Wege (AG1 A) |
+| Shakespeare (Soapbox, Vibecoding auf Nostr im Browser) | AGPL-3.0 | Web-App | im Browser, kein fremder Prozess | aktiv | K5 ✗ – nur als Vorbild für Nostr und git |
+
+**Was andere dafür verwenden:**
+- **Modelle vergleichen:** Der offizielle SWE-bench-Vergleich „Bash only“ läuft mit
+  mini-swe-agent – nur bash, „just a simple ReAct loop“, auf SWE-bench Verified. Das Projekt
+  nennt über 74 % mit starken Modellen.
+- **In ein Produkt einbetten:** OpenClaw nutzt Pi als Laufzeit (`createAgentSession` mit
+  eigenen Werkzeugen).
+- **„Erwähnung im Issue → Patch“, wie bei uns:** OpenCode (`/oc`, läuft in GitHub Actions,
+  öffnet einen PR), OpenHands (Resolver, SDK mit Docker), Codex Cloud, GitHub Copilot Coding
+  Agent. Alle arbeiten in einer Wegwerf-Umgebung je Auftrag. Codex und Copilot sperren das
+  Netz bis auf eine Liste (W6 unten).
+- **Wie viel der Harness ausmacht:** Eine Studie (Juli 2026) ließ Goose, OpenCode und
+  OpenHands-SDK mit denselben offenen Modellen auf Terminal-Bench laufen. Die Lösungsquote
+  unterschied sich um 0 bis 8 Prozentpunkte, die Tokens je gelöster Aufgabe bis zum
+  Vierzigfachen. Ein Knoten, der nach Tokens abrechnet (W5), braucht also vor allem einen
+  schlanken Ablauf.
+
+**Ergebnis: Vorschlag wie bisher, jetzt begründet – den Ablauf von mini-swe-agent in
+TypeScript nachbauen.**
+- Nur er erfüllt K1–K6 ganz. Der Kern ist klein genug, um ihn vollständig zu verstehen. Er
+  ist der Maßstab, an dem Modelle gemessen werden, und es entsteht keine Abhängigkeit, die
+  sich unter uns ändert.
+- **Übernommen (gelesen im Quelltext, 11.10.):**
+  - eine Aktion je Antwort, als Codeblock im Text (wie Fassung 1.x – geht auch mit lokalen
+    Modellen ohne Tool-Calling);
+  - lineare Historie, jeder Befehl in einer neuen Shell;
+  - lange Ausgaben gekürzt: über 10 000 Zeichen nur Anfang und Ende je 5 000;
+  - Ende mit `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT`, allein im Befehl;
+  - höchstens drei Formfehler hintereinander;
+  - die Anweisungen an das Modell, mit dem MIT-Hinweis des Projekts.
+- **Anders als dort:**
+  - Am Ende gibt das Modell keinen Diff aus; den Patch baut der Knoten aus dem Arbeitsordner (V5).
+  - Grenzen nach Schritten, Zeit und der Obergrenze des Preises (W5) statt nach Dollar.
+  - Die Sandbox ist unsere (unten). Die bubblewrap-Umgebung von mini-swe-agent ist als
+    experimentell markiert, teilt das Netz des Rechners (kein `--unshare-net`) und bindet
+    ganz `/etc` ein. Als Grenze für Fremde taugt sie nicht.
+- **Zweite Wahl: Pi als Bibliothek**, falls später Werkzeuge wie `edit` nötig werden.
+  TypeScript und MIT, aber ein großer Abhängigkeitsbaum und Umbau in diesem Jahr. Neu prüfen,
+  wenn 11.5c läuft.
+- **Vorbild für die Sandbox: Codex CLI** (nächster Abschnitt) – als Regelwerk, nicht als
+  Programm im Knoten.
 
 ### Vorschlag zu W3: Regeln fürs Ausführen
 
-- **Nur in bubblewrap.** Jeder Befehl läuft in `bwrap` mit eigenen Namensräumen (Nutzer,
-  Prozesse, Netz, IPC, Hostname), `--die-with-parent`, `--new-session`.
-  - Schreibbar ist nur der Arbeitsordner des Auftrags. System-Verzeichnisse sind nur lesbar,
-    das Home des Knotens und `~/.freedom` (Schlüssel, Kopplung, Kasse) sind nicht sichtbar.
-  - Die Umgebung ist leer bis auf `PATH` und `HOME`; keine Variable des Knotens kommt hinein.
+- **Nur in bubblewrap, nach dem Vorbild von Codex.** Codex startet unter Linux jeden Befehl
+  in bubblewrap:
+  - die Wurzel nur lesbar;
+  - schreibbar nur die Arbeitsordner, darin `.git` wieder nur lesbar;
+  - eigene Namensräume für Nutzer, Prozesse und – ohne Proxy – Netz;
+  - ein frisches `/proc`;
+  - danach `PR_SET_NO_NEW_PRIVS` und ein seccomp-Filter, der Netz-Aufrufe und `io_uring` sperrt.
+
+  Für uns heißt das je Befehl:
+  - `--unshare-all` (Nutzer, Prozesse, Netz, IPC, Hostname, cgroup), `--die-with-parent`,
+    `--new-session`, `--cap-drop ALL`;
+  - nur lesbar: `/usr`, `/bin`, `/lib`, `/lib64` und die Werkzeuge des Bilds. Aus `/etc` nur,
+    was Programme brauchen (etwa ein `passwd` mit einem Nutzer), nicht das ganze `/etc` wie bei
+    mini-swe-agent;
+  - schreibbar nur der Arbeitsordner; `/tmp` als tmpfs; `/proc` und `/dev` neu;
+  - die Umgebung leer (`--clearenv`) bis auf `PATH`, `HOME` und `LANG`; keine Variable des Knotens;
+  - seccomp wie bei Codex als zweite Stufe in 11.5s, wenn es ohne neue Abhängigkeit geht;
+    sonst ein eigener Schritt.
+  - Das Home des Knotens und `~/.freedom` (Schlüssel, Kopplung, Kasse) sind nicht sichtbar.
   - Dieselbe Sandbox nutzt B-31 (MCP, MC1: ausführende Werkzeuge nur in bubblewrap) – ein
     Baustein für beide.
 - **Ohne Sandbox kein Ausführen.** Fehlt `bwrap` oder sind Nutzer-Namensräume gesperrt
-  (Docker-Seccomp, AppArmor ab Ubuntu 24.04), sagt die Selbstprüfung das. Der Agent
-  arbeitet dann wie in V4 – nur lesen und schreiben. Nie direkt auf dem Rechner.
+  (Docker-Seccomp, AppArmor ab Ubuntu 24.04 – beides kennt auch Codex), sagt die
+  Selbstprüfung das. Der Agent arbeitet dann wie in V4: nur lesen und schreiben. Nie direkt
+  auf dem Rechner.
 - **Arbeitsordner im Arbeitsspeicher.** Je Auftrag ein Ordner auf einem tmpfs (0700), darin
   der Stand am Kopf des Bundles. Nach dem Auftrag wird er gelöscht, auch wenn er scheitert.
   So bleibt „Kein Klartext im Knoten“: nichts auf der Platte.
-- **Grenzen (Vorgabe, der Betreiber kann sie senken):** 60 s je Befehl, 30 min und
-  50 Schritte je Auftrag, 512 MB im Arbeitsordner, Speicher und Prozesse je Befehl begrenzt.
-  Die Ausgabe je Befehl geht gekürzt an das Modell zurück.
-- **Netz:** im ersten Bau keines (eigener Netz-Namensraum ohne Verbindung) – siehe W6.
-- **Werkzeuge in der Sandbox:** was das Bild des Knotens mitbringt (Node.js, npm ohne Netz,
-  die Shell). git braucht es nicht, den Patch baut der Knoten (V5).
+- **Grenzen** (Vorgabe, der Betreiber kann sie senken):
+  - 60 s je Befehl; bei Ablauf wird die ganze Prozessgruppe beendet, wie bei mini-swe-agent;
+  - 30 min und 50 Schritte je Auftrag;
+  - 512 MB im Arbeitsordner; Speicher und Prozesse je Befehl begrenzt.
+  - Die Ausgabe je Befehl geht gekürzt an das Modell zurück.
+- **Netz:** Die Sandbox selbst bleibt ohne Netz. Pakete holt der Knoten vorher (W6, unten).
+- **Werkzeuge in der Sandbox:** was das Bild des Knotens mitbringt (Node.js, npm, Python,
+  die Shell). git braucht es nicht; den Patch baut der Knoten (V5).
 - **Fremder Text steuert jetzt echten Code.** Die Grenze ist die Sandbox: Darin liegen keine
   Geheimnisse des Knotens, hinaus geht nur der Patch, und den nimmt nur ein Mensch an (V6).
 - **Kosten:** Gerechnet wird nach Tokens bis zur Obergrenze (W5). Die Rechenzeit der Sandbox
   trägt der Betreiber; ein eigener Preis dafür ist ein späterer Schritt.
 
+### W6: Netz in der Sandbox
+
+**Freigegeben 11.10.2026 (MENSCH): B** – „Sandbox mit Netzzugang wie geregelt“: nur lesend,
+über den Knoten, zu einer festen Liste von Paket-Registries. Die Ausgestaltung unten ist neu
+und bitte zu bestätigen.
+
+**Wie andere es machen** (recherchiert 11.10.):
+
+| | Netz beim Arbeiten | Liste | Sonst |
+|---|---|---|---|
+| Codex Cloud | aus (Vorgabe); das Setup-Skript läuft vorher mit Netz | „Common dependencies“: github.com, npmjs.com, pypi.org, pythonhosted.org, crates.io, maven.org u. a. | wählbar: nur GET, HEAD, OPTIONS |
+| GitHub Copilot Coding Agent | Firewall an (Vorgabe) | empfohlene Liste: Paket-Registries von zwölf Sprachen, Pakete des Betriebssystems, Container | gilt nur für Prozesse aus dem Bash-Werkzeug |
+| Codex CLI | aus (`workspace-write`) | über eine Proxy-Brücke in den Namensraum | seccomp sperrt Netz-Aufrufe, wenn kein Proxy da ist |
+| Anthropic `sandbox-runtime` (Apache-2.0) | nur über einen Proxy (HTTP, SOCKS5) | `allowedDomains`, sonst alles gesperrt | bubblewrap unter Linux |
+
+Codex nennt als Risiken: Prompt Injection, Abfluss von Code und Geheimnissen, Schadcode in
+Abhängigkeiten, Lizenzen. Dazu kommt npm: Version 12 schaltet Install-Skripte standardmäßig
+ab. Schadcode, der erst beim Importieren läuft, hält das nicht auf (so im Juli 2026 bei
+AsyncAPI). Also: Pakete holen und Code ausführen trennen – ausgeführt wird nur ohne Netz.
+
+**Vorschlag: zwei Phasen; die Sandbox selbst bleibt ohne Netz.**
+1. **Pakete holen – der Knoten, bevor der Agent beginnt:**
+   - Er liest die Sperrdatei im Arbeitsordner: `package-lock.json` (Fassung 2 und 3) und
+     `requirements.txt` nur mit `--hash`.
+   - Er lädt nur die Archive, die dort stehen, per GET und nur von `registry.npmjs.org`,
+     `pypi.org` und `files.pythonhosted.org`. Das geht über den SSRF-Wächter (8.7) und über
+     Tor, wenn eingestellt.
+   - Jede Prüfsumme wird geprüft (`integrity` mit sha512, `--hash` mit sha256). Ohne
+     Prüfsumme gibt es kein Paket.
+   - Grenzen (Vorgabe): 500 Pakete, 200 MB zusammen, Größe je Archiv, Zeit.
+   - Ablage in einem Zwischenspeicher je Auftrag (tmpfs), danach gelöscht.
+2. **Arbeiten – die Sandbox, ohne Netz:**
+   - Der Zwischenspeicher ist nur lesbar eingebunden.
+   - Installiert wird mit `npm ci --offline --ignore-scripts` bzw.
+     `pip install --no-index --find-links`.
+   - Install-Skripte laufen nie. Native Erweiterungen, die beim Installieren bauen
+     (node-gyp), gehen damit nicht – das sagt der Agent im Raum.
+3. **Ein neues Paket – nur in offenen Räumen:**
+   - Werkzeug `paket_holen(registry, name, version)`. Der Knoten führt es aus, nicht die Sandbox.
+   - Metadaten und Archiv per GET von der Liste; der Name nach den Regeln der Registry
+     geprüft; die Version fest, kein Bereich.
+   - Höchstens 20 je Auftrag.
+   - Danach schreibt der Agent die Sperrdatei in der Sandbox offline
+     (`npm install --package-lock-only --offline`).
+- **Warum so:**
+  - Code in der Sandbox erreicht keine Adresse, weder das Internet noch das Heimnetz des Betreibers.
+  - Hinaus geht nur ein GET des Knotens nach Paketen, die eine Sperrdatei mit Prüfsumme
+    nennt oder die der Agent mit Namen und Version anfragt.
+  - Es gibt kein POST, also auch kein `npm publish`.
+- **Rest-Risiko, ehrlich:** Ein Agent unter fremdem Einfluss könnte über die Wahl von
+  Paketnamen einzelne Bits nach außen geben, über die öffentliche Download-Zählung der
+  Registry. Im offenen Raum ist der Code ohnehin öffentlich. Im privaten Raum gibt es deshalb
+  Schritt 3 nicht (unten).
+- **Andere Sprachen** (crates.io, Go-Proxy …) kommen später, je mit einer Zeile in der Liste
+  und einem Leser für ihre Sperrdatei.
+
+### Private Räume (Vorschlag)
+
+Auftrag MENSCH: „Mit git auf Freedom sowieso öffentlich, bei privat schauen, wie am besten
+gemacht.“
+
+- **Offene Repos sind öffentlich:** Ihr Bundle-Schlüssel steht im öffentlichen Verweis (38042).
+  Ein Knoten, der daran arbeitet, sieht nichts, was nicht jeder sehen kann.
+- **Private Repos sind so geheim wie der Chat des Raums.**
+
+**Wo Code eines privaten Repos hinausgelangen könnte:**
+1. an das Modell – läuft es nicht auf dem Knoten selbst, liest ein Dritter den Code mit;
+2. auf die Platte oder ins Log des Knotens;
+3. über das Netz aus der Sandbox (Schadcode, Prompt Injection);
+4. über das Holen der Pakete (Paketnamen, Zeitpunkte, IP des Knotens);
+5. über den Patch und die Antwort.
+
+**Wie andere es machen:**
+- Copilot, Codex Cloud und OpenHands Cloud arbeiten an privaten Repos in der Cloud des
+  Anbieters. Man vertraut ihm per Vertrag.
+- Auf fremder Hardware schützt technisch nur vertrauliches Rechnen (TEE). Dafür liegt
+  `docs/D3-ENTWURF.md` (freigegeben 08.10., ruht – der GX10 hat kein TPM).
+- Shakespeare arbeitet im Browser; den Code sieht dort nur der gewählte KI-Anbieter.
+
+**Vorschlag P1–P5:**
+- **P1 – Nur Agenten, die schon Mitglied sind.**
+  - Ein Agent im privaten Raum liest den Raum ohnehin (Grenze „agent-knoten-privat“).
+  - Den Schlüssel des Bundles liest er aus dem inneren Event (38042 in der Gruppe), wie
+    jedes Mitglied.
+  - Kein Schlüssel reist in einem Auftrag, und kein Knoten außerhalb der Gruppe bekommt Code.
+  - Der Betreiber muss private Räume zulassen (`AGENT_PRIVAT`); empfohlen ist `besitzer`.
+- **P2 – Nur mit dem Modell auf demselben Rechner.**
+  - Repo-Aufträge aus privaten Räumen nimmt der Knoten nur an, wenn sein Modell auf demselben
+    Rechner läuft: `OLLAMA_URL` auf localhost, geprüft wie `lokaleKiAdresse()`.
+  - Nie an andere Provider oder einen Dienst im Netz.
+  - Sonst antwortet der Agent im Raum mit Grund und arbeitet nicht.
+  - Das entspricht D2 („privat“: nur Gerät oder eigener Knoten).
+- **P3 – Ohne Netz; Pakete nur aus der Sperrdatei und nur, wenn der Raum es will.**
+  - Phase 1 (Pakete holen) läuft nur, wenn ein Admin es im Raum einschaltet; Vorgabe aus.
+  - Die Registry sieht dann Paketnamen und die IP des Knotens, nie Code.
+  - `paket_holen` gibt es im privaten Raum nicht.
+- **P4 – Nichts auf der Platte, nichts im Log.**
+  - Arbeitsordner und Zwischenspeicher liegen im tmpfs und werden nach dem Auftrag gelöscht.
+  - Das Log enthält nur Zahlen und feste Kennungen.
+  - Patch und Antwort gehen nur als innere Events hinaus (`raumRepoPatch()`); das deckt die
+    Leak-Regel `raum-repo-privat`.
+- **P5 – Agent auf dem Gerät.**
+  - Im Browser gibt es keine Sandbox für fremde Prozesse. Dort arbeitet er wie in V4: lesen
+    und schreiben, nichts ausführen.
+  - Ausführen auf dem Gerät erst in der Hülle (6.1, Tauri) mit derselben Sandbox – ein
+    eigener späterer Schritt.
+- **Später:** Versiegelte Provider (D3) könnten private Repos auch auf fremden Knoten bearbeiten.
+
 ### Vorschlag zu W3: Aufteilung (ersetzt V9, sobald W3 geklärt ist)
 
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
-| 11.5s | Sandbox-Baustein (`bwrap`, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 |
+| 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 |
 | 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 |
 | 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 |
 | 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 |
-| 11.5c | Knoten: Ablauf wie mini-swe-agent (ein Werkzeug bash, jeder Befehl in der Sandbox), Bundle holen, Patch einreichen, Antwort im Raum | A | ~400, ggf. zwei Teile |
-| 11.5d | App: „Agent beauftragen“, Obergrenze, Kennzeichen an Patches von Agenten | A (Oberfläche mit C) | ~250 |
+| 11.5n | Pakete holen (W6): Sperrdateien lesen (npm, PyPI), Archive mit Prüfsumme nur von der Liste, Zwischenspeicher; `paket_holen` nur in offenen Räumen; Schalter im privaten Raum | A | ~300 |
+| 11.5c | Knoten: Ablauf wie mini-swe-agent (eine Aktion je Antwort, jeder Befehl in der Sandbox), Bundle holen, P1–P4, Patch einreichen, Antwort im Raum | A | ~400, ggf. zwei Teile |
+| 11.5d | App: „Agent beauftragen“, Obergrenze, Kennzeichen an Patches von Agenten, Schalter „Pakete holen“ im privaten Raum | A (Oberfläche mit C) | ~250 |
 
-### Neue Frage
+### Fragen dazu
 
 | Nr. | Frage | Optionen | Empfehlung |
 |---|---|---|---|
-| W6 | Darf Code in der Sandbox ins Netz (etwa `npm install`)? | A nie – nur, was im Repo und im Bild des Knotens liegt · B nur lesend (GET) über einen Proxy des Knotens zu einer festen Liste von Paket-Registries (npm, PyPI), begrenzt · C frei | **B** – Vibecoding ohne Pakete ist eng. Frei (C) erreichte fremder Code vom Knoten aus jede Adresse, auch das Heimnetz, und der Betreiber trüge das. Nur lesend, damit niemand den Code eines privaten Raums über `npm publish` hinausträgt. Bis zur Antwort baut 11.5 A |
+| W3a | Welcher Harness? | A Ablauf von mini-swe-agent, nachgebaut in TypeScript · B Pi als Bibliothek · C Codex CLI als Programm im Knoten · D OpenHands mit Docker | **A** – erfüllt als Einziger K1–K6; Codex dient als Vorbild für die Sandbox |
+| W6a | Ausgestaltung von W6 B | wie oben: Pakete holt der Knoten (Sperrdatei mit Prüfsumme, feste Liste, nur GET), die Sandbox bleibt ohne Netz, neue Pakete nur in offenen Räumen | so |
+| W7 | Wer darf an Code privater Räume arbeiten? | A nur Agenten, die Mitglied sind, mit Modell auf demselben Rechner (P1–P5) · B dazu fremde Knoten nach Hinweis im Raum · C in privaten Räumen keine Repo-Aufträge | **A** – der Code bleibt in der Gruppe und auf dem Rechner des Agenten; das passt zu D2 |
 
-Quellen (11.10.2026): [atomic-agent](https://github.com/AtomicBot-ai/atomic-agent),
-[hermes-agent](https://github.com/NousResearch/hermes-agent),
-[mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent).
+Quellen (11.10.2026):
+- Harnesses: [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) (Quelltext von
+  `agents/default.py`, `environments/extra/bubblewrap.py`, `config/default.yaml`),
+  [SWE-bench Bash Only](https://www.swebench.com/bash-only.html),
+  [Pi auf npm](https://www.npmjs.com/package/@mariozechner/pi-coding-agent) und
+  [Armin Ronacher über Pi und OpenClaw](https://mitsuhiko.spicytakes.org/post/2026-01-31-pi),
+  [OpenCode GitHub](https://opencode.ai/docs/github/),
+  [OpenHands Agent Server](https://docs.openhands.dev/sdk/guides/agent-server/overview),
+  [Vergleich pinggy.io](https://pinggy.io/blog/best_open_source_cli_coding_agents/),
+  [Vergleich (Gist)](https://gist.github.com/asermax/4fb2be4f6f1fc0d6be1e3966b6e2bb91),
+  [Studie „Scaffold Effect“](https://arxiv.org/abs/2607.22585),
+  [DeepSeek Harness](https://thenewstack.io/deepseek-harness-open-source-plugins/),
+  [Shakespeare](https://alternativeto.net/software/shakespeare/about),
+  [atomic-agent](https://github.com/AtomicBot-ai/atomic-agent),
+  [hermes-agent](https://github.com/NousResearch/hermes-agent).
+- Sandbox und Netz: [Codex Linux-Sandbox](https://github.com/openai/codex/blob/main/codex-rs/linux-sandbox/README.md),
+  [Codex Cloud: Internetzugang](https://learn.chatgpt.com/docs/cloud/internet-access),
+  [Copilot: Firewall](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-firewall),
+  [Anthropic sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime),
+  [npm 12 ohne Install-Skripte](https://thehackernews.com/search/label/CI),
+  [npm-Angriffe 2026](https://www.pkgpulse.com/guides/npm-security-landscape-supply-chain-attacks-2026).
