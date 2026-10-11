@@ -8178,3 +8178,49 @@ Nur Dokumente. Entscheidungen des MENSCHEN vom 11.10.2026 eingetragen:
 **Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt 11.5-Recherche und RM2-Entwurf – Harness, Netz, private Räume; Lightning wie der Zahlkanal
+
+Nur Dokumente. Auftrag MENSCH 11.10.: „Alle drei offenen Punkte ausführlichst recherchieren.“
+
+- **Harness (W3, `docs/REPO-AGENTEN-ENTWURF.md`):**
+  - 22 Open-Source-Harnesses verglichen, nach sechs Kriterien (K1–K6): ohne Bildschirm,
+    jeder Befehl in unsere Sandbox, kein Gedächtnis, eigenes Modell auch ohne Tool-Calling,
+    MIT/Apache, stabil.
+  - Dazu, wer was nutzt:
+    - SWE-bench „Bash only“ läuft mit mini-swe-agent;
+    - OpenClaw nutzt Pi;
+    - OpenCode, OpenHands, Codex Cloud und Copilot machen „Erwähnung → Patch“.
+  - Eine Studie (Juli 2026) zeigt: Der Harness ändert die Lösungsquote kaum (0–8 Punkte),
+    die Tokens bis zum Vierzigfachen.
+  - Vorschlag (Frage W3a): den Ablauf von mini-swe-agent in TypeScript nachbauen. Den
+    Quelltext haben wir gelesen. Die bubblewrap-Umgebung von mini-swe-agent taugt nicht als
+    Grenze: Sie teilt das Netz und bindet ganz `/etc` ein. Die Sandbox nach dem Vorbild von
+    Codex CLI: bubblewrap, Namensräume, seccomp als zweite Stufe.
+- **Netz (W6 B, freigegeben 11.10.):**
+  - Vorbilder: Codex Cloud (Netz aus, Liste, nur GET), Copilot (Firewall mit Liste der
+    Registries), sandbox-runtime (Proxy mit erlaubten Domains).
+  - Ausgestaltung (Frage W6a): Die Sandbox bleibt ohne Netz. Der Knoten holt vorher nur
+    Pakete aus der Sperrdatei, mit Prüfsumme, von einer festen Liste. Ein neues Paket nur in
+    offenen Räumen und nur über ein Werkzeug des Knotens. Install-Skripte laufen nie.
+- **Private Räume (Frage W7):**
+  - P1: nur Agenten, die schon Mitglied sind; der Schlüssel kommt aus dem inneren Event.
+  - P2: nur mit dem Modell auf demselben Rechner (wie D2).
+  - P3: ohne Netz; Pakete nur, wenn der Raum es einschaltet.
+  - P4: nichts auf Platte oder Log.
+  - P5: auf dem Gerät nur ohne Ausführen.
+- **RM2 (`docs/RM2-ENTWURF.md`):**
+  - Lightning-Gegenstück zum Zahlkanal: der Cashu-Pfand. Einmal bei einer Mint laden. Je
+    Fenster Token mit Sperre auf den Provider, Frist und Rückweg (NUT-11), mit DLEQ (NUT-12).
+    Je Anfrage im versiegelten Kern übergeben. Der Provider prüft ohne Mint und löst vor der
+    Frist ein; der Rest bleibt beim Kunden. Kein Kredit.
+  - Verworfen:
+    - Guthaben beim Knoten (Routstr, verstößt gegen 5.1.2);
+    - L402 und Hold-Rechnungen (brauchen einen eigenen LND wie B1);
+    - ein eigener Lightning-Kanal.
+  - Der Spilman-Kanal für Cashu (NUT-Entwurf, Alpha) kommt später als Fassung 2.
+  - Fragen W1–W5. W5 berührt E4b V3 („Cashu nie Vorgabe“).
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
