@@ -12,7 +12,7 @@
  */
 import type { Stufe } from "./einrichtung.js";
 import type { AntriebArt } from "./ki-antrieb.js";
-import { type ModellStand, type Wunsch, offeneWuensche } from "./modell-laden.js";
+import { type GeprueftesModell, type ModellStand, type Wunsch, offeneWuensche } from "./modell-laden.js";
 
 export interface ModellPruefBefund {
   name: string;
@@ -37,6 +37,7 @@ const gb = (bytes: unknown): string => (Number(bytes) / 1e9).toLocaleString("de-
 export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) => string> = {
   "modell.geprueft": (w) => `geprüft gegen das Manifest (${w.dateien} Dateien, ${gb(w.bytes)} GB), im Angebot`,
   "modell.ungeprueft": () => "angeboten, aber nicht gegen ein Manifest geprüft (PROVIDER_MODELS) – prüfen: npm run modell -- <name> --aus-registry",
+  "modell.ordnerVeraendert": () => "im Ordner des Modells hat sich etwas geändert – nicht im Angebot, bis es neu geprüft ist: npm run modell -- <org/repo>",
   "modell.veraendert": () => "Ollama hat unter diesem Namen inzwischen etwas anderes als das Geprüfte – nicht im Angebot",
   "modell.fehltBeiOllama": () => "Ollama kennt das Modell nicht – nicht im Angebot",
   "modell.fehltImAngebot": () => "Ollama kennt keins der angebotenen Modelle – es bleibt im Angebot, Aufträge dafür scheitern",
@@ -45,12 +46,14 @@ export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) =>
   "modell.antriebKenntKeins": () => "der KI-Antrieb kennt keins der angebotenen Modelle – es bleibt im Angebot, Aufträge dafür scheitern",
   "modell.antriebStumm": () => "der KI-Antrieb antwortete nicht – Stand ungewiss",
   "modell.nurOllama": () => "geprüft über Ollama geladen – mit diesem KI-Antrieb nicht im Angebot",
-  "modell.ungeprueftAntrieb": () => "angeboten, aber nicht gegen ein Manifest geprüft (PROVIDER_MODELS) – mit diesem KI-Antrieb geht das noch nicht",
-  "modell.ladenNurOllama": () => "gewünscht – geprüft laden geht bisher nur mit Ollama als KI-Antrieb",
+  "modell.nurAntrieb": () => "von Hugging Face geladen – bedient nur ein OpenAI-kompatibler KI-Antrieb, mit Ollama nicht im Angebot",
+  "modell.ungeprueftAntrieb": () => "angeboten, aber nicht gegen ein Manifest geprüft (PROVIDER_MODELS) – prüfen: npm run modell -- <org/repo> --aus-hf",
+  "modell.ladenNurOllama": () => "gewünscht über Ollama – mit diesem KI-Antrieb lädt der Knoten nur von Hugging Face (npm run modell -- <org/repo>)",
+  "modell.ladenNurAntrieb": () => "gewünscht von Hugging Face – das geht nur mit einem OpenAI-kompatiblen KI-Antrieb (KI_ANTRIEB=openai)",
   "modell.wartet": () => "gewünscht, wartet auf den Knoten",
-  "modell.manifestKeins": () => "kein eigenes Manifest des Knotens – festhalten, was die Registry jetzt nennt: npm run modell -- <name> --aus-registry",
+  "modell.manifestKeins": () => "kein eigenes Manifest des Knotens – festhalten, was die Quelle jetzt nennt: npm run modell -- <name> --aus-registry bzw. --aus-hf",
   "modell.manifestUneinig": (w) => `${w.herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl`,
-  "modell.manifestKeineQuelle": () => "das Manifest nennt keine Ollama-Quelle zu diesem Namen (upstream ollama:<name>)",
+  "modell.manifestKeineQuelle": () => "das Manifest nennt keine passende Quelle zu diesem Namen (upstream ollama:<name> bzw. hf:<org/repo>@<commit>)",
   "modell.manifestNichtVeroeffentlicht": (w) => `eigenes Manifest nicht veröffentlicht (${w.fehler}) – nichts geladen`,
   "modell.registryNichtErreichbar": () => "die Registry war nicht zu befragen – nichts festgehalten, nichts geladen",
   "modell.passtNicht": (w) => `braucht etwa ${w.brauchtGb} GB, das Gerät hat ${w.hatGb} GB (MODELL_SPEICHER_GB)`,
@@ -61,6 +64,16 @@ export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) =>
   "modell.schichtFremd": (w) => `${w.anzahl} geladene Schicht(en) stehen nicht im Manifest – nicht angeboten`,
   "modell.schichtGroesse": (w) => `${w.anzahl} Schicht(en) mit anderer Größe als im Manifest – nicht angeboten`,
   "modell.schichtFehlt": (w) => `${w.anzahl} Datei(en) des Manifests hat Ollama nicht geladen – nicht angeboten`,
+  "modell.hfForm": () => "Hugging Face antwortete in unerwarteter Form – nichts festgehalten, nichts geladen",
+  "modell.hfOhneGewichte": () => "das Repo hat keine safetensors oder keine config.json – der Knoten lädt kein Pickle und kein Python",
+  "modell.hfAnders": (w) => `Hugging Face nennt ${w.anzahl} Datei(en) anders als das Manifest – nichts geladen`,
+  "modell.hfZuGross": () => "eine kleine Datei ohne Summe von Hugging Face ist zu groß zum Prüfen – nichts festgehalten",
+  "modell.hfNichtErreichbar": (w) => `Hugging Face war nicht zu befragen (${w.fehler}) – nichts festgehalten, nichts geladen`,
+  "modell.hfLaden": (w) => `Laden von Hugging Face abgebrochen (${w.fehler}) – nicht angeboten`,
+  "modell.dateiFremd": (w) => `${w.anzahl} Datei(en) im Ordner stehen nicht im Manifest – nicht angeboten`,
+  "modell.dateiSumme": (w) => `${w.anzahl} Datei(en) mit anderer Summe als im Manifest – nicht angeboten`,
+  "modell.dateiGroesse": (w) => `${w.anzahl} Datei(en) mit anderer Größe als im Manifest – nicht angeboten`,
+  "modell.dateiFehlt": (w) => `${w.anzahl} Datei(en) des Manifests fehlen im Ordner – nicht angeboten`,
   "modell.fehler": (w) => `abgebrochen (${w.fehler})`,
 };
 export const modellText = (fall: string, werte: Record<string, number | string> = {}): string => MODELL_TEXT[fall]?.(werte) ?? fall;
@@ -78,8 +91,10 @@ export function pruefeModelle(e: {
   wuensche: readonly Wunsch[];
   /** Was der Antrieb kennt (Ollama `/api/tags`, OpenAI-kompatibel `/v1/models`); null ohne Antwort. */
   ollama: ReadonlyArray<{ name: string; digest: string }> | null;
-  /** Seit B-29a: mit einem OpenAI-kompatiblen Antrieb gibt es kein geprüftes Laden (noch nur Ollama). */
+  /** Seit B-29a: Ollama lädt über Ollama, ein OpenAI-kompatibler Antrieb seit B-29c1b von Hugging Face. */
   antrieb?: AntriebArt;
+  /** Seit B-29c1b: ist der Ordner eines Modells von Hugging Face unverändert (`ordnerAbdruck()`)? */
+  ordnerUnveraendert?: (m: GeprueftesModell) => boolean;
 }): ModellPruefBefund[] {
   const b = (name: string, stufe: Stufe, fall: string, werte?: Record<string, number | string>): ModellPruefBefund =>
     ({ name, stufe, fall, ...(werte ? { werte } : {}), text: modellText(fall, werte) });
@@ -87,11 +102,19 @@ export function pruefeModelle(e: {
   const openai = e.antrieb === "openai";
   const fehlt = openai ? "modell.fehltBeimAntrieb" : "modell.fehltBeiOllama";
   const stumm = openai ? "modell.antriebStumm" : "modell.ollamaStumm";
-  // Geprüft heißt geprüft in Ollama – ein OpenAI-kompatibler Antrieb bedient es nicht
-  const geprueft = new Set(openai ? [] : e.stand.modelle.map((m) => m.name));
+  // Geprüft heißt: über die Quelle dieses Antriebs – Ollama in Ollama, sonst Hugging Face im Ordner
+  const passt = (m: GeprueftesModell) => (m.quelle === "hf") === openai;
+  const geprueft = new Set(e.stand.modelle.filter(passt).map((m) => m.name));
   for (const m of e.stand.modelle) {
+    if (!passt(m)) {
+      aus.push(b(m.name, "hinweis", openai ? "modell.nurOllama" : "modell.nurAntrieb"));
+      continue;
+    }
     if (openai) {
-      aus.push(b(m.name, "hinweis", "modell.nurOllama"));
+      aus.push(!e.ollama ? b(m.name, "hinweis", "modell.antriebStumm")
+        : !e.ollama.some((x) => x.name === m.name) ? b(m.name, "fehler", "modell.fehltBeimAntrieb")
+          : !(e.ordnerUnveraendert?.(m) ?? true) ? b(m.name, "fehler", "modell.ordnerVeraendert")
+            : b(m.name, "ok", "modell.geprueft", { dateien: m.dateien, bytes: m.bytes }));
       continue;
     }
     const t = e.ollama?.find((x) => x.name === m.name);
@@ -109,7 +132,11 @@ export function pruefeModelle(e: {
       : b(n, "fehler", keins ? (openai ? "modell.antriebKenntKeins" : "modell.fehltImAngebot") : fehlt));
   }
   const offen = offeneWuensche(e.wuensche, e.stand);
-  for (const w of offen) if (w.name !== e.stand.laeuft?.name) aus.push(b(w.name, "hinweis", openai ? "modell.ladenNurOllama" : "modell.wartet"));
+  for (const w of offen) {
+    if (w.name === e.stand.laeuft?.name) continue;
+    const hf = w.quelle === "hf";
+    aus.push(b(w.name, "hinweis", hf === openai ? "modell.wartet" : openai ? "modell.ladenNurOllama" : "modell.ladenNurAntrieb"));
+  }
   for (const r of e.stand.ergebnisse) {
     if (r.fall !== "ok" && !offen.some((w) => w.name === r.name)) aus.push(b(r.name, "fehler", modellFall(r.fall), r.werte));
   }

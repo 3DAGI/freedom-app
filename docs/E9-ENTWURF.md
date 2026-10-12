@@ -239,9 +239,24 @@ Berichten und sind nicht geprüft.
   - Geprüft wird immer gegen die SHA-256 im Manifest; BitTorrent v1 prüft nur
     SHA-1-Stücke.
 
-**Fragen an den MENSCHEN vor B-29c2:**
-- **T1 – BitTorrent-Client.**
-  - Vorschlag: aria2c als eigener Dienst neben dem Knoten, wie coturn. Lizenz
-    GPL-2.0+; als getrenntes Programm hat das keine Folge für die Lizenz des Projekts.
-  - Anders: WebTorrent als npm-Abhängigkeit (MIT, viele Pakete).
-- **T2 – Neues Tag im Event 38058:** `["magnet", <Link>]` (Event-Format).
+**Entschieden (MENSCH 12.10.2026, zweite Antwort):** „Pirate Face auch integrieren, welche
+Torrent-Option besser ist, entscheidest du, und alles mit dem dezentralen Freedom-Dateisystem
+verbinden.“
+- **T1 – aria2c** als eigenes Programm neben dem Knoten, gesteuert über seine JSON-RPC-Schnittstelle
+  nur auf 127.0.0.1 mit Geheimnis aus einer Datei (0600).
+  - Gründe: bewährt, sparsam bei Gigabyte-Dateien, Magnet, DHT, Tracker, Web-Seeds.
+  - Keine npm-Abhängigkeit. Lizenz GPL-2.0+, als getrenntes Programm ohne Folge für die EUPL.
+  - WebTorrent hätte hunderte npm-Pakete in den Knoten gebracht.
+- **T2 – ja:** „ich halte vor“ (38058) nennt den Magnet-Link.
+- **„Dezentrales Freedom-Dateisystem“ für Modelle:**
+  - Beschreibung und Vertrauen über Nostr: Manifest 38057, „ich halte vor“ 38058.
+  - Die Bytes reisen über BitTorrent zwischen Freedom-Knoten, dazu Pirate Face (dieselben Schwärme,
+    wenn derselbe Magnet).
+  - Geprüft wird immer gegen die SHA-256 im Manifest – gleich, woher die Bytes kommen.
+- **Reihenfolge der Quellen:** Knoten aus 38058, dann Pirate Face, dann Hugging Face direkt.
+
+**Schritte:**
+- **B-29c1b ✓:** der Knoten lädt von Hugging Face in `MODELL_ORDNER`.
+- **B-29c2a:** Magnet im Protokoll.
+- **B-29c2b:** aria2 im Knoten.
+- **B-29c2c:** Quellenreihenfolge und Bekanntgabe, Docker und Installer.

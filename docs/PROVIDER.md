@@ -220,10 +220,8 @@ PROVIDER_MODELS=Qwen/Qwen2.5-7B-Instruct   # genau die Namen aus <KI_URL>/models
   Adresse im Heimnetz setzen (z. B. `http://192.168.1.20:8000/v1`) oder den
   Antrieb als Dienst ins selbe Compose-Netz stellen (`http://vllm:8000/v1`).
 - **Modelle:** Im Angebot steht aus `PROVIDER_MODELS`, was `<KI_URL>/models`
-  nennt. Geprüft laden (nächster Abschnitt) geht bisher nur mit Ollama – mit
-  diesem Antrieb melden `npm run pruefen` und der Status das ehrlich, Wünsche
-  aus `npm run modell` warten. Die Gewichte eines anderen Antriebs gegen ein
-  Manifest prüfen, kommt mit B-29c.
+  nennt. Geprüft laden geht seit B-29c1b auch mit diesem Antrieb – von Hugging
+  Face in einen Ordner (Abschnitt „Modelle laden, geprüft“, Hugging Face).
 
 ### Welcher Antrieb? Messen (B-29b)
 
@@ -290,6 +288,53 @@ Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
 - `upstream`: `ollama:<derselbe Name>`;
 - je Datei den Namen ihres Blobs (`sha256-<hex>`), mit Summe und Größe – alle
   Schichten und die Konfiguration aus dem Manifest der Registry.
+
+### Von Hugging Face, für einen OpenAI-kompatiblen Antrieb (B-29c1b)
+
+```bash
+cd ~/freedomstack/packages/node
+# mit KI_ANTRIEB=openai in der Umgebung des Knotens
+npm run modell -- Qwen/Qwen2.5-7B-Instruct --aus-hf   # beim ersten Mal: festhalten, was Hugging Face jetzt nennt
+npm run modell -- Qwen/Qwen2.5-7B-Instruct            # später: erneut laden und gegen das Festgehaltene prüfen
+# Docker: docker compose exec node npm run modell -- Qwen/Qwen2.5-7B-Instruct --aus-hf
+```
+
+Der Name ist die Kennung bei Hugging Face (`org/repo`). Der Ablauf gleicht dem
+über Ollama:
+
+1. **Manifest:** Mit `--aus-hf` fragt der Knoten Hugging Face nach dem
+   neuesten Commit und dessen Dateien und signiert daraus sein Manifest. Große
+   Dateien nennt Hugging Face mit SHA-256. Kleine lädt der Knoten, prüft sie
+   gegen ihre Git-Kennung und rechnet die Summe selbst.
+2. **Vorab vergleichen:** Hugging Face muss am Commit des Manifests dieselben
+   Namen, Größen und Summen nennen.
+3. **Laden:** Der Knoten lädt jede Datei nach `MODELL_ORDNER/<org>/<repo>`
+   (Vorgabe `~/.freedom/modelle`) und prüft sie dabei.
+4. **Abgleichen:** Im Ordner darf nichts liegen, was nicht im Manifest steht –
+   der Antrieb läse es mit.
+
+**Nur, was beim Laden keinen Code ausführen kann:** safetensors, Konfiguration
+und Tokenizer aus der obersten Ebene des Repos. Pickle-Dateien (`.bin`, `.pt`)
+und Python lädt der Knoten nie. Ein Repo ohne safetensors und `config.json` lädt
+er nicht. Modelle mit Anmeldung bei Hugging Face („gated“) gehen nicht.
+
+**Den Antrieb auf den Ordner zeigen lassen**, unter dem Namen aus dem Manifest:
+
+```bash
+vllm serve ~/.freedom/modelle/Qwen/Qwen2.5-7B-Instruct --served-model-name Qwen/Qwen2.5-7B-Instruct
+```
+
+**Im Angebot** steht das Modell nur, solange der Antrieb es unter diesem Namen
+nennt (`<KI_URL>/models`) und der Ordner unverändert ist. Ändert sich eine
+Datei, kommt eine dazu oder fehlt eine, fällt es heraus, bis es neu geprüft
+ist. Läuft der Antrieb in einem eigenen Container, braucht er denselben Ordner
+(nur lesend). Welchen Ordner er lädt, bestimmt sein Start – der Knoten prüft
+den Ordner, nicht den Speicher des Antriebs.
+
+Ein Manifest für Hugging Face hat:
+- `model`: die Kennung bei Hugging Face;
+- `upstream`: `hf:<Kennung>@<Commit>`;
+- je Datei den Namen im Repo, mit Summe und Größe.
 
 ## Agent auf dem Knoten (11.3d1a, im Aufbau)
 

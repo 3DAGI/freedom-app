@@ -150,12 +150,15 @@ test("B-29a: Selbstprüfung mit OpenAI-kompatiblem Antrieb – geprüft nur übe
   for (const f of ["modell.nurOllama", "modell.ungeprueftAntrieb", "modell.fehltBeimAntrieb", "modell.antriebKenntKeins", "modell.antriebStumm", "modell.ladenNurOllama"]) assert.ok(MODELL_TEXT[f], f);
 });
 
-test("B-29a: Verdrahtung – main wählt den Antrieb, startet sonst nicht, lädt geprüft nur mit Ollama; der Schlüssel nie ins Log", () => {
+test("B-29a: Verdrahtung – main wählt den Antrieb, startet sonst nicht, lädt geprüft über Ollama oder (seit B-29c1b) von Hugging Face; der Schlüssel nie ins Log", () => {
   const main = quelle("../src/main.ts");
   assert.match(main, /const antriebWahl = antriebAusUmgebung\(process\.env\);\n  if \(!antriebWahl\.antrieb\) \{\n    console\.error\(`\[ki\] \$\{antriebWahl\.grund\} – der Knoten startet nicht`\);\n    process\.exit\(1\);/);
   assert.match(main, /const backend = new OllamaBackend\(antrieb\.url, undefined, \{ antrieb: antrieb\.art, schluessel: antrieb\.schluessel \}\);/);
   assert.match(main, /tags: mitOllama \? \(\) => ollamaTags\(ollamaUrl\) : async \(\) => \[\],/, "geprüft im Angebot nur, was der Antrieb bedient");
-  assert.match(main, /if \(mitOllama\) \{\n    void modellTakt\(\);/);
+  // Seit B-29c1b: Hugging Face nur ohne Ollama – der Antrieb liest das Modell aus dem Ordner; der Takt läuft immer
+  assert.match(main, /\.\.\.\(mitOllama \? \{\} : \{\n      hf: \{\n        basis: modellBasis,/);
+  assert.match(main, /antrieb: async \(\) => \(await antriebModelle\(antrieb\)\)\.map\(\(m\) => m\.name\),/);
+  assert.match(main, /\n  void modellTakt\(\);\n  setInterval\(\(\) => void modellTakt\(\), 60_000\);/);
   for (const z of main.split("\n").filter((x) => /console\.(log|warn|error)/.test(x))) assert.doesNotMatch(z, /schluessel|KI_SCHLUESSEL/, z);
   const pruefen = quelle("../src/pruefen.ts");
   assert.match(pruefen, /const \{ antrieb, grund \} = antriebAusUmgebung\(process\.env\);/);

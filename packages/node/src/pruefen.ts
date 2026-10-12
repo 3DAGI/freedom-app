@@ -9,6 +9,7 @@ import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrich
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-laden.js";
+import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -22,6 +23,7 @@ if (!antrieb) console.log(`✗ KI-Antrieb: ${grund}`);
 const modelle = antrieb ? pruefeModelle({
   angeboten: providerModelle(process.env), stand: leseStand(modellDatei()), wuensche: leseWuensche(wunschDatei()),
   ollama: await antriebModelle(antrieb).catch(() => null), antrieb: antrieb.art,
+  ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
 }) : [];
 if (modelle.length) console.log(modellBefundeText(modelle));
 process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);

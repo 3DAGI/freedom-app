@@ -35,7 +35,8 @@ import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
-import { ModellDienst, leseStand, leseWuensche, modellDatei, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
+import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
+import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
@@ -158,7 +159,10 @@ async function main(): Promise<void> {
   // Modelle im Status an den Besitzer (E9-3b): Befunde je Modell und was gerade lädt – nur Kennungen, Zahlen, Namen
   const modellPruefung = (): import("@freedomstack/protocol").KnotenStatus["modellPruefung"] => {
     const stand = leseStand(modellDatei());
-    const befunde = pruefeModelle({ angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand, antrieb: antrieb.art });
+    const befunde = pruefeModelle({
+      angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand, antrieb: antrieb.art,
+      ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
+    });
     return {
       befunde: befunde.map(({ name, stufe, fall, werte }) => ({ name, stufe, fall, werte: werte ?? {} })),
       ...(stand.laeuft ? { laeuft: stand.laeuft } : {}),
@@ -219,17 +223,31 @@ async function main(): Promise<void> {
   // Kataloge kommen mit E9-4), Ollama lädt, die Schichten müssen genau die des Manifests sein – erst
   // dann im Angebot. Mit --aus-registry signiert der Knoten vorher, was die Registry jetzt nennt.
   const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
-  // Geprüft laden und anbieten geht bisher nur mit Ollama als Antrieb (B-29a) – sonst nennt der
-  // Dienst nichts als geprüft: ein Modell aus einem Ollama daneben bediente der Antrieb nicht
+  // Geprüft laden: mit Ollama über Ollama (E9-3a), mit einem OpenAI-kompatiblen Antrieb seit B-29c1b
+  // von Hugging Face in MODELL_ORDNER – der Antrieb liest es von dort (`vllm serve <ordner>
+  // --served-model-name <org/repo>`). Ein Modell aus einem Ollama daneben bediente er nicht.
   const mitOllama = antrieb.art === "ollama";
+  const modellBasis = modellOrdner(process.env);
   const modellDienst = new ModellDienst({
     manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
     registry: registryDateien,
-    festhalten: async (name, files) => {
-      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: keypair.pk }), keypair.sk);
+    festhalten: async (name, files, upstream, license) => {
+      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream, license, publisherPubkey: keypair.pk }), keypair.sk);
       await pool.publish(ev);
       return ev;
     },
+    ...(mitOllama ? {} : {
+      hf: {
+        basis: modellBasis,
+        stand: (n, rev) => holeHfStand(n, rev),
+        halteFest: (n) => halteHfFest(n),
+        ladeDatei: (n, commit, ordner, f, fortschritt) => ladeHfDatei(n, commit, ordner, f, { fortschritt }),
+        inhalt: ordnerInhalt,
+        abdruck: ordnerAbdruck,
+        ordner: (n) => hfOrdner(modellBasis, n),
+        antrieb: async () => (await antriebModelle(antrieb)).map((m) => m.name),
+      },
+    }),
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
     tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
@@ -692,10 +710,9 @@ async function main(): Promise<void> {
   const modellTakt = async () => {
     if (await modellDienst.arbeite().catch(() => false)) await pool.publish((await baueAngebot()).ev).catch(() => undefined);
   };
-  if (mitOllama) {
-    void modellTakt();
-    setInterval(() => void modellTakt(), 60_000);
-  } else console.log("[modell] geprüft laden geht bisher nur mit Ollama als KI-Antrieb – Wünsche aus npm run modell warten");
+  void modellTakt();
+  setInterval(() => void modellTakt(), 60_000);
+  if (!mitOllama) console.log(`[modell] geprüft laden von Hugging Face nach ${modellBasis} – der KI-Antrieb liest das Modell von dort`);
 
   // Zahlkanal: fällige Gutschriften einlösen (ab Schwelle oder vor Ablauf) –
   // nur Kanal, Betrag und Fehlername ins Log

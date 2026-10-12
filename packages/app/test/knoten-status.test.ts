@@ -130,9 +130,9 @@ test("E9-3b: Modelle im Status – Zeile je Modell, Fortschritt, ältere Knoten 
     assert.equal(modellZeile({ name: "<b>x</b>", stufe: "hinweis", fall: "modell.neuerFall", werte: {} }),
       "! <b>x</b>: Befund modell.neuerFall – diese App kennt ihn noch nicht", "Name nur als Text, Unbekanntes nur mit Kennung");
     assert.equal(ladenZeile({ name: "mistral:7b", schritt: "laden", geladen: 1_000_000_000, gesamt: 4_000_000_000, seit: 1 }),
-      "… mistral:7b: Ollama lädt – 25 % von etwa 4 GB");
-    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "laden", geladen: 5, gesamt: 4, seit: 1 }), "… mistral:7b: Ollama lädt – 100 % von etwa 0 GB", "nie über 100 %");
-    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "pruefen", seit: 1 }), "… mistral:7b: Schichten prüfen");
+      "… mistral:7b: lädt – 25 % von etwa 4 GB");
+    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "laden", geladen: 5, gesamt: 4, seit: 1 }), "… mistral:7b: lädt – 100 % von etwa 0 GB", "nie über 100 %");
+    assert.equal(ladenZeile({ name: "mistral:7b", schritt: "pruefen", seit: 1 }), "… mistral:7b: Dateien prüfen");
     const z = statusZeilen({ ...status(), modellPruefung: {
       befunde: [{ name: "nemotron-3.5-lightning", stufe: "hinweis", fall: "modell.ungeprueft", werte: {} }],
       laeuft: { name: "mistral:7b", schritt: "manifest", seit: 1 },
