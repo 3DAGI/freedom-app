@@ -8224,3 +8224,29 @@ Nur Dokumente. Auftrag MENSCH 11.10.: „Alle drei offenen Punkte ausführlichst
 **Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt VKa – Vibecoden auf dem eigenen Knoten: Entwurf und Protokoll
+
+Wunsch MENSCH 11.10.: zuerst vom Seeker oder iPhone aus auf dem eigenen GX10 vibecoden – gekoppelt
+per QR, ohne Vertrauensproblem –, bevor Fragen zu fremden Geräten entschieden werden. Freigegeben
+(„Ja“): den Entwurf festhalten und mit VKa beginnen.
+
+- **Entwurf** `docs/VIBECODEN-ENTWURF.md` (A-31):
+  - Bestand: Koppeln, Besitzer-Nachweis, Verbindung ohne Portfreigabe und „Mein Knoten“ sind fertig.
+  - Es fehlen Agent mit Werkzeugen, Projektordner, Sandbox, Vorschau und Projektseite.
+  - Vorschläge VK1–VK7, Aufteilung VKa–VKf, Fragen VK-W1–W5: Harness, git, Vorschau, Netz, Kurzcode.
+- **VKa** (`protocol/src/knoten-code.ts`, Kind 5080, `docs/PROTOCOL.md` 34):
+  - Code-Auftrag nur versiegelt mit Besitzer-Nachweis (`baueCodeAuftrag()`), Aktionen `liste`,
+    `neu`, `auftrag` (Modus `fragen`/`frei`), `freigabe`, `stopp`.
+  - Der Knoten liest streng (`leseCodeAuftrag()`): je Parameter genau einer, keine fremden.
+  - Schritte als Rückmeldung 7000 `partial` (`codeSchrittText()`/`leseCodeSchritt()`: Befehl mit
+    Gedanke und „wartet“, Ausgabe mit Rückgabewert).
+  - Antworten 6080 je Aktion (`codeAntwortText()`/`leseCodeAntwort()`).
+  - Projektnamen taugen als Ordnername.
+  - Tests: protocol +7.
+  - Verdrahtet erst mit VKc (Knoten) und VKe (App) – sieben Ausnahmen in
+    `scripts/wiring-ausnahmen.txt` mit diesem Grund.
+
+**Prüfungen:** protocol 1276 (+7), node 390 (je 6 übersprungen), app 1040 grün, Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test,
+Website-Bau und reproduzierbarer Build grün.

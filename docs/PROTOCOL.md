@@ -1093,3 +1093,41 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   liegt eine Stufe (Standard 10 % des Budgets) über dem Verbrauchten, nie über dem
   Budget (`naechsteStufe()`). Ohne Arbeit löst der Knoten so höchstens eine Stufe
   ein.
+
+## 34. Vibecoden auf dem eigenen Knoten (Kind 5080, seit A-31)
+
+Entwurf `docs/VIBECODEN-ENTWURF.md` (VKa). Abschnitt 33 ist für Repo-Aufträge an
+Agenten (11.5b) vorgesehen. Der gekoppelte Besitzer gibt seinem Knoten vom Handy
+aus Aufträge an Projekte auf dem Knoten. Fremde bekommen nie Zugang.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten
+Knoten, `baueCodeAuftrag()`): `i` = `code`, `bid` = 0, `p` = Schlüssel des
+Knotens, `besitzer` = Nachweis nach §21. Dazu `param`-Tags, je Name genau einer,
+keine anderen (gelesen nur mit `leseCodeAuftrag()`):
+
+| `aktion` | weitere Parameter | Antwort (6080) |
+|---|---|---|
+| `liste` | – | `projekte`: höchstens 100 × `{ name, schritte, geaendert }` |
+| `neu` | `projekt` | `projekt` |
+| `auftrag` | `projekt`, `text` (1–8000 Zeichen), `modus` (`fragen` oder `frei`) | `ende`, `schritte`, `abschluss` (höchstens 4000 Zeichen) – erst am Ende des Laufs |
+| `freigabe` | `lauf` (Id des Auftrags, 64 Hex), `schritt` (1–200), `antwort` (`ja` oder `nein`) | `ok` |
+| `stopp` | `lauf` | `ok` |
+
+- **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
+  auf dem Knoten, ohne Punkt und Schrägstrich.
+- **`ende`:** `fertig`, `grenze`, `gestoppt`, `abgelehnt`, `fehler` – feste
+  Kennungen, die App bildet den Text.
+
+**Schritte eines Laufs** (Rückmeldung 7000 mit `status` = `partial`, `e` = Id des
+Auftrags, versiegelt an seinen Sitzungsschlüssel). Inhalt JSON, gelesen nur mit
+`leseCodeSchritt()`:
+
+| `art` | Felder |
+|---|---|
+| `befehl` | `nr` (1–200), `gedanke` (höchstens 2000 Zeichen), `befehl` (1–2000 Zeichen), `wartet` (im Modus `fragen` bis zur Freigabe) |
+| `ausgabe` | `nr`, `ausgabe` (höchstens 10 000 Zeichen, darüber gekürzt), `code` (−1 bei Zeitablauf, sonst 0–255), `gekuerzt` |
+
+Der Knoten antwortet nur aus einem Umschlag mit gültigem Nachweis
+(`istBesitzer()`). Projekte, Befehle und Ausgaben reisen nur versiegelt
+zwischen dem Besitzer und seinem Knoten; ins Log kommen nur Zahlen und
+Kennungen.
