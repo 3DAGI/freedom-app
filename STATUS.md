@@ -8331,3 +8331,83 @@ Erwartet:
 - `blobId` für die kleinen Dateien.
 
 Knoten-Stand: kein Update nötig (noch nicht verdrahtet).
+
+## Schritt B-29c1b – Der Knoten lädt Modelle von Hugging Face
+
+Spur B, zweiter Teil von B-29c. Mit einem OpenAI-kompatiblen Antrieb (vLLM, SGLang, TensorFold)
+lädt der Knoten Modelle jetzt geprüft von Hugging Face in einen Ordner, aus dem der Antrieb sie liest.
+
+**Entscheidung (MENSCH 12.10.2026):** „Pirate Face auch integrieren, welche Torrent-Option besser
+ist, entscheidest du, und alles mit dem dezentralen Freedom-Dateisystem verbinden.“
+- Torrent über **aria2c** als eigenes Programm (JSON-RPC nur auf 127.0.0.1). WebTorrent hätte
+  hunderte npm-Pakete in den Knoten gebracht.
+- „Ich halte vor“ (38058) bekommt einen Magnet-Link.
+- Begründung und Schritte in `docs/E9-ENTWURF.md`. Dieser Schritt ist der Weg über Hugging Face;
+  Torrent folgt mit B-29c2a–c.
+
+**Knoten:**
+- **`modell-laden.ts`:**
+  - `ladeHfModell()`: Manifest wie bei Ollama über `vertrautesManifest()`, mit `hfQuelle()`
+    (bis E9-4 nur der eigene Schlüssel).
+  - Vorprüfung am Commit des Manifests; jede Datei über `ladeHfDatei()`.
+  - Danach der ganze Ordner gegen das Manifest: keine fremde Datei (`datei.fremd`), denn vLLM liest
+    alle safetensors des Ordners.
+  - Gemerkt mit `ordnerAbdruck()`: Name, Größe, Zeit je Eintrag, liest keine Bytes.
+  - Wünsche tragen `quelle: "hf"`. Der Dienst lädt nur Wünsche seiner Quelle.
+  - `imAngebot()`: ein Modell von Hugging Face nur, solange `/v1/models` den Namen nennt und der
+    Ordner unverändert ist.
+  - Das Festhalten nennt Herkunft (`hf:<org/repo>@<commit>`) und Lizenz.
+- **`main.ts`:**
+  - Hilfen für Hugging Face nur ohne Ollama.
+  - `MODELL_ORDNER` (Vorgabe `~/.freedom/modelle`).
+  - Der Lade-Takt läuft jetzt mit beiden Antrieben.
+- **`npm run modell -- <org/repo> --aus-hf`:** mit `KI_ANTRIEB=openai`; ein Ollama-Name wird dort
+  abgewiesen.
+- **Selbstprüfung (`pruefeModelle()`):** neue Kennungen:
+  - `modell.ordnerVeraendert`, `modell.nurAntrieb`, `modell.ladenNurAntrieb`;
+  - `modell.hf…`, `modell.datei…`.
+  - Die Texte zu Registry und Quelle sind jetzt für beide Quellen formuliert.
+- **App:** Texte für jede neue Kennung (Deutsch und Englisch). Die Schritte heißen neutral („lädt“,
+  „Dateien prüfen“).
+- **Doku:**
+  - `docs/PROVIDER.md` (Abschnitt Hugging Face mit `vllm serve … --served-model-name`).
+  - `docker-compose.yml` (`MODELL_ORDNER`).
+  - Fallstrick in `packages/node/CLAUDE.md`.
+  - FORTSCHRITT, Sammlung, E9-Entwurf.
+
+**Echt gestartet:**
+- Knoten mit `KI_ANTRIEB=openai` und einer Antriebs-Attrappe; im Log steht, wohin geladen wird.
+- `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf` merkt den Wunsch (`quelle: "hf"`); ein
+  Ollama-Name wird dort abgewiesen.
+- Der Knoten versucht es. Ohne Netz zeigt `npm run modell`: „Hugging Face war nicht zu befragen
+  (TypeError) – nichts festgehalten, nichts geladen“.
+
+**Tests:**
+- **node** `modell-hf-laden.test.ts` (+7), mit echten Bausteinen aus `modell-hf.ts` gegen eine
+  Attrappe von Hugging Face:
+  - der ganze Weg; Festhalten mit Herkunft und Lizenz;
+  - Ablehnungen: fremdes Manifest, Ollama-Quelle, andere Größe am Commit, falsche Summe,
+    falsche Bytes, fremde Datei im Ordner;
+  - Dienst: im Angebot, raus ohne Namen beim Antrieb, raus nach einer Änderung am Ordner;
+  - Ollama-Knoten und HF-Wünsche; Wunsch und Stand; Selbstprüfung.
+- **Angepasst, nicht abgeschwächt:** Verdrahtungstests in `ki-antrieb.test.ts`,
+  `modell-laden.test.ts`, `modell-pruefung.test.ts` prüfen jetzt die neue Verdrahtung (Hilfen für
+  Hugging Face nur ohne Ollama, Takt immer, Herkunft beim Festhalten, Ordner in der
+  Selbstprüfung). `knoten-status.test.ts` prüft die neutralen Schritttexte.
+- **Verdrahtet:** Die vier Ausnahmen aus B-29c1a sind aus `scripts/wiring-ausnahmen.txt` raus.
+
+**Prüfungen:**
+- protocol 1284 grün (6 übersprungen); node 402 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz; vorher 395); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+**MENSCH (Live, Hugging Face und vLLM sind von hier nicht erreichbar):**
+1. Am Knoten mit `KI_ANTRIEB=openai`: `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf`.
+2. Nach dem Laden `vllm serve ~/.freedom/modelle/Qwen/Qwen2.5-0.5B-Instruct --served-model-name Qwen/Qwen2.5-0.5B-Instruct`.
+
+Erwartet:
+- `npm run modell` zeigt ✓;
+- das Angebot nennt das Modell;
+- eine Änderung im Ordner nimmt es heraus.
+
+Knoten-Stand: `main` mit B-29c1b, nur für `KI_ANTRIEB=openai`; mit Ollama kein Update nötig.

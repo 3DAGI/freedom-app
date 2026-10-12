@@ -24,13 +24,24 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  type ModelFile, type NostrEvent, type OllamaName, type Schicht,
-  fitsOnDevice, leseOllamaName, ollamaDateien, pruefeSchichten, registryAdresse, vertrautesManifest,
+  type GeladeneDatei, type HfName, type HfStand, type ModelFile, type NostrEvent, type OllamaName, type Schicht,
+  fitsOnDevice, hfQuelle, leseHfName, leseOllamaName, ollamaDateien, pruefeDateien, pruefeSchichten, registryAdresse,
+  vertrautesManifest, vorpruefeHf,
 } from "@freedomstack/protocol";
+import type { Festgehalten } from "./modell-hf.js";
 import { leseBegrenzt } from "./url-guard.js";
 
 export const modellDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "modelle.json");
 export const wunschDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "modell-wunsch.json");
+/** Wohin Gewichte von Hugging Face kommen (B-29c1b): `MODELL_ORDNER`, sonst `~/.freedom/modelle`. */
+export const modellOrdner = (env: { MODELL_ORDNER?: string; HOME?: string } = process.env): string =>
+  env.MODELL_ORDNER?.trim() || join(env.HOME ?? ".", ".freedom", "modelle");
+
+/** Woher ein Modell kommt: Ollama (E9-3a) oder Hugging Face in einen Ordner (B-29c1b). */
+export type Quelle = "ollama" | "hf";
+/** Ein Name, wie die Quelle ihn schreibt – sonst null. */
+export const quellName = (quelle: Quelle, s: string): string | null => (quelle === "hf" ? leseHfName(s)?.voll : leseOllamaName(s)?.voll) ?? null;
+const gueltigerName = (n: unknown): n is string => typeof n === "string" && (quellName("ollama", n) === n || quellName("hf", n) === n);
 
 export interface GeprueftesModell {
   /** Name bei Ollama und im Angebot, z. B. `qwen2.5:0.5b`. */
@@ -40,9 +51,13 @@ export interface GeprueftesModell {
   herausgeber: string;
   dateien: number;
   bytes: number;
-  /** Fingerabdruck bei Ollama (`/api/tags`, `digest`) zur Zeit der Prüfung. */
+  /** Fingerabdruck bei Ollama (`/api/tags`, `digest`) zur Zeit der Prüfung; bei Hugging Face leer. */
   ollama: string;
   geprueft: number;
+  /** Seit B-29c1b: aus Hugging Face in diesen Ordner geladen, mit seinem Fingerabdruck (`ordnerAbdruck()`). */
+  quelle?: "hf";
+  ordner?: string;
+  abdruck?: string;
 }
 export type Schritt = "manifest" | "vorpruefung" | "laden" | "pruefen";
 export interface Ergebnis { name: string; fall: string; werte?: Record<string, number | string>; zeit: number }
@@ -55,8 +70,10 @@ export interface ModellStand {
 export interface Wunsch {
   name: string;
   seit: number;
-  /** Vorher festhalten, was die Registry jetzt nennt (eigenes Manifest). */
+  /** Vorher festhalten, was die Quelle jetzt nennt (eigenes Manifest) – Registry bzw. Hugging Face. */
   ausRegistry?: true;
+  /** Seit B-29c1b: Hugging Face statt Ollama. */
+  quelle?: "hf";
 }
 
 function leseJson<T>(datei: string, leer: T): T {
@@ -72,26 +89,28 @@ function schreibeJson(datei: string, wert: unknown): void {
 /** Der Stand – streng gelesen: Einträge ohne gültigen Namen fallen weg. */
 export function leseStand(datei: string): ModellStand {
   const s = leseJson<Partial<ModellStand>>(datei, {});
-  const gueltig = (n: unknown) => typeof n === "string" && leseOllamaName(n)?.voll === n;
+  const modell = (m: GeprueftesModell | null) => typeof m?.ollama === "string" && (m.quelle === "hf"
+    ? quellName("hf", m.name) === m.name && typeof m.ordner === "string" && typeof m.abdruck === "string"
+    : m.quelle === undefined && quellName("ollama", m.name) === m.name);
   return {
-    modelle: Array.isArray(s.modelle) ? s.modelle.filter((m) => gueltig(m?.name) && typeof m.ollama === "string") : [],
-    laeuft: s.laeuft && gueltig(s.laeuft.name) ? s.laeuft : undefined,
-    ergebnisse: Array.isArray(s.ergebnisse) ? s.ergebnisse.filter((e) => gueltig(e?.name) && typeof e.fall === "string") : [],
+    modelle: Array.isArray(s.modelle) ? s.modelle.filter(modell) : [],
+    laeuft: s.laeuft && gueltigerName(s.laeuft.name) ? s.laeuft : undefined,
+    ergebnisse: Array.isArray(s.ergebnisse) ? s.ergebnisse.filter((e) => gueltigerName(e?.name) && typeof e.fall === "string") : [],
   };
 }
 
 export function leseWuensche(datei: string): Wunsch[] {
   const w = leseJson<unknown>(datei, []);
   if (!Array.isArray(w)) return [];
-  return w.filter((x) => typeof x?.name === "string" && leseOllamaName(x.name)?.voll === x.name && Number.isSafeInteger(x.seit))
-    .map((x: Wunsch) => (x.ausRegistry === true ? { name: x.name, seit: x.seit, ausRegistry: true } : { name: x.name, seit: x.seit }));
+  return w.filter((x) => typeof x?.name === "string" && quellName(x.quelle === "hf" ? "hf" : "ollama", x.name) === x.name && Number.isSafeInteger(x.seit))
+    .map((x: Wunsch) => ({ name: x.name, seit: x.seit, ...(x.ausRegistry === true ? { ausRegistry: true as const } : {}), ...(x.quelle === "hf" ? { quelle: "hf" as const } : {}) }));
 }
 
 /** Für `npm run modell`: den Namen vormerken (ersetzt einen älteren Wunsch desselben Namens). */
-export function merkeWunsch(datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000), ausRegistry = false): string | null {
-  const name = leseOllamaName(eingabe)?.voll;
+export function merkeWunsch(datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000), ausRegistry = false, quelle: Quelle = "ollama"): string | null {
+  const name = quellName(quelle, eingabe);
   if (!name) return null;
-  const wunsch: Wunsch = ausRegistry ? { name, seit: jetzt, ausRegistry: true } : { name, seit: jetzt };
+  const wunsch: Wunsch = { name, seit: jetzt, ...(ausRegistry ? { ausRegistry: true as const } : {}), ...(quelle === "hf" ? { quelle: "hf" as const } : {}) };
   schreibeJson(datei, [...leseWuensche(datei).filter((w) => w.name !== name), wunsch]);
   return name;
 }
@@ -106,8 +125,8 @@ export interface LaderHilfen {
   manifeste(name: string): Promise<NostrEvent[]>;
   /** Dateien laut Registry; null, wenn sie nicht zu befragen war. */
   registry(q: OllamaName): Promise<ModelFile[] | null>;
-  /** Eigenes Manifest aus diesen Dateien signieren und veröffentlichen (`--aus-registry`). */
-  festhalten(name: string, dateien: ModelFile[]): Promise<NostrEvent>;
+  /** Eigenes Manifest aus diesen Dateien signieren und veröffentlichen (`--aus-registry`, `--aus-hf`). */
+  festhalten(name: string, dateien: ModelFile[], upstream: string, lizenz?: string): Promise<NostrEvent>;
   /** Ollama lädt; zurück die Schichten, die es gemeldet hat. */
   pull(name: string, fortschritt: (geladen: number) => void): Promise<Schicht[]>;
   tags(): Promise<Array<{ name: string; digest: string }>>;
@@ -115,6 +134,23 @@ export interface LaderHilfen {
   /** Kuratoren – bis E9-4 (Kataloge) leer: es zählt nur der eigene Schlüssel. */
   vertraut: ReadonlySet<string>;
   eigener: string;
+  /** Seit B-29c1b, nur mit einem OpenAI-kompatiblen Antrieb: Hugging Face als Quelle. */
+  hf?: HfHilfen;
+}
+
+/** Was der Weg über Hugging Face braucht (`modell-hf.ts`, in `main.ts` verdrahtet). */
+export interface HfHilfen {
+  /** Wohin die Gewichte kommen (`modellOrdner()`). */
+  basis: string;
+  stand(n: HfName, rev: string): Promise<HfStand>;
+  halteFest(n: HfName): Promise<Festgehalten>;
+  ladeDatei(n: HfName, commit: string, ordner: string, f: ModelFile, fortschritt: (bytes: number) => void): Promise<unknown>;
+  /** Was im Ordner liegt, und sein Fingerabdruck (`ordnerInhalt()`, `ordnerAbdruck()`). */
+  inhalt(ordner: string): Array<{ name: string; groesse: number }>;
+  abdruck(ordner: string): string | null;
+  ordner(n: HfName): string;
+  /** Welche Modelle der Antrieb gerade bedient (`/v1/models`); wirft, wenn er nicht antwortet. */
+  antrieb(): Promise<string[]>;
 }
 
 export type LadeErgebnis = { ok: true; modell: GeprueftesModell } | { ok: false; fall: string; werte?: Record<string, number | string> };
@@ -133,7 +169,7 @@ export async function ladeModell(
     reg = q ? await h.registry(q).catch(() => null) : null;
     if (!reg) return { ok: false, fall: "registry.nichtErreichbar" };
     try {
-      events = [await h.festhalten(name, reg)];
+      events = [await h.festhalten(name, reg, `ollama:${name}`)];
     } catch (e) {
       return { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: fehlerName(e) } };
     }
@@ -171,6 +207,73 @@ export async function ladeModell(
   };
 }
 
+/**
+ * Laden von Hugging Face (B-29c1b) für einen OpenAI-kompatiblen Antrieb: dasselbe Manifest-Vertrauen
+ * wie bei Ollama (`vertrautesManifest()` mit `hfQuelle()`), Vorprüfung am Commit des Manifests, jede
+ * Datei mit SHA-256 beim Laden (`ladeHfDatei()`), dann der ganze Ordner gegen das Manifest – keine
+ * fremde Datei darin (der Antrieb läse sonst mehr als geprüft). Gemerkt mit dem Fingerabdruck des Ordners.
+ */
+export async function ladeHfModell(
+  name: string, h: LaderHilfen, melde: (schritt: Schritt, geladen?: number, gesamt?: number) => void,
+  jetzt = () => Math.floor(Date.now() / 1000), ausHf = false,
+): Promise<LadeErgebnis> {
+  const hf = h.hf;
+  const n = leseHfName(name);
+  if (!hf || !n) return { ok: false, fall: "hf.form" };
+  melde("manifest");
+  let events: NostrEvent[];
+  if (ausHf) {
+    let f: Festgehalten;
+    try { f = await hf.halteFest(n); } catch (e) { return { ok: false, fall: "hf.nichtErreichbar", werte: { fehler: fehlerName(e) } }; }
+    if (!f.ok) return { ok: false, fall: f.fall };
+    try {
+      events = [await h.festhalten(n.voll, f.dateien, `hf:${n.voll}@${f.commit}`, f.lizenz)];
+    } catch (e) {
+      return { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: fehlerName(e) } };
+    }
+  } else {
+    events = await h.manifeste(n.voll);
+  }
+  const wahl = vertrautesManifest(events, n.voll, h.vertraut, h.eigener, hfQuelle);
+  if (!wahl.ok) return { ok: false, fall: wahl.fall, werte: wahl.werte };
+  const { manifest: m, quelle } = wahl;
+  const passt = fitsOnDevice(m, h.speicherGb);
+  if (!passt.fits) return { ok: false, fall: "passt.nicht", werte: { brauchtGb: Math.ceil(passt.neededGb), hatGb: Math.floor(h.speicherGb) } };
+  // Vorprüfung am Commit des Manifests: nennt Hugging Face dort andere Dateien, wird nichts geladen.
+  // Ist es nicht zu befragen, entscheidet die Prüfung beim Laden allein.
+  melde("vorpruefung");
+  const stand = await hf.stand(quelle.name, quelle.commit).catch(() => null);
+  if (stand?.ok) {
+    const vor = vorpruefeHf(m, stand);
+    if (!vor.ok) return { ok: false, fall: "hf.anders", werte: vor.werte };
+  }
+  const ordner = hf.ordner(quelle.name);
+  const geladen: GeladeneDatei[] = [];
+  let bisher = 0;
+  melde("laden", 0, m.totalBytes);
+  for (const f of m.files) {
+    try {
+      await hf.ladeDatei(quelle.name, quelle.commit, ordner, f, (b) => melde("laden", bisher + b, m.totalBytes));
+    } catch (e) {
+      return { ok: false, fall: "hf.laden", werte: { fehler: fehlerName(e) } };
+    }
+    // `ladeHfDatei()` legt eine Datei nur mit genau dieser Summe und Größe unter ihren Namen
+    geladen.push({ name: f.name, sha256: f.sha256, groesse: f.sizeBytes });
+    bisher += f.sizeBytes;
+  }
+  melde("pruefen");
+  // Der ganze Ordner: was nicht im Manifest steht, läse der Antrieb mit – dann nicht im Angebot
+  const fremd = hf.inhalt(ordner).filter((d) => !m.files.some((f) => f.name === d.name)).map((d) => ({ name: d.name, sha256: "", groesse: d.groesse }));
+  const p = pruefeDateien(m, [...geladen, ...fremd]);
+  if (!p.ok) return { ok: false, fall: p.fall, werte: p.werte };
+  const abdruck = hf.abdruck(ordner);
+  if (!abdruck) return { ok: false, fall: "datei.fehlt", werte: { anzahl: m.files.length } };
+  return {
+    ok: true,
+    modell: { name: n.voll, manifest: wahl.id, herausgeber: m.publisherPubkey, dateien: p.dateien, bytes: p.bytes, ollama: "", geprueft: jetzt(), quelle: "hf", ordner, abdruck },
+  };
+}
+
 /** Wünsche abarbeiten, Stand führen, Angebot bestimmen – verdrahtet in `main.ts`. */
 export class ModellDienst {
   /** Geprüfte Modelle, die Ollama noch unverändert hat – zuletzt bestimmt über `imAngebot()`. */
@@ -184,17 +287,29 @@ export class ModellDienst {
     private jetzt = () => Math.floor(Date.now() / 1000),
   ) {}
 
-  /** Geprüft und bei Ollama unter demselben Fingerabdruck – sonst nicht im Angebot. */
+  /**
+   * Geprüft und bei Ollama unter demselben Fingerabdruck – sonst nicht im Angebot. Von Hugging Face
+   * (B-29c1b): nur mit diesem Weg, der Antrieb nennt das Modell, und der Ordner ist unverändert.
+   */
   async imAngebot(): Promise<string[]> {
-    const tags = await this.h.tags().catch(() => null);
-    this.angebot = tags ? leseStand(this.dateien.stand).modelle.filter((m) => tags.some((t) => t.name === m.name && t.digest === m.ollama)).map((m) => m.name) : [];
+    const modelle = leseStand(this.dateien.stand).modelle;
+    const tags = modelle.some((m) => m.quelle !== "hf") ? await this.h.tags().catch(() => null) : null;
+    const hf = this.h.hf;
+    const namen = hf && modelle.some((m) => m.quelle === "hf") ? await hf.antrieb().catch(() => null) : null;
+    this.angebot = modelle.filter((m) => (m.quelle === "hf"
+      ? !!namen?.includes(m.name) && !!m.ordner && hf!.abdruck(m.ordner) === m.abdruck
+      : !!tags?.some((t) => t.name === m.name && t.digest === m.ollama))).map((m) => m.name);
     return this.angebot;
   }
+
+  /** Welche Quelle dieser Knoten laden kann: Hugging Face mit OpenAI-kompatiblem Antrieb, sonst Ollama. */
+  private get quelle(): Quelle { return this.h.hf ? "hf" : "ollama"; }
 
   /** Einen offenen Wunsch abarbeiten. true, wenn ein Modell dazukam (dann das Angebot neu veröffentlichen). */
   async arbeite(): Promise<boolean> {
     if (this.beschaeftigt) return false;
-    const [w] = offeneWuensche(leseWuensche(this.dateien.wunsch), leseStand(this.dateien.stand));
+    // Nur Wünsche, die dieser Antrieb laden kann – die übrigen nennt `pruefeModelle()`
+    const [w] = offeneWuensche(leseWuensche(this.dateien.wunsch), leseStand(this.dateien.stand)).filter((x) => (x.quelle ?? "ollama") === this.quelle);
     if (!w) return false;
     this.beschaeftigt = true;
     let zuletzt = 0;
@@ -207,7 +322,8 @@ export class ModellDienst {
     };
     try {
       this.log(`[modell] ${w.name}: suche Manifest, prüfe, lade`);
-      const r = await ladeModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
+      const laden = w.quelle === "hf" ? ladeHfModell : ladeModell;
+      const r = await laden(w.name, this.h, melde, this.jetzt, w.ausRegistry === true).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
       const s = leseStand(this.dateien.stand);
       const ergebnis: Ergebnis = r.ok ? { name: w.name, fall: "ok", zeit: this.jetzt() } : { name: w.name, fall: r.fall, werte: r.werte, zeit: this.jetzt() };
       schreibeJson(this.dateien.stand, {

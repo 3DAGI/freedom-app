@@ -18,7 +18,7 @@
  */
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { HF_DATEI, type HfName, type HfStand, type ModelFile, hfDateiAdresse, hfStand, hfStandAdresse } from "@freedomstack/protocol";
 import { leseBegrenzt } from "./url-guard.js";
@@ -107,6 +107,27 @@ export async function summeDerDatei(pfad: string): Promise<string> {
 
 /** Ordner eines Modells unter der Basis: `<basis>/<org>/<repo>` – die Teile hat `leseHfName()` geprüft. */
 export const hfOrdner = (basis: string, n: HfName): string => join(basis, n.org, n.repo);
+
+/** Was im Ordner liegt (oberste Ebene): Name und Größe je Eintrag – Unterordner mit Größe -1. */
+export function ordnerInhalt(ordner: string): Array<{ name: string; groesse: number }> {
+  if (!existsSync(ordner)) return [];
+  return readdirSync(ordner, { withFileTypes: true }).map((e) => ({ name: e.name, groesse: e.isFile() ? statSync(join(ordner, e.name)).size : -1 }));
+}
+
+/**
+ * Fingerabdruck eines Ordners ohne ihn zu lesen (B-29c1b): Name, Größe und Zeit
+ * der letzten Änderung jedes Eintrags. Ändert jemand eine Datei, legt eine dazu
+ * oder löscht eine, ändert er sich – dann bietet der Knoten das Modell nicht
+ * mehr an, bis es neu geprüft ist. Null, wenn der Ordner fehlt.
+ */
+export function ordnerAbdruck(ordner: string): string | null {
+  if (!existsSync(ordner)) return null;
+  const zeilen = readdirSync(ordner, { withFileTypes: true }).map((e) => {
+    const s = statSync(join(ordner, e.name));
+    return `${e.name}\0${e.isFile() ? s.size : -1}\0${Math.floor(s.mtimeMs)}`;
+  }).sort();
+  return createHash("sha256").update(zeilen.join("\n")).digest("hex");
+}
 
 /**
  * Eine Datei des Manifests in den Ordner laden und dabei prüfen. „vorhanden“,

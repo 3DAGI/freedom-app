@@ -196,3 +196,8 @@ Bereichs unten anhängen.
   von https zu http, ohne neue Bytes Abbruch nach `HF_STILL_MS`. Fehler nur mit Namen
   (`HfGesperrt`, `DateiAnders` …), nie Text von Hugging Face. Hugging Face ist aus dieser Umgebung
   nicht erreichbar – Tests gegen eine Attrappe auf 127.0.0.1, Live-Proben macht der MENSCH.
+  Im Knoten (seit B-29c1b) nur über `ladeHfModell()` und nur mit einem OpenAI-kompatiblen Antrieb
+  (`hf` in den `LaderHilfen` setzt `main.ts` nur ohne Ollama): Wünsche tragen `quelle: "hf"`, der
+  Dienst lädt nur Wünsche seiner Quelle. Ins Angebot nur, solange `/v1/models` den Namen nennt und
+  `ordnerAbdruck()` (Name, Größe, Zeit je Eintrag – liest keine Bytes) dem gemerkten gleicht; im Ordner
+  nichts, was nicht im Manifest steht (`datei.fremd`) – vLLM liest alle safetensors des Ordners.
