@@ -58,6 +58,7 @@ export const KIND_DVM_BLOB_HALTEN = 5076;   // Storage: Blob beim eigenen Knoten
 export const KIND_DVM_KNOTEN_STATUS = 5077; // Status des eigenen Knotens (nur Besitzer, versiegelt, nur lesen, B-11a)
 export const KIND_DVM_WECKEN = 5078;        // Wecken: Push-Adresse beim eigenen Knoten an-/abmelden (nur Besitzer, versiegelt, B-12a)
 export const KIND_DVM_TURN = 5079;          // Zugang zum TURN des eigenen Knotens (nur Besitzer, versiegelt, B-13a)
+export const KIND_DVM_KNOTEN_CODE = 5080;   // Vibecoden auf dem eigenen Knoten (nur Besitzer, versiegelt, A-31/VKa)
 
 export function isDvmRequest(kind: number): boolean {
   return kind >= KIND_DVM_REQUEST_MIN && kind <= KIND_DVM_REQUEST_MAX;

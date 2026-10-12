@@ -121,6 +121,7 @@ export * from "./kopplung.js";
 export * from "./knoten-status.js";
 export * from "./wecken.js";
 export * from "./turn-zugang.js";
+export * from "./knoten-code.js";
 export * from "./anruf.js";
 export * from "./kommentar.js";
 export * from "./review.js";
