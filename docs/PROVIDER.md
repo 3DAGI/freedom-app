@@ -336,6 +336,44 @@ Ein Manifest für Hugging Face hat:
 - `upstream`: `hf:<Kennung>@<Commit>`;
 - je Datei den Namen im Repo, mit Summe und Größe.
 
+### Im Schwarm: Freedom-Knoten, Pirate Face, Hugging Face (B-29c2)
+
+```bash
+# in der Umgebung des Knotens, zusätzlich zu KI_ANTRIEB=openai
+TORRENT=1                     # aria2c als Torrent-Client (Docker: im Image; sonst apt-get install aria2)
+TORRENT_PORT=6881             # TCP und UDP freigeben, sonst teilt der Knoten nur ausgehend
+TORRENT_HOCHLADEN_KBS=0       # höchstens so viel hochladen (KiB/s), 0 = ohne Grenze
+
+npm run modell -- Qwen/Qwen2.5-7B-Instruct --aus-hf --magnet "magnet:?xt=urn:btih:…"   # Magnet z. B. von pirateface.co
+```
+
+Mit `TORRENT=1` holt der Knoten ein Modell **zuerst aus dem Schwarm**:
+1. von anderen Freedom-Knoten, die dieselbe Fassung „vorhalten“ (Kind 38058
+   mit Magnet und Inhalts-Kennung);
+2. dann über den Magnet aus `--magnet`, etwa von [Pirate Face](https://pirateface.co/)
+   (Torrents offener Modelle von Hugging Face);
+3. erst dann direkt von Hugging Face.
+
+Woher die Bytes kommen, ist gleich: Der Knoten wählt nur die Dateien des
+Manifests, prüft jede gegen ihre SHA-256 und legt nur Geprüftes in den
+Modellordner.
+
+**Danach teilt er selbst:** Aus dem geprüften Ordner baut er den
+**Freedom-Torrent** des Modells. Jeder Knoten mit denselben Bytes baut denselben
+(gleicher Name, gleiche Dateien, gleiche Stückgröße), auch wenn er das Modell
+von Hugging Face hat. Den Magnet meldet er im Netz („ich halte vor“, erneuert
+täglich).
+
+**Was dabei sichtbar ist:** Wer teilt, zeigt seine IP-Adresse im Schwarm –
+anderen Teilnehmern, Trackern und dem DHT. Das ist bei BitTorrent so und lässt
+sich nicht verbergen. Deshalb ist `TORRENT` aus, bis du es einschaltest.
+
+**Grenzen:**
+- Nur für Modelle von Hugging Face im Ordner. Ollama hält seine Gewichte selbst.
+- aria2c läuft als eigenes Programm. Seine Steuerung hört nur auf 127.0.0.1,
+  mit einem Geheimnis je Start, das nur in einer Datei steht (0600).
+- aria2c endet mit dem Knoten.
+
 ## Agent auf dem Knoten (11.3d1a, im Aufbau)
 
 Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn

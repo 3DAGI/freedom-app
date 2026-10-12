@@ -8,7 +8,9 @@
  *
  * Seit B-29c1b mit einem OpenAI-kompatiblen Antrieb (`KI_ANTRIEB=openai`): der
  * Name ist eine Kennung bei Hugging Face (`org/repo`), `--aus-hf` hält fest,
- * was Hugging Face jetzt nennt; geladen wird in `MODELL_ORDNER`.
+ * was Hugging Face jetzt nennt; geladen wird in `MODELL_ORDNER`. Seit B-29c2c mit
+ * `TORRENT=1` zuerst aus dem Schwarm; `--magnet <link>` nennt einen Magnet dazu
+ * (etwa von Pirate Face) – geprüft wird auch dann gegen das Manifest.
  */
 import { leseStand, leseWuensche, merkeWunsch, modellDatei, offeneWuensche, wunschDatei } from "./modell-laden.js";
 import { modellFall, modellText } from "./modell-pruefung.js";
@@ -19,13 +21,16 @@ const text = (fall: string, werte: Record<string, number | string> = {}) => mode
 const args = process.argv.slice(2);
 const hf = process.env.KI_ANTRIEB?.trim() === "openai";
 const ausQuelle = args.includes(hf ? "--aus-hf" : "--aus-registry");
-const name = args.find((a) => !a.startsWith("--"));
+const mi = args.indexOf("--magnet");
+const magnet = mi >= 0 ? args[mi + 1] ?? "" : undefined;
+const name = args.find((a, i) => !a.startsWith("--") && i !== mi + 1);
 if (name) {
-  const gemerkt = merkeWunsch(wunschDatei(), name, undefined, ausQuelle, hf ? "hf" : "ollama");
+  const gemerkt = merkeWunsch(wunschDatei(), name, undefined, ausQuelle, hf ? "hf" : "ollama", magnet);
   if (!gemerkt) {
-    console.error(hf
-      ? "Keine Kennung wie bei Hugging Face (org/repo)."
-      : "Kein Modellname wie bei Ollama (name:tag oder namensraum/name:tag).");
+    console.error(magnet !== undefined
+      ? "Kein gültiger Magnet (magnet:?xt=urn:btih:…) – oder kein Modell von Hugging Face (nur mit KI_ANTRIEB=openai)."
+      : hf ? "Keine Kennung wie bei Hugging Face (org/repo)."
+        : "Kein Modellname wie bei Ollama (name:tag oder namensraum/name:tag).");
     process.exit(1);
   }
   const quelle = hf ? "Hugging Face" : "die Registry";

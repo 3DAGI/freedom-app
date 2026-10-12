@@ -8505,3 +8505,67 @@ Bekanntgabe, Docker, Installer). Das liegt fertig und getestet bereit.
 - Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
 
 Knoten-Stand: kein Update nötig (noch nicht verdrahtet).
+
+## Schritt B-29c2c – Schwarm verdrahtet: Freedom-Knoten, Pirate Face, Hugging Face
+
+Spur B, letzter Teil von B-29c. Damit ist die Entscheidung des MENSCHEN vom 12.10.2026 umgesetzt:
+Gewichte kommen aus Freedom selbst, Pirate Face und Hugging Face sind Quellen, alles verbunden mit
+dem dezentralen Freedom-Dateisystem.
+
+**Knoten:**
+- **`main.ts`:**
+  - aria2c nur mit `TORRENT=1` und `KI_ANTRIEB=openai`; ungültige Werte → kein Start.
+  - Schwarm-Hilfen für den Lader.
+  - „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung, vom Schlüssel des Knotens.
+  - Beim Start werden unveränderte geprüfte Ordner wieder geteilt; täglich wird nur neu gemeldet.
+  - aria2c endet mit dem Knoten.
+- **`modell-laden.ts`:** `ladeHfModell()` holt in dieser Reihenfolge:
+  1. von Freedom-Knoten (`magnetQuellen()`);
+  2. über den Magnet aus dem Wunsch (`--magnet`, etwa von Pirate Face);
+  3. von Hugging Face direkt.
+
+  Danach teilt und meldet es; ein Fehler dabei hält das geprüfte Modell nicht auf. Der Stand merkt
+  sich die Kennung des Torrents.
+- **`npm run modell -- <org/repo> --magnet "<link>"`:** nur gültige Magnete, nur für Hugging Face.
+- **Docker:** aria2 im Image. In `docker-compose.yml` stehen `TORRENT`, `TORRENT_PORT` und
+  `TORRENT_HOCHLADEN_KBS`; der Port ist nicht von selbst offen.
+- **Installer:** aria2 nur mit `TORRENT=1`, dazu der Hinweis auf Port und IP; `TORRENT` steht in
+  der Umgebungsdatei (Vorgabe 0).
+- **Doku:**
+  - `docs/PROVIDER.md` („Im Schwarm“), ehrlich: Wer teilt, zeigt seine IP im Schwarm; deshalb
+    ist `TORRENT` aus, bis man es einschaltet.
+  - Fallstrick in `packages/node/CLAUDE.md`.
+  - E9-Entwurf, Sammlung, FORTSCHRITT.
+
+**Echt gestartet:** Knoten mit `KI_ANTRIEB=openai`, `TORRENT=1` und einer Antriebs-Attrappe:
+- „[schwarm] aria2c läuft …“;
+- `aria2.conf` 0600, kein Geheimnis im Log;
+- nach dem Ende des Knotens läuft kein aria2c mehr.
+
+**Tests:**
+- **node** `modell-hf-laden.test.ts` (+3):
+  - erst Netz, dann Pirate Face; ist einer erfolgreich, lädt Hugging Face nichts; geteilt;
+  - alle Magnete scheitern → Hugging Face; ein Fehler beim Teilen hält nichts auf;
+  - Wunsch mit Magnet.
+- **node** `modell-schwarm-verdrahtet.test.ts` (+1): Verdrahtung in `main.ts`, Lader, CLI, Docker.
+- Die letzte Ausnahme (`magnetQuellen`) ist aus `scripts/wiring-ausnahmen.txt` raus.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen); node 414 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 410); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test, `build-site.sh`,
+  `docker compose config` und `bash -n` für den Installer: grün.
+
+**MENSCH (Live – Hugging Face, Pirate Face und das DHT sind von hier nicht erreichbar):**
+1. Knoten A und B, beide mit `KI_ANTRIEB=openai` und `TORRENT=1`, Port freigegeben.
+2. A: `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf`.
+3. B: dasselbe ohne `--aus-hf`, nachdem B das Manifest von A als eigenes festgehalten hat – oder
+   mit `--aus-hf`.
+
+Erwartet:
+- B holt aus dem Schwarm von A;
+- das Log von B zeigt kein Laden von Hugging Face.
+
+Mit einem Magnet von pirateface.co zusätzlich `--magnet "<link>"` versuchen.
+
+Knoten-Stand: `main` mit B-29c2c, nur für `KI_ANTRIEB=openai` mit `TORRENT=1`; sonst kein Update nötig.

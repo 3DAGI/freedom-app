@@ -218,4 +218,3 @@ knoten-code.ts|codeAntwortText|Vibecoden auf dem eigenen Knoten: der Knoten lies
 knoten-code.ts|codeSchrittText|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
 knoten-code.ts|leseCodeAuftrag|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
 knoten-code.ts|istProjektName|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
-modell-torrent.ts|magnetQuellen|Modelle ueber BitTorrent: Baustein, der Knoten sucht Seeds damit erst mit B-29c2c

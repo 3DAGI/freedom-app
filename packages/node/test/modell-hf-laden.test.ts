@@ -229,3 +229,60 @@ test("Selbstprüfung: mit OpenAI-kompatiblem Antrieb ist ein HF-Modell geprüft 
   assert.equal(w(), "modell.ladenNurOllama");
   assert.equal(pruefeModelle({ angeboten: [], stand: { modelle: [], ergebnisse: [] }, wuensche: [{ name: NAME, seit: 1, quelle: "hf" }], ollama: [], antrieb: "ollama" })[0]!.fall, "modell.ladenNurAntrieb");
 });
+
+test("Schwarm (B-29c2c): erst Magnete aus dem Netz, dann der des Betreibers (Pirate Face) – gelingt einer, lädt Hugging Face nichts; danach geteilt", async () => {
+  const hf = await huggingface();
+  const basis = join(ort(), "m");
+  try {
+    const { h } = hilfen(basis, hf.url);
+    const versucht: string[] = [];
+    const geteilt: string[] = [];
+    const ausNetz = { infohash: "1".repeat(40), tracker: [], webSeeds: [], link: `magnet:?xt=urn:btih:${"1".repeat(40)}` };
+    h.hf!.schwarm = {
+      quellen: async () => [ausNetz],
+      hole: async (mg, m, ordner) => {
+        versucht.push(mg.infohash);
+        if (mg.infohash === ausNetz.infohash) return { ok: false, fall: "torrent.still" };
+        // Der Magnet des Betreibers: legt die geprüften Dateien in den Ordner wie `holeUndTeile()`
+        mkdirSync(ordner, { recursive: true });
+        for (const f of m.files) writeFileSync(join(ordner, f.name), INHALT[f.name]!);
+        return { ok: true };
+      },
+      teile: async (m) => { geteilt.push(m.modelId); return "f".repeat(40); },
+    };
+    const pf = `magnet:?xt=urn:btih:${"2".repeat(40)}&tr=udp%3A%2F%2Ftracker.pirateface.co%3A6969`;
+    const vorher = hf.pfade.filter((p) => p.includes("/resolve/")).length;
+    const r = await ladeHfModell(NAME, h, () => {}, () => T, false, pf);
+    assert.ok(r.ok, JSON.stringify(r));
+    assert.deepEqual(versucht, ["1".repeat(40), "2".repeat(40)], "erst das Netz, dann Pirate Face");
+    assert.equal(hf.pfade.filter((p) => p.includes("/resolve/")).length, vorher, "Hugging Face lud nichts");
+    assert.deepEqual(geteilt, [NAME]);
+    assert.equal(r.modell.torrent, "f".repeat(40));
+  } finally { hf.schliessen(); }
+});
+
+test("Schwarm (B-29c2c): scheitern alle Magnete, lädt Hugging Face direkt; ein Fehler beim Teilen hält das Modell nicht auf", async () => {
+  const hf = await huggingface();
+  try {
+    const { h } = hilfen(join(ort(), "m"), hf.url);
+    h.hf!.schwarm = {
+      quellen: async () => { throw new Error("Relays stumm"); },
+      hole: async () => ({ ok: false }),
+      teile: async () => { throw new Error("aria2 weg"); },
+    };
+    const r = await ladeHfModell(NAME, h, () => {}, () => T, false, `magnet:?xt=urn:btih:${"3".repeat(40)}`);
+    assert.ok(r.ok, JSON.stringify(r));
+    assert.equal(r.modell.torrent, undefined);
+    assert.ok(hf.pfade.some((p) => p.includes("/resolve/")), "Hugging Face lud");
+  } finally { hf.schliessen(); }
+});
+
+test("Wunsch mit Magnet (B-29c2c): nur für Hugging Face und nur gültig; gemerkt wird der neu gebaute Link", () => {
+  const w = join(ort(), "w.json");
+  assert.equal(merkeWunsch(w, NAME, 1, false, "hf", `magnet:?xt=urn:btih:${"A".repeat(40)}&dn=x&xs=https%3A%2F%2Fevil.example.org%2Fa`), NAME);
+  assert.deepEqual(leseWuensche(w), [{ name: NAME, seit: 1, quelle: "hf", magnet: `magnet:?xt=urn:btih:${"a".repeat(40)}` }]);
+  assert.equal(merkeWunsch(w, NAME, 2, false, "hf", "magnet:?xt=urn:btih:kaputt"), null, "ungültig – nichts vorgemerkt");
+  assert.equal(merkeWunsch(w, "qwen2.5:0.5b", 2, false, "ollama", `magnet:?xt=urn:btih:${"a".repeat(40)}`), null, "nicht über Ollama");
+  writeFileSync(w, JSON.stringify([{ name: NAME, seit: 3, quelle: "hf", magnet: "magnet:?xt=urn:btih:zz" }]));
+  assert.deepEqual(leseWuensche(w), [{ name: NAME, seit: 3, quelle: "hf" }], "ein kaputter Magnet in der Datei fällt weg");
+});

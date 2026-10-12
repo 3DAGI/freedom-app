@@ -210,3 +210,9 @@ Bereichs unten anhängen.
   `stueckGroesse()` – nie ändern, sonst teilen Knoten derselben Bytes verschiedene Schwärme). Ohne Einstieg
   (`dht-entry-point`) findet ein neuer Knoten im DHT niemanden. Tests mit echtem aria2c brauchen einen Tracker auf
   127.0.0.1 und Magnete ohne `leseMagnet()` (es weist lokale Tracker zu Recht ab); die CI installiert aria2.
+  Verdrahtet (seit B-29c2c) nur in `main.ts`: aria2c nur mit `TORRENT=1` und `KI_ANTRIEB=openai` (Ollama hält seine
+  Gewichte selbst), endet mit dem Knoten (`process.on("exit")`). `ladeHfModell()` fragt erst `schwarm.quellen()`
+  (38058 über `magnetQuellen()`), dann den Magnet aus dem Wunsch (`--magnet`, etwa Pirate Face), dann Hugging Face;
+  geteilt und gemeldet (38058 mit Magnet und `inhaltsKennung()`) wird nach jeder bestandenen Prüfung und beim Start
+  für unveränderte Ordner – täglich nur neu gemeldet, nicht neu gelesen. Ein Fehler beim Teilen hält ein geprüftes
+  Modell nie auf. Den Schwarm-Port öffnet `docker-compose.yml` nicht von selbst.

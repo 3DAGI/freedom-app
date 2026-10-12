@@ -259,4 +259,4 @@ verbinden.“
 - **B-29c1b ✓:** der Knoten lädt von Hugging Face in `MODELL_ORDNER`.
 - **B-29c2a ✓:** Magnet und Inhalts-Kennung im Protokoll („ich halte vor“, 38058).
 - **B-29c2b ✓:** aria2 im Knoten – Freedom-Torrent je Fassung, holen und prüfen, teilen.
-- **B-29c2c:** Quellenreihenfolge und Bekanntgabe, Docker und Installer.
+- **B-29c2c ✓:** Quellenreihenfolge (Freedom-Knoten, Pirate Face, Hugging Face), teilen und melden (38058), Docker und Installer.
