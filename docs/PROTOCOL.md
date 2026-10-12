@@ -993,6 +993,26 @@ abonnierten Modellkatalogen (38080).
 - **Grenze der Prüfung:** Ollama prüft die Bytes jeder Schicht gegen ihre
   Summe. Der Knoten prüft, dass es die Summen des Manifests sind.
 
+**Laden von Hugging Face** (seit B-29c1a, Quelle entschieden vom MENSCHEN am
+12.10.2026; für Antriebe außer Ollama, die ein Modell aus einem Ordner lesen):
+- **Name und Herkunft:** `model` ist die Kennung bei Hugging Face
+  (`Qwen/Qwen2.5-7B-Instruct`), so nennt der Antrieb das Modell
+  (`--served-model-name`). `upstream` ist `hf:<Kennung>@<Commit>` mit 40
+  Zeichen Hex – nie ein Zweig, der sich ändern kann (`hfQuelle()`).
+- **Dateien:** Jede heißt wie im Repo, nur aus der obersten Ebene und nur
+  `.safetensors`, Konfiguration und Tokenizer (`HF_DATEI`: `.json`, `.model`,
+  `.txt`, `.tiktoken`, `.jinja`). Pickle (`.bin`, `.pt`) und Python nie – beides
+  kann beim Laden Code ausführen. Ohne `config.json` und safetensors kein Modell.
+- **Festhalten:** Hugging Face nennt je Commit (`/api/models/<Kennung>/revision/<rev>?blobs=true`)
+  für große Dateien (LFS) die SHA-256, für kleine nur die Git-Kennung (SHA-1
+  über `blob <Länge>\0` und Inhalt). Wer festhält, lädt die kleinen, prüft
+  ihre Git-Kennung und rechnet die SHA-256 selbst.
+- **Prüfen:** vor dem Laden gegen den Stand am Commit des Manifests
+  (`vorpruefeHf()`: Namen, Größen, LFS-Summen), danach jede Datei beim Laden
+  (SHA-256, nie mehr Bytes als angekündigt) und der Ordner als Ganzes
+  (`pruefeDateien()`: je Name dieselbe Summe und Größe, keine fremde, keine
+  fehlende).
+
 ## 32. Agenten in Räumen – Karte, Besitzer, Rolle (Kind 38090, seit 11.3b1)
 
 Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`, freigegeben 08.10.2026 (F1 A, F4 A, F6 A).

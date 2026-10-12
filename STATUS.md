@@ -8224,3 +8224,81 @@ Nur Dokumente. Auftrag MENSCH 11.10.: „Alle drei offenen Punkte ausführlichst
 **Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt B-29c1a – Gewichte von Hugging Face: Bausteine
+
+Spur B, erster Teil von B-29c („Gewichte außerhalb von Ollama gegen das Manifest prüfen“).
+
+**Quellen (MENSCH 12.10.2026):** Gewichte kommen aus Freedom selbst, dazu Pirate Face
+und Hugging Face als Quellen für neue Modelle.
+
+**Befund:** Einen Modell-Ordner im dezentralen Git gibt es nicht.
+- Git-Bundles sind auf 32 MB begrenzt.
+- Das Blob-Netz verteilt Stücke als Nostr-Events, für Gigabytes ungeeignet: ein 7B-Modell
+  wären rund 23.000 Events.
+- Es gibt Manifest 38057 (mit freiem `blobId`) und 38058 „ich halte vor“, aber keinen Weg
+  für die Bytes.
+
+Pirate Face ist ein Torrent-Index für offene Modelle von Hugging Face (Apache-2.0 und MIT,
+mit deren SHA-256). Aus dieser Umgebung nicht erreichbar, Angaben aus Berichten. Plan und
+Fragen T1/T2 in `docs/E9-ENTWURF.md`, Abschnitt „Quellen für Gewichte“.
+
+**Protokoll** (`modell-hf.ts`, neu):
+- **`leseHfName()`:** `org/repo` nach den Regeln von Hugging Face.
+- **Adressen:**
+  - `hfStandAdresse()`: Stand je Commit oder Zweig mit `blobs=true`.
+  - `hfDateiAdresse()`: Dateien nur am Commit, nur erlaubte Namen.
+- **`hfStand()`:**
+  - Commit und je Datei Größe, Git-Kennung und – nur bei LFS – SHA-256.
+  - Nur `HF_DATEI`: safetensors, Konfiguration und Tokenizer, oberste Ebene. Pickle, Python
+    und Unterordner bleiben draußen.
+  - Ohne `config.json` und safetensors: `hf.ohneGewichte`.
+- **`hfQuelle()`:** `upstream` = `hf:<Kennung>@<Commit>`, nie ein Zweig.
+- **Prüfen:**
+  - `pruefeDateien()`: je Name dieselbe Summe und Größe.
+  - `vorpruefeHf()`: Namen, Größen, LFS-Summen vor dem Laden.
+- **`vertrautesManifest()`** nimmt die Quelle als Funktion (Vorgabe Ollama) – dieselben Regeln
+  für beide.
+
+**Knoten** (`modell-hf.ts`, neu):
+- **`holeHfStand()`:** ohne Weiterleitung, höchstens 2 MB, Fehler nur mit Namen.
+- **`halteHfFest()`:**
+  - Große Dateien mit der Summe von Hugging Face.
+  - Kleine erst geladen und gegen ihre Git-Kennung geprüft (`gitKennung()`, wie
+    `git hash-object`), dann selbst gerechnet.
+- **`ladeHfDatei()`:**
+  - SHA-256 beim Laden, nie mehr Bytes als angekündigt.
+  - Erst nach der Prüfung unter dem Namen (vorher `.teil`); liegt die Datei schon richtig da,
+    wird nichts geladen.
+  - Keine Weiterleitung von https zu http; Abbruch nach `HF_STILL_MS` ohne neue Bytes.
+
+**Noch nicht verdrahtet:** Der Knoten lädt damit erst mit B-29c1b (Ordner, Angebot, `npm run
+modell -- … --aus-hf`, Status). Bis dahin stehen vier Exporte mit diesem Grund in
+`scripts/wiring-ausnahmen.txt`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §31 („Laden von Hugging Face“) und `docs/E9-ENTWURF.md`.
+- Fallstrick in `packages/node/CLAUDE.md`.
+- FORTSCHRITT, Sammlung (B-29).
+
+**Tests:**
+- **protocol** `modell-hf.test.ts` (+8): Namen; Adressen; Stand mit echten Formen und
+  kaputten; Quelle; Wahl mit `hfQuelle`; Dateiprüfung; Vorprüfung.
+- **node** `modell-hf.test.ts` (+6), gegen eine Attrappe von Hugging Face auf 127.0.0.1 mit
+  LFS-Weiterleitung:
+  - Git-Kennung; Stand und Fehler (401, 403, 404, 500, kaputt, zu groß) ohne fremden Text;
+  - Festhalten, auch mit falschen Bytes;
+  - Laden, zweites Mal nichts;
+  - falsche, zu viele und zu wenige Bytes, stehende Leitung: kein Bruchstück;
+  - Namen, Commit, https → http.
+
+PRUEFUNGEN
+
+**MENSCH (Live-Probe, Hugging Face ist von hier nicht erreichbar):** mit einem kleinen,
+offenen Modell (z. B. `Qwen/Qwen2.5-0.5B-Instruct`)
+`https://huggingface.co/api/models/Qwen/Qwen2.5-0.5B-Instruct/revision/main?blobs=true` abrufen.
+Erwartet:
+- `sha` und `siblings` mit `lfs.sha256` für `model.safetensors`;
+- `blobId` für die kleinen Dateien.
+
+Knoten-Stand: kein Update nötig (noch nicht verdrahtet).

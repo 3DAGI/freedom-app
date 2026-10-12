@@ -186,3 +186,13 @@ Bereichs unten anhängen.
   Event (`raumAgentAntwort()` über `KnotenMls.sende()`) – nie offen. Fehlt die Erwähnung, einmal abgleichen.
   Der Kontext nimmt nur Nachrichten vor der Erwähnung; die Engine stempelt in Sekunden – im Test eine
   Sekunde dazwischen.
+- **Gewichte von Hugging Face nur über `modell-hf.ts`** (seit B-29c1a, Quellen MENSCH 12.10.2026):
+  Stand nur am Commit (`hfStand()`, `upstream` = `hf:<Kennung>@<Commit>`, nie ein Zweig), Dateien
+  nur aus `HF_DATEI` – safetensors, Konfiguration, Tokenizer, oberste Ebene; nie Pickle (`.bin`,
+  `.pt`), nie Python. Hugging Face nennt SHA-256 nur für LFS; kleine Dateien tragen nur die
+  Git-Kennung (SHA-1) – nie als Summe ins Manifest, erst laden, `gitKennung()` vergleichen, dann
+  selbst rechnen (`halteHfFest()`). Geladen nur über `ladeHfDatei()`: SHA-256 beim Laden, nie mehr
+  Bytes als im Manifest, unter dem Namen erst nach der Prüfung (vorher `.teil`), Weiterleitungen nie
+  von https zu http, ohne neue Bytes Abbruch nach `HF_STILL_MS`. Fehler nur mit Namen
+  (`HfGesperrt`, `DateiAnders` …), nie Text von Hugging Face. Hugging Face ist aus dieser Umgebung
+  nicht erreichbar – Tests gegen eine Attrappe auf 127.0.0.1, Live-Proben macht der MENSCH.
