@@ -257,6 +257,6 @@ verbinden.“
 
 **Schritte:**
 - **B-29c1b ✓:** der Knoten lädt von Hugging Face in `MODELL_ORDNER`.
-- **B-29c2a:** Magnet im Protokoll.
+- **B-29c2a ✓:** Magnet und Inhalts-Kennung im Protokoll („ich halte vor“, 38058).
 - **B-29c2b:** aria2 im Knoten.
 - **B-29c2c:** Quellenreihenfolge und Bekanntgabe, Docker und Installer.

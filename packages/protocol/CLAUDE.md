@@ -55,3 +55,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Gruppen-Ids von MDK haben 16 Byte (32 Zeichen Hex) – im Verweis (`auftragsVerweisTags()`) wie bei Meldungen
   32 bis 64 Zeichen; bis 11.3d2b verlangte er 64, und keine echte Gruppe passte. Neue Prüfungen für Gruppen-Ids
   mit einer echten Gruppe testen, nicht mit `"ab".repeat(32)`.
+- **Magnet-Links nur über `leseMagnet()`** (seit B-29c2a, `modell-torrent.ts`): Magnete sind Fremdtext –
+  nur die Kennung `btih`, Tracker (udp, http, https, wss) und Web-Seeds (https), nie lokale oder private Hosts,
+  nie `xs`/`as`; weiter geht nur der neu gebaute `link`. Seeds einer Fassung nur über `magnetQuellen()` mit
+  `inhaltsKennung()` (gleich für jeden Herausgeber derselben Dateien) – Vertrauen braucht die Wahl nicht, die
+  Bytes prüft das Manifest. Eine Base32-Kennung im Test nur mit `base64.b32encode` erzeugen.

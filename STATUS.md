@@ -8411,3 +8411,47 @@ Erwartet:
 - eine Änderung im Ordner nimmt es heraus.
 
 Knoten-Stand: `main` mit B-29c1b, nur für `KI_ANTRIEB=openai`; mit Ollama kein Update nötig.
+
+## Schritt B-29c2a – Magnet-Links und Inhalts-Kennung im Protokoll
+
+Spur B, dritter Teil von B-29c. Entscheidung des MENSCHEN vom 12.10.2026: aria2c, Pirate Face,
+alles mit dem dezentralen Freedom-Dateisystem verbinden.
+
+Beschreibung und Vertrauen bleiben bei Nostr; die Bytes reisen über BitTorrent. Dieser Schritt
+legt fest, wie Knoten sich darüber verständigen.
+
+**Protokoll** (`modell-torrent.ts`, neu; `model-registry.ts`):
+- **„Ich halte vor“ (38058)** trägt zwei Tags mehr: `["magnet", …]` und `["inhalt", …]`. Ältere
+  Meldungen bleiben gültig.
+- **`leseMagnet()`:** Magnete sind Fremdtext und werden streng gelesen.
+  - Genau eine Kennung `btih` (Hex oder Base32); eine v2-Kennung daneben bleibt unbeachtet.
+  - Tracker nur udp/http/https/wss, Web-Seeds nur https, nie lokale oder private Hosts, begrenzt.
+  - `dn`, `xs`, `as` fallen weg; weiter geht nur der neu gebaute Link.
+- **`inhaltsKennung()`:** SHA-256 über die sortierten `<sha256>:<größe>` der Dateien. Gleich für
+  jeden Herausgeber derselben Dateien – bis E9-4 signiert jeder Knoten sein eigenes Manifest.
+- **`magnetQuellen()`:** Seeds derselben Fassung:
+  - nur gültig signiert, höchstens 14 Tage alt, je Knoten die neueste;
+  - je Torrent einmal, die meistgemeldeten zuerst;
+  - Vertrauen braucht es nicht, die Bytes prüft das Manifest.
+
+**Noch nicht verdrahtet:** Der Knoten nutzt die Bausteine mit B-29c2b (aria2) und B-29c2c (Quellen,
+Bekanntgabe). Bis dahin stehen drei Ausnahmen mit diesem Grund in `scripts/wiring-ausnahmen.txt`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §31 („Über BitTorrent im eigenen Netz“).
+- Fallstrick in `packages/protocol/CLAUDE.md`.
+- E9-Entwurf, FORTSCHRITT.
+
+**Tests:** protocol `modell-torrent.test.ts` (+5):
+- Magnet mit Hex, Base32 und Hybrid; Ablehnungen (lokale und private Hosts, fremde Schemata,
+  zwei Kennungen, Übergröße, Grenzen);
+- Inhalts-Kennung;
+- 38058 mit und ohne Magnet;
+- Quellen: Fassung, Modell, Alter, Signatur, neueste je Knoten, Reihenfolge.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen, vorher 1284); node 402 grün (7 übersprungen, unverändert); app 1040 grün;
+  mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+Knoten-Stand: kein Update nötig (nur Protokoll).

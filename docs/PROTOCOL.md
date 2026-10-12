@@ -1013,6 +1013,30 @@ abonnierten Modellkatalogen (38080).
   (`pruefeDateien()`: je Name dieselbe Summe und Größe, keine fremde, keine
   fehlende).
 
+**Über BitTorrent im eigenen Netz** (seit B-29c2a, MENSCH 12.10.2026: aria2c,
+Pirate Face, verbunden mit dem dezentralen Freedom-Dateisystem):
+- **„Ich halte vor“ (38058)** nennt zwei Tags mehr: `["magnet", <Magnet-Link>]`
+  und `["inhalt", <Inhalts-Kennung>]`. Ältere Meldungen ohne beides bleiben
+  gültig.
+- **Inhalts-Kennung** (`inhaltsKennung()`): SHA-256 über die sortierten Zeilen
+  `<sha256>:<größe>` der Dateien eines Manifests. Sie ist für jeden
+  Herausgeber gleich, der dieselben Dateien festhält – so finden Knoten Seeds
+  zu ihrer Fassung, auch wenn jeder sein eigenes Manifest signiert.
+- **Magnet-Link** (`leseMagnet()`):
+  - genau eine Kennung `xt=urn:btih:` (Hex oder Base32); eine v2-Kennung
+    daneben bleibt unbeachtet;
+  - Tracker nur `udp`, `http`, `https`, `wss`, Web-Seeds nur `https`, nie
+    lokale oder private Hosts, höchstens 10 bzw. 5;
+  - alles andere (`dn`, `xs`, `as` …) fällt weg; weitergegeben wird nur der
+    neu gebaute Link.
+- **Quellen** (`magnetQuellen()`): Meldungen mit gültiger Signatur, demselben
+  Modell, derselben Inhalts-Kennung und gültigem Magnet, höchstens 14 Tage alt;
+  je Knoten die neueste; die meistgemeldeten Torrents zuerst.
+  - Vertrauen braucht es dafür nicht: Die Bytes prüft das Manifest, gleich
+    woher sie kommen.
+  - BitTorrent v1 prüft nur SHA-1-Stücke, der Knoten danach die SHA-256 jeder
+    Datei.
+
 ## 32. Agenten in Räumen – Karte, Besitzer, Rolle (Kind 38090, seit 11.3b1)
 
 Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`, freigegeben 08.10.2026 (F1 A, F4 A, F6 A).
