@@ -8225,6 +8225,32 @@ Nur Dokumente. Auftrag MENSCH 11.10.: „Alle drei offenen Punkte ausführlichst
 Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
 
+## Schritt VKa – Vibecoden auf dem eigenen Knoten: Entwurf und Protokoll
+
+Wunsch MENSCH 11.10.: zuerst vom Seeker oder iPhone aus auf dem eigenen GX10 vibecoden – gekoppelt
+per QR, ohne Vertrauensproblem –, bevor Fragen zu fremden Geräten entschieden werden. Freigegeben
+(„Ja“): den Entwurf festhalten und mit VKa beginnen.
+
+- **Entwurf** `docs/VIBECODEN-ENTWURF.md` (A-31):
+  - Bestand: Koppeln, Besitzer-Nachweis, Verbindung ohne Portfreigabe und „Mein Knoten“ sind fertig.
+  - Es fehlen Agent mit Werkzeugen, Projektordner, Sandbox, Vorschau und Projektseite.
+  - Vorschläge VK1–VK7, Aufteilung VKa–VKf, Fragen VK-W1–W5: Harness, git, Vorschau, Netz, Kurzcode.
+- **VKa** (`protocol/src/knoten-code.ts`, Kind 5080, `docs/PROTOCOL.md` 34):
+  - Code-Auftrag nur versiegelt mit Besitzer-Nachweis (`baueCodeAuftrag()`), Aktionen `liste`,
+    `neu`, `auftrag` (Modus `fragen`/`frei`), `freigabe`, `stopp`.
+  - Der Knoten liest streng (`leseCodeAuftrag()`): je Parameter genau einer, keine fremden.
+  - Schritte als Rückmeldung 7000 `partial` (`codeSchrittText()`/`leseCodeSchritt()`: Befehl mit
+    Gedanke und „wartet“, Ausgabe mit Rückgabewert).
+  - Antworten 6080 je Aktion (`codeAntwortText()`/`leseCodeAntwort()`).
+  - Projektnamen taugen als Ordnername.
+  - Tests: protocol +7.
+  - Verdrahtet erst mit VKc (Knoten) und VKe (App) – sieben Ausnahmen in
+    `scripts/wiring-ausnahmen.txt` mit diesem Grund.
+
+**Prüfungen:** protocol 1276 (+7), node 390 (je 6 übersprungen), app 1040 grün, Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test,
+Website-Bau und reproduzierbarer Build grün.
+
 ## Schritt B-29c1a – Gewichte von Hugging Face: Bausteine
 
 Spur B, erster Teil von B-29c („Gewichte außerhalb von Ollama gegen das Manifest prüfen“).
@@ -8293,8 +8319,8 @@ modell -- … --aus-hf`, Status). Bis dahin stehen vier Exporte mit diesem Grund
   - Namen, Commit, https → http.
 
 **Prüfungen:**
-- protocol 1277 grün (6 übersprungen, vorher 1269); node 395 grün (7 übersprungen – der Live-Abruf in
-  `tools.test.ts` ohne Netz; vorher 390); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- protocol 1284 grün (6 übersprungen, vorher 1276 nach dem Einmergen von `main` mit VKa); node 395 grün (7
+  übersprungen – der Live-Abruf in `tools.test.ts` ohne Netz; vorher 390); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
 - Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
 
 **MENSCH (Live-Probe, Hugging Face ist von hier nicht erreichbar):** mit einem kleinen,
