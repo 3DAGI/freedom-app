@@ -200,3 +200,48 @@ baut 11.3. Was dabei gilt:
   Den KI-Teil hat A-14 gebaut (Tag `gratis`, `gratis.ts`) – keinen zweiten
   einführen.
 - **E9-1:** wie in der Tabelle oben; E9-5 erst mit zwei Geräten.
+
+## Quellen für Gewichte vom 12.10.2026 (MENSCH, B-29c)
+
+**Entscheidung:** Gewichte kommen aus Freedom selbst (dem eigenen Netz).
+Pirate Face und Hugging Face sind Quellen für neue Modelle.
+
+**Befund (Spur B, 12.10.):** Einen Ordner mit Modellen im dezentralen Git gibt es nicht.
+- **Git-Bundles** sind auf 32 MB begrenzt (`BUNDLE_GRENZEN`).
+- **Das Blob-Netz** verteilt Stücke als Nostr-Events: große Klasse 1 MB, mit Parität das
+  1,5-Fache. Für Gewichte von mehreren Gigabyte taugt das nicht: Ein 7B-Modell in bf16
+  (rund 15 GB) wären rund 23.000 Events.
+- **Es gibt** das Manifest 38057 mit einem freien Feld `blobId` je Datei und „ich halte
+  vor“ (38058). Beides hat noch keinen Weg, auf dem Gewichte reisen.
+
+**Pirate Face** (pirateface.co, seit etwa 20.09.2026) ist ein Torrent-Index für offene
+Modelle von Hugging Face:
+- nur Apache-2.0 und MIT;
+- mit den SHA-256, die Hugging Face nennt;
+- laut Berichten mit Hugging Face als Web-Seed;
+- eine API ist angekündigt, aber noch nicht da.
+
+Aus dieser Umgebung ist die Seite nicht erreichbar (Proxy). Die Angaben stammen aus
+Berichten und sind nicht geprüft.
+
+**Plan:**
+- **B-29c1a:** Bausteine für Hugging Face (`modell-hf.ts` in Protokoll und Knoten):
+  Stand je Commit, Festhalten, Laden mit SHA-256, nur safetensors, Konfiguration und
+  Tokenizer.
+- **B-29c1b:** verdrahten.
+  - Der Knoten lädt in einen Ordner (`MODELL_ORDNER`).
+  - Ins Angebot kommt ein Modell nur geprüft und nur, solange der Ordner unverändert ist.
+  - Dazu `npm run modell` mit `--aus-hf` und Befunde im Status.
+- **B-29c2:** Torrent als Weg im eigenen Netz.
+  - Pirate Face und Freedom-Knoten, die ein geprüftes Modell halten, teilen dieselben
+    Dateien.
+  - „Ich halte vor“ (38058) nennt dafür den Magnet-Link.
+  - Geprüft wird immer gegen die SHA-256 im Manifest; BitTorrent v1 prüft nur
+    SHA-1-Stücke.
+
+**Fragen an den MENSCHEN vor B-29c2:**
+- **T1 – BitTorrent-Client.**
+  - Vorschlag: aria2c als eigener Dienst neben dem Knoten, wie coturn. Lizenz
+    GPL-2.0+; als getrenntes Programm hat das keine Folge für die Lizenz des Projekts.
+  - Anders: WebTorrent als npm-Abhängigkeit (MIT, viele Pakete).
+- **T2 – Neues Tag im Event 38058:** `["magnet", <Link>]` (Event-Format).
