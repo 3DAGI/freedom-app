@@ -8292,7 +8292,10 @@ modell -- … --aus-hf`, Status). Bis dahin stehen vier Exporte mit diesem Grund
   - falsche, zu viele und zu wenige Bytes, stehende Leitung: kein Bruchstück;
   - Namen, Commit, https → http.
 
-PRUEFUNGEN
+**Prüfungen:**
+- protocol 1277 grün (6 übersprungen, vorher 1269); node 395 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz; vorher 390); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
 
 **MENSCH (Live-Probe, Hugging Face ist von hier nicht erreichbar):** mit einem kleinen,
 offenen Modell (z. B. `Qwen/Qwen2.5-0.5B-Instruct`)
