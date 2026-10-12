@@ -46,6 +46,10 @@ jobs:
       - name: Tests protocol
         run: npm test --workspace @freedomstack/protocol
 
+      # B-29c2b: Modelle im Schwarm laufen gegen echtes aria2c – ohne es übersprängen sich die Tests
+      - name: aria2c fuer die Schwarm-Tests
+        run: sudo apt-get install -y --no-install-recommends aria2 && aria2c --version | head -1
+
       - name: Tests node
         run: npm test --workspace @freedomstack/node
 

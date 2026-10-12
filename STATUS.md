@@ -8455,3 +8455,53 @@ Bekanntgabe). Bis dahin stehen drei Ausnahmen mit diesem Grund in `scripts/wirin
 - Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
 
 Knoten-Stand: kein Update nötig (nur Protokoll).
+
+## Schritt B-29c2b – aria2 im Knoten: Freedom-Torrent, holen und prüfen, teilen
+
+Spur B, vierter Teil von B-29c. Der Torrent-Client wurde am 12.10.2026 im Auftrag des MENSCHEN
+gewählt: **aria2c**, als eigenes Programm. Es ist bewährt, sparsam bei Gigabyte-Dateien und kann
+Magnet, DHT, Tracker und Web-Seeds. Es kommt keine npm-Abhängigkeit dazu; die Lizenz ist GPL-2.0+,
+als getrennter Prozess ohne Folge für die EUPL.
+
+**Knoten:**
+- **`torrent.ts`** – der **Freedom-Torrent** einer Fassung:
+  - Bencode ohne Abhängigkeit.
+  - Name, Dateien und Stückgröße folgen nur aus dem Manifest, die Stücke aus den geprüften Bytes.
+  - Jeder Knoten mit denselben Bytes baut denselben Torrent (dieselbe `infohash`), gleich woher er
+    das Modell hat.
+  - Name = Commit bei Hugging Face, dazu dessen Web-Seed (BEP-19). Beim Bauen wird jede SHA-256
+    geprüft.
+- **`aria2.ts`:**
+  - `starteAria2()`: JSON-RPC nur auf 127.0.0.1; das Geheimnis ist je Start neu und steht nur in
+    `aria2.conf` (0600), nicht auf der Befehlszeile.
+  - Seeding ohne Ende; Upload-Grenze `TORRENT_HOCHLADEN_KBS`; Einstieg ins DHT
+    (`TORRENT_DHT_EINSTIEG`); eigene Tracker (`TORRENT_TRACKER`, geprüft wie in Magneten).
+  - `Aria2` gibt Fehler nur als Kennung mit Code weiter.
+- **`modell-schwarm.ts`:**
+  - `holeUndTeile()`:
+    - Metadaten holen (pausiert), nur die Dateien des Manifests wählen.
+    - Schon Geprüftes als Verweis vorlegen.
+    - Laden, jede SHA-256 prüfen; erst dann als Verweis in den Modellordner, danach weiter teilen.
+    - Falsches löscht die Ablage.
+  - `teileModell()`: den Freedom-Torrent aus dem geprüften Ordner teilen, nie doppelt.
+- **CI:** installiert aria2c, damit die Schwarm-Tests laufen statt sich zu überspringen.
+
+**Noch nicht verdrahtet:** `main.ts` startet aria2c und nutzt den Schwarm erst mit B-29c2c (Quellen,
+Bekanntgabe, Docker, Installer). Das liegt fertig und getestet bereit.
+
+**Tests:** node `modell-schwarm.test.ts` (+8):
+- Bencode und Stückgrößen; Freedom-Torrent gleich bei zwei Knoten, `aria2c -S` liest dieselbe
+  Kennung; eine abweichende Datei wirft.
+- Auswahl im Torrent; Umgebung und Konfiguration (Geheimnis nur in der Datei, DHT-Einstieg,
+  Tracker); Fehler von aria2 ohne Text.
+- **Mit echtem aria2c,** zwei Knoten und einem Tracker auf 127.0.0.1:
+  - B holt über den Magnet und teilt weiter;
+  - eine falsche Fassung kommt nie in den Modellordner;
+  - wer die Dateien schon hat, lädt nichts und teilt sofort.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen); node 410 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 402); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+Knoten-Stand: kein Update nötig (noch nicht verdrahtet).

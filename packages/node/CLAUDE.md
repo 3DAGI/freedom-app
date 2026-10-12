@@ -201,3 +201,12 @@ Bereichs unten anhängen.
   Dienst lädt nur Wünsche seiner Quelle. Ins Angebot nur, solange `/v1/models` den Namen nennt und
   `ordnerAbdruck()` (Name, Größe, Zeit je Eintrag – liest keine Bytes) dem gemerkten gleicht; im Ordner
   nichts, was nicht im Manifest steht (`datei.fremd`) – vLLM liest alle safetensors des Ordners.
+- **Modelle im Schwarm nur über aria2c und `modell-schwarm.ts`** (seit B-29c2b, MENSCH 12.10.2026): aria2c nur aus
+  `starteAria2()` – JSON-RPC nur auf 127.0.0.1, das Geheimnis je Start neu und nur in `aria2.conf` (0600), nie auf
+  der Befehlszeile (`ps`), nie ins Log; Fehler nur als `Aria2Fehler` mit Code. Laden nur über `holeUndTeile()`: nur
+  die Dateien des Manifests (`waehleDateien()`: Name in der obersten oder zweiten Ebene, Größe gleich), jede mit
+  SHA-256 geprüft, bevor sie in den Modellordner kommt (Verweis, nicht Kopie); Falsches löscht die Ablage. Teilen nur
+  den Freedom-Torrent aus dem geprüften Ordner (`baueModellTorrent()`: Name = Commit, Dateien sortiert, Stückgröße aus
+  `stueckGroesse()` – nie ändern, sonst teilen Knoten derselben Bytes verschiedene Schwärme). Ohne Einstieg
+  (`dht-entry-point`) findet ein neuer Knoten im DHT niemanden. Tests mit echtem aria2c brauchen einen Tracker auf
+  127.0.0.1 und Magnete ohne `leseMagnet()` (es weist lokale Tracker zu Recht ab); die CI installiert aria2.
