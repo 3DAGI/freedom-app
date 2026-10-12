@@ -88,6 +88,7 @@ export * from "./model-registry.js";
 export * from "./modell-katalog.js";
 export * from "./modell-ollama.js";
 export * from "./modell-hf.js";
+export * from "./modell-torrent.js";
 export * from "./kopfgeld.js";
 export * from "./naming.js";
 export * from "./succession.js";
