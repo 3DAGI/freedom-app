@@ -17,7 +17,12 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { totalmem } from "node:os";
 import {
   buildModelManifest,
+  buildModelSeed,
+  inhaltsKennung,
   KIND_MODEL_MANIFEST,
+  KIND_MODEL_SEED,
+  magnetQuellen,
+  parseModelManifest,
   OutboxPool,
   WebSocketRelay,
   MemoryRelay,
@@ -37,6 +42,8 @@ import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
 import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
+import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
+import { holeUndTeile, teileModell } from "./modell-schwarm.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
@@ -228,6 +235,30 @@ async function main(): Promise<void> {
   // --served-model-name <org/repo>`). Ein Modell aus einem Ollama daneben bediente er nicht.
   const mitOllama = antrieb.art === "ollama";
   const modellBasis = modellOrdner(process.env);
+  // Schwarm (B-29c2c, MENSCH 12.10.: aria2c, Pirate Face, das dezentrale Freedom-Dateisystem): nur mit
+  // TORRENT=1 und einem OpenAI-kompatiblen Antrieb – Ollama hält seine Gewichte selbst. Ungültig → kein Start.
+  const torrentWahl = torrentAusUmgebung(process.env, join(process.env.HOME ?? ".", ".freedom", "aria2"));
+  if (torrentWahl.grund) {
+    console.error(`[schwarm] ${torrentWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  let schwarm: LaufendesAria2 | undefined;
+  if (torrentWahl.einstellung && !mitOllama) {
+    schwarm = await starteAria2(torrentWahl.einstellung).catch((e) => {
+      console.warn(`[schwarm] aria2c startet nicht (${(e as Error).name}) – Modelle nur direkt von Hugging Face`);
+      return undefined;
+    });
+    if (schwarm) {
+      console.log(`[schwarm] aria2c läuft – Modelle zuerst aus dem Schwarm, geprüft geteilt (Port ${torrentWahl.einstellung.btPort})`);
+      // aria2c endet mit dem Knoten – sonst teilte es weiter, ohne dass jemand prüft
+      process.on("exit", () => schwarm?.stoppe());
+    }
+  } else if (torrentWahl.einstellung) console.log("[schwarm] TORRENT=1 gilt nur mit KI_ANTRIEB=openai – mit Ollama aus");
+  const schwarmOrt = join(modellBasis, ".schwarm");
+  // „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung – vom Schlüssel des Knotens
+  const meldeVorhalten = async (m: import("@freedomstack/protocol").ModelManifest, magnet: string) => {
+    await pool.publish(signEvent(buildModelSeed(m.modelId, keypair.pk, m.files.map((f) => f.name), undefined, undefined, { magnet, inhalt: inhaltsKennung(m) }), keypair.sk));
+  };
   const modellDienst = new ModellDienst({
     manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
     registry: registryDateien,
@@ -246,6 +277,17 @@ async function main(): Promise<void> {
         abdruck: ordnerAbdruck,
         ordner: (n) => hfOrdner(modellBasis, n),
         antrieb: async () => (await antriebModelle(antrieb)).map((m) => m.name),
+        ...(schwarm ? {
+          schwarm: {
+            quellen: async (m) => magnetQuellen(await pool.query({ kinds: [KIND_MODEL_SEED], "#d": [`seed:${m.modelId}`], limit: 200 }), m, Math.floor(Date.now() / 1000)).map((q) => q.magnet),
+            hole: (magnet, m, ordner, fortschritt) => holeUndTeile(schwarm!.aria2, magnet, m, { ordner, schwarm: schwarmOrt }, { fortschritt: (n) => fortschritt(n) }),
+            teile: async (m, ordner) => {
+              const t = await teileModell(schwarm!.aria2, m, { ordner, schwarm: schwarmOrt });
+              await meldeVorhalten(m, t.magnet);
+              return t.infohash;
+            },
+          },
+        } : {}),
       },
     }),
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
@@ -256,6 +298,26 @@ async function main(): Promise<void> {
   });
   gepruefteModelle = await modellDienst.imAngebot();
   if (gepruefteModelle.length) console.log(`[modell] geprüft im Angebot: ${gepruefteModelle.join(",")}`);
+  // Schwarm: geprüfte Modelle von Hugging Face beim Start wieder teilen – nur mit unverändertem Ordner;
+  // der Torrent entsteht dabei aus den Bytes neu (jede SHA-256 geprüft). Danach täglich nur neu melden.
+  const geteilt = new Map<string, { m: import("@freedomstack/protocol").ModelManifest; magnet: string }>();
+  const teileGepruefte = async () => {
+    if (!schwarm) return;
+    for (const g of leseStand(modellDatei()).modelle.filter((x) => x.quelle === "hf" && x.ordner && ordnerAbdruck(x.ordner) === x.abdruck)) {
+      const ev = (await pool.query({ ids: [g.manifest], limit: 1 }).catch(() => []))[0];
+      if (!ev) continue;
+      try {
+        const m = parseModelManifest(ev);
+        const { magnet } = await teileModell(schwarm.aria2, m, { ordner: g.ordner!, schwarm: schwarmOrt });
+        geteilt.set(g.name, { m, magnet });
+        await meldeVorhalten(m, magnet);
+      } catch (e) {
+        console.warn(`[schwarm] ${g.name}: nicht geteilt (${(e as Error).name})`);
+      }
+    }
+  };
+  void teileGepruefte();
+  if (schwarm) setInterval(() => { for (const { m, magnet } of geteilt.values()) void meldeVorhalten(m, magnet).catch(() => {}); }, 24 * 3600_000);
 
   // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet
   // ein Handy Minuten; die App wiese solche Angebote ab.

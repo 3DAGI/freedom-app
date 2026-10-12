@@ -24,9 +24,9 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  type GeladeneDatei, type HfName, type HfStand, type ModelFile, type NostrEvent, type OllamaName, type Schicht,
-  fitsOnDevice, hfQuelle, leseHfName, leseOllamaName, ollamaDateien, pruefeDateien, pruefeSchichten, registryAdresse,
-  vertrautesManifest, vorpruefeHf,
+  type GeladeneDatei, type HfName, type HfStand, type Magnet, type ModelFile, type ModelManifest, type NostrEvent, type OllamaName,
+  type Schicht, fitsOnDevice, hfQuelle, leseHfName, leseMagnet, leseOllamaName, ollamaDateien, pruefeDateien, pruefeSchichten,
+  registryAdresse, vertrautesManifest, vorpruefeHf,
 } from "@freedomstack/protocol";
 import type { Festgehalten } from "./modell-hf.js";
 import { leseBegrenzt } from "./url-guard.js";
@@ -58,6 +58,8 @@ export interface GeprueftesModell {
   quelle?: "hf";
   ordner?: string;
   abdruck?: string;
+  /** Seit B-29c2c: Kennung des Freedom-Torrents, unter dem der Knoten es teilt. */
+  torrent?: string;
 }
 export type Schritt = "manifest" | "vorpruefung" | "laden" | "pruefen";
 export interface Ergebnis { name: string; fall: string; werte?: Record<string, number | string>; zeit: number }
@@ -74,6 +76,8 @@ export interface Wunsch {
   ausRegistry?: true;
   /** Seit B-29c1b: Hugging Face statt Ollama. */
   quelle?: "hf";
+  /** Seit B-29c2c: ein Magnet vom Betreiber (etwa von Pirate Face), geprüft mit `leseMagnet()`. */
+  magnet?: string;
 }
 
 function leseJson<T>(datei: string, leer: T): T {
@@ -103,14 +107,24 @@ export function leseWuensche(datei: string): Wunsch[] {
   const w = leseJson<unknown>(datei, []);
   if (!Array.isArray(w)) return [];
   return w.filter((x) => typeof x?.name === "string" && quellName(x.quelle === "hf" ? "hf" : "ollama", x.name) === x.name && Number.isSafeInteger(x.seit))
-    .map((x: Wunsch) => ({ name: x.name, seit: x.seit, ...(x.ausRegistry === true ? { ausRegistry: true as const } : {}), ...(x.quelle === "hf" ? { quelle: "hf" as const } : {}) }));
+    .map((x: Wunsch) => ({
+      name: x.name, seit: x.seit, ...(x.ausRegistry === true ? { ausRegistry: true as const } : {}), ...(x.quelle === "hf" ? { quelle: "hf" as const } : {}),
+      ...(x.quelle === "hf" && typeof x.magnet === "string" && leseMagnet(x.magnet) ? { magnet: leseMagnet(x.magnet)!.link } : {}),
+    }));
 }
 
 /** Für `npm run modell`: den Namen vormerken (ersetzt einen älteren Wunsch desselben Namens). */
-export function merkeWunsch(datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000), ausRegistry = false, quelle: Quelle = "ollama"): string | null {
+export function merkeWunsch(
+  datei: string, eingabe: string, jetzt = Math.floor(Date.now() / 1000), ausRegistry = false, quelle: Quelle = "ollama", magnetLink?: string,
+): string | null {
   const name = quellName(quelle, eingabe);
   if (!name) return null;
-  const wunsch: Wunsch = { name, seit: jetzt, ...(ausRegistry ? { ausRegistry: true as const } : {}), ...(quelle === "hf" ? { quelle: "hf" as const } : {}) };
+  // Ein Magnet nur für Hugging Face und nur geprüft – ein ungültiger heißt: nichts vormerken
+  const magnet = magnetLink === undefined ? undefined : quelle === "hf" ? leseMagnet(magnetLink)?.link : undefined;
+  if (magnetLink !== undefined && !magnet) return null;
+  const wunsch: Wunsch = {
+    name, seit: jetzt, ...(ausRegistry ? { ausRegistry: true as const } : {}), ...(quelle === "hf" ? { quelle: "hf" as const } : {}), ...(magnet ? { magnet } : {}),
+  };
   schreibeJson(datei, [...leseWuensche(datei).filter((w) => w.name !== name), wunsch]);
   return name;
 }
@@ -151,6 +165,18 @@ export interface HfHilfen {
   ordner(n: HfName): string;
   /** Welche Modelle der Antrieb gerade bedient (`/v1/models`); wirft, wenn er nicht antwortet. */
   antrieb(): Promise<string[]>;
+  /** Seit B-29c2c, nur mit `TORRENT=1`: der Schwarm (aria2) vor Hugging Face. */
+  schwarm?: SchwarmHilfen;
+}
+
+/** Was der Weg über den Schwarm braucht (`modell-schwarm.ts`, in `main.ts` verdrahtet). */
+export interface SchwarmHilfen {
+  /** Magnete zu genau dieser Fassung aus „ich halte vor“ (38058) – `magnetQuellen()`. */
+  quellen(m: ModelManifest): Promise<Magnet[]>;
+  /** Über einen Magnet holen, prüfen, in den Ordner legen und weiter teilen (`holeUndTeile()`). */
+  hole(magnet: Magnet, m: ModelManifest, ordner: string, fortschritt: (bytes: number) => void): Promise<{ ok: boolean; fall?: string }>;
+  /** Den Freedom-Torrent teilen und „ich halte vor“ veröffentlichen; liefert seine Kennung. */
+  teile(m: ModelManifest, ordner: string): Promise<string>;
 }
 
 export type LadeErgebnis = { ok: true; modell: GeprueftesModell } | { ok: false; fall: string; werte?: Record<string, number | string> };
@@ -215,7 +241,7 @@ export async function ladeModell(
  */
 export async function ladeHfModell(
   name: string, h: LaderHilfen, melde: (schritt: Schritt, geladen?: number, gesamt?: number) => void,
-  jetzt = () => Math.floor(Date.now() / 1000), ausHf = false,
+  jetzt = () => Math.floor(Date.now() / 1000), ausHf = false, wunschMagnet?: string,
 ): Promise<LadeErgebnis> {
   const hf = h.hf;
   const n = leseHfName(name);
@@ -251,7 +277,17 @@ export async function ladeHfModell(
   const geladen: GeladeneDatei[] = [];
   let bisher = 0;
   melde("laden", 0, m.totalBytes);
-  for (const f of m.files) {
+  // B-29c2c: zuerst der Schwarm – Freedom-Knoten (38058), dann der Magnet aus dem Wunsch (etwa Pirate
+  // Face); `holeUndTeile()` legt nur geprüfte Dateien in den Ordner. Scheitert alles, Hugging Face direkt.
+  const vomBetreiber = wunschMagnet ? leseMagnet(wunschMagnet) : null;
+  const magnete = hf.schwarm ? [...await hf.schwarm.quellen(m).catch(() => []), ...(vomBetreiber ? [vomBetreiber] : [])] : [];
+  let ausSchwarm = false;
+  for (const mg of magnete.filter((x, i, a) => a.findIndex((y) => y.infohash === x.infohash) === i)) {
+    const r = await hf.schwarm!.hole(mg, m, ordner, (b) => melde("laden", b, m.totalBytes)).catch(() => ({ ok: false }));
+    if (r.ok) { ausSchwarm = true; break; }
+  }
+  if (ausSchwarm) geladen.push(...m.files.map((f) => ({ name: f.name, sha256: f.sha256, groesse: f.sizeBytes })));
+  else for (const f of m.files) {
     try {
       await hf.ladeDatei(quelle.name, quelle.commit, ordner, f, (b) => melde("laden", bisher + b, m.totalBytes));
     } catch (e) {
@@ -266,11 +302,16 @@ export async function ladeHfModell(
   const fremd = hf.inhalt(ordner).filter((d) => !m.files.some((f) => f.name === d.name)).map((d) => ({ name: d.name, sha256: "", groesse: d.groesse }));
   const p = pruefeDateien(m, [...geladen, ...fremd]);
   if (!p.ok) return { ok: false, fall: p.fall, werte: p.werte };
+  // Teilen und bekanntgeben (B-29c2c) – gelingt es nicht, ist das Modell trotzdem geprüft
+  const torrent = hf.schwarm ? await hf.schwarm.teile(m, ordner).catch(() => undefined) : undefined;
   const abdruck = hf.abdruck(ordner);
   if (!abdruck) return { ok: false, fall: "datei.fehlt", werte: { anzahl: m.files.length } };
   return {
     ok: true,
-    modell: { name: n.voll, manifest: wahl.id, herausgeber: m.publisherPubkey, dateien: p.dateien, bytes: p.bytes, ollama: "", geprueft: jetzt(), quelle: "hf", ordner, abdruck },
+    modell: {
+      name: n.voll, manifest: wahl.id, herausgeber: m.publisherPubkey, dateien: p.dateien, bytes: p.bytes, ollama: "", geprueft: jetzt(), quelle: "hf", ordner, abdruck,
+      ...(torrent ? { torrent } : {}),
+    },
   };
 }
 
@@ -322,8 +363,9 @@ export class ModellDienst {
     };
     try {
       this.log(`[modell] ${w.name}: suche Manifest, prüfe, lade`);
-      const laden = w.quelle === "hf" ? ladeHfModell : ladeModell;
-      const r = await laden(w.name, this.h, melde, this.jetzt, w.ausRegistry === true).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
+      const r = await (w.quelle === "hf"
+        ? ladeHfModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true, w.magnet)
+        : ladeModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true)).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
       const s = leseStand(this.dateien.stand);
       const ergebnis: Ergebnis = r.ok ? { name: w.name, fall: "ok", zeit: this.jetzt() } : { name: w.name, fall: r.fall, werte: r.werte, zeit: this.jetzt() };
       schreibeJson(this.dateien.stand, {

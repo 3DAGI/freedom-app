@@ -91,6 +91,11 @@ services:
       # B-29c1b: mit KI_ANTRIEB=openai laedt der Knoten von Hugging Face hierher (npm run modell -- <org/repo> --aus-hf).
       # Leer: ~/.freedom/modelle im Volume freedom-state – der Antrieb braucht denselben Ordner (nur lesend).
       MODELL_ORDNER: "${MODELL_ORDNER:-}"
+      # B-29c2c: Modelle im Schwarm (aria2c im Image) – TORRENT=1 nur mit KI_ANTRIEB=openai. Wer teilt, zeigt
+      # seine IP im Schwarm (docs/PROVIDER.md). Port TORRENT_PORT (TCP und UDP) unten bei ports freigeben.
+      TORRENT: "${TORRENT:-0}"
+      TORRENT_PORT: "${TORRENT_PORT:-6881}"
+      TORRENT_HOCHLADEN_KBS: "${TORRENT_HOCHLADEN_KBS:-0}"
       KI_SCHLUESSEL: "${KI_SCHLUESSEL:-}"
       # 11.3d1a: Agent auf dem Knoten (offene Räume, wer fragt, zahlt) – eigener Schlüssel in ~/.freedom/agent-key
       KNOTEN_AGENT: "${KNOTEN_AGENT:-0}"
@@ -172,6 +177,9 @@ services:
     ports:
       - "127.0.0.1:3602:3602"
       - "127.0.0.1:3601:3601"   # LNURL (8.2b), nur für den Reverse-Proxy
+      # Schwarm (B-29c2c): mit TORRENT=1 hier TORRENT_PORT freigeben, sonst teilt der Knoten nur ausgehend, z. B.
+      #   - "6881:6881/tcp"
+      #   - "6881:6881/udp"
 
   # Anrufe (B-13b, T2 A): TURN-Vermittler, nur mit dem Profil „anrufe“. Einmal einrichten:
   #   bash scripts/turn-einrichten.sh ./turnserver.conf <oeffentlicher-name> --docker >> .env
