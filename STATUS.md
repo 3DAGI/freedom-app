@@ -8643,3 +8643,22 @@ Sprachen.
 
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1056 (+7), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-34 – Chat-Kleinigkeiten
+
+Spur C, Befunde C-3, C-4, C-5 und C-9 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| C-3 | Eingabe- und Anrufzeile auch ohne gewählte Unterhaltung | erst mit einer Unterhaltung (`ohne-unterhaltung` an `.chat-main`, schon im HTML) |
+| C-4 | „⇪ ⇩“ im Kopf der Liste, nur mit Tooltip | „⋯“ öffnet ein Menü mit „Post … als Datei mitnehmen“ und „Mitgebrachte Post einlesen“ (`oeffneMenueAn()`); die alten Knöpfe bleiben unsichtbar als Ziel |
+| C-5 | Zap-Knopf in fremden Nachrichten: Grundregel für Knöpfe, 159–340 px breiter Balken; die Nachricht ohne Blase | Knopf so breit wie sein Zeichen (am Handy 40 px), Nachrichten anderer als Blase – nur im Chat, der Agent bleibt ohne |
+| C-9 | Sicherheitscode im einzeiligen Feld, 7 von 12 Gruppen sichtbar | Lesefelder im Dialog mehrzeilig (`dlg-nurlesen`, bis vier Zeilen) – der Code steht ganz da |
+
+**Tests:** `chat-klein.test.ts` (4). Smoke „chat_klein“ (Fremder aus `kontaktname-probe.mts`):
+ohne Unterhaltung keine Eingabe, kein Anruf, keine Pfeile; das Menü mit zwei Punkten; mit
+Unterhaltung alles da; fremde Nachricht als Blase, Zap-Knopf 21 px; Sicherheitscode zwölf Gruppen
+ohne Scrollen. Vorher alle fünf rot.
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1060 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
