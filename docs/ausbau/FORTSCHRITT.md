@@ -4,6 +4,9 @@ Der Agent pflegt diese Liste nach jedem Schritt. Status: `offen`, `in Arbeit`,
 `wartet auf MENSCH`, `teilweise`, `Code fertig`, `fertig`. Bei `fertig` den
 Pull Request eintragen.
 
+**Alles Offene auf einen Blick** – fehlende Entscheidungen, Aufgaben des MENSCHEN,
+offene Schritte je Spur und woran sie hängen: [`OFFEN.md`](OFFEN.md) (seit 13.10.2026).
+
 ## Empfohlene Reihenfolge ab jetzt
 
 1. ~~2.1 veröffentlichen~~ – live seit 24.09.; Interop-Test ✅ (5/5 lib, UI lokal + public)

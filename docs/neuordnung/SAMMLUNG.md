@@ -8,6 +8,10 @@ Die älteren Listen im Repo (README, START, LUECKEN, ROADMAP …) widersprechen
 sich teils; sie werden später aufgeräumt (Anhang C). Bis dahin ändert diese
 Sammlung keine von ihnen.
 
+**Übersicht seit 13.10.2026:** Was davon noch offen ist – Entscheidungen
+(Abschnitt 5), MENSCH (Abschnitt 6) und die Punkte je Spur – steht gebündelt in
+[`docs/ausbau/OFFEN.md`](../ausbau/OFFEN.md). Diese Sammlung bleibt die Quelle.
+
 **Solange Spur A pausiert,** arbeiten Spur B und Spur C Punkte mit Status
 `frei` aus ihrem eigenen Abschnitt ab – ohne Spur A zu stören und ohne
 aufeinander zu warten.

@@ -8682,6 +8682,30 @@ Kanals in einer Zeile, Desktop und Handy (vorher am Handy vier Zeilen).
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1064 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
+## Schritt OFFEN – alles Offene auf einen Blick
+
+Spur B, Wunsch MENSCH (12.10.: „Liste von allen offenen Punkten der gesamten Roadmap und
+allen fehlenden Entscheidungen“, 13.10.: „in der Repo eintragen, sodass alle Agents es sehen
+können“). Nur Doku, kein Code.
+
+- **Neu `docs/ausbau/OFFEN.md`:** zusammengetragen aus `FORTSCHRITT.md`, der Sammlung
+  (Abschnitte 2–6, Anhänge D–F) und den Entwürfen (`REPO-AGENTEN`, `VIBECODEN`, `RM2`, `E9`,
+  `D3`, `KASSE`, `E4B`, `KIT-PLAN`, `MIXNET`, `phase-9.md`). Vier Teile:
+  1. offene Entscheidungen des MENSCHEN – W3a, W6a, W7 (11.5), VK-W1–W5 (Vibecoden), RM2 W1–W5,
+     die Bestätigung zu 0.G (Upgrade-Recht `8DhKPv…`) und wer den Agenten-Teil von Phase 9 baut;
+     dazu, was ohne Termin zurückgestellt ist;
+  2. Aufgaben des MENSCHEN – zuerst die, die Bauschritte aufhalten (M-2 Zahlkanal-Upgrade hält
+     sechs auf), dann Konten und Einrichtung, Tests mit echten Geräten, Phase 9;
+  3. offene Bauschritte je Spur mit Stand (`frei` oder `nach …`).
+  Die Datei verweist nur; bei Widerspruch gilt die Quelle.
+- **Pflege:** Wer einen Punkt fertigstellt, löscht seine Zeile dort im selben PR; Entscheidungen
+  trägt ein, wer die Antwort bekommt. `CLAUDE.md` (Aufbau, Arbeitsweise 1 und 5),
+  `FORTSCHRITT.md` (Kopf) und die Sammlung (Kopf) zeigen auf die Datei.
+- **Befund dabei:** In `FORTSCHRITT.md` steht 0.G noch als „offen – Entscheidung A/B“, obwohl am
+  11.10. entschieden (Zeile von Spur A, nicht geändert).
+
+**Prüfungen:** nur Doku – `check-wiring.py --streng` und `check-website.py` grün.
+
 ## Schritt C-36 – Repos: ein Weg zum Anlegen, eine Rückfrage
 
 Spur C, Befunde G-1, G-2, G-3 und G-5 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
