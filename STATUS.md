@@ -8587,5 +8587,5 @@ Ansicht ans Ende zurück (`folgeWieder()`), ebenso ein geöffneter Verlauf (`age
 (12 Nachrichten) öffnet am Ende; wer hochscrollt, bleibt oben. Vorher lag das Ende 4584 px
 unter dem sichtbaren Teil.
 
-**Prüfungen** (nach dem Einmergen von `main` mit 11.3c3a): protocol 1252 grün (6 übersprungen), node 347,
-app 1020 (+3), Leak 73 + 1 todo; tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+**Prüfungen** (nach dem Einmergen von `main` bis B-29c2c): protocol 1289 grün, node 412 (ohne Netz),
+app 1043 (+3), Leak 73 + 1 todo; tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
