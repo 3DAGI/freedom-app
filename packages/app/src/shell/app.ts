@@ -24,7 +24,7 @@ import { zeigeDatenschutz } from "./datenschutz.js";
 import { nachNotfallLoeschung, wireNotfallLoeschung } from "./notfall.js";
 import { LS_GERAET_PERSON, leseGeraeteCode } from "../geraete-modus.js";
 import { einrichtungOffen, merkphraseNochZeigen } from "../einrichtung.js";
-import { zeigeEinrichtung } from "./einrichtung-ui.js";
+import { einrichtungLaeuft, zeigeEinrichtung } from "./einrichtung-ui.js";
 import {
   LS_MERKPHRASE,
   ensurePool,
@@ -422,6 +422,10 @@ export async function zeigeOnboarding(): Promise<void> {
   try {
     const { nextStep } = await import("../onboarding.js");
     const { backupStatus } = await import("../identity.js");
+    // Während der Einrichtung keine Leiste daneben (C-39, Nutzertest E-1: „nichts einzurichten“ neben
+    // Merkphrase und Assistent) – danach zeigt die Einrichtung sie selbst. Erst nach dem Laden prüfen:
+    // Ein Aufruf vom Start kann vor der Einrichtung begonnen haben.
+    if (einrichtungLaeuft()) { bar.classList.add("hidden"); return; }
 
     const bu = backupStatus();
     const schritt = nextStep({
@@ -474,6 +478,7 @@ export async function zeigeOnboarding(): Promise<void> {
       if (schritt.id === "sichern") void sichereJetzt();
       else if (schritt.id === "tresor") void richteTresorEin().then(() => zeigeOnboarding());
       else if (schritt.id === "wallet") document.querySelector<HTMLElement>('[data-tab="wallet"]')?.click();
+      else if (schritt.id === "los-chat") document.querySelector<HTMLElement>('[data-tab="comm"]')?.click();
       else if (schritt.id === "provider-anleitung") {
         // Der Befehl steht in Earn › Hosten (C-24), nicht in der Übersicht
         document.querySelector<HTMLElement>('[data-tab="earn"]')?.click();

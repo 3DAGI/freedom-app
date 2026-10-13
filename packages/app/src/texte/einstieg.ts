@@ -209,6 +209,9 @@ export const einstieg: Texte = {
   "ein.womitAnfangen": { de: "Womit fängst du an?", en: "What do you want to start with?" },
   "ein.leisteDanach": { de: "Die Onboarding-Leiste oben zeigt danach immer genau einen nächsten Schritt.", en: "Afterwards the onboarding bar at the top always shows exactly one next step." },
   "ein.kiFragen": { de: "KI fragen", en: "Ask the AI" },
+  "ein.losChatTitel": { de: "Schreib jemandem", en: "Write to someone" },
+  "ein.losChatText": { de: "Mit + beginnst du eine Unterhaltung – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer. Damit andere dich finden, teil deinen Schlüssel: Profil › Teilen.", en: "Start a conversation with + – end-to-end encrypted, no phone number. So others can find you, share your key: Profile › Share." },
+  "ein.losChatAktion": { de: "Zu den Nachrichten", en: "Go to messages" },
   "ein.nachrichtenSchreiben": { de: "Nachrichten schreiben", en: "Write messages" },
 
   // Zustand und Hilfen (shell/state.ts, shell/ui.ts)

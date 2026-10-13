@@ -18,6 +18,9 @@ import { el } from "./ui.js";
 
 let laeuft = false;
 
+/** Läuft die Einrichtung gerade? Dann bleibt die Onboarding-Leiste weg (C-39, E-1). */
+export const einrichtungLaeuft = (): boolean => laeuft;
+
 /** Seite fuer Seite; „ueberspringen“ beendet die Einrichtung, die Onboarding-Leiste fuehrt weiter. */
 export async function zeigeEinrichtung(p: {
   /** Merkphrase zeigen und abfragen – nur fuer eine neue Identitaet. */
@@ -29,6 +32,7 @@ export async function zeigeEinrichtung(p: {
 }): Promise<void> {
   if (laeuft) return;
   laeuft = true;
+  document.getElementById("onboarding-bar")?.classList.add("hidden");
   try {
     const seiten = einrichtungsSeiten({ merkphraseOffen: !!p.sichern, tresorDa: tresorEingerichtet(), mitBunker: mitBunker() });
     if (p.sichern) await p.sichern();

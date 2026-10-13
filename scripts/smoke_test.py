@@ -2697,6 +2697,52 @@ def einrichtung_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def einrichtung_wahl_pruefen(browser, url: str) -> dict:
+    """C-39a (Nutzertest E-1, E-7): Während Merkphrase und Einrichtung keine Onboarding-Leiste daneben
+    („nichts einzurichten“); „Nachrichten schreiben“ führt in die Nachrichten, und die Leiste folgt der Wahl."""
+    erg = {"fehler": []}
+    basis = url.rsplit("/", 1)[0]
+    relay = ProbeRelay()
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx.route_web_socket(re.compile(r"^wss?://"), relay.verbinde)
+    s = ctx.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    leiste = "() => { const b = document.getElementById('onboarding-bar'); return !!b && !b.classList.contains('hidden') && b.offsetParent !== null; }"
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    s.wait_for_timeout(1500)
+    sichtbar = [["sichern", ev(leiste)]]
+    w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
+    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    ev("() => document.getElementById('bk-done').click()")
+    for seite, knopf in [("schutz", "ein-weiter"), ("zahlen", "ein-lightning"), ("privat", "ein-weiter"), ("los", "ein-kommunizieren")]:
+        s.wait_for_selector(f"#einrichtung .onboarding-card[data-seite={seite}]", timeout=15000)
+        s.wait_for_timeout(300)
+        sichtbar.append([seite, ev(leiste)])
+        ev(f"() => document.getElementById('{knopf}').click()")
+    s.wait_for_function("() => !document.getElementById('einrichtung')", timeout=10000)
+    s.wait_for_function(leiste, timeout=10000)
+    erg["waehrend"] = sichtbar
+    erg["danach"] = ev("""() => ({ hash: location.hash, seite: document.querySelector('.tab-page.active')?.id,
+        titel: document.querySelector('#onboarding-bar .ob-title')?.textContent, knopf: document.getElementById('ob-action')?.textContent })""")
+    # Der Knopf der Leiste führt in die Nachrichten – auch von einer anderen Seite aus
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    ev("() => document.getElementById('ob-action').click()")
+    s.wait_for_timeout(500)
+    erg["knopf"] = ev("() => location.hash")
+    ctx.close()
+    if any(an for _, an in sichtbar):
+        erg["fehler"].append(f"Leiste während der Einrichtung {sichtbar}")
+    if erg["danach"] != {"hash": "#/chat", "seite": "page-comm", "titel": "Schreib jemandem", "knopf": "Zu den Nachrichten"}:
+        erg["fehler"].append(f"danach {erg['danach']}")
+    if erg["knopf"] != "#/chat":
+        erg["fehler"].append(f"Knopf der Leiste {erg['knopf']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def weckworker_pruefen(browser, url: str) -> dict:
     """B-12c (W3 A): freedom-sw.js lässt sich unter der CSP der App anmelden (worker-src 'self').
     Ein Push – hier mit Daten, die nie erscheinen dürfen – ergibt genau eine Meldung mit festem
@@ -5060,6 +5106,10 @@ def main() -> int:
             except Exception as e:
                 erg["ohne_knoten"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einrichtung_wahl"] = einrichtung_wahl_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einrichtung_wahl"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5117,6 +5167,7 @@ def main() -> int:
           and erg.get("profil_klein", {}).get("bestanden") is True
           and erg.get("geld_settings_klein", {}).get("bestanden") is True
           and erg.get("ohne_knoten", {}).get("bestanden") is True
+          and erg.get("einrichtung_wahl", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

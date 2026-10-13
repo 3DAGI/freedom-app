@@ -179,7 +179,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| C-39 | Einrichtung und Dialoge (E-1 bis E-5, E-7) | frei |
+| C-39 | Einrichtung und Dialoge (E-1 bis E-5, E-7) | a ✓ ([#425](https://github.com/3DAGI/freedom-app/pull/425)); b (E-2 bis E-5, Overlays als Dialog) folgt als C-39b |
 | C-27 | Gratis-Start sichtbar machen | frei |
 | E10b (A-9) | Kopfgeld am Issue anlegen, zeigen, per Klick bezahlen | frei |
 | 12.4b | Schalter „sats / SOL“ auf der Agent-Seite | frei |
