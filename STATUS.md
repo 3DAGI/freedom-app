@@ -9101,3 +9101,42 @@ Smoke „raum_agent“ erweitert:
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1113 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 11.3e4 – Agent auf einem Knoten aufnehmen
+
+Spur C, vierter Teil von 11.3e (Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P2, P4; Knoten seit 11.3d, Spur B).
+Bisher ging das nur im privaten Raum über „einladen“ mit dem Schlüssel (11.3d2c). Im offenen Raum gab
+es keinen Weg, einem Agenten auf einem Knoten die Rolle `agent` zu geben – ohne sie antwortet er dort
+nicht.
+
+**Neu:**
+- **„Agent hinzufügen“ fragt jetzt immer zuerst, welcher Agent:** ein neuer auf diesem Gerät, einer
+  dieses Geräts, oder „Agent auf einem Knoten“.
+  - Der Tresor ist nur noch für Agenten auf dem Gerät nötig – vor dem Anlegen.
+  - Ohne Tresor stehen keine vorhandenen zur Wahl.
+- **Agent auf einem Knoten** (`knotenAgentAufnehmen()` in `raum-agenten-ui.ts`):
+  - Schlüssel als npub oder Hex, auch gescannt.
+  - Die App nimmt ihn nur mit einer Karte vom Agenten, die „knoten“ sagt (`knotenAgentKarte()`).
+  - Vorher die Warnung aus 11.3d2c: Der Knoten liest alles im Raum mit, wer fragt, zahlt.
+  - Offen: `nimmKnotenAgentAuf()` (`agenten.ts`, Spur A, klein) – die Rolle `agent` zuweisen und der
+    Pflicht-Hinweis im Raum. Karte, Budget und Liste gehören dem Knoten.
+  - Privat: einladen wie einen Menschen (`ladeInPrivatenRaum()`) und der Hinweis
+    (`meldeKnotenAgentImRaum()`).
+- **`agenten.ts`:** Die Prüfung der Rolle `agent` (fehlt sie oder trägt sie mehr, legt sie nur der
+  Gründer an) steht jetzt in `sichereAgentRolle()` – für beide Wege dieselbe.
+
+**Tests:**
+- `raum-agenten-ui.test.ts` +1: Karte nötig, Warnung vorher, offen die Rolle, privat einladen, kein
+  Budget und keine Karte von uns.
+- Ablauf-Test angepasst: Tresor erst vor dem Gerät.
+- `agenten-buch.test.ts` (11.3c1) auf `sichereAgentRolle()` angepasst.
+
+Smoke „raum_agent“ erweitert, mit einer Karte „Rechner“ aus `scripts/knoten-agent-probe.mts`:
+- Erste Wahl: „Neuen Agenten anlegen“ und „Agent auf einem Knoten“; nach dem Herausnehmen auch
+  „Helfer“.
+- Schlüssel eingeben, Warnung bestätigen. Danach: Zuweisung mit Rolle `agent`, Pflicht-Hinweis
+  „Agent Rechner läuft auf einem Knoten“, „Rechner“ mit Kennzeichen „auf einem Knoten · wer fragt,
+  zahlt“ in der Mitgliederliste.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1114 (+1), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
