@@ -7,7 +7,7 @@
 import { t } from "../../i18n.js";
 import { geheim } from "../tresor.js";
 import { $, el, haekchenEl } from "../ui.js";
-import { addAiMessage } from "./agent-anzeige.js";
+import { addAiMessage, folgeWieder } from "./agent-anzeige.js";
 import { neueZuordnung } from "../ki-platzhalter.js";
 import { wechsleKiSchluessel } from "../ki-wechsel.js";
 
@@ -105,6 +105,7 @@ function oeffneVerlauf(id: string): void {
   } finally {
     verlaufWiederherstellen = false;
   }
+  folgeWieder(); // ein geöffneter Verlauf steht am Ende (C-31)
   zeigeVerlaeufe();
 }
 

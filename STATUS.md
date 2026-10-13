@@ -8569,3 +8569,23 @@ Erwartet:
 Mit einem Magnet von pirateface.co zusätzlich `--magnet "<link>"` versuchen.
 
 Knoten-Stand: `main` mit B-29c2c, nur für `KI_ANTRIEB=openai` mit `TORRENT=1`; sonst kein Update nötig.
+
+## Schritt C-31 – Agent-Verlauf folgt dem Ende
+
+Spur C, Befund A-4 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung): Der Agent-Chat
+scrollte nicht mit. `stickToBottom()` maß erst nach dem Anhängen einer Blase, ob man unten
+war – jede Blase über 80 px galt als „hochgescrollt“, und die Antwort lief unten aus dem Bild.
+Weiches Scrollen (`scrollIntoView({ behavior: "smooth" })`) verfälschte zudem die nächste
+Messung, solange die Animation lief.
+
+**`agent-anzeige.ts`:** Ob die Ansicht folgt, entscheidet das Scrollen des Nutzers (Horcher
+am Verlauf: unten heißt höchstens 80 px vom Ende). Gefolgt wird sofort
+(`scrollTop = scrollHeight`), alle Aufrufe ohne weiche Animation. Die eigene Frage holt die
+Ansicht ans Ende zurück (`folgeWieder()`), ebenso ein geöffneter Verlauf (`agent-verlauf.ts`).
+
+**Tests:** `agent-folgen.test.ts` (3). Smoke „agent_folgen“: Ein langer gemerkter Verlauf
+(12 Nachrichten) öffnet am Ende; wer hochscrollt, bleibt oben. Vorher lag das Ende 4584 px
+unter dem sichtbaren Teil.
+
+**Prüfungen** (nach dem Einmergen von `main` bis B-29c2c): protocol 1289 grün, node 412 (ohne Netz),
+app 1043 (+3), Leak 73 + 1 todo; tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
