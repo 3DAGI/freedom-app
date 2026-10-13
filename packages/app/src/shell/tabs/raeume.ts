@@ -389,6 +389,8 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-repo-neu")?.classList.toggle("hidden", !repos);
   const agenten = agentZiel() !== null;
   document.getElementById("space-agent-neu")?.classList.toggle("hidden", !agenten);
+  // Agentenketten (11.3e3): offen der Gründer, privat ein Moderator – nur als Hauptidentität
+  document.getElementById("space-ketten")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt());
   document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
@@ -1541,6 +1543,11 @@ export async function wireSpacesTab(): Promise<void> {
     if (ziel && darfRepos()) void legeRepoImRaumAn(ziel, name);
   });
   beiReposGeladen(zeigeRaumRepos);
+  // Agenten sprechen Agenten an (11.3e3): Schalter mit Grenze in der Definition
+  document.getElementById("space-ketten")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-ketten-ui.js").then(async (m) => { if ((await m.stelleKettenEin(ort)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
   // Agent hinzufügen (11.3e1): neu oder vorhanden, mit Budget – danach den Raum neu, damit er in der Liste steht
   document.getElementById("space-agent-neu")?.addEventListener("click", () => {
     const ziel = agentZiel();

@@ -3425,6 +3425,31 @@ def raum_agent_pruefen(browser, url: str) -> dict:
     s.keyboard.press("Escape")
     seite.warte_zu()
     erg["raus"] = [raus["text"], entzogen, wieder["felder"]]
+    # 11.3e3: Agenten sprechen Agenten an – der Gründer schaltet an (Grenze 12) und wieder aus; jede neue Definition danach
+    defs = lambda: sorted({e["id"]: e for e in relay.gesendet if e.get("kind") == 34700 and e["pubkey"] == ich}.values(), key=lambda e: e["created_at"])  # noqa: E731
+    ketten = lambda e: [t[1] for t in e["tags"] if t[0] == "agentenketten"]  # noqa: E731
+    vorher = defs()
+    ev("() => document.getElementById('space-ketten').click()")
+    schalter = seite.warte_dialog("Agenten sprechen Agenten an")
+    ev("() => document.querySelector('[role=dialog] input[value=an]').click()")
+    ev(feld, {"grenze": "12"})
+    dialog_ok(seite, "Speichern")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Agenten sprechen Agenten an – höchstens 12 Antworten in Folge.'", timeout=30000)
+    seite.warte_zu()
+    an = defs()
+    ev("() => document.getElementById('space-ketten').click()")
+    wieder_an = seite.warte_dialog("Agenten sprechen Agenten an")
+    an_haken = ev("() => document.querySelector('[role=dialog] input[value=an]').checked")
+    ev("() => document.querySelector('[role=dialog] input[value=aus]').click()")
+    dialog_ok(seite, "Speichern")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Agenten antworten nur Menschen.'", timeout=30000)
+    seite.warte_zu()
+    aus = defs()
+    erg["ketten"] = {
+        "dialog": [schalter["felder"], schalter["werte"]], "wieder": [an_haken, wieder_an["werte"]],
+        "an": [ketten(an[-1]), an[-1]["created_at"] > vorher[-1]["created_at"], len(an) - len(vorher)],
+        "aus": [ketten(aus[-1]), aus[-1]["created_at"] > an[-1]["created_at"], [t for t in aus[-1]["tags"] if t[0] == "name"]],
+    }
     erg.update({"neu": [neu["text"], neu["felder"]], "budget": [budget["text"], budget["felder"], budget["werte"]],
                 "zu_viel": zu_viel["meldung"] if zu_viel else None, "zweites": zweites["titel"], "browser_dialoge": seite.browser_dialoge})
     seite.ctx.close()
@@ -3450,6 +3475,10 @@ def raum_agent_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Menü {erg['menue']}")
     if erg["aendern"] != ["Verbraucht: 0 sats in diesem Monat, 0 sats heute. Die Einheit bleibt – für die andere den Agenten herausnehmen und neu hinzufügen.", ["sats", "100", "50"]]:
         erg["fehler"].append(f"Budget ändern {erg['aendern']}")
+    k = erg["ketten"]
+    if k != {"dialog": [["Agenten sprechen Agenten an", "Höchstens so viele Agenten-Antworten in Folge (1–50)"], ["10"]], "wieder": [True, ["12"]],
+             "an": [["12"], True, 1], "aus": [[], True, [["name", "Agentenraum"]]]}:
+        erg["fehler"].append(f"Agentenketten {k}")
     if not erg["raus"][0].startswith("Helfer antwortet hier nicht mehr") or erg["raus"][1] is not True or erg["raus"][2] != ["Welcher Agent?"]:
         erg["fehler"].append(f"herausnehmen {erg['raus']}")
     if seite.browser_dialoge:
