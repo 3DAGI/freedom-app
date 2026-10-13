@@ -112,7 +112,8 @@ test("C.3a2: verdrahtet – Reiter Mitwirkende, Einstellungen nur für den Eigen
   assert.match(repos, /query\(\{ kinds: \[KIND_GIT_CONTRIBUTION\], limit: 1000 \}\)/);
   assert.doesNotMatch(repos, /"#r"/, "keine Abfrage, die verrät, welches Repo man ansieht");
   assert.match(repos, /mitwirkende: ladeBeitraege,\n\s+hochladen: ladeBundleHoch,/);
-  assert.match(repos, /hoch\.addEventListener\("click", \(\) => bundle\.click\(\)\);/);
+  // Seit C-36 ein Weg zum Anlegen: ankündigen, den Code danach auf der Repo-Seite – kein Bundle-Knopf in der Liste mehr
+  assert.doesNotMatch(repos, /git-repo-publish|git-bundle-file|git-repo-name/);
   assert.doesNotMatch(app, /git-bundle-file|gitPublishBtn/);
   // Eine Liste für beide Orte, nur DOM
   assert.match(earn, /box\.replaceChildren\(\.\.\.mitwirkendeListe\(repo, evs, pkShort\)\);/);

@@ -8705,3 +8705,21 @@ können“). Nur Doku, kein Code.
   11.10. entschieden (Zeile von Spur A, nicht geändert).
 
 **Prüfungen:** nur Doku – `check-wiring.py --streng` und `check-website.py` grün.
+
+## Schritt C-36 – Repos: ein Weg zum Anlegen, eine Rückfrage
+
+Spur C, Befunde G-1, G-2, G-3 und G-5 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| G-1 | Zwei Wege zum Anlegen: „Repo ankündigen“ und „Repo-Name + ⇪ Bundle publizieren“ | nur „Repo ankündigen“; den Code lädt man danach auf der Repo-Seite hoch (Einstellungen › Neue Version) – die Meldung nach dem Ankündigen sagt es |
+| G-2 | Erst der Dialog, dann eine zweite Rückfrage mit demselben Titel | eine: was geschieht, steht im Dialog (alle vier „Wo“; aus dem Raum mit seinem Namen) |
+| G-3 | „Mitwirkende“ des Projekts auch unter einer offenen Repo-Seite – neben deren eigenem Reiter | nur bei der Liste |
+| G-5 | In „Wo“ der private Raum nur mit Namen („Werkstatt“) | „Werkstatt (privater Raum)“ wie „… (öffentlicher Raum)“ |
+
+**Tests:** `repos-klein.test.ts` (4); vier Formtests angepasst. Smoke „raum“: Ankündigen mit einer
+Rückfrage (öffentlich und im Raum), Mitwirkende des Projekts bei offener Repo-Seite ausgeblendet,
+kein Bundle-Knopf in der Liste; „privatraum“: Repo im privaten Raum mit einer Rückfrage.
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1068 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

@@ -179,7 +179,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| C-36 | Repos: ein Weg zum Anlegen, eine Rückfrage | in Arbeit ([#420](https://github.com/3DAGI/freedom-app/pull/420)) |
 | C-37 | Profil (Nutzertest P-1 bis P-3) | frei |
 | C-38 | Währung, Settings, Verdienen (W-1, W-2, X-1 bis X-4, V-1) | frei |
 | C-39 | Einrichtung und Dialoge (E-1 bis E-5, E-7) | frei |

@@ -206,6 +206,8 @@ function zeige(fokus = false): void {
   const offen = karten.find((k) => k.schluessel === offenesRepo);
   liste.classList.toggle("hidden", !!offen);
   seite.classList.toggle("hidden", !offen);
+  // Die Mitwirkenden des Projekts nur bei der Liste – die Repo-Seite hat ihren eigenen Reiter (C-36, Nutzertest G-3)
+  document.getElementById("repos-mitwirkende")?.classList.toggle("hidden", !!offen);
   if (offen) {
     // Neu gezeichnet nach dem Laden (etwa aus dem Raum geöffnet, 11.4c) behält „‹ Alle Repos“ den Fokus
     const warZurueck = document.activeElement?.classList.contains("repo-zurueck") ?? false;
@@ -395,15 +397,19 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   // privat aus dem MLS-Verlauf, seit C-15 auch beigetretene öffentliche (Rechte aus ihrem Zustand)
   const raeume = privat.filter((p) => p.darfPflegen);
   const oeffentlich = imRaum ? [] : await meineRepoRaeume().catch(() => []);
+  // Eine Rückfrage statt zwei (C-36, Nutzertest G-2): was geschieht, steht gleich im Dialog
+  const imPrivaten = imRaum && "gruppe" in imRaum;
+  const hinweis = !imRaum ? t("repo.ankuendigenHinweis") : t(imPrivaten ? "repo.hinweisPrivat" : "repo.hinweisOeffentlich", { raum: imRaum.name });
   const w = await dialog({
-    titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"),
+    titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"), text: hinweis,
     felder: [
       { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true },
       { art: "textarea", name: "beschreibung", label: t("repo.beschreibung") },
       { art: "text", name: "klon", label: t("agent.klonPh"), mono: true },
       ...(!imRaum ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), wert: "", optionen: [
         { wert: "", text: t("repo.woOeffentlich") }, { wert: LOKAL, text: t("repo.woLokal") },
-        ...raeume.map((p) => ({ wert: p.gruppe, text: p.name || t("repo.privaterRaum") })),
+        // Als privater Raum erkennbar (C-36, Nutzertest G-5) – wie öffentliche Räume ihren Zusatz tragen
+        ...raeume.map((p) => ({ wert: p.gruppe, text: p.name ? t("repo.privaterRaumName", { name: p.name }) : t("repo.privaterRaum") })),
         ...oeffentlich.map((r) => ({ wert: OEFFENTLICH + r.adresse, text: t("repo.oeffentlicherRaum", { name: r.name }) })),
       ] }] : []),
     ],
@@ -426,8 +432,6 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
       return;
     }
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
-    const frage = gruppe ? "repo.ankuendigenFrageRaum" : raum ? "repo.ankuendigenFrageOeffentlich" : "repo.ankuendigenFrage";
-    if (!await bestaetige({ titel: t("agent.repoAnkuendigen"), text: t(frage, { id, raum: imRaum?.name ?? gewaehlt?.name ?? "" }), ok: t("agent.repoAnkuendigen") })) return;
     if (gruppe) await sendeInRaum(gruppe, raumRepoAnkuendigung(gruppe, angaben));
     else await (await ensurePool()).publish(await signiere(ev));
     toast(t("repo.angekuendigt", { id }));
@@ -444,19 +448,8 @@ export const legeRepoImRaumAn = (ziel: RaumZiel, name: string): Promise<void> =>
 export function wireNip34(): void {
   const an = document.getElementById("nip34-ankuendigen");
   if (!an) return;
+  // Ein Weg zum Anlegen (C-36, Nutzertest G-1): ankündigen – den Code lädt man danach auf der Repo-Seite hoch
   an.addEventListener("click", () => void kuendigeAn());
-  // Bundle für ein neues Repo (Name aus dem Feld, sonst aus dem Dateinamen); neue Versionen auf der Repo-Seite
-  const hoch = document.getElementById("git-repo-publish");
-  const bundle = document.getElementById("git-bundle-file") as HTMLInputElement | null;
-  if (hoch && bundle) {
-    hoch.addEventListener("click", () => bundle.click());
-    bundle.addEventListener("change", () => {
-      const f = bundle.files?.[0];
-      bundle.value = "";
-      const feld = document.getElementById("git-repo-name") as HTMLInputElement | null;
-      if (f) void ladeBundleHoch(f, (feld?.value.trim() ?? "").replace(/[^a-z0-9-_]/gi, "-") || f.name.replace(/\.bundle$/i, ""));
-    });
-  }
   document.getElementById("repos-suche")?.addEventListener("input", () => zeige());
   document.querySelectorAll<HTMLButtonElement>("#repos-filter button").forEach((b) => b.addEventListener("click", () => {
     nurMeine = b.dataset.filter === "meine";
