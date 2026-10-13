@@ -218,8 +218,7 @@ export const einstieg: Texte = {
   "ein.keineAntwortRpc": { de: "keine Antwort", en: "no answer" },
   "ein.poolFehlt": { de: "Pool fehlt", en: "Pool missing" },
   "ein.keineIdentitaetKurz": { de: "nicht verbunden", en: "not connected" },
-  "ein.budgetRest": { de: "Rest des Sitzungsbudgets (ohne Verwahrer)", en: "Remaining session budget (non-custodial)" },
-  "ein.escrowGuthaben": { de: "Escrow-Guthaben (eingezahlt, für Aufträge nutzbar)", en: "Escrow balance (deposited, usable for jobs)" },
+  "ein.budgetRest": { de: "Rest des Budgets der laufenden KI-Sitzung – eine Obergrenze, kein Guthaben; gezahlt wird aus deiner Wallet", en: "Remaining budget of the current AI session – a cap, not a balance; payments come from your wallet" },
   "ein.kopiert": { de: "kopiert", en: "copied" },
   // Bunker (shell/bunker.ts)
   "ein.bunkerAngemeldet": { de: "Angemeldet über den Bunker {signer} ({relays}). Jede Unterschrift fragt die App dort an.", en: "Signed in via the bunker {signer} ({relays}). The app requests every signature there." },

@@ -109,6 +109,13 @@ test("Die Auskunft nennt, was gesichert wird und wer es lesen kann", async () =>
   assert.match(t, /Merkphrase allein genügt/);
 });
 
+test("Am selben Tag „heute“ statt „vor 0 Tag(en)“ (C-38, Nutzertest X-4)", () => {
+  const jetzt = Math.floor(Date.now() / 1000);
+  assert.match(backupInfo(2048, jetzt - 60), /^Letzte Sicherung heute, 2 KB\. /);
+  assert.match(backupInfo(2048, jetzt - 3 * 86400 - 60), /^Letzte Sicherung vor 3 Tag\(en\), 2 KB\. /);
+  assert.match(backupInfo(2048), /^Noch keine Sicherung\. /);
+});
+
 // ------------------------------------------------- Was gesichert wird (8.12)
 
 /** So sah localStorage eines Nutzers ohne Tresor aus – mit allem, was dort liegen kann. */

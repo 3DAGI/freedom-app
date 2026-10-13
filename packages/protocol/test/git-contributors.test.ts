@@ -73,6 +73,9 @@ test("Fremde Repos werden nicht mitgezaehlt", () => {
 
 test("Zustand: aktiv, ruhig, verwaist — ohne Beschoenigung", () => {
   assert.equal(buildRepoOverview(REPO, [beitrag(A, NOW - 5 * TAG)], NOW).health, "aktiv");
+  assert.equal(buildRepoOverview(REPO, [beitrag(A, NOW - 5 * TAG)], NOW).healthNote, "Zuletzt vor 5 Tag(en) etwas veröffentlicht.");
+  // Am selben Tag „heute“ statt „vor 0 Tag(en)“ (C-38, Nutzertest X-4)
+  assert.equal(buildRepoOverview(REPO, [beitrag(A, NOW - 60)], NOW).healthNote, "Heute etwas veröffentlicht.");
   assert.equal(buildRepoOverview(REPO, [beitrag(A, NOW - 90 * TAG)], NOW).health, "ruhig");
 
   const tot = buildRepoOverview(REPO, [beitrag(A, NOW - 400 * TAG)], NOW);

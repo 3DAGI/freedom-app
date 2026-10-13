@@ -8740,3 +8740,30 @@ Befunde rot (Hex kopiert, `uppercase`, keine Überschrift), jetzt grün.
 
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1071 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-38a – Währung und Settings: Kopf, Häkchen, Balken, Texte
+
+Spur C, Befunde W-1, W-2 und X-1 bis X-4 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+V-1 (Verdienen ohne eigenen Knoten) folgt als C-38b.
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| W-1 | Kopf der Seite Währung „Sats 100“ – las sich wie Guthaben, war der Rest des Sitzungsbudgets; daneben „SOL —“ | „KI-Budget 100 sats“, der Tooltip sagt: eine Obergrenze der laufenden Sitzung, kein Guthaben, gezahlt wird aus der Wallet. Die SOL-Zeile ist weg: Sie las `freedom.escrow.lamports`, das seit der Übernahme (0.I) nichts mehr schreibt – sie zeigte immer „—“ |
+| W-2 | Kurs-Hinweis, „Nicht verbunden“ und „Verbinden“ ohne Abstand | je 8 px dazwischen |
+| X-1 | Sätze an Häkchen in Großbuchstaben (die Regel für kurze Etiketten `label { text-transform: uppercase }`) | Etiketten mit Häkchen oder Auswahlknopf wie geschrieben (`label:has(input[type=checkbox])`) |
+| X-2 | Der Balken über den fünf Schritten füllte sich von links nach der Zahl der erledigten | jeder Teil gehört zu seinem Schritt |
+| X-3 | „Zwei der fünf Schritte gehen nur vorher.“ | „Alle fünf helfen nur, wenn sie vor einem Verlust oder Diebstahl des Geräts eingerichtet sind.“ |
+| X-4 | „erneut prüfen“, bevor je geprüft wurde; „Letzte Sicherung vor 0 Tag(en)“ | „jetzt prüfen“; „Letzte Sicherung heute“ (ebenso „Heute etwas veröffentlicht.“ beim Zustand eines Repos) |
+
+**Andere Spur:** `protocol/src/state-backup.ts` und `git-contributors.ts` sagen am selben Tag
+ebenfalls „heute“ – die App bildet die Sätze neu, ein Test hält beide wortgleich (je eine Zeile,
+dazu je ein Testfall im Protokoll).
+
+**Tests:** `geld-settings-klein.test.ts` (4); im Protokoll `state-backup.test.ts` (+1) und ein Fall
+mehr in `git-contributors.test.ts`; `i18n.test.ts` vergleicht App und Protokoll jetzt auch für
+„heute“. Neuer Smoke „geld_settings_klein“: vorher alle sechs Prüfungen rot (Kopf „Sats“/„SOL“,
+`uppercase`, 0 px, Balken `[1,1,0,0,0]` statt `[1,0,0,1,0]`, alter Satz, „erneut prüfen“), jetzt
+grün; „waehrung“, „einstellungen“, „zugang“, „sprache“, „mobil“ weiter grün.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1075 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

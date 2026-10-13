@@ -95,9 +95,8 @@ export async function refreshQuota(): Promise<void> {
 
 export function updateSidebarBalances(): void {
   const satsEl = document.getElementById("nb-sats");
-  const solEl = document.getElementById("nb-sol");
   const identEl = document.getElementById("nb-ident");
-  if (!satsEl && !solEl && !identEl) return;
+  if (!satsEl && !identEl) return;
   // ident
   if (identEl) identEl.textContent = escrowIdent();
   // sats: session-budget rest (gleiche quelle wie header-balance)
@@ -107,16 +106,10 @@ export function updateSidebarBalances(): void {
       const b = state.sessionClient?.budgetState(state.lastProvider ?? "");
       if (b) left = Math.floor((b.max - b.charged) / 1000);
     } catch { /* keine session */ }
-    satsEl.textContent = left === null ? "—" : `${left}`;
+    // Mit Einheit und als „KI-Budget“ (C-38, Nutzertest W-1): eine Obergrenze der Sitzung, kein Guthaben
+    satsEl.textContent = left === null ? "—" : t("waehr.kopfSats", { n: left });
     satsEl.className = left !== null && left < 10 ? "nb-val nb-warn" : "nb-val";
     satsEl.title = t("ein.budgetRest");
-  }
-  // sol: escrow-guthaben (deposited, nutzbar für jobs) — nicht die wallet-balance
-  if (solEl) {
-    const lamports = Number(localStorage.getItem("freedom.escrow.lamports") ?? "0");
-    solEl.textContent = lamports > 0 ? `${(lamports / 1e9).toFixed(4)}` : "—";
-    solEl.className = lamports > 0 ? "nb-val" : "nb-val nb-muted";
-    solEl.title = t("ein.escrowGuthaben");
   }
 }
 

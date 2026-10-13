@@ -242,7 +242,7 @@ export function stateFingerprint(data: Record<string, unknown>): string {
 export function backupInfo(sizeBytes: number, lastAt?: number): string {
   const alter = lastAt ? Math.floor((Date.now() / 1000 - lastAt) / 86400) : null;
   const stand = lastAt
-    ? `Letzte Sicherung vor ${alter} Tag(en), ${Math.round(sizeBytes / 1024)} KB.`
+    ? `Letzte Sicherung ${alter === 0 ? "heute" : `vor ${alter} Tag(en)`}, ${Math.round(sizeBytes / 1024)} KB.`
     : "Noch keine Sicherung.";
   // Kurz halten: Was gesichert wird, wer es lesen kann, was man zum Zurueckholen braucht.
   return `${stand} Unterhaltungen, Räume und Namen, verschlüsselt — auch kein Relay kann sie lesen. ` +

@@ -35,7 +35,7 @@ export const kanalVertraulichkeit = (c: { privacy: string }): string =>
 export function repoZustand(o: Pick<RepoOverview, "health" | "contributors">, jetzt = Math.floor(Date.now() / 1000)): string {
   if (o.health === "unbekannt" || o.contributors.length === 0) return t("earn.repoUnbekannt");
   const tage = Math.floor((jetzt - Math.max(...o.contributors.map((c) => c.lastSeen))) / TAG);
-  if (o.health === "aktiv") return t("earn.repoAktiv", { n: tage });
+  if (o.health === "aktiv") return tage === 0 ? t("earn.repoHeute") : t("earn.repoAktiv", { n: tage });
   if (o.health === "ruhig") return t("earn.repoRuhig", { n: tage });
   return t("earn.repoVerwaist", { n: Math.floor(tage / 30) });
 }
@@ -156,8 +156,9 @@ export function nachfolgeStand(st: SuccessionState, plan: { inactivityDays: numb
 
 /** Was die Sicherung enthält und wann sie zuletzt lief – wie `backupInfo()`. */
 export function sicherungInfo(sizeBytes: number, lastAt?: number, jetzt = Date.now() / 1000): string {
+  const tage = lastAt ? Math.floor((jetzt - lastAt) / TAG_SECS) : 0;
   const stand = lastAt
-    ? t("ps.sichLetzte", { tage: Math.floor((jetzt - lastAt) / TAG_SECS), kb: Math.round(sizeBytes / 1024) })
+    ? t(tage === 0 ? "ps.sichHeute" : "ps.sichLetzte", { tage, kb: Math.round(sizeBytes / 1024) })
     : t("ps.sichKeine");
   return t("ps.sichInfo", { stand });
 }
