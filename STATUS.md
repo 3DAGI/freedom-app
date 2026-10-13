@@ -9140,3 +9140,21 @@ Smoke „raum_agent“ erweitert, mit einer Karte „Rechner“ aus `scripts/kno
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1114 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-40 – Smoke „raum“: Repo-Einstellungen warten auf die neue Seite
+
+Spur C, Befund aus der CI: Der Browser-Test war auf zwei Zwischenständen rot (#420 und #429). Derselbe Code war
+auf dem nächsten Stand grün. Ein roter Test gilt nie als Zufall – also nachgesehen.
+
+**Ursache:** In „raum“ (desktop, C.3a2) speichert der Test die Repo-Einstellungen und wartete danach fest 800 ms.
+Die App veröffentlicht erst und zeichnet die Seite dann mit `neuLaden()` neu. Im langsameren CI-Runner war die
+Ankündigung schon gesendet, die Seite zeigte aber noch keinen Link – Meldung „Einstellungen gespeichert … [] True“.
+Nachgestellt ohne Pause: lokal derselbe Fehler, auf Desktop und Handy.
+
+**Jetzt:** Der Test wartet auf den neuen Link (`.repo-web a`, Frist 8 s) statt auf eine feste Pause. Ohne jede
+Pause grün. Ein Satz dazu bei der Fallstrick-Regel aus A-30 in `scripts/CLAUDE.md`.
+
+Kein App-Code geändert.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1114 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

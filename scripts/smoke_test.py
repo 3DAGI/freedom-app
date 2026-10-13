@@ -4286,7 +4286,12 @@ def raum_pruefen(browser, url: str) -> dict:
                       ev("() => !!document.querySelector('[role=dialog]')")]
         speichern(ada)
         s.keyboard.press("Enter")  # Rückfrage: veröffentlichen
-        s.wait_for_timeout(800)
+        # Erst veröffentlichen, dann zeichnet `neuLaden()` die Seite neu – auf den neuen Link warten, nicht auf eine
+        # feste Pause (C-40: im CI-Runner reichten 800 ms zweimal nicht, die Seite zeigte noch keinen Link)
+        try:
+            s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-web a').length > 0", timeout=8000)
+        except Exception:
+            pass  # die Prüfung unten meldet es
         neu = [e for e in relay.gesendet if e.get("kind") == 30617 and ["d", "meins"] in e["tags"]]
         ank = neu[-1] if neu else {"tags": []}
         tags = {t[0]: t[1:] for t in ank["tags"]}
