@@ -171,6 +171,27 @@ html = html.replace("<!-- APP_CSS -->", () => `<style>\n${css}\n</style>`);
 const scriptBody = `\n${polyfills}\n${js}\nwindow.freedomApp.boot();\n`;
 html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
 
+// ── Mini-App (FREEDOM_TMA=1) ───────────────────────────────────────────
+// Telegram verlangt sein SDK VOR allen anderen Skripten. Das bricht die
+// Ein-Skript-CSP — für den TMA-Build erlauben wir zusätzlich die
+// telegram.org-Quelle (gehört Telegram, wird von Telegram selbst signiert
+// ausgeliefert). tonconnect-ui.min.js kommt vom Node-Server (gleicher
+// Origin, kein CSP-Thema). Der TMA-Build ist NICHT bitgleich mit dem
+// Web-Build — das ist gewollt (anderer Einsatzort, andere Regeln).
+const TMA = process.env.FREEDOM_TMA === "1";
+if (TMA) {
+  const tmaHeader = [
+    `<script src="https://telegram.org/js/telegram-web-app.js"></script>`,
+    `<meta name="telegram-app-name" content="freedom" />`,
+    // TON Connect UI: lokal gebündelt (kein CDN-Vertrauen nötig).
+    `<script src="/tma/tonconnect-ui.js"></script>`,
+  ].join("\n  ");
+  html = html.replace("<!-- TMA_HEADER -->", () => tmaHeader);
+  console.log("[build] FREEDOM_TMA=1 — Mini-App-Build (Telegram + TON Connect)");
+} else {
+  html = html.replace("<!-- TMA_HEADER -->", () => "");
+}
+
 // Content-Security-Policy (Schritt 0.3 im Ausbauplan).
 // Nur genau dieses eine eingebettete Skript darf laufen – erkannt an seinem
 // SHA-256-Hash. Eingeschleuste Skripte und Inline-Handler (onerror=…) werden
@@ -183,9 +204,14 @@ html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
 {
   const { createHash: h } = await import("node:crypto");
   const scriptHash = h("sha256").update(scriptBody, "utf8").digest("base64");
+  const scriptSrc = TMA
+    // Mini-App: zusätzlich telegram.org (SDK) und der eigene Origin
+    // (tonconnect-ui.js, vom Node ausgeliefert). telegram.org gehört Telegram.
+    ? `'sha256-${scriptHash}' 'wasm-unsafe-eval' https://telegram.org 'self'`
+    : `'sha256-${scriptHash}' 'wasm-unsafe-eval'`;
   const csp = [
     "default-src 'none'",
-    `script-src 'sha256-${scriptHash}' 'wasm-unsafe-eval'`,
+    `script-src ${scriptSrc}`,
     "style-src 'unsafe-inline' https:",
     "img-src https: data: blob:",
     "media-src https: data: blob:",
@@ -202,7 +228,10 @@ html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
   const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
   if (!/<head[^>]*>/i.test(html)) throw new Error("build: kein <head> fuer die CSP gefunden");
   html = html.replace(/<head[^>]*>/i, (m) => `${m}\n${meta}`);
-  if ((html.match(/<script[\s>]/gi) ?? []).length !== 1) {
+  // Bitgleich-Check gilt nur für den Web-Build. Der Mini-App-Build hat
+  // absichtlich mehrere <script>-Tags (Telegram-SDK + TON Connect UI) — die
+  // CSP-Quelle deckt die ab, der Hash nur das App-Skript.
+  if (!TMA && (html.match(/<script[\s>]/gi) ?? []).length !== 1) {
     throw new Error("build: genau ein <script> erwartet – sonst deckt der CSP-Hash nicht alles ab");
   }
 }

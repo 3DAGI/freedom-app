@@ -234,4 +234,21 @@ export const zahlung: Texte = {
   "anf.weiter": { de: "Weiter", en: "Continue" },
   "anf.bezahlenText": { de: "{name} fordert {betrag} an. Nur bezahlen, wenn du diese Anforderung erwartest – gezahlt ist gezahlt.", en: "{name} requests {betrag}. Only pay if you expect this request – a payment can't be undone." },
   "anf.bezahlt": { de: "Bezahlt: {betrag}", en: "Paid: {betrag}" },
+
+  // ── Mini-App (Telegram): Stars + TON ──
+  "tma.stars.keinNutzer": { de: "Nicht in Telegram geöffnet", en: "Not opened inside Telegram" },
+  "tma.stars.betrag": { de: "Ungültiger Betrag", en: "Invalid amount" },
+  "tma.stars.fehlschlag": { de: "Rechnung fehlgeschlagen", en: "Invoice failed" },
+  "tma.stars.bezahlt": { de: "Bezahlt ⭐", en: "Paid ⭐" },
+  "tma.stars.ausstehend": { de: "Zahlung ausstehend …", en: "Payment pending …" },
+  "tma.stars.abgebrochen": { de: "Abgebrochen", en: "Cancelled" },
+  "tma.stars.kt": { de: "Sterne", en: "Stars" },
+  "tma.stars.guthaben": { de: "Sterne-Guthaben", en: "Stars balance" },
+  "tma.ton.verbinden": { de: "Wallet verbinden", en: "Connect wallet" },
+  "tma.ton.verbunden": { de: "Verbunden", en: "Connected" },
+  "tma.ton.zahlen": { de: "Mit TON zahlen", en: "Pay with TON" },
+  "tma.ton.warte": { de: "Warte auf Zahlung …", en: "Waiting for payment …" },
+  "tma.ton.bezahlt": { de: "TON-Zahlung eingegangen", en: "TON payment received" },
+  "tma.ton.keineWallet": { de: "Keine TON-Wallet verbunden", en: "No TON wallet connected" },
+  "tma.ton.fehlschlag": { de: "TON-Zahlung fehlgeschlagen", en: "TON payment failed" },
 };

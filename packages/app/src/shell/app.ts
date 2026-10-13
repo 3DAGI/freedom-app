@@ -679,10 +679,13 @@ function checkOwnProvider(): void {
  * danach ist der Schluessel da und die App startet wie bisher.
  */
 export function boot(): void {
-  // Sprache (8.16) zuerst: Entsperr-Dialog und Meldung nach einer Notfall-Loeschung
+  // Sprache (8.16) zuerst: Entsperr-Dialog und Meldungen nach einer Notfall-Loeschung
   // kommen vor starte() – gespeicherte Wahl, wenn es sie noch gibt, sonst die des Browsers
   setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
   document.documentElement.lang = getLang();
+  // Mini-App (FREEDOM_TMA): ready()/expand(), Theme, fetch-Patch — vor dem
+  // ersten Request, damit schon /tma/* die Signatur mitträgt.
+  import("./tma.js").then(({ startTelegramShell }) => startTelegramShell()).catch(() => {});
   // Notfall-Loeschung (8.14): kommt die App aus einer, zuerst ein zweiter Durchgang
   void nachNotfallLoeschung().then(() => entsperreBeimStart()).then(starte);
 }

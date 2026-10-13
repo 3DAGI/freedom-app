@@ -805,6 +805,33 @@ async function main(): Promise<void> {
   console.log(`freedomstack-node laeuft. pubkey=${keypair.pk.slice(0, 16)}...`);
   console.log(`Relays: ${relayUrls.join(", ")} | Poll alle ${pollMs / 1000}s`);
 
+  // ── Mini-App (FREEDOM_TMA=1): Telegram-Stars + TON auf Port 3601 ──────
+  // Eigenes Server-Objekt neben dem Provider-Loop: die PWA-App (freedom.html,
+  // TMA-Build) + Auth (initData HMAC) + Stars (XTR) + TON (Gram, toncenter).
+  // Der Bot-Token MUSS ein eigener sein (nicht der Hermes-Gateway-Token) —
+  // sonst konkurriert das Long-Polling mit dem Hermes-Gateway.
+  let tma: import("./tma-server.js").TmaServer | undefined;
+  if (process.env.FREEDOM_TMA === "1") {
+    const { TmaServer } = await import("./tma-server.js");
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tonDepot = process.env.NODE_SOL_ADDRESS; // TON-Zieladresse
+    if (!botToken) {
+      console.warn("[tma] FREEDOM_TMA=1 ohne TELEGRAM_BOT_TOKEN — Mini-App-Server startet nicht");
+    } else {
+      tma = new TmaServer({
+        botToken,
+        tonDepot: process.env.TON_DEPOT_ADDRESS ?? tonDepot ?? "",
+        tonApiKey: process.env.TONCENTER_API_KEY,
+        tonTestnet: process.env.TON_TESTNET !== "0",
+        port: Number(process.env.TMA_PORT ?? 3601),
+        host: process.env.TMA_HOST ?? "0.0.0.0",
+        statisch: process.env.TMA_STATISCH ?? join(process.cwd(), "..", "app", "dist"),
+        daten: join(process.env.HOME ?? ".", ".freedom", "tma"),
+      });
+      tma.start();
+    }
+  }
+
   // Storage-Rolle (optional): Blobs seeden — torrent-artig ueber Nostr-Events.
   // STORAGE_ENABLED=1 STORAGE_DIR=~/freedom-data/storage STORAGE_QUOTA_MB=10240
   // BOOTSTRAP_SEEDER=1 haelt ALLE Chunks (Netz-Startphase).
