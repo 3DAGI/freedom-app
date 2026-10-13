@@ -8974,3 +8974,54 @@ SOL sehen.
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1103 (+7), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 11.3e1 – Agent hinzufügen im Raum
+
+Spur C, erster Teil von 11.3e (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P2, P4, P5,
+F3 B). Die Bausteine kommen aus 11.3c (Spur A) – hier die Oberfläche dazu.
+
+**Neu:**
+- **Raum-Menü „Agent hinzufügen“** (`raeume.ts`, `agentZiel()`): nur als Hauptidentität (Agenten
+  gehören der Person, 8.6c); im privaten Raum als Moderator, im offenen mit dem Recht
+  „rollen_vergeben“.
+- **`shell/raum-agenten-ui.ts`:**
+  - Erst der Tresor – Schlüssel, Anweisung und Budget liegen nur dort.
+  - Dann wählen: einen neuen Agenten anlegen oder einen dieses Geräts, der noch nicht im Raum ist.
+  - Neu: Name, Beschreibung (öffentlich), Anweisung (bleibt im Tresor, geht versiegelt an den
+    Provider), Modell – in den Grenzen des Buchs.
+  - Budget je Monat und Tag in sats oder SOL. Die Einheit ist vorgewählt nach der Schiene für KI
+    (12.4b). Die Beträge sind leer vorbelegt, damit nie eine sats-Zahl als SOL hinausgeht.
+  - Der Dialog sagt vorher, was gilt: Der Agent antwortet nur, solange die App offen ist, und du
+    bezahlst jede Antwort – auch für Fragen anderer, im offenen Raum von jedem, der beitritt (B-22).
+    Mit SOL zahlt er nur über einen Zahlkanal.
+  - Eingeladen wird über `ladeAgentInOffenenRaum()` bzw. `ladeAgentInPrivatenRaum()`. Beide
+    schreiben den Pflicht-Hinweis in den Raum.
+- **`raum-agent-budget.ts`** (ohne DOM): `leseBudgetEingabe()` – sats als ganze Zahl, SOL über
+  `solZuLamports()`, die Tagesgrenze nie über dem Monat.
+
+**Tests:** `raum-agenten-ui.test.ts` (4):
+- Budget in sats und in SOL, auch Unfug.
+- Ablauf: Tresor zuerst, nur Agenten ohne diesen Raum, Budget leer vorbelegt.
+- Verdrahtung: Menüpunkt nur, wer darf.
+
+Smoke „raum_agent“: eigener offener Raum mit Tresor, neuer Agent „Helfer“. Das Budget meldet „Tag über
+Monat“. Danach im Netz:
+- Rolle `agent` (nur lesen, schreiben, Threads), Zuweisung, Karte vom Agenten mit Besitzer;
+- die Liste des Besitzers und der Pflicht-Hinweis;
+- nichts offen in localStorage.
+
+Er steht mit der Rolle „Agent“ in der Mitgliederliste; ein zweites Mal steht er nicht zur Wahl.
+Smoke „raum“ angepasst: Im Probe-Raum ist der Test-Nutzer „mod“ mit „rollen_vergeben“, also steht
+„Agent hinzufügen“ im Raum-Menü vorn; die Tastatur-Prüfung erwartet das und geht einen Pfeil weiter
+zum selben Dialog wie bisher.
+Stabil in 6 Läufen; im Test liegt eine Sekunde zwischen dem Anlegen des Raums und dem Agenten.
+Die neue Rollenliste ersetzt die vom Anlegen, und in derselben Sekunde entschiede die Id (Fallstrick
+B-20c). Für Menschen mit drei Dialogen dazwischen ist das kein Fall.
+
+**Offen (11.3e2 ff.):**
+- Kennzeichen und Menü der Agenten in der Mitgliederliste (Budget ändern, aus dem Raum nehmen).
+- Schalter „Agenten sprechen Agenten an“.
+- Einstellungen im Überblick.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1107 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
