@@ -54,7 +54,11 @@ export async function zeigeSolEinnahmen(): Promise<void> {
   melde(t("earn.lade"));
   try {
     const angebot = await angebotVon(knoten).catch(() => undefined);
-    if (!angebot?.kanal) return melde(t("earn.solKeinKanal"));
+    // Ohne Angebot kein Knoten (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und ZAHLKANAL=1
+    const ohne = $("#earn-ohne-knoten");
+    if (ohne) ohne.hidden = !!angebot;
+    if (!angebot) return melde(t("earn.solKeinKnoten"));
+    if (!angebot.kanal) return melde(t("earn.solKeinKanal"));
     if (angebot.kanal.programm !== KANAL_PROGRAMM_ID) return melde(t("earn.solAnderesProgramm"));
     const { Connection, PublicKey } = await import("@solana/web3.js");
     const conn = new Connection(await solRpcUrl(), "confirmed");
@@ -101,4 +105,6 @@ export function wireVerdienst(neuLaden: () => void): void {
     void zeigeSolEinnahmen();
   };
   $("#earn-refresh")?.addEventListener("click", () => void zeigeSolEinnahmen());
+  // Zum Einrichten eines Knotens: Verdienen › Hosten
+  $("#earn-zum-hosten")?.addEventListener("click", () => $<HTMLElement>('[data-subtab-group="earn"] [data-subtab="host"]')?.click());
 }

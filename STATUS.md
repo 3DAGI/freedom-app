@@ -8767,3 +8767,25 @@ grün; „waehrung“, „einstellungen“, „zugang“, „sprache“, „mobi
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1075 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-38b – Verdienen ohne Knoten
+
+Spur C, Befund V-1 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+**Vorher:** Ohne Knoten unter dem Schlüssel sprach die Übersicht von „Dein Knoten nimmt keine
+Zahlkanäle an … (ZAHLKANAL=1 und NODE_SOL_ADDRESS setzen)“ und „Dein Knoten hat eine SOL-Adresse …“ –
+Anweisungen für Betreiber an jemanden, der keinen Knoten hat.
+
+**Jetzt:** Findet die App unter dem Schlüssel kein Angebot (`angebotVon()`), steht oben ein Hinweis:
+kein Knoten unter diesem Schlüssel, Einnahmen erst mit einem; läuft der eigene unter einem anderen
+Schlüssel, oben eintragen. Ein Knopf „Knoten einrichten“ führt nach Verdienen › Hosten. Der SOL-Teil
+(Zahlkanäle, Hinweis für Betreiber) fällt dann weg; mit Angebot bleibt alles wie bisher, auch der
+Hinweis auf `ZAHLKANAL=1` für Knoten ohne Zahlkanal. Der Lightning-Teil bleibt – er zeigt, was ein
+Knoten unter dem Schlüssel früher gemeldet hat.
+
+**Tests:** `verdienen-ohne-knoten.test.ts` (2). Neuer Smoke „ohne_knoten“: Hinweis sichtbar, SOL-Teil
+weg, kein `ZAHLKANAL`/`NODE_SOL_ADDRESS` und kein „Dein Knoten hat/nimmt“ auf der Seite, der Knopf
+öffnet Hosten – vorher rot (kein Hinweis), jetzt grün; „einnahmen“ und „rahmen“ weiter grün.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1077 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

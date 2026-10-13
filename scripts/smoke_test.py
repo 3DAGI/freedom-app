@@ -3064,6 +3064,39 @@ def geld_settings_klein_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def ohne_knoten_pruefen(browser, url: str) -> dict:
+    """C-38b (Nutzertest V-1): Verdienen ohne Knoten unter dem Schlüssel – ein Hinweis mit dem Weg
+    zum Einrichten statt „Dein Knoten …“ und `ZAHLKANAL=1`, `NODE_SOL_ADDRESS`."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => { location.hash = '#/verdienen'; }")
+    s.wait_for_function("() => !document.getElementById('earn-ohne-knoten').hidden", timeout=30000)
+    erg["stand"] = ev("""() => {
+        const seite = document.getElementById('page-earn');
+        return {
+          hinweis: document.getElementById('earn-ohne-knoten').innerText,
+          sol: getComputedStyle(document.querySelector('#page-earn .nur-mit-knoten')).display,
+          umgebung: /ZAHLKANAL|NODE_SOL_ADDRESS/.test(seite.innerText),
+          deinKnoten: /Dein Knoten (hat|nimmt)/.test(seite.innerText),
+        }; }""")
+    ev("() => document.getElementById('earn-zum-hosten').click()")
+    s.wait_for_timeout(300)
+    erg["hosten"] = ev("() => document.querySelector('[data-subpane=\"earn:host\"]').classList.contains('active')"
+                       " && getComputedStyle(document.getElementById('knoten-betreiben')).display !== 'none'")
+    seite.ctx.close()
+    st = erg["stand"]
+    if not st["hinweis"].startswith("Unter diesem Schlüssel ist kein Knoten zu finden") or st["sol"] != "none":
+        erg["fehler"].append(f"Hinweis {st}")
+    if st["umgebung"] or st["deinKnoten"]:
+        erg["fehler"].append(f"ohne Knoten noch Knoten-Texte {st}")
+    if not erg["hosten"]:
+        erg["fehler"].append("„Knoten einrichten“ führt nicht nach Hosten")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -5023,6 +5056,10 @@ def main() -> int:
             except Exception as e:
                 erg["geld_settings_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["ohne_knoten"] = ohne_knoten_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["ohne_knoten"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5079,6 +5116,7 @@ def main() -> int:
           and erg.get("agent_klein", {}).get("bestanden") is True
           and erg.get("profil_klein", {}).get("bestanden") is True
           and erg.get("geld_settings_klein", {}).get("bestanden") is True
+          and erg.get("ohne_knoten", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
