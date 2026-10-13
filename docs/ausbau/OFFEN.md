@@ -179,7 +179,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| C-27 | Gratis-Start sichtbar machen | frei |
 | E10b (A-9) | Kopfgeld am Issue anlegen, zeigen, per Klick bezahlen | frei |
 | 12.4b | Schalter „sats / SOL“ auf der Agent-Seite | frei |
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | 11.3b–d2 fertig; nur das Monatsbudget mit Pfand wartet auf 11.3d3 |

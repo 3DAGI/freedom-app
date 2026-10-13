@@ -13,6 +13,8 @@ import { dialog } from "../dialog.js";
 import { pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
 import { tierFuerListe } from "../../gratis-kontingent.js";
+import { gratisAnbieter } from "../gratis-start.js";
+import { MAX_POW_APP } from "./agent.js";
 import { angebotVon, findProviders } from "../state.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { meineKopplung } from "../mein-knoten.js";
@@ -33,11 +35,14 @@ export async function refreshModelDropdown(): Promise<void> {
   try {
     const [providers] = await Promise.all([findProviders(tierFuerListe(($("#ai-tier") as HTMLSelectElement).value)), aktualisiereKurs()]);
     // modelle + preise der top-provider sammeln (dedupe, haeufigkeit)
-    const counts = new Map<string, { count: number; priceMsat: number; tools: Set<string> }>();
+    const counts = new Map<string, { count: number; gratis: number; priceMsat: number; tools: Set<string> }>();
+    // Wer heute gratis antwortet (C-27) – dieselbe Auswahl wie beim Fragen, nichts Eigenes
+    const gratis = new Set(gratisAnbieter(providers, MAX_POW_APP).map((p) => p.caps.pubkey));
     for (const p of providers.slice(0, 5)) {
       for (const m of p.caps.models ?? []) {
-        const cur = counts.get(m) ?? { count: 0, priceMsat: p.caps.textRatePerKTokenMsat ?? 1500, tools: new Set((p.caps.tools ?? []).map((t: any) => t.name ?? String(t))) };
+        const cur = counts.get(m) ?? { count: 0, gratis: 0, priceMsat: p.caps.textRatePerKTokenMsat ?? 1500, tools: new Set((p.caps.tools ?? []).map((t: any) => t.name ?? String(t))) };
         cur.count += 1;
+        if (gratis.has(p.caps.pubkey)) cur.gratis += 1;
         counts.set(m, cur);
       }
     }
@@ -86,6 +91,11 @@ export async function refreshModelDropdown(): Promise<void> {
           const preis = ausMsat(info.priceMsat, aktuellerKurs());
           const sub: (string | Node)[] = [t("agent.mcSub", { preis, n: info.count }) + katalogHinweis(inKatalogen(m))];
           if (info.tools.size) sub.push(" · ", iconEl("wrench", 11));
+          if (info.gratis) {
+            const marke = el("span", t("agent.mcGratis"), "mc-gratis");
+            marke.title = t("agent.mcGratisTitel", { n: info.gratis });
+            sub.push(" · ", marke);
+          }
           return karte(m, m.split(":")[0]!, speedOf(m), sub);
         }),
       );

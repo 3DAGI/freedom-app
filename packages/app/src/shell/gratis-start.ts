@@ -4,7 +4,8 @@
  * Stand verrät, wie viel man fragt – und nie in der Sicherung.
  */
 import type { GratisAngebot, ProviderCapabilities } from "@freedomstack/protocol";
-import { GeraeteKontingent, LS_AUTO_BEZAHLEN, gratisKandidaten, tokensDerAntwort, zustimmungFuer, zustimmungGilt } from "../gratis-kontingent.js";
+import { GERAET_GRATIS, GeraeteKontingent, LS_AUTO_BEZAHLEN, gratisKandidaten, kontingentRest, tokensDerAntwort, zustimmungFuer, zustimmungGilt } from "../gratis-kontingent.js";
+import { gebietsschema, t } from "../i18n.js";
 import { geheim } from "./tresor.js";
 
 export const geraeteKontingent = new GeraeteKontingent(geheim);
@@ -15,6 +16,26 @@ export const gratisJeProvider = new Map<string, GratisAngebot>();
 /** Eine Gratis-Antwort zählen – scheitert das Merken (Tresor gesperrt), fehlt der Eintrag, nie die Antwort. */
 export async function zaehleGratisAntwort(usage: { promptTokens?: number; completionTokens?: number } | undefined): Promise<void> {
   await geraeteKontingent.buche(tokensDerAntwort(usage)).catch(() => undefined);
+  zeigeGratisStand();
+}
+
+/**
+ * Was heute auf diesem Gerät gratis noch geht (C-27) – unter der Eingabe des Agenten, nur in den
+ * Tarifen „Automatisch“ und „Free“. Nur aus dem Kontingent (`kontingentRest()`): nichts neu zählen,
+ * nichts ins Netz, nichts merken. Eine Fairness-Regel je Gerät, keine Sperre – so steht es im Tooltip.
+ */
+export function zeigeGratisStand(): void {
+  const ziel = document.getElementById("ai-gratis");
+  if (!ziel) return;
+  const tarif = (document.getElementById("ai-tier") as HTMLSelectElement | null)?.value ?? "auto";
+  ziel.hidden = tarif !== "auto" && tarif !== "free";
+  if (ziel.hidden) return;
+  const rest = kontingentRest(geraeteKontingent.stand());
+  const zahl = (n: number): string => n.toLocaleString(gebietsschema());
+  ziel.textContent = rest.antworten === 0 || rest.tokens === 0
+    ? t("agent.gratisHeuteLeer")
+    : t("agent.gratisHeute", { antworten: rest.antworten, max: GERAET_GRATIS.antworten, tokens: zahl(rest.tokens), maxTokens: zahl(GERAET_GRATIS.tokens) });
+  ziel.title = t("agent.gratisRegel");
 }
 
 /**

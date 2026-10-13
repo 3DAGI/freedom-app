@@ -3200,6 +3200,50 @@ def ohne_knoten_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def gratis_anzeige_pruefen(browser, url: str) -> dict:
+    """C-27: Was heute gratis noch geht – unter der Eingabe des Agenten, nur aus dem Kontingent dieses Geräts,
+    mit der Fairness-Regel im Tooltip und nur in „Automatisch“ und „Free“; in der Modellwahl „gratis“ nur bei
+    Modellen, die ein Provider aus `gratisAnbieter()` anbietet. Angebote aus `scripts/gratis-probe.mts`."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/gratis-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay = ProbeRelay()
+    relay.events = probe["events"]
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_function("() => !document.getElementById('ai-gratis').hidden && document.getElementById('ai-gratis').textContent", timeout=15000)
+    stand = lambda: ev("() => { const g = document.getElementById('ai-gratis'); return [g.hidden, g.textContent, g.title]; }")  # noqa: E731
+    erg["frisch"] = stand()
+    # Fünf Antworten und 1 234 Tokens verbraucht – ohne Tresor liegt der Stand in localStorage (`geheim`)
+    ev("() => { localStorage.setItem('freedom.gratis.kontingent', JSON.stringify({ tag: new Date().toISOString().slice(0, 10), antworten: 5, tokens: 1234 }));"
+       " document.querySelector('.app-nav button[data-tab=\"wallet\"]').click(); document.querySelector('.app-nav button[data-tab=\"ai\"]').click(); }")
+    s.wait_for_timeout(300)
+    erg["verbraucht"] = stand()
+    ev("() => { const t = document.getElementById('ai-tier'); t.value = 'classic'; t.dispatchEvent(new Event('change')); }")
+    erg["classic"] = stand()[0]
+    ev("() => { const t = document.getElementById('ai-tier'); t.value = 'auto'; t.dispatchEvent(new Event('change')); }")
+    # Modellwahl: die Karten der beiden Probe-Modelle
+    s.wait_for_function("() => !!document.querySelector('#model-popover .model-card[data-model=\"gratis-modell:7b\"]')", timeout=20000)
+    erg["karten"] = ev("""() => Object.fromEntries(['gratis-modell:7b', 'bezahl-modell:7b'].map(m => {
+        const k = document.querySelector(`#model-popover .model-card[data-model="${m}"]`);
+        const g = k?.querySelector('.mc-gratis');
+        return [m, k ? (g ? [g.textContent, g.title] : null) : 'fehlt']; }))""")
+    seite.ctx.close()
+    regel = "Eine Fairness-Regel je Gerät, keine Sperre: gezählt nur auf diesem Gerät, nichts davon geht ins Netz. Jeder Provider hat dazu sein eigenes Gratis-Budget."
+    if erg["frisch"] != [False, "Gratis heute: noch 20 von 20 Antworten, 20.000 von 20.000 Tokens", regel]:
+        erg["fehler"].append(f"frisch {erg['frisch']}")
+    if erg["verbraucht"][1] != "Gratis heute: noch 15 von 20 Antworten, 18.766 von 20.000 Tokens":
+        erg["fehler"].append(f"verbraucht {erg['verbraucht']}")
+    if erg["classic"] is not True:
+        erg["fehler"].append("im Tarif Classic sichtbar")
+    if erg["karten"] != {"gratis-modell:7b": ["gratis", "1 Provider bieten es heute gratis an"], "bezahl-modell:7b": None}:
+        erg["fehler"].append(f"Modellwahl {erg['karten']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def lokal_pruefen(browser, url: str) -> dict:
     """KI auf diesem Gerät (B-1): „Dieses Gerät“ steht in der Modellwahl, gesucht wird
     erst auf Klick, die Frage geht nur an localhost – kein Auftrag, kein Umschlag ans Relay."""
@@ -5171,6 +5215,10 @@ def main() -> int:
             except Exception as e:
                 erg["overlay_dialog"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["gratis_anzeige"] = gratis_anzeige_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["gratis_anzeige"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5230,6 +5278,7 @@ def main() -> int:
           and erg.get("ohne_knoten", {}).get("bestanden") is True
           and erg.get("einrichtung_wahl", {}).get("bestanden") is True
           and erg.get("overlay_dialog", {}).get("bestanden") is True
+          and erg.get("gratis_anzeige", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True

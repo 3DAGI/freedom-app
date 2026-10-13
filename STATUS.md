@@ -8829,3 +8829,24 @@ Einrichtung über eine Klasse statt `style`, weiter ohne HTML-Text). Neuer Smoke
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1084 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-27 – Gratis-Start sichtbar
+
+Spur C, Übergabe von Spur A (09.10., MENSCH): A-14 hat keine Anzeige gebaut.
+
+**Neu:**
+- Unter der Eingabe des Agenten steht, was heute auf diesem Gerät gratis noch geht: „Gratis heute: noch 15 von 20 Antworten, 18.766 von 20.000 Tokens“, aufgebraucht „Gratis für heute aufgebraucht – morgen wieder, oder mit einer Wallet weiter“.
+- Der Tooltip nennt es eine Fairness-Regel je Gerät, keine Sperre, gezählt nur auf dem Gerät; jeder Provider hat dazu sein eigenes Budget.
+- Die Zeile steht nur in den Tarifen „Automatisch“ und „Free“. Sie kommt nur aus `geraeteKontingent` (`kontingentRest()`) und erscheint neu beim Öffnen des Agenten, beim Wechsel des Tarifs und nach jeder Gratis-Antwort (`zeigeGratisStand()`, `shell/gratis-start.ts`). Nichts wird neu gezählt, nichts geht ins Netz, nichts wird gemerkt.
+- In der Modellwahl trägt ein Modell „gratis“ (Tooltip „n Provider bieten es heute gratis an“) nur, wenn ein Provider aus `gratisAnbieter()` es anbietet – dieselbe Auswahl wie beim Fragen.
+
+**Tests:** `gratis-anzeige.test.ts` (3). Neuer Smoke-Test „gratis_anzeige“ mit zwei Angeboten aus `scripts/gratis-probe.mts`, eines gratis, eines nur bezahlt:
+- frisch 20 von 20,
+- nach 5 Antworten und 1 234 Tokens 15 von 20 und 18.766,
+- in „Classic“ verborgen,
+- „gratis“ nur am Gratis-Modell.
+
+Vorher rot (die Zeile fehlte), jetzt grün.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1087 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
