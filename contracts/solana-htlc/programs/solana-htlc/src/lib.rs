@@ -21,7 +21,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::hash::hash; // SHA-256
 
-declare_id!("B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk");
+declare_id!("FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD");
 
 #[program]
 pub mod solana_htlc {

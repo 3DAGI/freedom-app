@@ -29,7 +29,7 @@ import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
 /** Muss zur `declare_id!` des Anchor-Programms passen. */
-export const HTLC_PROGRAM_ID = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk";
+export const HTLC_PROGRAM_ID = "FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD";
 
 /** Anchor-Diskriminator: die ersten 8 Bytes von sha256("global:<name>"). */
 export function anchorSighash(name: string): Uint8Array {

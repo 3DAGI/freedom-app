@@ -1,6 +1,6 @@
 /**
  * AnchorSolanaHtlcAdapter: SolanaHtlcAdapter gegen das echte Anchor-HTLC-
- * Programm (deployed: Devnet B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk).
+ * Programm (deployed: Devnet FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD).
  *
  * Kein Anchor-Client: rohe @solana/web3.js-Transaktionen mit manueller
  * Borsh-(De)Serialisierung. Das haelt den Adapter klein und IDL-unabhaengig.
@@ -39,7 +39,7 @@ function sighash(name: string): Buffer {
 }
 
 const PROGRAM_ID = new PublicKey(
-  process.env.HTLC_PROGRAM_ID ?? "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk",
+  process.env.HTLC_PROGRAM_ID ?? "FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD",
 );
 /** Die Programm-ID, mit der dieser Adapter arbeitet (fuer den Relayer, 4.6e). */
 export const HTLC_PROGRAMM_ID = PROGRAM_ID.toBase58();

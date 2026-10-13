@@ -1,7 +1,7 @@
 /**
  * DEVNET-Live-Test: AnchorSolanaHtlc gegen das deployed HTLC-Programm.
  *
- * Program: B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk (Devnet)
+ * Program: FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD (Devnet)
  * Wallet: ~/.config/solana/id.json (12+ SOL)
  *
  * Beweist den vollen HTLC-Lebenszyklus auf echter Chain:

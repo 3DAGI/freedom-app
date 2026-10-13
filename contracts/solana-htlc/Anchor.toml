@@ -2,7 +2,7 @@
 anchor_version = "0.30.1"
 
 [programs.localnet]
-solana_htlc = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk"
+solana_htlc = "FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD"
 
 [provider]
 cluster = "localnet"
@@ -18,7 +18,7 @@ rpc_port = 8891
 faucet_port = 9901
 
 [[test.genesis]]
-address = "B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk"
+address = "FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD"
 program = "target/deploy/solana_htlc.so"
 
 [scripts]
