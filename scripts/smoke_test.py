@@ -3343,9 +3343,14 @@ def raum_agent_pruefen(browser, url: str) -> dict:
     im Raum; das Buch liegt nicht offen in localStorage. Der Agent steht als Mitglied mit Rolle „Agent“ da; ein zweites Mal
     steht er nicht mehr zur Wahl."""
     erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/knoten-agent-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
     relay = ProbeRelay()
+    relay.events = probe["events"]
     seite = DialogSeite(browser, url, relay, erg)
     s, ev = seite.s, seite.ev
+    optionen = "() => [...document.querySelectorAll('[role=dialog] .dlg-option-text')].map(o => o.firstChild.textContent)"
     tresor_an(seite, "Agenten-Pass 7")
     ev("() => { location.hash = '#/chat'; }")
     s.wait_for_selector("#rail-create", state="visible", timeout=30000)
@@ -3363,6 +3368,9 @@ def raum_agent_pruefen(browser, url: str) -> dict:
     s.wait_for_timeout(1100)
     feld = "(w) => { for (const [n, v] of Object.entries(w)) document.querySelector(`[role=dialog] [id$='-${n}']`).value = v; }"
     ev("() => document.getElementById('space-agent-neu').click()")
+    seite.warte_dialog("Agent hinzufügen")
+    erg["wahl"] = ev(optionen)
+    dialog_ok(seite, "Weiter")
     neu = seite.warte_dialog("Neuer Agent auf diesem Gerät")
     ev(feld, {"name": "Helfer", "persona": "Du hilfst beim Planen."})
     dialog_ok(seite, "Weiter")
@@ -3404,9 +3412,10 @@ def raum_agent_pruefen(browser, url: str) -> dict:
     s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Budget für Helfer gespeichert.'", timeout=15000)
     seite.warte_zu()
     erg["aendern"] = [aendern["text"], aendern["werte"]]
-    # Ein zweites Mal: Helfer ist schon im Raum, also gleich ein neuer
+    # Ein zweites Mal: Helfer ist schon im Raum, steht also nicht zur Wahl
     ev("() => document.getElementById('space-agent-neu').click()")
-    zweites = seite.warte_dialog("Neuer Agent auf diesem Gerät")
+    seite.warte_dialog("Agent hinzufügen")
+    zweites = ev(optionen)
     s.keyboard.press("Escape")
     seite.warte_zu()
     # Herausnehmen: Rolle entzogen (34702 ohne Rollen), Kennzeichen weg; danach steht er wieder zur Wahl
@@ -3421,10 +3430,29 @@ def raum_agent_pruefen(browser, url: str) -> dict:
                    for e in relay.gesendet)
     s.wait_for_function("() => !document.querySelector('#member-list .rolle-agent')", timeout=40000)
     ev("() => document.getElementById('space-agent-neu').click()")
-    wieder = seite.warte_dialog("Agent hinzufügen")
-    s.keyboard.press("Escape")
+    seite.warte_dialog("Agent hinzufügen")
+    wieder = ev(optionen)
+    # 11.3e4: ein Agent auf einem Knoten – nur über die Karte mit Betrieb Knoten, Warnung vorher, dann Rolle und Hinweis
+    ev("() => document.querySelector('[role=dialog] input[value=knoten]').click()")
+    dialog_ok(seite, "Weiter")
+    seite.warte_dialog("Agent auf einem Knoten")
+    ev(feld, {"schluessel": probe["agent"]})
+    dialog_ok(seite, "Weiter")
+    warnung = seite.warte_dialog("Agent Rechner einladen?")
+    dialog_ok(seite, "Hinzufügen")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Rechner ist im Raum')", timeout=30000)
     seite.warte_zu()
-    erg["raus"] = [raus["text"], entzogen, wieder["felder"]]
+    rechner = probe["agent"]
+    s.wait_for_function("() => [...document.querySelectorAll('#member-list .mitglied-name')].some(n => n.textContent === 'Rechner')", timeout=40000)
+    erg["knoten"] = {
+        "warnung": warnung["text"],
+        "zuweisung": any(e.get("kind") == 34702 and e["pubkey"] == ich and any(t[:2] == ["p", rechner] for t in e["tags"])
+                         and any(t[:2] == ["role", "agent"] for t in e["tags"]) for e in relay.gesendet),
+        "hinweis": any(e.get("kind") == 42 and e["pubkey"] == ich and e["content"].startswith("Agent Rechner läuft auf einem Knoten") for e in relay.gesendet),
+        "kennzeichen": ev("() => [...document.querySelectorAll('#member-list .member-row')].find(z => z.querySelector('.mitglied-name').textContent === 'Rechner')?.querySelector('.rolle-agent')?.title ?? null"),
+        "menue": ev("() => !![...document.querySelectorAll('#member-list .member-row')].find(z => z.querySelector('.mitglied-name').textContent === 'Rechner')?.querySelector('.mitglied-knopf')"),
+    }
+    erg["raus"] = [raus["text"], entzogen, wieder]
     # 11.3e3: Agenten sprechen Agenten an – der Gründer schaltet an (Grenze 12) und wieder aus; jede neue Definition danach
     defs = lambda: sorted({e["id"]: e for e in relay.gesendet if e.get("kind") == 34700 and e["pubkey"] == ich}.values(), key=lambda e: e["created_at"])  # noqa: E731
     ketten = lambda e: [t[1] for t in e["tags"] if t[0] == "agentenketten"]  # noqa: E731
@@ -3451,7 +3479,7 @@ def raum_agent_pruefen(browser, url: str) -> dict:
         "aus": [ketten(aus[-1]), aus[-1]["created_at"] > an[-1]["created_at"], [t for t in aus[-1]["tags"] if t[0] == "name"]],
     }
     erg.update({"neu": [neu["text"], neu["felder"]], "budget": [budget["text"], budget["felder"], budget["werte"]],
-                "zu_viel": zu_viel["meldung"] if zu_viel else None, "zweites": zweites["titel"], "browser_dialoge": seite.browser_dialoge})
+                "zu_viel": zu_viel["meldung"] if zu_viel else None, "zweites": zweites, "browser_dialoge": seite.browser_dialoge})
     seite.ctx.close()
     if erg["neu"][1] != ["Name", "Beschreibung (öffentlich, optional)", "Anweisung – wer er ist, was er tut", "Modell (optional)"] \
             or not erg["neu"][0].startswith("Name und Beschreibung sieht jeder im Raum. Die Anweisung bleibt auf diesem Gerät"):
@@ -3467,7 +3495,14 @@ def raum_agent_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Karte {n['karte']}")
     if not (n["agentRolle"] and n["zuweisung"] and n["liste"] and n["hinweis"]) or n["offen"] is not None:
         erg["fehler"].append(f"Netz {n}")
-    if erg["zweites"] != "Neuer Agent auf diesem Gerät":
+    if erg["wahl"] != ["Neuen Agenten anlegen", "Agent auf einem Knoten"]:
+        erg["fehler"].append(f"erste Wahl {erg['wahl']}")
+    kn = erg["knoten"]
+    if not kn["warnung"].startswith("Rechner läuft auf einem Knoten. Als Mitglied liest der Knoten alles in diesem Raum mit") \
+            or not (kn["zuweisung"] and kn["hinweis"]) \
+            or kn["kennzeichen"] != "läuft auf einem Knoten – der Knoten liest alles in diesem Raum · wer fragt, zahlt":
+        erg["fehler"].append(f"Agent auf einem Knoten {kn}")
+    if erg["zweites"] != ["Neuen Agenten anlegen", "Agent auf einem Knoten"]:
         erg["fehler"].append(f"zweites Mal {erg['zweites']}")
     if erg["zeile"] != ["Helfer", ["Agent"], "läuft auf dem Gerät seines Erstellers – antwortet nur, solange dessen App offen ist · Antworten bezahlt, wer ihn eingeladen hat"]:
         erg["fehler"].append(f"Kennzeichen {erg['zeile']}")
@@ -3479,7 +3514,8 @@ def raum_agent_pruefen(browser, url: str) -> dict:
     if k != {"dialog": [["Agenten sprechen Agenten an", "Höchstens so viele Agenten-Antworten in Folge (1–50)"], ["10"]], "wieder": [True, ["12"]],
              "an": [["12"], True, 1], "aus": [[], True, [["name", "Agentenraum"]]]}:
         erg["fehler"].append(f"Agentenketten {k}")
-    if not erg["raus"][0].startswith("Helfer antwortet hier nicht mehr") or erg["raus"][1] is not True or erg["raus"][2] != ["Welcher Agent?"]:
+    if not erg["raus"][0].startswith("Helfer antwortet hier nicht mehr") or erg["raus"][1] is not True \
+            or erg["raus"][2] != ["Neuen Agenten anlegen", "Helfer", "Agent auf einem Knoten"]:
         erg["fehler"].append(f"herausnehmen {erg['raus']}")
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")

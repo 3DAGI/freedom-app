@@ -18,17 +18,19 @@ import { kiSchiene } from "../ki-schiene.js";
 import { fehlerText } from "../protokoll-texte.js";
 import type { RaumAgentKarte } from "../knoten-agent-wahl.js";
 import { type BudgetFehler, budgetText, leseBudgetEingabe, verbraucht } from "../raum-agent-budget.js";
-import { agentenBuch, entferneAgentAusOffenemRaum, ladeAgentInOffenenRaum, legeGeraeteAgentAn } from "./agenten.js";
+import { schluesselAusEingabe } from "../shell-logic.js";
+import { agentenBuch, entferneAgentAusOffenemRaum, ladeAgentInOffenenRaum, legeGeraeteAgentAn, nimmKnotenAgentAuf } from "./agenten.js";
 import { bestaetige, dialog, type Option, type Werte } from "./dialog.js";
 import type { MenuePunkt } from "./menue.js";
-import { einladungsText, type PrivaterRaum } from "./raum-mls.js";
-import { verlangeTresor } from "./tresor.js";
+import { einladungsText, ladeInPrivatenRaum, type PrivaterRaum } from "./raum-mls.js";
+import { tresorEingerichtet, verlangeTresor } from "./tresor.js";
 import { el, toast } from "./ui.js";
 
 /** Wohin der Agent kommt: offener Raum über die Adresse des Gründers (B-7), privat über die Gruppe. */
 export type AgentZiel = { adresse: string } | { privat: PrivaterRaum };
 
 const NEU = "neu";
+const KNOTEN = "knoten";
 /** Was am Budget nicht passt – je Fall ein Text. */
 const BUDGET_FEHLER: Record<BudgetFehler, string> = {
   monat: "agentUi.budgetFehler.monat", tag: "agentUi.budgetFehler.tag", "tag-groesser": "agentUi.budgetFehler.tag-groesser",
@@ -88,20 +90,21 @@ async function budget(name: string, offen: boolean): Promise<{ einheit: BudgetEi
 
 /** „Agent hinzufügen“ – true, wenn er im Raum ist (dann lädt der Aufrufer den Raum neu). */
 export async function agentHinzufuegen(ziel: AgentZiel): Promise<boolean> {
-  if (!(await verlangeTresor(t("agentRaum.wofuer")))) return false;
   const raum = "adresse" in ziel ? ziel.adresse : ziel.privat.gruppe;
-  const vorhanden = agentenBuch.alle().filter((a) => !a.raeume.some((r) => r.raum === raum));
-  let wahl = NEU;
-  if (vorhanden.length) {
-    const w = await dialog({
-      titel: t("agentUi.titel"), ok: t("agentUi.weiter"),
-      felder: [{ art: "wahl", name: "agent", label: t("agentUi.welcher"), wert: NEU, optionen: [
-        { wert: NEU, text: t("agentUi.neuAnlegen") }, ...vorhanden.map((a): Option => ({ wert: a.pk, text: a.name })),
-      ] }],
-    });
-    if (!w) return false;
-    wahl = String(w.agent ?? NEU);
-  }
+  // Agenten dieses Geräts liegen im Tresor – ohne ihn gibt es keine; ein Agent auf einem Knoten braucht keinen
+  const vorhanden = tresorEingerichtet() ? agentenBuch.alle().filter((a) => !a.raeume.some((r) => r.raum === raum)) : [];
+  const w = await dialog({
+    titel: t("agentUi.titel"), ok: t("agentUi.weiter"),
+    felder: [{ art: "wahl", name: "agent", label: t("agentUi.welcher"), wert: NEU, optionen: [
+      { wert: NEU, text: t("agentUi.neuAnlegen") }, ...vorhanden.map((a): Option => ({ wert: a.pk, text: a.name })),
+      { wert: KNOTEN, text: t("agentUi.aufKnotenWahl"), hinweis: t("agentUi.aufKnotenHinweis") },
+    ] }],
+  });
+  if (!w) return false;
+  const wahl = String(w.agent ?? NEU);
+  if (wahl === KNOTEN) return knotenAgentAufnehmen(ziel);
+  // Erst der Tresor: Schlüssel, Anweisung und Budget liegen nur dort
+  if (!(await verlangeTresor(t("agentRaum.wofuer")))) return false;
   const daten = wahl === NEU ? await neuerAgent() : null;
   if (wahl === NEU && !daten) return false;
   const name = daten?.name ?? agentenBuch.agent(wahl)?.name ?? "";
@@ -123,6 +126,45 @@ export async function agentHinzufuegen(ziel: AgentZiel): Promise<boolean> {
     return true;
   } catch (e) {
     toast(t("agentUi.nichtDrin", { name, grund: fehlerText(e) }), true);
+    return false;
+  }
+}
+
+/**
+ * Ein Agent auf einem Knoten (11.3e4): Schlüssel eingeben, seine Karte muss „knoten“ sagen.
+ * Vorher die Warnung, dass der Knoten alles im Raum mitliest; danach der Pflicht-Hinweis.
+ * Offen: die Rolle `agent` zuweisen; privat: einladen wie einen Menschen (11.3d2c).
+ */
+async function knotenAgentAufnehmen(ziel: AgentZiel): Promise<boolean> {
+  const { decodeNpub } = await import("../identity.js");
+  const pkAus = (w: Werte): string => schluesselAusEingabe(w.schluessel, decodeNpub);
+  const w = await dialog({
+    titel: t("agentUi.knotenTitel"), text: t("agentUi.knotenText"), ok: t("agentUi.weiter"),
+    felder: [{ art: "text", name: "schluessel", label: t("agentUi.knotenSchluessel"), pflicht: true, mono: true, scannen: true }],
+    pruefe: (w) => (pkAus(w) ? null : t("komm.keinSchluessel")),
+  });
+  if (!w) return false;
+  const pk = pkAus(w);
+  const { knotenAgentKarte, meldeKnotenAgentImRaum } = await import("./knoten-agent-fragen.js");
+  const karte = await knotenAgentKarte(pk);
+  if (!karte) {
+    toast(t("agentUi.keinKnotenAgent"), true);
+    return false;
+  }
+  if (!(await bestaetige({ titel: t("agentKnoten.einladenTitel", { name: karte.name }), text: t("agentKnoten.einladenText", { name: karte.name }), ok: t("agentUi.hinzufuegen") }))) return false;
+  toast(t("agentUi.laedtEin", { name: karte.name }));
+  try {
+    if ("adresse" in ziel) {
+      await nimmKnotenAgentAuf(pk, karte.name, ziel.adresse);
+    } else {
+      const r = await ladeInPrivatenRaum(ziel.privat, pk);
+      if (r !== "eingeladen") throw new Error(einladungsText(r));
+      await meldeKnotenAgentImRaum(ziel.privat, karte.name);
+    }
+    toast(t("agentUi.drin", { name: karte.name }));
+    return true;
+  } catch (e) {
+    toast(t("agentUi.nichtDrin", { name: karte.name, grund: fehlerText(e) }), true);
     return false;
   }
 }

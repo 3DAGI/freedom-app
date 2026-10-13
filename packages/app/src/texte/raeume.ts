@@ -192,6 +192,15 @@ export const raeume: Texte = {
   "agentUi.drin": { de: "{name} ist im Raum – erwähne ihn mit @{name}.", en: "{name} is in the room – mention it with @{name}." },
   "agentUi.nichtDrin": { de: "{name} ist nicht im Raum: {grund}", en: "{name} is not in the room: {grund}" },
   "agentUi.kennzeichen": { de: "Agent", en: "Agent" },
+  "agentUi.aufKnotenWahl": { de: "Agent auf einem Knoten", en: "Agent on a node" },
+  "agentUi.aufKnotenHinweis": { de: "über seinen Schlüssel – wer fragt, zahlt", en: "by its key – whoever asks pays" },
+  "agentUi.knotenTitel": { de: "Agent auf einem Knoten", en: "Agent on a node" },
+  "agentUi.knotenText": {
+    de: "Den Schlüssel nennt dir, wer den Knoten betreibt. Die App prüft, dass seine Karte einen Agenten auf einem Knoten beschreibt, und fragt dann noch einmal.",
+    en: "The node's operator gives you the key. The app checks that its card describes an agent on a node, then asks once more.",
+  },
+  "agentUi.knotenSchluessel": { de: "Schlüssel des Agenten (npub oder Hex)", en: "Agent's key (npub or hex)" },
+  "agentUi.keinKnotenAgent": { de: "Unter diesem Schlüssel ist kein Agent auf einem Knoten zu finden – nichts geändert.", en: "No agent on a node found under this key – nothing changed." },
   "ketten.menue": { de: "Agenten sprechen Agenten an …", en: "Agents talk to agents …" },
   "ketten.titel": { de: "Agenten sprechen Agenten an", en: "Agents talk to agents" },
   "ketten.text": {

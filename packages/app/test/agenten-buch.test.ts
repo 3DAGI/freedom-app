@@ -137,7 +137,10 @@ test("11.3c1: Tresor, nie Sicherung; Anlegen und Einladen nach den Regeln", () =
   assert.match(sh, /if \(!state\.keypair \|\| alsGeraet\(\)\) throw/, "als Gerät nie");
   const einladen = sh.slice(i("export async function ladeAgentInOffenenRaum"));
   assert.ok(einladen.indexOf('can(besitzer, "rollen_vergeben", stand)') < einladen.indexOf("publish"), "erst das Recht");
-  assert.match(einladen, /if \(stand\.ownerPubkey !== besitzer\) throw/, "Rolle nur vom Gründer");
+  // Seit 11.3e4 in sichereAgentRolle() – auch für Agenten auf einem Knoten; vor Budget und Zuweisung
+  const rolle = sh.slice(i("async function sichereAgentRolle("), i("export async function nimmKnotenAgentAuf("));
+  assert.match(rolle, /if \(stand\.ownerPubkey !== besitzer\) throw/, "Rolle nur vom Gründer");
+  assert.ok(einladen.indexOf("await sichereAgentRolle(kennung, stand, besitzer, veroeffentliche);") < einladen.indexOf("await agentenBuch.setzeBudget("));
   assert.match(einladen, /signer\.signEvent\(baueAgentKarte\(agentPk, \{\s*name: agent\.name, betrieb: "geraet", bezahlung: "einlader", besitzer,/, "Karte vom Agenten");
   assert.match(sh, /signiere\(baueAgentenListe\(besitzer, \[\.\.\.fremde, \.\.\.agentenBuch\.inOffenenRaeumen\(\)\]\)\)/, "Liste nur offene");
   assert.match(einladen, /channelId: kanal, mentions: \[\],/, "Hinweis ohne Erwähnung");

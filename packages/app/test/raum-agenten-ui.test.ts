@@ -30,12 +30,14 @@ test("Budget in SOL: ohne Gleitkomma in Lamports, ohne Kurs – nie als sats gel
   assert.deepEqual(leseBudgetEingabe({ einheit: "lamports", monat: "0.001", tag: "0.002" }), { ok: false, fehler: "tag-groesser" });
 });
 
-test("Ablauf: Tresor zuerst, vorhandene ohne diesen Raum, neu mit Grenzen, Budget leer vorbelegt, dann einladen", () => {
+test("Ablauf: Tresor vor dem Gerät, vorhandene ohne diesen Raum, neu mit Grenzen, Budget leer vorbelegt, dann einladen", () => {
   const ui = lies("shell/raum-agenten-ui.ts");
   const ablauf = ui.slice(ui.indexOf("export async function agentHinzufuegen("));
   const i = (s: string) => { const n = ablauf.indexOf(s); assert.ok(n >= 0, s); return n; };
-  assert.ok(i('if (!(await verlangeTresor(t("agentRaum.wofuer")))) return false;') < i("agentenBuch.alle()"), "das Buch liegt im Tresor");
-  assert.match(ablauf, /agentenBuch\.alle\(\)\.filter\(\(a\) => !a\.raeume\.some\(\(r\) => r\.raum === raum\)\)/, "wer schon im Raum ist, steht nicht zur Wahl");
+  assert.match(ablauf, /const vorhanden = tresorEingerichtet\(\) \? agentenBuch\.alle\(\)\.filter\(\(a\) => !a\.raeume\.some\(\(r\) => r\.raum === raum\)\) : \[\];/, "das Buch liegt im Tresor; wer schon im Raum ist, steht nicht zur Wahl");
+  // Ein Agent auf einem Knoten (11.3e4) braucht keinen Tresor – einer auf dem Gerät schon, vor dem Anlegen
+  assert.ok(i("if (wahl === KNOTEN) return knotenAgentAufnehmen(ziel);") < i('if (!(await verlangeTresor(t("agentRaum.wofuer")))) return false;'));
+  assert.ok(i('if (!(await verlangeTresor(t("agentRaum.wofuer")))) return false;') < i("await legeGeraeteAgentAn(daten)"));
   assert.ok(i("await legeGeraeteAgentAn(daten)") < i("await ladeAgentInOffenenRaum(pk, ziel.adresse, b);"));
   assert.match(ablauf, /const r = await ladeAgentInPrivatenRaum\(pk, ziel\.privat, b\);\s*if \(r !== "eingeladen"\) throw new Error\(einladungsText\(r\)\);/);
   // Budget: Einheit nach der Schiene für KI, Beträge ohne Vorgabe – nie sats-Zahlen als SOL
@@ -91,4 +93,20 @@ test("11.3e2 verdrahtet: Kennzeichen und Name aus der Karte, eigene Agenten mit 
   assert.match(eigene, /leseBudgetEingabe\(\{ einheit: b\.einheit, monat: wert\(w, "monat"\), tag: wert\(w, "tag"\) \}\)/);
   assert.match(eigene, /await entferneAgentAusOffenemRaum\(pk, ziel\.adresse\);/);
   assert.match(eigene, /if \(!\(await entferneAgentAusPrivatemRaum\(pk, ziel\.privat\)\)\) throw/);
+});
+
+test("11.3e4: Agent auf einem Knoten – Karte muss „knoten“ sagen, Warnung vorher, offen die Rolle, privat einladen", () => {
+  const ui = lies("shell/raum-agenten-ui.ts");
+  const knoten = ui.slice(ui.indexOf("async function knotenAgentAufnehmen("), ui.indexOf("// ------------------------------------------------------------ In der Mitgliederliste"));
+  const i = (s: string) => { const n = knoten.indexOf(s); assert.ok(n >= 0, s); return n; };
+  assert.match(knoten, /schluesselAusEingabe\(w\.schluessel, decodeNpub\)/, "npub oder Hex");
+  assert.ok(i("const karte = await knotenAgentKarte(pk);") < i("if (!karte) {"), "nur mit Karte vom Agenten, Betrieb Knoten");
+  assert.ok(i('await bestaetige({ titel: t("agentKnoten.einladenTitel"') < i("await nimmKnotenAgentAuf(pk, karte.name, ziel.adresse);"), "Warnung vorher");
+  assert.ok(i("const r = await ladeInPrivatenRaum(ziel.privat, pk);") < i("await meldeKnotenAgentImRaum(ziel.privat, karte.name);"));
+  const agenten = lies("shell/agenten.ts");
+  const auf = agenten.slice(agenten.indexOf("export async function nimmKnotenAgentAuf("), agenten.indexOf("/**\n * Einen Agenten dieses Geräts in einen offenen Raum holen"));
+  const j = (s: string) => { const n = auf.indexOf(s); assert.ok(n >= 0, s); return n; };
+  assert.ok(j('if (!can(ichSelbst, "rollen_vergeben", stand)) throw') < j("await sichereAgentRolle(kennung, stand, ichSelbst, veroeffentliche);"));
+  assert.ok(j("buildRoleGrant(kennung, ichSelbst, agentPk, [AGENT_ROLLE])") < j('content: t("agentKnoten.hinweisRaum", { name }),'), "Pflicht-Hinweis nach der Zuweisung");
+  assert.doesNotMatch(auf, /setzeBudget|baueAgentKarte|aktualisiereListe/, "Budget, Karte und Liste gehören dem Knoten");
 });

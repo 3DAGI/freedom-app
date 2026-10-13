@@ -66,6 +66,36 @@ function hinweisKanal(stand: SpaceState, pk: string): string | undefined {
   return [...(stand.space?.channels ?? [])].sort((a, b) => a.position - b.position).find((k) => canWriteTo(pk, k, stand))?.id;
 }
 
+/** Die Rolle `agent` – fehlt sie oder trägt sie mehr als die Grundrechte, legt sie nur der Gründer an (nie mit mehr Rechten). */
+async function sichereAgentRolle(kennung: string, stand: SpaceState, besitzer: string, veroeffentliche: (ev: Promise<NostrEvent>) => Promise<void>): Promise<void> {
+  const rolle = stand.roles.get(AGENT_ROLLE);
+  if (rolle && !rolle.permissions.some((p) => !AGENT_RECHTE.includes(p))) return;
+  if (stand.ownerPubkey !== besitzer) throw new Error(t("agentRaum.rolleFehlt"));
+  await veroeffentliche(signiere(buildRoles(kennung, besitzer, mitAgentRolle([...stand.roles.values()]))));
+}
+
+/**
+ * Einen Agenten auf einem Knoten in einen offenen Raum aufnehmen (11.3e4): nur die
+ * Zuweisung der Rolle `agent` und der Pflicht-Hinweis (Entwurf P2) – Karte und Antworten
+ * kommen vom Knoten selbst (11.3d1a), bezahlt von dem, der fragt.
+ */
+export async function nimmKnotenAgentAuf(agentPk: string, name: string, adresse: string): Promise<void> {
+  const ichSelbst = ich();
+  const { kennung, stand } = await raumStand(adresse);
+  if (!can(ichSelbst, "rollen_vergeben", stand)) throw new Error(t("agentRaum.keinRecht"));
+  const pool = await ensurePool();
+  const veroeffentliche = async (ev: Promise<NostrEvent>): Promise<void> => void (await pool.publish(await ev));
+  await sichereAgentRolle(kennung, stand, ichSelbst, veroeffentliche);
+  await veroeffentliche(signiere(buildRoleGrant(kennung, ichSelbst, agentPk, [AGENT_ROLLE])));
+  const kanal = hinweisKanal(stand, ichSelbst);
+  if (kanal) {
+    await veroeffentliche(signiere(buildChannelMessage({
+      authorPubkey: ichSelbst, spaceId: kennung, channelId: kanal, mentions: [],
+      content: t("agentKnoten.hinweisRaum", { name }),
+    })));
+  }
+}
+
 /**
  * Einen Agenten dieses Geräts in einen offenen Raum holen, mit Budget je Monat
  * und Tag (F3 B: ich zahle, auch wenn andere fragen – B-22: dort schreibt jeder).
@@ -82,11 +112,7 @@ export async function ladeAgentInOffenenRaum(
   const pool = await ensurePool();
   const veroeffentliche = async (ev: Promise<NostrEvent>): Promise<void> => void (await pool.publish(await ev));
   // Erst die Rolle (nur der Gründer; fehlt sie oder trägt sie mehr als die Grundrechte), dann Budget, Zuweisung, Karte und Liste
-  const rolle = stand.roles.get(AGENT_ROLLE);
-  if (!rolle || rolle.permissions.some((p) => !AGENT_RECHTE.includes(p))) {
-    if (stand.ownerPubkey !== besitzer) throw new Error(t("agentRaum.rolleFehlt"));
-    await veroeffentliche(signiere(buildRoles(kennung, besitzer, mitAgentRolle([...stand.roles.values()]))));
-  }
+  await sichereAgentRolle(kennung, stand, besitzer, veroeffentliche);
   await agentenBuch.setzeBudget(agentPk, adresse, budget);
   await veroeffentliche(signiere(buildRoleGrant(kennung, besitzer, agentPk, [AGENT_ROLLE])));
   await veroeffentliche(signer.signEvent(baueAgentKarte(agentPk, {
