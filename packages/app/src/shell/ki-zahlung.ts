@@ -25,7 +25,7 @@ import type { ProviderZahlung } from "../session-client.js";
 import { werberZahlziel } from "../werbung.js";
 import { KanalBuch, bedarfLamports } from "../zahlkanal.js";
 import { kiZahlweg, kiZiele } from "../ki-zahlweg.js";
-import { standardSchiene } from "../standard-schiene.js";
+import { kiSchiene } from "../ki-schiene.js";
 import { angebotVon, ensurePool, frageBeiAutoren, state } from "./state.js";
 import { solText } from "../preis-anzeige.js";
 import { toast } from "./ui.js";
@@ -121,16 +121,23 @@ export async function kanalGutschrift(
 /** Gibt es einen offenen Zahlkanal zu diesem Provider? */
 export const kanalDa = (pk: string): boolean => !!kanalBuch.fuerProvider(pk, Math.floor(Date.now() / 1000));
 
-/** Zahlweg prüfen (12.4a, E3 A): mit SOL als Standard-Schiene und ohne Kanal zu diesem Provider geht nichts hinaus. */
-export function pruefeKiZahlweg(providerPk: string): void {
-  if (kiZahlweg(standardSchiene(), kanalDa(providerPk)) === "kanal-noetig") throw new Error(t("zahl.kanalNoetig"));
+/** Mit SOL kein Kanal zu diesem Provider (12.4a) – die Fehlerblase bietet dafür „Kanal anbieten“ an (12.4b). */
+export class KanalNoetig extends Error {
+  constructor(readonly provider: string) {
+    super(t("zahl.kanalNoetig"));
+  }
 }
 
-/** Ziele eines bezahlten Laufs nach der Standard-Schiene (12.4a): mit SOL nur Provider mit Kanal; keiner → Fehler, nichts gesendet. */
+/** Zahlweg prüfen (12.4a, E3 A): mit SOL (Schalter der Agent-Seite, sonst Standard-Schiene, 12.4b) und ohne Kanal zu diesem Provider geht nichts hinaus. */
+export function pruefeKiZahlweg(providerPk: string): void {
+  if (kiZahlweg(kiSchiene(), kanalDa(providerPk)) === "kanal-noetig") throw new KanalNoetig(providerPk);
+}
+
+/** Ziele eines bezahlten Laufs nach der Schiene für KI (12.4a/b): mit SOL nur Provider mit Kanal; keiner → Fehler mit dem ersten, nichts gesendet. */
 export function zieleNachSchiene(liste: readonly string[], zahlt: boolean): string[] {
   if (!zahlt) return [...liste];
-  const ziele = kiZiele(liste, standardSchiene(), kanalDa);
-  if (liste.length > 0 && ziele.length === 0) throw new Error(t("zahl.kanalNoetig"));
+  const ziele = kiZiele(liste, kiSchiene(), kanalDa);
+  if (liste.length > 0 && ziele.length === 0) throw new KanalNoetig(liste[0]);
   return ziele;
 }
 

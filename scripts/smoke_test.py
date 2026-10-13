@@ -3244,6 +3244,98 @@ def gratis_anzeige_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def ki_schiene_pruefen(browser, url: str) -> dict:
+    """12.4b: Schalter „sats / SOL“ beim Gebot auf der Agent-Seite – sichtbar, wo gezahlt werden kann (nicht in „Free“),
+    die Wahl gemerkt (`freedom.ki.schiene`). Ohne Kurs bleibt das Gebot in SOL leer und eine bezahlte Frage geht nicht
+    hinaus; mit Kurs steht das Gebot umgerechnet da (100 sats = 0,000666667 SOL bei 150 000 sats je SOL), hin und zurück
+    gleich. Mit SOL ohne Kanal: Fehlerblase mit „Kanal anbieten“, nichts gesendet – der Knopf führt nach Währung ›
+    Hinterlegen, Provider eingetragen, der Betrag dran. Kurs und Provider aus `scripts/ki-schiene-probe.mts`."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    aus = subprocess.run(["npx", "tsx", "scripts/ki-schiene-probe.mts"], cwd=wurzel, capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    umschlaege = lambda r: sum(1 for e in r.gesendet if e.get("kind") == 1059)  # noqa: E731
+    stand = """() => { const h = document.getElementById('bid-wrap'); return { sichtbar: getComputedStyle(h).display !== 'none',
+        text: h.firstElementChild.textContent, feld: document.getElementById('ai-bid').value, schiene: document.getElementById('ai-schiene').value,
+        gemerkt: localStorage.getItem('freedom.ki.schiene') }; }"""
+    tarif = "(t) => { const s = document.getElementById('ai-tier'); s.value = t; s.dispatchEvent(new Event('change')); }"
+    schiene = "(v) => { const s = document.getElementById('ai-schiene'); s.value = v; s.dispatchEvent(new Event('change')); }"
+
+    # Ohne Kurs: nur der Provider
+    relay = ProbeRelay()
+    relay.events = probe["anbieter"]
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    s.wait_for_timeout(300)
+    erg["auto"] = ev(stand)
+    ev(tarif, "free")
+    erg["free"] = ev(stand)["sichtbar"]
+    ev(tarif, "classic")
+    ev(schiene, "solana")
+    s.wait_for_function("() => localStorage.getItem('freedom.ki.schiene') === 'solana'", timeout=10000)
+    s.wait_for_timeout(1500)  # Kurs gefragt – die Attrappe kennt keinen
+    erg["ohneKurs"] = ev(stand)
+    vorher = umschlaege(relay)
+    ev("() => { document.getElementById('ai-prompt').value = 'Ohne Kurs 4711'; document.getElementById('ai-send').click(); }")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Kein Kurs für SOL')", timeout=10000)
+    s.wait_for_timeout(500)
+    erg["ohneKursGesendet"] = umschlaege(relay) - vorher
+    erg["ohneKursFrage"] = ev("() => document.getElementById('ai-prompt').value")
+    seite.ctx.close()
+
+    # Mit Kurs: drei Quellen um 150 000 sats je SOL
+    relay = ProbeRelay()
+    relay.events = probe["anbieter"] + probe["kurs"]
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
+    ev(tarif, "classic")
+    ev(schiene, "solana")
+    s.wait_for_function("() => document.getElementById('ai-bid').value !== ''", timeout=15000)
+    erg["mitKurs"] = ev(stand)
+    ev(schiene, "lightning")
+    s.wait_for_function("() => document.getElementById('ai-bid').value === '100'", timeout=10000)
+    ev(schiene, "solana")
+    s.wait_for_function("() => document.getElementById('ai-bid').value !== ''", timeout=10000)
+    erg["zurueck"] = ev(stand)["feld"]
+    vorher = umschlaege(relay)
+    ev("() => { document.getElementById('ai-prompt').value = 'Ohne Kanal 4712'; document.getElementById('ai-send').click(); }")
+    s.wait_for_selector("#ai-thread .bubble.error .kanal-anbieten", timeout=60000)
+    s.wait_for_timeout(500)
+    erg["ohneKanalGesendet"] = umschlaege(relay) - vorher
+    erg["blase"] = ev("""() => { const b = document.querySelector('#ai-thread .bubble.error');
+        return [b.querySelector('.body').textContent, [...b.querySelectorAll('button')].map(k => k.textContent)]; }""")
+    ev("() => document.querySelector('#ai-thread .bubble.error .kanal-anbieten').click()")
+    s.wait_for_timeout(300)
+    erg["anbieten"] = ev("""() => ({ seite: document.getElementById('page-wallet').classList.contains('active'),
+        reiter: document.querySelector('[data-subpane="wallet:lp"]').classList.contains('active'),
+        provider: document.getElementById('dep-provider').value, fokus: document.activeElement?.id ?? '' })""")
+    seite.ctx.close()
+
+    if erg["auto"] != {"sichtbar": True, "text": "Gebot", "feld": "100", "schiene": "lightning", "gemerkt": None}:
+        erg["fehler"].append(f"Automatisch {erg['auto']}")
+    if erg["free"] is not False:
+        erg["fehler"].append("Gebot im Tarif Free sichtbar")
+    if erg["ohneKurs"] != {"sichtbar": True, "text": "Gebot", "feld": "", "schiene": "solana", "gemerkt": "solana"}:
+        erg["fehler"].append(f"SOL ohne Kurs {erg['ohneKurs']}")
+    if erg["ohneKursGesendet"] != 0 or erg["ohneKursFrage"] != "Ohne Kurs 4711":
+        erg["fehler"].append(f"ohne Kurs gesendet {erg['ohneKursGesendet']}, Feld {erg['ohneKursFrage']!r}")
+    if erg["mitKurs"] != {"sichtbar": True, "text": "Gebot", "feld": "0.000666667", "schiene": "solana", "gemerkt": "solana"}:
+        erg["fehler"].append(f"SOL mit Kurs {erg['mitKurs']}")
+    if erg["zurueck"] != "0.000666667":
+        erg["fehler"].append(f"hin und zurück {erg['zurueck']}")
+    if erg["ohneKanalGesendet"] != 0:
+        erg["fehler"].append(f"ohne Kanal {erg['ohneKanalGesendet']} Umschläge gesendet")
+    if not erg["blase"][0].startswith("Ursache: Mit SOL zahlt die App KI nur über einen Zahlkanal") \
+            or erg["blase"][1] != ["Kanal anbieten", "↻ erneut versuchen"]:
+        erg["fehler"].append(f"Fehlerblase {erg['blase']}")
+    if erg["anbieten"] != {"seite": True, "reiter": True, "provider": probe["provider"], "fokus": "kanal-betrag"}:
+        erg["fehler"].append(f"Kanal anbieten {erg['anbieten']}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def kopfgeld_pruefen(browser, url: str) -> dict:
     """E10b1: Kopfgelder an einem öffentlichen Issue – ein fremdes wird gezeigt (Betrag, Stand, Geldgeber, ohne Knöpfe),
     ein eigenes ausgesetzt (38061 mit Issue, Repo, Betrag, „offen“, signiert) und vergeben (Stand „vergeben“ mit
@@ -5305,6 +5397,10 @@ def main() -> int:
                 erg["kopfgeld"] = kopfgeld_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["kopfgeld"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["ki_schiene"] = ki_schiene_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["ki_schiene"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:

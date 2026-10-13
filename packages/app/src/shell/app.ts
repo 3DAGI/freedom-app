@@ -45,6 +45,7 @@ import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
 import { zeigeGratisStand } from "./gratis-start.js";
 import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
+import { wireGebot } from "./tabs/agent-gebot.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
 import { alsModal, dialog } from "./dialog.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
@@ -860,6 +861,8 @@ function starte(): void {
   $("#ai-bid").oninput = updateFeePreview;
   // Gratis-Stand (C-27) nur in „Automatisch“ und „Free“
   $("#ai-tier").addEventListener("change", zeigeGratisStand);
+  // Gebot und Schalter „sats / SOL“ (12.4b): Schiene für KI, Gebot in ihrer Einheit
+  wireGebot();
   $("#wallet-refresh").onclick = loadWallet;
   void wireGebuehrenKarte();
   void pruefeFixierungBeimStart();

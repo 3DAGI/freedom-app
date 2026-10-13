@@ -30,8 +30,6 @@ import { GERAET_GRATIS, powFuerAnfrage, waehleAuto } from "../../gratis-kontinge
 import { autoZugestimmt, geraeteKontingent, gratisAnbieter, gratisJeProvider, merkeAutoZustimmung } from "../gratis-start.js";
 import { eineSchieneDa } from "../zahlschienen.js";
 import { bestaetige } from "../dialog.js";
-import { ausMsat } from "../../preis-anzeige.js";
-import { aktuellerKurs } from "../marktkurs.js";
 import { zeigeModelle } from "./agent-netz.js";
 import { type Pruefer } from "../../streitfall.js";
 import { zeigeMitwirkende } from "./earn.js";
@@ -39,6 +37,7 @@ import { zeigeNachfolge } from "./settings.js";
 import { funkGeraetVerbunden, sendeUeberFunk } from "./mesh.js";
 import { lokal } from "./modellwahl.js";
 import { aktuellerVerlauf, privatGewaehlt } from "./agent-verlauf.js";
+import { gebotAnzeige, leseGebot, meldeGebotFehlt } from "./agent-gebot.js";
 import { kiWeg, wegErlaubt } from "../../ki-privat.js";
 import { askSwarm, askWithFailover, generateVideo, isPaymentNoise, privateAntworten } from "./agent-wege.js";
 import { addAiMessage, addAiMessageStreaming, addUsageBubble, advanceJobPipeline, EigeneMeldung, hideTyping, setTypingLabel, setTypingStatus, showAiError, showTyping, stickToBottom, toolLabel, updateBudgetBar } from "./agent-anzeige.js";
@@ -131,7 +130,9 @@ export async function askAi(): Promise<void> {
   if (!state.keypair) return;
   const promptEl = $("#ai-prompt") as HTMLTextAreaElement;
   const prompt = promptEl.value.trim();
-  const bid = Number(($("#ai-bid") as HTMLInputElement).value);
+  // Gebot (12.4b): in der gewählten Einheit, in sats umgerechnet – ohne gültiges Gebot geht nichts Bezahltes hinaus
+  const gebot = leseGebot();
+  const bid = gebot ?? 0;
   const btn = $("#ai-send") as HTMLButtonElement;
   // STOP: läuft bereits ein Job → abbrechen statt neuen senden – vor der Prüfung des Prompts,
   // der ist nach dem Senden leer (bis B-9a kehrte askAi deshalb vorher zurück, Stopp wirkte nie)
@@ -150,6 +151,11 @@ export async function askAi(): Promise<void> {
 
   // KI über Funk (7.4c3): gewählt – die Antwort kommt später über setupFunkAntworten()
   if (($("#ai-funk") as HTMLInputElement | null)?.checked) {
+    const tarifFunk = ($("#ai-tier") as HTMLSelectElement).value;
+    if (gebot === undefined && tarifFunk !== "free" && tarifFunk !== "auto") {
+      meldeGebotFehlt();
+      return;
+    }
     await frageUeberFunk(prompt, bid);
     return;
   }
@@ -187,11 +193,15 @@ export async function askAi(): Promise<void> {
       resetSendBtn(btn);
       return;
     }
+    if (wahl.art !== "gratis" && gebot === undefined) {
+      meldeGebotFehlt();
+      resetSendBtn(btn);
+      return;
+    }
     if (wahl.art === "fragen") {
-      const gebot = ausMsat(bid * 1000, aktuellerKurs());
       const ok = await bestaetige({
         titel: t("agent.autoTitel"),
-        text: t(wahl.grund === "kontingent" ? "agent.autoFrageKontingent" : "agent.autoFrageKeinGratis", { gebot }),
+        text: t(wahl.grund === "kontingent" ? "agent.autoFrageKontingent" : "agent.autoFrageKeinGratis", { gebot: gebotAnzeige(bid) }),
         ok: t("agent.autoOk"),
       });
       if (!ok) {
@@ -201,6 +211,11 @@ export async function askAi(): Promise<void> {
       merkeAutoZustimmung();
     }
     tier = wahl.art === "gratis" ? "free" : "classic";
+  }
+  if (tier !== "free" && gebot === undefined) {
+    meldeGebotFehlt();
+    resetSendBtn(btn);
+    return;
   }
   // Gratis-Kontingent dieses Geräts (A-14b, G1): aufgebraucht → nichts hinaus, die Wallet ist dran
   if (tier === "free" && geraeteKontingent.erschoepft()) {

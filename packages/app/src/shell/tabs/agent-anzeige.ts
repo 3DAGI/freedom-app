@@ -14,7 +14,7 @@ import { bestaetige, dialog } from "../dialog.js";
 import { antwortDom } from "../antwort-ui.js";
 import { fliesstext, pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
-import { merkeGratisAbgelehnt } from "../app.js";
+import { merkeGratisAbgelehnt, switchTab } from "../app.js";
 import { ensurePool, kiSitzungen, powJeProvider, state } from "../state.js";
 import { aktuellerKurs } from "../marktkurs.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
@@ -22,12 +22,14 @@ import { $, ganzeZahl, toast, updateSidebarBalances, el, haekchenEl } from "../u
 import { GRUND_TEXT, PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { askAi, resetSendBtn } from "./agent.js";
+import { kanalAnbieten, leseGebot, setzeGebot } from "./agent-gebot.js";
+import { KanalNoetig } from "../ki-zahlung.js";
 import { aktualisiereAgentPanel, merkeNachricht, vergissLetzteFrage } from "./agent-verlauf.js";
 
 // ------------------------------------------------------------- KI-Tab
 
 export function updateFeePreview(): void {
-  const bid = Number(($("#ai-bid") as HTMLInputElement).value);
+  const bid = leseGebot() ?? 0; // in sats, auch mit SOL gewählt (12.4b)
   // Aufteilung A+ (5.1.3): mindestens 94 % an den Provider, hoechstens 6 % an
   // weitere Empfaenger – welche es gibt, zeigt erst der Auftrag (Angebot,
   // Werbelink, Relays); ohne Empfaenger bekommt den Anteil der Provider.
@@ -97,6 +99,12 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
   const koerper = el("div", `${t("agent.ursache")} `, "body");
   koerper.append(el("b", cause));
   blase.append(el("div", t("agent.fehler"), "who"), koerper);
+  // Mit SOL ohne Kanal (12.4b, E3 A): den Kanal anbieten – nie still Lightning
+  if (e instanceof KanalNoetig) {
+    const kanal = el("button", t("agent.kanalAnbieten"), "btn-retry kanal-anbieten");
+    kanal.onclick = () => kanalAnbieten(e.provider, () => switchTab("wallet"));
+    blase.appendChild(kanal);
+  }
   const btn = document.createElement("button");
   btn.className = "btn-retry";
   btn.textContent = t("agent.erneut");
@@ -108,7 +116,7 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
     if (frage instanceof HTMLElement && frage.classList.contains("user") && vergissLetzteFrage(retryPrompt)) frage.remove();
     blase.remove();
     ($("#ai-prompt") as HTMLTextAreaElement).value = retryPrompt;
-    ($("#ai-bid") as HTMLInputElement).value = String(retryBid);
+    if (retryBid > 0) setzeGebot(retryBid);
     ($("#ai-tier") as HTMLSelectElement).value = retryMode.max ? "max" : retryMode.swarm ? "swarm" : retryTier;
     void askAi();
   };

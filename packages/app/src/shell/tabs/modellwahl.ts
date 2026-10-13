@@ -22,6 +22,7 @@ import { knotenModellAus, knotenWahlwert } from "../../knoten-wahl.js";
 import { $, toast, el } from "../ui.js";
 import { katalogRangJetzt } from "./agent-netz.js";
 import { updateTokenEstimate } from "./agent-anzeige.js";
+import { zeigeGebot } from "./agent-gebot.js";
 import { zeigeWerkzeugPreise } from "./agent-eingabe.js";
 
 // ------------------------------------------------------------- Modell-Dropdown
@@ -289,6 +290,7 @@ export function setupModelPicker(): void {
     const sel = $("#ai-model") as HTMLInputElement;
     sel.value = card.dataset.model ?? "";
     updateModelBtnLabel();
+    zeigeGebot(); // dieses Gerät und der eigene Knoten kosten nichts – dann kein Gebot (12.4b)
     pop.classList.add("hidden");
     const knotenModell = knotenModellAus(sel.value);
     toast(knotenModell !== null ? t("agent.modellGewaehlt", { modell: knotenModell.split(":")[0] || t("agent.knotenKurz") })

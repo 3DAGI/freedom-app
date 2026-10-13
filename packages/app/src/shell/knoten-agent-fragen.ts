@@ -22,11 +22,11 @@ import { KIND_AGENT_KARTE, aktuelleAgentKarten, auftragsVerweisTags, type AgentK
 import { hoechstMsat } from "../anteile-kasse.js";
 import { t } from "../i18n.js";
 import { KiSitzungen } from "../ki-sitzung.js";
+import { kiSchiene } from "../ki-schiene.js";
 import { kiZahlweg } from "../ki-zahlweg.js";
 import { type RaumAgentKarte, type ZuBezahlen, ablehnungsText, zuBezahlen } from "../knoten-agent-wahl.js";
 import { ausMsat } from "../preis-anzeige.js";
 import { fehlerText } from "../protokoll-texte.js";
-import { standardSchiene } from "../standard-schiene.js";
 import { AGENT_GEBOT_SATS } from "./agenten-lauschen.js";
 import { bezahlterAuftrag } from "./bezahlter-auftrag.js";
 import { bestaetige } from "./dialog.js";
@@ -53,7 +53,8 @@ async function frageEinen(raum: string, erwaehnung: string, k: ZuBezahlen): Prom
   // Nur ein Knoten mit Angebot, der versiegelte Anfragen nimmt
   const angebot = privatFaehig((await providerMitStand()).filter((c) => c.caps.pubkey === k.provider))[0]?.caps;
   if (!angebot) return toast(t("agentKnoten.ohneAngebot", { name: k.name }), true);
-  const weg = kiZahlweg(standardSchiene(), kanalDa(k.provider));
+  // Schiene für KI (12.4b): der Schalter beim Gebot, sonst die Standard-Schiene
+  const weg = kiZahlweg(kiSchiene(), kanalDa(k.provider));
   if (weg === "kanal-noetig") return toast(t("zahl.kanalNoetig"), true);
   if (weg === "lightning") {
     const { grund } = await providerZahlung(k.provider);
