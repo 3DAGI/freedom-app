@@ -16,6 +16,7 @@ import {
   type Channel, type GruppenRaum, type InneresEvent, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { kettenGrenze, mitKetten, privateDefinition } from "../raum-ketten.js";
 import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSendeEventId, mlsSetzeAdmins } from "./mls-konto.js";
 import { posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
@@ -98,11 +99,28 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
   return (await sendeRaumstand(raum)) ? "eingeladen" : "ohne Raumstand"; // kein UI-Text
 }
 
+/**
+ * Die Definition neu – mit dem Schalter der Agentenketten, wie er gilt (11.3e3): wer Kanäle
+ * ändert oder den Raumstand sendet, schaltet ihn sonst still wieder aus.
+ */
+function definitionMitKetten(raum: PrivaterRaum, r: Parameters<typeof raumDefinition>[1]): InneresSenden {
+  const d = raumDefinition(raum.gruppe, r);
+  return { ...d, tags: mitKetten(d.tags, kettenGrenze(privateDefinition(raum.ereignisse, raum.admins))) };
+}
+
+/** Agentenketten an (mit Grenze) oder aus (`null`) – eine neue Definition in die Gruppe, nur Moderatoren (11.3e3). */
+export function setzePrivateKetten(raum: PrivaterRaum, grenze: number | null): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
+  const d = raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels });
+  return mlsSendeEvent(raum.gruppe, { ...d, tags: mitKetten(d.tags, grenze) });
+}
+
 /** Den Raumstand (Definition, Rollen, Zuweisungen) erneut senden – nach jeder Einladung (auch eines Agenten, 11.3c3a). */
 export async function sendeRaumstand(raum: PrivaterRaum): Promise<boolean> {
   const st = raum.zustand;
   const stand: InneresSenden[] = [];
-  if (st.space) stand.push(raumDefinition(raum.gruppe, { name: st.space.name, beschreibung: st.space.description, kanaele: st.space.channels }));
+  if (st.space) stand.push(definitionMitKetten(raum, { name: st.space.name, beschreibung: st.space.description, kanaele: st.space.channels }));
   const rollen = [...st.roles.values()].filter((x) => !x.id.startsWith("__"));
   if (rollen.length > 0) stand.push(raumRollen(raum.gruppe, rollen));
   for (const [wer, ids] of st.grants) {
@@ -134,7 +152,7 @@ export function einladungsText(r: string): string {
 export function legePrivatenKanalAn(raum: PrivaterRaum, kanal: Channel): Promise<boolean> {
   const sp = raum.zustand.space;
   if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
-  return mlsSendeEvent(raum.gruppe, raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: [...sp.channels, kanal] }));
+  return mlsSendeEvent(raum.gruppe, definitionMitKetten(raum, { name: sp.name, beschreibung: sp.description, kanaele: [...sp.channels, kanal] }));
 }
 
 /**
@@ -145,7 +163,7 @@ export function aenderePrivatenKanal(raum: PrivaterRaum, kanalId: string, neu: C
   const sp = raum.zustand.space;
   if (!sp || !raum.admins.includes(raum.ich) || !sp.channels.some((c) => c.id === kanalId)) return Promise.resolve(false);
   const kanaele = neu ? sp.channels.map((c) => (c.id === kanalId ? neu : c)) : sp.channels.filter((c) => c.id !== kanalId);
-  return mlsSendeEvent(raum.gruppe, raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele }));
+  return mlsSendeEvent(raum.gruppe, definitionMitKetten(raum, { name: sp.name, beschreibung: sp.description, kanaele }));
 }
 
 /** Moderatoren ernennen oder absetzen – die Admins der Gruppe, per Commit. Ich bleibe dabei. */

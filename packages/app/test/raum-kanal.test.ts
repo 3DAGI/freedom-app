@@ -81,7 +81,8 @@ test("C.2d2: privat – die Definition mit dem neuen Kanal geht in die Gruppe, g
   assert.deepEqual(r2.zustand.space?.channels.map((c) => c.id), ["allgemein"], "von einem Mitglied verworfen");
   const privat = raumMls.slice(raumMls.indexOf("export function legePrivatenKanalAn"), raumMls.indexOf("/** Moderatoren ernennen"));
   assert.match(privat, /if \(!sp \|\| !raum\.admins\.includes\(raum\.ich\)\) return Promise\.resolve\(false\);/);
-  assert.match(privat, /mlsSendeEvent\(raum\.gruppe, raumDefinition\(raum\.gruppe, \{ name: sp\.name, beschreibung: sp\.description, kanaele: \[\.\.\.sp\.channels, kanal\] \}\)\)/);
+  // Seit 11.3e3 mit dem Schalter der Agentenketten, wie er gilt (`definitionMitKetten()` baut weiter über raumDefinition())
+  assert.match(privat, /mlsSendeEvent\(raum\.gruppe, definitionMitKetten\(raum, \{ name: sp\.name, beschreibung: sp\.description, kanaele: \[\.\.\.sp\.channels, kanal\] \}\)\)/);
 });
 
 test("C.2d2: Menüpunkte nach Rechten; ein Raumwechsel zeigt nie Rechte des vorigen Raums", () => {
@@ -150,7 +151,7 @@ test("B-20c: Kanal ändern und entfernen – offen als Kanal-Event nach darfKana
   // privat: nur Admins, eine neue Definition mit dem geänderten oder ohne den Kanal
   const privat = raumMls.slice(raumMls.indexOf("export function aenderePrivatenKanal"), raumMls.indexOf("/** Moderatoren ernennen"));
   assert.match(privat, /if \(!sp \|\| !raum\.admins\.includes\(raum\.ich\) \|\| !sp\.channels\.some\(\(c\) => c\.id === kanalId\)\) return Promise\.resolve\(false\);/);
-  assert.match(privat, /mlsSendeEvent\(raum\.gruppe, raumDefinition\(raum\.gruppe, \{ name: sp\.name, beschreibung: sp\.description, kanaele \}\)\)/);
+  assert.match(privat, /mlsSendeEvent\(raum\.gruppe, definitionMitKetten\(raum, \{ name: sp\.name, beschreibung: sp\.description, kanaele \}\)\)/);
   // Menüpunkt nach denselben Rechten wie „Kanal anlegen“
   assert.match(html, /<button id="space-kanal-aendern" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum\.kanalAendern">/);
   assert.match(raeume, /getElementById\("space-kanal-aendern"\)\?\.classList\.toggle\("hidden", !kanaele\);/);

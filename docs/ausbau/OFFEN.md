@@ -179,7 +179,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431)), e2 ✓ ([#432](https://github.com/3DAGI/freedom-app/pull/432)); e3–e4 folgen; nur das Monatsbudget mit Pfand wartet auf 11.3d3 |
+| 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431)), e2 ✓ ([#432](https://github.com/3DAGI/freedom-app/pull/432)), e3 ✓ ([#433](https://github.com/3DAGI/freedom-app/pull/433)); e4 folgt; nur das Monatsbudget mit Pfand wartet auf 11.3d3 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |
