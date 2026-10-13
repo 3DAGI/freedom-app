@@ -126,6 +126,11 @@ export class TmaServer {
     if (url.pathname === "/manifest.json") {
       return this.sendeDatei(res, "manifest.json", "application/manifest+json");
     }
+    // Öffentlich (vor der Auth): das Manifest verweist darauf, und Wallet-
+    // Picker laden das Icon ohne Signatur.
+    if (url.pathname === "/icon.png") {
+      return this.sendeDatei(res, "icon.png", "image/png");
+    }
 
     // ── Auth
     const user = this.auth(req);
@@ -151,9 +156,18 @@ export class TmaServer {
   }
 
   // ─────────────────────────────────────────── Statisch
-  /** Datei aus dem App-Dist, mit Rückfall auf die mitgelieferten TMA-Assets. */
+  /**
+   * Datei aus dem App-Dist, mit Rückfall auf die mitgelieferten TMA-Assets.
+   * dist-tma liegt neben src/ im Paket — also ein Ebene höher als diese Datei.
+   */
   private async sendeDatei(res: http.ServerResponse, name: string, type: string): Promise<void> {
-    for (const root of [this.cfg.statisch, join(dirnameSafe(), "dist-tma")]) {
+    const hier = dirnameSafe();               // …/packages/node/src
+    const wurzeln = [
+      this.cfg.statisch,                      // …/packages/app/dist (TMA-Static)
+      join(hier, "dist-tma"),                 // falls mal neben src abgelegt
+      join(hier, "..", "dist-tma"),           // …/packages/node/dist-tma (Regel)
+    ];
+    for (const root of wurzeln) {
       try {
         const buf = await readFile(join(root, name));
         res.writeHead(200, { "content-type": type, "cache-control": "no-cache" });
