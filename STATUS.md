@@ -8807,3 +8807,25 @@ Spur C, Befunde E-1 und E-7 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1080 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-39b – Eigene Overlays als Dialog, Abstände
+
+Spur C, Befunde E-2 bis E-5 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| E-2, E-3 | Einrichtung: Knöpfe verschieden breit, mal neben-, mal untereinander, Text dicht am Titel; Merkphrase: „Bestätigen“ und „später“ ohne Abstand | Einrichtung: Knöpfe einer Seite untereinander und gleich breit (`.ein-knoepfe`, 8 px), Absätze mit Zeilenabstand; Merkphrase: beide Knöpfe nebeneinander mit 8 px |
+| E-4, E-5 | Die eigenen Overlays (Merkphrase, Einrichtung, Tresor, eingebaute Wallet, Notfall) ohne `role="dialog"`/`aria-modal`, die App dahinter bedienbar | `alsModal()` (`dialog.ts`): Rolle, `aria-modal`, benannt nach dem Titel (die Einrichtung je Seite), Fokus im Dialog, `#app` `inert` – frei, sobald die Hülle aus dem Dokument ist, gleich auf welchem Weg (`MutationObserver`) |
+
+Nebenbei: Die Sperre der App zählt jetzt alle offenen Dialoge (`sperreApp()`), frei erst nach dem
+letzten. Bis hierher merkte sich jeder Dialog den Stand vor ihm – schloss der erste zuerst, blieb die
+App gesperrt.
+
+**Tests:** `overlay-dialog.test.ts` (4); ein Formtest angepasst (`dom-statt-html.test.ts`: Knöpfe der
+Einrichtung über eine Klasse statt `style`, weiter ohne HTML-Text). Neuer Smoke „overlay_dialog“
+(Desktop und Handy): Merkphrase und zwei Seiten der Einrichtung als Dialog mit Titel und Fokus, App
+`inert`, danach frei; Knöpfe gleich breit mit 8 px Abstand. „einrichtung“, „einrichtung_wahl“,
+„tresor“, „sperre“, „loeschen“, „dialog“, „zugang“, „mobil“, „waehrung“ weiter grün.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1084 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
