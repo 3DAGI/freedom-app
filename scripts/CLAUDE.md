@@ -51,6 +51,8 @@ dieses Bereichs unten anhängen.
   zeigt „Code“ das alte, schon gelesene Bundle ohne „Code laden“ (A-30: im vollen Lauf
   gelegentlich rot, mit vierfach gedrosselter CPU immer). Auf den Knopf warten, nie klicken
   und hoffen. Nachstellen lässt sich Langsamkeit mit CDP `Emulation.setCPUThrottlingRate`.
+  Ebenso nach dem Speichern der Repo-Einstellungen (C-40): erst veröffentlichen, dann `neuLaden()` –
+  auf den neuen Link warten, nie eine feste Pause (800 ms reichten im CI-Runner zweimal nicht).
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
