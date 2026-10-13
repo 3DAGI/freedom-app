@@ -1136,6 +1136,69 @@ def kontaktname_pruefen(browser, url: str) -> dict:
     erg["bestanden"] = not erg["fehler"]
     return erg
 
+def chat_klein_pruefen(browser, url: str) -> dict:
+    """Chat-Kleinigkeiten (C-34, Nutzertest C-3, C-4, C-5, C-9): ohne gewählte Unterhaltung keine Eingabe und keine
+    Anruf-Knöpfe; „Post mitnehmen/einlesen“ als Text im Menü „⋯“ statt „⇪ ⇩“; Nachrichten anderer als Blase mit
+    kleinem Zap-Knopf (vorher ein 340 px breiter Balken); der Sicherheitscode steht im Dialog ganz da."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev, s = seite.ev, seite.s
+    ev("() => { location.hash = '#/chat'; }")
+    for _ in range(80):
+        if relay.ich:
+            break
+        s.wait_for_timeout(250)
+    if not relay.ich:
+        seite.ctx.close()
+        return {"bestanden": False, "fehler": ["keine Abfrage der eigenen Relay-Listen – eigener Schlüssel unbekannt"]}
+    sichtbar = """() => { const d = (sel) => { const e = document.querySelector(sel); return !!e && getComputedStyle(e).display !== 'none' && e.offsetParent !== null; };
+        return { eingabe: d('#page-comm .comm-dm .chat-composer'), anruf: d('#page-comm .chat-anruf-knoepfe'),
+                 mehr: d('#chat-mehr'), pfeile: d('#chat-mesh-export') || d('#chat-mesh-import') }; }"""
+    erg["ohne"] = ev(sichtbar)
+    erg["menue"] = []
+    if ev("() => !!document.getElementById('chat-mehr')"):
+        ev("() => document.getElementById('chat-mehr').click()")
+        s.wait_for_selector(".menue-schwebend [role=menuitem]", timeout=5000)
+        erg["menue"] = ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].map(p => p.textContent)")
+        s.keyboard.press("Escape")
+    aus = subprocess.run(["npx", "tsx", "scripts/kontaktname-probe.mts", relay.ich], cwd=wurzel,
+                         capture_output=True, text=True, timeout=180, check=True)
+    probe = json.loads(aus.stdout)
+    relay.events = probe["events"]
+    s.reload(wait_until="load")
+    ev("() => { location.hash = '#/chat'; }")
+    zeile = f"#chat-list .chat-item[data-cid='{probe['absender']}']"
+    s.wait_for_selector(zeile, timeout=30000)
+    ev(f"() => document.querySelector(\"{zeile}\").click()")
+    s.wait_for_selector("#chat-thread .bubble.ai .zap-msg-btn", timeout=30000)
+    erg["mit"] = ev(sichtbar)
+    erg["fremd"] = ev("""() => { const b = document.querySelector('#chat-thread .bubble.ai'); const z = b.querySelector('.zap-msg-btn');
+        const r = z.getBoundingClientRect(); const st = getComputedStyle(b);
+        return { blase: st.backgroundColor !== 'rgba(0, 0, 0, 0)' && st.borderTopStyle !== 'none', zapBreite: Math.round(r.width) }; }""")
+    # Sicherheitscode: zwölf Gruppen zu fünf Ziffern – alle sichtbar, ohne Scrollen im Feld
+    ev("() => document.getElementById('chat-pruefen').click()")
+    s.wait_for_selector("[role=dialog] .dlg-kopier", timeout=10000)
+    erg["code"] = ev("""() => { const f = document.querySelector('[role=dialog] .dlg-kopier > :first-child');
+        return { gruppen: f.value.trim().split(/\\s+/).length, ganz: f.scrollHeight <= f.clientHeight + 1 && f.scrollWidth <= f.clientWidth + 1 }; }""")
+    s.keyboard.press("Escape")
+    if erg["ohne"] != {"eingabe": False, "anruf": False, "mehr": True, "pfeile": False}:
+        erg["fehler"].append(f"ohne Unterhaltung {erg['ohne']}")
+    if len(erg["menue"]) != 2 or not all("Post" in p for p in erg["menue"]):
+        erg["fehler"].append(f"Menü {erg['menue']}")
+    if erg["mit"] != {"eingabe": True, "anruf": True, "mehr": True, "pfeile": False}:
+        erg["fehler"].append(f"mit Unterhaltung {erg['mit']}")
+    if not erg["fremd"]["blase"] or erg["fremd"]["zapBreite"] > 60:
+        erg["fehler"].append(f"fremde Nachricht {erg['fremd']}")
+    if erg["code"] != {"gruppen": 12, "ganz": True}:
+        erg["fehler"].append(f"Sicherheitscode {erg['code']}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
 def agent_folgen_pruefen(browser, url: str) -> dict:
     """Der Agent-Verlauf folgt dem Ende (C-31, Nutzertest A-4): Bis C-31 maß die App erst nach dem Anhängen, ob
     man unten war – jede Blase über 80 px galt als „hochgescrollt“, und die Ansicht blieb stehen. Ein langer
@@ -4762,6 +4825,10 @@ def main() -> int:
             except Exception as e:
                 erg["kontaktname"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["chat_klein"] = chat_klein_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["chat_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -4870,6 +4937,7 @@ def main() -> int:
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("kontaktname", {}).get("bestanden") is True
+          and erg.get("chat_klein", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True

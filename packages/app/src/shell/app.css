@@ -102,6 +102,12 @@
   border-radius: 8px; background: var(--accent); color: #000; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
 }
 .chat-main { flex: 1; display: flex; flex-direction: column; }
+/* Ohne gewählte Unterhaltung keine Eingabe und keine Anruf-Knöpfe (C-34, Nutzertest C-3) */
+.chat-main.ohne-unterhaltung .chat-composer, .chat-main.ohne-unterhaltung .chat-anruf-knoepfe,
+.chat-main.ohne-unterhaltung #chat-voice-status, .chat-main.ohne-unterhaltung #chat-attach-list { display: none; }
+/* Nachrichten anderer als Blase (C-34, Nutzertest C-5) – im Agenten bleibt die Antwort ohne */
+#chat-thread .bubble.ai { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; max-width: 92%; }
+.zap-msg-btn { width: auto; padding: 0 6px; margin-left: 6px; background: transparent; border: 1px solid var(--border); color: var(--text); font-size: 11px; line-height: 1.6; }
 .chat-thread { flex: 1; overflow-y: auto; padding: 16px; }
 .chat-composer { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
 .chat-composer textarea { flex: 1; resize: none; min-height: 40px; font-family: ui-sans-serif, system-ui, sans-serif; }
@@ -1407,6 +1413,9 @@ button.mehr-zeile:hover, button.mehr-zeile:focus-visible { background: var(--car
 .dlg-hinweis { color: var(--text-muted); font-size: 11px; }
 .dlg-kopier { display: flex; gap: 8px; }
 .dlg-kopier button { width: auto; flex: none; }
+.dlg-nurlesen { resize: none; margin-bottom: 0; word-break: break-all; }
+/* Ziele des Menüs „⋯“ (C-34): versteckt, auch gegen die Regel für Knöpfe im Kopf der Liste */
+.comm-dm .chat-side-head button[hidden] { display: none; }
 .dlg-meldung:empty { display: none; }
 .dlg-knoepfe { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 .dlg-knoepfe button { width: auto; min-width: 96px; }
@@ -1872,4 +1881,5 @@ header .ident[data-initial=""]::before { display: none; }
 .anruf-eigen { width: 120px; max-height: 90px; align-self: flex-end; background: #000; border-radius: 6px; }
 @media (max-width: 1023px) {
   .chat-anruf-knoepfe button { width: 40px; }
+  .zap-msg-btn { min-width: 40px; }
 }

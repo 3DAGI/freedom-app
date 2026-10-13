@@ -209,8 +209,9 @@
               <span data-i18n="chatTitle">Direktnachrichten</span>
               <span>
                 <button id="chat-new-dm" class="ghost mini" title="Neue Nachricht" data-i18n-title="komm.neueNachricht">＋</button>
-                <button id="chat-mesh-export" class="ghost mini" title="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel" data-i18n-title="komm.meshExport">⇪</button>
-                <button id="chat-mesh-import" class="ghost mini" title="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes" data-i18n-title="komm.meshImport">⇩</button>
+                <button id="chat-mehr" class="ghost mini" type="button" title="Mehr" aria-label="Mehr" data-i18n-title="komm.mehr" data-i18n-aria="komm.mehr">⋯</button>
+                <button id="chat-mesh-export" class="ghost mini" type="button" hidden aria-label="Post für diesen Kontakt als Datei mitnehmen – nur verschlüsselt, ohne deinen Schlüssel" data-i18n-aria="komm.meshExport">⇪</button>
+                <button id="chat-mesh-import" class="ghost mini" type="button" hidden aria-label="Mitgebrachte Post einlesen und ans Netz geben – nur Verschlüsseltes" data-i18n-aria="komm.meshImport">⇩</button>
                 <input type="file" id="chat-mesh-file" accept=".json" style="display:none" />
               </span>
             </div>
@@ -218,7 +219,7 @@
             <div id="chat-suche-treffer" class="chat-list chat-suche-treffer hidden"></div>
             <div id="chat-list" class="chat-list"></div>
           </aside>
-          <div class="chat-main">
+          <div class="chat-main ohne-unterhaltung">
             <div class="chat-kopf">
           <button id="chat-back" class="chat-back" type="button" aria-label="Zurück zur Liste" data-i18n-aria="komm.zurueckAria" data-i18n="komm.zurueck">‹ Zurück</button>
               <span class="chat-anruf-knoepfe">

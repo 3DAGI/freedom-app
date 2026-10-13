@@ -15,6 +15,7 @@ import { mlsBeiNeuem, mlsErreichbar, mlsGesperrt, mlsSendeAn } from "../mls-kont
 import { geheim } from "../tresor.js";
 import { dialog, hinweis } from "../dialog.js";
 import { $, el, toast } from "../ui.js";
+import { oeffneMenueAn } from "../menue.js";
 import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
@@ -50,6 +51,12 @@ function zeigeNeuesMls(gruppe: string): void {
 
 export function wireKommunikation(): void {
   document.getElementById("comm-dm-btn")?.addEventListener("click", () => setzeKommModus("dm"));
+  // „⇪ ⇩“ ohne Text (C-34, Nutzertest C-4): Post mitnehmen und einlesen stehen als Text in „⋯“
+  const mehr = document.getElementById("chat-mehr");
+  mehr?.addEventListener("click", () => oeffneMenueAn(mehr, [
+    { text: t("komm.meshExport"), tun: () => document.getElementById("chat-mesh-export")?.click() },
+    { text: t("komm.meshImport"), tun: () => document.getElementById("chat-mesh-import")?.click() },
+  ], t("komm.mehr")));
   // Das Fenster kommt wieder nach vorn: die offene Unterhaltung gilt als gelesen (C-30)
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && markiereGelesen()) { saveConversations(); loadChatList(); }
@@ -154,6 +161,8 @@ export function loadChatList(): void {
   loadConversations();
   // Zurück zur offenen Unterhaltung (Seite, Modus): was jetzt vor Augen ist, gilt als gelesen (C-30)
   if (markiereGelesen()) saveConversations();
+  // Ohne gewählte Unterhaltung keine Eingabe und keine Anruf-Knöpfe (C-34, Nutzertest C-3)
+  document.querySelector(".comm-dm .chat-main")?.classList.toggle("ohne-unterhaltung", !conversations.some((c) => c.id === activeConversation));
   const list = $("#chat-list");
   // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
   const dms = conversations.filter((c) => c.type === "dm");
