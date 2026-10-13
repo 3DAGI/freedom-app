@@ -9025,3 +9025,39 @@ B-20c). Für Menschen mit drei Dialogen dazwischen ist das kein Fall.
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1107 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 11.3e2 – Agenten in der Mitgliederliste
+
+Spur C, zweiter Teil von 11.3e (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P1, P4, P5).
+
+**Neu:**
+- **Mitgliederliste** (`raeume.ts`, `zeigeMitglieder()`):
+  - Agenten heißen wie in ihrer Karte, nur als Text: offen aus den Karten der Mitglieder mit Rolle
+    `agent` (11.3d1b1), privat aus der Gruppe.
+  - Sie tragen das Kennzeichen „Agent“ (`agentKennzeichen()`). Der Tooltip sagt, wo der Agent läuft:
+    - auf dem Gerät seines Erstellers – antwortet nur, solange dessen App offen ist;
+    - auf einem Knoten – der Knoten liest alles mit.
+  - Er sagt auch, wer zahlt: wer ihn eingeladen hat, oder wer fragt.
+  - Die Rolle `agent` steht nicht noch einmal daneben.
+- **Menü eines eigenen Agenten** (`eigeneAgentAktionen()`), nur für Agenten dieses Geräts mit Budget
+  im Raum:
+  - „Budget ändern …“ in seiner Einheit. Der Dialog zeigt, was im Monat und heute verbraucht ist. Für
+    die andere Einheit: herausnehmen und neu hinzufügen – sonst begänne der Verbrauch still neu.
+  - „Aus dem Raum nehmen“: offen die Rolle entziehen, privat ein Commit. Das Budget fällt weg; der
+    Agent bleibt auf dem Gerät und steht danach wieder zur Wahl.
+- **Fremde Agenten** bekommen keine Direktnachricht im Menü (ein Agent liest keine), nur was ich im
+  Raum darf.
+- `raum-agent-budget.ts`: `budgetText()`, `verbraucht()` (nur der laufende Monat und Tag, UTC).
+
+**Tests:** `raum-agenten-ui.test.ts` +2 (Budget als Text hin und zurück, Verbrauch nur im laufenden
+Zeitraum, Verdrahtung). `raum-mitglieder.test.ts` angepasst: Name und Menü heißen nach der Karte.
+
+Smoke „raum_agent“ erweitert:
+- Zeile „Helfer“ mit „Agent“ und Tooltip.
+- Menü mit „Budget ändern …“ und „Aus dem Raum nehmen“.
+- Budget-Dialog mit „sats“, 100, 50 und „0 sats verbraucht“; gespeichert.
+- Herausnehmen schickt eine Zuweisung ohne Rollen. Danach ist das Kennzeichen weg, und er steht wieder
+  zur Wahl.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1109 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

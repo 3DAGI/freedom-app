@@ -17,12 +17,13 @@ const abschnitt = (von: string, bis: string) => raeume.slice(raeume.indexOf(von)
 test("C.2d1: Mitgliederliste nur aus DOM und textContent – Namen, Rollen als Marken, Gründer hervorgehoben", () => {
   const liste = abschnitt("async function zeigeMitglieder", "/** Was ich mit einem Mitglied tun darf");
   assert.doesNotMatch(liste, /innerHTML|pkShort|escapeHtml/);
-  assert.match(liste, /const name = el\("span", nameVon\(m\.pk\), "mitglied-name"\);/);
+  // Seit 11.3e2 heißen Agenten wie in ihrer Karte, alle anderen nach nameVon()
+  assert.match(liste, /const anzeige = karte\?\.name \?\? nameVon\(m\.pk\);\s*const name = el\("span", anzeige, "mitglied-name"\);/);
   assert.match(liste, /\.\.\.m\.rollen\.map\(\(r\) => el\("span", r, m\.gruender \? "msg-role rolle-gruender" : "msg-role"\)\)/);
   // Privat: Moderatoren sind die Admins der Gruppe und zeigen nur „Moderator“
   assert.match(liste, /const eigene = privat\.admins\.includes\(pk\) \? \[t\("komm\.moderatorRolle"\)\]/);
   // Der Knopf je Mitglied trägt eine Beschriftung mit dem Namen und öffnet ein Menü
-  assert.match(liste, /b\.setAttribute\("aria-label", t\("raum\.mitgliedMenue", \{ name: nameVon\(m\.pk\) \}\)\);/);
+  assert.match(liste, /b\.setAttribute\("aria-label", t\("raum\.mitgliedMenue", \{ name: anzeige \}\)\);/);
   assert.match(liste, /oeffneMenueAn\(b, punkte, /);
 });
 

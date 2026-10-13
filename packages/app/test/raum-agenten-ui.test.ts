@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { leseBudgetEingabe } from "../src/raum-agent-budget.js";
+import { budgetText, leseBudgetEingabe, verbraucht } from "../src/raum-agent-budget.js";
 
 const lies = (pfad: string) => readFileSync(new URL(`../src/${pfad}`, import.meta.url), "utf8");
 
@@ -58,4 +58,37 @@ test("Verdrahtet: Menüpunkt nur, wer darf – Hauptidentität, privat Moderator
   assert.match(raeume, /document\.getElementById\("space-agent-neu"\)\?\.classList\.toggle\("hidden", !agenten\);/);
   assert.match(raeume, /if \(ziel\) void import\("\.\.\/raum-agenten-ui\.js"\)\.then\(async \(m\) => \{ if \(\(await m\.agentHinzufuegen\(ziel\)\) && spacesUi\.spaceId\) await oeffneRaum\(spacesUi\.spaceId\); \}\);/);
   assert.match(lies("shell/index.html"), /<button id="space-agent-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="agentUi\.menue">Agent hinzufügen<\/button>/);
+});
+
+test("11.3e2: Budget als Text in seiner Einheit, Verbrauch nur im laufenden Monat und Tag", () => {
+  assert.equal(budgetText(2_000_000, "msat"), "2000");
+  assert.equal(budgetText(1_500, "msat"), "1", "angefangene sats abgerundet");
+  assert.equal(budgetText(10_000_000, "lamports"), "0.01");
+  for (const [text, einheit] of [["2000", "msat"], ["0.000123456", "lamports"]] as const) {
+    const r = leseBudgetEingabe({ einheit, monat: text, tag: text });
+    assert.ok(r.ok);
+    assert.equal(budgetText(r.budget.monat, einheit), text, "hin und zurück gleich");
+  }
+  const jetzt = Date.UTC(2026, 9, 13, 12) / 1000;
+  assert.deepEqual(verbraucht({ imMonat: { zeit: "2026-10", wert: 700 }, amTag: { zeit: "2026-10-13", wert: 70 } }, jetzt), { monat: 700, tag: 70 });
+  assert.deepEqual(verbraucht({ imMonat: { zeit: "2026-09", wert: 700 }, amTag: { zeit: "2026-10-12", wert: 70 } }, jetzt), { monat: 0, tag: 0 }, "Vergangenes zählt nicht");
+});
+
+test("11.3e2 verdrahtet: Kennzeichen und Name aus der Karte, eigene Agenten mit Budget und herausnehmen, fremde ohne Direktnachricht", () => {
+  const raeume = lies("shell/tabs/raeume.ts");
+  const liste = raeume.slice(raeume.indexOf("async function zeigeMitglieder("), raeume.indexOf("/** Menü eines Mitglieds"));
+  assert.match(liste, /const karten = new Map\(\(privat \? raumAgentKarten\(privat\.ereignisse\) : spacesUi\.agentKarten\)\.map/);
+  assert.match(liste, /rollen\.filter\(\(r\) => !\(r === "agent" && karten\.has\(pk\)\)\)/, "die Rolle nicht doppelt");
+  assert.match(liste, /const anzeige = karte\?\.name \?\? nameVon\(m\.pk\);/);
+  assert.match(liste, /\.\.\.\(karte \? \[agentKennzeichen\(karte\)\] : \[\]\)/);
+  assert.match(liste, /\? \(ort && eigeneAgentAktionen\(m\.pk, ort, /);
+  assert.match(liste, /\|\| \(state\.keypair && m\.pk !== state\.keypair\.pk \? rechteAktionen\(m\.pk, !!m\.gruender, can\) : \[\]\)\s*: mitgliedAktionen\(m\.pk, !!m\.gruender, can\);/);
+  const ui = lies("shell/raum-agenten-ui.ts");
+  const eigene = ui.slice(ui.indexOf("export function eigeneAgentAktionen("));
+  assert.match(eigene, /if \(!agent \|\| !agentenBuch\.budget\(pk, raumVon\(ziel\)\)\) return null;/, "nur Agenten dieses Geräts mit Budget hier");
+  // Budget ändern bleibt in seiner Einheit – eine andere begänne den Verbrauch neu
+  assert.match(eigene, /\{ art: "nurlesen", name: "einheit", label: t\("agentUi\.einheit"\), wert: einheit \}/);
+  assert.match(eigene, /leseBudgetEingabe\(\{ einheit: b\.einheit, monat: wert\(w, "monat"\), tag: wert\(w, "tag"\) \}\)/);
+  assert.match(eigene, /await entferneAgentAusOffenemRaum\(pk, ziel\.adresse\);/);
+  assert.match(eigene, /if \(!\(await entferneAgentAusPrivatemRaum\(pk, ziel\.privat\)\)\) throw/);
 });

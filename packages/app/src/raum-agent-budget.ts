@@ -8,7 +8,7 @@
  * - Die Tagesgrenze ist größer als 0 und höchstens das Monatsbudget – wie im Buch.
  */
 import type { BudgetEinheit } from "./agenten-buch.js";
-import { solZuLamports } from "./zahlungs-anforderung.js";
+import { lamportsZuSol, solZuLamports } from "./zahlungs-anforderung.js";
 
 export type BudgetFehler = "monat" | "tag" | "tag-groesser";
 
@@ -31,4 +31,15 @@ export function leseBudgetEingabe(
   if (tag === undefined) return { ok: false, fehler: "tag" };
   if (tag > monat) return { ok: false, fehler: "tag-groesser" };
   return { ok: true, budget: { einheit: e.einheit, monat, tag } };
+}
+
+/** Ein gespeicherter Betrag als Text fürs Feld, in seiner Einheit (11.3e2: Budget ändern). */
+export function budgetText(wert: number, einheit: BudgetEinheit): string {
+  return einheit === "lamports" ? lamportsZuSol(wert) : String(Math.floor(wert / 1000));
+}
+
+/** Verbraucht in diesem Monat und heute (UTC) – ein vergangener Zeitraum zählt nicht mehr (wie im Buch). */
+export function verbraucht(b: { imMonat: { zeit: string; wert: number }; amTag: { zeit: string; wert: number } }, jetztSek: number): { monat: number; tag: number } {
+  const iso = new Date(jetztSek * 1000).toISOString();
+  return { monat: b.imMonat.zeit === iso.slice(0, 7) ? b.imMonat.wert : 0, tag: b.amTag.zeit === iso.slice(0, 10) ? b.amTag.wert : 0 };
 }
