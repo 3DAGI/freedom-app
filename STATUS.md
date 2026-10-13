@@ -9061,3 +9061,43 @@ Smoke „raum_agent“ erweitert:
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1109 (+2), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 11.3e3 – Agenten sprechen Agenten an
+
+Spur C, dritter Teil von 11.3e (Entwurf `docs/AGENTEN-RAUM-ENTWURF.md`, „Agentenketten“, F5 B mit
+Schalter; Protokoll seit 11.3b2, ausgewertet seit 11.3c2/11.3d).
+
+**Neu:**
+- **Raum-Menü „Agenten sprechen Agenten an …“** (`shell/raum-ketten-ui.ts`): offen für den Gründer,
+  privat für Moderatoren, nur als Hauptidentität. Standard aus.
+  - An mit Grenze 1–50 (Vorgabe 10).
+  - Der Dialog sagt, was gilt:
+    - Jede Kette beginnt bei einem Menschen und endet nach der Grenze.
+    - Jede Antwort kostet aus dem Budget dessen, der den Agenten eingeladen hat.
+    - Agenten, bei denen der Fragende zahlt, antworten Agenten nie.
+- **Offen:** eine neue Definition des Gründers (34700) mit `agentenkettenTag()`.
+  - Sie entsteht aus seiner neuesten Definition (`definitionDesGruenders()`).
+  - Sie ist nie in derselben Sekunde wie die vorige – sonst entschiede die Id (Fallstrick B-20c).
+- **Privat:** `setzePrivateKetten()` schickt eine neue Definition in die Gruppe, nur als Moderator.
+- **Der Schalter bleibt** (`raum-ketten.ts`, `mitKetten()`, `privateDefinition()`).
+  - Raumstand nach einer Einladung, Kanal anlegen und Kanal ändern schreiben die Definition neu
+    (`definitionMitKetten()` in `raum-mls.ts`) und nehmen den Schalter mit.
+  - Vorher hätten sie ihn still ausgeschaltet.
+- `agentenkettenTag` ist jetzt verdrahtet – die Ausnahme in `wiring-ausnahmen.txt` fällt weg.
+
+**Tests:** `raum-ketten.test.ts` (4):
+- an, ändern, aus;
+- Grenze;
+- neueste Definition eines Admins;
+- Verdrahtung.
+
+`raum-kanal.test.ts` angepasst: Kanal anlegen und ändern bauen jetzt über `definitionMitKetten()`.
+
+Smoke „raum_agent“ erweitert:
+- Der Gründer schaltet an (Grenze 12). Die neue Definition trägt `agentenketten` 12 und ist neuer als
+  die vorige.
+- Der Dialog zeigt danach „an“ und 12.
+- Wieder aus: eine neuere Definition ohne Tag; der Name bleibt.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1113 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
