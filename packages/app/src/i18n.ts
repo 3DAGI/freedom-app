@@ -27,6 +27,7 @@ import { navigation } from "./texte/navigation.js";
 import { dialog } from "./texte/dialog.js";
 import { raeume } from "./texte/raeume.js";
 import { repos } from "./texte/repos.js";
+import { kopfgeld } from "./texte/kopfgeld.js";
 import { karte } from "./texte/karte.js";
 import { wecken } from "./texte/wecken.js";
 
@@ -39,7 +40,7 @@ export const LANGS: Array<{ code: Lang; label: string }> = [
 ];
 
 /** Je Bereich eine Datei – ein Schlüssel gehört genau einem Bereich (Test). */
-export const BEREICHE: Record<string, Texte> = { rahmen, navigation, dialog, agent, kommunikation, raeume, repos, karte, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze, pruefgruende, fehler, wecken };
+export const BEREICHE: Record<string, Texte> = { rahmen, navigation, dialog, agent, kommunikation, raeume, repos, kopfgeld, karte, waehrung, zahlung, earn, profil, settings, einstieg, bausteine, datenschutz, protokollsaetze, pruefgruende, fehler, wecken };
 const TEXTE: Texte = Object.assign({}, ...Object.values(BEREICHE));
 
 let current: Lang = "en";

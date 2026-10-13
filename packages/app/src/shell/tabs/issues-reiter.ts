@@ -17,6 +17,7 @@ import { sendeInRaum } from "../raum-repos.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { toast } from "../ui.js";
 import { diskussion } from "./diskussion.js";
+import { kopfgeldKarte } from "./kopfgeld-ui.js";
 import { labelLeiste } from "./labels-ui.js";
 
 /** Offenes Issue und gewählter Filter – nur im Speicher. */
@@ -170,6 +171,8 @@ function issueSeite(z: IssueZeile, k: RepoKarte, name: (pk: string) => string, n
     aktionen.append(...ziele.map((ziel) => knopf(t(STATUS_AKTION[ziel]), "ghost mini repo-knopf", () => void setzeIssueStatus(z, k, ziel, neuLaden))));
     teile.push(aktionen);
   }
+  // Kopfgelder (E10b1) nur an öffentlichen Issues – für private Räume gibt es keinen Baustein; nicht für Repos nur auf diesem Gerät
+  if (k.repo && !k.privatRaum && !k.lokal) teile.push(kopfgeldKarte(z, k, name));
   teile.push(...diskussion({
     wurzel: { id: z.issue.id, autor: z.issue.autor, kind: KIND_ISSUE }, kommentare: z.kommentare, name, neuLaden,
     ...(k.privatRaum ? { privatRaum: k.privatRaum } : {}),

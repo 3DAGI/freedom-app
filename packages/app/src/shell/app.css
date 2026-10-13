@@ -583,6 +583,16 @@ input:focus, textarea:focus, select:focus {
   padding: 6px 12px 4px; font-family: var(--font-mono);
 }
 .lokal-bereich { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; }
+/* E10b1: Kopfgelder am Issue */
+.kopfgelder { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; }
+.kopfgeld-titel { margin: 0 0 8px; font-size: 13px; }
+.kopfgeld-zeile { padding: 6px 0; border-top: 1px solid var(--border); }
+.kopfgeld-zeile:first-child { border-top: none; }
+.kopfgeld-betrag { color: var(--accent); }
+.kopfgeld-titelzeile, .kopfgeld-text { overflow-wrap: anywhere; }
+.kopfgeld-aktionen { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kopfgelder .kopfgeld-knopf { width: auto; }
+.kopfgeld-neu { margin-top: 8px; }
 /* C-27: Modelle, die ein Provider heute gratis beantwortet */
 .mc-gratis { color: var(--accent); font-weight: 600; }
 .lokal-bereich .mc-sub { overflow-wrap: anywhere; }

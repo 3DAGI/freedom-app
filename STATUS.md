@@ -8850,3 +8850,38 @@ Vorher rot (die Zeile fehlte), jetzt grün.
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1087 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt E10b1 – Kopfgelder am Issue: zeigen, aussetzen, vergeben
+
+Spur C, übergeben von Spur A (09.10., MENSCH; Sammlung A-9, Entscheidung E10 B). Das Format
+(38061, `kopfgeld.ts`) gab es seit E10a; jetzt hat es eine Oberfläche. Bezahlen per Klick folgt als
+E10b2.
+
+**Neu – `shell/tabs/kopfgeld-ui.ts`:** Auf der Seite eines öffentlichen Issues steht eine Karte
+„Kopfgelder“.
+- Sie lädt die Kopfgelder selbst (38061 mit `#e` = Issue). Den Stand nimmt sie nur aus
+  `kopfgelderZuIssue()` – je Geldgeber und Kennung das neueste.
+- Jede Zeile zeigt Betrag (nur die zugesagten Währungen, nichts umgerechnet), Stand, Aufgabe und
+  Geldgeber.
+- „Kopfgeld aussetzen“ fragt Aufgabe (vorbelegt mit dem Titel des Issues), Beschreibung und einen
+  Betrag in sats, in SOL oder in beiden. Der Hinweis sagt ehrlich: öffentlich und signiert; zugesagt
+  und selbst gezahlt, direkt an die Person, die es erledigt; nichts verwahrt, nichts von selbst gezahlt.
+- Den Stand setzt nur der Geldgeber (`signiere()`):
+  - vergeben an Autorin oder Kommentierende, nie an sich selbst,
+  - als erledigt markieren, wieder öffnen, zurückziehen.
+- Andere sehen nur den Stand.
+- Nicht im privaten Raum (dort gibt es keinen Baustein) und nicht bei Repos nur auf diesem Gerät.
+
+`wiring-ausnahmen.txt`: `baueKopfgeld`, `kopfgelderZuIssue`, `leseKopfgeld` und `aktuelleKopfgelder`
+sind jetzt verdrahtet. `offeneKopfgelder` bleibt ausgenommen.
+
+**Tests:** `kopfgeld-ui.test.ts` (3). Neuer Smoke-Test „kopfgeld“ mit Repo, Issue, Kommentar und
+fremdem Kopfgeld aus `scripts/kopfgeld-probe.mts`:
+- Das fremde Kopfgeld steht ohne Knöpfe da.
+- Ein eigenes wird ausgesetzt: 500 sats + 0,01 SOL, ein 38061 mit `e`, `a`, `amount_msat`,
+  `amount_lamports`, `status` offen.
+- Es wird an die vorgewählte Autorin vergeben (`p`); danach stehen „Als erledigt markieren“,
+  „Wieder öffnen“ und „Zurückziehen“ da.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1090 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
