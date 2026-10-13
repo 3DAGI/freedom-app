@@ -16,12 +16,14 @@ import { AGENTEN_BUCH_GRENZEN, type AgentDaten, type BudgetEinheit } from "../ag
 import { t } from "../i18n.js";
 import { kiSchiene } from "../ki-schiene.js";
 import { fehlerText } from "../protokoll-texte.js";
-import { type BudgetFehler, leseBudgetEingabe } from "../raum-agent-budget.js";
-import { agentenBuch, ladeAgentInOffenenRaum, legeGeraeteAgentAn } from "./agenten.js";
-import { dialog, type Option, type Werte } from "./dialog.js";
+import type { RaumAgentKarte } from "../knoten-agent-wahl.js";
+import { type BudgetFehler, budgetText, leseBudgetEingabe, verbraucht } from "../raum-agent-budget.js";
+import { agentenBuch, entferneAgentAusOffenemRaum, ladeAgentInOffenenRaum, legeGeraeteAgentAn } from "./agenten.js";
+import { bestaetige, dialog, type Option, type Werte } from "./dialog.js";
+import type { MenuePunkt } from "./menue.js";
 import { einladungsText, type PrivaterRaum } from "./raum-mls.js";
 import { verlangeTresor } from "./tresor.js";
-import { toast } from "./ui.js";
+import { el, toast } from "./ui.js";
 
 /** Wohin der Agent kommt: offener Raum über die Adresse des Gründers (B-7), privat über die Gruppe. */
 export type AgentZiel = { adresse: string } | { privat: PrivaterRaum };
@@ -121,6 +123,73 @@ export async function agentHinzufuegen(ziel: AgentZiel): Promise<boolean> {
     return true;
   } catch (e) {
     toast(t("agentUi.nichtDrin", { name, grund: fehlerText(e) }), true);
+    return false;
+  }
+}
+
+// ------------------------------------------------------------ In der Mitgliederliste (11.3e2)
+
+/** Kennzeichen eines Agenten: wo er läuft und wer seine Antworten bezahlt – nur Text aus der Karte. */
+export function agentKennzeichen(k: Pick<RaumAgentKarte, "betrieb" | "bezahlung">): HTMLElement {
+  const b = el("span", t("agentUi.kennzeichen"), "msg-role rolle-agent");
+  b.title = `${t(k.betrieb === "knoten" ? "agentUi.aufKnoten" : "agentUi.aufGeraet")} · ${t(k.bezahlung === "fragender" ? "agentUi.zahltFragender" : "agentUi.zahltEinlader")}`;
+  return b;
+}
+
+const raumVon = (ziel: AgentZiel): string => ("adresse" in ziel ? ziel.adresse : ziel.privat.gruppe);
+
+/** Menü eines Agenten dieses Geräts mit Budget hier: Budget ändern, aus dem Raum nehmen. Sonst null. */
+export function eigeneAgentAktionen(pk: string, ziel: AgentZiel, nachher: () => void): MenuePunkt[] | null {
+  const agent = agentenBuch.agent(pk);
+  if (!agent || !agentenBuch.budget(pk, raumVon(ziel))) return null;
+  return [
+    { text: t("agentUi.budgetAendern"), tun: () => void budgetAendern(pk, raumVon(ziel), agent.name).then((ok) => { if (ok) nachher(); }) },
+    { text: t("agentUi.herausnehmen"), gefahr: true, tun: () => void herausnehmen(pk, ziel, agent.name).then((ok) => { if (ok) nachher(); }) },
+  ];
+}
+
+/** Budget ändern – in seiner Einheit (eine andere begänne den Verbrauch neu: dafür herausnehmen und neu hinzufügen). */
+async function budgetAendern(pk: string, raum: string, name: string): Promise<boolean> {
+  const b = agentenBuch.budget(pk, raum);
+  if (!b) return false;
+  const v = verbraucht(b, Math.floor(Date.now() / 1000));
+  const einheit = b.einheit === "lamports" ? "SOL" : "sats";
+  const w = await dialog({
+    titel: t("agentUi.budgetTitel", { name }),
+    text: t("agentUi.verbraucht", { monat: budgetText(v.monat, b.einheit), tag: budgetText(v.tag, b.einheit), einheit }),
+    ok: t("agentUi.speichern"),
+    felder: [
+      { art: "nurlesen", name: "einheit", label: t("agentUi.einheit"), wert: einheit },
+      { art: "text", name: "monat", label: t("agentUi.monat"), wert: budgetText(b.monat, b.einheit), pflicht: true, mono: true },
+      { art: "text", name: "tag", label: t("agentUi.tag"), wert: budgetText(b.tag, b.einheit), pflicht: true, mono: true },
+    ],
+    pruefe: (w) => {
+      const r = leseBudgetEingabe({ einheit: b.einheit, monat: wert(w, "monat"), tag: wert(w, "tag") });
+      return r.ok ? null : t(BUDGET_FEHLER[r.fehler]);
+    },
+  });
+  if (!w) return false;
+  const r = leseBudgetEingabe({ einheit: b.einheit, monat: wert(w, "monat"), tag: wert(w, "tag") });
+  if (!r.ok) return false;
+  await agentenBuch.setzeBudget(pk, raum, r.budget);
+  toast(t("agentUi.budgetGespeichert", { name }));
+  return true;
+}
+
+/** Aus dem Raum nehmen: offen die Rolle entziehen, privat ein Commit; das Budget fällt weg, der Agent bleibt auf dem Gerät. */
+async function herausnehmen(pk: string, ziel: AgentZiel, name: string): Promise<boolean> {
+  if (!(await bestaetige({ titel: t("agentUi.herausnehmenTitel", { name }), text: t("agentUi.herausnehmenText", { name }), ok: t("agentUi.herausnehmen"), gefahr: true }))) return false;
+  try {
+    if ("adresse" in ziel) {
+      await entferneAgentAusOffenemRaum(pk, ziel.adresse);
+    } else {
+      const { entferneAgentAusPrivatemRaum } = await import("./agent-mls.js");
+      if (!(await entferneAgentAusPrivatemRaum(pk, ziel.privat))) throw new Error(t("komm.nichtGeaendert"));
+    }
+    toast(t("agentUi.draussen", { name }));
+    return true;
+  } catch (e) {
+    toast(t("agentUi.nichtDraussen", { name, grund: fehlerText(e) }), true);
     return false;
   }
 }

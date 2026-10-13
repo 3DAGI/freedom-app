@@ -3390,11 +3390,41 @@ def raum_agent_pruefen(browser, url: str) -> dict:
         "offen": ev("() => localStorage.getItem('freedom.agenten')"),
     }
     s.wait_for_function("() => [...document.querySelectorAll('#member-list .msg-role')].some(r => r.textContent === 'Agent')", timeout=40000)
+    # 11.3e2: Kennzeichen und Name aus der Karte, Menü des eigenen Agenten – Budget ändern (Einheit bleibt), herausnehmen
+    zeile = "() => [...document.querySelectorAll('#member-list .member-row')].find(z => z.querySelector('.rolle-agent'))"
+    erg["zeile"] = ev(f"() => {{ const z = ({zeile})(); return [z.querySelector('.mitglied-name').textContent,"
+                      " [...z.querySelectorAll('.msg-role')].map(r => r.textContent), z.querySelector('.rolle-agent').title]; }")
+    ev(f"() => ({zeile})().querySelector('.mitglied-knopf').click()")
+    s.wait_for_selector(".menue-schwebend", timeout=5000)
+    erg["menue"] = ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].map(b => b.textContent)")
+    ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].find(b => b.textContent === 'Budget ändern …').click()")
+    aendern = seite.warte_dialog("Budget für Helfer in diesem Raum")
+    ev(feld, {"tag": "60"})
+    dialog_ok(seite, "Speichern")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Budget für Helfer gespeichert.'", timeout=15000)
+    seite.warte_zu()
+    erg["aendern"] = [aendern["text"], aendern["werte"]]
     # Ein zweites Mal: Helfer ist schon im Raum, also gleich ein neuer
     ev("() => document.getElementById('space-agent-neu').click()")
     zweites = seite.warte_dialog("Neuer Agent auf diesem Gerät")
     s.keyboard.press("Escape")
     seite.warte_zu()
+    # Herausnehmen: Rolle entzogen (34702 ohne Rollen), Kennzeichen weg; danach steht er wieder zur Wahl
+    s.wait_for_timeout(1100)  # die Zuweisung ersetzt die vom Hinzufügen – nicht in derselben Sekunde
+    ev(f"() => ({zeile})().querySelector('.mitglied-knopf').click()")
+    s.wait_for_selector(".menue-schwebend", timeout=5000)
+    ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].find(b => b.textContent === 'Aus dem Raum nehmen').click()")
+    raus = seite.warte_dialog("Helfer aus dem Raum nehmen?")
+    dialog_ok(seite, "Aus dem Raum nehmen")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '') === 'Helfer ist nicht mehr im Raum.'", timeout=30000)
+    entzogen = any(e.get("kind") == 34702 and any(t[:2] == ["p", agent] for t in e["tags"]) and not any(t[0] == "role" for t in e["tags"])
+                   for e in relay.gesendet)
+    s.wait_for_function("() => !document.querySelector('#member-list .rolle-agent')", timeout=40000)
+    ev("() => document.getElementById('space-agent-neu').click()")
+    wieder = seite.warte_dialog("Agent hinzufügen")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["raus"] = [raus["text"], entzogen, wieder["felder"]]
     erg.update({"neu": [neu["text"], neu["felder"]], "budget": [budget["text"], budget["felder"], budget["werte"]],
                 "zu_viel": zu_viel["meldung"] if zu_viel else None, "zweites": zweites["titel"], "browser_dialoge": seite.browser_dialoge})
     seite.ctx.close()
@@ -3414,6 +3444,14 @@ def raum_agent_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Netz {n}")
     if erg["zweites"] != "Neuer Agent auf diesem Gerät":
         erg["fehler"].append(f"zweites Mal {erg['zweites']}")
+    if erg["zeile"] != ["Helfer", ["Agent"], "läuft auf dem Gerät seines Erstellers – antwortet nur, solange dessen App offen ist · Antworten bezahlt, wer ihn eingeladen hat"]:
+        erg["fehler"].append(f"Kennzeichen {erg['zeile']}")
+    if erg["menue"] != ["Budget ändern …", "Aus dem Raum nehmen"]:
+        erg["fehler"].append(f"Menü {erg['menue']}")
+    if erg["aendern"] != ["Verbraucht: 0 sats in diesem Monat, 0 sats heute. Die Einheit bleibt – für die andere den Agenten herausnehmen und neu hinzufügen.", ["sats", "100", "50"]]:
+        erg["fehler"].append(f"Budget ändern {erg['aendern']}")
+    if not erg["raus"][0].startswith("Helfer antwortet hier nicht mehr") or erg["raus"][1] is not True or erg["raus"][2] != ["Welcher Agent?"]:
+        erg["fehler"].append(f"herausnehmen {erg['raus']}")
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
     erg["bestanden"] = not erg["fehler"]

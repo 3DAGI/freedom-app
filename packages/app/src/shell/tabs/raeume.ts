@@ -28,7 +28,7 @@ import { abrufTakt } from "../versand.js";
 import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
 import { fremderProfilName, ladeFremdeProfilNamen } from "./kontakte.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
-import type { AgentZiel } from "../raum-agenten-ui.js";
+import { type AgentZiel, agentKennzeichen, eigeneAgentAktionen } from "../raum-agenten-ui.js";
 import type { RaumAgentKarte } from "../../knoten-agent-wahl.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
@@ -405,6 +405,13 @@ function raumZiel(): RaumZiel | null {
   } catch {
     return null; // Kennung, die keine Adresse ergibt – dann keine Repos
   }
+}
+
+/** Der Raum als Ort für Agenten (11.3e2) – ohne Rechteprüfung: sein Budget ändert, wer ihn hat. */
+function agentOrt(): AgentZiel | null {
+  if (spacesUi.privat) return { privat: spacesUi.privat };
+  const ziel = raumZiel();
+  return ziel && "adresse" in ziel ? { adresse: ziel.adresse } : null;
 }
 
 /**
@@ -952,6 +959,9 @@ async function zeigeMitglieder(): Promise<void> {
   if (!box) return;
   const privat = spacesUi.privat;
   const zeilen: { pk: string; rollen: string[]; gruender?: boolean }[] = [];
+  // Agenten (11.3e2): offen die Karten der Mitglieder mit Rolle `agent` (11.3d1b1), privat die aus der Gruppe
+  const { can, raumAgentKarten } = await import("@freedomstack/protocol");
+  const karten = new Map((privat ? raumAgentKarten(privat.ereignisse) : spacesUi.agentKarten).map((k) => [k.agent, k] as const));
   if (privat) {
     // Privat (2.3b): Mitglieder der Gruppe; Moderatoren sind ihre Admins und haben jede Rolle – dort nur „Moderator“
     const rollen = privat.zustand.roles;
@@ -969,24 +979,31 @@ async function zeigeMitglieder(): Promise<void> {
     if (st.ownerPubkey) zeilen.push({ pk: st.ownerPubkey, rollen: [t("komm.gruender")], gruender: true });
     for (const [pk, rollen] of st.grants) {
       if (pk === st.ownerPubkey) continue;
-      zeilen.push({ pk, rollen: rollen.map((r) => st.roles?.get(r)?.name).filter((n): n is string => !!n) });
+      // Die Rolle `agent` zeigt das Kennzeichen – nicht noch einmal als Rolle
+      zeilen.push({ pk, rollen: rollen.filter((r) => !(r === "agent" && karten.has(pk))).map((r) => st.roles?.get(r)?.name).filter((n): n is string => !!n) });
     }
   }
   // Profilnamen nur im offenen Raum (C-35) – privat nennte die Abfrage den Relays die Gruppe; einmal neu zeichnen
   if (!privat) void ladeFremdeProfilNamen(zeilen.map((m) => m.pk)).then((neu) => { if (neu) void zeigeMitglieder(); });
-  const { can } = await import("@freedomstack/protocol");
+  const ort = agentOrt();
   box.replaceChildren(...(zeilen.length === 0 ? [el("span", t("komm.niemand"), "muted")] : zeilen.map((m) => {
     const z = el("div", undefined, "member-row");
-    const name = el("span", nameVon(m.pk), "mitglied-name");
+    const karte = karten.get(m.pk);
+    // Agenten heißen wie in ihrer Karte – nur als Text
+    const anzeige = karte?.name ?? nameVon(m.pk);
+    const name = el("span", anzeige, "mitglied-name");
     name.title = m.pk;
-    z.append(name, ...m.rollen.map((r) => el("span", r, m.gruender ? "msg-role rolle-gruender" : "msg-role")));
-    const punkte = mitgliedAktionen(m.pk, !!m.gruender, can);
+    z.append(name, ...(karte ? [agentKennzeichen(karte)] : []), ...m.rollen.map((r) => el("span", r, m.gruender ? "msg-role rolle-gruender" : "msg-role")));
+    // Eigene Agenten: Budget und herausnehmen; fremde: keine Direktnachricht (ein Agent liest keine), nur was ich darf
+    const punkte = karte
+      ? (ort && eigeneAgentAktionen(m.pk, ort, () => { if (spacesUi.spaceId) void oeffneRaum(spacesUi.spaceId); })) || (state.keypair && m.pk !== state.keypair.pk ? rechteAktionen(m.pk, !!m.gruender, can) : [])
+      : mitgliedAktionen(m.pk, !!m.gruender, can);
     if (punkte.length) {
       const b = el("button", "⋯", "ghost icon-btn mitglied-knopf");
       b.type = "button";
-      b.setAttribute("aria-label", t("raum.mitgliedMenue", { name: nameVon(m.pk) }));
+      b.setAttribute("aria-label", t("raum.mitgliedMenue", { name: anzeige }));
       b.setAttribute("aria-haspopup", "menu");
-      b.addEventListener("click", () => oeffneMenueAn(b, punkte, t("raum.mitgliedMenue", { name: nameVon(m.pk) })));
+      b.addEventListener("click", () => oeffneMenueAn(b, punkte, t("raum.mitgliedMenue", { name: anzeige })));
       z.append(b);
     }
     return z;
