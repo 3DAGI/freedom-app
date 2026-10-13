@@ -25,7 +25,7 @@ vollständig fertig. Ausführlich: `docs/ausbau/UEBERSICHT.md`.
 | `packages/launcher` | Hülle (Tauri 2): Desktop seit 6.1a1, Android seit 6.1c1 (`src/lib.rs`); legt `freedom.html` bei, liefert sie über `freedom://localhost/` (Windows, Android `http://freedom.localhost/`); Tests `cargo test` |
 | `contracts/solana-htlc` | Anchor-Programm (Rust) für Swaps und Deposits |
 | `scripts/` | Build, Prüfungen, `smoke_test.py`, `check_innerhtml.py` |
-| `docs/ausbau/` | Ausbauplan: Fortschritt, Aufgabenkarten je Phase, Vorlagen |
+| `docs/ausbau/` | Ausbauplan: Fortschritt, Aufgabenkarten je Phase, Vorlagen; `OFFEN.md` – alles Offene auf einen Blick (Entscheidungen, MENSCH, Schritte je Spur) |
 | `STATUS.md` | Entwicklungsprotokoll – nach jedem Schritt ein Abschnitt; abgeschlossene Monate in `docs/archiv/STATUS-<JJJJ-MM>.md` (`scripts/status-archiv.py`) |
 
 ## Befehle
@@ -58,11 +58,12 @@ nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
 
 1. `docs/ausbau/FORTSCHRITT.md` lesen, den nächsten offenen Schritt **der eigenen
    Spur** nehmen (Abschnitt „Spuren“) – **nur einen pro Sitzung**. Dann die passende Karte `docs/ausbau/phase-N.md`.
+   Was offen ist und woran es hängt (Entscheidungen, MENSCH, Schritte je Spur): `docs/ausbau/OFFEN.md`.
 2. Vor jeder Änderung die Stellen mit `grep -rn` finden und lesen. Große Dateien
    (`tabs/agent.ts`, `tabs/kommunikation.ts`) nur in Ausschnitten lesen (Zeilenbereiche).
 3. Kleine, gezielte Änderungen; keine Umformatierung unbeteiligter Stellen.
 4. Tests schreiben, auch Negativfälle; alle Befehle oben ausführen.
-5. `docs/ausbau/FORTSCHRITT.md` und `STATUS.md` aktualisieren.
+5. `docs/ausbau/FORTSCHRITT.md`, `docs/ausbau/OFFEN.md` (erledigte Zeile löschen) und `STATUS.md` aktualisieren.
 6. Commit auf Deutsch: `<Schritt>: <kurz>`; Pull Request mit dem Bericht aus
    `docs/ausbau/VORLAGEN.md` als Beschreibung. Dann anhalten.
 7. **Knoten-Stand (Entscheidung 25.09.2026):** Braucht die App nach einem Merge
