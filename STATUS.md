@@ -8723,3 +8723,20 @@ kein Bundle-Knopf in der Liste; „privatraum“: Repo im privaten Raum mit eine
 
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1068 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-37 – Profil: Karte „Identität“, Teilen als npub
+
+Spur C, Befunde P-1, P-2 und P-3 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| P-1 | Unter den Abzeichen eine lose Zeile „…197f [Importieren]“ ohne Überschrift | Karte „Identität“ mit einem Satz: der Klick auf den Schlüssel kopiert den privaten (nur zum Sichern), „Importieren“ ersetzt die Identität |
+| P-2 | „Teilen“ kopierte den Schlüssel als Hex | als npub – derselbe Schlüssel, unter dem „Profil speichern“ das Profil veröffentlicht; ohne Zwischenablage zeigt der Dialog den npub |
+| P-3 | Der Name im Profilkopf (ohne Namen der gekürzte Schlüssel) in Großbuchstaben – `.card h3` | wie geschrieben (`.profile-text h3` mit `text-transform: none`) |
+
+**Tests:** `profil-klein.test.ts` (3); ein Formtest angepasst (`browser-dialoge.test.ts`, der
+Dialog zeigt den npub). Neuer Smoke „profil_klein“ (Zwischenablage als Attrappe): vorher alle drei
+Befunde rot (Hex kopiert, `uppercase`, keine Überschrift), jetzt grün.
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1071 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
