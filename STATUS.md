@@ -8924,3 +8924,53 @@ SOL an eine versiegelt erfragte Adresse – und den Eintrag „Kopfgeld“ im Za
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1096 (+6), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 12.4b – Schalter „sats / SOL“ beim Gebot
+
+Spur C, Sammlung A-1 (12.4 mit 12.4b, von Spur A übernommen 09.10., MENSCH; E5 dafür geändert).
+
+**Neu:**
+- **`ki-schiene.ts`** (ohne DOM): `kiSchiene()` ist die Schiene für KI – die eigene Wahl
+  (`freedom.ki.schiene`), sonst die Standard-Schiene wie seit 12.4a.
+  - `gebotInSats()`: Gebot aus dem Feld in ganzen sats. SOL nur über `kurs.ts` umgerechnet;
+    ohne Kurs kein Gebot. Abgerundet, damit das Gebot nie mehr wird als eingetippt. Was keinen
+    ganzen sat ergibt, ist kein Gebot (0 hieße gratis).
+  - `gebotAlsText()`: Gebot in sats für das Feld in der gewählten Einheit, hin und zurück gleich.
+- **`shell/tabs/agent-gebot.ts`:** Das Gebot steht jetzt sichtbar beim Tarif, mit dem Schalter
+  „sats / SOL“ daneben.
+  - Ausgeblendet im Tarif „Free“ und für dieses Gerät oder den eigenen Knoten.
+  - Umschalten rechnet das Gebot um. Mit SOL steht die Vorgabe (100 sats) nie als SOL im Feld –
+    erst leer, mit Kurs umgerechnet.
+- **`askAi()`:** Bezahltes geht nur mit gültigem Gebot hinaus – vor der Rückfrage in
+  „Automatisch“, vor Funk und vor dem Netz. Ohne Kurs sagt die App es, nichts gesendet. Die
+  Rückfrage nennt das Gebot zuerst in der gewählten Einheit.
+- **`ki-zahlung.ts`:** Zahlweg und Ziele nach `kiSchiene()`. Mit SOL ohne Kanal wirft die App
+  `KanalNoetig` mit dem Provider. Die Fehlerblase bietet dafür „Kanal anbieten“ an: Währung ›
+  Hinterlegen, der Provider ist eingetragen, der Betrag dran. Dort öffnet `oeffneZahlkanal()`
+  den Kanal. Nie still über Lightning (E3 A).
+- **Andere Spur:** `knoten-agent-fragen.ts` (11.3d1b2, Spur B) zahlt Fragen an Agenten auf
+  einem Knoten ebenfalls nach `kiSchiene()` – eine Zeile.
+- **Texte:** „Gebot“ statt „Gebot (sats)“. „Kanal nötig“ und die Standard-Schiene in den Settings
+  nennen den Schalter.
+
+**Tests:** `ki-schiene.test.ts` (7):
+- Wahl vor Standard-Schiene, ohne Speicher.
+- Gebot in sats; Gebot in SOL nur mit Kurs, nie mehr als eingetippt; hin und zurück.
+- Verdrahtung.
+
+Angepasst: `ki-zahlweg.test.ts` und `ki-funk.test.ts` – dieselben Prüfungen auf die neue Form.
+
+Smoke „ki_schiene“ mit Kurs und Provider aus `scripts/ki-schiene-probe.mts`:
+- Gebot in „Automatisch“ sichtbar, in „Free“ nicht.
+- SOL ohne Kurs: Feld leer, nichts gesendet.
+- Mit Kurs 0,000666667 SOL für 100 sats, hin und zurück gleich.
+- Ohne Kanal: Fehlerblase mit „Kanal anbieten“, kein Umschlag gesendet; der Knopf führt nach
+  Hinterlegen mit Provider und Fokus auf dem Betrag.
+
+Gegenprobe: Ohne die Sperre vor dem Netz ist der Smoke rot.
+
+**MENSCH (Devnet):** einmal mit SOL und offenem Kanal eine KI-Frage bezahlen und das Gebot in
+SOL sehen.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1103 (+7), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
