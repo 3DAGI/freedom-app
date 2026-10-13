@@ -8,6 +8,8 @@
  * Wichtig: On-Device-Inferenz ist der Resistenz-Fallback des Protokolls —
  * KI-Jobs muessen ohne jede Cloud-Abhaengigkeit funktionieren.
  */
+import { type AntriebArt, antriebKopf } from "./ki-antrieb.js";
+
 export interface InferenceRequest {
   jobId: string;
   prompt: string;
@@ -92,31 +94,129 @@ WICHTIG:
 - Heute ist ${datum}. Was nach deinem Trainingsstand geschah, weisst du nicht sicher${suche ? " — fuer AKTUELLE Infos (Preise, News) web_search nutzen, nicht aus dem Gedaechtnis antworten" : " — sag das, statt zu raten"}.${suche ? "\n- Wenn das Suchergebnis nicht klar ist: sage \"Das Suchergebnis ist nicht eindeutig\" statt zu raten" : ""}`;
 }
 
+/** Ein Werkzeug-Aufruf des Modells – Ollama und OpenAI-kompatibel gleich gelesen (B-29a). */
+interface WerkzeugAufruf {
+  name: string;
+  arguments: Record<string, string>;
+  /** Kennung des Aufrufs (nur OpenAI-kompatibel) – die Antwort des Werkzeugs nennt sie. */
+  id?: string;
+  /** Der Aufruf, wie der Antrieb ihn schickte – so geht er zurück in den Verlauf. */
+  roh: unknown;
+}
+interface Antwort { content: string; werkzeuge: WerkzeugAufruf[]; promptTokens: number; completionTokens: number }
+
+/** Argumente eines Aufrufs: Ollama schickt ein Objekt, OpenAI-kompatibel einen JSON-Text. */
+function argumente(a: unknown): Record<string, string> {
+  if (typeof a === "string") {
+    try { return argumente(JSON.parse(a)); } catch { return {}; }
+  }
+  return typeof a === "object" && a !== null && !Array.isArray(a) ? (a as Record<string, string>) : {};
+}
+
 /** Fehler der Websuche fuers Log: nur der Name, nie die Meldung (Schritt 3.3). */
 function suchFehler(e: unknown): string {
   return e instanceof Error ? e.name : "unbekannt";
 }
 
-/** Lokale Inferenz ueber Ollama (Standard: Port 11434 auf diesem Rechner). */
+/**
+ * Lokale Inferenz: Ollama (Standard: Port 11434 auf diesem Rechner) oder seit
+ * B-29a ein Dienst mit OpenAI-kompatibler Schnittstelle (vLLM, SGLang,
+ * TensorFold; `antriebAusUmgebung()` in `ki-antrieb.ts`). Werkzeuge, Swarm und
+ * Systemprompt sind für beide dieselben – nur der Aufruf (`rufe()`) unterscheidet sich.
+ */
 export class OllamaBackend implements InferenceBackend {
+  private antrieb: AntriebArt;
+  private schluessel?: string;
+
   constructor(
     private baseUrl = process.env.OLLAMA_URL ?? "http://localhost:11434",
     private defaultModel = process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4",
-  ) {}
+    opts: { antrieb?: AntriebArt; schluessel?: string } = {},
+  ) {
+    this.antrieb = opts.antrieb ?? "ollama";
+    this.schluessel = opts.schluessel;
+  }
 
   name(): string {
-    return `ollama(${this.defaultModel})`;
+    return `${this.antrieb}(${this.defaultModel})`;
   }
 
   async available(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`, {
+      const res = await fetch(this.antrieb === "ollama" ? `${this.baseUrl}/api/tags` : `${this.baseUrl}/models`, {
+        headers: antriebKopf({ schluessel: this.schluessel }),
         signal: AbortSignal.timeout(3000),
       });
       return res.ok;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Ein Aufruf am Antrieb (B-29a): Ollama `/api/chat`, OpenAI-kompatibel
+   * `/chat/completions` – zurück dieselbe Form. Fehler OpenAI-kompatibel nur mit
+   * Status, nie mit dem Text des Dienstes.
+   */
+  private async rufe(p: {
+    model: string; messages: unknown[]; tools?: ToolSchema[]; maxTokens?: number; zeitMs?: number;
+  }): Promise<Antwort> {
+    const signal = AbortSignal.timeout(p.zeitMs ?? 120_000);
+    if (this.antrieb === "openai") {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: antriebKopf({ schluessel: this.schluessel }),
+        body: JSON.stringify({ model: p.model, messages: p.messages, stream: false, tools: p.tools, max_tokens: p.maxTokens }),
+        signal,
+      });
+      if (!res.ok) throw new Error(`KI-Antrieb HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: unknown } }> } }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+      const msg = data.choices?.[0]?.message;
+      return {
+        content: msg?.content ?? "",
+        werkzeuge: (msg?.tool_calls ?? []).filter((c) => typeof c.function?.name === "string")
+          .map((c) => ({ name: c.function!.name!, arguments: argumente(c.function!.arguments), id: c.id, roh: c })),
+        promptTokens: data.usage?.prompt_tokens ?? 0,
+        completionTokens: data.usage?.completion_tokens ?? 0,
+      };
+    }
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: p.model,
+        messages: p.messages,
+        stream: false,
+        tools: p.tools,
+        options: p.maxTokens ? { num_predict: p.maxTokens } : undefined,
+      }),
+      signal,
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "unlesbar");
+      throw new Error(`Ollama HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as {
+      message?: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: Record<string, string> } }> };
+      prompt_eval_count?: number;
+      eval_count?: number;
+    };
+    return {
+      content: data.message?.content ?? "",
+      werkzeuge: (data.message?.tool_calls ?? []).map((c) => ({ name: c.function.name, arguments: argumente(c.function.arguments), roh: c })),
+      promptTokens: data.prompt_eval_count ?? 0,
+      completionTokens: data.eval_count ?? 0,
+    };
+  }
+
+  /** Assistent mit Werkzeug-Aufruf und Ergebnis des Werkzeugs – in der Form, die der Antrieb erwartet. */
+  private werkzeugRunde(content: string, call: WerkzeugAufruf, ergebnis: string): unknown[] {
+    return this.antrieb === "openai"
+      ? [{ role: "assistant", content, tool_calls: [call.roh] }, { role: "tool", tool_call_id: call.id ?? "", content: ergebnis }]
+      : [{ role: "assistant", content, tool_calls: [call.roh] }, { role: "tool", content: ergebnis, name: call.name }];
   }
 
   /** Swarm-Modus: beide Modelle parallel befragen und synthetisieren. */
@@ -137,29 +237,8 @@ export class OllamaBackend implements InferenceBackend {
     const results = await Promise.all(
       models.map(async (model) => {
         try {
-          const res = await fetch(`${this.baseUrl}/api/chat`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              model,
-              messages,
-              stream: false,
-              options: req.maxTokens ? { num_predict: req.maxTokens } : undefined,
-            }),
-            signal: AbortSignal.timeout(120_000),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = (await res.json()) as {
-            message?: { content?: string };
-            prompt_eval_count?: number;
-            eval_count?: number;
-          };
-          return {
-            model,
-            output: data.message?.content ?? "",
-            promptTokens: data.prompt_eval_count ?? 0,
-            completionTokens: data.eval_count ?? 0,
-          };
+          const a = await this.rufe({ model, messages, maxTokens: req.maxTokens });
+          return { model, output: a.content, promptTokens: a.promptTokens, completionTokens: a.completionTokens };
         } catch (e) {
           return {
             model,
@@ -176,32 +255,19 @@ export class OllamaBackend implements InferenceBackend {
     const combined = results.map((r, i) => `[Antwort ${i + 1} von ${r.model}]:\n${r.output}`).join("\n\n");
     const judgePrompt = `Bewerte diese ${results.length} Antworten auf die Frage "${req.prompt}" und gib die beste/synthetisierte Antwort. Sei direkt und praegnant:\n\n${combined}`;
 
-    const judgeRes = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model: judgeModel,
-        messages: [
-          { role: "system", content: "Du bist ein Judge der Antworten bewertet und synthetisiert." },
-          { role: "user", content: judgePrompt },
-        ],
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(120_000),
+    const judge = await this.rufe({
+      model: judgeModel,
+      messages: [
+        { role: "system", content: "Du bist ein Judge der Antworten bewertet und synthetisiert." },
+        { role: "user", content: judgePrompt },
+      ],
     });
 
-    if (!judgeRes.ok) throw new Error(`Judge HTTP ${judgeRes.status}`);
-    const judgeData = (await judgeRes.json()) as {
-      message?: { content?: string };
-      prompt_eval_count?: number;
-      eval_count?: number;
-    };
-
     return {
-      output: judgeData.message?.content ?? "Keine Synthese moeglich.",
+      output: judge.content || "Keine Synthese moeglich.",
       model: `swarm(${models.join("+")})`,
-      promptTokens: results.reduce((s, r) => s + r.promptTokens, 0) + (judgeData.prompt_eval_count ?? 0),
-      completionTokens: results.reduce((s, r) => s + r.completionTokens, 0) + (judgeData.eval_count ?? 0),
+      promptTokens: results.reduce((s, r) => s + r.promptTokens, 0) + judge.promptTokens,
+      completionTokens: results.reduce((s, r) => s + r.completionTokens, 0) + judge.completionTokens,
       durationMs: Date.now() - start,
     };
   }
@@ -279,72 +345,33 @@ export class OllamaBackend implements InferenceBackend {
     // Max 5 Tool-Runden (verhindert Endlos-Loop)
     for (let round = 0; round < 5; round++) {
       console.log(`[tool-loop] Runde ${round + 1}, messages: ${messages.length}`);
-      const res = await fetch(`${this.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: false,
-          tools,
-          options: req.maxTokens ? { num_predict: req.maxTokens } : undefined,
-        }),
-        signal: AbortSignal.timeout(120_000),
-      });
+      const msg = await this.rufe({ model, messages, tools, maxTokens: req.maxTokens });
 
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => "unlesbar");
-        throw new Error(`Ollama HTTP ${res.status}: ${errBody.slice(0, 200)}`);
-      }
-      const data = (await res.json()) as {
-        message?: {
-          content?: string;
-          tool_calls?: Array<{
-            function: { name: string; arguments: Record<string, string> };
-          }>;
-        };
-        prompt_eval_count?: number;
-        eval_count?: number;
-      };
-
-      promptTokens += data.prompt_eval_count ?? 0;
-      completionTokens += data.eval_count ?? 0;
-
-      const msg = data.message;
-      if (!msg) break;
+      promptTokens += msg.promptTokens;
+      completionTokens += msg.completionTokens;
 
       // Keine Tool-Aufrufe? Fertig!
-      if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      if (msg.werkzeuge.length === 0) {
         // Schritt 3.3: Nur die Laenge – der Antworttext gehoert nicht ins Log.
-        console.log(`[tool-loop] Keine tool_calls, finale Antwort (${msg.content?.length ?? 0} Zeichen)`);
-        finalOutput = msg.content ?? "";
+        console.log(`[tool-loop] Keine tool_calls, finale Antwort (${msg.content.length} Zeichen)`);
+        finalOutput = msg.content;
         break;
       }
 
-      console.log(`[tool-loop] ${msg.tool_calls.length} tool_calls:`, msg.tool_calls.map((c) => c.function.name));
+      console.log(`[tool-loop] ${msg.werkzeuge.length} tool_calls:`, msg.werkzeuge.map((c) => c.name));
 
       // Tool-Aufrufe ausfuehren und zur History hinzufuegen
-      for (const call of msg.tool_calls) {
-        const toolName = call.function.name;
-        const args = call.function.arguments;
+      for (const call of msg.werkzeuge) {
+        const toolName = call.name;
+        const args = call.arguments;
         // Live-Fortschritt an den Kunden (kind-7000 progress)
         try { req.onProgress?.(`tool:${toolName}`); } catch { /* best-effort */ }
 
         // Tool ausfuehren (lokal, kein externer Call)
         const toolResult = await this.executeTool(toolName, args);
 
-        // Assistant-Message mit tool_call (wie Ollama es erwartet)
-        messages.push({
-          role: "assistant",
-          content: msg.content ?? "",
-          tool_calls: [call],
-        } as never);
-        // Tool-Ergebnis als tool-Message
-        messages.push({
-          role: "tool",
-          content: toolResult,
-          name: toolName,
-        } as never);
+        // Assistant-Message mit tool_call und Tool-Ergebnis – in der Form des Antriebs (B-29a)
+        messages.push(...(this.werkzeugRunde(msg.content, call, toolResult) as never[]));
 
         // NEU: Nach web_search explizit sagen, dass das Ergebnis reicht
         if (toolName === "web_search") {
@@ -707,18 +734,6 @@ export class OllamaBackend implements InferenceBackend {
       ...(req.history ?? []),
       { role: "user" as const, content: req.prompt },
     ];
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream,
-        options: req.maxTokens ? { num_predict: req.maxTokens } : undefined,
-      }),
-    });
-    if (!res.ok) throw new Error(`Ollama chat HTTP ${res.status}`);
-
     // Nemotron & Co: Reasoning-Trace aus der Antwort entfernen. Das Modell
     // schreibt "Here's a thinking process: ... 4. Final answer: X" — der
     // Kunde will nur X. Stripping gilt für non-stream und stream.
@@ -732,6 +747,25 @@ export class OllamaBackend implements InferenceBackend {
       if (m && m.index !== undefined) out = out.slice(m.index + m[0].length);
       return out.trim();
     };
+
+    // OpenAI-kompatibel (B-29a): ohne Strom gerechnet, der Text kommt in einem Stück
+    if (this.antrieb === "openai") {
+      const a = await this.rufe({ model, messages, maxTokens: req.maxTokens });
+      const text = stripThinking(a.content);
+      if (stream && text) onToken?.(text);
+      return { output: text, model, promptTokens: a.promptTokens, completionTokens: a.completionTokens, durationMs: Date.now() - start };
+    }
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages,
+        stream,
+        options: req.maxTokens ? { num_predict: req.maxTokens } : undefined,
+      }),
+    });
+    if (!res.ok) throw new Error(`Ollama chat HTTP ${res.status}`);
 
     if (!stream) {
       const data = (await res.json()) as {

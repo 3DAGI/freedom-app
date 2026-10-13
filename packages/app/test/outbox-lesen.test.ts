@@ -77,3 +77,14 @@ test("5.4b: verdrahtet – Schlüsselwechsel, Geräte-Vollmachten und Zap-Profil
   assert.match(kom, /new GeraeteBuch\(async \(f\) =>\s*Array\.isArray\(f\.authors\) \? frageBeiAutoren\(/);
   assert.match(zap, /await frageBeiAutoren\(\{ kinds: \[0\], authors: \[state\.recipientPubkey\], limit: 1 \}\)/);
 });
+
+test("A-25/A-26: kein fremdes ws://, ausgesetzte Relays nicht – der Plan bekommt Pool und Aussetzer", async () => {
+  const n = netz({
+    "wss://pool.test": [liste(kontakt, ["ws://offen.test", "wss://tot.test", "wss://kontakt.test", "wss://pool.test"])],
+    "wss://kontakt.test": [profil(kontakt, "Kira")],
+  }, ["wss://pool.test"]);
+  const leser = new OutboxLeser({ pool: async () => n.pool, frageAn: n.frageAn, ausgesetzt: () => ["wss://tot.test"], onion: () => false });
+  const evs = await leser.frage({ kinds: [0], authors: [kontakt.pk] });
+  assert.deepEqual(evs.map((e) => JSON.parse(e.content).name), ["Kira"]);
+  assert.deepEqual(n.gefragt, ["wss://kontakt.test"], "ws:// nie, das ausgesetzte nicht, das im Pool fragt der Pool");
+});

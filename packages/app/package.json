@@ -1,6 +1,7 @@
 {
   "name": "@freedomstack/app",
   "version": "0.1.0",
+  "license": "EUPL-1.2",
   "type": "module",
   "description": "FreedomStack App: ein Download \u2014 Chat, KI-Marktplatz, Wallet, Verdienen",
   "scripts": {
@@ -22,6 +23,7 @@
     "esbuild": "^0.28.1",
     "@scure/base": "^1.2.6",
     "@scure/bip32": "^1.7.0",
-    "@scure/bip39": "^1.6.0"
+    "@scure/bip39": "^1.6.0",
+    "jsqr": "1.4.0"
   }
 }

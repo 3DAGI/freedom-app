@@ -7224,6 +7224,1352 @@ beantwortet wird ab 11.3c3b.
 mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
 Smoke-Test, Website-Bau und reproduzierbarer Build grün.
 
+## Schritt 11.3c3b – Agenten auf dem Gerät beantworten Erwähnungen in privaten Räumen
+
+Letzter Teil von 11.3c – **11.3c Code fertig** (offene und private Räume).
+
+**Neu:**
+
+- `shell/agent-mls.ts`: Verlauf je Agent (verschlüsselt wie sein Zustand, Eintrag
+  `verlauf:<agent>`); `agentAbgleichen()` holt die Nachrichten einer Gruppe in ihrer
+  Reihenfolge – auch Commits, wer einen auslässt, liest danach nichts mehr – und legt sie
+  vor dem Zustand in den Verlauf; zurückgehaltene Nachrichten nach einem Commit kommen
+  später in den Verlauf. `agentRaum()` baut den Raum aus diesem Verlauf (Raumstand,
+  Agenten an ihren Karten, Definition eines Admins für den Schalter der Agentenketten).
+  `agentSendet()` schreibt als Agent in die Gruppe und gleich in seinen Verlauf; die
+  Karte beim Einladen geht seitdem auch darüber.
+- `shell/agenten-lauschen.ts`: `setzePrivatAuf()` – je Agent und Gruppe ein Abo an die
+  Relays der Gruppe (`abonniereAn`, `limit: 1`), vorher nachholen ohne zu antworten,
+  danach über `Nachziehen` nur Neues: Nachrichten nach dem Abo, die den Agenten
+  erwähnen. `beantwortePrivat()` entscheidet mit dem Raum aus seinem Verlauf und
+  antwortet als inneres Event (`raumAgentAntwort()`), den Hinweis „Budget aufgebraucht“
+  ohne Erwähnung. Auftrag und Bezahlung teilen offene und private Räume
+  (`frageUndZahle()`, aus 11.3c2 herausgelöst – unverändert).
+- `agent-antwort.ts`: `entscheide()` nimmt wahlweise eine eigene Erkennung der Agenten
+  (privat: Karten statt Rolle).
+- `shell/app.ts`: Der Abruftakt prüft offene und private Räume (`agentenImTakt`); der Start
+  nur offene – die MLS-Engine lädt nie beim Start. Nach dem Einladen in einen privaten
+  Raum setzt `ladeAgentInPrivatenRaum()` die Abos gleich neu auf.
+
+**Verdrahtet:** `shell/app.ts` (`abrufTakt.melde("agenten", agentenImTakt, 2)`),
+`shell/agent-mls.ts` (nach Einladen und Entfernen). Damit sind `raumAgentAntwort` und
+`raumAgentKarten` aus `wiring-ausnahmen.txt` heraus.
+
+**Grenzen:** Nachrichten, die die Engine nach einem Commit zurückhält, kommen in den
+Verlauf, werden aber nicht beantwortet. Mentions, während die App zu war, beantwortet
+der Agent nicht (er holt sie nur nach).
+
+**Prüfungen:** protocol 1252 grün (6 übersprungen), node 347, app 1019 (+2), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt LIZ – Lizenz EUPL-1.2
+
+Entscheidung des MENSCHEN vom 09.10.2026: **EUPL-1.2** (Option E). Copyleft auch über
+das Netz, Namen und Marken nicht lizenziert (Art. 5), Recht und Gericht am Sitz des
+Lizenzgebers (Art. 14, 15), amtlich auch auf Deutsch (Art. 13).
+
+**Neu:**
+- **`LICENSE`:** der englische Text von choosealicense (GitHub erkennt die Lizenz
+  daran). Der Wortlaut ist gleich dem der SPDX-Liste; verglichen ohne Leerraum und
+  Strichformen.
+- **Lizenzfelder:** `"license": "EUPL-1.2"` in der Wurzel und in `app`, `mls`, `node`,
+  `protocol`. Die Sperrdatei ist mit `npm install --package-lock-only` nachgezogen; ihr
+  Diff enthält nur diese fünf Zeilen.
+- **README:** Abschnitt „Lizenz“ mit dem Hinweis „Licensed under the EUPL“ und den
+  Kernpunkten. Link zu allen Sprachfassungen bei Joinup; den Link kennt choosealicense,
+  hier ist er nicht abrufbar (Proxy).
+- **FAQ:** „Der Code ist quelloffen (Lizenz EUPL-1.2)“.
+- **`CLAUDE.md`:**
+  - STOPP-Punkt „neue Abhängigkeit“: jetzt auch mit Lizenz.
+  - Fallstrick „Lizenz EUPL-1.2“.
+
+**Abhängigkeiten:** Fast alle npm-Pakete stehen unter MIT, Apache, BSD oder ISC. In
+`freedom.html` steckt `rpc-websockets` (über `@solana/web3.js`) unter LGPL-3.0. Die LGPL
+steht im Anhang der EUPL, das passt.
+
+**Zwei Funde im Spiegel-Skript:** `@ardrive/turbo-sdk` zieht zwei Pakete mit:
+- `arweave-stream-tx` steht unter GPL-3.0.
+- `@metamask/sdk` steht unter einer eigenen Lizenz von ConsenSys („All rights reserved“),
+  über `x402` → `wagmi`.
+
+Beide sind nicht in `freedom.html` (`turbo-sdk` ist im Build `external`) und nicht im
+Knoten; sie laufen nur in `scripts/mirror/spiegeln.mts` im Release-Job. Wandert
+`turbo-sdk` je in App oder Knoten, vorher prüfen.
+
+**Nicht geändert:**
+- **`packages/mls/crate`:** erbt `license` aus dem MDK-Arbeitsbereich (MIT).
+- **Hülle und Solana-Programme:** tragen keine Angabe.
+- Für jede Änderung dort gelten die Prüfungen des Bereichs (`bauen.sh --pruefen`,
+  `cargo test`, `pruefen.sh`). Die Datei `LICENSE` in der Wurzel gilt für alles.
+
+**Test:** `protocol/test/lizenz.test.ts` (+2):
+- Prüfsumme von `LICENSE`, mit Gegenprobe.
+- Jedes Paket und die Sperrdatei nennen EUPL-1.2.
+- README mit Hinweis.
+
+## Schritt L2-1, L2-2 – Frische Angebote vorn, Rückfall nach 20 s Stille (Lauf 2, Anhang F)
+
+Befunde aus Lauf 2 des lokalen Agenten (Sammlung Anhang F); entschieden 09.10.2026
+(MENSCH, L2-3): erst diese beiden, die netzweite Ausfall-Kenntnis später.
+
+**L2-1 – ein toter Provider wurde gewählt:**
+
+- `protocol/src/pruefung.ts`: `ANGEBOT_TAKT_SEK` (30 min, auch der Takt des Knotens in
+  `main.ts`), `PRUEF_GRENZEN.veraltetSek` (zwei Takte plus fünf Minuten),
+  `angebotVeraltet()`; `ordneNachPruefung()` stellt veraltete Angebote hinter alle
+  frischen (auch hinter Herabgestufte), vor die gemessen Ausgefallenen.
+- `app/src/matchmaking.ts`: je Provider nur das neueste Angebot; `matchProviders()`
+  rechnet „veraltet“ je Auswahl mit der Uhr (der Angebots-Cache altert mit), eigene
+  Provider unter sich frische vor veralteten; `jetzt` für Tests.
+
+**L2-2 – Rückfall erst nach 5 min:**
+
+- Knoten (`dvm-provider.ts`): `meldeBearbeitung()` – „processing“ (7000, versiegelt), sobald
+  ein Auftrag angenommen ist: nach allen Ablehnungen, vor Werkzeugen und Rechnen, über
+  Funk nie.
+- App (`tabs/agent.ts`): `waitForAnswer()` liest Ergebnisse vor Rückmeldungen – bis hier
+  hielt jede Rückmeldung (auch ein Zwischenstand) ein fertiges Ergebnis bis zur Frist auf;
+  eine Ablehnung zählt vor Zwischenständen; „processing“ heißt warten; `stummNachMs`:
+  ohne Lebenszeichen zurück.
+- App (`tabs/agent-wege.ts`): nach `HEDGE_AFTER_MS` (20 s) ohne Lebenszeichen bekommt der
+  nächste den Auftrag zusätzlich – nur wenn es einen gibt und nie mit Gutschrift im
+  Zahlkanal (`perKanal()`); das letzte Ziel wartet mindestens bis zur Frist des ersten.
+
+**Verdrahtet:** `shell/state.ts` (`findProviders()` → `matchProviders()`),
+`shell/tabs/agent-wege.ts` (`askWithFailover()`), `node/src/dvm-provider.ts`
+(`handleJob()`), `node/src/main.ts` (`CAPS_REFRESH_MS`).
+
+**Knoten-Stand:** Ohne das Update schickt ein Knoten kein „processing“ – die App fragt
+dann nach 20 s zusätzlich den nächsten (seine Antwort zählt weiter). Der GX10 auf `main`.
+
+**Prüfungen:** protocol 1253 grün (+1, 6 übersprungen), node 350 (+3), app 1027 (+8; ein
+Quelltext-Test folgt dem neuen Namen `fb`), Leak 73 + 1 todo; mls 13; tsc ×3, Build,
+`check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test,
+Website-Bau und reproduzierbarer Build grün.
+
+## Schritt E9-3b – Modelle in der Selbstprüfung und im Status des eigenen Knotens
+
+Zweiter Teil von E9-3 (Entwurf `docs/E9-ENTWURF.md`, V3 A, Freigabe 08.10.):
+`pruefeEinrichtung()` sollte ungeprüfte Modelle mit eigener Kennung melden (wie B-11c), und den
+Fortschritt beim Laden sieht der Besitzer über den Status des eigenen Knotens (B-11).
+
+**Knoten:**
+- **`modell-pruefung.ts` (neu):** `pruefeModelle()` liefert je Modell eine Kennung:
+  - `modell.geprueft`: gegen das Manifest geprüft, Fingerabdruck bei Ollama gleich – mit
+    Dateien und Bytes.
+  - `modell.ungeprueft`: aus `PROVIDER_MODELS` angeboten, ohne Prüfung gegen ein Manifest.
+  - `modell.veraendert`: Ollama hat unter dem Namen inzwischen etwas anderes.
+  - `modell.fehltBeiOllama`: nicht bei Ollama, nicht im Angebot.
+  - `modell.fehltImAngebot`: Ollama kennt keins – die Liste bleibt im Angebot (B-41), Aufträge
+    scheitern.
+  - `modell.ollamaStumm`: Ollama antwortete nicht, keine Aussage.
+  - `modell.wartet`: gewünscht, noch nicht dran.
+  - Das letzte gescheiterte Laden je Name, aus der Kennung von `ladeModell()` abgeleitet
+    (`modellFall()`: `passt.nicht` → `modell.passtNicht`). Ein älteres Scheitern zählt nicht,
+    wenn derselbe Name wieder gewünscht ist.
+- **Sätze:** nur in `MODELL_TEXT`. `npm run modell` nimmt dieselben; seine eigene Tabelle fiel weg.
+- **`npm run pruefen`:** zeigt die Modelle nach Lightning und SOL. Der Exit-Code hängt wie bisher
+  nur an Lightning und SOL.
+- **`main.ts`:**
+  - Der Status an den Besitzer (5077) trägt `modellPruefung`: Befunde und was gerade lädt (aus
+    `modelle.json`).
+  - Ollama wird einmal je Angebot gefragt; Namen und Fingerabdrücke kommen aus derselben Antwort
+    (`ollamaStand`).
+  - Angebot und Status lesen `PROVIDER_MODELS` über `providerModelle()`.
+
+**Protokoll** (`knoten-status.ts`, `docs/PROTOCOL.md` §24):
+- **Neues Feld:** `modellPruefung` mit `befunde` (höchstens 30: Name, Stufe, `modell.…`, Werte
+  wie bei `einrichtung`) und `laeuft` (Name, Schritt, seit, beim Laden Bytes).
+- **Eigenes Feld, nicht in `einrichtung`:** Eine App vor E9-3b läse sonst den ganzen Status nicht
+  mehr, sie übergeht das neue Feld.
+- **Nichts Unlesbares:** `knotenStatusText()` schickt nichts, was `leseKnotenStatus()` abwiese.
+  Ein Modellname aus der Umgebung mit Steuerzeichen fällt weg, statt den Status unlesbar zu
+  machen.
+
+**App** (`knoten-status-ansicht.ts`):
+- **Anzeige unter „Einrichtung“:** „Modelle (Prüfung gegen das Manifest)“ mit einer Zeile je
+  Modell (`modellZeile()`) und dem Fortschritt (`ladenZeile()`, Schritt, Anteil höchstens
+  100 %).
+- **Ältere Knoten:** Bei einem Knoten vor E9-3b steht das ehrlich da.
+- **Texte:** je Kennung ein Text in beiden Sprachen (`MODELL_TEXT`). Ein Test vergleicht die
+  Kennungen mit dem Knoten.
+
+**Echt gestartet:** `npm run pruefen` gegen eine Ollama-Attrappe (`/api/tags`) mit gemerktem
+Stand und Wünschen in einem frischen `HOME`. Die Ausgabe nennt:
+- geprüft,
+- verändert (anderer Fingerabdruck),
+- ungeprüft (`nemotron-3.5-lightning` → `:latest`),
+- fehlt bei Ollama,
+- wartet,
+- „braucht etwa 48 GB, das Gerät hat 32 GB“.
+
+**Tests:**
+- **protocol** `knoten-status.test.ts` (+2): Hin und zurück; alles Kaputte ist null; der
+  Schreiber lässt Unlesbares weg.
+- **node** `modell-pruefung.test.ts` (+7):
+  - jede Kennung;
+  - jeder Ausgang von `ladeModell()` hat einen Satz;
+  - Weg durch den Provider (Antwort an den Besitzer, Name mit Steuerzeichen fällt weg);
+  - Verdrahtung.
+- **app** `knoten-status.test.ts` (+2): Zeilen, Fortschritt, Kennungen gleich denen des Knotens.
+- **Angepasst, nicht abgeschwächt** (B-11b/c): Zwei Tests zählten die Zeilen der Anzeige. Dazu
+  kommt die Zeile zu den Modellen; geprüft wird sie jetzt mit.
+
+**Prüfungen:** protocol 1257 grün (+2, 6 übersprungen), node 356 grün (+7, ohne Netz 7
+übersprungen; mit Netz 357), app 1029 (+2), Leak 73 + 1 todo, mls 13; tsc überall, Build,
+`check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: `main` mit E9-3b, damit die App die Modelle im Status zeigt. Ohne Update steht dort
+„dieser Knoten meldet keine Prüfung“.
+
+## Schritt B-29a – KI-Antrieb wählbar (OpenAI-kompatibel: vLLM, SGLang, TensorFold)
+
+Erster Teil von B-29 (Sammlung, Anhang E). Der Knoten sprach nur Ollama. Ollama arbeitet
+gleichzeitige Anfragen von Haus aus nacheinander ab; vLLM, SGLang und TensorFold bündeln sie.
+B-29 ist dreigeteilt:
+- **B-29a (dieser Schritt):** Antrieb wählbar.
+- **B-29b:** Messskript – dasselbe Modell, Durchsatz bei einer und bei N gleichzeitigen Anfragen.
+- **B-29c:** Gewichte außerhalb von Ollama gegen das Manifest prüfen.
+
+TensorFold ist OpenAI-kompatibel, die Sammlung hatte „prüfen“ vermerkt.
+
+**Knoten:**
+- **`ki-antrieb.ts` (neu):** `antriebAusUmgebung()` wählt über `KI_ANTRIEB`:
+  - `ollama` (Vorgabe): `OLLAMA_URL` wie bisher.
+  - `openai`: `KI_URL` mit `/v1` (Vorgabe vLLM `http://127.0.0.1:8000/v1`), optional
+    `KI_SCHLUESSEL` als Bearer.
+- **`KI_URL` nur dieser Rechner oder das Heimnetz** (`lokaleAntriebAdresse()`): localhost, private
+  Adresse, Name ohne Punkt (Docker-Dienst), `.local`/`.lan`/`.internal`/`.home.arpa`; ohne
+  Zugangsdaten. Ein Dienst im Internet wäre ein Dritter, der die Fragen der Kunden liest.
+  Ungültig → der Knoten startet nicht, nie still Ollama.
+- **`inference.ts`:** Alle Aufrufe (Werkzeug-Schleife, Swarm, Richter, Strom) gehen über `rufe()`.
+  - Ollama: `/api/chat` wie bisher.
+  - OpenAI-kompatibel: `/chat/completions` mit `max_tokens`. Werkzeug-Argumente kommen als
+    JSON-Text, die Antwort des Werkzeugs trägt `tool_call_id` (`werkzeugRunde()`).
+  - Fehler des Dienstes nur mit Status, nie mit seinem Text (der kann die Frage enthalten).
+  - Der Strom kommt in einem Stück, ohne Denkspur wie bei Ollama.
+  - Systemprompt, Werkzeuge und `ohneWerkzeuge` sind für beide gleich.
+- **Modelle:** `antriebModelle()` fragt `/v1/models`, nur Kennungen (begrenzt, ohne
+  Steuerzeichen) und ohne Fingerabdruck. Ins Angebot kommt aus `PROVIDER_MODELS`, was der Antrieb
+  nennt (B-41 wie bisher).
+- **Geprüft laden** (`ModellDienst`) geht nur mit Ollama. Mit einem anderen Antrieb:
+  - wartet der Takt, und das Log sagt es;
+  - nennt `pruefeModelle(…, antrieb)` eigene Kennungen: `modell.nurOllama`,
+    `modell.ungeprueftAntrieb`, `modell.fehltBeimAntrieb`, `modell.antriebKenntKeins`,
+    `modell.antriebStumm`, `modell.ladenNurOllama`;
+  - heißt nie etwas „geprüft“.
+- **`npm run pruefen`:** fragt den gewählten Antrieb. Bei ungültiger Einstellung zeigt es
+  „✗ KI-Antrieb: …“ und endet mit 1.
+
+**App:** je neue Kennung ein Text in beiden Sprachen (`knoten-status-ansicht.ts`,
+`texte/settings.ts`). Der Test aus E9-3b vergleicht die Kennungen mit dem Knoten.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „KI-Antrieb“, mit den Schaltern für Werkzeug-Aufrufe bei vLLM und
+  SGLang).
+- `docker-compose.yml` reicht `KI_ANTRIEB`, `KI_URL`, `KI_SCHLUESSEL` durch.
+- Fallstrick in `packages/node/CLAUDE.md`.
+- Sammlung (B-29 geteilt), FORTSCHRITT.
+
+**Echt gestartet:** `npm run pruefen` gegen eine OpenAI-Attrappe (`/v1/models`) in einem frischen
+`HOME`, mit Schlüssel:
+- Das bekannte Modell erscheint als „angeboten, aber nicht gegen ein Manifest geprüft … mit diesem
+  KI-Antrieb geht das noch nicht“.
+- Das unbekannte Modell erscheint als „der KI-Antrieb (KI_URL) kennt das Modell nicht“.
+- Die Attrappe bekam den Schlüssel; in der Ausgabe steht er nicht.
+- Mit `KI_URL=https://api.example.com/v1`: „✗ KI-Antrieb: KI_URL muss auf diesen Rechner oder ins
+  Heimnetz zeigen …“, Exit 1.
+
+Der erste Lauf zeigte bei OpenAI noch den Rat „npm run modell -- <name> --aus-registry“, der dort
+nicht hilft. Daher gibt es jetzt die eigene Kennung `modell.ungeprueftAntrieb`.
+
+**Tests:**
+- **node** `ki-antrieb.test.ts` (+9):
+  - Adressregeln;
+  - Wahl aus der Umgebung;
+  - Anfrage mit Systemprompt, Werkzeugen, Grenze, Schlüssel;
+  - `ohneWerkzeuge`;
+  - Werkzeug-Runde mit `tool_call_id`;
+  - Fehler ohne Text des Dienstes;
+  - Strom ohne Denkspur;
+  - Modellliste;
+  - Selbstprüfung mit OpenAI;
+  - Verdrahtung (kein Schlüssel in Log-Zeilen).
+- **Angepasst, nicht abgeschwächt:**
+  - `modell-laden.test.ts` und `modell-pruefung.test.ts` erwarten den Aufruf über
+    `antriebModelle(antrieb)`.
+  - `angebot-modell.test.ts` prüft jetzt, dass die gesuchte Stelle gefunden wird. Vorher wäre ein
+    `indexOf` von -1 still durchgegangen.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `01a6fc1` (`main` c6bc12c + B-29a), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 365 grün (+9, ohne Netz 7 übersprungen; mit Netz 366), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – ohne `KI_ANTRIEB` arbeitet der Knoten wie bisher mit Ollama.
+
+## Schritt B-29b – Messskript für den KI-Antrieb
+
+Zweiter Teil von B-29 (Sammlung, Anhang E): Welcher Antrieb auf dem GX10 läuft (Ollama, vLLM,
+SGLang, TensorFold), entscheidet eine Messung (MENSCH, M-7). Gemessen wird dasselbe Modell bei
+einer und bei N gleichzeitigen Anfragen.
+
+**Knoten:**
+- **`messung.ts` (neu):**
+  - `leseMessWunsch()`: Aufruf geprüft – höchstens 8 Stufen von 1 bis 64, 1 bis 512 Anfragen,
+    16 bis 4096 Tokens; sonst ein Grund.
+  - `missStufe()`: höchstens N Anfragen zugleich, bis alle gestellt sind. Feste, wechselnde
+    Übungsfragen über `complete()` mit `ohneWerkzeuge` – derselbe Weg wie echte Anfragen, ohne
+    Websuche. Fehler nur mit Namen.
+  - `werteAus()`: Tokens je Sekunde über die Wanduhr, Antworten je Minute, Median und p95.
+    Tokens je Sekunde nur, wenn der Antrieb sie für jede Anfrage nennt – sonst „–“, nie
+    hochrechnen.
+  - `messTabelle()`: der Faktor gegenüber der ersten Stufe, über Tokens oder (wenn nicht alle sie
+    haben) über Antworten je Minute, nie gemischt.
+- **`npm run messen` (`messen.ts`):**
+  - nimmt den Antrieb wie der Knoten (`antriebAusUmgebung()`) und das Modell aus `--modell` oder
+    das erste aus `PROVIDER_MODELS`;
+  - wärmt mit einer Anfrage auf, die nicht zählt;
+  - zeigt Antworten nie;
+  - bei Ollama mit dem Hinweis auf `OLLAMA_NUM_PARALLEL`;
+  - Exit 1 bei ungültigem Aufruf, ungültigem oder stummem Antrieb, gescheitertem Aufwärmen.
+
+**Doku:** `docs/PROVIDER.md` (Abschnitt „Welcher Antrieb? Messen“), Fallstrick in
+`packages/node/CLAUDE.md`, Sammlung und FORTSCHRITT (B-29b ✓).
+
+**Echt gestartet:** `npm run messen -- --gleichzeitig 1,4,8 --tokens 100` gegen zwei
+OpenAI-Attrappen mit 200 ms je Antwort:
+
+| gleichzeitig | nacheinander (wie Ollama ab Werk) | bündelnd (wie vLLM) |
+|---|---|---|
+| 1 | Faktor 1,00, Median 0,20 s | Faktor 1,00, Median 0,20 s |
+| 4 | Faktor 1,01, Median 0,80 s | Faktor 3,91, Median 0,21 s |
+| 8 | Faktor 1,01, Median 1,61 s | Faktor 7,88, Median 0,21 s |
+
+Jeweils Exit 1 mit eigenem Satz bei:
+- falschem Modell („Aufwärmen gescheitert (Error) – stimmt der Modellname beim Antrieb?“);
+- `--gleichzeitig 0`;
+- einer Adresse im Internet;
+- einem nicht erreichbaren Antrieb.
+
+**Tests:** node `messung.test.ts` (+6):
+- Aufruf (Vorgaben, Sortierung, zwölf ungültige Fälle);
+- höchstens N zugleich, ohne Werkzeuge, mit Modell und Grenze, Fragen wechseln;
+- Fehler nur mit Namen;
+- Auswertung (Wanduhr, Median, p95, ohne Tokens keine Zahl, Faktor nie gemischt);
+- durch den echten Antrieb (OpenAI-kompatibel und Ollama);
+- Verdrahtung (keine Antworten, kein Schlüssel auf dem Bildschirm).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `88874ee` (`main` 25bbb19 + B-29b), `GESAMT fail=0`: protocol 1257 grün (6 übersprungen), node 371 grün (+6, ohne Netz 7 übersprungen; mit Netz 372), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig – das Skript läuft am Knoten, wenn der MENSCH misst.
+
+## Schritt 11.3d1a – Agent auf dem Knoten: offene Räume, „wer fragt, zahlt“
+
+Erster Teil von 11.3d (Karte `phase-11.md`, Entwurf `docs/AGENTEN-RAUM-ENTWURF.md` P4, P5, F5; an
+Spur B übergeben 09.10.). 11.3d ist geteilt:
+- **d1a (dieser Schritt):** der Knoten, offene Räume, „wer fragt, zahlt“.
+- **d1b:** die App zeigt den Preis und schickt den Auftrag mit Verweis.
+- **d2:** private Räume mit einem MLS-Konto im Knoten.
+- **d3:** Budget des Einladers (Pfand im Zahlkanal), nach M-2.
+
+**Protokoll** (`agent-raum.ts`, neu):
+- Aus der App (`agent-antwort.ts`, 11.3c2a) hierher gezogen: `entscheide()` (neu mit `ausBudget`),
+  `istAgentIm()`, `darfSchreibenIm()`, `agentAntwortEvent()`, `agentHinweisEvent()` und der Prompt als
+  `agentPromptMit()` mit festen Grenzen. App und Knoten entscheiden so mit denselben Regeln.
+- Die App behält ihre Schnittstelle; `agentPrompt()` nimmt die Grenzen aus `VERLAUF_UMFANG`.
+- **Neu: `definitionDesGruenders()`.** Die Definition hat `d` = `space:<kennung>`. Die App suchte bis
+  hier nach `d` = `<kennung>` und fand den Schalter der Agentenketten nie, Ketten blieben in offenen
+  Räumen immer aus. Behoben in `shell/agenten-lauschen.ts` (Spur A, eine Zeile).
+
+**Knoten** (`knoten-agent.ts`, neu):
+- **Einstellung:** `KNOTEN_AGENT=1` mit `AGENT_NAME` (Pflicht), `AGENT_ABOUT`, `AGENT_PERSONA`,
+  `AGENT_MODELL`, `AGENT_BESITZER`; ungültig → kein Start.
+- **Schlüssel:** eigener in `~/.freedom/agent-key` (0600, über `ladeKnotenSchluessel()`), nie der des
+  Knotens (geprüft).
+- **Karte** (38090, Knoten, „wer fragt“, `provider` = der Knoten) beim Start und mit jedem Erneuern
+  des Angebots; die Persona steht nicht darin.
+- **Auftrag** (`dvm-provider.ts`):
+  - Ein Verweis (`leseAuftragsVerweis()`) nur aus einem Umschlag.
+  - `KnotenAgent.pruefe()` nach der Zahlungsprüfung, vor dem Rechnen. Die Erwähnung muss es im Raum
+    geben (signiert, Kind 42, Kennung), mit dem Stand des Raums und `entscheide()` mit
+    `ausBudget: false` – nie auf Agenten.
+  - Gerechnet wird nur Persona, Verlauf und Erwähnung aus dem Raum, nie die Eingabe des Auftrags.
+  - Erst die Antwort im Raum (Kind 42 vom Agenten), dann das Ergebnis versiegelt an den Fragenden.
+  - Scheitert das Rechnen, ist die Erwähnung wieder frei.
+- **Einmal:** Jede Erwähnung beantwortet er höchstens einmal (`agent-beantwortet.json`, nur Ids, 0600).
+- **Ablehnungen:** vor dem Rechnen als `AgentAbgelehnt` mit `["fall", …]` in der Rückmeldung – nie mit
+  Text aus dem Raum oder von Relays.
+
+**Doku:**
+- `docs/PROVIDER.md` (Abschnitt „Agent auf dem Knoten“), `docs/PROTOCOL.md` §32 (Prüfung, Kennungen).
+- Fallstricke in `packages/node`, `packages/protocol`, `packages/app`.
+- Karte `phase-11.md` (11.3d geteilt), FORTSCHRITT, `docker-compose.yml`.
+
+**Echt gestartet:** der Knoten mit eigenem Relay (`RELAY_ENABLED=1`), Agent an, OpenAI-Attrappe als
+Antrieb (B-29a). Ein Skript spielt Raum, Rollen, Erwähnung und einen versiegelten, bezahlten Auftrag
+über `ws://` durch:
+- Die Karte ist da („Lektor, knoten, fragender, provider = der Knoten“).
+- Die Antwort steht im Raum vom Agenten (`space`, `h`, `e` … `reply` auf die Erwähnung, `p` … `mention`
+  des Fragenden).
+- Ein zweiter bezahlter Auftrag für dieselbe Erwähnung bringt keine zweite Antwort; im Log steht nur
+  „agent-schon-beantwortet“.
+- Kein Klartext im Log; `agent-key` und `agent-beantwortet.json` mit 0600.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+2): Definition des Gründers (`space:<kennung>`, nur vom Gründer,
+  die neueste); „wer fragt, zahlt“ nie auf Agenten; Prompt mit festen Grenzen.
+- **node** `knoten-agent.test.ts` (+7):
+  - Einstellung;
+  - Karte;
+  - der ganze Weg durch den Provider (Prompt aus dem Raum statt der Eingabe, Antwort im Raum und
+    versiegelt, bezahlt, kein Klartext im Log);
+  - einmal, auch nach einem Neustart;
+  - Ablehnungen mit Kennung;
+  - offen abgelehnt;
+  - Verdrahtung.
+- **app:** unverändert grün (die Bausteine kommen jetzt aus dem Protokoll).
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `d87e0d0` (`main` cf3c89a + 11.3d1a): protocol 1259 grün (+2, 6 übersprungen), app 1029, Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün. Knoten im ersten Lauf 376 grün, 2 rot: Die Verdrahtungstests aus B-12a und B-13a lesen „keypair, weckBuch, turn,“ zusammenhängend, und `agent: knotenAgent` stand dazwischen – jetzt dahinter (Tests unverändert); danach node 378 grün (+7, ohne Netz 7 übersprungen; mit Netz 379), `check-wiring --streng` Exit 0.
+
+Knoten-Stand: `main` mit 11.3d1a, nur wer einen Agenten auf dem Knoten will (`KNOTEN_AGENT=1`); sonst
+kein Update nötig.
+
+## Schritt 11.3d1b1 – Agenten per „@Name“ erwähnen
+
+Erster Teil von 11.3d1b (App), geteilt: **d1b1** Erwähnen per Name, **d1b2** der bezahlte Auftrag an
+einen Agenten auf dem Knoten (Preis, Verweis, Datenschutz). Anlass: Die App setzte in Räumen eine
+Erwähnung nur beim Antworten (erwähnt wird der Autor). Einen Agenten, der noch nichts geschrieben
+hatte, konnte niemand ansprechen – weder auf dem Gerät (11.3c) noch auf dem Knoten (11.3d1a).
+
+**Protokoll** (`agent-raum.ts`):
+- `erwaehnteAgenten(text, karten)`:
+  - „@Name“ als ganzes Wort, ohne Groß- und Kleinschreibung;
+  - nur aus den gegebenen Karten, nie aus dem Text allein;
+  - höchstens fünf (`AT_ERWAEHNUNGEN`), in der Reihenfolge des Textes;
+  - teilen sich zwei Agenten einen Namen, erwähnt sie keinen – nie den falschen.
+
+**App** (`shell/tabs/raeume.ts`, Spur C, klein gehalten):
+- **Offener Raum:** Beim Öffnen lädt die App die Karten der Mitglieder mit der Rolle `agent`
+  (`agentKartenIm()`, `aktuelleAgentKarten()`).
+- **Privater Raum:** Karten der Gruppe (`raumAgentKarten()`).
+- **Beim Senden** kommen die erwähnten Agenten in den Bezug, offen als `p` … `mention`, privat im
+  inneren Event. Die Sendezeilen selbst bleiben, wie der Leak-Test und der Test aus 11.4c sie lesen.
+- Das gilt für Agenten auf dem Gerät wie auf dem Knoten. Ein Agent auf dem Knoten antwortet erst mit
+  d1b2, wenn jemand den Auftrag bezahlt.
+
+**Doku:** `docs/PROTOCOL.md` §32, Fallstrick in `packages/app/CLAUDE.md`, Karte `phase-11.md`,
+FORTSCHRITT.
+
+**Tests:**
+- **protocol** `agent-raum.test.ts` (+1): 13 Fälle (Satzende, Klammern, zwei Namen, Mail-Adresse,
+  Wortteil, doppelter Name, Sonderzeichen im Namen), höchstens fünf, ohne Karten niemand.
+- **app** `agent-antwort.test.ts` (+1): Verdrahtung – Karten offen und privat, Erwähnungen in den
+  Bezug, beide Sendewege.
+- **Angepasst, nicht abgeschwächt** (`raum-thread.test.ts`, C.2c): `bezug` ist jetzt `let` mit Typ;
+  der Test prüft weiter, dass er aus `antwortBezug()` kommt.
+
+**Erster Prüflauf:** drei rote Prüfungen, alle durch eigene Änderungen.
+- Der Test aus 11.4c und der Leak-Test „private Räume senden über MLS“ lesen die Zeilen in
+  `raeume.ts` wörtlich. Meine erste Fassung hatte dort eine eigene Variable `erwaehnt`. Jetzt laufen
+  die Erwähnungen über `bezug`, und beide Tests sind unverändert grün.
+- `check-wiring --streng`: Zwei Ausnahmen waren veraltet (`aktuelleAgentKarten`, `leseAgentKarte`
+  sind jetzt verdrahtet), sie sind entfernt.
+
+**Prüfungen:** Alle Befehle aus CLAUDE.md auf `fe2c85b` (`main` b223939 + 11.3d1b1), `GESAMT fail=0`: protocol 1260 grün (+1, 6 übersprungen), node 378 grün (ohne Netz 7 übersprungen; mit Netz 379), app 1030 (+1), Leak 73 + 1 todo, mls 13; tsc überall, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau grün.
+
+Knoten-Stand: kein Update nötig.
+
+## Schritt 11.3d1b2 – Agenten auf dem Knoten fragen: Preis, Auftrag, Verweis
+
+Zweiter Teil von 11.3d1b (App), nach d1b1 („@Name“). Seit 11.3d1a beantwortet ein Agent auf dem Knoten
+eine Erwähnung nur, wenn ihm jemand einen bezahlten, versiegelten Auftrag mit Verweis schickt („wer
+fragt, zahlt“). Diesen Auftrag schickt jetzt die App.
+
+**App:**
+- **`knoten-agent-wahl.ts` (neu, ohne DOM):**
+  - `zuBezahlen()`: nur erwähnte Agenten, deren Karte `knoten`, `fragender` und den Knoten (`provider`)
+    nennt; in der Reihenfolge der Erwähnungen, jeder einmal, nie man selbst.
+  - `ablehnungsText()`: ein Text je Kennung aus PROTOCOL §32, Unbekanntes mit der Kennung – nie Text
+    vom Knoten.
+- **`shell/knoten-agent-fragen.ts` (neu):** `frageKnotenAgenten()` nach dem Senden im offenen Raum.
+  - Je Agent prüft die App zuerst den Knoten: Er braucht ein Angebot für versiegelte Aufträge
+    (`privatFaehig()`).
+  - Danach den Zahlweg: Mit SOL geht es nur mit Zahlkanal; mit Lightning braucht es eine Wallet und eine
+    Adresse des Knotens.
+  - Erst dann zeigt sie den Preis: höchstens 100 sats wie bei Agenten auf dem Gerät, dazu die Rate aus
+    dem Angebot, in sats und SOL.
+  - Ohne Bestätigung geht nichts hinaus.
+- **`shell/bezahlter-auftrag.ts` (neu):** der Auftrag.
+  - Versiegelt von einem frischen Sitzungsschlüssel je Frage.
+  - Im Kern eine feste Eingabe und der Verweis (`auftragsVerweisTags()`: Adresse des Raums, Id der
+    Erwähnung).
+  - Bezahlt wie jede KI-Anfrage: Lightning nach A+, höchstens das Gebot, oder eine Gutschrift im
+    Zahlkanal.
+  - Ablehnungen kommen nur mit ihrer Kennung zurück.
+  - Derselbe Weg wie `frageUndZahle()` in `agenten-lauschen.ts` (11.3c, Spur A). Dort ist er mit dem
+    Budget des Erstellers verflochten und bleibt unverändert.
+- **Kein zweiter Versuch von selbst:** Im Zahlkanal bliebe die Gutschrift der ersten Anfrage offen, die
+  zweite läge ein Gebot höher.
+- **`shell/tabs/raeume.ts` (Spur C, klein gehalten):**
+  - Die Karten im offenen Raum tragen jetzt `betrieb`, `bezahlung`, `provider`, `modell`.
+  - Nach `publish(ev)` ruft der offene Weg `frageKnotenAgenten()` auf; der private Weg ruft es nie auf
+    (Gruppen kommen mit 11.3d2).
+
+**Datenschutz:** neue Grenze „agent-knoten“ (Protokoll, Bericht in beiden Sprachen):
+- Der Knoten kann den Auftrag der öffentlichen Nachricht zuordnen.
+- Über einen Zahlkanal kann er so auch deine anderen Anfragen über diesen Kanal zuordnen.
+- Die Antwort steht öffentlich im Raum.
+- Relays sehen nur den Umschlag.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 und `docs/PROVIDER.md` („Fragen“; „Noch nicht“ ohne d1b).
+- Fallstrick in `packages/app/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Tests:**
+- **app** `knoten-agent-fragen.test.ts` (+4):
+  - Auswahl, mit Gerät, Einlader, ohne Knoten, sich selbst, Reihenfolge und Dopplung.
+  - Der Verweis steht nur im versiegelten Kern: außen nur `p`, die Id nicht im Chiffrat. Der Knoten
+    liest den Verweis, Absender ist der Sitzungsschlüssel.
+  - Jede Kennung aus dem Quelltext des Knotens hat einen Text in beiden Sprachen mit `{name}`, die
+    Preistexte nennen Preis und Rate.
+  - Verdrahtung:
+    - nur offen und erst nach dem Senden;
+    - Zahlweg und Wallet vor dem Preis, Bestätigung vor dem Auftrag;
+    - frischer Schlüssel, feste Eingabe, Verweis nur in `extraTags`;
+    - nur der Umschlag geht hinaus, das Gebot ist vorher gemerkt, abgerechnet über `rechneAntwortAb()`.
+- **protocol** `privacy-facts.test.ts`: „agent-knoten“ in der Liste der Aussagen ohne Leak-Regel; was der
+  Knoten nach dem Öffnen liest, sieht kein Mitschnitt.
+
+**Prüfungen:**
+- protocol 1260 grün (6 übersprungen); node 378 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz, 385 wie vorher); app 1034 grün (vorher 1030); mls 13 grün;
+  Leak-Tests 73 grün + 1 `todo` (unverändert).
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und
+  `build-site.sh`: grün.
+- Erster Lauf: `check-wiring --streng` rot – die Ausnahme für `auftragsVerweisTags` war veraltet
+  (jetzt verdrahtet). Sie ist entfernt.
+
+**MENSCH (Geld, Devnet/Testnet):** einen Knoten mit `KNOTEN_AGENT=1` in einen offenen Raum holen
+(Rolle `agent`), ihn mit „@Name“ erwähnen, den Preis bestätigen.
+- Mit Lightning-Testnet-Wallet: Antwort im Raum, Zahlung höchstens 100 sats.
+- Mit Zahlkanal auf Devnet: Gutschrift höchstens 100 sats zum Kurs des Knotens.
+- Ein zweites „Fragen“ zur selben Nachricht: „schon beantwortet“, nichts bezahlt.
+
+Knoten-Stand: `main` mit 11.3d1a – wer einen Agenten auf dem Knoten betreibt, hat ihn schon; sonst kein
+Update nötig.
+
+## Schritt 11.3d2a – Agent auf dem Knoten tritt privaten Räumen bei
+
+Erster Teil von 11.3d2 (private Räume), geteilt:
+- **d2a (dieser Schritt):** das MLS-Konto im Knoten.
+- **d2b:** antworten in privaten Räumen.
+- **d2c:** die App lädt Knoten-Agenten ein und bezahlt Fragen.
+
+**MENSCH 10.10.2026:**
+- Schalter `besitzer|alle`.
+- Raumstand verschlüsselt auf der Platte, Chat nur im Speicher.
+
+**Knoten:**
+- **`knoten-mls.ts` (neu):** eigenes MLS-Konto mit dem Schlüssel des Agenten (nie dem des Knotens). Die
+  Engine kommt aus `@freedomstack/mls`, der Kontobeweis über `signiereId()`.
+  - **Veröffentlicht:** Relay-Listen (10002, 10050) und ein KeyPackage (30443, fester Platz, neu nach jedem
+    Beitritt).
+  - **Einladungen** nur mit `AGENT_PRIVAT`:
+    - `besitzer` – nur von `AGENT_BESITZER`;
+    - `alle` – von jedem;
+    - höchstens 20 Gruppen.
+  - **Nach dem Beitritt** die Karte als inneres Event (Knoten, „wer fragt, zahlt“).
+  - **Abgleich** alle 15 Sekunden: Einladungen, dann je Gruppe alle Nachrichten in ihrer Reihenfolge.
+    Was die Engine zurückhält, kommt mit `fortschreiten()`; was sie dabei sendet, geht an die Gruppe.
+  - **Auf der Platte nur verschlüsselt** (AES-256-GCM wie `MlsZustand` der App, alles 0600):
+    - `agent-mls.json` (Schlüssel, Platz) – beschädigt heißt kein Start, nie ersetzt;
+    - `agent-mls.zustand`;
+    - `agent-mls.raumstand` (Definition, Rollen, Zuweisungen, Karten, Agentenlisten).
+  - **Chat** nur im Speicher, je Gruppe die letzten 50.
+  - **Fremde Relays** einer Gruppe nur `wss://`, plausibel und geprüft (ohne Tor `checkUrlSafe()`),
+    höchstens 10.
+- **`main.ts`:**
+  - Relays entstehen weiter an einer Stelle (`relayAn`, über Tor wie alle).
+  - Einladungen im eigenen Relay liest der Agent über `alsRelay(agent)` – als Knoten angemeldet sähe er
+    keine Umschläge an sich.
+  - Ins Log nur Kennungen und Zahlen. Ein leerer Posteingang (kein öffentliches Relay) wird gesagt.
+- **Docker-Image** mit `packages/mls` (Quelle und gebaute Engine).
+
+**Befund:** Die Engine (MDK) behält verarbeitete Nachrichten in ihrem Zustand und stellt sie nach einem
+Neustart erneut zu, wenn die Relays sie noch haben.
+- Der Knoten legt keinen eigenen Chat-Verlauf an. Die Engine behält ihn aber wie bei jedem Mitglied in
+  ihrem verschlüsselten Zustand.
+- Datenschutzaussage, `PROVIDER.md` und Fallstrick sagen das so.
+- Für 11.3d2b: Ein erneut zugestelltes „neu“ heißt nicht „unbeantwortet“.
+
+**Datenschutz:** neue Grenze „agent-knoten-privat“ (Protokoll, Bericht in beiden Sprachen) – der Knoten
+liest alles im Raum mit, was er wie ablegt, und dass der Betreiber den Schalter setzen muss.
+
+**Protokoll:** `signiereId()` (BIP-340 über eine fertige Kennung) für Brücken, die nur die Kennung reichen.
+
+**Doku:**
+- `docs/PROVIDER.md` (private Räume, Dateien, Sicherung).
+- `docs/PROTOCOL.md` §32.
+- Fallstrick in `packages/node/CLAUDE.md` – Ausnahme von „Kein Klartext im Knoten“, nur hier.
+- Karte `phase-11.md`, FORTSCHRITT, `docker-compose.yml` (`AGENT_PRIVAT`).
+
+**Echt gestartet:**
+- **Aufbau:** der Knoten mit eigenem Relay (`ws://127.0.0.1`), `KNOTEN_AGENT=1`, `AGENT_PRIVAT=alle`,
+  OpenAI-Attrappe. Ein Gründer-Skript (wie die App, echte Engine, über WebSocket) holt das KeyPackage des
+  Agenten, gründet einen privaten Raum, lädt ihn ein und sendet Raumstand und eine Erwähnung.
+- **Ergebnis:**
+  - Im Log nur „[agent] privatem Raum beigetreten (1 Gruppen)“.
+  - Der Gründer liest die Karte des Agenten in der Gruppe („Lektor, knoten, fragender“, vom Agenten,
+    `provider` gesetzt).
+  - Die Dateien sind 0600 (Zustand 3,6 MB).
+  - Der Probetext steht weder im Log noch in einer Datei.
+- **Befund:** Der Posteingang (10050) war leer – nur `127.0.0.1` in `RELAYS`, das ist kein brauchbarer
+  Posteingang. Das sagt der Knoten jetzt im Log.
+
+**Tests:**
+- **node** `knoten-mls.test.ts` (+7), mit der echten Engine und einem Gründer wie in der App:
+  - Listen und KeyPackage;
+  - Einladung annehmen, Karte beim Gründer;
+  - Raumstand und Chat;
+  - Ablage verschlüsselt (0600, kein Klartext), Neustart, beschädigte Schlüsseldatei;
+  - Schalter `besitzer` und Grenze;
+  - fremde Relays;
+  - Posteingang im eigenen Relay;
+  - `AGENT_PRIVAT`;
+  - Verdrahtung.
+- **protocol** `event.test.ts` (+1): `signiereId()`.
+- **Angepasst, nicht abgeschwächt** (`tor.test.ts`): Die Fabrik heißt jetzt `relayAn`. Der Test prüft
+  weiter, dass es genau eine Stelle mit `new WebSocketRelay(` gibt und dass `RELAYS` über sie verbunden
+  wird.
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen, vorher 1260); node 385 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz; vorher 378 + 7); app 1034 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`:
+  grün.
+
+**MENSCH:** Am GX10 mit `AGENT_PRIVAT=besitzer` und `AGENT_BESITZER` starten; die Dateien
+`~/.freedom/agent-mls.*` mit `agent-key` sichern.
+
+Knoten-Stand: `main` mit 11.3d2a, nur wer private Räume für den Agenten will (`AGENT_PRIVAT`); sonst kein
+Update nötig. Das Docker-Image enthält jetzt `packages/mls`.
+
+## Schritt 11.3d2b – Agent auf dem Knoten antwortet in privaten Räumen
+
+Zweiter Teil von 11.3d2. Seit 11.3d2a ist der Agent Mitglied privater Räume (`AGENT_PRIVAT`); jetzt
+antwortet er dort wie im offenen Raum. Er antwortet nur auf einen bezahlten, versiegelten Auftrag mit
+Verweis („wer fragt, zahlt“).
+
+**Knoten** (`knoten-agent.ts`):
+- **`pruefePrivat()`:** ein Verweis mit Gruppen-Id statt Adresse.
+  - Nur Gruppen, in denen der Agent Mitglied ist (`nutzePrivat()` mit dem Konto aus 11.3d2a); sonst
+    `agent-privat`.
+  - Der Raum kommt aus dem, was der Agent als Mitglied liest (`gruppenRaum()` mit Admins und
+    Mitgliedern aus MLS). Die Definition gilt nur von einem Admin, Agenten erkennt er an ihrer Karte.
+  - Entschieden wird mit `entscheide()` und `ausBudget: false`, wie im offenen Raum.
+  - Fehlt die Erwähnung im Gelesenen, gleicht er einmal ab.
+- **Gerechnet** werden nur Persona, Verlauf und Erwähnung aus der Gruppe, nie die Eingabe des Auftrags.
+- **Antwort:** als inneres Event der Gruppe (`raumAgentAntwort()` über `KnotenMls.sende()`), nie offen.
+  Dieselbe Antwort geht versiegelt an den Fragenden.
+- **Jede Erwähnung höchstens einmal.** Die Ablehnungen tragen dieselben Kennungen wie im offenen Raum.
+
+**Protokoll (Befund):**
+- MDK vergibt Gruppen-Ids mit 16 Byte (32 Zeichen Hex). Der Verweis (`auftragsVerweisTags()`, 11.3b2)
+  verlangte 64 Zeichen – keine echte Gruppe passte.
+- Jetzt gilt wie bei Meldungen: 32 bis 64 Zeichen.
+- Gefunden im echten Lauf, nicht von den Tests: Die nahmen `"ee".repeat(32)`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 (Verweis mit Gruppe, Antwort in privaten Räumen) und `docs/PROVIDER.md`.
+- Fallstricke in `packages/node/CLAUDE.md` und `packages/protocol/CLAUDE.md`.
+- Karte `phase-11.md`, FORTSCHRITT.
+
+**Echt gestartet:**
+- **Aufbau:** Knoten mit eigenem Relay, `AGENT_PRIVAT=alle`, OpenAI-Attrappe. Das Gründer-Skript (echte
+  Engine, WebSocket):
+  - gründet einen privaten Raum mit dem Agenten;
+  - schreibt einen Satz und, eine Sekunde später, die Erwähnung;
+  - schickt einen versiegelten Auftrag mit der Gruppe im Verweis.
+- **Ergebnis:**
+  - Die Antwort steht in der Gruppe vom Agenten (`h` allgemein, `e` … `reply` auf die Erwähnung, `p` …
+    `mention` des Fragenden).
+  - Kein Kind 42 im Relay.
+  - Das Ergebnis ist versiegelt beim Fragenden – abholbar nur angemeldet als der Sitzungsschlüssel, denn
+    das Relay des Knotens gibt Umschläge nur so heraus.
+  - Kein Klartext im Log.
+
+**Tests:**
+- **node** `knoten-agent-privat.test.ts` (+3), mit echter Engine, Gründer wie in der App und Provider wie
+  im Knoten:
+  - der ganze Weg: Prompt aus der Gruppe, Antwort als inneres Event, versiegelt an den Fragenden, nichts
+    offen, kein Klartext im Log, einmal;
+  - Ablehnungen: fremde Gruppe, unbekannte Erwähnung, Kanal ohne Schreibrecht des Agenten;
+  - Verdrahtung.
+- **protocol** `agent-auftrag.test.ts`: Gruppen-Id von MDK (32 Zeichen) und vier ungültige Formen.
+- **Unverändert grün:** `knoten-agent.test.ts` (der Fall `agent-privat` ohne Konto gilt weiter).
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen); node 388 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 385); app 1034 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`:
+  grün.
+
+Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
+## Schritt SH1 – Nachfolge mit der auditierten Shamir-Bibliothek
+
+Entschieden 09.10.2026 (MENSCH, SH1 A): neue Fassung der Anteile, alte bleiben lesbar.
+
+**Neu:**
+
+- Abhängigkeit `shamir-secret-sharing` 0.0.4 (Privy, Apache-2.0, ohne Abhängigkeiten,
+  85 KB entpackt, rund 13 KB Code; geprüft von Cure53 und Zellic), exakt gepinnt im Protokoll.
+- `protocol/src/succession.ts`: `teileGeheimnis()` (Fassung 2, async; kopiert das Geheimnis
+  und nullt die Kopie – die Bibliothek nimmt kein `Buffer`), `setzeGeheimnisZusammen()` (beide
+  Fassungen, nie gemischt), `ANTEIL_FASSUNG`; `splitSecret()`/`combineShares()` bleiben als
+  Fassung 1 (Lesen alter Anteile, Tests).
+- `protocol/src/nachfolge-anteile.ts`: Anteil (38077) und Übergabe (38079) tragen
+  `["fassung", "2"]`; ohne Tag Fassung 1, eine unbekannte Fassung wird abgelehnt;
+  `setzeNachfolgeZusammen()` ist async und setzt je Teilung mit der richtigen Fassung zusammen.
+- App: `richteNachfolgeEin()` (`tabs/settings.ts`) teilt über `teileGeheimnis()`,
+  `setzeZusammen()` (`nachfolge-ui.ts`) wartet; Texte für `teile-fassungen` und
+  `geheimnis-leer` (de/en); Whitepaper nennt die geprüfte Bibliothek.
+- Sammlung: Spur A übernimmt Anhang E (A-17 bis A-23), A-12 angelegt (Squads, Entwurf
+  zuerst), RM2 geprüft (B1 Vorauszahlung oder B2 keine Sitzungen auf Kredit – Frage an den
+  MENSCHEN).
+
+**Verdrahtet:** `shell/tabs/settings.ts` (`teileGeheimnis()`), `shell/nachfolge-ui.ts`
+(`setzeNachfolgeZusammen()` → `setzeGeheimnisZusammen()`); `splitSecret` mit Begründung in
+`wiring-ausnahmen.txt` (nur noch Tests).
+
+**Prüfungen:** protocol 1266 grün (+5, 6 übersprungen; mit `main` bis 11.3d2b), node 389, app 1034,
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen, `splitSecret` begründet),
+`check-website`, `check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build
+grün.
+## Schritt 11.3d2c – Knoten-Agenten in privaten Räumen einladen und fragen (App)
+
+Dritter Teil von 11.3d2 – damit sind private Räume fertig:
+- **d2a:** Der Agent auf dem Knoten ist Mitglied.
+- **d2b:** Er antwortet auf bezahlte Aufträge.
+- **d2c (dieser Schritt):** Die App fragt jetzt auch in privaten Räumen. Lädt jemand einen Agenten ein,
+  der auf einem Knoten läuft, sagt sie vorher und im Raum, dass der Knoten alles mitliest (Entwurf P2).
+
+**App:**
+- **`shell/mls-konto.ts` (Spur A, klein):** `mlsSendeEventId()` liefert die Id des inneren Events. Bei
+  allen Mitgliedern ist sie dieselbe; die MLS-Nachrichten-Id kennt der Absender nicht.
+  `mlsSendeEvent()` bleibt und ruft sie.
+- **`shell/raum-mls.ts`:** `sendePrivat()` liefert diese Id statt `true`.
+- **`shell/tabs/raeume.ts` (Spur C, klein):**
+  - Im privaten Raum nach dem Senden `frageKnotenAgenten()` mit der Gruppe als `raum` und der Id als
+    Erwähnung. Die Karten kommen aus der Gruppe (`raumAgentKarten()`).
+  - **`ladeEin()`:**
+    - Nennt die Karte des Eingeladenen `knoten` (`knotenAgentKarte()`), erst eine Warnung mit
+      `bestaetige()`: der Knoten liest alles mit, Antworten bezahlt, wer fragt. Abgelehnt heißt nicht
+      eingeladen.
+    - Nach der Einladung der Pflicht-Hinweis als inneres Event im ersten Kanal
+      (`meldeKnotenAgentImRaum()`).
+- **Datenschutz:** Die Aussage „agent-knoten“ gilt für beide Raumarten, im Protokoll und in beiden
+  Sprachen:
+  - Die Antwort steht im offenen Raum öffentlich, im privaten für die Mitglieder.
+  - Im privaten liest der Knoten Erwähnung und Verlauf als Mitglied mit.
+
+**Doku:**
+- `docs/PROTOCOL.md` §32 und `docs/PROVIDER.md`.
+- Fallstrick in `packages/app/CLAUDE.md`.
+- Karte `phase-11.md` (d2 fertig), FORTSCHRITT.
+
+**Tests:**
+- **app** `knoten-agent-fragen.test.ts` (+1):
+  - im privaten Zweig zuerst `sendePrivat()`, nur bei Erfolg die Frage mit Gruppe und Id, die Karten der
+    Gruppe;
+  - Einladen erst nach der Warnung, der Hinweis nur nach der Einladung und nur als inneres Event;
+  - nur Agenten auf einem Knoten;
+  - Texte in beiden Sprachen.
+- **app** `mls-konto.test.ts` (+1, echte Engine): Die Id aus `mlsSendeEventId()` ist dieselbe, die der
+  Empfänger als `inneres` sieht; ohne Gruppe `null`.
+- **Angepasst, nicht abgeschwächt** (`leak/raum.test.ts`): Der private Zweig sendet weiter zuerst über
+  `sendePrivat()`, jetzt als `const gesendet = …`. `sendePrivat()` geht über `mlsSendeEventId()`; neu
+  geprüft, dass diese nur über MLS sendet und `mlsSendeEvent()` sie ruft.
+
+**Prüfungen:**
+- protocol 1261 grün (6 übersprungen); node 388 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz); app 1036 grün (vorher 1034); mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test (mit privatem Raum) und
+  `build-site.sh`: grün.
+
+**MENSCH (Geld, Devnet/Testnet):** einen Knoten mit `AGENT_PRIVAT` in einen privaten Raum einladen
+(Warnung, Hinweis im Raum), ihn mit „@Name“ erwähnen und den Preis bestätigen. Erwartet:
+- die Antwort in der Gruppe;
+- Zahlung höchstens 100 sats (Lightning-Testnet bzw. Gutschrift im Zahlkanal auf Devnet).
+
+Knoten-Stand: `main` mit 11.3d2b, nur mit `AGENT_PRIVAT`; sonst kein Update nötig.
+
+
+## Schritt A-20 – QR-Scannen auch in Firefox und Safari; A-17-Entwurf
+
+Sammlung A-20 (Anhang E). Bis hier erkannte nur der Browser QR-Codes (`BarcodeDetector`, nur
+Chromium); Firefox und Safari zeigten nur den Hinweis zum Einfügen.
+
+**Neu:**
+
+- Abhängigkeit `jsqr` 1.4.0 (Apache-2.0, ohne Abhängigkeiten), exakt gepinnt in der App;
+  `freedom.html` wächst um 345 KB (die App ist unminifiziert, rund 58 KB gzip). Ohne Worker –
+  ein Worker passt nicht in die eine Datei.
+- `shell/qr-ui.ts`: `leseQrAusBild()` (jsQR, beide Helligkeiten), `JsQrErkenner` (Bild auf
+  `SCAN_BREITE_MAX` = 640 px verkleinert), `waehleErkenner()` – `BarcodeDetector`, wo es ihn
+  gibt, sonst jsQR; `kannScannen()` braucht nur noch die Kamera-Schnittstelle. Das Bild bleibt
+  im Gerät.
+- Smoke-Test („qr“): Gerät C ohne `BarcodeDetector` – die Kamera-Attrappe zeichnet den echten
+  QR-Pfad des Gerätecodes, jsQR liest ihn ins Feld, die Kamera ist danach aus.
+- Regel „QR-Codes nur über `shell/qr-ui.ts`“ in der Wurzel-`CLAUDE.md` angepasst.
+- **A-17-Entwurf** (`docs/E4B-ENTWURF.md`): eingebaute Lightning-Wallet nach E4b D – Befunde
+  (Breez SDK Spark 0.26.1: MIT, WASM 5,1 MB gzip, API-Schlüssel für Mainnet; cashu-ts 4.11.0),
+  Vorschläge V1–V6, Fragen W1–W5 an den MENSCHEN. Kein Code.
+
+**Verdrahtet:** `shell/qr-ui.ts:207` (`waehleErkenner()` im Klick von `scanKnopf()`);
+`leseQrAusBild()` über `JsQrErkenner`.
+
+**Prüfungen:** protocol 1266, node 389 (je 6 übersprungen), app 1038 grün (+2; mit `main` bis 11.3d2c), Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`, Smoke-Test
+(mit jsQR ohne `BarcodeDetector`), Website-Bau und reproduzierbarer Build grün.
+
+## Schritt A-12-Entwurf, A-23, A-22, A-21-Plan – Kasse über Squads; Vergleiche Outbox und Boltz; Plan für kit
+
+Entschieden 09.10.2026 (MENSCH): kein eigenes Programm, Squads anbinden. `docs/KASSE-ENTWURF.md`
+legt fest, wie; kein Code.
+
+- Befunde, auf der Kette abgefragt: Squads v4 (`SQDS4ep…`) ist auf Mainnet unveränderlich (keine
+  Upgrade-Berechtigung), auf Devnet upgradebar und ein anderer Stand (andere Prüfsumme);
+  Gebühr fürs Anlegen auf beiden Netzen 0, änderbar durch Squads. SDK `@sqds/multisig` 2.1.4 (MIT)
+  für den Browser gebündelt 772 KB ohne web3.js, an web3.js v1 gebunden; Programm AGPL-3.0,
+  nur aufgerufen.
+- Vorschläge V1–V7: eigene Anweisungen nach der IDL statt SDK, getestet gegen beide Programme im
+  Validator; ohne Verwalter; Recht „kasse“ erlaubt, die Kette entscheidet; frische Adresse je
+  Raum und Mitglied; Grenze „raum-kasse“ im Bericht; Stimmen nur auf der Kette; nur SOL, nur
+  Devnet bis M-8, Teilschritte A-12a–e.
+- Fragen W1–W5 an den MENSCHEN.
+- A-23 (`docs/OUTBOX-VERGLEICH.md`): `outboxPlan()` neben NDK 3.0.3, Welshman 0.8.16 und
+  applesauce 6.2.0 (Quelltext gelesen). Befunde als neue Punkte: A-24 alle Autoren abdecken
+  (gierig, Pool zählt mit, erst jeder Autor ein Relay), A-25 keine fremden `ws://`, A-26 kaputte Relays
+  eine Viertelstunde aussetzen. Indexer-Relays bewusst nicht (verrieten den Kreis der Kontakte).
+- A-22 (`docs/BOLTZ-VERGLEICH.md`): Ablauf des LP neben dem Boltz-Backend (Lifecycle-Doku).
+  Zwei Entscheidungen für den MENSCHEN: A-27 Reihenfolge in Richtung 1 wie Boltz (erst zahlt der
+  Kunde in die Hold-Invoice, dann sperrt der LP – ohne Vorab-Gebühr; Vorschlag: so lassen), A-28
+  Rückgabe vor Ablauf in Richtung 2 (neue Anweisung im HTLC-Programm; Vorschlag: ja, mit 0.G).
+- A-21-Plan (`docs/KIT-PLAN.md`): web3.js v1 belegt rund 760 KB des Bundles (esbuild-Metafile),
+  `@solana/kit` 8.4.0 mit `@solana-program/system` für dieselben Aufgaben 228 KB. Teilschritte
+  A-21a–f (erst Byte-Vektoren je Transaktion, dann Protokoll, RPC über den `RpcPool`, Signieren über
+  `@noble/curves`, Knoten, Aufräumen); Fragen W1–W3 an den MENSCHEN.
+
+**Prüfungen:** nur Dokumente – protocol 1266, node 389 (je 6 übersprungen), app 1038 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
+`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt A-24, A-25, A-26 – Outbox: alle Autoren, kein fremdes `ws://`, gescheiterte Relays aussetzen
+
+Befunde aus dem Vergleich A-23 (`docs/OUTBOX-VERGLEICH.md`).
+
+- **A-24** (`protocol/src/relay-start.ts`): `outboxPlan()` wählt gierig in Stufen – jeder Autor
+  erst ein Relay, dann das zweite, bis `OUTBOX_JE_AUTOR` (drei); immer das Relay, das die meisten
+  Autoren der Stufe erreicht, höchstens acht. Neu `imPool`: Relays des Pools zählen für ihre Autoren
+  mit und belegen keinen Platz (bis hier belegten sie einen der acht und wurden erst danach
+  gestrichen). Bis hier nahm der Plan die acht meistgenannten – wer nur auf seltenen Relays schrieb,
+  fiel je nach Alphabet heraus.
+- **A-25**: fremde Relays nur über `wss://`; `ws://…onion` nur mit `onion` (die App: Seite über
+  .onion). Aus https blockte der Browser `ws://` ohnehin, in der Hülle ging es unverschlüsselt.
+- **A-26** (`app/src/neben-verbindungen.ts`): scheitert eine Nebenverbindung in `mit()`, ist die
+  Adresse eine Viertelstunde ausgesetzt (`ausgesetzt()`, nur im Speicher, ein Erfolg hebt es auf);
+  `OutboxLeser` reicht Pool, Aussetzer und .onion an den Plan.
+
+**Verdrahtet:** `app/src/outbox-lesen.ts` (`outboxPlan(…, { imPool, onion, aussetzen })`),
+`app/src/shell/state.ts` (`new OutboxLeser({ …, ausgesetzt: () => neben.ausgesetzt(), onion })`).
+
+**Prüfungen:** protocol 1269 (+3), node 389 (je 6 übersprungen), app 1040 grün (+2), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng` (0 offen), `check-website`, `check_innerhtml --streng`,
+Website-Bau und reproduzierbarer Build grün. Smoke-Test: im ersten Lauf rot im Abschnitt „raum“
+(Zeitüberschreitung beim Warten auf `#code-ref-wahl`, Code-Reiter eines Repos), in drei weiteren
+Läufen bestanden; Ursache offen. Der Outbox-Plan bleibt im Smoke-Test vor und nach der Änderung
+leer: Die einzige NIP-65-Liste dort ist die eigene, und deren Schreib-Relays stehen im Pool.
+
+## Schritt 11.5-Entwurf – Agenten an Raum-Repos
+
+Entwurf `docs/REPO-AGENTEN-ENTWURF.md` (Spur A, mit Spur B; wartet auf Freigabe). Agenten holen den
+Code eines Raum-Repos, ändern ihn und stellen einen Patch in den Raum; annehmen nur Menschen mit Recht.
+
+- **Befunde:** Agenten-Aufträge laufen heute ohne Werkzeuge (`agent-nur-text`); der Knoten führt
+  Werkzeuge im Auftrag gar nicht aus (`main.ts` ohne `ToolRegistry`), `file_io` hätte einen Ordner
+  für alle Aufträge (neu A-29 in der Sammlung); im Docker-Bild fehlt git; der Kopf eines Bundles steht
+  nur im Bundle (`headSha: "local"`); der Bundle-Leser der App passt auch in den Knoten; Agentenketten
+  auf dem Knoten erst mit dem Budget des Einladers (11.3d3, nach M-2).
+- **Vorschläge V1–V9:** Repo-Auftrag als Erwähnung mit Tag aufs Repo; zuerst nur der Agent auf dem
+  Knoten; Code nur aus dem Bundle des Raums, Arbeitskopie nur im Speicher; sechs Werkzeuge nur an der
+  Arbeitskopie (kein Netz, keine Shell, kein Ausführen); der Knoten baut und prüft den Patch und
+  reicht ihn ein (offen 1617 vom Agenten, privat als inneres Event); `patchStatus()` zählt „angenommen“
+  nie von Agenten; Aufteilung 11.5a1–d.
+- **Fragen W1–W5:** git als Programm oder eigener Leser und Schreiber (Empfehlung: eigener, im
+  Speicher); wer beauftragen darf; Code ausführen; Autor im Commit; Obergrenze des Preises.
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 389 (je 6 übersprungen), app 1040 grün
+(unverändert), Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`,
+`check_innerhtml --streng`, Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt A-29 – `file_io` je Auftrag getrennt
+
+Befund aus dem 11.5-Entwurf: Alle Aufträge teilten sich den Ordner von `file_io`
+(`/tmp/freedom-workspace`) – was einer schrieb, lag für den nächsten bereit und blieb auf der Platte.
+Heute nicht wirksam, weil `main.ts` keine `ToolRegistry` übergibt; getrennt, bevor jemand es verdrahtet.
+
+- `node/src/tools.ts`: `ToolCall.auftrag` (64 Zeichen Hex); `FileIoExecutor` arbeitet dann nur in
+  `<workspace>/<auftrag>` (0700, beim ersten Gebrauch angelegt), eine ungültige Id wird abgelehnt.
+  `vergiss()` am Werkzeug und `ToolRegistry.vergiss()` löschen den Ordner (Fehler nur als Name ins Log).
+- `node/src/dvm-provider.ts`: `parseToolCalls()` gibt die Id der Anfrage mit; nach den Werkzeugen
+  löscht der Provider den Ordner (`finally`, auch wenn ein Werkzeug scheitert) – das Ergebnis steht
+  schon im Kontext.
+- Tests: node +1 (`tools.test.ts`: zwei Aufträge sehen sich nicht, auch nicht über `../`, der
+  Workspace selbst nicht, ungültige Id, Aufräumen je Auftrag); `sol-price.test.ts` prüft zusätzlich,
+  dass nach einem Auftrag mit `file_io` kein Ordner liegen bleibt (ohne das Aufräumen rot – gegengeprüft).
+
+**Verdrahtet:** `node/src/dvm-provider.ts` (`parseToolCalls()` mit `auftrag: request.id`,
+`this.toolRegistry.vergiss(request.id)` nach der Werkzeug-Schleife).
+
+**Prüfungen:** protocol 1269, node 390 (+1; je 6 übersprungen), app 1040 grün, Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Website-Bau und
+reproduzierbarer Build grün (`freedom.html` bitgleich mit 11.5-Entwurf). Smoke-Test: rot im Abschnitt
+„raum“ (`#code-ref-wahl`, derselbe Wackler wie bei A-24 bis A-26); der Abschnitt allein 12 von 12 grün –
+die App ist unverändert, Ursache wird gesucht.
+
+## Schritt A-30 – Smoke-Test „raum“: auf „Code laden“ warten
+
+Der Smoke-Test war bei A-24 bis A-26 und bei A-29 je einmal rot im Abschnitt „raum“
+(`TimeoutError … waiting for locator("#code-ref-wahl")`), allein 12 von 12 grün.
+
+- **Ursache:** Nach dem zweiten Upload („kiste.bundle“) wartete der Test, bis das Event beim
+  Relay war, plus 300 + 200 ms, und klickte dann auf „Code laden“. `ladeNip34Repos()` zeichnet die
+  Repo-Seite aber erst danach neu; bis dahin zeigt „Code“ das alte, schon gelesene Bundle – ohne
+  Knopf. Der Klick ging ins Leere, nach dem Neuzeichnen stand „Code laden“ für das neue Bundle da,
+  ungeklickt. Belegt mit vierfach gedrosselter CPU (CDP `Emulation.setCPUThrottlingRate`): 2 von 2
+  rot, Zustand beim Timeout: Reiter „Code“ aktiv, „Code laden“ da und bedienbar, kein Inhalt.
+- **Korrektur** (`scripts/smoke_test.py`, Bereich Spur C): nach dem Upload auf den Knopf warten
+  (`wait_for_function`, 15 s), dann klicken – keine feste Pause mehr. Mit Korrektur lief der Schritt
+  auch vierfach gedrosselt durch; mit doppelter Drosselung ohne und mit Korrektur keine Befunde am
+  Code-Reiter (andere Stellen wurden bei Drosselung rot – im normalen Lauf und in der CI nie).
+- Fallstrick in `scripts/CLAUDE.md` („Smoke-Test auch in der CI“).
+
+**Prüfungen:** protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert), Leak 73 + 1 todo;
+mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test
+(voller Lauf, mit Korrektur), Website-Bau und reproduzierbarer Build grün.
+
+## Schritt Entscheidungen 11.10. – 11.5, A-12, A-17, A-21, A-27, A-28, 0.G
+
+Nur Dokumente. Entscheidungen des MENSCHEN vom 11.10.2026 eingetragen:
+
+- **11.5** (`docs/REPO-AGENTEN-ENTWURF.md`): freigegeben; W1 B, W2 A, W4 A, W5 A. W3 geändert: Der
+  Agent soll Code ausführen können (Vibecoding). Mit welchem Harness und in welcher Sandbox, ist in
+  Besprechung – Vorschlag Spur A im Entwurf (Ablauf von mini-swe-agent, in TypeScript nachgebaut,
+  jeder Befehl in bubblewrap), dazu die neue Frage W6 (Netz in der Sandbox).
+- **A-12** (`docs/KASSE-ENTWURF.md`): freigegeben; W2 geändert – beim Anlegen wählbar: „Gründer
+  entscheidet“ oder „Mehrheit“ (DAO).
+- **A-17** (`docs/E4B-ENTWURF.md`), **A-21** (`docs/KIT-PLAN.md`): wie vorgeschlagen.
+- **A-27:** so lassen. **A-28:** ja, zusammen mit 0.G. **0.G (M-1):** A – bei `B6W19U…` bleiben,
+  vorausgesetzt, das Upgrade-Recht liegt beim MENSCHEN. **M-6:** erst die Texte der App, dann die
+  Website auf Englisch.
+- **RM2:** B1 und B2 passen nicht – „einmal zahlen, viele Nachrichten“ bleibt; in Besprechung.
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt 11.5-Recherche und RM2-Entwurf – Harness, Netz, private Räume; Lightning wie der Zahlkanal
+
+Nur Dokumente. Auftrag MENSCH 11.10.: „Alle drei offenen Punkte ausführlichst recherchieren.“
+
+- **Harness (W3, `docs/REPO-AGENTEN-ENTWURF.md`):**
+  - 22 Open-Source-Harnesses verglichen, nach sechs Kriterien (K1–K6): ohne Bildschirm,
+    jeder Befehl in unsere Sandbox, kein Gedächtnis, eigenes Modell auch ohne Tool-Calling,
+    MIT/Apache, stabil.
+  - Dazu, wer was nutzt:
+    - SWE-bench „Bash only“ läuft mit mini-swe-agent;
+    - OpenClaw nutzt Pi;
+    - OpenCode, OpenHands, Codex Cloud und Copilot machen „Erwähnung → Patch“.
+  - Eine Studie (Juli 2026) zeigt: Der Harness ändert die Lösungsquote kaum (0–8 Punkte),
+    die Tokens bis zum Vierzigfachen.
+  - Vorschlag (Frage W3a): den Ablauf von mini-swe-agent in TypeScript nachbauen. Den
+    Quelltext haben wir gelesen. Die bubblewrap-Umgebung von mini-swe-agent taugt nicht als
+    Grenze: Sie teilt das Netz und bindet ganz `/etc` ein. Die Sandbox nach dem Vorbild von
+    Codex CLI: bubblewrap, Namensräume, seccomp als zweite Stufe.
+- **Netz (W6 B, freigegeben 11.10.):**
+  - Vorbilder: Codex Cloud (Netz aus, Liste, nur GET), Copilot (Firewall mit Liste der
+    Registries), sandbox-runtime (Proxy mit erlaubten Domains).
+  - Ausgestaltung (Frage W6a): Die Sandbox bleibt ohne Netz. Der Knoten holt vorher nur
+    Pakete aus der Sperrdatei, mit Prüfsumme, von einer festen Liste. Ein neues Paket nur in
+    offenen Räumen und nur über ein Werkzeug des Knotens. Install-Skripte laufen nie.
+- **Private Räume (Frage W7):**
+  - P1: nur Agenten, die schon Mitglied sind; der Schlüssel kommt aus dem inneren Event.
+  - P2: nur mit dem Modell auf demselben Rechner (wie D2).
+  - P3: ohne Netz; Pakete nur, wenn der Raum es einschaltet.
+  - P4: nichts auf Platte oder Log.
+  - P5: auf dem Gerät nur ohne Ausführen.
+- **RM2 (`docs/RM2-ENTWURF.md`):**
+  - Lightning-Gegenstück zum Zahlkanal: der Cashu-Pfand. Einmal bei einer Mint laden. Je
+    Fenster Token mit Sperre auf den Provider, Frist und Rückweg (NUT-11), mit DLEQ (NUT-12).
+    Je Anfrage im versiegelten Kern übergeben. Der Provider prüft ohne Mint und löst vor der
+    Frist ein; der Rest bleibt beim Kunden. Kein Kredit.
+  - Verworfen:
+    - Guthaben beim Knoten (Routstr, verstößt gegen 5.1.2);
+    - L402 und Hold-Rechnungen (brauchen einen eigenen LND wie B1);
+    - ein eigener Lightning-Kanal.
+  - Der Spilman-Kanal für Cashu (NUT-Entwurf, Alpha) kommt später als Fassung 2.
+  - Fragen W1–W5. W5 berührt E4b V3 („Cashu nie Vorgabe“).
+
+**Prüfungen:** nur Dokumente – protocol 1269, node 390 (je 6 übersprungen), app 1040 grün (unverändert),
+Leak 73 + 1 todo; mls 13; tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`,
+Smoke-Test, Website-Bau und reproduzierbarer Build grün.
+
+## Schritt VKa – Vibecoden auf dem eigenen Knoten: Entwurf und Protokoll
+
+Wunsch MENSCH 11.10.: zuerst vom Seeker oder iPhone aus auf dem eigenen GX10 vibecoden – gekoppelt
+per QR, ohne Vertrauensproblem –, bevor Fragen zu fremden Geräten entschieden werden. Freigegeben
+(„Ja“): den Entwurf festhalten und mit VKa beginnen.
+
+- **Entwurf** `docs/VIBECODEN-ENTWURF.md` (A-31):
+  - Bestand: Koppeln, Besitzer-Nachweis, Verbindung ohne Portfreigabe und „Mein Knoten“ sind fertig.
+  - Es fehlen Agent mit Werkzeugen, Projektordner, Sandbox, Vorschau und Projektseite.
+  - Vorschläge VK1–VK7, Aufteilung VKa–VKf, Fragen VK-W1–W5: Harness, git, Vorschau, Netz, Kurzcode.
+- **VKa** (`protocol/src/knoten-code.ts`, Kind 5080, `docs/PROTOCOL.md` 34):
+  - Code-Auftrag nur versiegelt mit Besitzer-Nachweis (`baueCodeAuftrag()`), Aktionen `liste`,
+    `neu`, `auftrag` (Modus `fragen`/`frei`), `freigabe`, `stopp`.
+  - Der Knoten liest streng (`leseCodeAuftrag()`): je Parameter genau einer, keine fremden.
+  - Schritte als Rückmeldung 7000 `partial` (`codeSchrittText()`/`leseCodeSchritt()`: Befehl mit
+    Gedanke und „wartet“, Ausgabe mit Rückgabewert).
+  - Antworten 6080 je Aktion (`codeAntwortText()`/`leseCodeAntwort()`).
+  - Projektnamen taugen als Ordnername.
+  - Tests: protocol +7.
+  - Verdrahtet erst mit VKc (Knoten) und VKe (App) – sieben Ausnahmen in
+    `scripts/wiring-ausnahmen.txt` mit diesem Grund.
+
+**Prüfungen:** protocol 1276 (+7), node 390 (je 6 übersprungen), app 1040 grün, Leak 73 + 1 todo; mls 13;
+tsc ×3, Build, `check-wiring --streng`, `check-website`, `check_innerhtml --streng`, Smoke-Test,
+Website-Bau und reproduzierbarer Build grün.
+
+## Schritt B-29c1a – Gewichte von Hugging Face: Bausteine
+
+Spur B, erster Teil von B-29c („Gewichte außerhalb von Ollama gegen das Manifest prüfen“).
+
+**Quellen (MENSCH 12.10.2026):** Gewichte kommen aus Freedom selbst, dazu Pirate Face
+und Hugging Face als Quellen für neue Modelle.
+
+**Befund:** Einen Modell-Ordner im dezentralen Git gibt es nicht.
+- Git-Bundles sind auf 32 MB begrenzt.
+- Das Blob-Netz verteilt Stücke als Nostr-Events, für Gigabytes ungeeignet: ein 7B-Modell
+  wären rund 23.000 Events.
+- Es gibt Manifest 38057 (mit freiem `blobId`) und 38058 „ich halte vor“, aber keinen Weg
+  für die Bytes.
+
+Pirate Face ist ein Torrent-Index für offene Modelle von Hugging Face (Apache-2.0 und MIT,
+mit deren SHA-256). Aus dieser Umgebung nicht erreichbar, Angaben aus Berichten. Plan und
+Fragen T1/T2 in `docs/E9-ENTWURF.md`, Abschnitt „Quellen für Gewichte“.
+
+**Protokoll** (`modell-hf.ts`, neu):
+- **`leseHfName()`:** `org/repo` nach den Regeln von Hugging Face.
+- **Adressen:**
+  - `hfStandAdresse()`: Stand je Commit oder Zweig mit `blobs=true`.
+  - `hfDateiAdresse()`: Dateien nur am Commit, nur erlaubte Namen.
+- **`hfStand()`:**
+  - Commit und je Datei Größe, Git-Kennung und – nur bei LFS – SHA-256.
+  - Nur `HF_DATEI`: safetensors, Konfiguration und Tokenizer, oberste Ebene. Pickle, Python
+    und Unterordner bleiben draußen.
+  - Ohne `config.json` und safetensors: `hf.ohneGewichte`.
+- **`hfQuelle()`:** `upstream` = `hf:<Kennung>@<Commit>`, nie ein Zweig.
+- **Prüfen:**
+  - `pruefeDateien()`: je Name dieselbe Summe und Größe.
+  - `vorpruefeHf()`: Namen, Größen, LFS-Summen vor dem Laden.
+- **`vertrautesManifest()`** nimmt die Quelle als Funktion (Vorgabe Ollama) – dieselben Regeln
+  für beide.
+
+**Knoten** (`modell-hf.ts`, neu):
+- **`holeHfStand()`:** ohne Weiterleitung, höchstens 2 MB, Fehler nur mit Namen.
+- **`halteHfFest()`:**
+  - Große Dateien mit der Summe von Hugging Face.
+  - Kleine erst geladen und gegen ihre Git-Kennung geprüft (`gitKennung()`, wie
+    `git hash-object`), dann selbst gerechnet.
+- **`ladeHfDatei()`:**
+  - SHA-256 beim Laden, nie mehr Bytes als angekündigt.
+  - Erst nach der Prüfung unter dem Namen (vorher `.teil`); liegt die Datei schon richtig da,
+    wird nichts geladen.
+  - Keine Weiterleitung von https zu http; Abbruch nach `HF_STILL_MS` ohne neue Bytes.
+
+**Noch nicht verdrahtet:** Der Knoten lädt damit erst mit B-29c1b (Ordner, Angebot, `npm run
+modell -- … --aus-hf`, Status). Bis dahin stehen vier Exporte mit diesem Grund in
+`scripts/wiring-ausnahmen.txt`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §31 („Laden von Hugging Face“) und `docs/E9-ENTWURF.md`.
+- Fallstrick in `packages/node/CLAUDE.md`.
+- FORTSCHRITT, Sammlung (B-29).
+
+**Tests:**
+- **protocol** `modell-hf.test.ts` (+8): Namen; Adressen; Stand mit echten Formen und
+  kaputten; Quelle; Wahl mit `hfQuelle`; Dateiprüfung; Vorprüfung.
+- **node** `modell-hf.test.ts` (+6), gegen eine Attrappe von Hugging Face auf 127.0.0.1 mit
+  LFS-Weiterleitung:
+  - Git-Kennung; Stand und Fehler (401, 403, 404, 500, kaputt, zu groß) ohne fremden Text;
+  - Festhalten, auch mit falschen Bytes;
+  - Laden, zweites Mal nichts;
+  - falsche, zu viele und zu wenige Bytes, stehende Leitung: kein Bruchstück;
+  - Namen, Commit, https → http.
+
+**Prüfungen:**
+- protocol 1284 grün (6 übersprungen, vorher 1276 nach dem Einmergen von `main` mit VKa); node 395 grün (7
+  übersprungen – der Live-Abruf in `tools.test.ts` ohne Netz; vorher 390); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+**MENSCH (Live-Probe, Hugging Face ist von hier nicht erreichbar):** mit einem kleinen,
+offenen Modell (z. B. `Qwen/Qwen2.5-0.5B-Instruct`)
+`https://huggingface.co/api/models/Qwen/Qwen2.5-0.5B-Instruct/revision/main?blobs=true` abrufen.
+Erwartet:
+- `sha` und `siblings` mit `lfs.sha256` für `model.safetensors`;
+- `blobId` für die kleinen Dateien.
+
+Knoten-Stand: kein Update nötig (noch nicht verdrahtet).
+
+## Schritt B-29c1b – Der Knoten lädt Modelle von Hugging Face
+
+Spur B, zweiter Teil von B-29c. Mit einem OpenAI-kompatiblen Antrieb (vLLM, SGLang, TensorFold)
+lädt der Knoten Modelle jetzt geprüft von Hugging Face in einen Ordner, aus dem der Antrieb sie liest.
+
+**Entscheidung (MENSCH 12.10.2026):** „Pirate Face auch integrieren, welche Torrent-Option besser
+ist, entscheidest du, und alles mit dem dezentralen Freedom-Dateisystem verbinden.“
+- Torrent über **aria2c** als eigenes Programm (JSON-RPC nur auf 127.0.0.1). WebTorrent hätte
+  hunderte npm-Pakete in den Knoten gebracht.
+- „Ich halte vor“ (38058) bekommt einen Magnet-Link.
+- Begründung und Schritte in `docs/E9-ENTWURF.md`. Dieser Schritt ist der Weg über Hugging Face;
+  Torrent folgt mit B-29c2a–c.
+
+**Knoten:**
+- **`modell-laden.ts`:**
+  - `ladeHfModell()`: Manifest wie bei Ollama über `vertrautesManifest()`, mit `hfQuelle()`
+    (bis E9-4 nur der eigene Schlüssel).
+  - Vorprüfung am Commit des Manifests; jede Datei über `ladeHfDatei()`.
+  - Danach der ganze Ordner gegen das Manifest: keine fremde Datei (`datei.fremd`), denn vLLM liest
+    alle safetensors des Ordners.
+  - Gemerkt mit `ordnerAbdruck()`: Name, Größe, Zeit je Eintrag, liest keine Bytes.
+  - Wünsche tragen `quelle: "hf"`. Der Dienst lädt nur Wünsche seiner Quelle.
+  - `imAngebot()`: ein Modell von Hugging Face nur, solange `/v1/models` den Namen nennt und der
+    Ordner unverändert ist.
+  - Das Festhalten nennt Herkunft (`hf:<org/repo>@<commit>`) und Lizenz.
+- **`main.ts`:**
+  - Hilfen für Hugging Face nur ohne Ollama.
+  - `MODELL_ORDNER` (Vorgabe `~/.freedom/modelle`).
+  - Der Lade-Takt läuft jetzt mit beiden Antrieben.
+- **`npm run modell -- <org/repo> --aus-hf`:** mit `KI_ANTRIEB=openai`; ein Ollama-Name wird dort
+  abgewiesen.
+- **Selbstprüfung (`pruefeModelle()`):** neue Kennungen:
+  - `modell.ordnerVeraendert`, `modell.nurAntrieb`, `modell.ladenNurAntrieb`;
+  - `modell.hf…`, `modell.datei…`.
+  - Die Texte zu Registry und Quelle sind jetzt für beide Quellen formuliert.
+- **App:** Texte für jede neue Kennung (Deutsch und Englisch). Die Schritte heißen neutral („lädt“,
+  „Dateien prüfen“).
+- **Doku:**
+  - `docs/PROVIDER.md` (Abschnitt Hugging Face mit `vllm serve … --served-model-name`).
+  - `docker-compose.yml` (`MODELL_ORDNER`).
+  - Fallstrick in `packages/node/CLAUDE.md`.
+  - FORTSCHRITT, Sammlung, E9-Entwurf.
+
+**Echt gestartet:**
+- Knoten mit `KI_ANTRIEB=openai` und einer Antriebs-Attrappe; im Log steht, wohin geladen wird.
+- `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf` merkt den Wunsch (`quelle: "hf"`); ein
+  Ollama-Name wird dort abgewiesen.
+- Der Knoten versucht es. Ohne Netz zeigt `npm run modell`: „Hugging Face war nicht zu befragen
+  (TypeError) – nichts festgehalten, nichts geladen“.
+
+**Tests:**
+- **node** `modell-hf-laden.test.ts` (+7), mit echten Bausteinen aus `modell-hf.ts` gegen eine
+  Attrappe von Hugging Face:
+  - der ganze Weg; Festhalten mit Herkunft und Lizenz;
+  - Ablehnungen: fremdes Manifest, Ollama-Quelle, andere Größe am Commit, falsche Summe,
+    falsche Bytes, fremde Datei im Ordner;
+  - Dienst: im Angebot, raus ohne Namen beim Antrieb, raus nach einer Änderung am Ordner;
+  - Ollama-Knoten und HF-Wünsche; Wunsch und Stand; Selbstprüfung.
+- **Angepasst, nicht abgeschwächt:** Verdrahtungstests in `ki-antrieb.test.ts`,
+  `modell-laden.test.ts`, `modell-pruefung.test.ts` prüfen jetzt die neue Verdrahtung (Hilfen für
+  Hugging Face nur ohne Ollama, Takt immer, Herkunft beim Festhalten, Ordner in der
+  Selbstprüfung). `knoten-status.test.ts` prüft die neutralen Schritttexte.
+- **Verdrahtet:** Die vier Ausnahmen aus B-29c1a sind aus `scripts/wiring-ausnahmen.txt` raus.
+
+**Prüfungen:**
+- protocol 1284 grün (6 übersprungen); node 402 grün (7 übersprungen – der Live-Abruf in
+  `tools.test.ts` ohne Netz; vorher 395); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+**MENSCH (Live, Hugging Face und vLLM sind von hier nicht erreichbar):**
+1. Am Knoten mit `KI_ANTRIEB=openai`: `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf`.
+2. Nach dem Laden `vllm serve ~/.freedom/modelle/Qwen/Qwen2.5-0.5B-Instruct --served-model-name Qwen/Qwen2.5-0.5B-Instruct`.
+
+Erwartet:
+- `npm run modell` zeigt ✓;
+- das Angebot nennt das Modell;
+- eine Änderung im Ordner nimmt es heraus.
+
+Knoten-Stand: `main` mit B-29c1b, nur für `KI_ANTRIEB=openai`; mit Ollama kein Update nötig.
+
+## Schritt B-29c2a – Magnet-Links und Inhalts-Kennung im Protokoll
+
+Spur B, dritter Teil von B-29c. Entscheidung des MENSCHEN vom 12.10.2026: aria2c, Pirate Face,
+alles mit dem dezentralen Freedom-Dateisystem verbinden.
+
+Beschreibung und Vertrauen bleiben bei Nostr; die Bytes reisen über BitTorrent. Dieser Schritt
+legt fest, wie Knoten sich darüber verständigen.
+
+**Protokoll** (`modell-torrent.ts`, neu; `model-registry.ts`):
+- **„Ich halte vor“ (38058)** trägt zwei Tags mehr: `["magnet", …]` und `["inhalt", …]`. Ältere
+  Meldungen bleiben gültig.
+- **`leseMagnet()`:** Magnete sind Fremdtext und werden streng gelesen.
+  - Genau eine Kennung `btih` (Hex oder Base32); eine v2-Kennung daneben bleibt unbeachtet.
+  - Tracker nur udp/http/https/wss, Web-Seeds nur https, nie lokale oder private Hosts, begrenzt.
+  - `dn`, `xs`, `as` fallen weg; weiter geht nur der neu gebaute Link.
+- **`inhaltsKennung()`:** SHA-256 über die sortierten `<sha256>:<größe>` der Dateien. Gleich für
+  jeden Herausgeber derselben Dateien – bis E9-4 signiert jeder Knoten sein eigenes Manifest.
+- **`magnetQuellen()`:** Seeds derselben Fassung:
+  - nur gültig signiert, höchstens 14 Tage alt, je Knoten die neueste;
+  - je Torrent einmal, die meistgemeldeten zuerst;
+  - Vertrauen braucht es nicht, die Bytes prüft das Manifest.
+
+**Noch nicht verdrahtet:** Der Knoten nutzt die Bausteine mit B-29c2b (aria2) und B-29c2c (Quellen,
+Bekanntgabe). Bis dahin stehen drei Ausnahmen mit diesem Grund in `scripts/wiring-ausnahmen.txt`.
+
+**Doku:**
+- `docs/PROTOCOL.md` §31 („Über BitTorrent im eigenen Netz“).
+- Fallstrick in `packages/protocol/CLAUDE.md`.
+- E9-Entwurf, FORTSCHRITT.
+
+**Tests:** protocol `modell-torrent.test.ts` (+5):
+- Magnet mit Hex, Base32 und Hybrid; Ablehnungen (lokale und private Hosts, fremde Schemata,
+  zwei Kennungen, Übergröße, Grenzen);
+- Inhalts-Kennung;
+- 38058 mit und ohne Magnet;
+- Quellen: Fassung, Modell, Alter, Signatur, neueste je Knoten, Reihenfolge.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen, vorher 1284); node 402 grün (7 übersprungen, unverändert); app 1040 grün;
+  mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+Knoten-Stand: kein Update nötig (nur Protokoll).
+
+## Schritt B-29c2b – aria2 im Knoten: Freedom-Torrent, holen und prüfen, teilen
+
+Spur B, vierter Teil von B-29c. Der Torrent-Client wurde am 12.10.2026 im Auftrag des MENSCHEN
+gewählt: **aria2c**, als eigenes Programm. Es ist bewährt, sparsam bei Gigabyte-Dateien und kann
+Magnet, DHT, Tracker und Web-Seeds. Es kommt keine npm-Abhängigkeit dazu; die Lizenz ist GPL-2.0+,
+als getrennter Prozess ohne Folge für die EUPL.
+
+**Knoten:**
+- **`torrent.ts`** – der **Freedom-Torrent** einer Fassung:
+  - Bencode ohne Abhängigkeit.
+  - Name, Dateien und Stückgröße folgen nur aus dem Manifest, die Stücke aus den geprüften Bytes.
+  - Jeder Knoten mit denselben Bytes baut denselben Torrent (dieselbe `infohash`), gleich woher er
+    das Modell hat.
+  - Name = Commit bei Hugging Face, dazu dessen Web-Seed (BEP-19). Beim Bauen wird jede SHA-256
+    geprüft.
+- **`aria2.ts`:**
+  - `starteAria2()`: JSON-RPC nur auf 127.0.0.1; das Geheimnis ist je Start neu und steht nur in
+    `aria2.conf` (0600), nicht auf der Befehlszeile.
+  - Seeding ohne Ende; Upload-Grenze `TORRENT_HOCHLADEN_KBS`; Einstieg ins DHT
+    (`TORRENT_DHT_EINSTIEG`); eigene Tracker (`TORRENT_TRACKER`, geprüft wie in Magneten).
+  - `Aria2` gibt Fehler nur als Kennung mit Code weiter.
+- **`modell-schwarm.ts`:**
+  - `holeUndTeile()`:
+    - Metadaten holen (pausiert), nur die Dateien des Manifests wählen.
+    - Schon Geprüftes als Verweis vorlegen.
+    - Laden, jede SHA-256 prüfen; erst dann als Verweis in den Modellordner, danach weiter teilen.
+    - Falsches löscht die Ablage.
+  - `teileModell()`: den Freedom-Torrent aus dem geprüften Ordner teilen, nie doppelt.
+- **CI:** installiert aria2c, damit die Schwarm-Tests laufen statt sich zu überspringen.
+
+**Noch nicht verdrahtet:** `main.ts` startet aria2c und nutzt den Schwarm erst mit B-29c2c (Quellen,
+Bekanntgabe, Docker, Installer). Das liegt fertig und getestet bereit.
+
+**Tests:** node `modell-schwarm.test.ts` (+8):
+- Bencode und Stückgrößen; Freedom-Torrent gleich bei zwei Knoten, `aria2c -S` liest dieselbe
+  Kennung; eine abweichende Datei wirft.
+- Auswahl im Torrent; Umgebung und Konfiguration (Geheimnis nur in der Datei, DHT-Einstieg,
+  Tracker); Fehler von aria2 ohne Text.
+- **Mit echtem aria2c,** zwei Knoten und einem Tracker auf 127.0.0.1:
+  - B holt über den Magnet und teilt weiter;
+  - eine falsche Fassung kommt nie in den Modellordner;
+  - wer die Dateien schon hat, lädt nichts und teilt sofort.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen); node 410 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 402); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test und `build-site.sh`: grün.
+
+Knoten-Stand: kein Update nötig (noch nicht verdrahtet).
+
+## Schritt B-29c2c – Schwarm verdrahtet: Freedom-Knoten, Pirate Face, Hugging Face
+
+Spur B, letzter Teil von B-29c. Damit ist die Entscheidung des MENSCHEN vom 12.10.2026 umgesetzt:
+Gewichte kommen aus Freedom selbst, Pirate Face und Hugging Face sind Quellen, alles verbunden mit
+dem dezentralen Freedom-Dateisystem.
+
+**Knoten:**
+- **`main.ts`:**
+  - aria2c nur mit `TORRENT=1` und `KI_ANTRIEB=openai`; ungültige Werte → kein Start.
+  - Schwarm-Hilfen für den Lader.
+  - „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung, vom Schlüssel des Knotens.
+  - Beim Start werden unveränderte geprüfte Ordner wieder geteilt; täglich wird nur neu gemeldet.
+  - aria2c endet mit dem Knoten.
+- **`modell-laden.ts`:** `ladeHfModell()` holt in dieser Reihenfolge:
+  1. von Freedom-Knoten (`magnetQuellen()`);
+  2. über den Magnet aus dem Wunsch (`--magnet`, etwa von Pirate Face);
+  3. von Hugging Face direkt.
+
+  Danach teilt und meldet es; ein Fehler dabei hält das geprüfte Modell nicht auf. Der Stand merkt
+  sich die Kennung des Torrents.
+- **`npm run modell -- <org/repo> --magnet "<link>"`:** nur gültige Magnete, nur für Hugging Face.
+- **Docker:** aria2 im Image. In `docker-compose.yml` stehen `TORRENT`, `TORRENT_PORT` und
+  `TORRENT_HOCHLADEN_KBS`; der Port ist nicht von selbst offen.
+- **Installer:** aria2 nur mit `TORRENT=1`, dazu der Hinweis auf Port und IP; `TORRENT` steht in
+  der Umgebungsdatei (Vorgabe 0).
+- **Doku:**
+  - `docs/PROVIDER.md` („Im Schwarm“), ehrlich: Wer teilt, zeigt seine IP im Schwarm; deshalb
+    ist `TORRENT` aus, bis man es einschaltet.
+  - Fallstrick in `packages/node/CLAUDE.md`.
+  - E9-Entwurf, Sammlung, FORTSCHRITT.
+
+**Echt gestartet:** Knoten mit `KI_ANTRIEB=openai`, `TORRENT=1` und einer Antriebs-Attrappe:
+- „[schwarm] aria2c läuft …“;
+- `aria2.conf` 0600, kein Geheimnis im Log;
+- nach dem Ende des Knotens läuft kein aria2c mehr.
+
+**Tests:**
+- **node** `modell-hf-laden.test.ts` (+3):
+  - erst Netz, dann Pirate Face; ist einer erfolgreich, lädt Hugging Face nichts; geteilt;
+  - alle Magnete scheitern → Hugging Face; ein Fehler beim Teilen hält nichts auf;
+  - Wunsch mit Magnet.
+- **node** `modell-schwarm-verdrahtet.test.ts` (+1): Verdrahtung in `main.ts`, Lader, CLI, Docker.
+- Die letzte Ausnahme (`magnetQuellen`) ist aus `scripts/wiring-ausnahmen.txt` raus.
+
+**Prüfungen:**
+- protocol 1289 grün (6 übersprungen); node 414 grün (7 übersprungen – der Live-Abruf in `tools.test.ts` ohne
+  Netz; vorher 410); app 1040 grün; mls 13 grün; Leak-Tests 73 grün + 1 `todo`.
+- Build, `check-wiring --streng`, `check-website`, `check_innerhtml`, Smoke-Test, `build-site.sh`,
+  `docker compose config` und `bash -n` für den Installer: grün.
+
+**MENSCH (Live – Hugging Face, Pirate Face und das DHT sind von hier nicht erreichbar):**
+1. Knoten A und B, beide mit `KI_ANTRIEB=openai` und `TORRENT=1`, Port freigegeben.
+2. A: `npm run modell -- Qwen/Qwen2.5-0.5B-Instruct --aus-hf`.
+3. B: dasselbe ohne `--aus-hf`, nachdem B das Manifest von A als eigenes festgehalten hat – oder
+   mit `--aus-hf`.
+
+Erwartet:
+- B holt aus dem Schwarm von A;
+- das Log von B zeigt kein Laden von Hugging Face.
+
+Mit einem Magnet von pirateface.co zusätzlich `--magnet "<link>"` versuchen.
+
+Knoten-Stand: `main` mit B-29c2c, nur für `KI_ANTRIEB=openai` mit `TORRENT=1`; sonst kein Update nötig.
+
 ## Schritt C-31 – Agent-Verlauf folgt dem Ende
 
 Spur C, Befund A-4 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung): Der Agent-Chat

@@ -8,10 +8,13 @@
  *   Klick, mit Warnung daneben, nach `QR_SICHTBAR_MS` wieder weg; gespeichert
  *   wird nichts.
  * - Scannen: Kamera nur auf Klick, erkannt von der eingebauten Erkennung des
- *   Browsers (`BarcodeDetector`) – das Bild bleibt im Gerät. Wo es sie nicht
- *   gibt, sagt die App das und bietet das Einfügen an. Nach dem ersten Code,
- *   beim Stoppen und beim Schließen des Dialogs ist die Kamera wieder aus.
+ *   Browsers (`BarcodeDetector`, Chromium) oder – wo es sie nicht gibt
+ *   (Firefox, Safari, seit A-20) – von jsQR in der App; beides im Gerät, das
+ *   Bild geht nirgends hin. Ohne Kamera sagt die App das und bietet das
+ *   Einfügen an. Nach dem ersten Code, beim Stoppen und beim Schließen des
+ *   Dialogs ist die Kamera wieder aus.
  */
+import jsQRModul from "jsqr";
 import { qrCode, qrSvgPfad } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
@@ -105,15 +108,51 @@ interface ErkennerKlasse {
 const erkennerKlasse = (): ErkennerKlasse | undefined =>
   (globalThis as unknown as { BarcodeDetector?: ErkennerKlasse }).BarcodeDetector;
 
-/** Kann dieser Browser QR-Codes mit der Kamera lesen? */
-export async function kannScannen(): Promise<boolean> {
-  const K = erkennerKlasse();
-  if (!K || !navigator.mediaDevices?.getUserMedia) return false;
-  try {
-    return (await K.getSupportedFormats()).includes("qr_code"); // kein UI-Text
-  } catch {
-    return false;
+// jsQR ist CommonJS: je nach Umgebung kommt die Funktion selbst oder `{ default }`
+type JsQr = typeof jsQRModul.default;
+const jsQR: JsQr = (jsQRModul as { default?: JsQr }).default ?? (jsQRModul as unknown as JsQr);
+
+/** So breit wird ein Einzelbild für jsQR höchstens – reicht für einen Code vor der Kamera, spart Rechenzeit. */
+export const SCAN_BREITE_MAX = 640;
+
+/** Einen QR-Code aus einem Bild (RGBA) lesen – mit jsQR, im Gerät (A-20); auch hell auf dunkel. */
+export function leseQrAusBild(daten: Uint8ClampedArray, breite: number, hoehe: number): string | null {
+  if (!(breite > 0 && hoehe > 0) || daten.length !== breite * hoehe * 4) return null;
+  return jsQR(daten, breite, hoehe, { inversionAttempts: "attemptBoth" })?.data || null; // kein UI-Text
+}
+
+/** Ersatz für `BarcodeDetector` (A-20): ein Einzelbild aus dem Video, verkleinert, an jsQR. */
+class JsQrErkenner implements Erkenner {
+  private leinwand = document.createElement("canvas");
+  async detect(video: HTMLVideoElement): Promise<Erkannt[]> {
+    const f = Math.min(1, SCAN_BREITE_MAX / (video.videoWidth || 1));
+    const b = Math.round(video.videoWidth * f);
+    const h = Math.round(video.videoHeight * f);
+    if (!b || !h) return [];
+    this.leinwand.width = b;
+    this.leinwand.height = h;
+    const ctx = this.leinwand.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return [];
+    ctx.drawImage(video, 0, 0, b, h);
+    const wert = leseQrAusBild(ctx.getImageData(0, 0, b, h).data, b, h);
+    return wert ? [{ rawValue: wert }] : [];
   }
+}
+
+/** Die Erkennung des Browsers, wenn sie QR kann – sonst jsQR. */
+async function waehleErkenner(): Promise<Erkenner> {
+  const K = erkennerKlasse();
+  try {
+    if (K && (await K.getSupportedFormats()).includes("qr_code")) return new K({ formats: ["qr_code"] }); // kein UI-Text
+  } catch {
+    // Erkennung des Browsers kaputt – jsQR
+  }
+  return new JsQrErkenner();
+}
+
+/** Kann diese App hier QR-Codes mit der Kamera lesen? Seit A-20 überall, wo es eine Kamera-Schnittstelle gibt. */
+export async function kannScannen(): Promise<boolean> {
+  return !!navigator.mediaDevices?.getUserMedia;
 }
 
 /**
@@ -147,8 +186,6 @@ export function scanKnopf(ziel: HTMLInputElement | HTMLTextAreaElement): HTMLEle
   };
   start.addEventListener("click", async () => {
     if (strom) return stopp();
-    const K = erkennerKlasse();
-    if (!K) return;
     try {
       strom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); // kein UI-Text
     } catch {
@@ -167,7 +204,7 @@ export function scanKnopf(ziel: HTMLInputElement | HTMLTextAreaElement): HTMLEle
     } catch {
       return stopp(t("qr.keineKamera"));
     }
-    const erkenner = new K({ formats: ["qr_code"] }); // kein UI-Text
+    const erkenner = await waehleErkenner();
     const schritt = async () => {
       if (!strom || !video) return;
       if (!box.isConnected) return stopp(); // Dialog geschlossen: Kamera aus

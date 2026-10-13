@@ -38,6 +38,10 @@ Bereichs unten anhängen.
   Netz nur über `safeFetch` + `leseBegrenzt`. Private Adressen nur mit
   `isPrivateAddress()` aus dem Protokoll prüfen – `new URL` schreibt
   IPv4-in-IPv6 als Hex (`[::ffff:7f00:1]`), eine Suche nach Punkten übersieht das.
+  `file_io` je Auftrag (seit A-29): Der Provider gibt die Id der Anfrage als `auftrag` mit
+  (`parseToolCalls()`), `FileIoExecutor` arbeitet dann nur in `<workspace>/<auftrag>` (0700),
+  und nach den Werkzeugen löscht `ToolRegistry.vergiss()` den Ordner – auch wenn ein Werkzeug
+  scheitert. Ein neuer Aufrufer gibt immer einen Auftrag mit; ohne teilten sich alle einen Ordner.
 - **LP nur mit eingeschränkter Macaroon und mit Ablage** (seit 8.3a): Der
   Knoten startet den LP nur nach `pruefeLpMacaroon()` (genau `invoices:*`,
   `offchain:*`, optional `info:read`). Hinrichtung: erst ablegen
@@ -117,7 +121,12 @@ Bereichs unten anhängen.
   Angebot); `PROVIDER_MODELS` bleibt daneben. Der Provider nimmt Modelle nur aus `cfg.modelle()`.
   Nach außen und ins Log nur Kennung (`fall`), Zahlen, Fehlernamen, Modellnamen – nie Text aus
   Ollama oder der Registry. Die Registry ist aus dieser Umgebung nicht erreichbar – Live-Proben
-  macht der MENSCH.
+  macht der MENSCH. Wie ein Modell steht (seit E9-3b), sagt nur `pruefeModelle()`
+  (`modell-pruefung.ts`): Kennungen `modell.…`, Sätze nur in `MODELL_TEXT` (auch für `npm run modell`),
+  die App hat je Kennung einen Text (`MODELL_TEXT` in `knoten-status-ansicht.ts`, ein Test vergleicht).
+  Ein neuer Ausgang von `ladeModell()` braucht dort einen Eintrag (`modellFall()`). Im Status geht es
+  als eigenes Feld `modellPruefung` hinaus, nie in `einrichtung` – sonst läse eine ältere App den
+  ganzen Status nicht mehr.
   *(Weitere Teile: Wurzel (`CLAUDE.md`).)*
 - **Der Systemprompt sagt nur, was stimmt** (seit B-27, Nutzertest A-7): gebaut nur über
   `systemPrompt()` (`inference.ts`) – die Werkzeuge genau der Anfrage (aus `getTools()`, mit
@@ -135,3 +144,75 @@ Bereichs unten anhängen.
   `PROVIDER_MODELS` nur, was Ollama bei jedem Erneuern unter genau dem Namen nennt
   (`nurBeiOllama()`, ohne Tag „:latest“); bliebe nichts, bleibt die Liste (nie still vom Netz),
   das Log nennt, was fehlt.
+- **KI-Antrieb nur über `antriebAusUmgebung()`** (seit B-29a, `ki-antrieb.ts`): `KI_ANTRIEB=ollama`
+  (Vorgabe, `OLLAMA_URL`) oder `openai` (vLLM, SGLang, TensorFold; `KI_URL` mit `/v1`). `KI_URL` nur
+  über `lokaleAntriebAdresse()` – dieser Rechner oder das Heimnetz, ohne Zugangsdaten; ein Dienst im
+  Internet wäre ein Dritter, der die Fragen liest. Ungültig → kein Start, nie still auf Ollama
+  ausweichen. `KI_SCHLUESSEL` nur als Bearer an den Dienst (`antriebKopf()`), nie ins Log; Fehler des
+  Dienstes nur mit Status, nie mit seinem Text. Aufrufe nur über `rufe()` in `OllamaBackend` – Ollama und
+  OpenAI-kompatibel geben dieselbe Form zurück; die Antwort eines Werkzeugs trägt OpenAI-kompatibel die
+  `tool_call_id` (`werkzeugRunde()`). Modelle kennt der Knoten über `antriebModelle()` (`/v1/models`
+  ohne Fingerabdruck) – geprüft laden (`ModellDienst`) geht nur mit Ollama; `pruefeModelle(…, antrieb)`
+  sagt das mit eigenen Kennungen, nie „geprüft“ für einen anderen Antrieb.
+  Gemessen wird (seit B-29b) nur über `npm run messen` (`messung.ts`): derselbe Antrieb und Weg wie
+  echte Anfragen (`complete()` mit `ohneWerkzeuge`), feste Übungsfragen, höchstens N zugleich
+  (`missStufe()`), Fehler nur mit Namen, Antworten nie ausgeben. Tokens je Sekunde nur, wenn der
+  Antrieb sie für jede Anfrage nennt – sonst „–“, nie hochrechnen.
+- **Agent auf dem Knoten nur über `knoten-agent.ts`** (seit 11.3d1a, offene Räume, „wer fragt, zahlt“):
+  `KNOTEN_AGENT=1` über `agentAusUmgebung()` (ungültig → kein Start), eigener Schlüssel nur über
+  `ladeKnotenSchluessel(undefined, agentSchluesselDatei(), …)` – nie der des Knotens. Ein Auftrag mit Verweis
+  (`leseAuftragsVerweis()`) nur aus einem Umschlag; geprüft über `KnotenAgent.pruefe()` nach der Zahlungsprüfung
+  und vor dem Rechnen (`entscheide()` mit `ausBudget: false`), gerechnet nur `agentAuftrag.prompt` – nie die
+  Eingabe des Auftrags, sonst ließe sich der Agent unter einer fremden Erwähnung alles sagen. Erst die Antwort im
+  Raum (`antworte()`), dann das Ergebnis an den Fragenden; scheitert das Rechnen, gibt `gib()` die Erwähnung frei.
+  Jede Erwähnung höchstens einmal (`agent-beantwortet.json`, nur Ids). Ablehnungen nur als `AgentAbgelehnt`
+  mit `fall` – nie Text aus dem Raum oder von Relays.
+- **Agent in privaten Räumen nur über `knoten-mls.ts`** (seit 11.3d2a, MENSCH 10.10.2026): nur mit
+  `AGENT_PRIVAT` (`besitzer` – nur Einladungen von `AGENT_BESITZER`, `alle`), höchstens
+  `KNOTEN_MLS_GRENZEN.gruppen`; eigenes MLS-Konto mit dem Schlüssel des Agenten, Kontobeweis über
+  `signiereId()`. Ausnahme von „Kein Klartext im Knoten“, nur hier: Chat privater Räume hält der Knoten
+  im Speicher (je Gruppe die letzten 50), nie in einer eigenen Datei, nie im Log; auf die Platte nur
+  MLS-Zustand und Raumstand (`STRUKTUR`), verschlüsselt wie `MlsZustand` der App (`MlsAblage`,
+  AES-256-GCM, Schlüssel in `agent-mls.json`, alles 0600) – eine beschädigte Schlüsseldatei heißt kein
+  Start, nie ersetzen. Die Engine behält Verarbeitetes in ihrem Zustand und stellt es nach einem
+  Neustart erneut zu: nie aus „neu“ im Abgleich schließen, dass etwas unbeantwortet ist. Fremde Relays
+  einer Gruppe nur `wss://`, plausibel, über `pruefeRelay` (ohne Tor `checkUrlSafe()`) und nur über
+  die Fabrik `relayAn` aus `main.ts` – die einzige Stelle mit `new WebSocketRelay(` (Test in
+  `tor.test.ts`). Aufrufe des Kontos nur über `exklusiv()`. Test-Relays brauchen `wss://`-Adressen –
+  MDK lehnt andere Schemata beim Gründen ab.
+  Antworten in privaten Räumen (seit 11.3d2b) nur über `KnotenAgent.pruefePrivat()` – nur Gruppen, in
+  denen der Agent Mitglied ist (`nutzePrivat()` nur mit dem Konto aus `AGENT_PRIVAT`), der Raum aus
+  `gruppenRaum()` mit Admins und Mitgliedern aus MLS, Agenten an ihrer Karte, die Antwort nur als inneres
+  Event (`raumAgentAntwort()` über `KnotenMls.sende()`) – nie offen. Fehlt die Erwähnung, einmal abgleichen.
+  Der Kontext nimmt nur Nachrichten vor der Erwähnung; die Engine stempelt in Sekunden – im Test eine
+  Sekunde dazwischen.
+- **Gewichte von Hugging Face nur über `modell-hf.ts`** (seit B-29c1a, Quellen MENSCH 12.10.2026):
+  Stand nur am Commit (`hfStand()`, `upstream` = `hf:<Kennung>@<Commit>`, nie ein Zweig), Dateien
+  nur aus `HF_DATEI` – safetensors, Konfiguration, Tokenizer, oberste Ebene; nie Pickle (`.bin`,
+  `.pt`), nie Python. Hugging Face nennt SHA-256 nur für LFS; kleine Dateien tragen nur die
+  Git-Kennung (SHA-1) – nie als Summe ins Manifest, erst laden, `gitKennung()` vergleichen, dann
+  selbst rechnen (`halteHfFest()`). Geladen nur über `ladeHfDatei()`: SHA-256 beim Laden, nie mehr
+  Bytes als im Manifest, unter dem Namen erst nach der Prüfung (vorher `.teil`), Weiterleitungen nie
+  von https zu http, ohne neue Bytes Abbruch nach `HF_STILL_MS`. Fehler nur mit Namen
+  (`HfGesperrt`, `DateiAnders` …), nie Text von Hugging Face. Hugging Face ist aus dieser Umgebung
+  nicht erreichbar – Tests gegen eine Attrappe auf 127.0.0.1, Live-Proben macht der MENSCH.
+  Im Knoten (seit B-29c1b) nur über `ladeHfModell()` und nur mit einem OpenAI-kompatiblen Antrieb
+  (`hf` in den `LaderHilfen` setzt `main.ts` nur ohne Ollama): Wünsche tragen `quelle: "hf"`, der
+  Dienst lädt nur Wünsche seiner Quelle. Ins Angebot nur, solange `/v1/models` den Namen nennt und
+  `ordnerAbdruck()` (Name, Größe, Zeit je Eintrag – liest keine Bytes) dem gemerkten gleicht; im Ordner
+  nichts, was nicht im Manifest steht (`datei.fremd`) – vLLM liest alle safetensors des Ordners.
+- **Modelle im Schwarm nur über aria2c und `modell-schwarm.ts`** (seit B-29c2b, MENSCH 12.10.2026): aria2c nur aus
+  `starteAria2()` – JSON-RPC nur auf 127.0.0.1, das Geheimnis je Start neu und nur in `aria2.conf` (0600), nie auf
+  der Befehlszeile (`ps`), nie ins Log; Fehler nur als `Aria2Fehler` mit Code. Laden nur über `holeUndTeile()`: nur
+  die Dateien des Manifests (`waehleDateien()`: Name in der obersten oder zweiten Ebene, Größe gleich), jede mit
+  SHA-256 geprüft, bevor sie in den Modellordner kommt (Verweis, nicht Kopie); Falsches löscht die Ablage. Teilen nur
+  den Freedom-Torrent aus dem geprüften Ordner (`baueModellTorrent()`: Name = Commit, Dateien sortiert, Stückgröße aus
+  `stueckGroesse()` – nie ändern, sonst teilen Knoten derselben Bytes verschiedene Schwärme). Ohne Einstieg
+  (`dht-entry-point`) findet ein neuer Knoten im DHT niemanden. Tests mit echtem aria2c brauchen einen Tracker auf
+  127.0.0.1 und Magnete ohne `leseMagnet()` (es weist lokale Tracker zu Recht ab); die CI installiert aria2.
+  Verdrahtet (seit B-29c2c) nur in `main.ts`: aria2c nur mit `TORRENT=1` und `KI_ANTRIEB=openai` (Ollama hält seine
+  Gewichte selbst), endet mit dem Knoten (`process.on("exit")`). `ladeHfModell()` fragt erst `schwarm.quellen()`
+  (38058 über `magnetQuellen()`), dann den Magnet aus dem Wunsch (`--magnet`, etwa Pirate Face), dann Hugging Face;
+  geteilt und gemeldet (38058 mit Magnet und `inhaltsKennung()`) wird nach jeder bestandenen Prüfung und beim Start
+  für unveränderte Ordner – täglich nur neu gemeldet, nicht neu gelesen. Ein Fehler beim Teilen hält ein geprüftes
+  Modell nie auf. Den Schwarm-Port öffnet `docker-compose.yml` nicht von selbst.

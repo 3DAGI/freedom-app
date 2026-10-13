@@ -1,14 +1,17 @@
 /**
  * Schritt 8.11a: Nachfolge mit versiegelten Anteilen – durchgespielt mit
- * einem Besitzer und drei Vertrauten (Schwelle 2 von 3).
+ * einem Besitzer und drei Vertrauten (Schwelle 2 von 3). Seit SH1 entstehen
+ * Anteile in Fassung 2 (Bibliothek von Privy); die Tests aus 8.11a laufen mit
+ * Fassung 1 weiter – alte Anteile bleiben lesbar.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeypair, signEvent, type NostrEvent } from "../src/event.js";
 import { LocalSigner } from "../src/signer.js";
 import {
-  buildHeartbeat, buildRecoveryClaim, buildSuccessionPlan, parseSuccessionPlan, secretHashOf, splitSecret,
+  buildHeartbeat, buildRecoveryClaim, buildSuccessionPlan, parseSuccessionPlan, secretHashOf, splitSecret, teileGeheimnis,
 } from "../src/succession.js";
+import { giftUnwrapMitSigner } from "../src/gift-wrap.js";
 import {
   baueAnteilAnfrage, baueAnteilUebergabe, baueAnteilUmschlag, darfUebergeben, neueTeilung, oeffneAnteil,
   oeffneAnteilAnfrage, oeffneAnteilUebergabe, setzeNachfolgeZusammen, type GehaltenerAnteil,
@@ -23,10 +26,10 @@ const fremd = generateKeypair();
 const signer = (k: { sk: Uint8Array }) => new LocalSigner(k.sk);
 const hex = (x: Uint8Array) => Buffer.from(x).toString("hex");
 
-/** Besitzer richtet ein: Plan oeffentlich, Anteile versiegelt an B, C, D. */
-async function einrichten(teilung = neueTeilung()) {
+/** Besitzer richtet ein: Plan oeffentlich, Anteile versiegelt an B, C, D – Fassung 1 (bis SH1) oder 2. */
+async function einrichten(teilung = neueTeilung(), fassung: 1 | 2 = 1) {
   const guardians = [b.pk, c.pk, d.pk];
-  const teile = splitSecret(besitzer.sk, 3, 2);
+  const teile = fassung === 2 ? await teileGeheimnis(besitzer.sk, 3, 2) : splitSecret(besitzer.sk, 3, 2);
   const secretHash = secretHashOf(besitzer.sk);
   const planEv = signEvent(buildSuccessionPlan({ ownerPubkey: besitzer.pk, guardians, threshold: 2, inactivityDays: 180, graceDays: 30, secretHash }, T0), besitzer.sk);
   const umschlaege = await Promise.all(teile.map((t, i) => baueAnteilUmschlag({
@@ -104,7 +107,7 @@ test("8.11a: NACHFOLGE DURCHGESPIELT – B sammelt von C, setzt zusammen, hat de
   assert.equal(erhalten.von, c.pk);
   assert.equal(erhalten.anfrageId, anfrage.anfrageId);
   assert.equal(await oeffneAnteilUebergabe(uebergabe, signer(b), []), null, "ohne Plan dieses Besitzers nichts");
-  const schluessel = setzeNachfolgeZusammen([ab, erhalten], plan);
+  const schluessel = await setzeNachfolgeZusammen([ab, erhalten], plan);
   assert.equal(hex(schluessel), hex(besitzer.sk));
 });
 
@@ -114,15 +117,15 @@ test("8.11a: Uebergaben nur von Vertrauten; Anteile verschiedener Teilungen werd
   const altB = (await oeffneAnteil(alt.umschlaege[0]!, signer(b)))!;
   const neuC = (await oeffneAnteil(neu.umschlaege[1]!, signer(c)))!;
   assert.notEqual(altB.teilung, neuC.teilung);
-  assert.throws(() => setzeNachfolgeZusammen([altB, neuC], neu.plan), /Erst 1 von 2/);
-  assert.throws(() => setzeNachfolgeZusammen([altB], neu.plan), /Erst 1 von 2/);
+  await assert.rejects(setzeNachfolgeZusammen([altB, neuC], neu.plan), /Erst 1 von 2/);
+  await assert.rejects(setzeNachfolgeZusammen([altB], neu.plan), /Erst 1 von 2/);
   // Ein Fremder schickt einen „Anteil“ – wird nicht angenommen
   const anfrage = { von: b.pk, besitzer: besitzer.pk, teilung: neuC.teilung, anfrageId: "ab".repeat(32), zeit: T0 };
   const falsch = await baueAnteilUebergabe({ von: signer(fremd), anfrage, anteil: neuC });
   assert.equal(await oeffneAnteilUebergabe(falsch, signer(b), [neu.plan]), null);
   // Gefaelschte Daten passen nicht zur Pruefsumme
   const neuB = (await oeffneAnteil(neu.umschlaege[0]!, signer(b)))!;
-  assert.throws(() => setzeNachfolgeZusammen([neuB, { ...neuC, daten: "00".repeat(32) }], neu.plan), /passen nicht/);
+  await assert.rejects(setzeNachfolgeZusammen([neuB, { ...neuC, daten: "00".repeat(32) }], neu.plan), /passen nicht/);
 });
 
 test("8.11a: unsinnige Anteile werden abgelehnt", async () => {
@@ -134,4 +137,48 @@ test("8.11a: unsinnige Anteile werden abgelehnt", async () => {
   await assert.rejects(baueAnteilUmschlag({ ...basis, an: besitzer.pk }), /Vertrauter/);
   await assert.rejects(baueAnteilUmschlag({ ...basis, teilung: "kurz" }), /Teilung/);
   await assert.rejects(baueAnteilUmschlag({ ...basis, anteil: { index: 0, data: t!.data } }), /Anteil/);
+});
+
+const inneres = async (w: NostrEvent, k: { sk: Uint8Array }) => (await giftUnwrapMitSigner(w, signer(k))).inner!;
+const fassungTag = (ev: { tags: string[][] }) => ev.tags.find((t) => t[0] === "fassung")?.[1];
+
+test("SH1: neue Anteile in Fassung 2 – Tag im Anteil und in der Übergabe, durchgespielt bis zum Schlüssel", async () => {
+  const { umschlaege, plan, teile } = await einrichten(neueTeilung(), 2);
+  assert.ok(teile.every((t) => t.fassung === 2 && t.data.length === 33), "Geheimnis plus ein Byte mit der Stelle");
+  assert.equal(fassungTag(await inneres(umschlaege[0]!, b)), "2");
+  const ab = (await oeffneAnteil(umschlaege[0]!, signer(b)))!;
+  const ac = (await oeffneAnteil(umschlaege[1]!, signer(c)))!;
+  assert.equal(ab.fassung, 2);
+  const jetzt = T0 + 213 * TAG;
+  const { wrap } = await baueAnteilAnfrage({ von: signer(b), an: c.pk, besitzer: besitzer.pk, teilung: ab.teilung, nowSecs: jetzt });
+  const uebergabe = await baueAnteilUebergabe({ von: signer(c), anfrage: (await oeffneAnteilAnfrage(wrap, signer(c)))!, anteil: ac, nowSecs: jetzt });
+  assert.equal(fassungTag(await inneres(uebergabe, b)), "2", "die Fassung reist mit");
+  const erhalten = (await oeffneAnteilUebergabe(uebergabe, signer(b), [plan]))!;
+  assert.equal(erhalten.fassung, 2);
+  assert.equal(hex(await setzeNachfolgeZusammen([ab, erhalten], plan)), hex(besitzer.sk));
+  // Ohne Tag gelesen (als Fassung 1) passt es nicht – die Fassung entscheidet, wie zusammengesetzt wird
+  const { fassung: _f, ...alsAlt } = erhalten;
+  await assert.rejects(setzeNachfolgeZusammen([ab, alsAlt], plan), /passen nicht/);
+});
+
+test("SH1: alte Anteile (Fassung 1) ohne Tag bleiben lesbar; eine unbekannte Fassung wird abgelehnt", async () => {
+  const alt = await einrichten();
+  assert.equal(fassungTag(await inneres(alt.umschlaege[0]!, b)), undefined, "Fassung 1 im alten Format");
+  const ab = (await oeffneAnteil(alt.umschlaege[0]!, signer(b)))!;
+  assert.equal(ab.fassung, undefined);
+  const ad = (await oeffneAnteil(alt.umschlaege[2]!, signer(d)))!;
+  assert.equal(hex(await setzeNachfolgeZusammen([ab, ad], alt.plan)), hex(besitzer.sk));
+  // Ein Anteil mit unbekannter Fassung – der Vertraute nimmt ihn nicht an
+  const [t] = await teileGeheimnis(besitzer.sk, 3, 2);
+  const teilung = neueTeilung();
+  const kern = {
+    pubkey: besitzer.pk, kind: 38077, created_at: T0, content: hex(t!.data),
+    tags: [["p", b.pk], ["index", "1"], ["schwelle", "2"], ["anzahl", "3"], ["secret_hash", secretHashOf(besitzer.sk)], ["teilung", teilung], ["fassung", "3"]],
+  };
+  const { giftWrapMitSigner } = await import("../src/gift-wrap.js");
+  assert.equal(await oeffneAnteil(await giftWrapMitSigner(kern, signer(besitzer), b.pk, { fixedJitter: 0, nowSecs: T0 }), signer(b)), null);
+  await assert.rejects(baueAnteilUmschlag({
+    von: signer(besitzer), an: b.pk, anteil: { index: 1, data: new Uint8Array([7]), fassung: 2 }, schwelle: 2, anzahl: 3,
+    secretHash: secretHashOf(besitzer.sk), teilung,
+  }), /Anteil/, "Fassung 2 braucht mindestens zwei Byte");
 });

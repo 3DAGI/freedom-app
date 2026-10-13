@@ -12,18 +12,24 @@
  *   - publiziert Results + Leistungs-Events
  *   - verwahrt NICHTS (non-custodial by design)
  */
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { totalmem } from "node:os";
 import {
   buildModelManifest,
+  buildModelSeed,
+  inhaltsKennung,
   KIND_MODEL_MANIFEST,
+  KIND_MODEL_SEED,
+  magnetQuellen,
+  parseModelManifest,
   OutboxPool,
   WebSocketRelay,
   MemoryRelay,
   signEvent,
   startUrls,
   gratisAusUmgebung,
+  ANGEBOT_TAKT_SEK,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -33,8 +39,16 @@ import { turnAusUmgebung } from "./turn.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
-import { ModellDienst, nurBeiOllama, ollamaPull, ollamaTags, registryDateien } from "./modell-laden.js";
+import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
+import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
+import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
+import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
+import { holeUndTeile, teileModell } from "./modell-schwarm.js";
+import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
+import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
+import { KNOTEN_MLS_GRENZEN, KnotenMls } from "./knoten-mls.js";
+import { checkUrlSafe } from "./url-guard.js";
 import http from "node:http";
 
 /** Ohne RELAYS: die ganze Startliste (5.4) – so teilt jede App-Sitzung Relays mit dem Knoten. */
@@ -142,18 +156,41 @@ async function main(): Promise<void> {
   let gepruefteModelle: readonly string[] = [];
   // B-41: nur, was Ollama hat (`nurBeiOllama()`, bei jedem Angebot neu gefragt); ohne Antwort keine Aussage
   let ollamaNamen: readonly string[] | null = null;
+  // E9-3b: Namen und Fingerabdrücke aus derselben Antwort – der Status zeigt den Stand des letzten Angebots.
+  // Seit B-29a vom gewählten KI-Antrieb (OpenAI-kompatibel ohne Fingerabdruck)
+  let ollamaStand: ReadonlyArray<{ name: string; digest: string }> | null = null;
   const alleAngebotenen = () => [...new Set([
-    ...(process.env.PROVIDER_MODELS ?? process.env.OLLAMA_MODEL ?? "nemotron-3.5-lightning:30b-a3b-nvfp4").split(",").map((m) => m.trim()).filter(Boolean),
+    ...providerModelle(process.env),
     ...gepruefteModelle,
   ])];
+  // Modelle im Status an den Besitzer (E9-3b): Befunde je Modell und was gerade lädt – nur Kennungen, Zahlen, Namen
+  const modellPruefung = (): import("@freedomstack/protocol").KnotenStatus["modellPruefung"] => {
+    const stand = leseStand(modellDatei());
+    const befunde = pruefeModelle({
+      angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand, antrieb: antrieb.art,
+      ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
+    });
+    return {
+      befunde: befunde.map(({ name, stufe, fall, werte }) => ({ name, stufe, fall, werte: werte ?? {} })),
+      ...(stand.laeuft ? { laeuft: stand.laeuft } : {}),
+    };
+  };
   const angebotModelle = () => (ollamaNamen ? nurBeiOllama(alleAngebotenen(), ollamaNamen).modelle : alleAngebotenen());
 
   const keypair = loadKeypair();
-  const backend = new OllamaBackend();
+  // KI-Antrieb (B-29a): Ollama oder OpenAI-kompatibel (vLLM, SGLang, TensorFold) – nur auf diesem Rechner
+  // oder im Heimnetz; ungültig → kein Start, nie still auf Ollama ausweichen
+  const antriebWahl = antriebAusUmgebung(process.env);
+  if (!antriebWahl.antrieb) {
+    console.error(`[ki] ${antriebWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  const antrieb = antriebWahl.antrieb;
+  const backend = new OllamaBackend(antrieb.url, undefined, { antrieb: antrieb.art, schluessel: antrieb.schluessel });
 
   const ollamaOk = await backend.available();
   if (!ollamaOk) {
-    console.error(`Ollama nicht erreichbar (${backend.name()}). Daemon beendet.`);
+    console.error(`KI-Antrieb nicht erreichbar (${backend.name()}). Daemon beendet.`);
     process.exit(1);
   }
   console.log(`Inference-Backend bereit: ${backend.name()}`);
@@ -182,31 +219,105 @@ async function main(): Promise<void> {
     : "[gratis] aus (GRATIS_TOKENS_TAG=0)");
   if (torProxy) console.log(`[tor] Relays über Tor (SOCKS ${torProxy.host}:${torProxy.port}) – Solana-RPC, LND und Ollama nicht`);
   const verbinde = torProxy ? torWebSocket(torProxy) : undefined;
+  // Die einzige Stelle, an der Relay-Verbindungen entstehen – auch die zu Relays privater Räume (11.3d2a)
+  const relayAn = (url: string) => new WebSocketRelay(url, { verbinde });
   const relays = useMemory
     ? [new MemoryRelay("mem://local")]
-    : relayUrls.map((url) => new WebSocketRelay(url, { verbinde }));
+    : relayUrls.map((url) => relayAn(url));
   const pool = new OutboxPool(relays, { minAcks: useMemory ? 1 : Math.min(2, relays.length) });
 
   // Modelle laden (E9-3a, V3 A): Manifest nur vom eigenen Schlüssel des Knotens (Kuratoren über
   // Kataloge kommen mit E9-4), Ollama lädt, die Schichten müssen genau die des Manifests sein – erst
   // dann im Angebot. Mit --aus-registry signiert der Knoten vorher, was die Registry jetzt nennt.
   const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  // Geprüft laden: mit Ollama über Ollama (E9-3a), mit einem OpenAI-kompatiblen Antrieb seit B-29c1b
+  // von Hugging Face in MODELL_ORDNER – der Antrieb liest es von dort (`vllm serve <ordner>
+  // --served-model-name <org/repo>`). Ein Modell aus einem Ollama daneben bediente er nicht.
+  const mitOllama = antrieb.art === "ollama";
+  const modellBasis = modellOrdner(process.env);
+  // Schwarm (B-29c2c, MENSCH 12.10.: aria2c, Pirate Face, das dezentrale Freedom-Dateisystem): nur mit
+  // TORRENT=1 und einem OpenAI-kompatiblen Antrieb – Ollama hält seine Gewichte selbst. Ungültig → kein Start.
+  const torrentWahl = torrentAusUmgebung(process.env, join(process.env.HOME ?? ".", ".freedom", "aria2"));
+  if (torrentWahl.grund) {
+    console.error(`[schwarm] ${torrentWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  let schwarm: LaufendesAria2 | undefined;
+  if (torrentWahl.einstellung && !mitOllama) {
+    schwarm = await starteAria2(torrentWahl.einstellung).catch((e) => {
+      console.warn(`[schwarm] aria2c startet nicht (${(e as Error).name}) – Modelle nur direkt von Hugging Face`);
+      return undefined;
+    });
+    if (schwarm) {
+      console.log(`[schwarm] aria2c läuft – Modelle zuerst aus dem Schwarm, geprüft geteilt (Port ${torrentWahl.einstellung.btPort})`);
+      // aria2c endet mit dem Knoten – sonst teilte es weiter, ohne dass jemand prüft
+      process.on("exit", () => schwarm?.stoppe());
+    }
+  } else if (torrentWahl.einstellung) console.log("[schwarm] TORRENT=1 gilt nur mit KI_ANTRIEB=openai – mit Ollama aus");
+  const schwarmOrt = join(modellBasis, ".schwarm");
+  // „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung – vom Schlüssel des Knotens
+  const meldeVorhalten = async (m: import("@freedomstack/protocol").ModelManifest, magnet: string) => {
+    await pool.publish(signEvent(buildModelSeed(m.modelId, keypair.pk, m.files.map((f) => f.name), undefined, undefined, { magnet, inhalt: inhaltsKennung(m) }), keypair.sk));
+  };
   const modellDienst = new ModellDienst({
     manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
     registry: registryDateien,
-    festhalten: async (name, files) => {
-      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: keypair.pk }), keypair.sk);
+    festhalten: async (name, files, upstream, license) => {
+      const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream, license, publisherPubkey: keypair.pk }), keypair.sk);
       await pool.publish(ev);
       return ev;
     },
+    ...(mitOllama ? {} : {
+      hf: {
+        basis: modellBasis,
+        stand: (n, rev) => holeHfStand(n, rev),
+        halteFest: (n) => halteHfFest(n),
+        ladeDatei: (n, commit, ordner, f, fortschritt) => ladeHfDatei(n, commit, ordner, f, { fortschritt }),
+        inhalt: ordnerInhalt,
+        abdruck: ordnerAbdruck,
+        ordner: (n) => hfOrdner(modellBasis, n),
+        antrieb: async () => (await antriebModelle(antrieb)).map((m) => m.name),
+        ...(schwarm ? {
+          schwarm: {
+            quellen: async (m) => magnetQuellen(await pool.query({ kinds: [KIND_MODEL_SEED], "#d": [`seed:${m.modelId}`], limit: 200 }), m, Math.floor(Date.now() / 1000)).map((q) => q.magnet),
+            hole: (magnet, m, ordner, fortschritt) => holeUndTeile(schwarm!.aria2, magnet, m, { ordner, schwarm: schwarmOrt }, { fortschritt: (n) => fortschritt(n) }),
+            teile: async (m, ordner) => {
+              const t = await teileModell(schwarm!.aria2, m, { ordner, schwarm: schwarmOrt });
+              await meldeVorhalten(m, t.magnet);
+              return t.infohash;
+            },
+          },
+        } : {}),
+      },
+    }),
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
-    tags: () => ollamaTags(ollamaUrl),
+    tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
     vertraut: new Set(),
     eigener: keypair.pk,
   });
   gepruefteModelle = await modellDienst.imAngebot();
   if (gepruefteModelle.length) console.log(`[modell] geprüft im Angebot: ${gepruefteModelle.join(",")}`);
+  // Schwarm: geprüfte Modelle von Hugging Face beim Start wieder teilen – nur mit unverändertem Ordner;
+  // der Torrent entsteht dabei aus den Bytes neu (jede SHA-256 geprüft). Danach täglich nur neu melden.
+  const geteilt = new Map<string, { m: import("@freedomstack/protocol").ModelManifest; magnet: string }>();
+  const teileGepruefte = async () => {
+    if (!schwarm) return;
+    for (const g of leseStand(modellDatei()).modelle.filter((x) => x.quelle === "hf" && x.ordner && ordnerAbdruck(x.ordner) === x.abdruck)) {
+      const ev = (await pool.query({ ids: [g.manifest], limit: 1 }).catch(() => []))[0];
+      if (!ev) continue;
+      try {
+        const m = parseModelManifest(ev);
+        const { magnet } = await teileModell(schwarm.aria2, m, { ordner: g.ordner!, schwarm: schwarmOrt });
+        geteilt.set(g.name, { m, magnet });
+        await meldeVorhalten(m, magnet);
+      } catch (e) {
+        console.warn(`[schwarm] ${g.name}: nicht geteilt (${(e as Error).name})`);
+      }
+    }
+  };
+  void teileGepruefte();
+  if (schwarm) setInterval(() => { for (const { m, magnet } of geteilt.values()) void meldeVorhalten(m, magnet).catch(() => {}); }, 24 * 3600_000);
 
   // Rechenarbeit fuer private Anfragen (3.1) – steht im Angebot. Ueber 24 rechnet
   // ein Handy Minuten; die App wiese solche Angebote ab.
@@ -247,11 +358,53 @@ async function main(): Promise<void> {
   const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
   console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
   if (turn) statusRollen.add("turn");
+  // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
+  const agentWahl = agentAusUmgebung(process.env);
+  if (agentWahl?.grund) {
+    console.error(`[agent] ${agentWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  let knotenAgent: KnotenAgent | undefined;
+  let knotenMls: KnotenMls | undefined;
+  if (agentWahl?.einstellung) {
+    let s: KnotenSchluessel;
+    try {
+      s = ladeKnotenSchluessel(undefined, agentSchluesselDatei(), { anlegen: true });
+    } catch (e) {
+      console.error(`[agent] ${e instanceof SchluesselFehler ? e.message : `Schlüssel nicht lesbar (${(e as Error).name}).`}`);
+      process.exit(1);
+    }
+    if (s.pk === keypair.pk) {
+      console.error("[agent] Der Agent braucht einen eigenen Schlüssel, nicht den des Knotens – der Knoten startet nicht");
+      process.exit(1);
+    }
+    knotenAgent = new KnotenAgent({ schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei() });
+    console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
+    // Private Räume (11.3d2a, MENSCH 10.10.): nur mit AGENT_PRIVAT – eigenes MLS-Konto, Stand verschlüsselt, Chat nur im Speicher
+    const einladen = agentWahl.einstellung.privat;
+    if (einladen) {
+      try {
+        knotenMls = KnotenMls.starte({
+          schluessel: s, einladen, ...(agentWahl.einstellung.besitzer ? { besitzer: agentWahl.einstellung.besitzer } : {}),
+          karte: knotenAgent.kartenDaten(), ordner: dirname(agentSchluesselDatei()),
+          // Fremde Relays nur öffentlich – über Tor erreicht der Knoten sein Heimnetz ohnehin nicht
+          umgebung: { pool, neuesRelay: relayAn, pruefeRelay: async (url) => !!torProxy || (await checkUrlSafe(url.replace(/^wss:/, "https:"))).allowed },
+        });
+      } catch (e) {
+        console.error(`[agent] MLS-Konto nicht lesbar (${(e as Error).name}) – der Knoten startet nicht`);
+        process.exit(1);
+      }
+      // Antworten in privaten Räumen (11.3d2b): dieselben Regeln, der Raum aus dem, was der Agent als Mitglied liest
+      knotenAgent.nutzePrivat(knotenMls);
+      console.log(`[agent] private Räume: Einladungen von ${einladen === "alle" ? "allen" : "AGENT_BESITZER"}, höchstens ${KNOTEN_MLS_GRENZEN.gruppen} Gruppen`);
+    }
+  }
   const provider = new DvmProvider(
     {
       keypair,
       weckBuch,
       turn,
+      agent: knotenAgent,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
@@ -262,6 +415,7 @@ async function main(): Promise<void> {
           fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
           einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
           weckSchluessel: vapid?.oeffentlich,
+          modellPruefung: modellPruefung(),
         };
       },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
@@ -441,6 +595,8 @@ async function main(): Promise<void> {
     const intern = relayRole.alsRelay(keypair.pk);
     pool.removeRelay(intern.url);
     pool.addRelay(intern);
+    // Einladungen an den Agenten (11.3d2a) liegen hier nur für ihn – angemeldet als er, nur zum Lesen dieser Umschläge
+    if (knotenMls) knotenMls.nutzePosteingang(relayRole.alsRelay(knotenMls.pk));
   } else if (process.env.APP_SHA256?.trim()) {
     console.warn("[app] nicht ausgeliefert: nur mit RELAY_ENABLED=1 – die App kommt vom Port des Relays");
   }
@@ -514,7 +670,7 @@ async function main(): Promise<void> {
   const baueAngebot = async () => {
     const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
     gepruefteModelle = await modellDienst.imAngebot();
-    ollamaNamen = await ollamaTags(ollamaUrl).then((t) => t.map((m) => m.name), () => null);
+    ollamaNamen = await antriebModelle(antrieb).then((t) => (ollamaStand = t).map((m) => m.name), () => (ollamaStand = null));
     const models = angebotModelle();
     const model = models[0]; // primaer
     // B-41: was angekündigt war, Ollama aber nicht hat, und ein OLLAMA_MODEL außerhalb des Angebots – nur ins Log
@@ -564,21 +720,52 @@ async function main(): Promise<void> {
   {
     const { ev, tier, models } = await baueAngebot();
     await pool.publish(ev);
+    // Karte des Agenten (38090) mit dem Angebot – ersetzbar, sie bleibt aktuell
+    if (knotenAgent) await pool.publish(knotenAgent.karte()).catch((e) => console.warn(`[agent] Karte nicht veröffentlicht (${(e as Error).name})`));
     console.log(`Capabilities publiziert: tier=${tier} models=${models.join(",")} free=${provider.isCurrentlyFree()}${storageEnabled ? " storage=an" : ""} pow=${privatePowBits}`);
   }
 
   // NEU: Capabilities regelmaessig neu publizieren (alle 30min), damit der
   // Provider nicht als "stale" (veraltet) gefiltert wird. Der Client filtert
-  // Events aelter als 24h — ohne Refresh verschwindet der Provider.
-  const CAPS_REFRESH_MS = 30 * 60 * 1000; // 30 Minuten
+  // Events aelter als 24h — ohne Refresh verschwindet der Provider; nach zwei
+  // verpassten Erneuerungen steht er hinter frischen (L2-1, `angebotVeraltet()`).
+  const CAPS_REFRESH_MS = ANGEBOT_TAKT_SEK * 1000; // 30 Minuten
+  /** So oft gleicht der Agent seine privaten Räume ab (11.3d2a). */
+  const AGENT_MLS_TAKT_MS = 15_000;
   setInterval(async () => {
     try {
       await pool.publish((await baueAngebot()).ev);
+      if (knotenAgent) await pool.publish(knotenAgent.karte());
       console.log(`[caps-refresh] Capabilities erneuert: ${new Date().toISOString()}`);
     } catch (err) {
       console.error("[caps-refresh] Fehler:", err);
     }
   }, CAPS_REFRESH_MS);
+
+  // Private Räume (11.3d2a): Listen und KeyPackage veröffentlichen, dann Einladungen und Gruppen im Takt
+  // abgleichen – ins Log nur Kennungen und Zahlen, nie Inhalt, nie die Kennung einer Gruppe
+  if (knotenMls) {
+    const mls = knotenMls;
+    const listen = await mls.veroeffentliche().catch((e) => console.warn(`[agent] KeyPackage nicht veröffentlicht (${(e as Error).name})`));
+    if (listen?.posteingang === 0) console.warn("[agent] Posteingang leer – kein öffentliches Relay in RELAYS, Apps können keine Einladungen zustellen");
+    let laeuft = false;
+    const mlsTakt = async () => {
+      if (laeuft) return;
+      laeuft = true;
+      try {
+        const r = await mls.abgleich();
+        for (const a of r.einladungen) {
+          console.log("fall" in a ? `[agent] Einladung abgelehnt: ${a.fall}` : `[agent] privatem Raum beigetreten (${mls.gruppen().length} Gruppen)`);
+        }
+      } catch (e) {
+        console.warn(`[agent] Abgleich privater Räume gescheitert (${(e as Error).name})`);
+      } finally {
+        laeuft = false;
+      }
+    };
+    void mlsTakt();
+    setInterval(() => void mlsTakt(), AGENT_MLS_TAKT_MS);
+  }
 
   // Modelle laden (E9-3a): gewünscht über `npm run modell`, einmal je Minute nachsehen – eines nach dem anderen;
   // kam eines dazu, gleich ein neues Angebot
@@ -587,6 +774,7 @@ async function main(): Promise<void> {
   };
   void modellTakt();
   setInterval(() => void modellTakt(), 60_000);
+  if (!mitOllama) console.log(`[modell] geprüft laden von Hugging Face nach ${modellBasis} – der KI-Antrieb liest das Modell von dort`);
 
   // Zahlkanal: fällige Gutschriften einlösen (ab Schwelle oder vor Ablauf) –
   // nur Kanal, Betrag und Fehlername ins Log

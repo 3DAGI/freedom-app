@@ -71,9 +71,13 @@ test("Verdrahtung: private Räume sind der Standard und senden über MLS; offene
   // Der Raum-Teil steht seit C.2a wörtlich in raeume.ts; Communities bleiben in kommunikation.ts
   const raeume = readFileSync(new URL("../../src/shell/tabs/raeume.ts", import.meta.url), "utf8");
   const raum = readFileSync(new URL("../../src/shell/raum-mls.ts", import.meta.url), "utf8");
-  // Seit C.2c mit Bezug (Thread, Antwort auf) – weiter nur über MLS
-  assert.match(raum, /return mlsSendeEvent\(gruppe, raumNachricht\(\{ kanal, text, \.\.\.bezug \}\)\);/);
-  assert.match(raeume, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*if \(await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text, bezug\)/);
+  // Seit C.2c mit Bezug (Thread, Antwort auf) – weiter nur über MLS; seit 11.3d2c mit der Id (mlsSendeEventId sendet wie mlsSendeEvent)
+  assert.match(raum, /return mlsSendeEventId\(gruppe, raumNachricht\(\{ kanal, text, \.\.\.bezug \}\)\);/);
+  const konto = readFileSync(new URL("../../src/shell/mls-konto.ts", import.meta.url), "utf8");
+  assert.match(konto, /return \(await mlsSendeEventId\(gruppe, s, u\)\) !== null;/, "mlsSendeEvent ist mlsSendeEventId");
+  assert.match(konto.slice(konto.indexOf("export async function mlsSendeEventId")), /^[^]*?const inneres = await sendeEventInGruppe\(\{ mls: k\.mls,/, "nur über MLS");
+  // Seit 11.3d2c mit der Id des inneren Events (Fragen an Knoten-Agenten) – gesendet wird weiter zuerst über sendePrivat()
+  assert.match(raeume, /if \(spacesUi\.privat\) \{\s*\/\/ Privat \(2\.3b\)[^\n]*\n\s*const gesendet = await sendePrivat\(spacesUi\.privat\.gruppe, spacesUi\.channelId, text, bezug\)/);
   assert.match(raeume, /async function legeRaumAn\(oeffentlich = false\)/);
   assert.match(raeume, /create\.onclick = \(\) => void legeRaumAn\(\);/, "der Knopf „Raum anlegen“ legt privat an");
   // Seit C.2b1 steht der Hinweis im Dialog, in dem der Name eingegeben wird – ohne Name wird nichts angelegt

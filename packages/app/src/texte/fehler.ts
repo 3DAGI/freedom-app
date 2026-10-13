@@ -117,6 +117,8 @@ export const fehler: Texte = {
   "pf.teileMindestens": { de: "Mindestens zwei Teile nötig.", en: "At least two shares are needed." },
   "pf.teileLaengen": { de: "Teile haben verschiedene Längen.", en: "The shares have different lengths." },
   "pf.teileDoppelt": { de: "Doppelte Teile — sie tragen nichts bei.", en: "Duplicate shares — they add nothing." },
+  "pf.teileFassungen": { de: "Teile verschiedener Fassungen passen nicht zusammen.", en: "Shares of different versions do not fit together." },
+  "pf.geheimnisLeer": { de: "Ein leeres Geheimnis lässt sich nicht teilen.", en: "An empty secret cannot be split." },
   "pf.anteileZuWenig": { de: "Erst {n} von {schwelle} nötigen Anteilen", en: "Only {n} of {schwelle} required shares so far" },
   "pf.anteilePassenNicht": { de: "Die Anteile passen nicht zusammen oder nicht zum Plan", en: "The shares do not fit together or do not match the plan" },
   "pf.geraetSelbst": { de: "Ein Gerät kann sich nicht selbst bevollmächtigen.", en: "A device cannot authorize itself." },

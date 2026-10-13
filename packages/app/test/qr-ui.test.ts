@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { qrCode } from "@freedomstack/protocol";
 import { pruefeWerte } from "../src/shell/dialog.js";
-import { QR_SICHTBAR_MS, qrSvgDaten } from "../src/shell/qr-ui.js";
+import { QR_SICHTBAR_MS, SCAN_BREITE_MAX, leseQrAusBild, qrSvgDaten } from "../src/shell/qr-ui.js";
 
 const src = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const ohneKommentare = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -60,7 +60,8 @@ test("Kamera nur auf Klick und danach aus; ohne Erkennung ehrlich „einfügen�
   const scan = qr.slice(qr.indexOf("export function scanKnopf("));
   assert.equal((qr.match(/getUserMedia\(/g) ?? []).length, 1, "nur ein Aufruf");
   assert.ok(scan.indexOf("navigator.mediaDevices.getUserMedia(") > scan.indexOf('start.addEventListener("click"'), "erst nach dem Klick");
-  assert.match(qr, /if \(!K \|\| !navigator\.mediaDevices\?\.getUserMedia\) return false;/, "kannScannen() fragt die Kamera nicht an");
+  // Seit A-20 überall, wo es eine Kamera-Schnittstelle gibt (jsQR, wo der Browser nichts erkennt) – ohne sie anzufragen
+  assert.match(qr, /export async function kannScannen\(\): Promise<boolean> \{\n  return !!navigator\.mediaDevices\?\.getUserMedia;\n\}/, "kannScannen() fragt die Kamera nicht an");
   assert.match(scan, /strom\?\.getTracks\(\)\.forEach\(\(s\) => s\.stop\(\)\);/, "Stoppen beendet die Kamera");
   assert.match(scan, /if \(!box\.isConnected\) return stopp\(\);/, "Dialog zu → Kamera aus");
   assert.match(scan, /stopp\(t\("qr\.gelesen"\)\);/, "nach dem ersten Code aus");
@@ -72,4 +73,49 @@ test("Kamera nur auf Klick und danach aus; ohne Erkennung ehrlich „einfügen�
   const dlg = src("../src/shell/dialog.ts");
   assert.match(dlg, /qrKnopf\(f\.wert, \{ beschriftung: f\.label, geheim: f\.geheim \}\)/);
   assert.match(dlg, /if \(f\.scannen\) box\.append\(scanKnopf\(e\)\);/);
+});
+
+/** Ein QR-Code als RGBA-Bild: `skala` Pixel je Modul, vier Module Ruhezone – wie vor einer Kamera. */
+function bild(text: string, skala = 4, invertiert = false): { daten: Uint8ClampedArray; breite: number } {
+  const q = qrCode(text);
+  const breite = (q.groesse + 8) * skala;
+  const daten = new Uint8ClampedArray(breite * breite * 4);
+  for (let y = 0; y < breite; y++) {
+    for (let x = 0; x < breite; x++) {
+      const mx = Math.floor(x / skala) - 4;
+      const my = Math.floor(y / skala) - 4;
+      const dunkel = mx >= 0 && my >= 0 && mx < q.groesse && my < q.groesse && q.module[my]![mx]!;
+      const wert = dunkel !== invertiert ? 0 : 255;
+      daten.set([wert, wert, wert, 255], (y * breite + x) * 4);
+    }
+  }
+  return { daten, breite };
+}
+
+test("A-20: jsQR liest einen echten QR-Code aus dem Bild – auch hell auf dunkel; Unsinn ergibt nichts", () => {
+  const geraet = "freedom-geraet:" + "ab".repeat(32) + ":" + "cd".repeat(32);
+  const b = bild(geraet);
+  assert.equal(leseQrAusBild(b.daten, b.breite, b.breite), geraet);
+  const werbung = "https://beispiel.org/freedom.html?ref=" + "12".repeat(32) + "&ln=grüße@beispiel.org";
+  const w = bild(werbung, 3);
+  assert.equal(leseQrAusBild(w.daten, w.breite, w.breite), werbung, "UTF-8 wie beim Zeigen");
+  const inv = bild(geraet, 4, true);
+  assert.equal(leseQrAusBild(inv.daten, inv.breite, inv.breite), geraet, "Bildschirm im Dunkelmodus");
+  const rauschen = new Uint8ClampedArray(64 * 64 * 4).map((_, i) => (i % 4 === 3 ? 255 : (i * 7919) % 251));
+  assert.equal(leseQrAusBild(rauschen, 64, 64), null);
+  assert.equal(leseQrAusBild(b.daten, b.breite, b.breite + 1), null, "Größe passt nicht zu den Daten");
+  assert.equal(leseQrAusBild(new Uint8ClampedArray(0), 0, 0), null);
+});
+
+test("A-20: die Erkennung des Browsers zuerst, sonst jsQR – verkleinert, im Gerät, ohne Netz", () => {
+  const qr = ohneKommentare(src("../src/shell/qr-ui.ts"));
+  assert.equal(SCAN_BREITE_MAX, 640);
+  assert.match(qr, /if \(K && \(await K\.getSupportedFormats\(\)\)\.includes\("qr_code"\)\) return new K\(\{ formats: \["qr_code"\] \}\);/);
+  assert.match(qr, /return new JsQrErkenner\(\);/);
+  assert.match(qr, /const f = Math\.min\(1, SCAN_BREITE_MAX \/ \(video\.videoWidth \|\| 1\)\);/);
+  const scan = qr.slice(qr.indexOf("export function scanKnopf("));
+  assert.ok(scan.indexOf("const erkenner = await waehleErkenner();") > scan.indexOf("await video.play();"), "erst wenn das Video läuft");
+  assert.doesNotMatch(qr, /fetch\(|XMLHttpRequest|WebSocket|sendBeacon/, "das Bild geht nirgends hin");
+  const pkg = JSON.parse(src("../package.json")) as { dependencies: Record<string, string> };
+  assert.equal(pkg.dependencies.jsqr, "1.4.0", "exakt gepinnt");
 });

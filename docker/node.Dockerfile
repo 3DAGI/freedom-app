@@ -9,12 +9,18 @@ FROM node:22-slim
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
 # Rechteumfang begrenzt, ist hier eine Investition.
 RUN useradd -m -u 1001 -s /bin/bash freedom || true
+
+# aria2c für Modelle im Schwarm (B-29c2c, nur mit TORRENT=1) – eigenes Programm,
+# GPL-2.0+, als getrennter Prozess ohne Folge für die Lizenz des Knotens (EUPL-1.2).
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,
 # solange sich nur der Quelltext aendert.
 COPY package.json package-lock.json* ./
 COPY packages/protocol/package.json packages/protocol/
+COPY packages/mls/package.json packages/mls/
 COPY packages/node/package.json packages/node/
 
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -23,6 +29,9 @@ RUN npm install --workspaces --include-workspace-root \
     || npm install --no-audit --no-fund --omit=optional
 
 COPY packages/protocol packages/protocol
+# MLS-Engine (gebaut, dist/) – für den Agenten in privaten Räumen (11.3d2a, AGENT_PRIVAT)
+COPY packages/mls/src packages/mls/src
+COPY packages/mls/dist packages/mls/dist
 COPY packages/node packages/node
 
 RUN mkdir -p /home/node/.freedom /home/node/freedom-data \

@@ -398,9 +398,15 @@ export async function waitForAnswer(
     quelle?: Pick<KnotenWeg, "query" | "sitzungPk">;
     /** Still abholen (Prüfrunde, P5c2): keine Zwischenstände in der Anzeige. */
     still?: boolean;
+    /**
+     * Rückfall nach Stille (L2-2): Ohne Lebenszeichen dieses Auftrags (Ergebnis oder Rückmeldung) nach so vielen
+     * Millisekunden aufgeben – der Aufrufer fragt den nächsten, dieser Auftrag bleibt aktiv.
+     */
+    stummNachMs?: number;
   } = {},
 ) {
-  const deadline = Date.now() + timeoutMs;
+  const start = Date.now();
+  const deadline = start + timeoutMs;
   const seit = Math.floor(Date.now() / 1000) - 120;
   const cache: AntwortCache = new Map();
   while (Date.now() < deadline) {
@@ -408,14 +414,33 @@ export async function waitForAnswer(
     const ids = opts.extraJobIds ? [...opts.extraJobIds] : [requestId];
     // Private Antworten (3.2) an unsere Sitzungsschluessel – offene gelten weiter.
     const privat = await privateAntworten(new Set(ids), seit, cache, opts.quelle);
+    // Ergebnisse vor Rückmeldungen (L2-2): Lag eine Rückmeldung vor (ein Zwischenstand, seit L2-2 bei jedem
+    // Auftrag „processing“), blieb ein fertiges Ergebnis sonst bis zur Frist liegen.
+    // Results aus allen aktiven Jobs (Hedge) akzeptieren:
+    const results = privat.ergebnisse;
+    // NEU: Nur Antworten vom erwarteten Provider akzeptieren (wenn angegeben).
+    // Beim Hedging entfällt dieser Filter — erster Result gewinnt.
+    const filtered = expectedProvider && !opts.extraJobIds
+      ? results.filter((ev) => ev.pubkey === expectedProvider || ev.pubkey.startsWith(expectedProvider))
+      : results;
+    if (filtered.length > 0) {
+      try {
+        return { ev: filtered[0], parsed: parseJobResult(filtered[0]) };
+      } catch {
+        // Result ohne e/p/amount (z.B. provider-fehler) — als text-antwort zeigen; die Messung (P2a) zählt es als Fehler
+        return { ev: filtered[0], parsed: { requestId, customerPubkey: "", providerPubkey: filtered[0].pubkey, output: filtered[0].content, amountMsat: 0 } as ReturnType<typeof parseJobResult>, kaputt: true };
+      }
+    }
     // Feedback-Events (kind 7000): Ablehnung -> Failover. ABER: status=progress
     // ist KEINE Ablehnung (provider arbeitet noch) — weiter warten.
     // Seit 3.2e nur noch versiegelte: Auf eine private Anfrage antwortet ein
     // Knoten ab 3.2c nie offen – eine offene „Antwort“ waere untergeschoben.
     const feedback = privat.rueckmeldungen.filter((e) => e.tags.some((t) => t[0] === "e" && t[1] === requestId));
-    if (feedback.length > 0) {
-      const statusTag = feedback[0].tags.find((t) => t[0] === "status")?.[1] ?? "";
-      const fbMsg = feedback[0].content.replace(/^error:\s*/i, "");
+    // Eine Ablehnung zählt vor Zwischenständen; sonst die neueste Rückmeldung
+    const fb = feedback.find((e) => e.tags.some((t) => t[0] === "status" && t[1] === "error")) ?? feedback[0];
+    if (fb) {
+      const statusTag = fb.tags.find((t) => t[0] === "status")?.[1] ?? "";
+      const fbMsg = fb.content.replace(/^error:\s*/i, "");
       if (statusTag === "progress" && opts.still) {
         await new Promise((res) => setTimeout(res, 3000));
         continue;
@@ -436,8 +461,8 @@ export async function waitForAnswer(
         await new Promise((res) => setTimeout(res, 3000));
         continue;
       }
-      if (/thinking|processing|working/i.test(fbMsg) && !/^error/i.test(fbMsg)) {
-        // Alte Provider ohne status-tag aber klar progressivem Text
+      if (statusTag === "processing" || (statusTag !== "error" && /thinking|processing|working/i.test(fbMsg) && !/^error/i.test(fbMsg))) {
+        // Angenommen (NIP-90 „processing“, seit L2-2 von jedem Knoten); alte Provider ohne status-tag aber klar progressivem Text
         if (!opts.still) setTypingLabel(t("thinking"));
         await new Promise((res) => setTimeout(res, 3000));
         continue;
@@ -451,28 +476,10 @@ export async function waitForAnswer(
       }
       opts.onFeedback?.(fbMsg);
       // Kennung der Ablehnung (A-14a: `gratis-leer`) – erkannt am Tag, nie am Text
-      return { ev: feedback[0], parsed: null, providerError: fbMsg, fall: feedback[0].tags.find((x) => x[0] === "fall")?.[1] };
+      return { ev: fb, parsed: null, providerError: fbMsg, fall: fb.tags.find((x) => x[0] === "fall")?.[1] };
     }
-    // Results aus allen aktiven Jobs (Hedge) akzeptieren:
-    const results = privat.ergebnisse;
-    if (results.length > 0) {
-      // NEU: Nur Antworten vom erwarteten Provider akzeptieren (wenn angegeben).
-      // Beim Hedging entfällt dieser Filter — erster Result gewinnt.
-      const filtered = expectedProvider && !opts.extraJobIds
-        ? results.filter((ev) => ev.pubkey === expectedProvider || ev.pubkey.startsWith(expectedProvider))
-        : results;
-      if (filtered.length === 0) {
-        // Keine Antwort vom erwarteten Provider — weiter warten
-        await new Promise((res) => setTimeout(res, 3000));
-        continue;
-      }
-      try {
-        return { ev: filtered[0], parsed: parseJobResult(filtered[0]) };
-      } catch {
-        // Result ohne e/p/amount (z.B. provider-fehler) — als text-antwort zeigen; die Messung (P2a) zählt es als Fehler
-        return { ev: filtered[0], parsed: { requestId, customerPubkey: "", providerPubkey: filtered[0].pubkey, output: filtered[0].content, amountMsat: 0 } as ReturnType<typeof parseJobResult>, kaputt: true };
-      }
-    }
+    // Stille (L2-2): kein Ergebnis und keine Rückmeldung dieses Auftrags – nach `stummNachMs` den nächsten fragen
+    if (opts.stummNachMs !== undefined && Date.now() - start >= opts.stummNachMs) return null;
     await new Promise((res) => setTimeout(res, 3000));
   }
   return null;

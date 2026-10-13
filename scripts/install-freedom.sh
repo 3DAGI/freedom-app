@@ -284,6 +284,15 @@ if [ -n "$TURN_SECRET" ]; then
 else
   ok "Anrufe aus (spaeter: TURN_NAME=<oeffentlicher-name> erneut installieren)"
 fi
+# Modelle im Schwarm (B-29c2c): nur mit TORRENT=1 und KI_ANTRIEB=openai – aria2c als eigenes Programm
+if [ "${TORRENT:-0}" = "1" ] && ! command -v aria2c >/dev/null; then
+  if command -v apt-get >/dev/null && { [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ]; }; then
+    $SUDO apt-get install -y aria2 >/dev/null || warn "aria2 nicht installiert – bitte selbst: apt-get install aria2"
+  else
+    warn "aria2c fehlt – bitte installieren (Paket aria2), sonst laedt der Knoten Modelle nur direkt von Hugging Face."
+  fi
+fi
+[ "${TORRENT:-0}" != "1" ] || warn "Schwarm: TORRENT_PORT (Vorgabe 6881, TCP und UDP) freigeben – wer teilt, zeigt seine IP im Schwarm."
 
 # ------------------------------------------------ 8. Dienst
 step "8/8  Dienst einrichten"
@@ -317,6 +326,9 @@ QUOTA_API_PORT=$QUOTA_API_PORT
 # Anrufe (B-13): Geheimnis mit coturn ($TURN_CONF) und seine Adressen; leer: aus
 TURN_SECRET=${TURN_SECRET:-}
 TURN_URLS=${TURN_URLS:-}
+# Modelle im Schwarm (B-29c2c): nur mit KI_ANTRIEB=openai; 0: aus
+TORRENT=${TORRENT:-0}
+TORRENT_PORT=${TORRENT_PORT:-6881}
 ENV_EOF
 chmod 600 "$ENV_FILE"
 

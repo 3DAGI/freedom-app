@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -33,6 +33,35 @@ test("FileIoExecutor: read/write in Sandbox, blockiert Escape", async () => {
     // Sandbox-Escape blockiert
     const esc = await ex.run({ kind: KIND_DVM_FILE_IO, name: "file_io", input: "read ../../etc/passwd" });
     assert.equal(esc.ok, false, "Escape blockiert");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("A-29: file_io je Auftrag getrennt – ein Auftrag sieht nie, was ein anderer schrieb; aufgeräumt wird je Auftrag", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "freedom-auftrag-"));
+  const a = "a".repeat(64), b = "b".repeat(64);
+  try {
+    await writeFile(join(dir, "geteilt.txt"), "vom betreiber", "utf8");
+    const r = defaultToolRegistry(dir);
+    const io = (auftrag: string | undefined, input: string) => r.run({ kind: KIND_DVM_FILE_IO, name: "file_io", input, ...(auftrag !== undefined ? { auftrag } : {}) });
+    assert.ok((await io(a, "write notiz.txt geheim von a")).ok);
+    assert.equal((await io(a, "read notiz.txt")).output, "geheim von a", "derselbe Auftrag liest, was er schrieb");
+    const fremd = await io(b, "read notiz.txt");
+    assert.equal(fremd.ok, false, "ein anderer Auftrag sieht die Datei nicht");
+    assert.equal((await io(b, "read ../" + a + "/notiz.txt")).ok, false, "auch nicht über den Nachbarordner");
+    assert.equal((await io(a, "read geteilt.txt")).ok, false, "der Workspace selbst ist für Aufträge nicht sichtbar");
+    assert.deepEqual((await readdir(dir)).sort(), [a, b, "geteilt.txt"].sort());
+    // ungültige Auftrags-Id: kein Ordner, kein Zugriff
+    const kaputt = await io("../x", "write x.txt y");
+    assert.equal(kaputt.ok, false);
+    assert.match(kaputt.output, /ungueltiger auftrag/);
+    await r.vergiss("../x");
+    await r.vergiss(a);
+    assert.deepEqual((await readdir(dir)).sort(), [b, "geteilt.txt"].sort(), "nur der Ordner von a ist weg");
+    await r.vergiss(b);
+    assert.deepEqual(await readdir(dir), ["geteilt.txt"]);
+    assert.equal((await io(a, "read notiz.txt")).ok, false, "nach dem Aufräumen ist nichts mehr da");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

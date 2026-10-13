@@ -99,7 +99,8 @@ test("Gratis-Start verdrahtet: prüfen vor dem Senden, zählen nach der Antwort,
   // Rechenarbeit aus dem Gratis-Angebot, nie beim eigenen Knoten
   assert.match(agent, /powFuerAnfrage\(powJeProvider\.get\(targetPubkey\) \?\? 0, !eigen && bid === 0 \? gratisJeProvider\.get\(targetPubkey\) : undefined\)/);
   // Kennung am Tag, nicht am Text
-  assert.match(agent, /fall: feedback\[0\]\.tags\.find\(\(x\) => x\[0\] === "fall"\)\?\.\[1\]/);
+  // Seit L2-2 die Rückmeldung `fb` (eine Ablehnung vor Zwischenständen) statt blind der ersten
+  assert.match(agent, /fall: fb\.tags\.find\(\(x\) => x\[0\] === "fall"\)\?\.\[1\]/);
   assert.match(wege, /answer\.fall === GRATIS_LEER/);
   // Nur Gratis-Anbieter, gezählt erst nach der Antwort
   assert.match(wege, /bid === 0 \? gratisAnbieter\(privat, MAX_POW_APP\) : privat/);

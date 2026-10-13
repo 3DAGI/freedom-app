@@ -14,40 +14,54 @@
  *   veröffentlicht (Leak-Regel `agent-raum-privat`).
  */
 import { schnorr } from "@noble/curves/secp256k1.js";
-import { LocalSigner, fromHex, raumAgentKarte, raumAgentenListe, toHex } from "@freedomstack/protocol";
-import { Mls } from "@freedomstack/mls";
+import {
+  KIND_SPACE, LocalSigner, fromHex, gruppenRaum, raumAgentKarte, raumAgentKarten, raumAgentenListe, toHex,
+  type GruppenRaum, type InneresEvent, type InneresSenden, type NostrEvent, type RelayFilter,
+} from "@freedomstack/protocol";
+import { ART_CHAT, Mls } from "@freedomstack/mls";
 import { type BudgetEinheit, type GeraeteAgent } from "../agenten-buch.js";
 import { t } from "../i18n.js";
 import { mlsEngine } from "../mls-engine.js";
-import { type MlsNetz, sendeEventInGruppe } from "../mls-nostr.js";
-import { MlsZustand, mlsSchluessel } from "../mls-speicher.js";
+import { type MlsNetz, empfangeGruppe, gruppenAbos, schreiteFort, sendeEventInGruppe } from "../mls-nostr.js";
+import { MlsVerlauf, MlsZustand, mlsSchluessel, type VerlaufEintrag } from "../mls-speicher.js";
 import { IndexedDbSpeicher, type GeheimSpeicher, type TresorSpeicher } from "../vault.js";
 import { agentenBuch } from "./agenten.js";
-import { type EinladungsErgebnis, mlsGesperrt, mlsLadeAgentEin, mlsSendeEvent } from "./mls-konto.js";
+import { type EinladungsErgebnis, alsEintrag, mlsGesperrt, mlsLadeAgentEin, mlsSendeEvent } from "./mls-konto.js";
 import { entferneAusRaum, sendePrivat, sendeRaumstand, type PrivaterRaum } from "./raum-mls.js";
-import { alsGeraet, posteingangVon, state, veroeffentlicheAn } from "./state.js";
+import { alsGeraet, ensurePool, frageAn, posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
 
 export const AGENTEN_MLS_DB = "freedom-agenten-mls";
 
-/** Speicher und Netz – in der App die echten, in Tests austauschbar. */
+/** Speicher und Netz – in der App die echten, in Tests austauschbar. `zustand` je Eintrag (Zustand, Verlauf). */
 export interface AgentMlsUmgebung {
-  zustand: (agent: string) => TresorSpeicher;
+  zustand: (eintrag: string) => TresorSpeicher;
   geheim: GeheimSpeicher;
   netz: MlsNetz;
+  /** Mit `urls`: genau dort fragen (Relays der Gruppe). */
+  frage: (filter: RelayFilter, urls?: readonly string[]) => Promise<NostrEvent[]>;
 }
 const APP: AgentMlsUmgebung = {
-  zustand: (agent) => new IndexedDbSpeicher(AGENTEN_MLS_DB, "zustand", agent),
+  zustand: (eintrag) => new IndexedDbSpeicher(AGENTEN_MLS_DB, "zustand", eintrag),
   geheim,
   netz: { sendeAn: veroeffentlicheAn, posteingang: posteingangVon },
+  frage: async (f, urls) => (urls ? frageAn(f, urls) : (await ensurePool()).query(f)),
 };
 
-export interface AgentKonto { pk: string; mls: Mls; sichern: () => Promise<void>; netz: MlsNetz }
+export interface AgentKonto {
+  pk: string; mls: Mls; sichern: () => Promise<void>; netz: MlsNetz;
+  /** Was der Agent in seinen Gruppen las – verschlüsselt wie der Zustand, Grundlage für Raumstand und Kontext. */
+  verlauf: MlsVerlauf;
+  frage: AgentMlsUmgebung["frage"];
+}
 const konten = new Map<string, Promise<AgentKonto>>();
 
 async function starte(a: GeraeteAgent, u: AgentMlsUmgebung): Promise<AgentKonto> {
   await mlsEngine();
-  const zustand = new MlsZustand(u.zustand(a.pk), await mlsSchluessel(u.geheim), `agent:${a.pk}`);
+  const schluessel = await mlsSchluessel(u.geheim);
+  const zustand = new MlsZustand(u.zustand(a.pk), schluessel, `agent:${a.pk}`);
+  const verlauf = new MlsVerlauf(new MlsZustand(u.zustand(`verlauf:${a.pk}`), schluessel, `agent:${a.pk}:verlauf`));
+  await verlauf.laden();
   // Kontobeweis mit dem Schlüssel des Agenten – die Kopie wird danach genullt
   const beweis = (id: string): string => {
     const sk = fromHex(a.sk);
@@ -58,7 +72,7 @@ async function starte(a: GeraeteAgent, u: AgentMlsUmgebung): Promise<AgentKonto>
     }
   };
   const mls = new Mls(agentenSigner(a), beweis, await zustand.laden());
-  return { pk: a.pk, mls, sichern: () => zustand.sichern(mls.zustand()), netz: u.netz };
+  return { pk: a.pk, mls, sichern: () => zustand.sichern(mls.zustand()), netz: u.netz, verlauf, frage: u.frage };
 }
 
 /** Mit diesem Schlüssel signiert der Agent – aus seinem Eintrag im Buch, nie die Identität. */
@@ -112,18 +126,15 @@ export async function ladeAgentInPrivatenRaum(
   if (r !== "eingeladen") return r;
   if (!(await sendeRaumstand(raum))) return "ohne Raumstand"; // kein UI-Text
   await agentenBuch.setzeBudget(agentPk, raum.gruppe, budget);
-  await sendeEventInGruppe({
-    mls: k.mls, netz: k.netz, sichern: k.sichern, gruppe: raum.gruppe,
-    ...raumAgentKarte({
+  await agentSendet(k, raum.gruppe, raumAgentKarte({
       name: agent.name, betrieb: "geraet", bezahlung: "einlader", besitzer,
       ...(agent.about !== undefined ? { about: agent.about } : {}),
       ...(agent.modell !== undefined ? { modell: agent.modell } : {}),
-    }),
-  });
+  }));
   await mlsSendeEvent(raum.gruppe, listeImRaum(besitzer, raum.gruppe));
   const kanal = ersterKanal(raum);
   if (kanal) await sendePrivat(raum.gruppe, kanal, t("agentRaum.hinweisGeraet", { name: agent.name }));
-  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten();
+  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten({ privat: true });
   return "eingeladen"; // kein UI-Text
 }
 
@@ -133,6 +144,62 @@ export async function entferneAgentAusPrivatemRaum(agentPk: string, raum: Privat
   if (!(await entferneAusRaum(raum, agentPk))) return false;
   await agentenBuch.entferneRaum(agentPk, raum.gruppe);
   await mlsSendeEvent(raum.gruppe, listeImRaum(state.keypair.pk, raum.gruppe));
-  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten();
+  void (await import("./agenten-lauschen.js")).starteGeraeteAgenten({ privat: true });
   return true;
 }
+
+// ------------------------------------------------------------ Lesen und Schreiben (11.3c3b)
+
+/**
+ * Nachrichten einer Gruppe holen und in den Verlauf des Agenten legen – vor dem
+ * Zustand, denn eine MLS-Nachricht lässt sich nur einmal entschlüsseln. Alle,
+ * auch Commits, in ihrer Reihenfolge: Wer einen auslässt, liest danach nichts
+ * mehr. Zurück: die neu aufgenommenen Einträge.
+ */
+export async function agentAbgleichen(k: AgentKonto, gruppe: string): Promise<VerlaufEintrag[]> {
+  const abo = gruppenAbos(k.mls).find((x) => x.gruppe === gruppe);
+  if (!abo) return [];
+  const evs = (await k.frage({ ...abo.filter, limit: 200 }, abo.relays)).sort((a, b) => a.created_at - b.created_at);
+  const neu: VerlaufEintrag[] = [];
+  const merken = async (n: Parameters<typeof alsEintrag>[0][]): Promise<void> => {
+    const bekannt = new Set(k.verlauf.nachrichten(gruppe).map((e) => e.id));
+    const eintraege = n.map(alsEintrag);
+    k.verlauf.nimmAuf(gruppe, eintraege);
+    neu.push(...eintraege.filter((e) => !bekannt.has(e.id)));
+    await k.verlauf.sichern();
+  };
+  let geaendert = false;
+  let warten: number | undefined;
+  for (const ev of evs) {
+    const r = await empfangeGruppe({ mls: k.mls, sichern: async () => { geaendert = true; }, ev, merken }).catch(() => null);
+    warten = r?.wartezeit?.[gruppe] ?? warten;
+  }
+  if (geaendert) await k.sichern();
+  // Nach einem Commit zurückgehaltene Nachrichten: später in den Verlauf (beantwortet werden sie nicht)
+  if (warten !== undefined) setTimeout(() => void schreiteFort({ mls: k.mls, netz: k.netz, sichern: k.sichern, gruppe, merken }).catch(() => undefined), warten + 50);
+  return neu;
+}
+
+/** Der Raum, wie der Agent ihn kennt – aus seinem Verlauf, mit den Agenten der Gruppe (ihre Karten). */
+export function agentRaum(k: AgentKonto, gruppe: string): GruppenRaum & { ereignisse: InneresEvent[]; agenten: Set<string>; definition: string[][] } {
+  const admins = k.mls.admins(gruppe);
+  const ereignisse = k.verlauf.nachrichten(gruppe).map((e): InneresEvent => ({
+    id: e.inneres ?? e.id, von: e.von, art: e.art ?? ART_CHAT, tags: e.tags ?? [], text: e.text, zeit: e.zeit, ...(e.admin !== undefined ? { admin: e.admin } : {}),
+  }));
+  // Schalter der Agentenketten: in der Definition eines Admins (F5)
+  const definition = ereignisse.filter((e) => e.art === KIND_SPACE && (e.admin ?? admins.includes(e.von))).sort((a, b) => b.zeit - a.zeit)[0]?.tags ?? [];
+  return {
+    ...gruppenRaum(gruppe, ereignisse, { admins, mitglieder: k.mls.mitglieder(gruppe) }),
+    ereignisse, agenten: new Set(raumAgentKarten(ereignisse).map((x) => x.agent)), definition,
+  };
+}
+
+/** Als Agent in die Gruppe schreiben – eigene Nachrichten entschlüsselt MLS nicht zurück, darum gleich in den Verlauf. */
+export async function agentSendet(k: AgentKonto, gruppe: string, s: InneresSenden): Promise<boolean> {
+  const inneres = await sendeEventInGruppe({ mls: k.mls, netz: k.netz, sichern: k.sichern, gruppe, ...s }).catch(() => null);
+  if (!inneres) return false;
+  k.verlauf.nimmAuf(gruppe, [{ id: `eigen:${inneres}`, inneres, von: k.pk, text: s.text, zeit: Math.floor(Date.now() / 1000), ...(s.art !== ART_CHAT ? { art: s.art } : {}), ...(s.tags.length > 0 ? { tags: s.tags } : {}) }]);
+  await k.verlauf.sichern();
+  return true;
+}
+

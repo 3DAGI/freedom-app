@@ -11,14 +11,15 @@
  *
  *   Anteil     innen Kind 38077, vom Besitzer an einen Vertrauten:
  *              ["p", vertrauter], ["index", "1"…"255"], ["schwelle", k],
- *              ["anzahl", n], ["secret_hash", …], ["teilung", id];
+ *              ["anzahl", n], ["secret_hash", …], ["teilung", id], seit SH1
+ *              ["fassung", "2"] (fehlt = Fassung 1, `succession.ts`);
  *              Inhalt: der Anteil (Hex)
  *   Anfrage    innen Kind 38078, vom Sammler an einen anderen Vertrauten:
  *              ["p", an], ["besitzer", pk], ["teilung", id]
  *   Uebergabe  innen Kind 38079, vom Vertrauten an den Sammler:
  *              ["e", anfrage], ["p", sammler], ["besitzer", pk], dazu
- *              index, schwelle, anzahl, secret_hash, teilung wie beim
- *              Anteil; Inhalt: der Anteil (Hex)
+ *              index, schwelle, anzahl, secret_hash, teilung, fassung wie
+ *              beim Anteil; Inhalt: der Anteil (Hex)
  *
  * „teilung“ kennzeichnet eine Zerlegung: Richtet der Besitzer die Nachfolge
  * neu ein, entstehen neue Anteile; alte passen nicht dazu und werden beim
@@ -38,7 +39,7 @@ import { computeEventId, type NostrEvent, type UnsignedEvent } from "./event.js"
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import type { Signer } from "./signer.js";
 import {
-  type Share, type SuccessionPlan, type SuccessionState, combineShares, evaluateSuccession, verifyRecovered,
+  type Share, type SuccessionPlan, type SuccessionState, evaluateSuccession, setzeGeheimnisZusammen, verifyRecovered,
 } from "./succession.js";
 import { ProtokollFehler } from "./fehler.js";
 
@@ -61,7 +62,12 @@ export interface GehaltenerAnteil {
   secretHash: string;
   teilung: string;
   zeit: number;
+  /** Fassung der Anteile (SH1): fehlt = 1, sonst 2. */
+  fassung?: 2;
 }
+
+/** Tag der Fassung – nur für Fassung 2; Fassung 1 bleibt im alten Format. */
+const fassungTags = (f: number | undefined): string[][] => (f === 2 ? [["fassung", "2"]] : []);
 
 const tag = (ev: UnsignedEvent, n: string) => ev.tags.find((t) => t[0] === n)?.[1];
 
@@ -96,11 +102,12 @@ export async function baueAnteilUmschlag(p: {
   if (!(p.anteil.index >= 1 && p.anteil.index <= p.anzahl) || p.anteil.data.length === 0 || p.anteil.data.length > 64) {
     throw new Error("Anteil ungültig");
   }
+  if ((p.anteil.fassung ?? 1) === 2 && p.anteil.data.length < 2) throw new Error("Anteil ungültig");
   const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
   const kern: UnsignedEvent = {
     pubkey: p.von.publicKey(), kind: KIND_NACHFOLGE_ANTEIL, created_at: now,
     tags: [["p", p.an], ["index", String(p.anteil.index)], ["schwelle", String(p.schwelle)], ["anzahl", String(p.anzahl)],
-      ["secret_hash", p.secretHash], ["teilung", p.teilung]],
+      ["secret_hash", p.secretHash], ["teilung", p.teilung], ...fassungTags(p.anteil.fassung)],
     content: hex(p.anteil.data),
   };
   return giftWrapMitSigner(kern, p.von, p.an, { fixedJitter: 0, nowSecs: now });
@@ -114,7 +121,13 @@ function leseAnteil(inner: UnsignedEvent, besitzer: string): GehaltenerAnteil | 
   const teilung = tag(inner, "teilung") ?? "";
   if (anzahl === null || schwelle === null || index === null || schwelle > anzahl || index > anzahl) return null;
   if (!HEX64.test(secretHash) || !HEX32.test(teilung) || !ANTEIL_HEX.test(inner.content)) return null;
-  return { besitzer, index, daten: inner.content, schwelle, anzahl, secretHash, teilung, zeit: inner.created_at };
+  // Fassung (SH1): fehlt = 1, „2“ = Bibliothek (mindestens zwei Byte); jede andere ist unbekannt
+  const fassung = tag(inner, "fassung");
+  if (fassung !== undefined && (fassung !== "2" || inner.content.length < 4)) return null;
+  return {
+    besitzer, index, daten: inner.content, schwelle, anzahl, secretHash, teilung, zeit: inner.created_at,
+    ...(fassung === "2" ? { fassung: 2 as const } : {}),
+  };
 }
 
 /** Anteil als Vertrauter oeffnen; null, wenn der Umschlag keiner ist. */
@@ -190,7 +203,7 @@ export async function baueAnteilUebergabe(p: {
     pubkey: p.von.publicKey(), kind: KIND_NACHFOLGE_UEBERGABE, created_at: now,
     tags: [["e", anfrage.anfrageId], ["p", anfrage.von], ["besitzer", anteil.besitzer], ["index", String(anteil.index)],
       ["schwelle", String(anteil.schwelle)], ["anzahl", String(anteil.anzahl)], ["secret_hash", anteil.secretHash],
-      ["teilung", anteil.teilung]],
+      ["teilung", anteil.teilung], ...fassungTags(anteil.fassung)],
     content: anteil.daten,
   };
   return giftWrapMitSigner(kern, p.von, anfrage.von, { fixedJitter: 0, nowSecs: now });
@@ -216,9 +229,10 @@ export async function oeffneAnteilUebergabe(
 
 /**
  * Anteile zusammensetzen: nur einer Teilung, passend zum Plan, mindestens
- * die Schwelle. Gibt den Schluessel zurueck – nur geprueft (Pruefsumme).
+ * die Schwelle – beide Fassungen (SH1), nie gemischt. Gibt den Schluessel
+ * zurueck – nur geprueft (Pruefsumme).
  */
-export function setzeNachfolgeZusammen(anteile: GehaltenerAnteil[], plan: SuccessionPlan): Uint8Array {
+export async function setzeNachfolgeZusammen(anteile: GehaltenerAnteil[], plan: SuccessionPlan): Promise<Uint8Array> {
   const passend = anteile.filter((a) => a.besitzer === plan.ownerPubkey && a.secretHash === plan.secretHash);
   const jeTeilung = new Map<string, Map<number, GehaltenerAnteil>>();
   for (const a of passend) {
@@ -231,7 +245,9 @@ export function setzeNachfolgeZusammen(anteile: GehaltenerAnteil[], plan: Succes
     const liste = [...m.values()];
     bester = Math.max(bester, liste.length);
     if (liste.length < plan.threshold || liste.length < liste[0]!.schwelle) continue;
-    const geheimnis = combineShares(liste.map((a) => ({ index: a.index, data: ausHex(a.daten) })));
+    const teile: Share[] = liste.map((a) => ({ index: a.index, data: ausHex(a.daten), ...(a.fassung === 2 ? { fassung: 2 as const } : {}) }));
+    const geheimnis = await setzeGeheimnisZusammen(teile).catch(() => null);
+    if (!geheimnis) continue;
     if (verifyRecovered(geheimnis, plan)) return geheimnis;
     geheimnis.fill(0);
   }

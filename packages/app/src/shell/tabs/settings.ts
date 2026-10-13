@@ -75,7 +75,7 @@ export async function zeigeNachfolge(): Promise<void> {
 export async function richteNachfolgeEin(): Promise<void> {
   if (!state.keypair || !nurHauptidentitaet(t("set.wasNachfolge"))) return;
   const {
-    splitSecret, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
+    teileGeheimnis, secretHashOf, buildSuccessionPlan, baueAnteilUmschlag, neueTeilung,
   } = await import("@freedomstack/protocol");
   const { decodeNpub } = await import("../../identity.js");
 
@@ -105,10 +105,15 @@ export async function richteNachfolgeEin(): Promise<void> {
   try {
     // Die Teile entstehen LOKAL; jeder geht versiegelt (NIP-59) an genau
     // seinen Vertrauten (8.11). Bis 8.11 gab es eine Datei mit allen Teilen –
-    // wer sie hatte, hatte alles.
-    const { teile, hash } = mitRohemSchluessel(t("set.fuerNachfolge"), (sk) => ({
-      teile: splitSecret(sk, guardians.length, threshold), hash: secretHashOf(sk),
-    }));
+    // wer sie hatte, hatte alles. Seit SH1 mit der auditierten Bibliothek (Fassung 2);
+    // die Kopie des Schlüssels wird gleich danach genullt.
+    const { kopie, hash } = mitRohemSchluessel(t("set.fuerNachfolge"), (sk) => ({ kopie: new Uint8Array(sk), hash: secretHashOf(sk) }));
+    let teile: Awaited<ReturnType<typeof teileGeheimnis>>;
+    try {
+      teile = await teileGeheimnis(kopie, guardians.length, threshold);
+    } finally {
+      kopie.fill(0);
+    }
     const teilung = neueTeilung();
     const { veroeffentlicheDm } = await import("./posteingang.js");
     try {

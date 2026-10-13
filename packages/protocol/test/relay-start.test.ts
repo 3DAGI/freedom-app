@@ -136,3 +136,42 @@ test("Outbox beim Lesen (5.4b): höchstens drei Relays je Autor, höchstens OUTB
   assert.equal(plan.get("wss://alle.test")!.length, 12);
 });
 
+
+test("A-24: gierig – jeder Autor zuerst ein Relay, auch auf seltenen Relays; acht Plätze reichen für alle", () => {
+  const geteilt = Array.from({ length: 5 }, () => generateKeypair());
+  const selten = Array.from({ length: 5 }, () => generateKeypair());
+  const listen = [
+    ...geteilt.map((k) => signEvent(buildRelayList(k.pk, [{ url: "wss://x.test" }, { url: "wss://y.test" }]), k.sk)),
+    // Adressen, die alphabetisch hinter den anderen liegen: bis A-24 entschied die Reihenfolge
+    ...selten.map((k, i) => signEvent(buildRelayList(k.pk, [0, 1, 2].map((j) => ({ url: `wss://${i === 0 ? "a" : "z"}${i}-${j}.test` }))), k.sk)),
+  ];
+  const plan = outboxPlan(listen, [...geteilt, ...selten].map((k) => k.pk));
+  assert.ok(plan.size <= OUTBOX_MAX_RELAYS);
+  const erreicht = new Set([...plan.values()].flat());
+  for (const k of [...geteilt, ...selten]) assert.ok(erreicht.has(k.pk), "jeder Autor an mindestens einem seiner Relays");
+  assert.deepEqual([...plan.keys()].slice(0, 1), ["wss://x.test"], "das Relay mit den meisten Autoren zuerst");
+  assert.equal(new Set([...plan.keys()]).size, plan.size);
+});
+
+test("A-24: Relays des Pools zählen mit und belegen keinen Platz", () => {
+  const k = generateKeypair();
+  const liste = signEvent(buildRelayList(k.pk, ["wss://pool.test", "wss://r1.test", "wss://r2.test", "wss://r3.test"].map((url) => ({ url }))), k.sk);
+  const plan = outboxPlan([liste], [k.pk], { imPool: ["wss://pool.test/"] });
+  assert.deepEqual([...plan.keys()], ["wss://r1.test", "wss://r2.test"], "Ziel drei: eins im Pool, zwei fremde");
+  const nurPool = signEvent(buildRelayList(k.pk, [{ url: "wss://p1.test" }, { url: "wss://p2.test" }]), k.sk);
+  assert.equal(outboxPlan([nurPool], [k.pk], { imPool: ["wss://p1.test", "wss://p2.test"] }).size, 0, "alles im Pool – nichts Fremdes");
+  // Viele Autoren auf einem Relay des Pools: es verdrängt keine fremden mehr
+  const autoren = Array.from({ length: 10 }, () => generateKeypair());
+  const listen = autoren.map((x, i) => signEvent(buildRelayList(x.pk, [{ url: "wss://pool.test" }, { url: `wss://eigen-${i}.test` }]), x.sk));
+  const viele = outboxPlan(listen, autoren.map((x) => x.pk), { imPool: ["wss://pool.test"] });
+  assert.equal(viele.size, OUTBOX_MAX_RELAYS);
+  assert.ok(![...viele.keys()].includes("wss://pool.test"));
+});
+
+test("A-25/A-26: fremde Relays nur über wss://, .onion nur mit Tor; ausgesetzte nicht", () => {
+  const k = generateKeypair();
+  const liste = signEvent(buildRelayList(k.pk, ["ws://offen.test", "ws://abc.onion", "wss://sicher.test", "wss://tot.test"].map((url) => ({ url }))), k.sk);
+  assert.deepEqual([...outboxPlan([liste], [k.pk]).keys()], ["wss://sicher.test", "wss://tot.test"], "kein ws://");
+  assert.deepEqual([...outboxPlan([liste], [k.pk], { onion: true }).keys()].sort(), ["wss://sicher.test", "wss://tot.test", "ws://abc.onion"].sort(), ".onion über Tor; ws:// sonst nie");
+  assert.deepEqual([...outboxPlan([liste], [k.pk], { aussetzen: ["wss://tot.test/"] }).keys()], ["wss://sicher.test"], "gerade gescheitert – ausgesetzt");
+});

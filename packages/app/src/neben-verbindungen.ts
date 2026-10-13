@@ -9,8 +9,11 @@
  * - je Art (die Identität, für die angemeldet wird) und Adresse höchstens eine;
  * - nach `ruheMs` ohne Gebrauch geschlossen, nie während sie gebraucht wird;
  * - höchstens `max` zugleich – darüber geht die am längsten ungenutzte, nie eine gebrauchte.
+ *
+ * Scheitert eine Verbindung (A-26), merkt sich der Baustein die Adresse `aussetzenMs` lang, nur im
+ * Speicher: So lange plant der Outbox-Plan das Relay nicht ein (`ausgesetzt()`). Keine Rangliste.
  */
-export const NEBEN_GRENZEN = Object.freeze({ max: 8, ruheMs: 120_000 });
+export const NEBEN_GRENZEN = Object.freeze({ max: 8, ruheMs: 120_000, aussetzenMs: 15 * 60_000 });
 
 interface Schliessbar {
   close(): void;
@@ -25,7 +28,10 @@ interface Eintrag<V> {
 
 export class Nebenverbindungen<V extends Schliessbar> {
   private readonly offen = new Map<string, Eintrag<V>>();
+  /** Adresse → Zeitpunkt des letzten Fehlschlags (A-26). */
+  private readonly fehler = new Map<string, number>();
   private readonly max: number;
+  private readonly aussetzenMs: number;
   private readonly ruheMs: number;
   private readonly planen: (fn: () => void, ms: number) => unknown;
   private readonly abbrechen: (h: unknown) => void;
@@ -33,9 +39,10 @@ export class Nebenverbindungen<V extends Schliessbar> {
 
   constructor(
     private readonly neu: (url: string) => V,
-    o: { max?: number; ruheMs?: number; planen?: (fn: () => void, ms: number) => unknown; abbrechen?: (h: unknown) => void; jetzt?: () => number } = {},
+    o: { max?: number; ruheMs?: number; aussetzenMs?: number; planen?: (fn: () => void, ms: number) => unknown; abbrechen?: (h: unknown) => void; jetzt?: () => number } = {},
   ) {
     this.max = o.max ?? NEBEN_GRENZEN.max;
+    this.aussetzenMs = o.aussetzenMs ?? NEBEN_GRENZEN.aussetzenMs;
     this.ruheMs = o.ruheMs ?? NEBEN_GRENZEN.ruheMs;
     this.planen = o.planen ?? ((fn, ms) => setTimeout(fn, ms));
     this.abbrechen = o.abbrechen ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
@@ -76,14 +83,26 @@ export class Nebenverbindungen<V extends Schliessbar> {
     }, this.ruheMs);
   }
 
-  /** Holen, benutzen, zurückgeben – auch wenn `fn` wirft. */
+  /** Holen, benutzen, zurückgeben – auch wenn `fn` wirft. Wirft `fn`, ist die Adresse eine Weile ausgesetzt. */
   async mit<T>(url: string, art: string, fn: (v: V) => Promise<T>): Promise<T> {
     const v = this.hole(url, art);
     try {
-      return await fn(v);
+      const r = await fn(v);
+      this.fehler.delete(url);
+      return r;
+    } catch (e) {
+      this.fehler.set(url, this.jetzt());
+      throw e;
     } finally {
       this.gib(url, art);
     }
+  }
+
+  /** Adressen, die in den letzten `aussetzenMs` scheiterten – ältere sind vergessen. */
+  ausgesetzt(): Set<string> {
+    const jetzt = this.jetzt();
+    for (const [url, zeit] of this.fehler) if (jetzt - zeit >= this.aussetzenMs) this.fehler.delete(url);
+    return new Set(this.fehler.keys());
   }
 
   /** Über `max`: die am längsten ungenutzten schließen – nie eine, die gerade gebraucht wird. */

@@ -29,7 +29,7 @@ const ls = new Map<string, string>();
 const { setzeIdentitaet, setzeSigner } = await import("../src/shell/state.js");
 const {
   LS_MLS_EINLADUNGEN, LS_MLS_IDENTITAET, mlsAbgleichen, mlsEinladungAnnehmen, mlsErreichbar, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsKonto,
-  mlsEntferne, mlsLadeEin, mlsSendeAn, mlsSendeEvent, mlsSetzeAdmins, mlsVerlauf,
+  mlsEntferne, mlsLadeEin, mlsSendeAn, mlsSendeEvent, mlsSendeEventId, mlsSetzeAdmins, mlsVerlauf,
 } = await import("../src/shell/mls-konto.js");
 const { LS_MLS_KP, LS_MLS_PLATZ, sucheKeyPackages, veroeffentlicheKeyPackage } = await import("../src/mls-keypackage.js");
 const { empfangeGruppe, gruendeGruppe, gruppenAbos, nimmEinladungAn, oeffneEinladung, schreiteFort, sendeEventInGruppe, sendeInGruppe } = await import("../src/mls-nostr.js");
@@ -350,4 +350,21 @@ test("2.3b: Raum – nur mit mir gegründet, eigene Kanäle im Stand; einladen n
   assert.equal(await mlsEntferne(g, eva.pk, u), false, "kein Mitglied mehr");
   assert.equal(await mlsSendeEvent(g, raumNachricht({ kanal: "allgemein", text: "ohne Eva" }), u), true);
   assert.ok(!(await liesMit(eva)).includes("ohne Eva"), "entfernt – neuer Schlüssel");
+});
+
+test("11.3d2c: mlsSendeEventId – die Id des inneren Events, wie sie die Empfänger sehen; ohne Gruppe null", async () => {
+  const g = (await mlsGruende("Werkstatt mit Agent", u))!;
+  const eva = await mitKeyPackage("wss://schreib-eva-id.test");
+  eingaenge.set(eva.pk, ["wss://eingang-eva-id.test"]);
+  assert.equal(await mlsLadeEin(g, eva.pk, u), "eingeladen");
+  assert.equal(await eva.mls.beitreten(einladungAn(eva.pk, "wss://eingang-eva-id.test")!), g);
+  const id = await mlsSendeEventId(g, raumNachricht({ kanal: "allgemein", text: "Frage mit Verweis" }), u);
+  assert.match(id ?? "", /^[0-9a-f]{64}$/);
+  const bei: MlsNachricht[] = [];
+  const evs = EIGENE.flatMap((r) => relay(r).gesendet).filter((e) => e.kind === 445);
+  for (const ev of [...new Map(evs.map((x) => [x.id, x])).values()]) {
+    await empfangeGruppe({ mls: eva.mls, sichern: eva.sichern, ev, merken: async (n) => void bei.push(...n) }).catch(() => null);
+  }
+  assert.equal(bei.find((n) => n.text === "Frage mit Verweis")?.inneres, id, "derselbe Verweis beim Knoten-Agenten");
+  assert.equal(await mlsSendeEventId("ab".repeat(16), raumNachricht({ kanal: "allgemein", text: "x" }), u), null, "fremde Gruppe");
 });

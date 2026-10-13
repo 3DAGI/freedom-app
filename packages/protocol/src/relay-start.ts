@@ -130,22 +130,29 @@ export function eigenerRelaySatz(p: { liste?: NostrEvent; posteingang?: NostrEve
   };
 }
 
-/** So viele Schreib-Relays je Autor fragt die App höchstens (NIP-65 empfiehlt wenige). */
+/** So viele Schreib-Relays je Autor fragt die App, wenn es geht (NIP-65 empfiehlt wenige). */
 export const OUTBOX_JE_AUTOR = 3;
 /** So viele fremde Relays öffnet eine Abfrage höchstens – der Rest liest im Pool. */
 export const OUTBOX_MAX_RELAYS = 8;
 
 /**
  * Outbox beim Lesen (5.4b): an welchen Relays nach den Events welcher Autoren
- * fragen. Je Autor die Schreib-Relays seiner neuesten gültigen NIP-65-Liste
- * (höchstens `jeAutor`), gebündelt je Relay; zuerst die Relays, die die
- * meisten Autoren abdecken, höchstens `maxRelays`. Autoren ohne Liste fehlen –
- * für sie fragt der Aufrufer wie bisher im Pool. Fremde Listen werden geprüft
- * (Signatur, Autor): Sonst könnte jeder die Leser eines Kontakts umleiten.
+ * fragen. Je Autor zählen die Schreib-Relays seiner neuesten gültigen
+ * NIP-65-Liste. Autoren ohne Liste fehlen – für sie fragt der Aufrufer wie
+ * bisher im Pool. Fremde Listen werden geprüft (Signatur, Autor): Sonst könnte
+ * jeder die Leser eines Kontakts umleiten.
+ *
+ * Gewählt wird gierig (seit A-24, Vergleich `docs/OUTBOX-VERGLEICH.md`): erst
+ * bekommt jeder Autor ein Relay, dann ein zweites, bis `jeAutor` – immer das
+ * Relay, das die meisten Autoren dieser Stufe erreicht, höchstens `maxRelays`.
+ * Relays des Pools (`imPool`) fragt der Pool: Sie zählen für ihre Autoren mit
+ * und belegen keinen Platz. Ein gewähltes Relay fragt nach allen Autoren, die
+ * dort schreiben. Fremde Relays nur über `wss://` (A-25; `ws://…onion` nur mit
+ * `onion`), keine aus `aussetzen` (A-26, gerade nicht erreichbar).
  */
 export function outboxPlan(
   listen: readonly NostrEvent[], autoren: readonly string[],
-  p: { jeAutor?: number; maxRelays?: number } = {},
+  p: { jeAutor?: number; maxRelays?: number; imPool?: readonly string[]; onion?: boolean; aussetzen?: Iterable<string> } = {},
 ): Map<string, string[]> {
   const gesucht = new Set(autoren);
   const neueste = new Map<string, NostrEvent>();
@@ -155,10 +162,42 @@ export function outboxPlan(
     if (alt && alt.created_at >= ev.created_at) continue;
     if (verifyEvent(ev)) neueste.set(ev.pubkey, ev);
   }
-  const jeRelay = new Map<string, string[]>();
+  const ziel = p.jeAutor ?? OUTBOX_JE_AUTOR;
+  const max = p.maxRelays ?? OUTBOX_MAX_RELAYS;
+  const pool = new Set((p.imPool ?? []).map(normalizeRelayUrl));
+  const aus = new Set([...(p.aussetzen ?? [])].map(normalizeRelayUrl));
+  const erlaubt = (url: string) => !aus.has(url) && (url.startsWith("wss://") || (p.onion === true && /^ws:\/\/[^/:]+\.onion(?:[:/]|$)/.test(url)));
+  /** Wie viele Relays je Autor schon gefragt werden (Pool und Plan). */
+  const hat = new Map<string, number>();
+  const kandidaten = new Map<string, string[]>();
   for (const [autor, liste] of neueste) {
-    for (const url of schreibRelays(liste).slice(0, p.jeAutor ?? OUTBOX_JE_AUTOR)) jeRelay.set(url, [...(jeRelay.get(url) ?? []), autor]);
+    let imPool = 0;
+    for (const url of schreibRelays(liste)) {
+      if (pool.has(url)) imPool++;
+      else if (erlaubt(url)) kandidaten.set(url, [...(kandidaten.get(url) ?? []), autor]);
+    }
+    hat.set(autor, imPool);
   }
-  const reihe = [...jeRelay].sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1));
-  return new Map(reihe.slice(0, p.maxRelays ?? OUTBOX_MAX_RELAYS));
+  const plan = new Map<string, string[]>();
+  for (let stufe = 1; stufe <= ziel; stufe++) {
+    while (plan.size < max) {
+      let bestes: string | undefined;
+      let zahl = 0;
+      for (const [url, as] of kandidaten) {
+        if (plan.has(url)) continue;
+        const n = as.filter((a) => (hat.get(a) ?? 0) < stufe).length;
+        const b = bestes === undefined ? undefined : kandidaten.get(bestes)!;
+        // Mehr Autoren dieser Stufe, dann mehr Autoren überhaupt, dann die Adresse – ohne Zufall
+        if (n > zahl || (n === zahl && n > 0 && b !== undefined && (as.length > b.length || (as.length === b.length && url < bestes!)))) {
+          bestes = url;
+          zahl = n;
+        }
+      }
+      if (bestes === undefined) break;
+      const as = kandidaten.get(bestes)!;
+      plan.set(bestes, as);
+      for (const a of as) hat.set(a, (hat.get(a) ?? 0) + 1);
+    }
+  }
+  return plan;
 }

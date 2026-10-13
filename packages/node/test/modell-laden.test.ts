@@ -289,13 +289,16 @@ test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm r
   const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
   const main = quelle("../src/main.ts");
   assert.match(main, /vertraut: new Set\(\),\n    eigener: keypair\.pk,/, "bis E9-4 nur der eigene Schlüssel");
-  assert.match(main, /festhalten: async \(name, files\) => \{\n      const ev = signEvent\(buildModelManifest\(\{ modelId: name, name, files, upstream: `ollama:\$\{name\}`, publisherPubkey: keypair\.pk \}\), keypair\.sk\);\n      await pool\.publish\(ev\);/);
+  // Seit B-29c1b nennt der Lader die Herkunft (`ollama:<name>` bzw. `hf:<org/repo>@<commit>`) und die Lizenz
+  assert.match(main, /festhalten: async \(name, files, upstream, license\) => \{\n      const ev = signEvent\(buildModelManifest\(\{ modelId: name, name, files, upstream, license, publisherPubkey: keypair\.pk \}\), keypair\.sk\);\n      await pool\.publish\(ev\);/);
+  assert.match(quelle("../src/modell-laden.ts"), /events = \[await h\.festhalten\(name, reg, `ollama:\$\{name\}`\)\];/);
   assert.doesNotMatch(main, /MODELL_HERAUSGEBER/);
   assert.match(main, /manifeste: \(name\) => pool\.query\(\{ kinds: \[KIND_MODEL_MANIFEST\], "#d": \[`model:\$\{name\}`\], limit: 100 \}\)/);
   assert.match(main, /\.\.\.gepruefteModelle,\n  \]\)\];/);
   assert.match(main, /modelle: angebotModelle,/);
   // Seit B-41 fragt das Angebot dazwischen Ollama, welche Modelle es hat (`nurBeiOllama()`)
-  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    ollamaNamen = await ollamaTags\(ollamaUrl\)[^\n]*\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
+  // Seit B-29a fragt es den gewählten KI-Antrieb (Ollama: `/api/tags`)
+  assert.match(main, /gepruefteModelle = await modellDienst\.imAngebot\(\);\n    ollamaNamen = await antriebModelle\(antrieb\)[^\n]*\n    const models = angebotModelle\(\);/, "jedes Angebot frisch geprüft");
   assert.match(main, /if \(await modellDienst\.arbeite\(\)\.catch\(\(\) => false\)\) await pool\.publish\(\(await baueAngebot\(\)\)\.ev\)/);
   assert.match(quelle("../src/dvm-provider.ts"), /const offeredModels = this\.cfg\.modelle\?\.\(\) \?\?/);
   const cli = quelle("../src/modell.ts");

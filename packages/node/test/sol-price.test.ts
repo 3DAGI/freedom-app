@@ -13,7 +13,7 @@ import { defaultToolRegistry } from "../src/tools.js";
 import { buildSolDepositOpen } from "@freedomstack/protocol";
 import { AnchorSolanaHtlc } from "@freedomstack/protocol";
 import type { Connection } from "@solana/web3.js";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, writeFile, rm } from "node:fs/promises";
 
 /** Simulierte Kette — der Provider prueft Deposits jetzt on-chain. */
 function stubChain(recipient: string, amountLamports: number, timelockUnix: number): () => void {
@@ -117,6 +117,8 @@ test("SOL-Preis: solPriceSats rechnet alle Preise (text+tool) in lamports um", a
     console.log(`    [sol] amountMsat=${r.amountMsat} lamports=${r.amountLamports} expected=${expected} rate=${expectLamportsPerMsat}`);
     assert.equal(r.amountLamports, expected, `lamports ${r.amountLamports} == ${expected}`);
     assert.equal(r.solanaAddress, "SoLprov1111111111111111111111111111111111");
+    // A-29: der Ordner des Auftrags für file_io ist nach dem Auftrag wieder weg
+    assert.deepEqual(await readdir(dir), ["d.txt"]);
     console.log(`    [sol] amountMsat=${r.amountMsat} lamports=${r.amountLamports} @1SOL=${SOL_PRICE}sats`);
   } finally {
     restoreChain?.();

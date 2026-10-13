@@ -86,7 +86,7 @@ test("Auswahl nach der eigenen Messung: normal vorn, Neue in der Mitte, gerade A
   ]);
   const alle = mitMessung([tot, gerade, wackelt, neu, bekannt, gut, eigen], messung);
   assert.equal(alle.find((p) => p.caps.pubkey === neu.caps.pubkey)!.messung, undefined);
-  const r = matchProviders(alle, "classic", { allowlist: [eigen.caps.pubkey], maxResults: 10, zufall: () => 0.5 }).map((p) => p.caps.pubkey);
+  const r = matchProviders(alle, "classic", { allowlist: [eigen.caps.pubkey], maxResults: 10, zufall: () => 0.5, jetzt: JETZT }).map((p) => p.caps.pubkey);
   assert.deepEqual(r, [eigen, gut, bekannt, neu, wackelt, gerade, tot].map((p) => p.caps.pubkey), "trotz höherem Preis: gemessen normal vor neu, bekannt vor unbekannt");
   assert.deepEqual(matchProviders(alle, "classic", { zufall: () => 0.5 }).length, 5, "höchstens fünf");
 });
@@ -120,6 +120,6 @@ test("P5c: Messpunkte aus Prüfrunden – „einig“ wird gemerkt und streng ge
   const [abweichend, einig1, einig2] = [provider(500), provider(500), provider(500)];
   const r = matchProviders(mitMessung([abweichend, einig1, einig2], new Map([
     [abweichend.caps.pubkey, stand({ qualitaet: 0 })], [einig1.caps.pubkey, stand({ qualitaet: 1 })], [einig2.caps.pubkey, stand({ qualitaet: 1 })],
-  ])), "classic", { maxResults: 10, zufall: () => 0.5 }).map((p) => p.caps.pubkey);
+  ])), "classic", { maxResults: 10, zufall: () => 0.5, jetzt: JETZT }).map((p) => p.caps.pubkey);
   assert.equal(r[2], abweichend.caps.pubkey);
 });

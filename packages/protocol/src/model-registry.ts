@@ -125,10 +125,15 @@ export interface ModelSeed {
   files: string[];
   region?: string;
   createdAt: number;
+  /** Seit B-29c2a: Magnet-Link, unter dem der Knoten die Dateien teilt – roh, gelesen nur über `leseMagnet()`. */
+  magnet?: string;
+  /** Seit B-29c2a: Inhalts-Kennung der geprüften Fassung (`inhaltsKennung()`), 64 Zeichen Hex. */
+  inhalt?: string;
 }
 
 export function buildModelSeed(
   modelId: string, seederPubkey: string, files: string[], region?: string, createdAt?: number,
+  torrent?: { magnet: string; inhalt: string },
 ): UnsignedEvent {
   const tags: string[][] = [
     ["d", `seed:${modelId}`],
@@ -136,6 +141,7 @@ export function buildModelSeed(
     ...files.map((f) => ["f", f]),
   ];
   if (region) tags.push(["region", region]);
+  if (torrent) tags.push(["magnet", torrent.magnet], ["inhalt", torrent.inhalt]);
   return buildEvent(seederPubkey, KIND_MODEL_SEED, tags, "", createdAt);
 }
 
@@ -149,6 +155,8 @@ export function parseModelSeed(ev: NostrEvent): ModelSeed {
     files: ev.tags.filter((t) => t[0] === "f").map((t) => t[1]),
     region: getTag(ev, "region") ?? undefined,
     createdAt: ev.created_at,
+    ...(getTag(ev, "magnet") ? { magnet: getTag(ev, "magnet")! } : {}),
+    ...(/^[0-9a-f]{64}$/.test(getTag(ev, "inhalt") ?? "") ? { inhalt: getTag(ev, "inhalt")! } : {}),
   };
 }
 

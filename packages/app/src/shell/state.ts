@@ -371,7 +371,10 @@ export async function abonniereAn(filter: RelayFilter, urls: readonly string[], 
 }
 
 /** Outbox beim Lesen (5.4b): Events von Kontakten auch an deren Schreib-Relays (NIP-65). */
-const outbox = new OutboxLeser({ pool: ensurePool, frageAn });
+const outbox = new OutboxLeser({
+  pool: ensurePool, frageAn, ausgesetzt: () => neben.ausgesetzt(),
+  onion: () => typeof location !== "undefined" && location.hostname.endsWith(".onion"),
+});
 
 /** Events dieser Autoren – aus dem Pool und dort, wo sie laut NIP-65 schreiben (5.4b). */
 export function frageBeiAutoren(filter: RelayFilter & { authors: string[] }): Promise<NostrEvent[]> {

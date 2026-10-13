@@ -15,6 +15,9 @@
  * steht im Messpunkt (`einig`) und ergibt ab `minVergleiche` die Qualität. Die
  * Rangfolge bildet jede App selbst.
  */
+/** So oft erneuert der Knoten sein Angebot (Kind 38027, Sekunden) – `main.ts` im Knoten. */
+export const ANGEBOT_TAKT_SEK = 30 * 60;
+
 export const PRUEF_GRENZEN = Object.freeze({
   /** Ab diesem Anteil Erfolge normal. */
   normal: 0.95,
@@ -30,7 +33,17 @@ export const PRUEF_GRENZEN = Object.freeze({
   ausreisser: 0.15,
   /** So viele Vergleiche aus Prüfrunden (P5c), bevor die Übereinstimmung als Qualität zählt. */
   minVergleiche: 3,
+  /**
+   * Ein Angebot, älter als zwei Erneuerungen des Knotens (plus fünf Minuten für langsame Relays),
+   * gilt als veraltet (L2-1): Der Knoten dahinter läuft vermutlich nicht mehr.
+   */
+  veraltetSek: 2 * ANGEBOT_TAKT_SEK + 300,
 });
+
+/** Hat das Angebot (Zeit der letzten Erneuerung) zwei Erneuerungen verpasst? (L2-1) */
+export function angebotVeraltet(erneuert: number, jetzt: number): boolean {
+  return !(jetzt - erneuert <= PRUEF_GRENZEN.veraltetSek);
+}
 
 export type Stufe = "neu" | "normal" | "herabgestuft" | "ausgefallen";
 export const PRUEF_STUFEN: readonly Stufe[] = ["neu", "normal", "herabgestuft", "ausgefallen"];
@@ -93,6 +106,8 @@ export interface PruefKandidat {
   qualitaet?: number;
   /** Eigener Ausfall in den letzten Sekunden (`PRUEF_GRENZEN.ausfallSek`). */
   ausfallJetzt?: boolean;
+  /** Das Angebot hat zwei Erneuerungen verpasst (`angebotVeraltet()`, L2-1). */
+  veraltet?: boolean;
   /** Vertrauen aus Quittungen (0..100, `berechneRuf()`), wirkt als Gewicht. */
   vertrauen?: number;
   /** Quittungen vorhanden (eigene oder von Kontakten) – unter den Neuen vor den Unbekannten. */
@@ -102,18 +117,21 @@ export interface PruefKandidat {
 /**
  * Reihenfolge für Auswahl und Rückfall: normale (ohne Ausreißer), dann neue –
  * bekannte (mit Quittungen) vor unbekannten –, dann Ausreißer, dann
- * herabgestufte, dann gerade ausgefallene (eigener Ausfall vor Sekunden),
- * zuletzt ausgefallene (unter 80 %, nur noch Rückfall). In den ersten drei
- * Gruppen zufällig, gewichtet mit 1/Preis² (mal 1 + Vertrauen/100); dahinter
- * fest nach Vertrauen und Preis.
+ * herabgestufte, dann veraltete Angebote (zwei Erneuerungen verpasst, L2-1 –
+ * für einen neuen Nutzer sähe ein toter Provider sonst wie ein lebender aus),
+ * dann gerade ausgefallene (eigener Ausfall vor Sekunden), zuletzt ausgefallene
+ * (unter 80 %, nur noch Rückfall). In den ersten drei Gruppen zufällig,
+ * gewichtet mit 1/Preis² (mal 1 + Vertrauen/100); dahinter fest nach Vertrauen
+ * und Preis.
  */
 export function ordneNachPruefung<K extends PruefKandidat>(kandidaten: readonly K[], zufall: () => number): K[] {
   const quoten = kandidaten.map((k) => k.qualitaet).filter((q): q is number => q !== undefined && Number.isFinite(q)).sort((a, b) => a - b);
   const median = quoten.length > 0 ? quoten[Math.floor((quoten.length - 1) / 2)] : undefined;
   const ausreisser = (k: K) => median !== undefined && k.qualitaet !== undefined && k.qualitaet < median - PRUEF_GRENZEN.ausreisser;
   const gruppe = (k: K): number =>
-    k.stufe === "ausgefallen" ? 6
-    : k.ausfallJetzt ? 5
+    k.stufe === "ausgefallen" ? 7
+    : k.ausfallJetzt ? 6
+    : k.veraltet ? 5
     : k.stufe === "herabgestuft" ? 4
     : ausreisser(k) ? 3
     : k.stufe === "neu" ? (k.bekannt ? 1 : 2)
@@ -133,5 +151,5 @@ export function ordneNachPruefung<K extends PruefKandidat>(kandidaten: readonly 
     return aus;
   };
   const nach = (g: number) => kandidaten.filter((k) => gruppe(k) === g);
-  return [...ziehe(nach(0)), ...ziehe(nach(1)), ...ziehe(nach(2)), ...[3, 4, 5, 6].flatMap((g) => nach(g).sort(fest))];
+  return [...ziehe(nach(0)), ...ziehe(nach(1)), ...ziehe(nach(2)), ...[3, 4, 5, 6, 7].flatMap((g) => nach(g).sort(fest))];
 }

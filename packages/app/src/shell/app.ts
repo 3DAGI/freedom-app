@@ -52,7 +52,7 @@ import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
-import { starteGeraeteAgenten } from "./agenten-lauschen.js";
+import { agentenImTakt, starteGeraeteAgenten } from "./agenten-lauschen.js";
 import {
   captureReferral,
   ladeAbdeckung,
@@ -758,9 +758,9 @@ function starte(): void {
   // Anrufe (B-13d3): nur auf Klick; eingehende kommen über den Posteingang (alsAnruf)
   wireAnrufe();
   // Agenten auf dem Gerät (11.3c2): Erwähnungen in offenen Räumen beantworten, solange die App offen ist –
-  // im Abruftakt nur nachsehen, ob das Abo zu Agenten und Tresor passt
+  // im Abruftakt nur nachsehen, ob das Abo zu Agenten und Tresor passt; private Räume (11.3c3b) erst dort (MLS-Engine)
   void starteGeraeteAgenten();
-  abrufTakt.melde("agenten", starteGeraeteAgenten, 2);
+  abrufTakt.melde("agenten", agentenImTakt, 2);
   // Ablauf neuer Nachrichten je Unterhaltung (NIP-40, Schritt 2.5)
   const ablaufSel = document.getElementById("chat-ablauf") as HTMLSelectElement | null;
   if (ablaufSel) ablaufSel.onchange = () => setzeAblauf(ablaufSel.value);

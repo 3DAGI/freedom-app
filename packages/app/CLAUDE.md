@@ -699,6 +699,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Verbindung je Aufruf mehr (`autoReconnect: false` + `close()`), ein Test findet das. Wer eine holt
   (`hole()`), gibt sie zurück (`gib()`, sonst bleibt sie offen) – am einfachsten über `mit()`. `frageAn()`
   gibt nur gültig Signiertes weiter, auch von fremden Relays.
+  Scheitert eine Nebenverbindung in `mit()`, ist ihre Adresse `NEBEN_GRENZEN.aussetzenMs` lang ausgesetzt
+  (A-26, nur im Speicher, `ausgesetzt()` → `OutboxLeser` → `outboxPlan(…, { aussetzen })`); ein Erfolg hebt das
+  auf. Keine Rangliste daraus bauen und nichts davon speichern.
 - **Ersatzschlüssel nur über `ersatz-datei.ts`** (seit B-28, Nutzertest T-2): „Diebstahl
   vorbeugen“ fragt vor dem Erzeugen nach einer Passphrase (nur mit `verschluesselungMoeglich()`);
   mit ihr entsteht die Datei nur über `baueErsatzDatei()` im Format des Tresors
@@ -717,7 +720,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Erwähnung – sonst löste er den Agenten aus. Die Persona verlässt das Gerät nur versiegelt im Auftrag.
   Beantwortet (seit 11.3c2) nur über `shell/agenten-lauschen.ts`: ein Abo ab jetzt auf 42 mit `#p` der
   Agenten dieses Geräts (`starteGeraeteAgenten()`, im Abruftakt nur geprüft), je Agent eine Erwähnung nach der
-  anderen; erst `entscheide()` (`agent-antwort.ts`, Stand des Raums, Schalter der Ketten nur aus der Definition des
+  anderen; erst `entscheide()` (seit 11.3d1a aus `agent-raum.ts` im Protokoll, Stand des Raums, Schalter der Ketten nur aus der Definition des
   Gründers), dann `reicht()` mit dem Gebot in der Einheit des Budgets (msat nur Lightning, Lamports nur mit Zahlkanal),
   dann der Auftrag: versiegelt vom Sitzungsschlüssel je Agent und Raum (`AgentSitzungen`), Platzhalter je Auftrag
   (`maskiereEinzeln()`), nie mit Verweis auf den Raum oder der Identität, bezahlt nur über `ki-zahlung.ts`; verbucht
@@ -727,6 +730,24 @@ Fallstricke dieses Bereichs unten anhängen.
   wird nur über `ladeAgentInPrivatenRaum()` → `mlsLadeAgentEin()`: KeyPackage vom Gerät (erst sichern, dann
   einladen), die Einladung reicht `uebergib` direkt seinem Konto – nie an ein Relay, nur der Commit geht an die
   Gruppe. Danach nur innere Events: Raumstand, Karte vom Agenten, Liste des Besitzers, Hinweis ohne Erwähnung.
+  Beantwortet (seit 11.3c3b) nur über `setzePrivatAuf()` (`shell/agenten-lauschen.ts`) – die Engine lädt dafür erst im
+  Abruftakt (`agentenImTakt`), nie beim Start: je Agent und Gruppe ein Abo an die Relays der Gruppe, vorher alles
+  nachholen (`agentAbgleichen()`, auch Commits – wer einen auslässt, liest danach nichts mehr; Verlauf vor dem Zustand),
+  beantwortet nur, was nach dem Abo kam. Agenten im privaten Raum erkennt man an ihrer Karte (`agentRaum().agenten`),
+  nicht an einer Rolle; geschrieben wird nur über `agentSendet()` (inneres Event, gleich in den eigenen Verlauf).
+  Auftrag und Bezahlung teilen offene und private Räume (`frageUndZahle()`).
+  Erwähnt wird (seit 11.3d1b1) auch über „@Name“ im Text – nur über `erwaehnteAgenten()` mit den Karten des
+  Raums (offen `agentKartenIm()`: Rolle `agent`, gültige Karte; privat `raumAgentKarten()`), nie aus dem Text allein.
+  Agenten auf dem Knoten fragt die App (seit 11.3d1b2) nur über `frageKnotenAgenten()` (`shell/knoten-agent-fragen.ts`)
+  nach dem Senden im offenen Raum: nur wen `zuBezahlen()` nennt (Karte: Knoten, „wer fragt, zahlt“, `provider`), erst
+  Zahlweg und Wallet prüfen, dann den Preis bestätigen lassen – ohne Bestätigung kein Auftrag. Der Auftrag nur über
+  `bezahlterAuftrag()`: frische `KiSitzungen` je Frage, feste Eingabe, der Verweis (`auftragsVerweisTags()`) nur in
+  `extraTags` des Kerns; Ablehnungen nur über ihre Kennung (`ablehnungsText()`), nie Text vom Knoten. Kein
+  zweiter Versuch von selbst – im Zahlkanal hielte die offene erste Gutschrift die zweite um ein Gebot höher.
+  Privat (seit 11.3d2c) ebenso nach `sendePrivat()` – es liefert die Id des inneren Events (`mlsSendeEventId()`),
+  und die steht als `erwaehnung` im Verweis, die Gruppe als `raum`; nie die Id eines Relay-Events. Einen Agenten,
+  dessen Karte `knoten` nennt (`knotenAgentKarte()`), lädt `ladeEin()` nur nach `bestaetige()` mit der Warnung
+  ein; danach schreibt `meldeKnotenAgentImRaum()` den Pflicht-Hinweis als inneres Event in den ersten Kanal.
 - **Anhänge im Chat nur über `handleChatFiles()`** (seit C-29, `anhang-warte.ts`): Jeder Upload
   meldet sich bei `anhangWarte` an, und `sendChatMessage()` wartet auf alle, bevor es Text und
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch

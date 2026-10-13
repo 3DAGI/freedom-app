@@ -99,3 +99,65 @@ test("B-11c: Selbstprüfung im Status – nur Kennungen, Zahlen und Fehlernamen;
     JSON.stringify({ ...gut, einrichtung: Array.from({ length: STATUS_GRENZEN.befunde + 1 }, () => einrichtung[0]) }),
   ]) assert.equal(leseKnotenStatus(kaputt), null, kaputt.slice(-120));
 });
+
+test("E9-3b: Modelle im Status – eigenes Feld, nur Kennungen, Zahlen, Fehlernamen und Modellnamen; darf fehlen", () => {
+  const modellPruefung: KnotenStatus["modellPruefung"] = {
+    befunde: [
+      { name: "qwen3.8:27b", stufe: "ok", fall: "modell.geprueft", werte: { dateien: 4, bytes: 17_000_000_000 } },
+      { name: "nemotron-3.5-lightning", stufe: "hinweis", fall: "modell.ungeprueft", werte: {} },
+      { name: "llama4:70b", stufe: "fehler", fall: "modell.passtNicht", werte: { brauchtGb: 48, hatGb: 32 } },
+      { name: "gemma4:12b", stufe: "fehler", fall: "modell.ollamaLaden", werte: { fehler: "OllamaFehler" } },
+    ],
+    laeuft: { name: "mistral:7b", schritt: "laden", geladen: 1_000, gesamt: 4_000, seit: 1_790_000_100 },
+  };
+  const s = { ...beispiel(), modellPruefung };
+  assert.deepEqual(leseKnotenStatus(knotenStatusText(s)), s);
+  const ohneLauf = { ...beispiel(), modellPruefung: { befunde: [] } };
+  assert.deepEqual(leseKnotenStatus(knotenStatusText(ohneLauf)), ohneLauf, "leer und ohne Laden");
+  const vorher = { ...beispiel(), modellPruefung: { befunde: [], laeuft: { name: "mistral:7b", schritt: "manifest" as const, seit: 5 } } };
+  assert.deepEqual(leseKnotenStatus(knotenStatusText(vorher)), vorher, "vor dem Laden ohne Bytes");
+  assert.equal("modellPruefung" in leseKnotenStatus(knotenStatusText(beispiel()))!, false, "Knoten vor E9-3b: kein Feld");
+  // Eine App vor E9-3b liest den Status weiter – das Feld ist neu, nicht in `einrichtung`
+  assert.equal(JSON.parse(knotenStatusText(s)).einrichtung, undefined);
+
+  const gut = JSON.parse(knotenStatusText(s)) as Record<string, unknown>;
+  const mitBefund = (b: unknown) => JSON.stringify({ ...gut, modellPruefung: { befunde: [b] } });
+  const mitLauf = (l: unknown) => JSON.stringify({ ...gut, modellPruefung: { befunde: [], laeuft: l } });
+  for (const kaputt of [
+    mitBefund({ name: "a:1", stufe: "ok", fall: "ln.ok", werte: {} }),
+    mitBefund({ name: "a:1", stufe: "ok", fall: "modell.Ollama meldet: pull model manifest: file does not exist", werte: {} }),
+    mitBefund({ name: "a:1", stufe: "gut", fall: "modell.geprueft", werte: {} }),
+    mitBefund({ name: "", stufe: "ok", fall: "modell.geprueft", werte: {} }),
+    mitBefund({ name: "a\u0000b", stufe: "ok", fall: "modell.geprueft", werte: {} }),
+    mitBefund({ name: "x".repeat(STATUS_GRENZEN.modellZeichen + 1), stufe: "ok", fall: "modell.geprueft", werte: {} }),
+    mitBefund({ name: "a:1", stufe: "ok", fall: "modell.geprueft", werte: { fehler: "http://10.0.0.7:11434" } }),
+    mitBefund({ name: "a:1", stufe: "ok", fall: "modell.geprueft" }),
+    mitLauf({ name: "a:1", schritt: "entpacken", seit: 1 }),
+    mitLauf({ name: "a:1", schritt: "laden", geladen: -1, seit: 1 }),
+    mitLauf({ name: "a:1", schritt: "laden" }),
+    JSON.stringify({ ...gut, modellPruefung: { befunde: "ok" } }),
+    JSON.stringify({ ...gut, modellPruefung: [] }),
+    JSON.stringify({ ...gut, modellPruefung: { befunde: Array.from({ length: STATUS_GRENZEN.modellBefunde + 1 }, () => modellPruefung!.befunde[0]) } }),
+  ]) assert.equal(leseKnotenStatus(kaputt), null, kaputt.slice(-160));
+});
+
+test("E9-3b: der Knoten schickt nie, was der Leser abwiese – ein Name aus der Umgebung macht den Status nicht unlesbar", () => {
+  const s: KnotenStatus = {
+    ...beispiel(),
+    modellPruefung: {
+      befunde: [
+        { name: "qwen3.8:27b", stufe: "ok", fall: "modell.geprueft", werte: { dateien: 4, bytes: 1 } },
+        { name: "kaputt\nname", stufe: "hinweis", fall: "modell.ungeprueft", werte: {} },
+        { name: "b:1", stufe: "fehler", fall: "modell.fehler", werte: { fehler: "Error: ECONNREFUSED 127.0.0.1:11434" } },
+        ...Array.from({ length: STATUS_GRENZEN.modellBefunde + 5 }, (_, i) => ({ name: `m${i}:1`, stufe: "hinweis" as const, fall: "modell.wartet", werte: {} })),
+      ],
+      laeuft: { name: "c:1", schritt: "entpacken" as never, seit: 1 },
+    },
+  };
+  const gelesen = leseKnotenStatus(knotenStatusText(s));
+  assert.ok(gelesen, "lesbar");
+  assert.equal(gelesen.modellPruefung!.befunde.length, STATUS_GRENZEN.modellBefunde);
+  assert.deepEqual(gelesen.modellPruefung!.befunde[0], s.modellPruefung!.befunde[0]);
+  assert.ok(!gelesen.modellPruefung!.befunde.some((b) => b.name.includes("\n") || b.name === "b:1"), "Unlesbares fällt weg");
+  assert.equal(gelesen.modellPruefung!.laeuft, undefined, "ein unbekannter Schritt fällt weg");
+});

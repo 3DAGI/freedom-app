@@ -109,8 +109,8 @@ export function pruefeSchichten(m: ModelManifest, schichten: readonly Schicht[])
   return { ok: true, dateien: m.files.length, bytes: m.totalBytes };
 }
 
-export type ManifestWahl =
-  | { ok: true; manifest: ModelManifest; id: string; quelle: OllamaName }
+export type ManifestWahl<Q = OllamaName> =
+  | { ok: true; manifest: ModelManifest; id: string; quelle: Q }
   | { ok: false; fall: "manifest.keins" | "manifest.uneinig" | "manifest.keineQuelle"; werte?: { herausgeber: number } };
 
 /**
@@ -118,10 +118,12 @@ export type ManifestWahl =
  * Schlüsseln (eigener oder vom Betreiber genannte Kuratoren, F5 – kein
  * voreingestellter), je Schlüssel das neueste. Das eigene geht vor; sonst
  * müssen alle vertrauten dieselben Dateien nennen – bei Streit keine Wahl.
+ * Die Quelle liest `quelleVon` – Ollama (Vorgabe) oder Hugging Face (`hfQuelle()`, B-29c1a).
  */
-export function vertrautesManifest(
+export function vertrautesManifest<Q = OllamaName>(
   events: readonly NostrEvent[], kennung: string, vertraut: ReadonlySet<string>, eigener: string,
-): ManifestWahl {
+  quelleVon: (m: ModelManifest) => Q | null = ollamaQuelle as unknown as (m: ModelManifest) => Q | null,
+): ManifestWahl<Q> {
   const neueste = new Map<string, { ev: NostrEvent; m: ModelManifest }>();
   for (const ev of events) {
     if (ev.kind !== KIND_MODEL_MANIFEST || getTag(ev, "d") !== `model:${kennung}`) continue;
@@ -138,6 +140,6 @@ export function vertrautesManifest(
   const fingerabdruck = (m: ModelManifest) => m.files.map((f) => `${f.sha256}:${f.sizeBytes}`).sort().join(",");
   if (new Set(kandidaten.map((k) => fingerabdruck(k.m))).size > 1) return { ok: false, fall: "manifest.uneinig", werte: { herausgeber: kandidaten.length } };
   const { ev, m } = kandidaten.sort((a, b) => b.ev.created_at - a.ev.created_at)[0]!;
-  const quelle = ollamaQuelle(m);
+  const quelle = quelleVon(m);
   return quelle ? { ok: true, manifest: m, id: ev.id, quelle } : { ok: false, fall: "manifest.keineQuelle" };
 }

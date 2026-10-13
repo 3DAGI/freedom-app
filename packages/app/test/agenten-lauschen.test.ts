@@ -24,7 +24,7 @@ const stelle = (s: string): number => {
 
 test("11.3c2b: gestartet mit der App, im Takt geprüft, nach Einladen und Entfernen neu", () => {
   const app = lies("shell/app.ts");
-  assert.match(app, /wireAnrufe\(\);\n[\s\S]{0,300}void starteGeraeteAgenten\(\);\n  abrufTakt\.melde\("agenten", starteGeraeteAgenten, 2\);/);
+  assert.match(app, /wireAnrufe\(\);\n[\s\S]{0,300}void starteGeraeteAgenten\(\);\n  abrufTakt\.melde\("agenten", agentenImTakt, 2\);/);
   const agenten = lies("shell/agenten.ts");
   assert.equal(agenten.match(/void \(await import\("\.\/agenten-lauschen\.js"\)\)\.starteGeraeteAgenten\(\);/g)?.length, 2);
   assert.match(quelle, /if \(aktiv\?\.agenten === agenten\.join\(","\)\) return;/, "unverändert: nichts neu");
@@ -42,7 +42,7 @@ test("11.3c2b: erst entscheiden, dann Budget, dann Auftrag – in der Einheit de
   assert.ok(stelle("const passt = agentenBuch.reicht(") < stelle("buildJobRequest("));
   assert.match(quelle, /einheit === "lamports" \? kanalDa\(pk\) : kiZahlweg\(standardSchiene\(\), kanalDa\(pk\)\) === "lightning"/);
   assert.match(quelle, /const imBudget = kurs \? Number\(bedarfLamports\(hoechst, kurs\.satsProSol\)\) : hoechst;/);
-  assert.match(quelle, /if \(budget\.einheit === "lamports" && !kanal\) return;/, "ohne Kanal nichts");
+  assert.match(quelle, /if \(budget\.einheit === "lamports" && !kanal\) return null;/, "ohne Kanal nichts");
   assert.match(quelle, /agentenBuch\.meldeEinmal\(agentPk, raum, passt\.grund\)/, "erreicht: einmal sagen");
 });
 
@@ -63,7 +63,25 @@ test("11.3c2b: bezahlt über ki-zahlung.ts, höchstens das Gebot, Antwort vom Ag
   assert.match(quelle, /await kanalAntwort\(auftrag\.requestId, ergebnis\.amountLamports\);\n    await agentenBuch\.buche\(agentPk, raum, Math\.min\(ergebnis\.amountLamports \?\? imBudget, imBudget\)\);/);
   assert.match(quelle, /const abrechnung = await rechneAntwortAb\(auftrag\.requestId, ergebnis\.amountMsat\);/);
   assert.match(quelle, /chargeForResult\(provider, abrechnung\.providerMsat, antwort\.id, zahlung, sitzung\);\n    await agentenBuch\.buche\(agentPk, raum, Math\.min\(ergebnis\.amountMsat, hoechst\)\);/);
-  assert.ok(stelle("await agentenBuch.buche(agentPk, raum, Math.min(ergebnis.amountMsat") < stelle("await sende(agentAntwortEvent("));
+  assert.ok(stelle("await agentenBuch.buche(agentPk, raum, Math.min(ergebnis.amountMsat") < stelle('return { art: "antwort", text: maske.zurueck(ergebnis.output) };'), "erst bezahlt und verbucht, dann die Antwort");
+  assert.match(quelle, /if \(r\?\.art === "antwort"\) await sende\(agentAntwortEvent\(/);
   assert.match(quelle, /const sende = async \(u: [^)]+\): Promise<void> => void \(await pool\.publish\(await signer\.signEvent\(u\)\)\);/, "signiert vom Agenten");
   assert.doesNotMatch(quelle, /zahle\(zahlschienen\(\)/, "Geld nur über ki-zahlung.ts");
 });
+
+test("11.3c3b: private Räume – eigenes Konto, erst nachholen, nur Neues beantworten, Antwort nur in der Gruppe", () => {
+  assert.match(quelle, /export const agentenImTakt = \(\): Promise<void> => starteGeraeteAgenten\(\{ privat: true \}\);/, "Engine erst im Takt, nie beim Start");
+  assert.match(lies("shell/app.ts"), /void starteGeraeteAgenten\(\);\n  abrufTakt\.melde\("agenten", agentenImTakt, 2\);/);
+  const privat = quelle.slice(stelle("async function setzePrivatAuf"), stelle("async function beantworteOffen"));
+  assert.ok(privat.indexOf("const seit = jetztSek();") < privat.indexOf("await agentAbgleichen(k, gruppe).catch(() => []);"), "nachholen ohne zu antworten");
+  assert.match(privat, /if \(e\.zeit >= seit && \(e\.art \?\? ART_RAUM_CHAT\) === ART_RAUM_CHAT && erwaehnt && e\.inneres\)/, "nur Neues, nur Nachrichten, nur Erwähnungen");
+  assert.match(privat, /abonniereAn\(\{ \.\.\.abo\.filter, limit: 1 \}, abo\.relays, \(\) => nach\.anstossen\(\)\)/, "nur an die Relays der Gruppe");
+  assert.match(privat, /if \(state\.keypair && !alsGeraet\(\) && !mlsGesperrt\(\)\)/);
+  const antwort = quelle.slice(stelle("async function beantwortePrivat"), stelle("async function frageUndZahle"));
+  assert.match(antwort, /const istAgent = \(pk: string\): boolean => raum\.agenten\.has\(pk\);/, "Agenten an ihrer Karte");
+  assert.match(antwort, /definition: raum\.definition/, "Schalter aus der Definition eines Admins");
+  assert.match(antwort, /await agentSendet\(k, gruppe, raumAgentAntwort\(e\.nachricht, r\.text\)\)/);
+  assert.match(antwort, /await agentSendet\(k, gruppe, raumNachricht\(\{ kanal: e\.nachricht\.kanal, text: r\.text \}\)\)/, "Hinweis ohne Erwähnung");
+  assert.doesNotMatch(antwort, /publish\(|signiere\(/, "nie offen");
+});
+

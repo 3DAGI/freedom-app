@@ -11,8 +11,8 @@
  *      durch Quittungen hoeher, durch bestaetigte Reklamationen tiefer
  *   2. Reihenfolge seit P2a (E7, wie OpenRouter, `ordneNachPruefung()`): eigene
  *      Provider zuerst, dann nach der eigenen Messung (`messbuch.ts`) – normale,
- *      Neue (bekannte mit Quittungen vor unbekannten), Herabgestufte, gerade und
- *      laenger Ausgefallene; in den vorderen Gruppen zufaellig, gewichtet mit
+ *      Neue (bekannte mit Quittungen vor unbekannten), Herabgestufte, veraltete
+ *      Angebote (zwei Erneuerungen verpasst, L2-1), gerade und laenger Ausgefallene; in den vorderen Gruppen zufaellig, gewichtet mit
  *      1/Preis² und dem Ruf. Hat die eigene Messung zu wenig, gilt der Provider
  *      als neu (Pruefer und ihre Berichte fielen mit P5a weg)
  *   3. Failover: antwortet der beste nicht in timeoutMs -> naechster
@@ -30,6 +30,7 @@ import {
   KIND_PROVIDER_CAPABILITIES,
   type MessStand,
   type Ruf,
+  angebotVeraltet,
   ordneNachPruefung,
   sichererZufall,
 } from "@freedomstack/protocol";
@@ -80,8 +81,15 @@ export async function discoverProviders(pool: OutboxPool, ruf: ReadonlyMap<strin
   const capsEvents = await pool.query({ kinds: [KIND_PROVIDER_CAPABILITIES], limit: 200 });
 
   const now = Math.floor(Date.now() / 1000);
-  const out: ScoredProvider[] = [];
+  // Je Provider nur das neueste Angebot (L2-1): Ein Relay mit einer alten Fassung ließe ihn
+  // sonst doppelt und zum Teil veraltet erscheinen
+  const neueste = new Map<string, (typeof capsEvents)[number]>();
   for (const ev of capsEvents) {
+    const da = neueste.get(ev.pubkey);
+    if (!da || ev.created_at > da.created_at) neueste.set(ev.pubkey, ev);
+  }
+  const out: ScoredProvider[] = [];
+  for (const ev of neueste.values()) {
     try {
       const caps = parseCapabilities(ev);
       const r = ruf.get(caps.pubkey);
@@ -90,7 +98,8 @@ export async function discoverProviders(pool: OutboxPool, ruf: ReadonlyMap<strin
       const repTier = stufeAusRuf(caps.tier, r);
 
       // Das Angebot muss frisch sein (letzte 24h) – der Knoten erneuert es alle 30 min.
-      // Verhindert dass alte Events von nicht mehr laufenden Providern dominieren.
+      // Verhindert dass alte Events von nicht mehr laufenden Providern dominieren; wer zwei
+      // Erneuerungen verpasst hat, steht seit L2-1 hinter den frischen (`matchProviders()`).
       const capsAge = now - ev.created_at;
       if (capsAge > 86400) continue;
 
@@ -125,9 +134,12 @@ export async function discoverProviders(pool: OutboxPool, ruf: ReadonlyMap<strin
 export function matchProviders(
   providers: ScoredProvider[],
   wantedTier: ProviderTier,
-  opts: { model?: string; maxResults?: number; minTrust?: number; allowlist?: string[]; zufall?: () => number } = {},
+  opts: { model?: string; maxResults?: number; minTrust?: number; allowlist?: string[]; zufall?: () => number; jetzt?: number } = {},
 ): ScoredProvider[] {
   const max = opts.maxResults ?? 5;
+  // Zwei Erneuerungen verpasst (L2-1): hinter frische – je Auswahl neu, der Angebots-Cache altert mit
+  const jetzt = opts.jetzt ?? Math.floor(Date.now() / 1000);
+  const veraltet = (p: ScoredProvider) => angebotVeraltet(p.caps.updatedAt, jetzt);
   // Scam-Filter: Wer bestaetigte Reklamationen hat, braucht fuer classic/pro
   // Vertrauen. Ohne Reklamation zaehlt das Angebot – sonst stuende ein einmal
   // bezahlter Provider hinter einem unbekannten. Ungepruefte (keine Quittungen)
@@ -139,9 +151,10 @@ export function matchProviders(
     .filter((p) => tierSatisfies(p.repTier, wantedTier))
     .filter((p) => allow.has(p.caps.pubkey) || p.reklamationen === 0 || p.trustScore >= minTrust)
     .filter((p) => (opts.model ? p.caps.models.includes(opts.model) : true));
-  // Eigene Provider (Allowlist) zuerst, unter sich nach Ruf und Preis
+  // Eigene Provider (Allowlist) zuerst, unter sich frische vor veralteten, dann nach Ruf und Preis
   const eigene = passend.filter((p) => allow.has(p.caps.pubkey))
-    .sort((a, b) => b.score - a.score || a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat);
+    .sort((a, b) => Number(veraltet(a)) - Number(veraltet(b)) || b.score - a.score
+      || a.caps.textRatePerKTokenMsat - b.caps.textRatePerKTokenMsat);
   // Alle anderen nach der Pruefung (P2a): Stufe aus der eigenen Messung (sonst neu),
   // Qualitaet aus Pruefrunden (P5c), Gewicht aus Preis und Ruf
   const andere = ordneNachPruefung(
@@ -153,6 +166,7 @@ export function matchProviders(
       // Übereinstimmung aus Prüfrunden (P5c) – Ausreißer nach hinten
       ...(p.messung?.qualitaet === undefined ? {} : { qualitaet: p.messung.qualitaet }),
       ausfallJetzt: p.messung?.ausfallJetzt ?? false,
+      veraltet: veraltet(p),
       vertrauen: p.trustScore,
       bekannt: p.geprueft,
     })),

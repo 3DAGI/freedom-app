@@ -47,9 +47,9 @@ bash contracts/solana-channel/pruefen.sh --werkzeuge     # nur bei Änderungen a
 cd packages/launcher && cargo test --locked && cd ../..  # nur bei Änderungen an der Hülle (Linux: WebKitGTK 4.1, App vorher bauen)
 ```
 
-Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, C-31): protocol 1252 grün (6 übersprungen), node 347 grün
+Stand 09.10.2026 (nach 8.2c, 5.5a–c, 8.15, 11.1a, C.3c2, 11.1b, 5.9a–b, 6.3a–b2, 11.4a–b2, C.4a–b, C.5a–b, C.6b, 11.4c, C-18, C-17a–c, C-20a–j3, C-1a–f, C-2, C-3, C-4, C-5a–d, C-6a–e, C-7a–b, C-8, C-10 bis C-16, 11.2a–b, A-4 bis A-7, A-7r, Z1, 12.1–12.3, E8, P1a–b, P2a, E10a, E11, E9-Entwurf, 12.4a, P2b1–b2, P3a–b, P4, P5a–b, P5c1–c2, D1a, D1b1–b2, D1c, D2, D3-Entwurf, 12.6, 12.7a–c, 12.1 C, C-21, C-22a, C-22c, C-24, C-25, C-26, C-22b, 6.1a1–a2, 6.1a3a–c, 6.1a4a, 6.1b1a–b, 6.1b2a–b, 6.1b3, 6.1c1, 6.1c2a, 6.1d, B-1, B-2a–c, B-3 bis B-7, B-8a–c, B-9a, B-15, B-19, B-20a–c, B-10a–b, B-9b1–b2, B-9c1–c3, B-11a–c, B-12a–d, B-13a–e, B-21, B-17a, B-17b1, B-17b2, B-17b3a, B-17b3b und 7.5a–d, B-22, A-14a–b3, E9-3a, B-23, C-28, C-29, A-15a–b, B-24, B-25, A-16, B-26, B-27, B-28, 11.3b, 4.3e, 11.3c1, 11.3c2, B-40, B-41, 11.3c3a, C-30, 11.3c3b, L2-1, L2-2, LIZ, E9-3b, B-29a, B-29b, 11.3d1a, 11.3d1b1, 11.3d1b2, 11.3d2a, 11.3d2b, SH1, 11.3d2c, A-20, A-17-Entwurf, A-12-Entwurf, A-23, A-22, A-21-Plan, A-24 bis A-26, 11.5-Entwurf, A-29, A-30, 11.5-Recherche, RM2-Entwurf, VK-Entwurf, VKa, B-29c1a, B-29c1b, B-29c2a, B-29c2b, B-29c2c, C-31): protocol 1289 grün (6 übersprungen), node 415 grün
 (6 übersprungen, mit Internet – ohne Netz überspringen sich zusätzlich Live-Tests
-in `tools.test.ts`), app 1020 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
+in `tools.test.ts`), app 1040 grün, mls 13 grün, Zahlkanal 7 grün (gegen Validator), Leak-Tests 73 grün + 1 `todo` (heutige Lecks,
 je mit dem Schritt, der sie schließt – dort wird aus `todo` ein normaler Test;
 Ausnahme: gesendete SOL-Zahlungen von frischen Adressen, eine bewusste Grenze
 nach Entscheidung 4.9 A – im Datenschutzbericht unter „Bewusste Grenzen“).
@@ -117,7 +117,8 @@ gegenseitig brechen:
 - eine MENSCH-Aufgabe dran ist (Schlüssel, Geld, Geräte, Entscheidungen, Konten);
 - kryptografische Parameter, Zeitschlossregeln, Gebührenberechnung, Borsh-Layouts,
   Event-Formate oder Ableitungspfade geändert werden müssten, ohne dass die Karte es verlangt;
-- eine neue Abhängigkeit nötig ist (Name, Zweck, Größe nennen);
+- eine neue Abhängigkeit nötig ist (Name, Zweck, Größe, Lizenz nennen – starkes Copyleft
+  wie GPL oder AGPL zöge das Ganze unter seine Lizenz, seit LIZ: EUPL-1.2);
 - die Karte nicht zum Code passt und die Absicht unklar ist;
 - ein Schritt mehr als etwa 400 geänderte Zeilen bräuchte – dann Aufteilung vorschlagen.
 
@@ -252,7 +253,12 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Direktnachrichten nur an den Posteingang des Empfängers (`veroeffentlicheAn()`).
   Was Kontakte selbst schreiben (Profil, Mandate, Vollmachten, Posteingang),
   seit 5.4b über `frageBeiAutoren()` lesen – auch an deren Schreib-Relays
-  (`outboxPlan()`, fremde Relays nur mit Signaturprüfung).
+  (`outboxPlan()`, fremde Relays nur mit Signaturprüfung). Der Plan wählt seit
+  A-24 gierig (jeder Autor erst ein Relay, dann das zweite, bis `OUTBOX_JE_AUTOR`)
+  und bekommt die Adressen des Pools (`imPool`: zählen mit, belegen keinen
+  Platz) – nie wieder nur die meistgenannten zählen. Fremde Relays nur über
+  `wss://` (A-25, `ws://…onion` nur mit `onion`), gerade gescheiterte nicht
+  (A-26, `aussetzen`).
   Den eigenen Satz ändert nur `setzeEigeneRelays()` (Settings, seit 5.4b2):
   erst beide Listen veröffentlichen, dann merken – nie localStorage allein.
   *(Weitere Teile: `scripts/CLAUDE.md`, `packages/app/CLAUDE.md`.)*
@@ -371,9 +377,12 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Schlüssel trägt (Gerätecode), nur mit `geheim: true`: auf Klick, Warnung
   vorher, nach `QR_SICHTBAR_MS` weg, nie speichern, nie als Bild exportieren;
   den Schlüssel vor dem Zeigen nullen. Kamera nur auf Klick über `scanKnopf()`
-  (Feld `scannen: true`), erkannt nur vom Browser (`BarcodeDetector`), danach
-  aus; ohne Erkennung der Hinweis zum Einfügen. Der Smoke-Test („qr“) ersetzt
-  Kamera und Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`).
+  (Feld `scannen: true`), erkannt im Gerät – vom Browser (`BarcodeDetector`), sonst
+  seit A-20 von jsQR (`jsqr` 1.4.0, exakt gepinnt, `leseQrAusBild()`, Bild auf
+  `SCAN_BREITE_MAX` verkleinert) –, danach aus; ohne Kamera-Schnittstelle der Hinweis
+  zum Einfügen. Das Bild geht nie ins Netz. Der Smoke-Test („qr“) ersetzt Kamera und
+  Erkennung durch Attrappen (Canvas-Strom, `BarcodeDetector`); ohne `BarcodeDetector`
+  zeigt die Kamera-Attrappe den echten QR-Pfad des Gerätecodes, und jsQR liest ihn.
 - **Reproduzierbarer Build** (seit 5.9a): `freedom.html` muss aus einem
   frischen Checkout bitgleich entstehen – in `build.mjs` nichts Zeit-, Pfad-
   oder Zufallsabhängiges (kein `Date.now()`, keine absoluten Pfade im Bundle).
@@ -480,7 +489,9 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   Baustein dafür (Ausnahmen in `wiring-ausnahmen.txt` mit diesem Grund).
   Auswahl seit P2a nur über `matchProviders()` → `ordneNachPruefung()`
   (`pruefung.ts`): eigene Provider zuerst, dann normale, Neue (bekannte vor
-  unbekannten), Ausreißer, Herabgestufte, gerade und länger Ausgefallene; vorn
+  unbekannten), Ausreißer, Herabgestufte, veraltete Angebote (seit L2-1: zwei
+  Erneuerungen verpasst, `angebotVeraltet()` – je Auswahl mit der Uhr, in Tests
+  `jetzt` übergeben), gerade und länger Ausgefallene; vorn
   zufällig mit 1/Preis² aus `sichererZufall()` – in Tests immer `zufall`
   übergeben, sonst würfelt der Test. Die Stufe kommt nur aus der eigenen
   Messung (ab 20 Anfragen, sonst „neu“), die Qualität nur aus Prüfrunden
@@ -672,3 +683,25 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
   Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`).
   *(Weitere Teile: `packages/node/CLAUDE.md`.)*
+- **Rückfall nur nach Stille, Ergebnisse vor Rückmeldungen** (seit L2-2, Lauf 2 des lokalen Agenten):
+  Der Knoten meldet „processing“ (7000, versiegelt wie Zwischenstände), sobald er einen Auftrag
+  angenommen hat (`meldeBearbeitung()`, nach allen Ablehnungen, vor Werkzeugen; über Funk nie). Die
+  App fragt den nächsten nur nach `HEDGE_AFTER_MS` ohne Lebenszeichen (`stummNachMs` in
+  `waitForAnswer()`), nur wenn es einen nächsten gibt und nie mit Gutschrift im Zahlkanal
+  (`perKanal()`) – ein zweiter Provider bekäme eine zweite. `waitForAnswer()` liest Ergebnisse vor
+  Rückmeldungen und eine Ablehnung vor Zwischenständen – bis L2-2 hielt jede Rückmeldung ein
+  fertiges Ergebnis bis zur Frist (5 min) auf. Neue Rückmeldungen nie vor Ergebnisse stellen.
+- **Lizenz EUPL-1.2** (seit LIZ, MENSCH 09.10.2026): `LICENSE` ist der amtliche Text,
+  nie bearbeiten (`protocol/test/lizenz.test.ts` prüft die Prüfsumme); jedes neue Paket
+  bekommt `"license": "EUPL-1.2"` in `package.json`, die Sperrdatei nur über
+  `npm install --package-lock-only`. Die Crate in `packages/mls` erbt ihre Angabe aus dem
+  MDK-Arbeitsbereich, Hülle und Programme tragen noch keine – ändern nur mit den Prüfungen
+  ihres Bereichs (`bauen.sh --pruefen`, `cargo test`, `pruefen.sh`).
+- **Nachfolge-Anteile nur über `teileGeheimnis()`** (seit SH1, entschieden 09.10.2026): neue
+  Anteile in Fassung 2 mit der auditierten Bibliothek von Privy (`shamir-secret-sharing` 0.0.4,
+  exakt gepinnt, Cure53 und Zellic) – ein Anteil ist das Geheimnis plus ein Byte mit seiner Stelle,
+  `index` nur die Nummer des Vertrauten. Im Anteil (38077) und in der Übergabe (38079) steht
+  `["fassung", "2"]`; ohne Tag ist es Fassung 1 (eigenes GF(256), `splitSecret()` – nur noch für
+  Tests). Zusammengesetzt wird nur über `setzeGeheimnisZusammen()` bzw. `setzeNachfolgeZusammen()`
+  (beide Fassungen, nie gemischt, async). Die Bibliothek nimmt nur ein echtes `Uint8Array` – kein
+  `Buffer` (sie prüft `constructor`); `teileGeheimnis()` kopiert und nullt die Kopie.
