@@ -3847,20 +3847,22 @@ def raum_pruefen(browser, url: str) -> dict:
                 fokus: document.activeElement?.id || null, dialog: d ? d.querySelector('h3').textContent : null }; }"""
             ev("() => document.getElementById('space-menue-knopf').focus()")
             schritte = {}
-            for taste in ["ArrowDown", "End", "ArrowDown", "Escape", "Enter", "ArrowDown", "Enter", "Escape"]:
+            for taste in ["ArrowDown", "End", "ArrowDown", "Escape", "Enter", "ArrowDown", "ArrowDown", "Enter", "Escape"]:
                 s.keyboard.press(taste)
                 s.wait_for_timeout(150)
                 schritte.setdefault(taste, []).append(ev(stand))
             erg["desktop"]["menue"] = schritte
-            # Seit C.2d2 nach Rechten: im fremden Raum weder Moderatoren noch Kanal anlegen – es beginnt mit „Raum beitreten“
+            # Seit C.2d2 nach Rechten: im fremden Raum weder Moderatoren noch Kanal anlegen. Seit 11.3e1 steht
+            # „Agent hinzufügen“ vorn – ich bin im Probe-Raum „mod“ mit „rollen_vergeben“ –, danach „Raum beitreten“
             soll = {
-                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
+                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
                               {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
                               {"offen": True, "expanded": "true", "fokus": "space-create", "dialog": None}],
                 "End": [{"offen": True, "expanded": "true", "fokus": "space-create-public", "dialog": None}],
                 "Escape": [{"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None},
                            {"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None}],
-                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
+                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
                           {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum anlegen (privat)"}],
             }
             # Im Dialog steht der Fokus auf dem Eingabefeld – dessen Id ist nicht fest
