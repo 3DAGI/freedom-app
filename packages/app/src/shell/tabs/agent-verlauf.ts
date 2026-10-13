@@ -62,6 +62,19 @@ export function merkeNachricht(role: "user" | "ai", text: string, meta: string, 
   zeigeVerlaeufe();
 }
 
+/** „erneut“ (C-32): die zuletzt gemerkte Frage vergessen, wenn sie genau diese ist – sie wird gleich neu gestellt. */
+export function vergissLetzteFrage(text: string): boolean {
+  const letzte = aktuellerVerlauf?.messages.at(-1);
+  if (!aktuellerVerlauf || letzte?.role !== "user" || letzte.text !== text.slice(0, 20_000)) return false;
+  aktuellerVerlauf.messages.pop();
+  const alle = ladeVerlaeufe();
+  const i = alle.findIndex((x) => x.id === aktuellerVerlauf!.id);
+  if (i >= 0) alle[i] = aktuellerVerlauf;
+  speichereVerlaeufe(alle);
+  zeigeVerlaeufe();
+  return true;
+}
+
 export function zeigeVerlaeufe(): void {
   const box = document.getElementById("agent-history");
   if (!box) return;
@@ -84,7 +97,7 @@ export function zeigeVerlaeufe(): void {
     b.type = "button";
     if (aktuellerVerlauf?.id === v.id) b.classList.add("active");
     b.dataset.hid = v.id;
-    b.append(el("span", v.title, "history-title"), el("span", t("agent.nachrichten", { n: v.messages.length }), "history-sub"));
+    b.append(el("span", v.title, "history-title"), el("span", v.messages.length === 1 ? t("agent.eineNachricht") : t("agent.nachrichten", { n: v.messages.length }), "history-sub"));
     b.addEventListener("click", () => oeffneVerlauf(v.id));
     return [...kopf, b];
   }));

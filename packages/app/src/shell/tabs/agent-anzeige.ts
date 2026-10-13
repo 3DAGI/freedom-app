@@ -22,7 +22,7 @@ import { $, ganzeZahl, toast, updateSidebarBalances, el, haekchenEl } from "../u
 import { GRUND_TEXT, PRUEFER_ART, type Pruefer } from "../../streitfall.js";
 import { merkeReklamation, netzPruefer, stelleZu } from "../streitfall-ui.js";
 import { askAi, resetSendBtn } from "./agent.js";
-import { aktualisiereAgentPanel, merkeNachricht } from "./agent-verlauf.js";
+import { aktualisiereAgentPanel, merkeNachricht, vergissLetzteFrage } from "./agent-verlauf.js";
 
 // ------------------------------------------------------------- KI-Tab
 
@@ -102,6 +102,11 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
   btn.textContent = t("agent.erneut");
   btn.onclick = () => {
     btn.remove();
+    // Die Frage kommt gleich neu (C-32, Nutzertest A-5): die alte samt Fehlerblase weicht, auch im
+    // gespeicherten Verlauf – sonst stünde sie doppelt da und ginge doppelt im Kontext mit
+    const frage = blase.previousElementSibling;
+    if (frage instanceof HTMLElement && frage.classList.contains("user") && vergissLetzteFrage(retryPrompt)) frage.remove();
+    blase.remove();
     ($("#ai-prompt") as HTMLTextAreaElement).value = retryPrompt;
     ($("#ai-bid") as HTMLInputElement).value = String(retryBid);
     ($("#ai-tier") as HTMLSelectElement).value = retryMode.max ? "max" : retryMode.swarm ? "swarm" : retryTier;
@@ -174,10 +179,14 @@ export function addAiMessageStreaming(role: "ai", text: string, meta: string, mo
   stickToBottom();
 
   let i = 0;
-  const speed = 12; // ms pro zeichen (schneller: nutzer wollen die antwort)
+  const speed = 16; // ms je Schritt
+  // Höchstens etwa 200 Schritte, je Schritt mindestens zwei Zeichen – auch lange Antworten stehen nach gut 3 s
+  const schritt = Math.max(2, Math.ceil(text.length / 200));
   const tick = () => {
     if (i < text.length) {
-      bodyEl.textContent = text.slice(0, ++i);
+      // Schon während des Tippens als Markdown (C-32, Nutzertest A-8) – vorher stand dort der rohe Text mit „##“ und „**“
+      i = Math.min(text.length, i + schritt);
+      bodyEl.replaceChildren(antwortDom(text.slice(0, i)));
       stickToBottom();
       setTimeout(tick, speed);
     } else {

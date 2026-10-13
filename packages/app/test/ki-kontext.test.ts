@@ -46,8 +46,10 @@ test("Verdrahtung: jede Anfrage traegt den Kontext des aktuellen Verlaufs", () =
   // Nicht mehr nur beim Modellwechsel
   assert.doesNotMatch(f, /pendingContextSummary = "";/);
   // Vor dem Speichern der neuen Nachricht gerufen – sonst stuende sie doppelt im Prompt
-  const senden = agent.slice(agent.indexOf("maybeInsertModelSwitchSummary(selTier);"));
-  assert.ok(senden.indexOf("maybeInsertModelSwitchSummary(selTier);") < senden.indexOf('addAiMessage("user", prompt, "");'));
+  // Seit C-32 mit dem sichtbaren Namen des Modells (nicht der Kennung „free“)
+  const senden = agent.slice(agent.indexOf("maybeInsertModelSwitchSummary(selTier,"));
+  assert.ok(senden.indexOf("maybeInsertModelSwitchSummary(selTier,") === 0);
+  assert.ok(senden.indexOf("maybeInsertModelSwitchSummary(selTier,") < senden.indexOf('addAiMessage("user", prompt, "");'));
   const job = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("function aktiveClientGebuehr("));
   // Seit D1a läuft der ganze Text (Verlauf und Frage) vorher durch die Platzhalter
   assert.match(job, /const roh = pendingContextSummary \? pendingContextSummary \+ prompt : prompt;\n  const maske = eigen \? \{ text: roh, ersetzt: 0 \} : maskiere\(roh\);\n  const fullPrompt = maske\.text;/);

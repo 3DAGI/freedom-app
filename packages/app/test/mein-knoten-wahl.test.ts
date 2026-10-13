@@ -54,13 +54,14 @@ test("B-9a: frageMeinenKnoten – nur an den gekoppelten Knoten, ohne Gebot, mit
   assert.match(bau, /const gewaehltesModell = modell \?\? \(\$\("#ai-model"\) as HTMLSelectElement \| null\)\?\.value \?\? "";/, "das Modell ohne „knoten:“");
 });
 
-test("B-9a: Modellwahl – Gruppe „Mein Knoten“ nur gekoppelt, zwischen Netz und Gerät, nur Text", () => {
+test("B-9a: Modellwahl – Gruppe „Mein Knoten“ nur gekoppelt, oben in der Wahl, nur Text", () => {
   const bereich = teil("async function zeigeKnotenBereich(", "/**\n * Frage an meinen Knoten");
   assert.match(bereich, /const k = meineKopplung\(\);/);
   assert.match(bereich, /pop\.querySelector\("\.knoten-bereich"\)\?\.remove\(\);\s*if \(!k\) return;/, "ungekoppelt keine Gruppe");
   assert.match(bereich, /await angebotVon\(k\.knoten\)/, "Modelle aus dem Angebot des eigenen Knotens");
   assert.match(bereich, /const modelle = angebot\?\.models\?\.length \? angebot\.models : \[""\];/, "ohne Angebot: Modell des Knotens");
-  assert.match(bereich, /pop\.insertBefore\(bereich, pop\.querySelector\("\.lokal-bereich"\)\);/, "vor „Dieses Gerät“");
+  // Seit C-32 ganz oben – darunter lag sie mit vielen Netz-Modellen unter dem sichtbaren Teil (Nutzertest N-2)
+  assert.match(bereich, /pop\.prepend\(bereich\);/, "vor „Dieses Gerät“ und dem Netz");
   assert.doesNotMatch(bereich, /innerHTML/, "Modellnamen kommen aus dem Angebot – nur textContent");
   assert.match(agent, /\} finally \{\n\s*zeigeLokalBereich\(\);\n\s*void zeigeKnotenBereich\(\);/, "auch ohne Netz-Modelle steht „Mein Knoten“ in der Wahl");
   assert.match(teil("export function setupModelPicker(", "// klick außerhalb"), /if \(pop\.classList\.contains\("hidden"\)\) return;\s*\/\/[^\n]*\n\s*void zeigeKnotenBereich\(\);/, "beim Öffnen neu – auch gleich nach dem Koppeln");
