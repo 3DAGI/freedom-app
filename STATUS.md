@@ -8589,3 +8589,25 @@ unter dem sichtbaren Teil.
 
 **Prüfungen** (nach dem Einmergen von `main` bis B-29c2c): protocol 1289 grün, node 412 (ohne Netz),
 app 1043 (+3), Leak 73 + 1 todo; tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-32 – Agent-Kleinigkeiten
+
+Spur C, Befunde A-3, E-6, A-5, A-6, A-8 und N-2 aus dem Nutzertest vom 08.10. (Anhang D der
+Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| A-3, E-6 | Jeder Werkzeug-Knopf: „5 sats (SOL: kein Kurs)“ | ohne Kurs nur „5 sats“ (`knopfPreis()`); dass der Kurs fehlt, sagt der Tooltip |
+| A-5 | „erneut“ nach einem Fehler: die Frage stand zweimal im Verlauf und ging zweimal im Kontext mit | die alte Frage und die Fehlerblase weichen, auch im gespeicherten Verlauf (`vergissLetzteFrage()`) |
+| A-6 | Wechsel-Notiz „Modell gewechselt zu free – … (1 Nachrichten)“ | „Free“ aus der Wahl (Text vor „ — “), „1 Nachricht“; auch in der Liste der Verläufe |
+| A-8 | Während der Tipp-Animation roher Text mit „##“ und „**“ | Markdown schon beim Tippen (`antwortDom()`), höchstens etwa 200 Schritte |
+| N-2 | „Mein Knoten“ unter den Modellen des Netzes, außer Sicht | oben in der Wahl, dann „Dieses Gerät“, dann das Netz |
+
+**Tests:** `agent-kleinigkeiten.test.ts` (6); drei Formtests auf die neue Form angepasst
+(`ki-kontext`, `mein-knoten-wahl`, `dom-statt-html`). Smoke „agent_klein“: Werkzeug-Knöpfe ohne
+„kein Kurs“, „erneut“ mit genau einer Frage und „1 Nachricht“. Vorher rot (zwei Fragen,
+„2 Nachrichten“, „kein Kurs“ auf jedem Knopf). Smoke „lokal“: Gruppen in der Reihenfolge
+„Mein Knoten“, „Dieses Gerät“, „Netz“, die eigene Gruppe ohne Scrollen sichtbar.
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1049 (+6), Leak 73 + 1 todo; tsc überall,
+Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
