@@ -80,7 +80,7 @@ export const einstieg: Texte = {
   "ein.umschlaegeImportiert": { de: "{ok}/{n} Umschläge ans Netz gegeben", en: "{ok}/{n} envelopes handed to the network" },
   "ein.unverschluesseltAbgelehnt": { de: " – {n} unverschlüsselt abgelehnt", en: " – {n} unencrypted rejected" },
   "ein.importFehler": { de: "Import-Fehler: {fehler}", en: "Import error: {fehler}" },
-  "ein.pubkeyKopiert": { de: "Öffentlicher Schlüssel kopiert", en: "Public key copied" },
+  "ein.pubkeyKopiert": { de: "Öffentlicher Schlüssel (npub) kopiert", en: "Public key (npub) copied" },
   "ein.pubkey": { de: "Öffentlicher Schlüssel", en: "Public key" },
   "ein.pubkeyTitel": { de: "Dein öffentlicher Schlüssel", en: "Your public key" },
   "ein.lebenszeichenGesendet": { de: "Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen", en: "Sign of life sent — running processes are cancelled" },
