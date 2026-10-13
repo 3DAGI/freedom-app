@@ -8662,3 +8662,22 @@ ohne Scrollen. Vorher alle fünf rot.
 
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1060 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-35 – Räume: Einladung, Umfrage, Mitglieder, Kanalkopf
+
+Spur C, Befunde R-1, R-3, R-4 und R-7 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung).
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| R-1 | Einladung in einen privaten Raum als „🔒P“ ohne Absender | Name aus der Gruppe (`mlsEinladungAnnehmen()` liefert ihn mit) und Absender gleich in der Leiste: „Probe privat – Einladung von …“, bis der Raum einmal offen war (nur in dieser Sitzung) |
+| R-3 | Umfrage „von <eigener Schlüssel>“, Antworten in Großbuchstaben, die führende Antwort auch für Nichtwähler gefüllt | „von Du“ (`nameVon`), Antworten wie geschrieben, Balken erst nach der eigenen Stimme oder am Ende |
+| R-4 | Mitgliedernamen mit „…“ abgeschnitten | ganze Namen, umgebrochen; in offenen Räumen dazu Profilnamen („~Name“). Privat nicht: die Abfrage nennte den Relays die Gruppe |
+| R-7 | Am Handy „offen — jeder kann mitlesen“ Silbe für Silbe untereinander | in eigener Zeile unter dem Kanalnamen |
+
+**Tests:** `raeume-klein.test.ts` (4); drei Formtests angepasst (`mls-konto` mit Name,
+`planung-ansicht`, `raeume-privat`). Smoke „privatraum“: Bo sieht vor dem Öffnen „Privater Raum
+Probe privat – Einladung von …“ (vorher „Privater Raum privater Raum“). Smoke „raum“: die Art des
+Kanals in einer Zeile, Desktop und Handy (vorher am Handy vier Zeilen).
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1064 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

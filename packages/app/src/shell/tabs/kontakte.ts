@@ -124,6 +124,27 @@ async function ladeProfilNamen(pubkeys: string[]): Promise<Map<string, string>> 
   return profilCache.namen;
 }
 
+/** Profilnamen anderer (C-35) – Mitglieder offener Räume, nur für diese Sitzung; je Schlüssel einmal gefragt. */
+const fremdeProfile = new Map<string, string | null>();
+
+/** Der selbst gewählte Name eines Schlüssels, wenn schon geladen (C-35). */
+export function fremderProfilName(pk: string): string | undefined {
+  return fremdeProfile.get(pk) ?? undefined;
+}
+
+/**
+ * Profilnamen für Mitglieder eines offenen Raums laden (C-35) – nur, was noch nicht gefragt wurde, bei den
+ * Autoren. Nie für private Räume: die Abfrage nennte den Relays, wer zur Gruppe gehört. `true`, wenn ein Name dazukam.
+ */
+export async function ladeFremdeProfilNamen(pubkeys: string[]): Promise<boolean> {
+  const fehlt = [...new Set(pubkeys)].filter((pk) => /^[0-9a-f]{64}$/.test(pk) && !fremdeProfile.has(pk)).slice(0, 100);
+  if (fehlt.length === 0) return false;
+  for (const pk of fehlt) fremdeProfile.set(pk, null);
+  const namen = neuesteProfilNamen(await frageBeiAutoren({ kinds: [0], authors: fehlt, limit: fehlt.length * 2 }).catch(() => []));
+  for (const [pk, name] of namen) fremdeProfile.set(pk, name);
+  return namen.size > 0;
+}
+
 /**
  * Anzeige je Schlüssel (seit C-33 mit Profilnamen und ohne „Anfrage“ – den Zusatz setzt die Liste):
  * eigener Name, sonst der aus dem Bekanntenkreis, sonst „~Profilname“, sonst der gekürzte Schlüssel.

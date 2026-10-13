@@ -18,7 +18,7 @@ import { alsRufZusammenfassung } from "../ruf.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
-import { kontaktName, zeigeRaumLeiste } from "./raeume.js";
+import { kontaktName, merkeEinladung, zeigeRaumLeiste } from "./raeume.js";
 import { alsAnruf } from "../anruf.js";
 import { activeConversation, conversations, loadChatList, loadChatMessages, markiereGelesen, saveConversations } from "./kommunikation.js";
 import { LivePost, postFilter } from "../../post-live.js";
@@ -159,8 +159,10 @@ async function alsMlsEinladung(w: NostrEvent): Promise<null> {
   if (!r.partner) {
     // Eine Gruppe zu mehreren: ein privater Raum (2.3b)
     await merkePrivatenRaum(r.gruppe);
+    // Name und Absender gleich in der Leiste (C-35, Nutzertest R-1) – vorher „🔒P“ ohne Absender
+    merkeEinladung(r.gruppe, r.name ?? "", e.von);
     void zeigeRaumLeiste();
-    toast(t("komm.einladungRaum", { name: kontaktName(e.von) }));
+    toast(t("komm.einladungRaum", { raum: r.name || t("komm.privaterRaum"), name: kontaktName(e.von) }));
     return null;
   }
   let c = conversations.find((x) => x.type === "dm" && x.id === r.partner);

@@ -26,6 +26,7 @@ import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
 import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
+import { fremderProfilName, ladeFremdeProfilNamen } from "./kontakte.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import type { RaumAgentKarte } from "../../knoten-agent-wahl.js";
 import { switchTab } from "../app.js";
@@ -147,6 +148,15 @@ function meineRaeume(): string[] {
 
 /** Namen privater Räume aus ihrer Definition – nur im Speicher. */
 const privatNamen = new Map<string, string>();
+/** Wer in einen privaten Raum eingeladen hat (C-35) – nur in dieser Sitzung und bis der Raum einmal offen war. */
+const eingeladenVon = new Map<string, string>();
+
+/** Eine Einladung merken (C-35): Name aus der Gruppe, Absender aus dem Umschlag – beides nur als Text gezeigt. */
+export function merkeEinladung(gruppe: string, name: string, von: string): void {
+  // Die Leiste führt private Räume unter „mls:<Gruppe>“
+  if (name) privatNamen.set(PRIVAT + gruppe, name);
+  eingeladenVon.set(PRIVAT + gruppe, von);
+}
 
 /**
  * Räume mit Ungelesenem (C-13a) – nur, was in dieser Sitzung geladen war: Für
@@ -239,12 +249,15 @@ export async function zeigeRaumLeiste(): Promise<void> {
     b.dataset.space = istPrivat(id) ? id : name;
     // Aktuell nur, was vor Augen steht – bei den Direktnachrichten ist kein Raum aktuell (C-13a)
     b.setAttribute("aria-current", String(vorAugen(id)));
-    b.title = name;
+    // Noch nicht geöffnete Einladung (C-35): wer eingeladen hat
+    const von = eingeladenVon.get(id);
+    b.title = von ? t("komm.raumEingeladen", { raum: name, name: kontaktName(von) }) : name;
     // Privat mit Schloss, offen mit Weltkugel (C-13a); der Name für Vorleser samt Art und Ungelesenem
     b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : `🌐${name.slice(0, 1).toUpperCase()}`;
     const art = t(istPrivat(id) ? "komm.raumPrivatAria" : "komm.raumOffenAria", { name });
     const punkt = ungelesen.get(id) === true && !vorAugen(id);
-    b.setAttribute("aria-label", punkt ? t("komm.ungelesenAria", { raum: art }) : art);
+    const mitVon = von ? t("komm.raumEingeladen", { raum: art, name: kontaktName(von) }) : art;
+    b.setAttribute("aria-label", punkt ? t("komm.ungelesenAria", { raum: mitVon }) : mitVon);
     if (punkt) b.append(el("span", undefined, "rail-punkt"));
     b.addEventListener("click", () => void oeffneRaum(id));
     return b;
@@ -290,6 +303,7 @@ async function oeffneRaum(spaceId: string): Promise<void> {
     spacesUi.state = raum.zustand;
     spacesUi.messages = raum.nachrichten;
     if (raum.zustand.space) privatNamen.set(spaceId, raum.zustand.space.name);
+    eingeladenVon.delete(spaceId);
     zeigeRaumArt(spaceId);
     void zeigeRaumLeiste();
     await zeigeKanalliste();
@@ -636,7 +650,8 @@ async function oeffneKanal(channelId: string): Promise<void> {
   zeigeThread();
   // Umfragen und Termine (B-15b) – nur privat, als innere Events der Gruppe
   const planung = document.getElementById("kanal-planung");
-  if (planung && spacesUi.privat) zeigePlanung(planung, spacesUi.privat, channelId, kontaktName, () => void raumNeuLaden());
+  // Mit „Du“ statt des eigenen Schlüssels (C-35, Nutzertest R-3)
+  if (planung && spacesUi.privat) zeigePlanung(planung, spacesUi.privat, channelId, nameVon, () => void raumNeuLaden());
   else planung?.replaceChildren();
   planung?.classList.toggle("hidden", !spacesUi.privat || planung.children.length === 0);
   for (const id of ["kanal-umfrage", "kanal-termin"]) document.getElementById(id)?.classList.toggle("hidden", !spacesUi.privat || !darf);
@@ -941,6 +956,8 @@ async function zeigeMitglieder(): Promise<void> {
       zeilen.push({ pk, rollen: rollen.map((r) => st.roles?.get(r)?.name).filter((n): n is string => !!n) });
     }
   }
+  // Profilnamen nur im offenen Raum (C-35) – privat nennte die Abfrage den Relays die Gruppe; einmal neu zeichnen
+  if (!privat) void ladeFremdeProfilNamen(zeilen.map((m) => m.pk)).then((neu) => { if (neu) void zeigeMitglieder(); });
   const { can } = await import("@freedomstack/protocol");
   box.replaceChildren(...(zeilen.length === 0 ? [el("span", t("komm.niemand"), "muted")] : zeilen.map((m) => {
     const z = el("div", undefined, "member-row");
@@ -1197,7 +1214,10 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
 /** Name eines Kontakts in Raum, Umfrage und Repo – eigener Name oder „~Profilname“, nie „Anfrage · …“ (C-33). */
 export const kontaktName = (pk: string): string => {
   const c = conversations.find((x) => x.type === "dm" && x.id === pk);
-  return c ? kontaktKurzName(c) : pkShort(pk);
+  if (c) return kontaktKurzName(c);
+  // Mitglieder offener Räume (C-35): ihr Profilname, sobald geladen – ebenfalls mit „~“
+  const profil = fremderProfilName(pk);
+  return profil ? `~${profil}` : pkShort(pk);
 };
 
 /** In einen privaten Raum einladen (2.3b): Kontakt wählen, KeyPackage suchen, Einladung versiegelt an seinen Posteingang. */

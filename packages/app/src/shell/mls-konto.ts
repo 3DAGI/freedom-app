@@ -159,7 +159,7 @@ function nimmAuf(k: Konto, gruppe: string, n: MlsNachricht[]): number {
  * (2.3b). Räume tragen einen Namen – auch einer zu zweit ist kein 1:1-Chat.
  * null, wenn schon bearbeitet oder gesperrt.
  */
-export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<{ gruppe: string; partner: string | null } | null> {
+export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP): Promise<{ gruppe: string; partner: string | null; name?: string } | null> {
   const bearbeitet = JSON.parse(localStorage.getItem(LS_MLS_EINLADUNGEN) ?? "[]") as string[];
   if (bearbeitet.includes(e.wrap.id)) return null;
   localStorage.setItem(LS_MLS_EINLADUNGEN, JSON.stringify([...bearbeitet, e.wrap.id].slice(-200)));
@@ -167,7 +167,9 @@ export async function mlsEinladungAnnehmen(e: MlsEinladung, u: MlsUmgebung = APP
   if (!k) return null;
   const { mls, sichern, pk } = await k;
   const gruppe = await nimmEinladungAn({ mls, sichern, speicher: localStorage, einladung: e });
-  if (mls.name(gruppe).trim()) return { gruppe, partner: null };
+  // Ein Raum: sein Name gleich mit (C-35) – sonst kennt ihn die Leiste erst, wenn er einmal offen war
+  const name = mls.name(gruppe).trim();
+  if (name) return { gruppe, partner: null, name };
   const partner = await partnerDerGruppe(mls.mitglieder(gruppe), state.person ?? pk, pk, u.geraete).catch(() => null);
   return { gruppe, partner: partner ?? null };
 }

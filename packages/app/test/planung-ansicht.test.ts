@@ -70,7 +70,7 @@ test("B-15b: verdrahtet – nur im privaten Raum, nur über die Gruppe, nur als 
   assert.match(ui, /raumUmfragen\(raum\.gruppe, raum\.ereignisse, raum, \{ ich: raum\.ich \}\)\.filter\(\(u\) => u\.kanal === kanal\)/);
   assert.match(ui, /raumTermine\(raum\.gruppe, raum\.ereignisse, raum, \{ ich: raum\.ich \}\)\.filter\(\(x\) => x\.kanal === kanal\)/);
   const raeume = lies("shell/tabs/raeume.ts");
-  assert.match(raeume, /if \(planung && spacesUi\.privat\) zeigePlanung\(planung, spacesUi\.privat, channelId, kontaktName, \(\) => void raumNeuLaden\(\)\);/);
+  assert.match(raeume, /if \(planung && spacesUi\.privat\) zeigePlanung\(planung, spacesUi\.privat, channelId, nameVon, \(\) => void raumNeuLaden\(\)\);/);
   assert.match(raeume, /document\.getElementById\(id\)\?\.classList\.toggle\("hidden", !spacesUi\.privat \|\| !darf\);/, "Knöpfe nur privat und mit Schreibrecht");
   assert.match(raeume, /if \(spacesUi\.privat && spacesUi\.channelId\) void neueUmfrage\(spacesUi\.privat, spacesUi\.channelId, /);
   assert.match(raeume, /if \(spacesUi\.privat && spacesUi\.channelId\) void neuerTermin\(spacesUi\.privat, spacesUi\.channelId, /);

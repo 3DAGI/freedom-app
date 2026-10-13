@@ -1609,7 +1609,7 @@ def privatraum_pruefen(browser, url: str) -> dict:
         bo.s.wait_for_function(f"() => !!document.querySelector(\"{pille}\")", timeout=60000)
     except Exception:
         pass
-    # Den Namen kennt Bo erst aus der Definition in der Gruppe – bis er den Raum öffnet, heißt er „privater Raum“
+    # Seit C-35 (Nutzertest R-1) kennt Bo Name und Absender gleich aus der Einladung – vorher „privater Raum“ ohne Absender
     erg["angenommen"] = bo.ev(f"() => document.querySelector(\"{pille}\")?.getAttribute('aria-label') ?? null")
 
     # Ada schreibt im Kanal, Bo liest und antwortet im Thread, Ada sieht die Antwort
@@ -1655,7 +1655,8 @@ def privatraum_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"angelegt {erg['angelegt']}")
     if not erg["einladung"]:
         erg["fehler"].append("keine Einladung an Bo")
-    if erg["angenommen"] != "Privater Raum privater Raum" or erg.get("bo_name") != ["Probe privat", "Privater Raum Probe privat"]:
+    if erg["angenommen"] != f"Privater Raum Probe privat – Einladung von {pk_ada[:8]}…{pk_ada[-4:]}" \
+            or erg.get("bo_name") != ["Probe privat", "Privater Raum Probe privat"]:
         erg["fehler"].append(f"Bo hat die Einladung nicht angenommen: {erg['angenommen']} {erg.get('bo_name')}")
     if erg.get("bo_liest") is not True or erg.get("ada_liest") is not True:
         erg["fehler"].append(f"Nachricht/Thread: Bo liest {erg.get('bo_liest')}, Ada liest {erg.get('ada_liest')}")
@@ -3201,6 +3202,12 @@ def raum_pruefen(browser, url: str) -> dict:
         verlauf["deckkraft"] = [vorher, nachher]
         erg[groesse] = {"verlauf": verlauf}
         # Seit B-15b: Umfragen und Termine nur im privaten Raum – im offenen Probe-Raum weder Knöpfe noch Kasten
+        # C-35 (Nutzertest R-7): die Art des Kanals in einer Zeile – vorher am Handy Silbe für Silbe untereinander
+        erg[groesse]["kanalart"] = ev("""() => { const e = document.getElementById('channel-privacy'); const r = e.getBoundingClientRect();
+          const st = getComputedStyle(e); const lh = parseFloat(st.lineHeight);
+          return { zeilen: Math.round(r.height / (isNaN(lh) ? parseFloat(st.fontSize) * 1.3 : lh)), text: e.textContent }; }""")
+        if erg[groesse]["kanalart"]["zeilen"] > 1:
+            erg["fehler"].append(f"{groesse}: Art des Kanals über mehrere Zeilen {erg[groesse]['kanalart']}")
         planung = ev("() => ['kanal-umfrage', 'kanal-termin', 'kanal-planung'].map(id => document.getElementById(id)?.classList.contains('hidden'))")
         erg[groesse]["planung_offen"] = planung
         if planung != [True, True, True]:
