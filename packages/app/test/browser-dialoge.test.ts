@@ -111,7 +111,8 @@ test("C-1b: Kommunikation – Name, neue Unterhaltung und Ausgeblendetes über D
   assert.match(name, /\{ art: "mehrfach", name: "teilen", label: t\("komm\.nameSichtbar"\), optionen: \[/);
   assert.match(name, /const teilen = !!name\.trim\(\) && Array\.isArray\(w\.teilen\) && w\.teilen\.includes\("ja"\);/);
   assert.match(name, /if \(!w\) return;\s*const name/, "abgebrochen → nichts geändert");
-  assert.match(name, /wert: \[c\.id\.slice\(0, 12\) \+ "…", pkShort\(c\.id\)\]\.includes\(c\.name\) \? "" : c\.name/, "nicht mit dem gekürzten Schlüssel vorbelegt");
+  // Seit C-33 erkennt istPlatzhalterName() gekürzten Schlüssel, die 12 Zeichen aus newDm() und „Anfrage · …“
+  assert.match(name, /wert: istPlatzhalterName\(c\.name, c\.id\) \? "" : c\.name/, "nicht mit dem gekürzten Schlüssel vorbelegt");
   assert.match(k, /if \(!c \|\| c\.type !== "dm"\) return;\s*void benenneKontakt\(c\);/);
   // Ausgeblendetes nur als Text im Dialog
   assert.match(k, /if \(ev\) void hinweis\(t\("komm\.ausgeblendetTitel"\), ev\.content\);/);

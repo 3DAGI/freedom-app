@@ -107,7 +107,9 @@ test("C-6c: Anhänge aus anhangAnsicht() nur über Eigenschaften und dataset, ke
 
 test("C-6c: Chat-Liste, Verlauf und Kanalliste als DOM – Namen, Text und Gerätenamen als Text", () => {
   const komm = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => quelle(`../src/shell/tabs/${d}.ts`)).join("\n");
-  assert.match(komm, /zeile\.append\(el\("span", c\.type === "community" \? "🏠" : c\.name\.slice\(0, 1\)\.toUpperCase\(\), "av"\), el\("span", c\.name, "label"\)\);/);
+  // Seit C-33 Name und Zeichen über kontakt-name.ts (Profilname, Anfrage) – weiter nur als Text
+  assert.match(komm, /zeile\.append\(el\("span", c\.type === "community" \? "🏠" : kontaktInitiale\(c\), "av"\), el\("span", kontaktAnzeige\(c\), "label"\)\);/);
+  assert.match(komm, /if \(label\) label\.textContent = c && istAnfrage\(c\) \? t\("komm\.anfrage", \{ pk: anzeige \}\) : anzeige;/);
   assert.match(komm, /const inhalt = el\("div", text, "txt"\);\s*inhalt\.append\(\.\.\.media\);/);
   assert.match(komm, /if \(g\) wer\.append\(" ", el\("span", `· \$\{g\.text\}`/);
   assert.match(komm, /zap\.dataset\.pk = ev\.pubkey;/);

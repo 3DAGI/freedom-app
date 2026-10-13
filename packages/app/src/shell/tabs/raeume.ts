@@ -6,6 +6,7 @@
  * Logikänderung; nur `kontaktName` ist jetzt exportiert. Seit C.2b1 fragen
  * Dialoge (`shell/dialog.ts`) statt `prompt()`, `confirm()` und `alert()`.
  */
+import { kontaktKurzName } from "../../kontakt-name.js";
 import {
   JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
@@ -1193,7 +1194,11 @@ async function legeRaumAn(oeffentlich = false): Promise<void> {
 }
 
 /** Name eines Kontakts, sonst der gekürzte Schlüssel. */
-export const kontaktName = (pk: string) => conversations.find((c) => c.type === "dm" && c.id === pk)?.name ?? pkShort(pk);
+/** Name eines Kontakts in Raum, Umfrage und Repo – eigener Name oder „~Profilname“, nie „Anfrage · …“ (C-33). */
+export const kontaktName = (pk: string): string => {
+  const c = conversations.find((x) => x.type === "dm" && x.id === pk);
+  return c ? kontaktKurzName(c) : pkShort(pk);
+};
 
 /** In einen privaten Raum einladen (2.3b): Kontakt wählen, KeyPackage suchen, Einladung versiegelt an seinen Posteingang. */
 async function ladeEin(): Promise<void> {

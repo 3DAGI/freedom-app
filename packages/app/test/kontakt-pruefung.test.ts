@@ -57,7 +57,7 @@ test("B-4: verdrahtet – Knopf im Chat, Code aus beiden Schlüsseln der Persone
   const html = lies("shell/index.html");
   assert.match(html, /<button id="chat-pruefen" [^>]*data-i18n-title="komm\.pruefenTitel" data-i18n-aria="komm\.pruefen">/);
   const app = lies("shell/app.ts");
-  assert.match(app, /const pruefBtn = \$\("#chat-pruefen"\);[\s\S]{0,400}if \(!c \|\| c\.type !== "dm"\) return toast\(t\("komm\.pruefNur11"\), true\);[\s\S]{0,200}await pruefeKontakt\(c\.id, c\.name\);/);
+  assert.match(app, /const pruefBtn = \$\("#chat-pruefen"\);[\s\S]{0,400}if \(!c \|\| c\.type !== "dm"\) return toast\(t\("komm\.pruefNur11"\), true\);[\s\S]{0,300}if \(await pruefeKontakt\(c\.id, kontaktKurzName\(c\)\)\) nimmAnfrageAn\(c\.id\);/, "seit C-33: geprüft nimmt die Anfrage an");
   const ui = lies("shell/kontakt-pruefen-ui.ts");
   assert.match(ui, /const ich = sprichtFuer\(\);\s*const code = ich \? sicherheitscode\(ich, pk\) : undefined;/, "als Gerät spricht die App für die Person (8.6c)");
   assert.ok(ui.indexOf("if (!w) return false;") < ui.indexOf("await merkeGeprueft(geheim, pk);"), "abgebrochen: nichts gemerkt");

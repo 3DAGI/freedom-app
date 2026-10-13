@@ -38,7 +38,8 @@ test("2.2b-d2: Senden erst über MLS, sonst NIP-17; mit Ablauf, Bunker oder ohne
 });
 
 test("2.2b-d2: Einladung von Fremden wird zur Anfrage – wie eine NIP-17-Nachricht von ihnen", () => {
-  assert.match(kom, /c = \{ id: r\.partner, type: "dm", name: t\("komm\.anfrage", \{ pk: pkShort\(r\.partner\) \}\)/);
+  // Seit C-33 als Merkmal – „Anfrage · …“ setzt die Anzeige (kontaktAnzeige())
+  assert.match(kom, /c = \{ id: r\.partner, type: "dm", name: pkShort\(r\.partner\), anfrage: true,/);
 });
 
 test("2.2b-e2: Geräte sind Mitglieder – vor jedem Senden abgeglichen; lässt sich das nicht herstellen, NIP-17 (ersetzt d3)", () => {

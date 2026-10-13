@@ -8611,3 +8611,35 @@ Sammlung).
 
 **Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1049 (+6), Leak 73 + 1 todo; tsc überall,
 Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-33 – Namen statt Schlüssel, Anfrage endet mit der Antwort
+
+Spur C, Befunde C-8, C-2, R-2 und G-4 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung):
+Veröffentlichte Namen erschienen nirgends (Liste, Raum, Umfrage, Repo zeigten den gekürzten
+Schlüssel, das runde Zeichen „2“ oder „A“), und „Anfrage · …“ blieb, auch nachdem man geantwortet
+und den Kontakt geprüft hatte.
+
+**`kontakt-name.ts`** (neu, ohne DOM): Profilname aus Kind 0 (`display_name`, sonst `name`;
+nur Text, höchstens 40 Zeichen, ohne unsichtbare Zeichen und gemischte Schriften, über
+`inspectName()`), je Schlüssel das neueste Profil. Ein selbst gewählter Name ist eine Behauptung
+(`naming.ts`): Er steht mit „~“ davor, wie bei Messengern für Namen, die nicht aus dem eigenen
+Adressbuch kommen. Ein eigener Name gilt ohne Zeichen. „Anfrage“ ist ein Merkmal der Unterhaltung
+(`anfrage`), nicht mehr Teil des Namens; alte Namen „Anfrage · …“ erkennt die App in beiden
+Sprachen.
+
+**Verdrahtet:**
+- `kontakte.ts`, `loeseNamenAuf()`: Profile der Kontakte über `frageBeiAutoren()` (Kind 0, höchstens
+  alle zehn Minuten), als `profil` an der Unterhaltung gemerkt. Den Satz „so nennen ihn n deiner
+  Kontakte“ baut die App selbst (`komm.nameBekannt`, wortgleich mit `displayWithSource()`).
+- `posteingang.ts`: Neue Unterhaltungen von Fremden tragen `anfrage: true`.
+- Die Anfrage endet mit der ersten Antwort (`sendChatMessage()` → `nimmAnfrageAn()`), der Prüfung des
+  Sicherheitscodes (`app.ts`) oder einem eigenen Namen.
+- Raum, Umfrage und Repo (`kontaktName()`) zeigen den Namen ohne „Anfrage“.
+
+**Tests:** `kontakt-name.test.ts` (7); vier Formtests auf die neue Form angepasst. Smoke
+„kontaktname“ (`scripts/kontaktname-probe.mts`): Ein Fremder mit Profil schreibt – „Anfrage ·
+~Ada <b>Probe</b>“ (HTML als Text), Zeichen „A“; nach der Antwort „~Ada <b>Probe</b>“. Vorher:
+„0339c65d…0046“.
+
+**Prüfungen:** protocol 1289 grün, node 412 (ohne Netz), app 1056 (+7), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
