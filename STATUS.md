@@ -8789,3 +8789,21 @@ weg, kein `ZAHLKANAL`/`NODE_SOL_ADDRESS` und kein „Dein Knoten hat/nimmt“ au
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1077 (+2), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-39a – Einrichtung: die Leiste folgt der Wahl
+
+Spur C, Befunde E-1 und E-7 aus dem Nutzertest vom 08.10. (Anhang D der Sammlung). E-2 bis E-5
+(Abstände, Knopfbreiten, Overlays als Dialog) folgen als C-39b.
+
+| Befund | Vorher | Jetzt |
+|---|---|---|
+| E-1 | Neben Merkphrase und Einrichtung stand oben die Onboarding-Leiste: „Du brauchst nichts einzurichten“ | Während der Einrichtung keine Leiste. `zeigeEinrichtung()` blendet sie aus, `zeigeOnboarding()` zeichnet sie nicht, solange `einrichtungLaeuft()`. Geprüft wird erst nach dem Laden der Bausteine, weil ein Aufruf vom Start schon vor der Einrichtung begonnen haben kann. Danach zeigt die Einrichtung die Leiste wie bisher |
+| E-7 | „Nachrichten schreiben“ öffnete zwar die Nachrichten, die Leiste blieb aber bei „Stell einfach eine Frage – Zur KI“ | Die Wahl zählt ab dem ersten Schritt. Bei „Nachrichten schreiben“ heißt der Schritt „Schreib jemandem“ (Unterhaltung mit +, Schlüssel teilen über Profil › Teilen) mit dem Knopf „Zu den Nachrichten“. Bei „Rechner vermieten“ kommt gleich die Anleitung zum Knoten. Die erste gesendete Nachricht zählt wie die erste KI-Antwort als erste Nutzung, danach fragt die Leiste nach der Sicherung |
+
+**Tests:** `einrichtung-leiste.test.ts` (3). Neuer Smoke-Test „einrichtung_wahl“:
+- Die Leiste ist bei Merkphrase und allen vier Seiten weg.
+- Nach „Nachrichten schreiben“ ist man in den Nachrichten, die Leiste zeigt „Schreib jemandem“, und ihr Knopf führt von der KI aus zurück in die Nachrichten.
+- Gegenprobe gegen den alten Code: rot (Leiste überall sichtbar, „Stell einfach eine Frage“, Knopf nach `#/agent`). Mit der Änderung grün; „einrichtung“ bleibt grün.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1080 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
