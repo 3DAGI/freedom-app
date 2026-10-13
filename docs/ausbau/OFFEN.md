@@ -179,7 +179,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| E10b (A-9) | Kopfgeld am Issue anlegen, zeigen, per Klick bezahlen | frei |
+| E10b (A-9) | Kopfgeld am Issue anlegen, zeigen, per Klick bezahlen | b1 ✓ ([#428](https://github.com/3DAGI/freedom-app/pull/428)); b2 Bezahlen per Klick folgt |
 | 12.4b | Schalter „sats / SOL“ auf der Agent-Seite | frei |
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | 11.3b–d2 fertig; nur das Monatsbudget mit Pfand wartet auf 11.3d3 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
