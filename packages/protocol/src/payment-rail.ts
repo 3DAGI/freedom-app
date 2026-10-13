@@ -16,7 +16,7 @@ export type RailId = "lightning" | "solana";
 export type Betrag = { einheit: "msat"; wert: number } | { einheit: "lamports"; wert: number };
 
 /** Wofür gezahlt wird – nur zur Einordnung; „senden“ ist eine Zahlung aus der Wallet an ein eingegebenes Ziel (12.7a). */
-export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap" | "relay" | "anforderung" | "senden";
+export type Zweck = "zap" | "job" | "sitzung" | "deposit" | "trinkgeld" | "gebuehr" | "swap" | "relay" | "anforderung" | "senden" | "kopfgeld";
 
 export interface Zahlanfrage {
   /** bolt11-Rechnung oder Lightning-Adresse (name@host) bzw. Solana-Adresse. */

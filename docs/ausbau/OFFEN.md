@@ -115,7 +115,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 |---|---|---|
 | Oberfläche | alle Seiten am Handy (iOS Safari, Android Chrome) und am Desktop | C-19, 1.0 |
 | Identität | Tresor auf Handy und Desktop, „vergessen“ mit 12 Wörtern; echter Bunker (Amber); zweites Gerät; White Noise mit zwei Geräten; FROSTR mit Igloo als Bunker | 1.2, 1.3, 8.6, 2.2b, A-18 |
-| Geld | Phantom-Abgleich, Devnet senden und empfangen; Swaps auf Devnet mit Polar; NWC mit zwei Wallets; LP mit zwei Testnet-LND; echte Relay-Zahlung; Verdienen in SOL | 1.1, 4.2, 4.6, 6.3, 8.3, 8.4, 4.5 |
+| Geld | Phantom-Abgleich, Devnet senden und empfangen; Swaps auf Devnet mit Polar; NWC mit zwei Wallets; LP mit zwei Testnet-LND; echte Relay-Zahlung; Verdienen in SOL; Kopfgeld mit Test-Wallet bezahlen (Lightning an eine Adresse, SOL versiegelt erfragt) | 1.1, 4.2, 4.6, 6.3, 8.3, 8.4, 4.5, E10b2 |
 | Provider | echter Provider in unter 30 Minuten, beide Schienen; echte KI-Anfrage in der Live-App | 8.2, 3.1 |
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
@@ -179,7 +179,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| E10b (A-9) | Kopfgeld am Issue anlegen, zeigen, per Klick bezahlen | b1 ✓ ([#428](https://github.com/3DAGI/freedom-app/pull/428)); b2 Bezahlen per Klick folgt |
 | 12.4b | Schalter „sats / SOL“ auf der Agent-Seite | frei |
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | 11.3b–d2 fertig; nur das Monatsbudget mit Pfand wartet auf 11.3d3 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |

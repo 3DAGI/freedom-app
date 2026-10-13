@@ -3294,6 +3294,16 @@ def kopfgeld_pruefen(browser, url: str) -> dict:
     tags = {t[0]: t[1:] for t in (neu[-1]["tags"] if neu else [])}
     erg["vergeben"] = {"status": tags.get("status"), "p": tags.get("p"), "e": tags.get("e")}
     erg["danach"] = ev(zeilen)
+    # Seit E10b2: bezahlen per Klick – ohne Wallet scheitert es laut; der Stand bleibt „vergeben“, nichts wird „erledigt“
+    vorher = len(relay.gesendet)
+    ev("() => document.querySelector('#repo-seite .kopfgeld-bezahlen').click()")
+    s.wait_for_selector("[role=dialog] .dlg-text", timeout=5000)
+    erg["bezahlen_frage"] = ev("() => document.querySelector('[role=dialog] .dlg-text').textContent")
+    ev("() => [...document.querySelectorAll('[role=dialog] .dlg-knoepfe button')].pop().click()")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Nicht (ganz) bezahlt')", timeout=20000)
+    erg["bezahlen"] = {"toast": ev("() => document.getElementById('toast').textContent"),
+                       "erledigt": [e for e in relay.gesendet[vorher:] if e.get("kind") == 38061],
+                       "knopf": ev("() => document.querySelector('#repo-seite .kopfgeld-bezahlen')?.disabled")}
     seite.ctx.close()
     if len(erg["fremd"]) != 1 or erg["fremd"][0][0:2] != ["offen", "21 sats"] or erg["fremd"][0][3] != []:
         erg["fehler"].append(f"fremdes Kopfgeld {erg['fremd']}")
@@ -3308,8 +3318,11 @@ def kopfgeld_pruefen(browser, url: str) -> dict:
     if erg["wahl"] != 2 or erg["vergeben"] != {"status": ["vergeben"], "p": [probe["autorin"]], "e": [probe["issue"]]}:
         erg["fehler"].append(f"vergeben {erg['wahl']} {erg['vergeben']}")
     vergeben = [z for z in erg["danach"] if z[0] == "vergeben"]
-    if len(vergeben) != 1 or vergeben[0][3] != ["Als erledigt markieren", "Wieder öffnen", "Zurückziehen"]:
+    if len(vergeben) != 1 or vergeben[0][3] != ["Bezahlen …", "Als erledigt markieren", "Wieder öffnen", "Zurückziehen"]:
         erg["fehler"].append(f"nach dem Vergeben {erg['danach']}")
+    if not re.match(r"500 sats \+ 0,01 SOL an \S+ – direkt aus deiner Wallet, niemand dazwischen\.", erg["bezahlen_frage"]) \
+            or erg["bezahlen"]["erledigt"] or erg["bezahlen"]["knopf"] is not False:
+        erg["fehler"].append(f"bezahlen ohne Wallet {erg['bezahlen_frage']!r} {erg['bezahlen']}")
     erg["bestanden"] = not erg["fehler"]
     return erg
 

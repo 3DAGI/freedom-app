@@ -8885,3 +8885,42 @@ fremdem Kopfgeld aus `scripts/kopfgeld-probe.mts`:
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1090 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt E10b2 – Kopfgeld per Klick bezahlen
+
+Spur C, zweiter Teil von E10b (Sammlung A-9, Entscheidung E10 B).
+
+**Neu:**
+- **`kopfgeld-zahlung.ts`** (ohne DOM): `bezahleKopfgeld()` zahlt je zugesagter Währung genau
+  einmal, über die Zahlschienen (`zahle()`, neuer Zweck „kopfgeld“).
+  - Was schon bezahlt ist, merkt sich das Gerät (`freedom.kopfgeld.bezahlt` in `geheim`, je
+    Geldgeber, Kennung und Empfänger). Scheitert die zweite Währung, zahlt ein neuer Klick nur sie.
+    Von selbst wird nie wiederholt.
+  - Ziele nur aus vorhandenen Quellen:
+    - Lightning über die Adresse im Profil – die Schiene holt die Rechnung und prüft ihren Betrag.
+    - Ohne Adresse versiegelt erfragt (`frageRechnungAn()`, nur ganze sats).
+    - SOL über die gemerkte oder versiegelt erfragte Adresse (`frageAdresseAn()`).
+    - Die öffentliche SOL-Adresse aus dem Profil nur nach Warnung.
+    - Keine Eingabe von Hand – eine neue Quelle nur nach Rückfrage beim MENSCHEN.
+- **`kopfgeld-ui.ts`:** Am eigenen, vergebenen Kopfgeld gibt es den Knopf „Bezahlen …“.
+  - Einmal bestätigen; der Dialog nennt Betrag (nur der noch offene Teil) und Person.
+  - Danach steht das Kopfgeld auf „erledigt“.
+  - Ein Fehlschlag sagt, was schon bezahlt ist, und lässt den Stand auf „vergeben“.
+- **Andere Spur:** `payment-rail.ts` (Protokoll) kennt den Zweck „kopfgeld“ (eine Zeile). Das
+  Zahlungsbuch zeigt ihn als „Kopfgeld“.
+
+**Tests:** `kopfgeld-zahlung.test.ts` (6):
+- Lightning-Adresse; versiegelt; ganze sats.
+- Teil-Fehlschlag ohne Doppelzahlung.
+- SOL aus dem Profil nur nach Warnung.
+- Nur vergebene Kopfgelder.
+- Verdrahtung.
+
+Smoke-Test „kopfgeld“ erweitert: Bezahlen ohne Wallet scheitert laut. Danach geht kein „erledigt“
+hinaus, und der Knopf ist wieder frei.
+
+**MENSCH (Devnet/Testnet):** einmal mit echter Test-Wallet bezahlen – Lightning an eine Adresse,
+SOL an eine versiegelt erfragte Adresse – und den Eintrag „Kopfgeld“ im Zahlungsbuch sehen.
+
+**Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1096 (+6), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

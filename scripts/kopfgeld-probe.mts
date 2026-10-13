@@ -18,4 +18,6 @@ const kommentar = signEvent({ ...baueKommentar({ wurzel: { id: issue.id, autor: 
 const fremd = signEvent(baueKopfgeld({
   kennung: "probe", titel: "Säge schärfen", beschreibung: "", msat: 21_000, geldgeber: geldgeber.pk, stand: "offen", issue: issue.id, repo: repo.adresse,
 }, jetzt - 100), geldgeber.sk);
-console.log(JSON.stringify({ repo: repo.adresse, issue: issue.id, autorin: autorin.pk, kommentator: kommentator.pk, geldgeber: geldgeber.pk, events: [ankuendigung, issue, kommentar, fremd] }));
+// Seit E10b2: die Autorin nennt eine Lightning-Adresse – bezahlt wird an sie
+const profil = signEvent({ kind: 0, pubkey: autorin.pk, created_at: jetzt - 400, tags: [], content: JSON.stringify({ name: "Autorin", lud16: "autorin@knoten.example.org" }) }, autorin.sk);
+console.log(JSON.stringify({ repo: repo.adresse, issue: issue.id, autorin: autorin.pk, kommentator: kommentator.pk, geldgeber: geldgeber.pk, events: [ankuendigung, issue, kommentar, fremd, profil] }));

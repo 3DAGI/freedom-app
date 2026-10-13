@@ -289,4 +289,5 @@ export const waehrung: Texte = {
   "verlauf.zweck.relay": { de: "Relay-Zugang", en: "Relay access" },
   "verlauf.zweck.anforderung": { de: "Anforderung", en: "Request" },
   "verlauf.zweck.senden": { de: "Gesendet", en: "Sent" },
+  "verlauf.zweck.kopfgeld": { de: "Kopfgeld", en: "Bounty" },
 };
