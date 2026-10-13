@@ -11,7 +11,7 @@ import {
   JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
-import { ensurePool, mitBunker, signiere, state } from "../state.js";
+import { alsGeraet, ensurePool, mitBunker, signiere, state } from "../state.js";
 import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
@@ -28,6 +28,7 @@ import { abrufTakt } from "../versand.js";
 import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
 import { fremderProfilName, ladeFremdeProfilNamen } from "./kontakte.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
+import type { AgentZiel } from "../raum-agenten-ui.js";
 import type { RaumAgentKarte } from "../../knoten-agent-wahl.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
@@ -386,7 +387,9 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-kanal-aendern")?.classList.toggle("hidden", !kanaele);
   const repos = darfRepos();
   document.getElementById("space-repo-neu")?.classList.toggle("hidden", !repos);
-  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos);
+  const agenten = agentZiel() !== null;
+  document.getElementById("space-agent-neu")?.classList.toggle("hidden", !agenten);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
 }
@@ -402,6 +405,19 @@ function raumZiel(): RaumZiel | null {
   } catch {
     return null; // Kennung, die keine Adresse ergibt – dann keine Repos
   }
+}
+
+/**
+ * Wohin ein Agent dieses Geräts kommen darf (11.3e1): nur als Hauptidentität (Agenten gehören
+ * der Person, 8.6c) – privat als Moderator (Admin der Gruppe), offen mit „rollen_vergeben“.
+ */
+function agentZiel(): AgentZiel | null {
+  if (!state.keypair || alsGeraet()) return null;
+  const raum = spacesUi.privat;
+  if (raum) return raum.admins.includes(raum.ich) ? { privat: raum } : null;
+  const ziel = raumZiel();
+  const st = spacesUi.state as SpaceState | null;
+  return ziel && "adresse" in ziel && st?.space && darf(state.keypair.pk, "rollen_vergeben", st) ? { adresse: ziel.adresse } : null;
 }
 
 /** Darf ich in diesem offenen Raum Kanäle anlegen (Recht „kanaele_verwalten“, B-20b)? */
@@ -1508,6 +1524,11 @@ export async function wireSpacesTab(): Promise<void> {
     if (ziel && darfRepos()) void legeRepoImRaumAn(ziel, name);
   });
   beiReposGeladen(zeigeRaumRepos);
+  // Agent hinzufügen (11.3e1): neu oder vorhanden, mit Budget – danach den Raum neu, damit er in der Liste steht
+  document.getElementById("space-agent-neu")?.addEventListener("click", () => {
+    const ziel = agentZiel();
+    if (ziel) void import("../raum-agenten-ui.js").then(async (m) => { if ((await m.agentHinzufuegen(ziel)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
   const info = $("#space-info");
   if (info) info.onclick = async () => {
     const st = spacesUi.state as { space?: { channels: never[] } } | null;

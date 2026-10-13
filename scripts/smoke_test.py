@@ -3336,6 +3336,90 @@ def ki_schiene_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def raum_agent_pruefen(browser, url: str) -> dict:
+    """11.3e1: „Agent hinzufügen“ im eigenen offenen Raum – mit Tresor, ein neuer Agent auf diesem Gerät (Name, Anweisung),
+    Budget leer vorbelegt und geprüft (Tag nicht über Monat), ehrlicher Hinweis für offene Räume. Danach im Netz: Rolle
+    `agent` in der Rollenliste des Gründers, Zuweisung, Karte vom Agenten mit Besitzer, Liste des Besitzers, Pflicht-Hinweis
+    im Raum; das Buch liegt nicht offen in localStorage. Der Agent steht als Mitglied mit Rolle „Agent“ da; ein zweites Mal
+    steht er nicht mehr zur Wahl."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    s, ev = seite.s, seite.ev
+    tresor_an(seite, "Agenten-Pass 7")
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#rail-create", state="visible", timeout=30000)
+    ev("() => document.getElementById('rail-create').click()")
+    seite.warte_dialog("Raum anlegen")
+    ev("() => document.querySelector('[role=dialog] input[value=offen]').click()")
+    s.keyboard.press("Enter")
+    seite.warte_dialog("öffentlichen Raum anlegen")
+    seite.tippe("Agentenraum")
+    seite.warte_dialog("Raum angelegt")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    s.wait_for_function("() => !document.getElementById('space-agent-neu').classList.contains('hidden')", timeout=15000)
+    # Die Rollenliste mit `agent` ersetzt die vom Anlegen – in derselben Sekunde entschiede die Id (Fallstrick B-20c)
+    s.wait_for_timeout(1100)
+    feld = "(w) => { for (const [n, v] of Object.entries(w)) document.querySelector(`[role=dialog] [id$='-${n}']`).value = v; }"
+    ev("() => document.getElementById('space-agent-neu').click()")
+    neu = seite.warte_dialog("Neuer Agent auf diesem Gerät")
+    ev(feld, {"name": "Helfer", "persona": "Du hilfst beim Planen."})
+    dialog_ok(seite, "Weiter")
+    budget = seite.warte_dialog("Budget für Helfer in diesem Raum")
+    ev("() => document.querySelector('[role=dialog] input[value=msat]').click()")
+    ev(feld, {"monat": "100", "tag": "200"})
+    dialog_ok(seite, "Hinzufügen")
+    s.wait_for_timeout(200)
+    zu_viel = seite.stand()
+    ev(feld, {"tag": "50"})
+    dialog_ok(seite, "Hinzufügen")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Helfer ist im Raum')", timeout=30000)
+    seite.warte_zu()
+    ich = relay.ich
+    # Der Pool schickt an jedes Relay – die Attrappe sieht jedes Event je Verbindung, also nach Id
+    karten = list({e["id"]: e for e in relay.gesendet if e.get("kind") == 38090}.values())
+    agent = karten[0]["pubkey"] if karten else ""
+    rollen = [e for e in relay.gesendet if e.get("kind") == 34701 and e["pubkey"] == ich]
+    erg["netz"] = {
+        "karte": [[t for t in k["tags"] if t[0] in ("name", "betrieb", "bezahlung")] + [["besitzer", any(t[:2] == ["p", ich] for t in k["tags"])]] for k in karten],
+        "agentRolle": any(t[:2] == ["role", "agent"] and t[3] == "lesen|schreiben|threads" for e in rollen for t in e["tags"]),
+        "zuweisung": any(e.get("kind") == 34702 and any(t[:2] == ["p", agent] for t in e["tags"]) for e in relay.gesendet),
+        "liste": any(e.get("kind") == 30000 and e["pubkey"] == ich and any(t[:2] == ["p", agent] for t in e["tags"]) for e in relay.gesendet),
+        "hinweis": any(e.get("kind") == 42 and e["pubkey"] == ich and e["content"].startswith("Agent Helfer läuft auf meinem Gerät") for e in relay.gesendet),
+        "offen": ev("() => localStorage.getItem('freedom.agenten')"),
+    }
+    s.wait_for_function("() => [...document.querySelectorAll('#member-list .msg-role')].some(r => r.textContent === 'Agent')", timeout=40000)
+    # Ein zweites Mal: Helfer ist schon im Raum, also gleich ein neuer
+    ev("() => document.getElementById('space-agent-neu').click()")
+    zweites = seite.warte_dialog("Neuer Agent auf diesem Gerät")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg.update({"neu": [neu["text"], neu["felder"]], "budget": [budget["text"], budget["felder"], budget["werte"]],
+                "zu_viel": zu_viel["meldung"] if zu_viel else None, "zweites": zweites["titel"], "browser_dialoge": seite.browser_dialoge})
+    seite.ctx.close()
+    if erg["neu"][1] != ["Name", "Beschreibung (öffentlich, optional)", "Anweisung – wer er ist, was er tut", "Modell (optional)"] \
+            or not erg["neu"][0].startswith("Name und Beschreibung sieht jeder im Raum. Die Anweisung bleibt auf diesem Gerät"):
+        erg["fehler"].append(f"neuer Agent {erg['neu']}")
+    if not erg["budget"][0].startswith("Der Agent läuft auf diesem Gerät: Er antwortet nur, solange diese App offen ist.") \
+            or "Öffentlicher Raum: Jeder, der beitritt, kann den Agenten erwähnen" not in erg["budget"][0] \
+            or erg["budget"][2] != ["", ""]:
+        erg["fehler"].append(f"Budget {erg['budget']}")
+    if erg["zu_viel"] != "Die Tagesgrenze darf nicht über dem Monatsbudget liegen.":
+        erg["fehler"].append(f"Tag über Monat {erg['zu_viel']}")
+    n = erg["netz"]
+    if n["karte"] != [[["name", "Helfer"], ["betrieb", "geraet"], ["bezahlung", "einlader"], ["besitzer", True]]] or agent == ich:
+        erg["fehler"].append(f"Karte {n['karte']}")
+    if not (n["agentRolle"] and n["zuweisung"] and n["liste"] and n["hinweis"]) or n["offen"] is not None:
+        erg["fehler"].append(f"Netz {n}")
+    if erg["zweites"] != "Neuer Agent auf diesem Gerät":
+        erg["fehler"].append(f"zweites Mal {erg['zweites']}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def kopfgeld_pruefen(browser, url: str) -> dict:
     """E10b1: Kopfgelder an einem öffentlichen Issue – ein fremdes wird gezeigt (Betrag, Stand, Geldgeber, ohne Knöpfe),
     ein eigenes ausgesetzt (38061 mit Issue, Repo, Betrag, „offen“, signiert) und vergeben (Stand „vergeben“ mit
@@ -5401,6 +5485,10 @@ def main() -> int:
                 erg["ki_schiene"] = ki_schiene_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["ki_schiene"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["raum_agent"] = raum_agent_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["raum_agent"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
                 erg["lokal"] = lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
