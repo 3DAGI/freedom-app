@@ -19,7 +19,7 @@ import { t } from "../i18n.js";
 import { fehlerText, loeschRueckfrage } from "../protokoll-texte.js";
 import { sucheVergessen } from "./suche-ui.js";
 import { weckerAbmelden } from "../wecker-abmelden.js";
-import { hinweis } from "./dialog.js";
+import { alsModal, hinweis } from "./dialog.js";
 import { toast } from "./ui.js";
 
 /** Nur zwischen Loeschen und Neustart gesetzt; der zweite Durchgang loescht ihn mit. */
@@ -115,6 +115,7 @@ function frageNach(geldLaeuft: () => boolean): void {
   box.append(modal);
   document.body.append(box);
   eingabe.focus();
+  alsModal(box, modal);
   eingabe.addEventListener("input", () => { los.disabled = !BESTAETIGUNG.test(eingabe.value.trim().toUpperCase()); });
   ab.addEventListener("click", () => box.remove());
   los.addEventListener("click", () => {

@@ -10,6 +10,7 @@
  * `eingebauterHtlcSigner()` – ohne SOL auf der neuen Adresse ueber einen Relayer.
  */
 import { t } from "../i18n.js";
+import { alsModal } from "./dialog.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml } from "../shell-logic.js";
 import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
@@ -75,6 +76,7 @@ export function bestaetigeUeberLimit(n: Nachfrage): Promise<boolean> {
   setze("lim-limit", solText(n.limit));
   setze("lim-verbraucht", solText(n.pruefung.verbraucht));
   document.body.appendChild(box);
+  alsModal(box, box.firstElementChild as HTMLElement);
   return new Promise<boolean>((resolve) => {
     const fertig = (ja: boolean) => { box.remove(); resolve(ja); };
     box.querySelector("#lim-ja")!.addEventListener("click", () => fertig(true));
@@ -175,6 +177,7 @@ async function ergaenzen(): Promise<void> {
     <button id="solw-abbrechen2" class="ghost">${escapeHtml(t("zahl.abbrechen"))}</button>
   </div>`;
   document.body.appendChild(box);
+  alsModal(box, box.firstElementChild as HTMLElement);
   const feld = box.querySelector("#solw-woerter2") as HTMLTextAreaElement;
   feld.focus();
   box.querySelector("#solw-abbrechen2")!.addEventListener("click", () => box.remove());
@@ -210,6 +213,7 @@ async function einrichten(): Promise<void> {
     <button id="solw-abbrechen" class="ghost">${escapeHtml(t("zahl.abbrechen"))}</button>
   </div>`;
   document.body.appendChild(box);
+  alsModal(box, box.firstElementChild as HTMLElement);
   const feld = box.querySelector("#solw-woerter") as HTMLTextAreaElement;
   feld.focus();
   box.querySelector("#solw-abbrechen")!.addEventListener("click", () => box.remove());

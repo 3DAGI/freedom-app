@@ -736,7 +736,14 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   padding: 28px; max-width: 420px; width: 100%;
   box-shadow: 0 24px 64px rgba(123,200,10,.08);
 }
-.onboarding-card h2 { color: var(--accent); margin-bottom: 6px; font-family: var(--font-mono); letter-spacing: 2px; }
+.onboarding-card h2 { color: var(--accent); margin-bottom: 10px; font-family: var(--font-mono); letter-spacing: 2px; }
+/* C-39b (Nutzertest E-2, E-3): Abstand zwischen den Teilen, Knöpfe untereinander und gleich breit */
+.onboarding-card p { line-height: 1.55; margin: 0 0 8px; }
+.ein-knoepfe { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.ein-knoepfe button { width: 100%; margin: 0; padding: 10px 14px; }
+.bk-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.bk-knoepfe button { width: auto; margin: 0; padding: 8px 14px; }
+.bk-knoepfe + p { margin-top: 10px; }
 
 /* App-sidebar: sprach-menü nach OBEN (sidebar liegt am unteren rand) */
 .nav-lang .lang-menu {

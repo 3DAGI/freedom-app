@@ -183,7 +183,10 @@ test("C-6e: die letzten Ausnahmen – Logo, Tresor-Dialoge, Einrichtung, Rahmen 
   assert.match(tresor, /box\.querySelector\("#tr-meldung"\)!\.textContent = text;/);
   assert.doesNotMatch(tresor, /escapeHtml/);
   // Einrichtung und Merkphrase: Aussehen über style (CSSOM), Symbole über iconEl()
-  assert.match(quelle("../src/shell/einrichtung-ui.ts"), /b\.style\.cssText = haupt \? HAUPT_STIL : KNOPF_STIL;/);
+  // Seit C-39b die Knöpfe über eine Klasse (`.ein-knoepfe`) statt über style – weiter ohne HTML-Text
+  const einrichtung = quelle("../src/shell/einrichtung-ui.ts");
+  assert.match(einrichtung, /const zeile = el\("div", undefined, "ein-knoepfe"\);/);
+  assert.doesNotMatch(einrichtung, /innerHTML|insertAdjacentHTML/);
   const app = quelle("../src/shell/app.ts");
   assert.match(app, /x\.replaceChildren\(iconEl\(x\.dataset\.icon!\)\);/);
   assert.doesNotMatch(app, /escapeHtml/);
