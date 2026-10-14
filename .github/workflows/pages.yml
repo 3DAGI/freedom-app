@@ -54,6 +54,10 @@ jobs:
         env:
           # Adresse dieser Auslieferung – Webseed des Torrents (5.3b)
           SPIEGEL_BASIS_URL: ${{ steps.pages.outputs.base_url }}
+          # Mini-App: API-Host für Stars/TON. Pages liefert nur statisch —
+          # der Bot zeigt auf $base_url/tma/, die API ruft den TMA-Server.
+          # Frei lassen = Mini-App-Build ohne /tma/ (nur PWA veröffentlicht).
+          FREEDOM_TMA_API: ${{ vars.FREEDOM_TMA_API }}
         run: scripts/build-site.sh site
       - name: Veroeffentlichte freedom.html und freedom-sw.js nachbauen
         # 5.9: Was hinausgeht, muss ein frischer Build desselben Commits bitgleich

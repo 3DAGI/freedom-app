@@ -61,8 +61,10 @@ export async function tonConnectInit(manifestUrl?: string): Promise<TonConnectUI
     await new Promise((r) => setTimeout(r, 100));
     tries++;
   }
-  if (!window.TON_CONNECT_UI) throw new Error("TON_CONNECT_UI nicht geladen");
-  const url = manifestUrl ?? `${location.origin}/tma/tonconnect-manifest.json`;
+  if (!window.TON_CONNECT_UI) throw new Error("tma.ton.uiFehlt");
+  // Manifest: liegt beim TMA-Server (FREEDOM_TMA_API), nicht beim statischen
+  // Host — GitHub Pages liefert kein Manifest aus, der Server schon.
+  const url = manifestUrl ?? tmaApiBasis() + "/tma/tonconnect-manifest.json";
   _ui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl: url, language: "de" });
   _ui.onStatusChange((w) => {
     _addr = w?.account?.address;
@@ -71,6 +73,11 @@ export async function tonConnectInit(manifestUrl?: string): Promise<TonConnectUI
   _ui.setConnectionStatus?.((w) => { _addr = w?.account?.address; emit(); });
   await _ui.restoreConnection().catch(() => undefined);
   return _ui;
+}
+
+/** API-Basis (FREEDOM_TMA_API) — leer = Same-Origin. */
+export function tmaApiBasis(): string {
+  return (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
 }
 
 export async function tonVerbinden(): Promise<void> {
@@ -100,7 +107,7 @@ export interface TonZahlung {
  */
 export async function zahleMitTon(z: TonZahlung): Promise<{ boc: string }> {
   const ui = _ui ?? await tonConnectInit();
-  if (!_addr) throw new Error("Wallet nicht verbunden");
+  if (!_addr) throw new Error("tma.ton.keineWallet");
   const tx = {
     validUntil: Math.floor(Date.now() / 1000) + 300,
     messages: [{ address: z.an, amount: z.nano, payload: kommentarBase64(z.kommentar) }],

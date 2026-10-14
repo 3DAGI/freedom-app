@@ -93,19 +93,25 @@ export function patchFetchForTma(): void {
   const orig = globalThis.fetch;
   const raw = initDataRaw();
   if (!raw) return;
+  // Der TMA-Server darf auf einer ANDEREN Origin liegen als die App selbst
+  // (App auf GitHub Pages, API auf dem GX10-Node). FREEDOM_TMA_API nennt
+  // sie — nur diese und der eigene Origin bekommen die Signatur mit.
+  const apiBasis = (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    // Nur gleicher Origin — fremde APIs (Relays, TON, Solana-RPC) bekommen nichts.
-    let sameOrigin = false;
+    let zielOrigin = "";
     try {
       if (typeof input === "string") {
-        sameOrigin = input.startsWith("/") || input.startsWith(location.origin);
+        zielOrigin = new URL(input, location.href).origin;
       } else if (input instanceof URL) {
-        sameOrigin = input.origin === location.origin;
+        zielOrigin = input.origin;
       } else if (input instanceof Request) {
-        sameOrigin = input.url.startsWith(location.origin) || input.url.startsWith("/");
+        zielOrigin = new URL(input.url).origin;
       }
-    } catch { /* relative URL ohne base — sicher behandeln */ }
-    if (!sameOrigin) return orig(input, init);
+    } catch { return orig(input, init); }
+    // Nur der eigene Origin und der konfigurierte API-Host — fremde APIs
+    // (Relays, TON, Solana-RPC) bekommen nichts.
+    const erlaubt = zielOrigin === location.origin || (apiBasis !== "" && zielOrigin === new URL(apiBasis).origin);
+    if (!erlaubt) return orig(input, init);
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     if (!headers.has("authorization")) headers.set("authorization", `tma ${raw}`);
     return orig(input, { ...init, headers });

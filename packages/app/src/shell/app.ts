@@ -683,11 +683,18 @@ export function boot(): void {
   // kommen vor starte() – gespeicherte Wahl, wenn es sie noch gibt, sonst die des Browsers
   setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
   document.documentElement.lang = getLang();
-  // Mini-App (FREEDOM_TMA): ready()/expand(), Theme, fetch-Patch — vor dem
-  // ersten Request, damit schon /tma/* die Signatur mitträgt.
-  import("./tma.js").then(({ startTelegramShell }) => startTelegramShell()).catch(() => {});
+  starteTmaShell();
   // Notfall-Loeschung (8.14): kommt die App aus einer, zuerst ein zweiter Durchgang
   void nachNotfallLoeschung().then(() => entsperreBeimStart()).then(starte);
+}
+
+/**
+ * Mini-App (FREEDOM_TMA): ready()/expand(), Theme und der fetch-Patch (Signatur
+ * auf jeden /tma/*-Aufruf). Eigene Funktion, weil der dynamische Import ein
+ * `}` mitbringt, das die strikte Prüfung der Boot-Reihenfolge (8.16g1) liest.
+ */
+function starteTmaShell(): void {
+  import("./tma.js").then(({ startTelegramShell }) => startTelegramShell()).catch(() => {});
 }
 
 function starte(): void {
