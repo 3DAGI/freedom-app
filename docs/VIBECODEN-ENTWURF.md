@@ -114,3 +114,227 @@ So sieht es aus Sicht des Besitzers aus:
 | VK-W3 | Vorschau | A über die Relays in die App (nur Web-Apps; die CSP braucht `frame-src blob:`) · B über die eigene Adresse des Knotens (auch Server-Apps; Domain oder `.onion` nötig) | **A** zuerst, B später |
 | VK-W4 | Netz für eigene Projekte | A wie W6a (nur Pakete über den Knoten) · B dazu der Schalter „Internet frei“ je Projekt, nie ins Heimnetz | **B** – es ist der eigene Rechner, der Besitzer entscheidet |
 | VK-W5 | Koppeln auch mit kurzem Code zum Abtippen? | A nur QR (der Code lässt sich heute auch einfügen) · B kurzer Code über ein PAKE-Verfahren (neue Kryptografie, neue Abhängigkeit) | **A** |
+
+## Entscheidungen vom 13.10.2026 (MENSCH)
+
+Dieser Abschnitt gilt vor den Fragen oben.
+
+| Nr. | Entscheidung |
+|---|---|
+| VK-W1 | **offen** – Frage MENSCH: „Was spricht gegen Hermes Agent, wenn die Dienste des Nous Portals durch Freedom-Dienste ersetzt werden?“ Antwort und neuer Vorschlag unten (VK-W1n) |
+| VK-W2 | **A** – git ins Docker-Bild des Knotens, nur für eigene Projekte |
+| VK-W3 | **erweitert:** Live-Vorschau für APKs, Linux- und Windows-Programme und Web-Apps, „damit alles funktioniert“; dazu MCP für alle gängigen Programme (Unity, Blender …) – Recherche und Vorschlag unten |
+| VK-W4 | **B** – dazu der Schalter „Internet frei“ je Projekt, nie ins Heimnetz |
+| VK-W5 | **B** – auch ein Code zum Eintippen; Ausgestaltung unten (VK-W5n) |
+
+## Recherche vom 13./14.10.2026
+
+### Hermes Agent mit Freedom-Diensten statt Nous Portal (zu VK-W1)
+
+**Was Hermes ist** (Nous Research, nach Repo und Doku):
+- MIT, Python (3.14) mit Teilen in TypeScript, rund 253 000 Sterne und rund 52 000 Commits.
+- Abhängigkeiten seit dem Wurm „Mini Shai-Hulud“ (Mai 2026) exakt gepinnt.
+- Gedächtnis und Skills unter `~/.hermes`, selbst angelegt und verbessert.
+- MCP-Client, Subagenten, Zeitpläne, Gateways zu Telegram, Signal & Co.
+- Sieben Ausführungsorte (local, Docker, SSH, Singularity, Modal, Daytona, Vercel).
+- Modelle über das Nous Portal, OpenRouter oder einen eigenen OpenAI-kompatiblen Endpunkt.
+  Ollama auf dem GX10 geht (`http://localhost:11434/v1`). Die Kontextlänge stellt man an
+  Ollama ein (`OLLAMA_CONTEXT_LENGTH`), nicht über die API.
+
+**Was das Nous Portal liefert** – genau das wäre zu ersetzen:
+- über 300 Modelle;
+- ein „Tool Gateway“: Websuche, Bilder (FAL), Sprache (OpenAI-TTS), Cloud-Browser (Browser Use).
+
+Alles über ein Abo mit OAuth-Anmeldung.
+
+**Der Schlüssel ist ACP.** Hermes spricht das Agent Client Protocol (`hermes acp`, JSON-RPC über
+stdio). Der Client sieht darüber:
+- jedes Werkzeug, jeden Diff und jeden Befehl;
+- Freigaben mit „einmal, für die Sitzung, immer, ablehnen“ – ohne Antwort nach 300 s
+  abgelehnt;
+- Gedanken und Antwort als Strom.
+
+Der Client kann MCP-Server je Sitzung mitgeben. Das passt fast eins zu eins auf VKa:
+Werkzeug-Aufruf → Schritt `befehl`, Freigabe-Anfrage → `wartet` und `freigabe`, Abbruch → `stopp`.
+ACP sprechen auch Goose, Gemini CLI, Qwen Code, Cline und andere. Der Knoten als ACP-Client kann
+den Motor also tauschen.
+
+**Freedom statt Nous Portal:**
+
+| Portal | Freedom |
+|---|---|
+| Modelle | das Modell auf dem GX10 (eigener Endpunkt), später Freedom-Provider über einen Endpunkt im Knoten, bezahlt wie heute |
+| Websuche | Such-Werkzeug des Knotens (8.7) als MCP |
+| Bilder | ComfyUI auf dem GX10 oder Freedom-Provider (5070) als MCP |
+| Sprache | Piper und whisper.cpp (B-38) als MCP |
+| Browser | Playwright-MCP (Microsoft, Apache-2.0) in der Sandbox |
+| dazu | Kiwix ohne Netz (B-31), die Programme unten |
+
+Diese MCP-Server gibt der Knoten Hermes über ACP je Sitzung mit. Hermes braucht dann kein Portal
+und keinen eigenen Schlüssel.
+
+**Was dagegen spricht, und was wir dagegen tun:**
+
+| Punkt | Gegenmittel |
+|---|---|
+| Groß und schnell bewegt (52 000 Commits, über 5 000 offene Issues und PRs); Python 3.14, Node, ripgrep, FFmpeg | eine geprüfte Fassung pinnen und selbst ins Bild des Knotens bauen. Nie `curl … \| bash` von nousresearch.com (Regel aus C-21); Updates nur bewusst |
+| Eigene Netzwege: Portal-Login, `skills.sh`, Übernahme fremder Anmeldungen (Codex, Claude Code) | `auth.adopt_external_logins: false`, kein Portal; Hermes läuft ganz in unserer Sandbox und erreicht nur das Modell und die freigegebenen MCP-Server |
+| Freigaben: Modus „smart“ fragt ein zweites Modell; in Docker und Co. prüft Hermes gar nicht („der Container ist die Grenze“); `local` läuft direkt auf dem Rechner | Hermes mit `local` **in** bubblewrap (die Grenze ist unsere), Freigaben `manual` über ACP an den Knopf in der App; Modus „frei“ = „für die Sitzung erlauben“ |
+| Telemetrie nicht dokumentiert | vor dem Einbau im Code prüfen; die Sandbox lässt ohnehin nichts hinaus |
+| Gedächtnis und Skills auf der Platte | für eigene Projekte erlaubt (AG1 A), ein `~/.hermes` je Projekt. Für Aufträge Fremder (11.5) nie – dort bleibt der flüchtige eigene Ablauf |
+| Ausgerichtet auf große Modelle; lokale Modelle brauchen Tool-Calling und langen Kontext | Modell mit Tool-Calling wählen (E9-Manifeste), Kontext auf mindestens 64 000 stellen |
+
+**Ergebnis:** Gegen Hermes spricht nichts Grundsätzliches, wenn er gepinnt, abgeschottet und über
+ACP angebunden ist. Daraus wird der neue Vorschlag VK-W1n.
+
+### Live-Vorschau für alles (zu VK-W3)
+
+**Der GX10 ist ARM64** (NVIDIA GB10: Grace-CPU und Blackwell-GPU, DGX OS auf Ubuntu-Basis). Er hat
+einen Video-Kodierer (NVENC der 9. Generation: H.264, HEVC, AV1). Ein virtueller 4K-Bildschirm
+mit NVENC läuft dort nachweislich (Sunshine, Community-Projekt). Was daraus folgt:
+
+| Ziel | Auf dem GX10 | Wie |
+|---|---|---|
+| Web-Apps | ✓ | statisch über die Relays in die App (wie VK5) oder live: Chromium im virtuellen Bildschirm, gestreamt – dann auch mit eigenem Server |
+| Linux-Programme (GTK, Qt, Electron, Godot-Spiele) | ✓ | virtueller Bildschirm (Wayland/X) in der Sandbox, gestreamt |
+| Android-Apps | ✓ ausführen, △ bauen | **redroid** (Android bis 16 im Container, auch arm64; braucht das Kernel-Modul binder – auf DGX OS prüfen, das Projekt ruht seit Mitte 2025), Bild über **scrcpy** (Apache-2.0). Bauen: Gradle läuft, aber Googles Build-Werkzeuge (`aapt2`) gibt es nur für x86-64 – Community-Bau für arm64 (`lzhiyong/android-sdk-tools`, Apache-2.0) oder Emulation mit FEX |
+| Windows-Programme | △ | Wine; x86-Programme über **Hangover** (Wine mit FEX oder Box64, LGPL-2.1; 11.0 vom Januar 2026) – viele laufen, nicht alle |
+| Unity, Unreal, DaVinci Resolve, Ableton | ✗ | Editoren gibt es nicht für Linux ARM64 (Unity: Linux nur x64; Unreal: Editor nicht auf ARM64; Resolve: Linux nur x86; Ableton: kein Linux) → Werkbank (unten) |
+| iOS | ✗ | nur mit einem Mac → Werkbank |
+
+**Die Strecke zum Handy:**
+- **Bild:** wie ein Anruf (B-13), nur ohne Ton. WebRTC, Medien nur über den eigenen TURN,
+  Aufbau versiegelt wie `baueAnrufNachricht()`, kodiert mit NVENC. Kein offener Port, keine
+  fremde Domain.
+- **Eingaben zurück:** Tippen, Wischen, Tastatur über einen Datenkanal derselben Verbindung.
+- **Bausteine:** GStreamer `webrtcbin` (LGPL, eigener Prozess). Als Vorlage dienen Selkies
+  (MPL-2.0, sucht Betreuer) und neko (Apache-2.0).
+
+**Werkbank-Knoten** – für alles, was auf ARM64 nicht läuft:
+- Weitere eigene Rechner (ein Windows- oder x86-Linux-PC, ein Mac) werden per QR gekoppelt wie
+  der GX10.
+- Dort laufen Unity, Unreal, Resolve, Android Studio oder Xcode samt ihren MCP-Servern.
+- Der Agent auf dem GX10 bedient sie über MCP, versiegelt über Freedom. Die Vorschau kommt von
+  dort aufs Handy.
+- Der GX10 bleibt das Gehirn, die Werkbank liefert die Hände. Ohne Werkbank sagt der Agent
+  ehrlich, was auf dem GX10 nicht geht.
+
+### MCP für gängige Programme (zu VK-W3; Wunsch MENSCH 14.10.: „alle MCPs und gängigen SOTA-Programme, die zusätzlich passen“)
+
+Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 bezieht sich auf den GX10.
+
+| Bereich | Programm | MCP-Server | Lizenz | ARM64 |
+|---|---|---|---|---|
+| Spiele | Godot | `Coding-Solo/godot-mcp` | MIT | ✓ (offizieller arm64-Editor) |
+| | Unity | `CoplayDev/unity-mcp` | MIT | ✗ → Werkbank |
+| | Unreal | `chongdashu/unreal-mcp` | ? | ✗ → Werkbank |
+| 3D | Blender | offiziell (Blender Lab, seit April 2026, Blender ab 5.1) oder `ahujasid/blender-mcp` | ? / MIT | △ (Pakete der Distribution, offizielle arm64-Builds unklar) |
+| CAD | FreeCAD | `neka-nat/freecad-mcp` | MIT | ✓ |
+| | OpenSCAD | `RobertCoop/openscad-mcp` u. a. | ? | ✓ |
+| Elektronik | KiCad | `oaslananka/kicad-mcp-pro` | MIT | ✓ |
+| 2D | GIMP | `maorcc/gimp-mcp` | ? | ✓ |
+| | Inkscape | `grumpydevorg/inkscape-mcps` | ? | ✓ |
+| | Krita | mehrere, keiner klar führend | ? | ✓ |
+| Video/Ton | OBS Studio | `obs-studio-mcp` (PyPI) | MIT | ✓ |
+| | DaVinci Resolve | Community-Server | ? | ✗ → Werkbank |
+| | Ableton Live | `ahujasid/ableton-mcp` | MIT | ✗ → Werkbank |
+| Büro/Daten | LibreOffice | mehrere (`mcp-libre` …) | ? | ✓ |
+| | Jupyter | `datalayer/jupyter-mcp-server` | BSD-3 | ✓ |
+| | QGIS | `jjsantos01/qgis_mcp` | ? | ✓ |
+| Web/Test | Browser | Playwright MCP (Microsoft) | Apache-2.0 | ✓ |
+| | Chrome | Chrome DevTools MCP (Google) | Apache-2.0 | ✓ |
+| Mobil | Android (adb) | `mobile-next/mobile-mcp` | Apache-2.0 | ✓ mit redroid |
+| KI-Medien | ComfyUI | Community-Server | ? | ✓ (CUDA) |
+| Zuhause | Home Assistant | eingebaut seit 2025.2 | Apache-2.0 | ✓ |
+| Entwicklung | git, Dateien, Datenbanken | Referenz-Server (`modelcontextprotocol/servers`, MIT → Apache-2.0) | MIT/Apache | ✓ |
+| Wissen | Kiwix | B-31 | – | ✓ |
+
+**Regeln für MCP** (MC1 A gilt weiter):
+- Jeder Server läuft hinter der `ToolRegistry` und mit seinem Programm in der Sandbox des
+  Projekts.
+- Grafische Programme bekommen den virtuellen Bildschirm und die GPU (`/dev/dri`,
+  `/dev/nvidia*`) eingebunden. Sonst nichts vom Rechner.
+- Server, die beliebigen Code im Programm ausführen (Blender, QGIS, Unity), gelten wie Befehle:
+  Freigabe im Modus „fragen“.
+- Aufgenommen wird nur ein Server mit offener Lizenz ohne starkes Copyleft im eigenen Code. Das
+  Programm selbst darf GPL sein (eigener Prozess, nur aufgerufen).
+- Jeder Server wird gepinnt und im PR mit Name, Zweck, Größe und Lizenz genannt.
+
+### Code zum Eintippen (VK-W5 B)
+
+- **K1 – ohne neue Kryptografie** (Vorschlag):
+  - `npm run koppeln -- --code` zeigt einen Code aus zwölf Zeichen (Crockford-Base32, drei
+    Vierer: `7KQ2-9XMB-4TRP`, 60 Bit), gültig zehn Minuten.
+  - Der Knoten legt für diese Zeit ein Event mit Ablauf (NIP-40) auf die Relays, signiert mit
+    seinem Schlüssel. Es trägt den Kopplungscode, verschlüsselt mit einem Schlüssel aus dem
+    Code (PBKDF2-SHA256 mit 600 000 Runden, wie der Tresor – keine neue Bibliothek). Gefunden
+    wird es über einen Hash des Codes.
+  - Die App tippt den Code, findet das Event, prüft die Signatur, entschlüsselt und koppelt wie
+    mit dem QR.
+  - Danach bestätigt sie versiegelt; der Knoten löscht das Event (NIP-09), und der Code verfällt.
+  - **Sicherheit:** Wer das Event mitliest, müsste 2^60 Codes durch je 600 000 Runden PBKDF2
+    rechnen – nicht machbar in zehn Minuten oder Jahren.
+- **K2 – kurzer Code mit 6–8 Ziffern über ein PAKE-Verfahren** (CPace über ristretto255, wie in
+  libsodium): Raten ginge nur online, ein Versuch je Code. `@noble/curves` hat ristretto255
+  schon, eine fertige JS-Bibliothek für CPace gibt es nicht. Wir würden Kryptografie selbst
+  bauen – später und nur mit Prüfung.
+
+### Neue Aufteilung (ersetzt VKc–VKf oben)
+
+| Schritt | Inhalt | Spur | Umfang |
+|---|---|---|---|
+| VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 |
+| VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 |
+| VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 |
+| VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 |
+| VKf | Kopplung mit Code zum Eintippen (K1) | A | ~250 |
+| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400, ggf. zwei Teile |
+| VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
+| VKi | Windows: Wine und Hangover | B | ~200 |
+| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
+| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 |
+| VKl | „Als Repo in einen Raum stellen“ | A | ~200 |
+
+### Neue Fragen
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| VK-W1n | Wie arbeitet der Agent auf dem eigenen Knoten? | A eigener Ablauf (wie 11.5) · B Hermes direkt · C Knoten als ACP-Client: Hermes als erster Motor (gepinnt, in der Sandbox, Freedom-MCP statt Portal), weitere ACP-Motoren tauschbar; für Aufträge Fremder (11.5) bleibt der flüchtige eigene Ablauf | **C** |
+| VK-W6 | Neue Abhängigkeit `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0, 6,1 MB entpackt, keine weiteren) für den Knoten | ja · nein | **ja** |
+| VK-W7 | Werkbank-Knoten für Programme, die auf ARM64 nicht laufen (Unity, Unreal, Resolve, Ableton, Xcode) | A ja, weitere eigene Rechner per QR · B nur, was auf dem GX10 läuft | **A** |
+| VK-W8 | Reihenfolge der Vorschau-Ziele | A Web und Linux zuerst, dann Android, dann Windows · B andere Reihenfolge | **A** |
+| VK-W9 | Code zum Eintippen | K1 zwölf Zeichen ohne neue Kryptografie · K2 sechs bis acht Ziffern mit PAKE | **K1** jetzt, K2 später |
+
+Quellen (13./14.10.2026):
+- **Hermes:** [hermes-agent](https://github.com/NousResearch/hermes-agent),
+  [ACP in Hermes](https://hermes-agent.nousresearch.com/docs/user-guide/features/acp),
+  [Sicherheit](https://hermes-agent.nousresearch.com/docs/user-guide/security),
+  [Konfiguration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration),
+  [Ollama-Integration](https://docs.ollama.com/integrations/hermes),
+  [`pyproject.toml`](https://raw.githubusercontent.com/NousResearch/hermes-agent/main/pyproject.toml).
+- **ACP:** [ACP](https://agentclientprotocol.com/overview/introduction),
+  [TypeScript-SDK](https://agentclientprotocol.com/libraries/typescript).
+- **GX10:** [ASUS-FAQ GX10](https://www.asus.com/in/support/FAQ/1056142/),
+  [heise zum GB10](https://heise.de/-10624970),
+  [Sunshine auf DGX Spark](https://github.com/seanGSISG/dgx-spark-sunshine-setup).
+- **Programme auf ARM64:** [Unity-Systemanforderungen](https://docs.unity3d.com/Manual/system-requirements.html),
+  [Unreal auf Linux ARM64 (Anfrage)](https://forums.unrealengine.com/t/feature-request-official-unreal-editor-linux-arm64-aarch64-support-for-nvidia-dgx-spark-gb10/2731250),
+  [Godot 4.5.1](https://godotengine.org/download/archive/4.5.1-stable/),
+  [Android-SDK-Werkzeuge arm64](https://github.com/lzhiyong/android-sdk-tools),
+  [Hangover 11.0](https://phoronix.com/news/Hangover-11.0-Released).
+- **Vorschau:** [redroid](https://github.com/zhouziyang/redroid-doc),
+  [Selkies](https://github.com/selkies-project/selkies).
+- **MCP:** [Spiel-Engines](https://www.strayspark.studio/blog/unreal-vs-blender-vs-godot-mcp-comparison-2026),
+  [Blender offiziell](https://www.strayspark.studio/blog/official-blender-mcp-server-comparison-2026),
+  [CAD](https://chatforest.com/reviews/cad-3d-modeling-mcp-servers/),
+  [KiCad/OpenSCAD](https://github.com/oaslananka/kicad-mcp-pro),
+  [GIMP/Inkscape](https://github.com/RaphaDevx/K-Creative-Cloud),
+  [OBS](https://pypi.org/project/obs-studio-mcp/),
+  [QGIS](https://glama.ai/mcp/servers/jjsantos01/qgis_mcp),
+  [LibreOffice](https://github.com/jwingnut/mcp-libre),
+  [Jupyter](https://github.com/datalayer/jupyter-mcp-server),
+  [Home Assistant](https://raspberry.tips/en/smart-home/home-assistant-mcp-server-ai-setup).
+- **PAKE:** [CPace (Go)](https://pkg.go.dev/filippo.io/cpace),
+  [CPace (libsodium)](https://github-redirect.dependabot.com/jedisct1/cpace).
