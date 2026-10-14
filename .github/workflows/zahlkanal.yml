@@ -12,6 +12,7 @@ on:
     paths:
       - "contracts/solana-channel/**"
       - "packages/protocol/src/channel.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
       - "packages/node/src/kanal-kasse.ts"
       - "docs/ZAHLKANAL.md"
       - ".github/workflows/zahlkanal.yml"
@@ -19,6 +20,7 @@ on:
     paths:
       - "contracts/solana-channel/**"
       - "packages/protocol/src/channel.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
       - "packages/node/src/kanal-kasse.ts"
       - "docs/ZAHLKANAL.md"
       - ".github/workflows/zahlkanal.yml"

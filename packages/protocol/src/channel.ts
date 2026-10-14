@@ -9,14 +9,13 @@
  *
  * Läuft auch im Browser: keine Node-Module, Zahlen über `DataView` (das
  * Buffer-Polyfill kennt `readBigInt64LE` & Co. nicht).
+ *
+ * Anweisungen seit A-21b1 als kit-`Instruction` (`…Anweisung`); die `…Ix`-Fassungen
+ * für web3.js entstehen daraus über `alsWeb3()` (`kit-bruecke.ts`), bis A-21d/e.
  */
-import {
-  Ed25519Program,
-  PublicKey,
-  SystemProgram,
-  SYSVAR_INSTRUCTIONS_PUBKEY,
-  TransactionInstruction,
-} from "@solana/web3.js";
+import { AccountRole, address, type Instruction } from "@solana/kit";
+import { PublicKey, type TransactionInstruction } from "@solana/web3.js";
+import { alsWeb3, ed25519Anweisung, konto, SYSTEM_PROGRAMM, SYSVAR_ANWEISUNGEN } from "./kit-bruecke.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
@@ -189,10 +188,12 @@ export function teileKanalZahlung(auszahlbar: bigint, empfaenger: readonly Kanal
   return { providerLamports: auszahlbar - anteile.reduce((s, a) => s + a, 0n), anteile };
 }
 
-export function oeffneKanalIx(p: {
+export interface KanalOeffnen {
   kunde: string; provider: string; nonce: bigint; betrag: bigint; ablauf: bigint;
   sitzungsSchluessel: string; empfaenger: readonly KanalEmpfaenger[];
-}, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
+}
+
+export function oeffneKanalAnweisung(p: KanalOeffnen, programmId = KANAL_PROGRAMM_ID): Instruction {
   if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
   const { adresse } = kanalAdresse(p.kunde, p.provider, p.nonce, programmId);
   pruefeKanalEmpfaenger(p.empfaenger, adresse);
@@ -200,42 +201,52 @@ export function oeffneKanalIx(p: {
     diskriminator("global", "open"), u64(p.nonce), u64(p.betrag), i64(p.ablauf), schluessel(p.sitzungsSchluessel),
     u32(p.empfaenger.length), ...p.empfaenger.flatMap((e) => [schluessel(e.adresse), u32(e.ppm)]),
   );
-  return new TransactionInstruction({
-    programId: new PublicKey(programmId),
-    keys: [
-      { pubkey: new PublicKey(p.kunde), isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(p.provider), isSigner: false, isWritable: false },
-      { pubkey: new PublicKey(adresse), isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  return {
+    programAddress: address(programmId),
+    accounts: [
+      konto(p.kunde, AccountRole.WRITABLE_SIGNER),
+      konto(p.provider, AccountRole.READONLY),
+      konto(adresse, AccountRole.WRITABLE),
+      konto(SYSTEM_PROGRAMM, AccountRole.READONLY),
     ],
-    data: Buffer.from(daten),
-  });
+    data: daten,
+  };
+}
+
+export function oeffneKanalIx(p: KanalOeffnen, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
+  return alsWeb3(oeffneKanalAnweisung(p, programmId));
+}
+
+export interface KanalAbrechnen {
+  provider: string; gutschrift: Gutschrift; sitzungsSchluessel: string; empfaenger: readonly KanalEmpfaenger[];
 }
 
 /**
  * Einlösen: die Ed25519-Anweisung mit der Gutschrift direkt vor `settle`,
  * danach die Empfänger in der Reihenfolge des Kanals.
  */
-export function rechneKanalAbIxs(p: {
-  provider: string; gutschrift: Gutschrift; sitzungsSchluessel: string; empfaenger: readonly KanalEmpfaenger[];
-}, programmId = KANAL_PROGRAMM_ID): TransactionInstruction[] {
+export function rechneKanalAbAnweisungen(p: KanalAbrechnen, programmId = KANAL_PROGRAMM_ID): Instruction[] {
   const g = p.gutschrift;
-  const pruefung = Ed25519Program.createInstructionWithPublicKey({
-    publicKey: schluessel(p.sitzungsSchluessel),
-    message: gutschriftNachricht(g.kanal, g.betrag, g.ablauf),
-    signature: hexToBytes(g.signatur),
+  const pruefung = ed25519Anweisung({
+    schluessel: schluessel(p.sitzungsSchluessel),
+    nachricht: gutschriftNachricht(g.kanal, g.betrag, g.ablauf),
+    signatur: hexToBytes(g.signatur),
   });
-  const settle = new TransactionInstruction({
-    programId: new PublicKey(programmId),
-    keys: [
-      { pubkey: new PublicKey(p.provider), isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(g.kanal), isSigner: false, isWritable: true },
-      { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
-      ...p.empfaenger.map((e) => ({ pubkey: new PublicKey(e.adresse), isSigner: false, isWritable: true })),
+  const settle: Instruction = {
+    programAddress: address(programmId),
+    accounts: [
+      konto(p.provider, AccountRole.WRITABLE_SIGNER),
+      konto(g.kanal, AccountRole.WRITABLE),
+      konto(SYSVAR_ANWEISUNGEN, AccountRole.READONLY),
+      ...p.empfaenger.map((e) => konto(e.adresse, AccountRole.WRITABLE)),
     ],
-    data: Buffer.from(verbinde(diskriminator("global", "settle"), u64(g.betrag))),
-  });
+    data: verbinde(diskriminator("global", "settle"), u64(g.betrag)),
+  };
   return [pruefung, settle];
+}
+
+export function rechneKanalAbIxs(p: KanalAbrechnen, programmId = KANAL_PROGRAMM_ID): TransactionInstruction[] {
+  return rechneKanalAbAnweisungen(p, programmId).map(alsWeb3);
 }
 
 /**
@@ -243,28 +254,29 @@ export function rechneKanalAbIxs(p: {
  * Unterschrift des Kunden: Wer die Transaktion bezahlt, ist gleich – das Geld
  * geht nur an den Kunden des Kanals.
  */
+export function erstatteKanalAnweisung(p: { kunde: string; kanal: string }, programmId = KANAL_PROGRAMM_ID): Instruction {
+  return {
+    programAddress: address(programmId),
+    accounts: [konto(p.kunde, AccountRole.WRITABLE), konto(p.kanal, AccountRole.WRITABLE)],
+    data: diskriminator("global", "refund"),
+  };
+}
+
 export function erstatteKanalIx(p: { kunde: string; kanal: string }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: new PublicKey(programmId),
-    keys: [
-      { pubkey: new PublicKey(p.kunde), isSigner: false, isWritable: true },
-      { pubkey: new PublicKey(p.kanal), isSigner: false, isWritable: true },
-    ],
-    data: Buffer.from(diskriminator("global", "refund")),
-  });
+  return alsWeb3(erstatteKanalAnweisung(p, programmId));
+}
+
+export function stockeKanalAufAnweisung(p: { kunde: string; kanal: string; betrag: bigint }, programmId = KANAL_PROGRAMM_ID): Instruction {
+  if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
+  return {
+    programAddress: address(programmId),
+    accounts: [konto(p.kunde, AccountRole.WRITABLE_SIGNER), konto(p.kanal, AccountRole.WRITABLE), konto(SYSTEM_PROGRAMM, AccountRole.READONLY)],
+    data: verbinde(diskriminator("global", "top_up"), u64(p.betrag)),
+  };
 }
 
 export function stockeKanalAufIx(p: { kunde: string; kanal: string; betrag: bigint }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
-  return new TransactionInstruction({
-    programId: new PublicKey(programmId),
-    keys: [
-      { pubkey: new PublicKey(p.kunde), isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(p.kanal), isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data: Buffer.from(verbinde(diskriminator("global", "top_up"), u64(p.betrag))),
-  });
+  return alsWeb3(stockeKanalAufAnweisung(p, programmId));
 }
 
 /** Das Konto eines Kanals lesen (Daten von `getAccountInfo`); wirft bei falscher Art oder Länge. */

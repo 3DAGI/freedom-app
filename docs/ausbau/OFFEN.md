@@ -135,7 +135,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.5n | Pakete holen (W6a) | frei |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5s, 11.5a1, 11.5a2 (Spur B) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
-| A-21b1, A-21b2 | `@solana/kit` 8.4.0: Protokoll (Zahlkanal, ohne Internet, Brücke zu web3.js), dann App (HTLC, Kanal, Relayer) | frei – als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| A-21b2 | `@solana/kit` in der App: HTLC, Kanal, Relayer (A-21b1 ✓: Protokoll mit Brücke zu web3.js) | frei – als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-21c–f | RPC, Signieren, Knoten, Aufräumen | nach A-21b2 |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17c | Cashu-Baustein (`@cashu/cashu-ts`: Mint wählen, Token senden und empfangen, NUT-11/12) | frei ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
