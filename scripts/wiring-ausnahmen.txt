@@ -210,7 +210,4 @@ agent-auftrag.ts|naechsteStufe|Agenten in Räumen (11.3b2, nur Protokoll) – ve
 knoten-code.ts|baueCodeAuftrag|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
 knoten-code.ts|leseCodeAntwort|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
 knoten-code.ts|leseCodeSchritt|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
-knoten-code.ts|codeAntwortText|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
-knoten-code.ts|codeSchrittText|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
-knoten-code.ts|leseCodeAuftrag|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
-knoten-code.ts|istProjektName|Vibecoden auf dem eigenen Knoten: der Knoten liest Aufträge und meldet Schritte und Antworten erst mit Projekten und Ablauf (A-31, VKc)
+knoten-code.ts|codeSchrittText|Vibecoden auf dem eigenen Knoten: der Knoten meldet Schritte erst mit dem Agenten (A-31, VKc2)

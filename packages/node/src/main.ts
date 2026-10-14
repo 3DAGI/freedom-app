@@ -36,6 +36,7 @@ import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
+import { projekteAusUmgebung } from "./projekte.js";
 import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
@@ -358,6 +359,19 @@ async function main(): Promise<void> {
   const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
   console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
   if (turn) statusRollen.add("turn");
+  // Vibecoden auf dem eigenen Knoten (A-31, VKc1): Projekte nur mit VIBECODEN=1 und git – ungültig → kein Start
+  const projekteWahl = projekteAusUmgebung(process.env);
+  if (projekteWahl?.grund) {
+    console.error(`[code] ${projekteWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  let projekte = projekteWahl?.ablage;
+  if (projekte && !(await projekte.pruefe())) {
+    console.warn("[code] git fehlt oder ~/.freedom/projekte lässt sich nicht anlegen – Vibecoden aus");
+    projekte = undefined;
+  }
+  if (projekte) statusRollen.add("code");
+  console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
   const agentWahl = agentAusUmgebung(process.env);
   if (agentWahl?.grund) {
@@ -404,6 +418,7 @@ async function main(): Promise<void> {
       keypair,
       weckBuch,
       turn,
+      projekte,
       agent: knotenAgent,
       lud16,
       werber,

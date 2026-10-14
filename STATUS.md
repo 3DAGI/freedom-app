@@ -9199,3 +9199,47 @@ Nur Dokumente (`docs/VIBECODEN-ENTWURF.md`).
 Neue Aufteilung VKb–VKl.
 
 **Prüfungen:** nur Dokumente – siehe Pull Request.
+
+## Schritt VKc1 – Projekte auf dem eigenen Knoten
+
+Spur A, erster Teil von VKc aus der neuen Aufteilung (Entwurf `docs/VIBECODEN-ENTWURF.md`; VK-W2 A,
+entschieden 13.10.). Der Knoten legt Projekte an und listet sie auf – nur für den gekoppelten Besitzer.
+Den Agenten, der darin arbeitet, bringt VKc2 (wartet auf VK-W1n und VK-W6).
+
+**Neu:**
+- **`node/src/projekte.ts`** (`ProjektAblage`):
+  - Je Projekt ein Ordner in `~/.freedom/projekte` (0700) mit eigenem git, Zweig `main`, ohne Vorlagen.
+  - Nur Namen nach `istProjektName()` und nur echte Ordner; Verweisen folgt der Knoten nicht.
+  - Höchstens 100 Projekte. „Schritte“ sind die Commits, „geändert“ ist die Zeit des letzten Commits,
+    ohne Commit die Zeit des Ordners.
+  - git nur ohne Shell, mit leerer Umgebung und ausdrücklichem Repository. Feste Einstellungen gehen jeder
+    Datei vor: kein fsmonitor, keine Hooks, keine Signaturprüfung beim Lesen. Ab VKc2 schreibt ein Agent
+    im Projekt; eine `.git/config` von dort führt nichts aus (Gegenprobe im Test).
+- **Einschalten** mit `VIBECODEN=1` (`projekteAusUmgebung()`); ein anderer Wert hält den Start an. Ohne
+  git bleibt es aus. An ist es nur mit Rolle `code` im Status.
+- **`dvm-provider.ts`, `handleCode()`:** Kind 5080 nur aus einem Umschlag mit Nachweis (`istBesitzer()`),
+  gelesen über `leseCodeAuftrag()`, Antwort 6080 versiegelt (`codeAntwortText()`).
+  - `liste` und `neu` gehen.
+  - `auftrag`, `freigabe` und `stopp` lehnt der Knoten bis VKc2 mit der Kennung `code-ohne-motor` ab.
+  - Weitere Kennungen: `code-aus`, `code-zu-viele`, `code-git`, `code-ablage`.
+  - Zählt nicht als Auftrag. Ins Log kommen nur Zahlen; Fehler des Dateisystems tragen den Pfad, sie gehen
+    nur als `code-ablage` hinaus.
+  - Bis VKc1 ging ein versiegelter 5080 des Besitzers als KI-Frage durch.
+- **Status:** neue Rolle `code` (`STATUS_ROLLEN`, App-Text „Projekte zum Vibecoden“, klein in Spur B/C).
+- **Docker-Bild:** mit git. `docker-compose.yml` hat `VIBECODEN`.
+- **Doku:** `docs/PROTOCOL.md` 34 (Ablehnungen, `neu` ändert Vorhandenes nicht), 24 (Rolle), `docs/PROVIDER.md`.
+- **`docs/ausbau/OFFEN.md`:** entschiedene VK-Fragen raus. Neu sind VK-W1n und VK-W6 bis VK-W9 sowie die
+  Zeilen der Spur A nach der neuen Aufteilung (VKc2, VKc3, VKd, VKf, VKj, VKl).
+- Drei Ausnahmen in `wiring-ausnahmen.txt` fallen weg; `codeSchrittText` wartet auf VKc2.
+
+**Tests:** `node/test/projekte.test.ts` +9:
+- Umgebung; Anlegen und Auflisten; Namen, Verweise und Dateien; Grenze 100; ohne git.
+- Die Konfiguration im Projekt (mit Gegenprobe).
+- Der Besitzer über den Provider: versiegelt, kein Name im Log, zählt nicht.
+- Fremde, ohne Ablage, Lauf ohne Motor (Kennungen).
+- `main.ts` und Docker-Bild.
+- `protocol/test/knoten-status.test.ts`: zwölf Rollen.
+
+**Prüfungen:** protocol 1290 grün, node 443 (+9, 9 übersprungen), app 1114, mls 13, Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
+

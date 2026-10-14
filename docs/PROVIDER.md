@@ -459,6 +459,21 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
+## Vibecoden auf dem eigenen Knoten (A-31, im Aufbau)
+
+Vom Handy aus Programme auf deinem Knoten bauen lassen
+(`docs/VIBECODEN-ENTWURF.md`). Seit VKc1 legt der Knoten Projekte an und
+listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
+
+- **Einschalten:** `VIBECODEN=1` in der Umgebung. Ein anderer Wert als `0` oder `1`
+  hält den Start an. Nötig ist git; das Docker-Bild bringt es mit. Fehlt es, bleibt
+  Vibecoden aus, und im Log steht `[code] …`.
+- **Projekte:** je Projekt ein Ordner in `~/.freedom/projekte` (0700) mit eigenem
+  git, Zweig `main`; unter Docker im Volume `freedom-state`. Ein Projekt lässt
+  sich dort auch ohne Freedom mit git öffnen.
+- **Wer darf:** nur gekoppelte Geräte des Besitzers, versiegelt (Kind 5080). Ins
+  Log kommen nur Zahlen, nie Projektnamen.
+
 ## Gratis-Start (A-14)
 
 Neue Kunden fragen zuerst gratis. Dein Knoten verschenkt dafür ein Budget je

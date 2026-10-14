@@ -764,7 +764,7 @@ Aufträge.
 |---|---|
 | `fassung` | Fassung des Knotens, 1–32 Zeichen `0-9A-Za-z.+-` |
 | `seit` | Start des Prozesses, Unix-Sekunden |
-| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a); unbekannte Kennungen (Kleinbuchstaben, z. B. `pruefer` älterer Knoten von P3b bis P5a) bleiben unbeachtet |
+| `rollen` | gestartete Rollen aus `ki`, `relay`, `speicher`, `gateway`, `zahlkanal`, `lnurl`, `lp`, `relayer`, `tor`, `app`, `turn` (seit B-13a), `code` (seit A-31 VKc1); unbekannte Kennungen (Kleinbuchstaben, z. B. `pruefer` älterer Knoten von P3b bis P5a) bleiben unbeachtet |
 | `modelle` | angebotene Modelle, höchstens 50 Namen zu je höchstens 100 Zeichen, ohne Steuerzeichen |
 | `auftraege` | `erledigt`, davon `gratis`, und `abgelehnt` seit dem Start |
 | `abgerechnetMsat` | seit dem Start in Antworten verlangt (nicht unbedingt schon bezahlt) |
@@ -1175,3 +1175,18 @@ Der Knoten antwortet nur aus einem Umschlag mit gültigem Nachweis
 (`istBesitzer()`). Projekte, Befehle und Ausgaben reisen nur versiegelt
 zwischen dem Besitzer und seinem Knoten; ins Log kommen nur Zahlen und
 Kennungen.
+
+**Ablehnungen** (seit VKc1): Rückmeldung 7000 mit `status` = `error` und
+`["fall", <kennung>]`, versiegelt wie die Antwort. Die App erkennt den Fall am
+Tag, nie am Text:
+
+| `fall` | Bedeutung |
+|---|---|
+| `code-aus` | Vibecoden ist auf dem Knoten aus (`VIBECODEN=1` fehlt, oder git fehlt) |
+| `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat noch keinen Agenten (bis VKc2) |
+| `code-zu-viele` | `neu`: schon 100 Projekte |
+| `code-git` | `neu`: git konnte das Projekt nicht anlegen |
+| `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |
+
+`neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
+Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.

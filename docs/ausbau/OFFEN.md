@@ -27,18 +27,20 @@ verweist nur; bei Widerspruch gilt die Quelle.
 ### 1.1 Agenten führen Code aus (11.5 und A-31 Vibecoden)
 
 Für die VK-Fragen gelten bis zur Antwort die Empfehlungen als Arbeitsgrundlage
-(Entwurf, Kopf). Für W3a, W6a und W7 nicht – dort baut niemand.
+(Entwurf, Kopf) – außer VK-W6: eine neue Abhängigkeit erst nach der Antwort.
+Für W3a, W6a und W7 nicht – dort baut niemand. VK-W2 bis VK-W5 sind seit
+13.10. entschieden (Entwurf, „Entscheidungen vom 13.10.2026“).
 
 | Nr. | Frage | Empfehlung | Quelle | hält auf |
 |---|---|---|---|---|
 | W3a | Welcher Harness für Aufträge Fremder? | A – Ablauf von mini-swe-agent in TypeScript nachbauen | [`REPO-AGENTEN-ENTWURF.md`](../REPO-AGENTEN-ENTWURF.md), „Fragen dazu“ | 11.5c, 11.5d, Ort der Arbeitskopie (11.5a1) |
 | W6a | Netz in der Sandbox | Pakete holt der Knoten (Sperrdatei mit Prüfsumme, feste Liste, nur GET), die Sandbox bleibt ohne Netz | ebd. | 11.5n |
 | W7 | Wer darf an Code privater Räume arbeiten? | A – nur Agenten, die Mitglied sind, mit Modell auf demselben Rechner | ebd. | 11.5c, 11.5d |
-| VK-W1 | Harness auf dem eigenen Knoten | A – eigener Ablauf wie W3a, Atomic Agent später | [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md) | VKc |
-| VK-W2 | git ins Docker-Bild des Knotens? | A – ja, nur für eigene Projekte | ebd. | VKc |
-| VK-W3 | Vorschau | A – über die Relays in die App, B (eigene Adresse) später | ebd. | VKd |
-| VK-W4 | Netz für eigene Projekte | B – Schalter „Internet frei“ je Projekt, nie ins Heimnetz | ebd. | VKc |
-| VK-W5 | Koppeln auch mit kurzem Code? | A – nur QR | ebd. | – |
+| VK-W1n | Wie arbeitet der Agent auf dem eigenen Knoten? | C – Knoten als ACP-Client, Hermes als erster Motor (gepinnt, in der Sandbox, Freedom-MCP statt Nous Portal), weitere Motoren tauschbar | [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), „Neue Fragen“ | VKc2, VKc3, VKd |
+| VK-W6 | Neue Abhängigkeit `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0, 6,1 MB, keine weiteren) | ja | ebd. | VKc2 |
+| VK-W7 | Werkbank-Knoten für Programme ohne ARM64 (Unity, Unreal, Resolve, Ableton, Xcode) | A – weitere eigene Rechner per QR | ebd. | VKj |
+| VK-W8 | Reihenfolge der Live-Vorschau | A – Web und Linux, dann Android, dann Windows | ebd. | VKg, VKh, VKi |
+| VK-W9 | Code zum Eintippen | K1 – zwölf Zeichen ohne neue Kryptografie; K2 (PAKE) später | ebd. | VKf |
 
 ### 1.2 Lightning wie der Zahlkanal (RM2, Cashu-Pfand)
 
@@ -137,9 +139,12 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc | Knoten: Projekte, Ablauf mit Freigaben und Stopp, Commit je Schritt, nur für den Besitzer | frei (VK-Empfehlungen als Grundlage) |
-| VKd | Knoten und Protokoll: Bauen und Vorschau-Paket | frei, nach VKc |
-| VKf | App: „Als Repo in einen Raum stellen“ | frei, nach VKc |
+| VKc2 | Knoten: ACP-Client – Schritte, Freigaben, Stopp auf VKa abbilden, Commit je Schritt; Motor tauschbar | nach VK-W1n, VK-W6 |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B) | nach VK-W1n, VKb |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | nach VKc2 |
+| VKf | Kopplung mit Code zum Eintippen | frei (VK-W9 K1 als Grundlage) |
+| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | nach VK-W7 |
+| VKl | „Als Repo in einen Raum stellen“ | frei, nach VKc2 |
 | 11.5b | Protokoll: Repo-Tag in der Erwähnung, `patchStatus()` ohne Agenten | frei |
 | 11.5n | Pakete holen | nach W6a |
 | 11.5c | Knoten: Ablauf für Repo-Aufträge, Patch einreichen | nach W3a, W7 |
