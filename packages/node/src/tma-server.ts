@@ -2,7 +2,7 @@
  * TMA-Server: Mini-App + Stars + TON auf einem Port (FREEDOM_TMA=1).
  *
  * Routen:
- *   GET  /                       freedom.html (der TMA-Build der App)
+ *   GET  /                       tma/index.html (der Mini-App-Build der App, FREEDOM_TMA=1)
  *   GET  /tma/tonconnect-manifest.json
  *   POST /tma/stars/invoice      → { link, stars }      (XTR via Bot API)
  *   GET  /tma/stars/status       → { balance, recent[] }
@@ -45,7 +45,7 @@ export interface TmaConfig {
   port?: number;
   /** Host (Standard 0.0.0.0). */
   host?: string;
-  /** Wurzelverzeichnis mit freedom.html + tma/tonconnect-manifest.json. */
+  /** App-Dist mit tma/index.html (Mini-App-Build; seit TMA-1 nicht mehr freedom.html). */
   statisch: string;
   /** Persistenz: verbrauchte tx + Stars-Guthaben (JSON-Dateien). */
   daten: string;
@@ -120,9 +120,9 @@ export class TmaServer {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-    // ── Statisch: freedom.html + Manifest
+    // ── Statisch: der Mini-App-Build (dist/tma/, nie der Web-Build) + Manifest
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return this.sendeDatei(res, "freedom.html", "text/html; charset=utf-8");
+      return this.sendeDatei(res, join("tma", "index.html"), "text/html; charset=utf-8");
     }
     if (url.pathname === "/tma/tonconnect-manifest.json") {
       return this.sendeManifest(res, url);

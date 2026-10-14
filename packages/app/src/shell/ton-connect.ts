@@ -14,7 +14,14 @@
  *
  * WalletConnect ist in TMAs laut Telegram-Richtlinien ausgeblendet — wir
  * nutzen ausschließlich TON Connect.
+ *
+ * Noch nicht verdrahtet (TMA-1): Ob TON ein Zahlweg wird, entscheidet der MENSCH
+ * (`docs/MINI-APP-TMA.md`, „Offen“). Der Mini-App-Build lädt TON Connect UI deshalb
+ * nicht; kommt es, dann im Skript der App gebündelt (Hash der CSP), nie vom Server.
  */
+
+import { getLang } from "../i18n.js";
+import { tmaApiBasis } from "./tma.js";
 
 interface TonWallet { account: { address: string; chain?: string }; }
 
@@ -65,7 +72,7 @@ export async function tonConnectInit(manifestUrl?: string): Promise<TonConnectUI
   // Manifest: liegt beim TMA-Server (FREEDOM_TMA_API), nicht beim statischen
   // Host — GitHub Pages liefert kein Manifest aus, der Server schon.
   const url = manifestUrl ?? tmaApiBasis() + "/tma/tonconnect-manifest.json";
-  _ui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl: url, language: "de" });
+  _ui = new window.TON_CONNECT_UI.TonConnectUI({ manifestUrl: url, language: getLang() });
   _ui.onStatusChange((w) => {
     _addr = w?.account?.address;
     emit();
@@ -73,11 +80,6 @@ export async function tonConnectInit(manifestUrl?: string): Promise<TonConnectUI
   _ui.setConnectionStatus?.((w) => { _addr = w?.account?.address; emit(); });
   await _ui.restoreConnection().catch(() => undefined);
   return _ui;
-}
-
-/** API-Basis (FREEDOM_TMA_API) — leer = Same-Origin. */
-export function tmaApiBasis(): string {
-  return (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
 }
 
 export async function tonVerbinden(): Promise<void> {
@@ -125,9 +127,4 @@ export function kommentarBase64(kommentar: string): string {
   let bin = "";
   for (const b of buf) bin += String.fromCharCode(b);
   return btoa(bin);
-}
-
-/** Einen eindeutigen Auftrags-Kommentar erzeugen (clientseitige Nonce). */
-export function auftragsKommentar(auftrag: string, nonce = Math.random().toString(36).slice(2, 10)): string {
-  return `freedom:${auftrag}:${nonce}`;
 }

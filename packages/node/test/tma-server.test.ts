@@ -8,6 +8,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { createHmac } from "node:crypto";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { TmaServer } from "../src/tma-server.js";
 
 const BOT_TOKEN = "5550001234:TEST-TOKEN-abcXYZ";
@@ -68,7 +71,7 @@ interface TestServer {
   stop: () => Promise<void>;
 }
 
-async function starteServer(): Promise<TestServer> {
+async function starteServer(statisch = "/tmp/freedom-app/packages/app/dist"): Promise<TestServer> {
   const bot = await fakeBot();
   const alt = process.env.TELEGRAM_API_BASE;
   process.env.TELEGRAM_API_BASE = bot.url;
@@ -78,7 +81,7 @@ async function starteServer(): Promise<TestServer> {
     tonDepot: DEPOT,
     port: 0,
     host: "127.0.0.1",
-    statisch: "/tmp/freedom-app/packages/app/dist",
+    statisch,
     daten: "/tmp/freedom-tma-test",
   });
   tma.start();
@@ -195,6 +198,23 @@ test("Manifest wird ausgeliefert", async () => {
     const j = await json(r);
     assert.equal(j.name, "FREEDOM");
     assert.ok(String(j.url).startsWith("http"));
+  } finally {
+    await stop();
+  }
+});
+
+test("TMA-1: / liefert den Mini-App-Build (dist/tma/), nie den Web-Build", async () => {
+  const dist = mkdtempSync(join(tmpdir(), "tma-dist-"));
+  writeFileSync(join(dist, "freedom.html"), "web");
+  mkdirSync(join(dist, "tma"));
+  writeFileSync(join(dist, "tma", "index.html"), "mini-app");
+  const { basis, stop } = await starteServer(dist);
+  try {
+    for (const pfad of ["/", "/index.html"]) {
+      const r = await fetch(`${basis}${pfad}`);
+      assert.equal(r.status, 200);
+      assert.equal(await r.text(), "mini-app", pfad);
+    }
   } finally {
     await stop();
   }

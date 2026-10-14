@@ -753,3 +753,13 @@ Fallstricke dieses Bereichs unten anhängen.
   Anhänge liest. Ein neuer Weg, Dateien anzuhängen (Einfügen, Ziehen, Sprachnachricht), geht durch
   `handleChatFiles()` – sonst schickt „Senden“ während des Uploads den Text allein, und der Anhang
   hängt an der nächsten Nachricht. Scheitert ein Upload, geht nichts hinaus.
+- **Mini-App für Telegram nur im eigenen Build** (seit TMA-1, `docs/MINI-APP-TMA.md`): `FREEDOM_TMA=1` schreibt nur
+  `dist/tma/index.html` – nie `dist/freedom.html` (bis TMA-1 überschrieb der Lauf den Web-Build, und `build-site.sh`
+  hätte die Telegram-Fassung als App veröffentlicht). Flag und Adresse des TMA-Servers (`FREEDOM_TMA_API`, nur
+  https-Herkunft) kommen per `define` ins Skript – kein zweites Inline-Skript, der Web-Build liest beides nie. Die CSP
+  der Mini-App erlaubt nur die eine Datei des SDK (`TELEGRAM_SDK`), kein `'self'`, keinen API-Host als Skriptquelle.
+  Die Signatur (`initData`) geht nur über `tmaFetch()` an `/tma/…` – nie `fetch` global ersetzen (bis TMA-1 ging sie
+  so an jede Adresse derselben Herkunft, auf Pages an GitHub). `/tma/` veröffentlicht `pages.yml` nur nachgebaut
+  (`repro-build.sh` mit derselben `FREEDOM_TMA_API`). Stars und TON sind nicht verdrahtet, bis der MENSCH T1–T5
+  entscheidet.
+

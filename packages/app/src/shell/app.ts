@@ -689,11 +689,12 @@ export function boot(): void {
 }
 
 /**
- * Mini-App (FREEDOM_TMA): ready()/expand(), Theme und der fetch-Patch (Signatur
- * auf jeden /tma/*-Aufruf). Eigene Funktion, weil der dynamische Import ein
- * `}` mitbringt, das die strikte Prüfung der Boot-Reihenfolge (8.16g1) liest.
+ * Mini-App (nur im Build mit `FREEDOM_TMA=1`): ready()/expand() und Theme; die Signatur
+ * geht nur über `tmaFetch()` an den TMA-Server. Eigene Funktion, weil der dynamische
+ * Import ein `}` mitbringt, das die strikte Prüfung der Boot-Reihenfolge (8.16g1) liest.
  */
 function starteTmaShell(): void {
+  if (globalThis.FREEDOM_TMA !== true) return;
   import("./tma.js").then(({ startTelegramShell }) => startTelegramShell()).catch(() => {});
 }
 

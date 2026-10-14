@@ -5,11 +5,37 @@ ein eigener Build (`FREEDOM_TMA=1`), Zahlung über **Telegram Stars (XTR)**
 und **TON (Gram, Testnet)**. Lightning/Solana bleiben in der PWA — Telegram
 erlaubt in Mini Apps keine anderen Blockchains als TON.
 
+**Stand nach der Reparatur (TMA-1, 14.10.2026).** Die Mini-App kam am 13./14.10. ohne
+Pull Request direkt auf `main` (lokaler Agent des MENSCHEN). Spur A hat sie geprüft und
+repariert:
+- **Was geht:** Die App öffnet sich in Telegram (ready, expand, Farben). Der Knoten
+  prüft die Signatur (`initData`), legt Stars-Rechnungen an und bucht bezahlte Sterne.
+  TON-Zahlungen prüft er gegen toncenter.
+- **Was nicht geht:** Stars und TON sind **nicht verdrahtet**. Kein Knopf der App ruft
+  `zahleMitStars()` oder `zahleMitTon()` auf, und gebuchte Sterne kauft man nichts. Wofür
+  sie zahlen, muss der MENSCH entscheiden (Abschnitt „Offen“).
+- **Behoben:**
+  - Der Mini-App-Build überschrieb `freedom.html`, sobald `FREEDOM_TMA_API` gesetzt war.
+    Pages hätte dann die Telegram-Fassung als Haupt-App veröffentlicht, oder der
+    Nachbau-Vergleich hätte jede Veröffentlichung gestoppt. Jetzt liegt sie nur in
+    `dist/tma/` und wird wie die App bitgleich nachgebaut.
+  - Ein globaler fetch-Patch hängte die Telegram-Signatur an jeden Aufruf derselben
+    Herkunft, auf GitHub Pages also an GitHub. Jetzt geht sie nur über `tmaFetch()` an
+    den TMA-Server.
+  - Das Inline-Skript mit der API-Adresse ließ die CSP nicht zu, Betrieb B konnte also
+    nie den Server erreichen. Jetzt steht die Adresse per `define` im Skript.
+  - Die CSP erlaubte ganz `telegram.org`, `'self'` und den API-Host als Skriptquelle.
+    Jetzt erlaubt sie nur die eine Datei des SDK.
+  - TON Connect UI lud die Seite vom Knoten, ohne es zu nutzen. Jetzt lädt sie es nicht
+    mehr.
+  - Das „Icon“ war eine SVG-Datei mit der Endung `.png` und der Aufschrift „SW“ (aus
+    swarm). Die App braucht es nicht mehr.
+
 ## Aufbau
 
 | Teil | Ort | Was |
 |---|---|---|
-| Client-Brücke | `packages/app/src/shell/tma.ts` | initData, ready/expand, fetch-Patch, Theme |
+| Client-Brücke | `packages/app/src/shell/tma.ts` | initData, ready/expand, Theme, `tmaFetch()` – die Signatur nur an den TMA-Server |
 | Stars-Client | `packages/app/src/shell/stars-checkout.ts` | Rechnung anfordern, natives Sheet öffnen, Status |
 | TON-Client | `packages/app/src/shell/ton-connect.ts` | Wallet verbinden, Gram senden |
 | initData-Verify | `packages/node/src/tma-auth.ts` | HMAC-SHA256 serverseitig (Sicherheit!) |
@@ -18,15 +44,20 @@ erlaubt in Mini Apps keine anderen Blockchains als TON.
 | TMA-Server | `packages/node/src/tma-server.ts` | HTTP-Routen `/tma/*`, Long-Polling, Persistenz |
 
 Recycelt aus dem swarm-Projekt: `tonconnect-ui.min.js`, Icon und das
-Manifest-Muster stammen aus `~/swarm/mini-app/`.
+Manifest-Muster stammen aus `~/swarm/mini-app/`. Die Datei `tonconnect-ui.min.js` ist
+bitgleich mit `@tonconnect/ui` 2.4.4 (Apache-2.0, `dist/tonconnect-ui.min.js`, SHA-256
+`ab1d010e9b9d9af37e98bdfa6248068eccdbeb7bbbee99d86364abd1d9a7611a`). Die App lädt sie seit
+TMA-1 nicht mehr. Kommt TON, wird sie im Skript der App gebündelt (Hash der CSP), nicht vom
+Server geladen.
 
 ## Bauen und starten
 
 Zwei Betriebsarten — beides mit demselben Code:
 
-**A) Alles auf einem Host** (Node liefert App + API):
+**A) Alles auf einem Host** (Node liefert App + API; der Build schreibt nur
+`dist/tma/index.html`, der Knoten liefert sie unter `/`):
 ```bash
-cd packages/app && FREEDOM_TMA=1 npm run build
+cd packages/app && FREEDOM_TMA=1 node build.mjs
 cd ../node && FREEDOM_TMA=1 TELEGRAM_BOT_TOKEN=<Token> TON_DEPOT_ADDRESS=<EQ…> npx tsx src/main.ts
 ```
 
@@ -40,11 +71,16 @@ cd ../node && FREEDOM_TMA=1 TELEGRAM_BOT_TOKEN=<Token> TON_DEPOT_ADDRESS=<EQ…>
 ```
 
 Bei B liegt die App auf Pages (schnell, weltweit ausgeliefert), `/tma/*`
-(Stars, TON) läuft gegen den Node. Der Build schreibt die API-Adresse als
-`globalThis.FREEDOM_TMA_API` in den Header, der fetch-Patch hängt die Signatur
-an jeden Aufruf an den API-Host, die CSP erlaubt die Origin. Cross-Origin mit
-`Authorization`-Header braucht den gespiegelten `Access-Control-Allow-Origin` —
-der Server macht das (die HMAC-Signatur schützt, nicht die Origin).
+(Stars, TON) läuft gegen den Node:
+- Der Build setzt die API-Adresse per `define` ins Skript, denn ein zweites
+  Inline-Skript ließe die CSP nicht zu.
+- `tmaFetch()` hängt die Signatur nur an Aufrufe an diesen Server; `connect-src https:`
+  deckt ihn schon.
+- `pages.yml` baut `/tma/` mit derselben Adresse nach (`repro-build.sh`) und veröffentlicht
+  nur, was bitgleich ist.
+- Cross-Origin mit `Authorization`-Header braucht den gespiegelten
+  `Access-Control-Allow-Origin`. Der Server macht das; es schützt die HMAC-Signatur, nicht
+  die Origin.
 
 Umgebungsvariablen (Server):
 
@@ -63,7 +99,7 @@ Build-Variable (nur für Betriebsart B):
 
 | Variable | Bedeutung |
 |---|---|
-| `FREEDOM_TMA_API` | API-Basis beim App-Build (z. B. `https://gx10-7f4a.tail0aa21d.ts.net`). In `build-site.sh` und als Repository-Variable für pages.yml gesetzt → `/tma/` wird mitgebaut. Leer/ungenutzt = gleicher Origin (Betriebsart A). |
+| `FREEDOM_TMA_API` | Herkunft des TMA-Servers beim App-Build: nur https, ohne Pfad (z. B. `https://gx10-7f4a.tail0aa21d.ts.net`), sonst bricht der Build ab. In `build-site.sh` und als Repository-Variable für pages.yml gesetzt → `/tma/` wird mitgebaut und nachgebaut. Leer = gleiche Herkunft (Betriebsart A). Der Web-Build liest sie nie. |
 
 ## Bot einrichten (BotFather)
 
@@ -118,3 +154,15 @@ npx tsx --test test/ton-verify.test.ts # 6 Tests: Betrag, Kommentar, Replay
 - WalletConnect ist in TMAs von Telegram blockiert — nur TON Connect.
 - `openInvoice` existiert nur in Telegram selbst; im Browser öffnet der
   t.me-Link in einem neuen Tab.
+
+## Offen – Entscheidungen des MENSCHEN (TMA-1)
+
+Bis zur Antwort bleiben Stars und TON unverdrahtete Bausteine.
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| T1 | Wofür zahlen Sterne? Sie gehen an den Besitzer des Bots, also verwahrt und zentral. Das passt nicht zu A+ (94 % an den Provider) und nicht zu RM2 W1 A (kein Guthaben beim Provider). | A Spende oder Trinkgeld an den Betreiber des Bots, ohne Gegenleistung in der App · B Guthaben nur für KI-Anfragen an den eigenen Knoten des Bot-Besitzers, in Texten als „verwahrt“ benannt · C streichen | **B** – Telegram verlangt Sterne für digitale Güter; ehrlich benannt wie Cashu (E4b V5) |
+| T2 | TON als dritte Kette? | A TON Connect für Telegram-Nutzer (Testnet) · B weglassen, Sterne reichen | **B** – Ziel ist „Sats und SOL gleichwertig“; TON erst nach A-17 und RM2 neu prüfen |
+| T3 | Das SDK von `telegram.org` im Mini-App-Build (eine fremde Skriptquelle, nur dort) | A so lassen (der Weg, den Telegram beschreibt) · B eigene Brücke über die Web-Events von Telegram, ohne fremdes Skript (~60 Zeilen, nur in Telegram testbar) | **A** jetzt, B später prüfen |
+| T4 | Lightning und SOL in der Mini-App: Telegram erlaubt dort für Krypto nur TON (siehe oben) | A in der Mini-App ausblenden · B zeigen und die Sperre des Bots riskieren | **A**, falls T1 B |
+| T5 | Datenschutz: Telegram sieht, wer die App öffnet, und `initData` (Telegram-ID, Name, Benutzername, Foto-Adresse) geht an den TMA-Server | Grenze „telegram“ im Datenschutzbericht, nur in der Mini-App (mit Szenario in `privacy-facts.test.ts`) | **ja**, mit T1 |

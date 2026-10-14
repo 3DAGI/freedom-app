@@ -10,6 +10,8 @@
 #
 # Seit B-12c gehört der Weck-Worker freedom-sw.js dazu: Er läuft mit derselben
 # Herkunft wie die App (CSP `worker-src 'self'`), also muss auch er bitgleich sein.
+# Seit TMA-1 auch die Mini-App für Telegram (tma/index.html), wenn FREEDOM_TMA_API
+# gesetzt ist – mit derselben Adresse gebaut, sonst ergäbe sie eine andere Summe.
 #
 # Fest ist: der Quelltext (ein frischer Arbeitsbaum des Commits – nichts aus dem
 # eigenen Checkout, kein node_modules), die Abhängigkeiten (`npm ci` nach
@@ -36,6 +38,12 @@ case "${1:-}" in
     [ -f "$ORDNER/freedom.html" ] && [ -f "$ORDNER/freedom-sw.js" ] \
       || { echo "Aufruf: --vergleiche-ordner <Ordner mit freedom.html und freedom-sw.js> [commit]" >&2; exit 2; }
     SOLL="$(sha256sum "$ORDNER/freedom.html" | cut -d' ' -f1) $(sha256sum "$ORDNER/freedom-sw.js" | cut -d' ' -f1)"
+    if [ -f "$ORDNER/tma/index.html" ]; then
+      [ -n "${FREEDOM_TMA_API:-}" ] || { echo "$ORDNER/tma/index.html ohne FREEDOM_TMA_API – nicht nachbaubar" >&2; exit 2; }
+      SOLL="$SOLL $(sha256sum "$ORDNER/tma/index.html" | cut -d' ' -f1)"
+    elif [ -n "${FREEDOM_TMA_API:-}" ]; then
+      echo "FREEDOM_TMA_API gesetzt, aber $ORDNER/tma/index.html fehlt" >&2; exit 2
+    fi
     shift 2 ;;
   -*) echo "Unbekannte Option: $1" >&2; exit 2 ;;
 esac
@@ -63,23 +71,30 @@ aufraeumen() {
 }
 trap aufraeumen EXIT
 
-# Ein frischer Arbeitsbaum des Commits, npm ci, Build – ausgegeben werden nur die Summen (App, Weck-Worker).
+# Ein frischer Arbeitsbaum des Commits, npm ci, Build – ausgegeben werden nur die Summen (App, Weck-Worker,
+# mit FREEDOM_TMA_API dazu die Mini-App).
 baue() {
   local ziel="$ARBEIT/$1"
   mkdir -p "$(dirname "$ziel")"
   git -C "$ROOT" worktree add -q --detach "$ziel" "$COMMIT"
   (cd "$ziel" && npm ci --silent >/dev/null) || { echo "npm ci gescheitert ($1)" >&2; return 1; }
   (cd "$ziel/packages/app" && node build.mjs >/dev/null) || { echo "Build gescheitert ($1)" >&2; return 1; }
-  local app sw
+  local app sw tma=""
   app="$(sha256sum "$ziel/packages/app/dist/freedom.html" | cut -d' ' -f1)"
   sw="$(sha256sum "$ziel/packages/app/dist/freedom-sw.js" | cut -d' ' -f1)"
-  echo "$app $sw"
+  if [ -n "${FREEDOM_TMA_API:-}" ]; then
+    (cd "$ziel/packages/app" && FREEDOM_TMA=1 node build.mjs >/dev/null) || { echo "Mini-App-Build gescheitert ($1)" >&2; return 1; }
+    tma=" $(sha256sum "$ziel/packages/app/dist/tma/index.html" | cut -d' ' -f1)"
+  fi
+  echo "$app $sw$tma"
 }
 
 echo "Commit ${COMMIT:0:12} · Node $NODE_IST · SOURCE_DATE_EPOCH $SOURCE_DATE_EPOCH"
 A="$(baue a)"
-echo "freedom.html  ${A% *}"
-echo "freedom-sw.js ${A#* }"
+read -r A_APP A_SW A_TMA <<< "$A"
+echo "freedom.html  $A_APP"
+echo "freedom-sw.js $A_SW"
+[ -z "${A_TMA:-}" ] || echo "tma/index.html $A_TMA"
 case "$MODUS" in
   pruefen)
     # Zweiter Build an einem anderen, tieferen Pfad – absolute Pfade dürfen nicht ins Ergebnis
@@ -88,9 +103,9 @@ case "$MODUS" in
     [ "$A" = "$B" ] || { echo "NICHT reproduzierbar: zwei Builds, zwei Summen" >&2; exit 1; }
     echo "reproduzierbar: zweimal dieselbe Summe" ;;
   vergleiche)
-    [ "${A% *}" = "$SOLL" ] || { echo "ANDERS als erwartet ($SOLL)" >&2; exit 1; }
+    [ "$A_APP" = "$SOLL" ] || { echo "ANDERS als erwartet ($SOLL)" >&2; exit 1; }
     echo "gleich: die erwartete Summe" ;;
   ordner)
     [ "$A" = "$SOLL" ] || { echo "ANDERS als im Ordner ($SOLL)" >&2; exit 1; }
-    echo "gleich: beide Dateien wie im Ordner" ;;
+    echo "gleich: alle Dateien wie im Ordner" ;;
 esac
