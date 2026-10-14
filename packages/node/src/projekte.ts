@@ -22,7 +22,7 @@ export const projekteOrdner = (home = process.env.HOME ?? "."): string => join(h
  * Projektnamen – sie gehen nur als `code-ablage` hinaus und ins Log.
  */
 export class CodeAbgelehnt extends Error {
-  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-zu-viele" | "code-git" | "code-ablage") {
+  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage") {
     super(`Code: ${fall}`);
     this.name = "CodeAbgelehnt";
   }
@@ -102,6 +102,25 @@ export class ProjektAblage {
       projekte.push({ name, schritte, geaendert });
     }
     return projekte.sort((a, b) => b.geaendert - a.geaendert || a.name.localeCompare(b.name));
+  }
+
+  /** Ordner eines Projekts – für den Motor (VKc2). */
+  ort(name: string): string {
+    if (!istProjektName(name)) throw new Error("Projektname ungültig");
+    return join(this.ordner, name);
+  }
+
+  /**
+   * Schritt sichern (VKc2): ein Commit, wenn sich etwas geändert hat. Läuft im
+   * Knoten, nicht in der Sandbox – deshalb bindet die Sandbox `.git` nur lesbar ein
+   * (ein Filter in `.git/config` liefe sonst hier), und die Nachricht trägt nur die Nummer.
+   */
+  async sichere(name: string, nr: number): Promise<boolean> {
+    if (!istProjektName(name) || !Number.isSafeInteger(nr)) throw new Error("Schritt ungültig");
+    if ((await this.git(["status", "--porcelain"], name)).trim() === "") return false;
+    await this.git(["add", "-A"], name);
+    await this.git(["-c", "user.name=Freedom-Agent", "-c", "user.email=agent@knoten.invalid", "commit", "-q", "--no-verify", "-m", `Schritt ${nr}`], name);
+    return true;
   }
 
   /** Projekt anlegen: Ordner (0700) und git mit Zweig `main`. Vorhandene bleiben, wie sie sind (ohne git bekommen sie eines). */

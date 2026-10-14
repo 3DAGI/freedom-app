@@ -126,12 +126,11 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk` 1.8.0) – Schritte, Freigaben, Stopp auf VKa abbilden, Commit je Schritt; Motor tauschbar | frei |
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B) | nach VKc2, VKb |
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | nach VKc2 |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓) | nach VKb |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
 | VKf | Kopplung mit Code zum Eintippen (K1: zwölf Zeichen, PBKDF2 wie der Tresor) | frei |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
-| VKl | „Als Repo in einen Raum stellen“ | frei, nach VKc2 |
+| VKl | „Als Repo in einen Raum stellen“ | frei |
 | 11.5n | Pakete holen (W6a) | frei |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5s, 11.5a1, 11.5a2 (Spur B) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |

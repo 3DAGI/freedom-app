@@ -9520,3 +9520,55 @@ Spur A, `docs/KIT-PLAN.md` (A-21b in zwei Teilen, MENSCH 14.10.). Keine neue Abh
 - Nachtrag nach dem ersten CI-Lauf: Die Validator-Tests (`contracts/solana-channel/tests/kanal.test.ts`)
   importierten die entfernten `…Ix` – die Suche davor deckte `contracts/` nicht ab. Sie bauen die
   web3.js-Fassung jetzt selbst über `alsWeb3()` (dieselben Bytes); Fallstrick in `packages/protocol/CLAUDE.md`.
+
+## Schritt VKc2 – Der Knoten als ACP-Client: Schritte, Freigaben, Stopp, Commit je Schritt
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C, VK-W6 ja – MENSCH 14.10.).
+
+**Neue Abhängigkeit** (Knoten, exakt gepinnt, freigegeben als VK-W6):
+- `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0, 6,1 MB entpackt).
+- Die Peer-Abhängigkeit `zod` (`^3.25 || ^4`) erfüllt das vorhandene `zod` 3.25.76 – in `package-lock.json`
+  kommt genau ein Paket dazu.
+- 1.8.0 ist vom 09.10.2026, also fünf Tage alt (beim kit galten zwei Wochen als Vorsicht, keine Regel). Sie trägt
+  eine SLSA-Provenienz aus dem Repo `agentclientprotocol/typescript-sdk` (npm-Attestierung) – freigegeben ist genau
+  diese Fassung.
+
+**Code:**
+- `code-motor.ts` (neu):
+  - `CodeLaeufe` startet, gibt frei und stoppt Läufe – je Projekt einer, auf dem Knoten höchstens drei
+    (`code-belegt`).
+  - Der Knoten spricht ACP über `client()` – ohne Datei- und Terminal-Fähigkeiten, der Motor arbeitet selbst, in
+    der Sandbox.
+  - Abbildung auf VKa: Werkzeug-Aufruf → `befehl`, sein Ende → `ausgabe` (gekürzt auf 10 000 Zeichen, Anfang
+    und Ende), Freigabe-Anfrage → `befehl` mit `wartet`; `freigabe` wählt „einmal erlauben/ablehnen“, nie „immer“,
+    ohne Antwort nach 300 s „nein“; `stopp` → `session/cancel`, nach 10 s wird der Motor beendet.
+  - Grenzen: 60 min, 200 Schritte (`grenze`).
+  - `prozessMotor()`: der Motor als Prozess, ACP über stdin/stdout, ohne Shell, Umgebung leer bis auf `PATH`,
+    `HOME` (der Projektordner) und `LANG`, stderr verworfen.
+- `projekte.ts`: `ort()` und `sichere()` – ein Commit `Schritt <nr>`, wenn sich etwas geändert hat.
+- `dvm-provider.ts`: `auftrag` startet den Lauf im Hintergrund und antwortet sofort – sonst hinge im
+  Abfrage-Betrieb jede Freigabe hinter ihrem Lauf. Schritte (7000, `partial`) und Ergebnis (6080) gehen in einer
+  Kette, versiegelt an den Sitzungsschlüssel des Auftrags. `freigabe` und `stopp` antworten mit `ok`.
+- **Nicht in `main.ts`:** Der Motor startet erst mit der Sandbox (VK4) – VKb (Spur B) baut sie, VKc3 setzt Hermes
+  hinein und gibt `main.ts` die `MotorStart` (`CODE_MOTOR`, `prozessMotor()` mit der Sandbox davor, `.git` darin
+  nur lesbar). Bis dahin lehnt der Knoten Läufe wie bisher mit `code-ohne-motor` ab.
+- `docs/PROTOCOL.md` 34: Ablauf eines Laufs, `code-belegt`. Die Reihenfolge der Umschläge sagt nichts
+  (NIP-59): Die App ordnet nach `nr`, ein Schritt wartet bis zu seiner `ausgabe`.
+- Fallstrick in `packages/node/CLAUDE.md`; Ausnahme `codeSchrittText` aus `wiring-ausnahmen.txt` (jetzt verdrahtet).
+
+**Gefunden beim Bauen:**
+- Die Handler des SDK laufen nicht streng nacheinander: Eine Freigabe-Anfrage konnte vor dem Werkzeug-Aufruf
+  ankommen, und der Befehl hieß dann nur „werkzeug“. Die Updates verarbeitet jetzt der Handler synchron, und die
+  Freigabe wartet einen Takt.
+- `stopp` aus der Meldung heraus fand die Freigabe noch nicht – sie wird jetzt erst eingetragen, dann gemeldet.
+- Uhren mit `unref()` ließen die Ereignisschleife leerlaufen, und der Test brach ab.
+- Der Test las die Schritte in der Reihenfolge des Relays, die wegen der zufälligen Zeitstempel zufällig ist (2 von
+  15 Läufen rot). Er vergleicht jetzt nach `nr` und `art`; danach 40 von 40 grün.
+
+**Tests:** node +6 (`code-motor.test.ts`):
+- frei;
+- fragen (ja, nein, Frist);
+- Stopp, belegt, Grenze, Fehler ohne Text im Log;
+- Kürzen;
+- Motor als Prozess (Attrappe über stdio, keine Variable des Knotens);
+- Weg durch den Knoten (versiegelt, nie offen, nichts im Log).
