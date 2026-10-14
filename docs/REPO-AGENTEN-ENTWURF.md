@@ -493,7 +493,7 @@ gemacht.“
 | 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 |
 | 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 |
 | 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 |
-| 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 |
+| 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 – **fertig** (14.10.: `repo-auftrag.ts`; `istAgent` an `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()`, Repo-Karten der App) |
 | 11.5n | Pakete holen (W6): Sperrdateien lesen (npm, PyPI), Archive mit Prüfsumme nur von der Liste, Zwischenspeicher; `paket_holen` nur in offenen Räumen; Schalter im privaten Raum | A | ~300 |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (eine Aktion je Antwort, jeder Befehl in der Sandbox), Bundle holen, P1–P4, Patch einreichen, Antwort im Raum | A | ~400, ggf. zwei Teile |
 | 11.5d | App: „Agent beauftragen“, Obergrenze, Kennzeichen an Patches von Agenten, Schalter „Pakete holen“ im privaten Raum | A (Oberfläche mit C) | ~250 |

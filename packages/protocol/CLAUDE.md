@@ -65,3 +65,9 @@ Fallstricke dieses Bereichs unten anhängen.
   `app/test/sol-vektoren-faelle.ts`). Der Umbau auf `@solana/kit` (A-21b–f) muss dieselben Bytes liefern – scheitert
   ein Vektor, ist der Umbau falsch, nicht die Datei. Eine neue Transaktion bekommt einen neuen Fall samt Eintrag.
   `HTLC_PROGRAM_ID` in der Umgebung ändert die LP-Vektoren – die Tests laufen nur ohne.
+- **Repo-Aufträge an Agenten nur über `repo-auftrag.ts`** (seit 11.5b, `docs/PROTOCOL.md` 33): das Tag
+  `["a", <repo>, "", "repo"]` nur über `repoAuftragTags()`, gelesen nur über `leseRepoAuftrag()` (genau ein Repo,
+  höchstens ein Issue); zum Raum gehört das Repo nur über `repoImOffenenRaum()`/`repoImPrivatenRaum()`. Agenten
+  pflegen nie (V6): Wer Rechte oder Status eines Raum-Repos rechnet und den Raum kennt, gibt `istAgent` mit –
+  `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()` (offen `istAgentIm()`, privat die Agent-Karten der
+  Gruppe). Ohne `istAgent` zählt ein Agent mit `repos_pflegen` oder als Admin wie ein Mensch.

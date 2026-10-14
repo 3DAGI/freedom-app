@@ -7,7 +7,7 @@
  * „raum-repo-privat“). Die Engine lädt erst, wenn es private Räume gibt und
  * die Repo-Seite sie braucht.
  */
-import { RAUM_REPO_RECHT, can, gruppenRaum, raumReposPrivat, type InneresSenden, type NostrEvent } from "@freedomstack/protocol";
+import { RAUM_REPO_RECHT, can, gruppenRaum, raumAgentKarten, raumReposPrivat, type InneresSenden, type NostrEvent } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { mlsGesperrt, mlsGruppenStand, mlsSendeEvent } from "./mls-konto.js";
 import { privateRaeume } from "./raum-mls.js";
@@ -18,6 +18,8 @@ export interface PrivateRepos {
   name: string;
   /** Darf ich hier Repos ankündigen und pflegen? */
   darfPflegen: boolean;
+  /** Agenten der Gruppe, an ihrer Karte (11.5b, V6): pflegen nie, setzen keinen Status. */
+  agenten: string[];
   ankuendigungen: NostrEvent[];
   bundles: NostrEvent[];
   patches: NostrEvent[];
@@ -40,9 +42,10 @@ export async function privateRaumRepos(): Promise<PrivateRepos[]> {
     const stand = await mlsGruppenStand(gruppe).catch(() => null);
     if (!stand) continue;
     const { zustand } = gruppenRaum(gruppe, stand.ereignisse, stand);
+    const agenten = raumAgentKarten(stand.ereignisse).map((k) => k.agent);
     out.push({
-      gruppe, name: zustand.space?.name ?? "", darfPflegen: can(stand.ich, RAUM_REPO_RECHT, zustand),
-      ...raumReposPrivat(gruppe, stand.ereignisse, zustand),
+      gruppe, name: zustand.space?.name ?? "", darfPflegen: can(stand.ich, RAUM_REPO_RECHT, zustand), agenten,
+      ...raumReposPrivat(gruppe, stand.ereignisse, zustand, (pk) => agenten.includes(pk)),
     });
   }
   return out;

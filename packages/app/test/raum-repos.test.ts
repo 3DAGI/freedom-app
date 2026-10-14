@@ -7,10 +7,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  baueRepoAnkuendigung, bauePatch, baueStatus, buildRoleGrant, buildRoles, buildSpace, generateKeypair, lesePatch, raumAdresse, signEvent,
+  AGENT_ROLLE, baueRepoAnkuendigung, bauePatch, baueStatus, buildRoleGrant, buildRoles, buildSpace, generateKeypair, lesePatch, raumAdresse, signEvent,
   type NostrEvent,
 } from "@freedomstack/protocol";
-import { ankuendigungAusFeldern, raumAuswahl, repoKarten } from "../src/repo-ansicht.js";
+import { ankuendigungAusFeldern, privateRaumKarten, raumAuswahl, repoKarten } from "../src/repo-ansicht.js";
 
 const besitzer = generateKeypair();
 const pfleger = generateKeypair();
@@ -80,4 +80,36 @@ test("Verdrahtung (11.4a): Karten mit Raum-Struktur, Auswahl in den Einstellunge
   const raeume = lies("shell/tabs/raeume.ts");
   assert.match(raeume, /const MOD_RECHTE = \["lesen", "schreiben", "threads", "moderieren", "rollen_vergeben", "repos_pflegen", "kanaele_verwalten"\] as const;/);
   assert.match(raeume, /\{ id: MOD_ROLLE, name: "Moderator", rank: 50, permissions: \[\.\.\.MOD_RECHTE\] \}, \/\/ kein UI-Text/);
+});
+
+test("11.5b: Karte – ein Agent im Raum setzt keinen Status, auch mit „repos_pflegen“; privat an seiner Karte erkannt", () => {
+  const agent = generateKeypair();
+  const mitAgent = [
+    s(buildSpace({ spaceId: SPACE, name: "Werkstatt", ownerPubkey: besitzer.pk, channels: [] }, 1_790_000_000), besitzer),
+    s(buildRoles(SPACE, besitzer.pk, [
+      { id: "mod", name: "Moderator", rank: 50, permissions: ["lesen", "schreiben", "repos_pflegen"] },
+      { id: AGENT_ROLLE, name: "Agent", rank: 1, permissions: ["lesen", "schreiben", "threads"] },
+    ], 1_790_000_001), besitzer),
+    s(buildRoleGrant(SPACE, besitzer.pk, agent.pk, [AGENT_ROLLE, "mod"], 1_790_000_002), besitzer),
+  ];
+  const ank = s(baueRepoAnkuendigung({ id: "app", name: "App", klon: [], raum: ADRESSE }, besitzer.pk), besitzer);
+  const patchEv = s(bauePatch({ repo: { eigentuemer: besitzer.pk, id: "app" }, text: TEXT }, autor.pk), autor);
+  const annahme = s(baueStatus({ patch: lesePatch(patchEv), status: "angenommen", eigentuemer: besitzer.pk }, agent.pk), agent);
+  const [karte] = repoKarten([ank], [], [patchEv], [annahme], besitzer.pk, mitAgent);
+  assert.equal(karte!.zeilen[0]!.status, "offen", "die Annahme des Agenten zählt nicht");
+  assert.ok(!karte!.repo!.maintainer.includes(agent.pk), "der Agent pflegt nicht mit");
+  // Privat: Agenten an ihrer Karte in der Gruppe (`agenten`)
+  const innen = { ...ank, tags: [["space", "g"], ...ank.tags.filter((t) => t[0] !== "a"), ["maintainers", agent.pk]], sig: "" };
+  const privat = (agenten?: string[]) => privateRaumKarten({ gruppe: "g", ankuendigungen: [innen], bundles: [], patches: [patchEv], status: [annahme], ...(agenten ? { agenten } : {}) }, besitzer.pk);
+  assert.equal(privat()[0]!.zeilen[0]!.status, "angenommen", "Gegenprobe: ohne Agenten-Liste zählte er als Maintainer");
+  assert.equal(privat([agent.pk])[0]!.zeilen[0]!.status, "offen");
+});
+
+test("Verdrahtung (11.5b): Agenten privater Räume aus ihren Karten an raumReposPrivat und an die Karten", () => {
+  const raumRepos = readFileSync(new URL("../src/shell/raum-repos.ts", import.meta.url), "utf8");
+  assert.match(raumRepos, /const agenten = raumAgentKarten\(stand\.ereignisse\)\.map\(\(k\) => k\.agent\);/);
+  assert.match(raumRepos, /raumReposPrivat\(gruppe, stand\.ereignisse, zustand, \(pk\) => agenten\.includes\(pk\)\)/);
+  const ansicht = readFileSync(new URL("../src/repo-ansicht.ts", import.meta.url), "utf8");
+  assert.match(ansicht, /const istAgent = zustand \? istAgentIm\(zustand\) : istAgentPrivat;/);
+  assert.match(ansicht, /patchStatus\(patch, repo, status, istAgent\)/);
 });

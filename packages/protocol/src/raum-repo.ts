@@ -44,14 +44,15 @@ export function raumZustandFuer(adresse: string, events: readonly NostrEvent[], 
  * Das Repo mit den Rechten aus dem Raum: Gehört es bestätigt zum Raum, sind
  * alle mit „repos_pflegen“ (und der Besitzer) Maintainer – `darfAnnehmen()`
  * und `patchStatus()` zählen sie dann wie eingetragene. Sonst bleibt es,
- * wie es ist.
+ * wie es ist. Agenten (11.5b, V6: `istAgent`, offen `istAgentIm()`) pflegen nie –
+ * ein von einem Agenten angekündigtes Repo gehört nicht zum Raum.
  */
-export function mitRaumRechten(repo: GelesenesRepo, zustand: SpaceState | undefined): GelesenesRepo & { raumBestaetigt: boolean } {
+export function mitRaumRechten(repo: GelesenesRepo, zustand: SpaceState | undefined, istAgent?: (pk: string) => boolean): GelesenesRepo & { raumBestaetigt: boolean } {
   if (!repo.raum || !zustand?.ownerPubkey || leseRaumAdresse(repo.raum)?.besitzer !== zustand.ownerPubkey
-    || !can(repo.eigentuemer, RAUM_REPO_RECHT, zustand)) {
+    || !can(repo.eigentuemer, RAUM_REPO_RECHT, zustand) || istAgent?.(repo.eigentuemer)) {
     return { ...repo, raumBestaetigt: false };
   }
-  const pfleger = [zustand.ownerPubkey, ...[...zustand.grants.keys()].filter((pk) => can(pk, RAUM_REPO_RECHT, zustand))];
+  const pfleger = [zustand.ownerPubkey, ...[...zustand.grants.keys()].filter((pk) => can(pk, RAUM_REPO_RECHT, zustand) && !istAgent?.(pk))];
   const maintainer = [...new Set([...repo.maintainer, ...pfleger])].filter((pk) => pk !== repo.eigentuemer);
   return { ...repo, maintainer, raumBestaetigt: true };
 }
@@ -144,15 +145,16 @@ export function raumRepoLabels(raumId: string, a: Parameters<typeof baueLabelSta
  * ist von MLS belegt). Patches, Issues und Kommentare (C-17a) von jedem
  * Mitglied; Status werten `patchStatus()` bzw. `issueStatus()` nach diesen
  * Maintainern aus, Releases (C-20h1) ebenso `repoReleasesZu()`, Labels und
- * Zuständige (C-20i1) `labelStandZu()`.
+ * Zuständige (C-20i1) `labelStandZu()`. Agenten (11.5b, V6: `istAgent`, privat die
+ * Karten der Gruppe) pflegen nie – auch nicht als Admin.
  */
-export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEvent[], zustand: SpaceState): {
+export function raumReposPrivat(raumId: string, ereignisse: readonly InneresEvent[], zustand: SpaceState, istAgent?: (pk: string) => boolean): {
   ankuendigungen: NostrEvent[]; bundles: NostrEvent[]; patches: NostrEvent[]; status: NostrEvent[]; issues: NostrEvent[]; kommentare: NostrEvent[];
   releases: NostrEvent[]; labels: NostrEvent[];
 } {
   const imRaum = ereignisse.filter((e) => RAUM_REPO_ARTEN.includes(e.art) && e.tags.find((t) => t[0] === "space")?.[1] === raumId);
   const alsEv = (e: InneresEvent, tags = e.tags): NostrEvent => ({ id: e.id, pubkey: e.von, created_at: e.zeit, kind: e.art, tags, content: e.text, sig: "" });
-  const pflegt = (pk: string) => can(pk, RAUM_REPO_RECHT, zustand);
+  const pflegt = (pk: string) => can(pk, RAUM_REPO_RECHT, zustand) && !istAgent?.(pk);
   const pfleger = [...zustand.grants.keys()].filter(pflegt);
   const neueste = new Map<string, InneresEvent>();
   for (const e of imRaum) {
