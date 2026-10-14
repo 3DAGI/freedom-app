@@ -216,3 +216,14 @@ Bereichs unten anhängen.
   geteilt und gemeldet (38058 mit Magnet und `inhaltsKennung()`) wird nach jeder bestandenen Prüfung und beim Start
   für unveränderte Ordner – täglich nur neu gemeldet, nicht neu gelesen. Ein Fehler beim Teilen hält ein geprüftes
   Modell nie auf. Den Schwarm-Port öffnet `docker-compose.yml` nicht von selbst.
+- **Projekte zum Vibecoden nur über `projekte.ts`** (seit A-31 VKc1, VK-W2 A): nur mit `VIBECODEN=1`
+  (`projekteAusUmgebung()`, ungültig → kein Start) und nur, wenn `pruefe()` git findet – sonst keine Rolle
+  „code“. Ordner nur unter `~/.freedom/projekte` (0700), Namen nur nach `istProjektName()`, nur echte Ordner
+  (`lstat`, Verweisen folgt der Knoten nie). git nur über `ProjektAblage.git()`: `execFile` ohne Shell, leere
+  Umgebung (`GIT_CONFIG_NOSYSTEM`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CEILING_DIRECTORIES`), das Repository
+  ausdrücklich (`--git-dir`), feste `-c` vor jeder Datei (`GIT_FEST`: kein fsmonitor, keine Hooks, keine
+  Signaturprüfung beim Lesen) – ab VKc2 schreibt ein Agent im Projekt, `.git/config` ist dann fremd: `git log`
+  mit `log.showSignature` und `gpg.program` aus dem Projekt führte sonst ein Programm aus (Gegenprobe in
+  `projekte.test.ts`). Neue git-Befehle nur über `git()` und mit Blick darauf, was sie aus der Konfiguration
+  ausführen. Projektnamen sind Inhalt: Fehler des Dateisystems (tragen den Pfad) nur als `code-ablage`
+  hinaus und ins Log, `outputPreview` nur mit Zahlen.

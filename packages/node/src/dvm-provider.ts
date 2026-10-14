@@ -58,12 +58,14 @@ import {
   KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
+  KIND_DVM_KNOTEN_CODE, codeAntwortText, leseCodeAuftrag, type CodeAntwort,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
+import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -149,6 +151,8 @@ export interface ProviderConfig {
   weckBuch?: WeckBuch;
   /** TURN des eigenen Knotens (B-13a, T2 A) – ohne: keine Zugänge. */
   turn?: TurnDienst;
+  /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
+  projekte?: ProjektAblage;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -247,9 +251,9 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen und TURN-Zugänge des Besitzers nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN-Zugänge und Code-Aufträge des Besitzers nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
-    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN) return;
+    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -673,7 +677,7 @@ export class DvmProvider {
           ["p", request.pubkey],
           ["status", "error"],
           // Kennung (A-14): Die App erkennt den Fall, ohne den Text zu lesen
-          ...(err instanceof GratisLeer || err instanceof AgentAbgelehnt ? [["fall", err.fall]] : []),
+          ...(err instanceof GratisLeer || err instanceof AgentAbgelehnt || err instanceof CodeAbgelehnt ? [["fall", err.fall]] : []),
         ], `error: ${(err as Error).message.slice(0, 200)}`),
         this.cfg.keypair.sk,
       );
@@ -924,6 +928,49 @@ export class DvmProvider {
   }
 
   /**
+   * Code-Auftrag (5080, seit A-31 VKc1, Entwurf `docs/VIBECODEN-ENTWURF.md`):
+   * nur aus einem Umschlag und mit Nachweis (`istBesitzer()`), gelesen nur über
+   * `leseCodeAuftrag()`. Projekte auflisten und anlegen (`ProjektAblage`); einen
+   * Lauf (`auftrag`, `freigabe`, `stopp`) gibt es erst mit dem Motor (VKc2) –
+   * bis dahin `code-ohne-motor`. Projektnamen sind Inhalt: ins Log nur Zahlen.
+   */
+  private async handleCode(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Code nur für den Besitzer");
+    if (!this.cfg.projekte) throw new CodeAbgelehnt("code-aus");
+    const a = leseCodeAuftrag(request);
+    if (!a) throw new Error("Code-Auftrag ungültig");
+    let antwort: CodeAntwort;
+    if (a.aktion === "liste") antwort = { aktion: "liste", projekte: await this.cfg.projekte.liste() };
+    else if (a.aktion === "neu") {
+      await this.cfg.projekte.neu(a.projekt);
+      antwort = { aktion: "neu", projekt: a.projekt };
+    } else throw new CodeAbgelehnt("code-ohne-motor");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: codeAntwortText(antwort),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer` : "Code: Projekt angelegt",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * TURN-Zugang (5079, seit B-13a, Entscheidungen T1 A, T2 A): nur aus einem
    * Umschlag und mit Nachweis (`istBesitzer()`), je Anfrage ein frischer
    * Zugang nach TURN-REST (`turnZugang()`). Der Zugang reist nur versiegelt
@@ -1081,6 +1128,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_WECKEN) return this.handleWecken(request, privat);
     // TURN-Zugang (5079, B-13a): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_TURN) return this.handleTurn(request, privat);
+    // Vibecoden auf dem eigenen Knoten (5080, A-31): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_KNOTEN_CODE) return this.handleCode(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");

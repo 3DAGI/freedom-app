@@ -1,6 +1,6 @@
 # Vibecoden auf dem eigenen Knoten – Entwurf (A-31)
 
-Stand 12.10.2026, Spur A.
+Stand 14.10.2026 (nach VKc1), Spur A.
 
 - **Wunsch MENSCH (11.10.):** Vom Seeker oder iPhone aus auf dem eigenen GX10
   vibecoden – beide per QR-Code verbunden, „ohne Vertrauensproblem“. Das ist
@@ -284,7 +284,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
 | VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 |
-| VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 |
+| VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 – **fertig** (`liste`, `neu`; ein Lauf bis VKc2 mit `code-ohne-motor` abgelehnt) |
 | VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 |
 | VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 |
