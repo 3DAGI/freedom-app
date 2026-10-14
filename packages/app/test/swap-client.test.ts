@@ -27,7 +27,8 @@ import {
   OnChainLock,
   SwapState,
 } from "../src/swap-client.js";
-import { anchorSighash, WalletSigner } from "../src/sol-htlc.js";
+import { anchorSighash, swapAddress, WalletSigner } from "../src/sol-htlc.js";
+import { AccountRole } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
@@ -148,7 +149,7 @@ test("Claim-Instruktion: Preimage als festes [u8;32] OHNE Laengenpraefix", async
   // Seite aendert, bekommt eine abgelehnte Transaktion ohne Fehlermeldung —
   // deshalb steht die Byte-Laenge hier exakt im Test.
   const ix = await buildClaimInstruction("s1", PREIMAGE, KUNDE, FREMD);
-  const data = new Uint8Array(ix.data);
+  const data = new Uint8Array(ix.data!);
   assert.deepEqual(data.slice(0, 8), anchorSighash("claim"));
   assert.deepEqual(data.slice(8), PREIMAGE);
   assert.equal(data.length, 8 + 32, "kein Laengenpraefix");
@@ -167,15 +168,16 @@ test("Claim-Instruktion: falsche Preimage-Laenge wird abgefangen", async () => {
 
 test("Claim-Instruktion: Empfaenger signiert, Initiator bekommt die Miete", async () => {
   const ix = await buildClaimInstruction("s2", PREIMAGE, KUNDE, FREMD);
-  assert.equal(ix.keys.length, 3, "recipient, initiator, swap-PDA");
-  assert.equal(ix.keys[0].pubkey.toBase58(), KUNDE);
-  assert.equal(ix.keys[0].isSigner, true);
+  const k = ix.accounts!;
+  assert.equal(k.length, 3, "recipient, initiator, swap-PDA");
+  assert.equal(k[0]!.address, KUNDE);
+  assert.equal(k[0]!.role, AccountRole.WRITABLE_SIGNER);
   // Der Initiator signiert NICHT — er bekommt nur die Mietbefreiung zurueck,
   // seit das Programm den PDA nach dem Einloesen schliesst.
-  assert.equal(ix.keys[1].pubkey.toBase58(), FREMD);
-  assert.equal(ix.keys[1].isSigner, false);
-  assert.equal(ix.keys[1].isWritable, true);
-  assert.equal(ix.keys[2].isWritable, true);
+  assert.equal(k[1]!.address, FREMD);
+  assert.equal(k[1]!.role, AccountRole.WRITABLE);
+  assert.equal(k[2]!.address, await swapAddress("s2"));
+  assert.equal(k[2]!.role, AccountRole.WRITABLE);
 });
 
 function fakeWallet(): WalletSigner {

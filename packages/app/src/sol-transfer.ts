@@ -2,8 +2,11 @@
  * SOL-Transfer-Builder (lazy @solana/web3.js).
  *
  * Genutzt von der Solana-Schiene (shell/zahlschienen.ts). Laedt web3.js nur,
- * wenn tatsaechlich SOL ueberwiesen wird — haelt das Bundle klein.
+ * wenn tatsaechlich SOL ueberwiesen wird — haelt das Bundle klein. Die Anweisung
+ * selbst seit A-21b2 aus `@solana/kit` (`ueberweisungAnweisung()`), die Transaktion
+ * bis A-21d noch mit web3.js.
  */
+import { alsWeb3, ueberweisungAnweisung } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
 /**
@@ -19,14 +22,9 @@ export async function buildSolTransfer(
 
   const connection = verbindung ?? new web3.Connection(await solRpcUrl(), "confirmed");
 
-  const ueberweisung = web3.SystemProgram.transfer({
-    fromPubkey: new web3.PublicKey(fromPubkey),
-    toPubkey: new web3.PublicKey(toPubkey),
-    lamports,
-  });
   // Referenz nach Solana Pay (8.4c): nur lesend, nicht signierend – der Empfaenger findet so sein Angebot
-  if (referenz) ueberweisung.keys.push({ pubkey: new web3.PublicKey(referenz), isSigner: false, isWritable: false });
-  const tx = new web3.Transaction().add(ueberweisung);
+  const ueberweisung = ueberweisungAnweisung({ von: fromPubkey, an: toPubkey, lamports: BigInt(lamports), referenz });
+  const tx = new web3.Transaction().add(alsWeb3(ueberweisung));
   // blockhash holen (wallet signiert + sendet)
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;

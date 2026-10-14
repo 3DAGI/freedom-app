@@ -9,7 +9,7 @@
  * Die Regeln stehen hier ohne Netz und ohne Uhr, damit Relay und App dieselben
  * benutzen und Tests sie ohne Server prüfen.
  */
-import { PublicKey } from "@solana/web3.js";
+import { getAddressDecoder } from "@solana/kit";
 import { NostrEvent, UnsignedEvent, buildEvent, getTag, hasValidEventShape, verifyEvent } from "./event.js";
 
 export const KIND_RELAY_AUTH = 22242;
@@ -168,5 +168,5 @@ export function baueRelayInfo(e: RelayInfoEingabe): Record<string, unknown> {
  */
 export function solReferenz(zufall: Uint8Array): string {
   if (zufall.length !== 32) throw new Error("Referenz braucht 32 Zufallsbytes");
-  return new PublicKey(zufall).toBase58();
+  return getAddressDecoder().decode(zufall); // base58 wie eine Adresse (A-21b2: kit statt web3.js)
 }

@@ -77,5 +77,11 @@ Fallstricke dieses Bereichs unten anhängen.
   nur über `alsWeb3()` (`kit-bruecke.ts`), bis A-21f die Brücke entfernt. Beide Pakete exakt gepinnt (kit 8.4.0,
   system 0.15.0). Die Bytes jeder Nachricht halten die Vektoren fest – ein neuer Weg, eine Nachricht zu bauen, braucht
   den Vergleich mit ihnen. `getProgramDerivedAddress()` ist asynchron; bis A-21f rechnet `kanalAdresse()` die PDA
-  weiter synchron mit web3.js.
+  weiter synchron mit web3.js. Die App bekommt kit seit A-21b2 nur über `kit-bruecke.ts` (`AccountRole`, `Instruction`,
+  `anweisung()`, `ueberweisungAnweisung()`) – dort weiterreichen, was sie braucht, nie eine eigene Abhängigkeit der App.
 
+- **Einen Export entfernen heißt auch `contracts/` durchsuchen** (seit A-21b2): Die Validator-Tests
+  (`contracts/solana-channel/tests/*.ts`) importieren direkt aus `packages/protocol/src`; `check-wiring.py` zählt sie
+  nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur
+  `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json` – A-21b2 entfernte `oeffneKanalIx()` & Co.,
+  erst der CI-Job „Zahlkanal“ fand die Nutzer dort.

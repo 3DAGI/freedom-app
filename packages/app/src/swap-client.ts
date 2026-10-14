@@ -31,8 +31,10 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import { anchorSighash, swapIdBytes, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
-import { type AddressUsage, checkAmount, checkReuse, checkTiming, leseBolt11 } from "@freedomstack/protocol";
+import { anchorSighash, swapAddress, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
+import {
+  AccountRole, type AddressUsage, alsWeb3, anweisung, checkAmount, checkReuse, checkTiming, type Instruction, leseBolt11,
+} from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
@@ -171,32 +173,21 @@ export async function buildClaimInstruction(
   preimage: Uint8Array,
   recipient: string,
   initiator: string,
-): Promise<import("@solana/web3.js").TransactionInstruction> {
-  const { PublicKey, TransactionInstruction } = await import("@solana/web3.js");
+): Promise<Instruction> {
   if (preimage.length !== 32) {
     throw new Error(t("zahl.preimageLaenge", { n: preimage.length }));
   }
-
-  const programId = new PublicKey(HTLC_PROGRAM_ID);
-  const [pda] = PublicKey.findProgramAddressSync(
-    [new TextEncoder().encode("swap"), swapIdBytes(swapId)],
-    programId,
-  );
 
   const disc = anchorSighash("claim");
   const data = new Uint8Array(disc.length + preimage.length);
   data.set(disc, 0);
   data.set(preimage, disc.length);
 
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: new PublicKey(recipient), isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(initiator), isSigner: false, isWritable: true },
-      { pubkey: pda, isSigner: false, isWritable: true },
-    ],
-    data: Buffer.from(data),
-  });
+  return anweisung(HTLC_PROGRAM_ID, [
+    [recipient, AccountRole.WRITABLE_SIGNER],
+    [initiator, AccountRole.WRITABLE],
+    [await swapAddress(swapId), AccountRole.WRITABLE],
+  ], data);
 }
 
 /**
@@ -285,7 +276,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
 
   p.onProgress?.(t("zahl.einloesungVorbereiten"));
   const ix = await buildClaimInstruction(p.swapId, p.preimage, recipient, p.initiator);
-  const tx = new Transaction().add(ix);
+  const tx = new Transaction().add(alsWeb3(ix));
 
   const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;

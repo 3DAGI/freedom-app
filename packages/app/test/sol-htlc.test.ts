@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { PublicKey } from "@solana/web3.js";
+import { AccountRole } from "@freedomstack/protocol";
 import {
   anchorSighash,
   swapIdBytes,
@@ -66,7 +67,7 @@ test("Lock-Instruktion: Argumente in der richtigen Byte-Reihenfolge", async () =
     KUNDE,
   );
 
-  const data = new Uint8Array(ix.data);
+  const data = new Uint8Array(ix.data!);
   assert.equal(data.length, 8 + 80, "8 Byte Diskriminator + 80 Byte Argumente");
   assert.deepEqual(data.slice(0, 8), anchorSighash("initialize"));
   assert.deepEqual(data.slice(8, 40), swapIdBytes("s1"));
@@ -82,14 +83,18 @@ test("Lock-Instruktion: Kontenreihenfolge und Signaturflags", async () => {
     { swapId: "s2", hashlock: new Uint8Array(32), amountLamports: 1, timelockUnix: 1_800_000_000, recipient: PROVIDER },
     KUNDE,
   );
-  assert.equal(ix.programId.toBase58(), HTLC_PROGRAM_ID);
-  assert.equal(ix.keys.length, 4);
-  assert.equal(ix.keys[0].pubkey.toBase58(), KUNDE);
-  assert.equal(ix.keys[0].isSigner, true, "nur der Initiator signiert");
-  assert.equal(ix.keys[1].pubkey.toBase58(), PROVIDER);
-  assert.equal(ix.keys[1].isSigner, false, "der Empfaenger signiert NICHT");
-  assert.equal(ix.keys[2].isWritable, true, "die PDA wird beschrieben");
-  assert.equal(ix.keys[3].pubkey.toBase58(), "11111111111111111111111111111111");
+  // kit-Anweisung (A-21b2): Rollen statt zweier Schalter
+  const k = ix.accounts!;
+  assert.equal(ix.programAddress, HTLC_PROGRAM_ID);
+  assert.equal(k.length, 4);
+  assert.equal(k[0]!.address, KUNDE);
+  assert.equal(k[0]!.role, AccountRole.WRITABLE_SIGNER, "nur der Initiator signiert");
+  assert.equal(k[1]!.address, PROVIDER);
+  assert.equal(k[1]!.role, AccountRole.READONLY, "der Empfaenger signiert NICHT");
+  assert.equal(k[2]!.address, await swapAddress("s2"));
+  assert.equal(k[2]!.role, AccountRole.WRITABLE, "die PDA wird beschrieben");
+  assert.equal(k[3]!.address, "11111111111111111111111111111111");
+  assert.equal(k[3]!.role, AccountRole.READONLY);
 });
 
 test("Lock-Instruktion: unbrauchbare Eingaben werden abgelehnt", async () => {
@@ -100,13 +105,15 @@ test("Lock-Instruktion: unbrauchbare Eingaben werden abgelehnt", async () => {
   );
   await assert.rejects(() => buildLockInstruction({ ...gut, amountLamports: 0 }, KUNDE), /positive/);
   await assert.rejects(() => buildLockInstruction({ ...gut, amountLamports: 1.5 }, KUNDE), /ganze Zahl/);
+  // kit prüft jede Adresse (A-21b2) – wie vorher PublicKey
+  await assert.rejects(() => buildLockInstruction({ ...gut, recipient: "kaputt" }, KUNDE));
+  await assert.rejects(() => buildLockInstruction(gut, "0".repeat(44)));
 });
 
 test("Refund-Instruktion: nur Diskriminator, zwei Konten", async () => {
   const ix = await buildRefundInstruction("s3", KUNDE);
-  assert.deepEqual(new Uint8Array(ix.data), anchorSighash("refund"));
-  assert.equal(ix.keys.length, 2);
-  assert.equal(ix.keys[0].isSigner, true);
+  assert.deepEqual(new Uint8Array(ix.data!), anchorSighash("refund"));
+  assert.deepEqual(ix.accounts!.map((k) => [k.address, k.role]), [[KUNDE, AccountRole.WRITABLE_SIGNER], [await swapAddress("s3"), AccountRole.WRITABLE]]);
 });
 
 // ------------------------------------------------------- Wallet-Ablauf

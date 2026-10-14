@@ -6,9 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AccountRole } from "@solana/kit";
-import { Ed25519Program } from "@solana/web3.js";
+import { Ed25519Program, PublicKey, SystemProgram } from "@solana/web3.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { alsWeb3, ed25519Anweisung, ED25519_PROGRAMM, konto, SYSTEM_PROGRAMM } from "../src/kit-bruecke.js";
+import { alsWeb3, anweisung, ed25519Anweisung, ED25519_PROGRAMM, konto, SYSTEM_PROGRAMM, ueberweisungAnweisung } from "../src/kit-bruecke.js";
+import { solReferenz } from "../src/relay-zugang.js";
 import { erstatteKanalAnweisung, KANAL_PROGRAMM_ID, oeffneKanalAnweisung, stockeKanalAufAnweisung } from "../src/channel.js";
 import { adresse } from "./sol-vektoren-faelle.js";
 
@@ -60,4 +61,34 @@ test("A-21b1: der Zahlkanal baut kit-Anweisungen – Adressen als Text, Rollen s
   assert.deepEqual(erstatteKanalAnweisung({ kunde, kanal }).accounts!.map((k) => k.role), [AccountRole.WRITABLE, AccountRole.WRITABLE], "erstatten ohne Unterschrift (Z1)");
   assert.equal(stockeKanalAufAnweisung({ kunde, kanal, betrag: 5n }).accounts![0]!.role, AccountRole.WRITABLE_SIGNER);
   assert.throws(() => stockeKanalAufAnweisung({ kunde, kanal, betrag: 0n }), /größer als 0/);
+});
+
+test("A-21b2: Überweisung als kit-Anweisung – Byte für Byte wie web3.js, die Referenz nur lesend", () => {
+  for (const referenz of [undefined, adresse(12)]) {
+    const kit = alsWeb3(ueberweisungAnweisung({ von: adresse(1), an: adresse(11), lamports: 2_500_000n, referenz }));
+    const web3 = SystemProgram.transfer({ fromPubkey: new PublicKey(adresse(1)), toPubkey: new PublicKey(adresse(11)), lamports: 2_500_000 });
+    if (referenz) web3.keys.push({ pubkey: new PublicKey(referenz), isSigner: false, isWritable: false });
+    assert.equal(kit.programId.toBase58(), SYSTEM_PROGRAMM);
+    assert.deepEqual(kit.keys.map((k) => [k.pubkey.toBase58(), k.isSigner, k.isWritable]), web3.keys.map((k) => [k.pubkey.toBase58(), k.isSigner, k.isWritable]));
+    assert.deepEqual([...kit.data], [...web3.data], referenz ? "mit Referenz" : "ohne Referenz");
+  }
+  assert.equal(ueberweisungAnweisung({ von: adresse(1), an: adresse(2), lamports: 1n, referenz: "" }).accounts!.length, 2, "leere Referenz zählt nicht");
+  assert.throws(() => ueberweisungAnweisung({ von: adresse(1), an: adresse(2), lamports: 1n, referenz: "kaputt" }), "nur gültige Referenzen");
+});
+
+test("A-21b2: anweisung() – Programm und Konten als geprüfte Adressen, Daten unverändert", () => {
+  const ix = anweisung(SYSTEM_PROGRAMM, [[adresse(1), AccountRole.WRITABLE_SIGNER], [adresse(2), AccountRole.READONLY]], new Uint8Array([9, 8]));
+  assert.equal(ix.programAddress, SYSTEM_PROGRAMM);
+  assert.deepEqual(ix.accounts!.map((k) => [k.address, k.role]), [[adresse(1), AccountRole.WRITABLE_SIGNER], [adresse(2), AccountRole.READONLY]]);
+  assert.deepEqual([...ix.data!], [9, 8]);
+  assert.throws(() => anweisung("kein-programm", [], new Uint8Array(0)), "Programm geprüft");
+  assert.throws(() => anweisung(SYSTEM_PROGRAMM, [["0".repeat(44), AccountRole.READONLY]], new Uint8Array(0)), "Konto geprüft");
+});
+
+test("A-21b2: Referenz nach Solana Pay ohne web3.js – dieselbe Adresse wie PublicKey", () => {
+  for (const n of [0, 1, 255]) {
+    const zufall = new Uint8Array(32).fill(n);
+    assert.equal(solReferenz(zufall), new PublicKey(zufall).toBase58());
+  }
+  assert.throws(() => solReferenz(new Uint8Array(31)), /32 Zufallsbytes/);
 });

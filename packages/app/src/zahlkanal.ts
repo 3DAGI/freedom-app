@@ -17,10 +17,10 @@
  * Der Sitzungsschlüssel signiert die Gutschriften – ein Geld-Geheimnis, nur im
  * Tresor (`freedom.kanaele`), nie in der Sicherung.
  */
-import type { Connection, TransactionInstruction } from "@solana/web3.js";
+import type { Connection } from "@solana/web3.js";
 import {
-  KANAL_PROGRAMM_ID, erstatteKanalIx, fromHex, gutschriftTags, kanalAdresse, leseKanal, msatZuLamports,
-  neuerSitzungsSchluessel, oeffneKanalIx, signiereGutschrift, toHex, type KanalEmpfaenger, type KanalStand,
+  KANAL_PROGRAMM_ID, alsWeb3, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, msatZuLamports,
+  neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, type Instruction, type KanalEmpfaenger, type KanalStand,
 } from "@freedomstack/protocol";
 import type { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
@@ -167,14 +167,14 @@ export class KanalBuch {
 export function planeKanal(p: {
   provider: string; providerSol: string; kunde: string; lamports: bigint; laufzeitSek: number;
   empfaenger: KanalEmpfaenger[]; jetzt: number;
-}): { eintrag: KanalEintrag; ix: TransactionInstruction } {
+}): { eintrag: KanalEintrag; ix: Instruction } {
   if (p.lamports <= 0n) throw new Error(t("waehr.ungueltigerBetrag"));
   if (!(p.laufzeitSek >= KANAL_NUTZBAR_SEK)) throw new Error(t("zahl.kanalLaufzeitZuKurz"));
   const zufall = crypto.getRandomValues(new Uint32Array(2));
   const nonce = (BigInt(zufall[0]!) << 32n) | BigInt(zufall[1]!);
   const sitzung = neuerSitzungsSchluessel();
   const ablauf = p.jetzt + Math.floor(p.laufzeitSek);
-  const ix = oeffneKanalIx({
+  const ix = oeffneKanalAnweisung({
     kunde: p.kunde, provider: p.providerSol, nonce, betrag: p.lamports, ablauf: BigInt(ablauf),
     sitzungsSchluessel: sitzung.oeffentlich, empfaenger: p.empfaenger,
   });
@@ -187,12 +187,15 @@ export function planeKanal(p: {
   return { eintrag, ix };
 }
 
-/** Anweisungen mit der Wallet signieren und senden – mit Vorabsimulation, bis bestätigt. */
+/**
+ * Anweisungen (kit, A-21b2) mit der Wallet signieren und senden – mit Vorabsimulation,
+ * bis bestätigt. Die Transaktion baut bis A-21d noch web3.js (`alsWeb3()`).
+ */
 export async function sendeMitWallet(
-  conn: Connection, wallet: WalletSigner, ixs: TransactionInstruction[], fortschritt?: (schritt: string) => void,
+  conn: Connection, wallet: WalletSigner, ixs: Instruction[], fortschritt?: (schritt: string) => void,
 ): Promise<string> {
   const { PublicKey, Transaction } = await import("@solana/web3.js");
-  const tx = new Transaction().add(...ixs);
+  const tx = new Transaction().add(...ixs.map(alsWeb3));
   fortschritt?.(t("zahl.warteWallet"));
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
@@ -233,13 +236,13 @@ export async function programmBereit(conn: Connection): Promise<boolean> {
 export async function erstatteKanaele(
   conn: Connection, wallet: WalletSigner, kanaele: string[],
 ): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }> {
-  const ixs: TransactionInstruction[] = [];
+  const ixs: Instruction[] = [];
   const dabei: string[] = [];
   const failed: { swapId: string; reason: string }[] = [];
   for (const kanal of kanaele) {
     // Empfänger ist der Kunde auf der Kette – nie diese Wallet einsetzen, sonst lehnte das Programm ab
     const kunde = (await kanalAufKette(conn, kanal))?.kunde ?? wallet.publicKey.toBase58();
-    ixs.push(erstatteKanalIx({ kunde, kanal }));
+    ixs.push(erstatteKanalAnweisung({ kunde, kanal }));
     dabei.push(kanal);
   }
   if (ixs.length === 0) return { refunded: [], failed };

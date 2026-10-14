@@ -9475,3 +9475,48 @@ Spur A, `docs/KIT-PLAN.md` (freigegeben 11.10., Teilung und kit 8.4.0 am 14.10.)
 - Alle 17 Vektoren aus A-21a gleich (Protokoll 10, App 9).
 - Vorab geprüft: kit selbst ergibt beim Zusammensetzen der Nachricht dieselben Bytes wie web3.js (Probe
   mit den vier Kanal-Fällen).
+
+## Schritt A-21b2 – HTLC, Relayer-Einlösung, Überweisung und Zahlkanal der App als `@solana/kit`-Anweisungen
+
+Spur A, `docs/KIT-PLAN.md` (A-21b in zwei Teilen, MENSCH 14.10.). Keine neue Abhängigkeit.
+
+**Code:**
+- `kit-bruecke.ts` (Protokoll, jetzt im Index):
+  - `anweisung()` baut eine Anweisung aus Adressen als Text (jede geprüft).
+  - `ueberweisungAnweisung()` kommt aus `@solana-program/system`; die Referenz nach Solana Pay hängt nur lesend an.
+  - `AccountRole` und `type Instruction` reicht sie an die App weiter.
+- **Warum nicht kit direkt in der App:** Eine eigene Abhängigkeit legte eine zweite Kopie von kit 8.4.0 neben
+  die des Protokolls – im Wurzelordner liegt kit 5.x für andere Pakete. Das wären rund 2300 Zeilen mehr in
+  `package-lock.json`, und das Bundle trüge beide Kopien. Ausprobiert und verworfen.
+- **App:**
+  - `buildLockInstruction()`, `buildRefundInstruction()` (`sol-htlc.ts`) und `buildClaimInstruction()`
+    (`swap-client.ts`) liefern kit-`Instruction`. Die PDA kommt aus `swapAddress()` – vorher dreimal gerechnet.
+  - `baueRelayEinloesung()` (Einlösung und Erstattung) und `buildSolTransfer()` (mit Referenz) nutzen
+    `ueberweisungAnweisung()`.
+  - `planeKanal()`, `sendeMitWallet()` und `erstatteKanaele()` (`zahlkanal.ts`) sowie das Aufstocken
+    (`zahlkanal-ui.ts`) arbeiten mit kit-Anweisungen.
+  - Die Transaktion baut bis A-21d web3.js (`alsWeb3()`).
+- **Protokoll:**
+  - `oeffneKanalIx()`, `erstatteKanalIx()` und `stockeKanalAufIx()` fielen weg; nur die App nutzte sie.
+  - Der Knoten nutzt bis A-21e weiter `rechneKanalAbIxs()`.
+  - `solReferenz()` (`relay-zugang.ts`) kodiert über `getAddressDecoder()` statt `PublicKey`.
+- **Unverändert:**
+  - Die HTLC-PDA rechnet weiter web3.js. kits `getProgramDerivedAddress()` braucht `crypto.subtle`
+    (geprüft in `@solana/addresses`), und das fehlt der App über http im Heimnetz.
+  - Das Lesen eines Relay-Auftrags (`pruefeRelayAuftrag()`: Transaktion, Signaturen) gehört zu A-21d.
+- **Fallstricke:** `packages/app/CLAUDE.md` (kit nur über das Protokoll), Ergänzung in `packages/protocol/CLAUDE.md`.
+
+**Tests:**
+- protocol +3 (`kit-bruecke.test.ts`):
+  - Überweisung gegen `SystemProgram.transfer` mit und ohne Referenz.
+  - `anweisung()` mit falschen Adressen.
+  - `solReferenz()` gegen `PublicKey`.
+- app gleich (1124):
+  - Die Tests der Anweisungen prüfen Rollen statt der zwei Schalter, zusätzlich die PDA-Adresse.
+  - Sperren mit kaputter Adresse wird abgelehnt.
+  - Die Verdrahtung der Referenz liegt jetzt in `ueberweisungAnweisung()`.
+- Alle 17 Vektoren aus A-21a unverändert (Protokoll 10, App 9).
+- Bundle 8448 → 8449 KB.
+- Nachtrag nach dem ersten CI-Lauf: Die Validator-Tests (`contracts/solana-channel/tests/kanal.test.ts`)
+  importierten die entfernten `…Ix` – die Suche davor deckte `contracts/` nicht ab. Sie bauen die
+  web3.js-Fassung jetzt selbst über `alsWeb3()` (dieselben Bytes); Fallstrick in `packages/protocol/CLAUDE.md`.

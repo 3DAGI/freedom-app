@@ -7,8 +7,13 @@
  * Die Bytes jeder Nachricht halten die Vektoren aus A-21a fest
  * (`test/fixtures/solana-vektoren.json`) – die Brücke ändert keine.
  */
-import { AccountRole, address, isSignerRole, isWritableRole, type Instruction } from "@solana/kit";
+import { AccountRole, address, createNoopSigner, isSignerRole, isWritableRole, type Instruction } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+
+// Für die App (A-21b2): kit nur über das Protokoll – eine eigene Abhängigkeit legte eine zweite
+// Kopie neben diese (im Wurzelordner liegt kit 5.x), und das Bundle trüge beide.
+export { AccountRole, type Instruction };
 
 /** Programme und Sysvars, die die Anweisungen nennen (fest, nie aus Fremddaten). */
 export const SYSTEM_PROGRAMM = "11111111111111111111111111111111";
@@ -18,6 +23,20 @@ export const SYSVAR_ANWEISUNGEN = "Sysvar1nstructions1111111111111111111111111";
 /** Ein Konto einer Anweisung – die Adresse prüft `address()` (base58, 32 Byte). */
 export function konto(adresse: string, rolle: AccountRole): { address: ReturnType<typeof address>; role: AccountRole } {
   return { address: address(adresse), role: rolle };
+}
+
+/** Eine Anweisung aus Adressen als Text – jede prüft `address()` (base58, 32 Byte). */
+export function anweisung(programm: string, konten: ReadonlyArray<readonly [string, AccountRole]>, daten: Uint8Array): Instruction {
+  return { programAddress: address(programm), accounts: konten.map(([a, rolle]) => konto(a, rolle)), data: daten };
+}
+
+/**
+ * Überweisung über das System-Programm; die Unterschrift des Absenders nur als Rolle. Eine
+ * Referenz nach Solana Pay (8.4c) hängt nur lesend an – der Empfänger findet so sein Angebot.
+ */
+export function ueberweisungAnweisung(p: { von: string; an: string; lamports: bigint; referenz?: string }): Instruction {
+  const ix = getTransferSolInstruction({ source: createNoopSigner(address(p.von)), destination: address(p.an), amount: p.lamports });
+  return p.referenz ? { ...ix, accounts: [...ix.accounts, konto(p.referenz, AccountRole.READONLY)] } : ix;
 }
 
 /** Eine kit-Anweisung als web3.js-`TransactionInstruction` – gleiche Konten, Rollen und Daten. */

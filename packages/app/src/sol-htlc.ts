@@ -25,6 +25,7 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import { AccountRole, alsWeb3, anweisung, SYSTEM_PROGRAMM, type Instruction } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
@@ -59,7 +60,8 @@ export interface LockParams {
 }
 
 /**
- * Baut die `initialize`-Instruktion.
+ * Baut die `initialize`-Instruktion – als kit-`Instruction` (A-21b2), web3.js
+ * bekommt sie über `alsWeb3()`.
  *
  * Bewusst getrennt vom Senden: so lässt sich die Kodierung testen, ohne eine
  * Kette oder Wallet zu brauchen — und genau die Byte-Reihenfolge ist der Teil,
@@ -68,9 +70,7 @@ export interface LockParams {
 export async function buildLockInstruction(
   params: LockParams,
   initiator: string,
-): Promise<import("@solana/web3.js").TransactionInstruction> {
-  const { PublicKey, SystemProgram, TransactionInstruction } = await import("@solana/web3.js");
-
+): Promise<Instruction> {
   if (params.hashlock.length !== 32) {
     throw new Error(t("zahl.hashlockLaenge", { n: params.hashlock.length }));
   }
@@ -79,11 +79,6 @@ export async function buildLockInstruction(
   }
 
   const idBytes = swapIdBytes(params.swapId);
-  const programId = new PublicKey(HTLC_PROGRAM_ID);
-  const [pda] = PublicKey.findProgramAddressSync(
-    [new TextEncoder().encode("swap"), idBytes],
-    programId,
-  );
 
   // Args: swap_id[32] + hashlock[32] + timelock i64le + amount u64le
   const args = new Uint8Array(80);
@@ -98,19 +93,19 @@ export async function buildLockInstruction(
   data.set(disc, 0);
   data.set(args, disc.length);
 
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: new PublicKey(initiator), isSigner: true, isWritable: true },
-      { pubkey: new PublicKey(params.recipient), isSigner: false, isWritable: false },
-      { pubkey: pda, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data: Buffer.from(data),
-  });
+  return anweisung(HTLC_PROGRAM_ID, [
+    [initiator, AccountRole.WRITABLE_SIGNER],
+    [params.recipient, AccountRole.READONLY],
+    [await swapAddress(params.swapId), AccountRole.WRITABLE],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], data);
 }
 
-/** Die PDA-Adresse eines Swaps — für Anzeige und Nachprüfung im Explorer. */
+/**
+ * Die PDA-Adresse eines Swaps — für Anzeige, Nachprüfung im Explorer und die
+ * Anweisungen. Bis A-21f über web3.js: kit rechnet sie nur über `crypto.subtle`,
+ * und das fehlt der App über http im Heimnetz.
+ */
 export async function swapAddress(swapId: string): Promise<string> {
   const { PublicKey } = await import("@solana/web3.js");
   const [pda] = PublicKey.findProgramAddressSync(
@@ -174,7 +169,7 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
     { swapId: p.spendSwapId, hashlock, amountLamports: p.spendLamports, timelockUnix: p.timelockUnix, recipient: p.providerSolAddress },
     initiator,
   );
-  const tx = new Transaction().add(ixSpend);
+  const tx = new Transaction().add(alsWeb3(ixSpend));
 
   if (p.refundLamports > 0) {
     // Rest-HTLC an den Kunden selbst: sofort nach Ablauf zurückholbar.
@@ -182,7 +177,7 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
       { swapId: p.refundSwapId, hashlock, amountLamports: p.refundLamports, timelockUnix: p.timelockUnix, recipient: initiator },
       initiator,
     );
-    tx.add(ixRefund);
+    tx.add(alsWeb3(ixRefund));
   }
 
   p.onProgress?.(t("zahl.warteWallet"));
@@ -237,7 +232,7 @@ export async function lockRueckSwap(p: {
     { swapId: p.swapId, hashlock: hexToBytes(p.paymentHashHex), amountLamports: p.lamports, timelockUnix: p.timelockUnix, recipient: p.lpSol },
     initiator,
   );
-  const tx = new Transaction().add(ix);
+  const tx = new Transaction().add(alsWeb3(ix));
   p.onProgress?.(t("zahl.warteWallet"));
   const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
   tx.recentBlockhash = blockhash;
@@ -252,24 +247,11 @@ export async function lockRueckSwap(p: {
 }
 
 /** Baut die `refund`-Instruktion (nach Ablauf des Timelocks). */
-export async function buildRefundInstruction(
-  swapId: string,
-  initiator: string,
-): Promise<import("@solana/web3.js").TransactionInstruction> {
-  const { PublicKey, TransactionInstruction } = await import("@solana/web3.js");
-  const programId = new PublicKey(HTLC_PROGRAM_ID);
-  const [pda] = PublicKey.findProgramAddressSync(
-    [new TextEncoder().encode("swap"), swapIdBytes(swapId)],
-    programId,
-  );
-  return new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: new PublicKey(initiator), isSigner: true, isWritable: true },
-      { pubkey: pda, isSigner: false, isWritable: true },
-    ],
-    data: Buffer.from(anchorSighash("refund")),
-  });
+export async function buildRefundInstruction(swapId: string, initiator: string): Promise<Instruction> {
+  return anweisung(HTLC_PROGRAM_ID, [
+    [initiator, AccountRole.WRITABLE_SIGNER],
+    [await swapAddress(swapId), AccountRole.WRITABLE],
+  ], anchorSighash("refund"));
 }
 
 /**
@@ -297,7 +279,7 @@ export async function refundDepositOnChain(p: {
 
   for (const swapId of p.swapIds) {
     try {
-      tx.add(await buildRefundInstruction(swapId, initiator));
+      tx.add(alsWeb3(await buildRefundInstruction(swapId, initiator)));
       included.push(swapId);
     } catch (e) {
       failed.push({ swapId, reason: fehlerText(e) });
