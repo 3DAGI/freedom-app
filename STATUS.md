@@ -9427,6 +9427,13 @@ Spur A, zweiter Teil der Reparatur (Wunsch MENSCH 14.10.).
   - `3UmRR…` schließen; das gibt die Miete zurück.
   - A-28 als Upgrade an `FVb19s…`.
 
+**Nebenbei (Smoke „raum“ rot in der CI dieses PRs, App unverändert):** Wurden Repo-Einstellungen in derselben
+Sekunde gespeichert wie das Repo angelegt, hatten beide Ankündigungen (30617) dasselbe `created_at`. Die App nahm dann die
+zuerst gelesene, Relays nach NIP-01 die mit der kleineren Id – die Änderung ging zufällig verloren. C-40 hatte nur länger
+gewartet. Jetzt bekommt die neue Fassung eine spätere Sekunde (`zeitNachDer()`, Karte kennt `ankuendigungZeit`), und
+`repoZeilen()` entscheidet gleiche Sekunden nach NIP-01 (kleinere Id). Code von Spur C, klein gehalten; Fallstrick in
+`packages/app/CLAUDE.md`; app +1 Test (mit Gegenprobe).
+
 **Tests:** node +4 (`tma-reparatur.test.ts`):
 - Umgebung (sechs Fälle und Gegenproben).
 - `preCheckoutPasst()` und Nonce.

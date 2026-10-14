@@ -11,7 +11,7 @@ import { KIND_PATCH, darfAnnehmen, type GelesenerPatch, type GelesenesRepo, type
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import {
-  AKTION_STATUS, type EinstellungFelder, type PatchAktion, type PatchZeile, type RepoKarte, STATUS_TEXT, ankuendigungAusFeldern, sichereWebAdressen,
+  AKTION_STATUS, type EinstellungFelder, type PatchAktion, type PatchZeile, type RepoKarte, STATUS_TEXT, ankuendigungAusFeldern, sichereWebAdressen, zeitNachDer,
 } from "../../repo-ansicht.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
@@ -545,6 +545,7 @@ async function speichereEinstellungen(k: RepoKarte, form: HTMLFormElement, fehle
       return;
     }
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
+    ev.created_at = zeitNachDer(k.ankuendigungZeit, ev.created_at);
     if (!await bestaetige({ titel: t("repo.speichern"), text: t(k.privatRaum ? "repo.speichernFrageRaum" : "repo.speichernFrage"), ok: t("repo.speichern") })) return;
     // Privater Raum (11.4b2): nur in die Gruppe
     if (k.privatRaum) await sendeInRaum(k.privatRaum, raumRepoAnkuendigung(k.privatRaum, angaben));

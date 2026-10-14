@@ -762,4 +762,9 @@ Fallstricke dieses Bereichs unten anhängen.
   so an jede Adresse derselben Herkunft, auf Pages an GitHub). `/tma/` veröffentlicht `pages.yml` nur nachgebaut
   (`repro-build.sh` mit derselben `FREEDOM_TMA_API`). Stars und TON sind nicht verdrahtet, bis der MENSCH T1–T5
   entscheidet.
+- **Ersetzbare Events neu nur mit späterer Sekunde** (seit TMA-2, Smoke „raum“): Wer eine geltende Fassung ersetzt
+  (Repo-Einstellungen, 30617), setzt `created_at` über `zeitNachDer()` (`repo-ansicht.ts`) – nie dieselbe Sekunde wie die
+  geltende: Relays behalten dann nach NIP-01 die kleinere Id, die Änderung ginge zufällig verloren. Gelesen wird ebenso:
+  gleiche Sekunde → kleinere Id (`repoZeilen()`). So wackelte der Smoke-Test, wenn Anlegen und Speichern in dieselbe
+  Sekunde fielen (C-40 wartete nur länger).
 
