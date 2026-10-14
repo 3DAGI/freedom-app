@@ -88,11 +88,12 @@ Umgebungsvariablen (Server):
 |---|---|---|
 | `FREEDOM_TMA` | – | `1` startet den TMA-Server |
 | `TELEGRAM_BOT_TOKEN` | – | **Eigener** Bot, nicht der Hermes-Token |
-| `TON_DEPOT_ADDRESS` | – | Empfänger der Gram-Zahlungen |
+| `TON_DEPOT_ADDRESS` | – | Empfänger der Gram-Zahlungen; leer = TON aus (seit TMA-2 kein Rückfall auf `NODE_SOL_ADDRESS`), keine TON-Adresse = kein Start |
 | `TMA_PORT` | `3601` | HTTP-Port des Mini Apps |
+| `TMA_HOST` | `127.0.0.1` | Nur dieser Rechner (seit TMA-2); nach außen über einen Tunnel (Tailscale-Funnel o. ä.) |
 | `TON_TESTNET` | `1` | `0` = Mainnet |
 | `TONCENTER_API_KEY` | – | höheres RPC-Limit |
-| `TELEGRAM_API_BASE` | `https://api.telegram.org` | Bot-API-Basis — nur für Tests/Proxies umbiegen |
+| `TELEGRAM_API_BASE` | `https://api.telegram.org` | Bot-API-Basis — nur https oder dieser Rechner (der Bot-Token steht in jeder Adresse); nur für Tests/Proxies umbiegen |
 | `TMA_STATISCH` | `packages/app/dist` | Wo freedom.html liegt (nur für Betriebsart A) |
 
 Build-Variable (nur für Betriebsart B):
@@ -124,6 +125,18 @@ Tailscale-Funnel, ngrok oder Cloudflare-Tunnel.
 - **TON-Zahlungen**: exakter Betrag + eindeutiger Kommentar
   (`freedom:<auftrag>:<nonce>`), jede tx-Hash wird nur einmal gutgeschrieben
   (Replay-Schutz, persistiert in `~/.freedom/tma/tma-ton.json`).
+- **Seit TMA-2 im Knoten:**
+  - Die Umgebung wird streng geprüft (`tmaAusUmgebung()`); Ungültiges heißt kein Start.
+  - Nach außen gehen nur feste Texte, nie Meldungen der Bot-API.
+  - Ins Log kommen keine Telegram-IDs, Zahlungs- oder Transaktionskennungen, nur Zahlen
+    und Fehlernamen.
+  - `~/.freedom/tma` ist 0700, die Dateien darin 0600.
+  - Anfragen sind höchstens 4 KB groß.
+  - Vor dem Bezahlen gelten nur Sterne, ein bekannter Auftrag und genau sein Preis
+    (`preCheckoutPasst()`).
+  - Jede Zahlung zählt nur einmal (`charge_id`).
+  - Die Nonce im TON-Kommentar kommt aus `randomBytes`.
+  - Das Icon ist ein echtes PNG mit 180 × 180 Pixeln.
 
 ## Tests
 

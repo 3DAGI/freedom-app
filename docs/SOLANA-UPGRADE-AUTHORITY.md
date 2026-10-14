@@ -12,7 +12,7 @@ ausgezahlt werden. Heute hält es ein einzelner Schlüssel:
 
 | Programm | Ort | Stand |
 |---|---|---|
-| HTLC (Swaps, Deposits) | `contracts/solana-htlc` | Devnet `3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8`, Upgrade-Recht `FsUyQBHzW1dKEaj7MRBEh4UadqbbTAdgdcrfoTdTP3rA` (`DEPLOY.md`). Der Code nennt `B6W19U…` – welche ID gilt, ist offen (Schritt 0.G). Geprüft am 09.10.2026 (Simulation): `3UmRR…` lehnt jeden Aufruf ab (4100, gebaut mit `declare_id!` `B6W19U…`); `B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk` liegt ebenfalls auf Devnet und nimmt Aufrufe an – Upgrade-Recht `8DhKPv486F6CU7WzWwBJKzi3upx3wRg18eJ7QGgKGhY6`, Stand 24.07.2026 (älter als Z1). |
+| HTLC (Swaps, Deposits) | `contracts/solana-htlc` | Devnet `FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD` seit 13.10.2026 (0.G, 731923b), Upgrade-Recht `FsUyQBHzW1dKEaj7MRBEh4UadqbbTAdgdcrfoTdTP3rA` (`DEPLOY.md`); Code, `declare_id!` und `Anchor.toml` nennen diese ID. Simulation 14.10.: nimmt Aufrufe an. Davor: Geprüft am 09.10.2026 (Simulation): `3UmRR…` lehnt jeden Aufruf ab (4100, gebaut mit `declare_id!` `B6W19U…`); `B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk` liegt ebenfalls auf Devnet und nimmt Aufrufe an – Upgrade-Recht `8DhKPv486F6CU7WzWwBJKzi3upx3wRg18eJ7QGgKGhY6`, Stand 24.07.2026 (älter als Z1). |
 | Zahlkanal | `contracts/solana-channel` | Devnet `F9P2PeyySkeQL4d1KAtHjtnVBqzjW3dqbfubY1PChW2m` (09.10.2026), Upgrade-Recht `FsUyQBHzW1dKEaj7MRBEh4UadqbbTAdgdcrfoTdTP3rA` – ein Devnet-Schlüssel, nicht für Mainnet. Die erste Binary trug noch `declare_id!` des Platzhalters und lehnt jeden Aufruf ab (4100); seit 4.3e steht die Adresse im Code, das Upgrade mit der neuen Binary macht der MENSCH (README des Programms). |
 
 Ziel für die Testphase auf Mainnet: Das Upgrade-Recht liegt bei einer
@@ -123,7 +123,9 @@ Verzögerung. Vorher: Audits, lange Testphase, Bug-Bounty (`GO-LIVE.md`).
 
 ## Checkliste (MENSCH)
 
-- [ ] 0.G klären: welche HTLC-Programm-ID gilt (`B6W19U…` im Code oder `3UmRR…` laut `DEPLOY.md`). Stand 09.10.: nur `B6W19U…` nimmt Aufrufe an, aber mit dem Code vom Juli und einem Upgrade-Recht, das nirgends im Repo steht.
+- [x] 0.G: Der HTLC liegt seit 13.10.2026 neu an `FVb19s…` (Upgrade-Recht `FsUyQ…`); Code und Doku nennen diese ID.
+- [ ] `3UmRR…` schließen (`solana program close`, gleiches Upgrade-Recht `FsUyQ…`) – gibt die Miete zurück; `B6W19U…` liegt beim Schlüssel `8DhKPv…`.
+- [ ] A-28 (Rückgabe vor Ablauf): Upgrade an `FVb19s…`, sobald der Code da ist.
 - [ ] Zahlkanal: Upgrade an `F9P2…` mit der Binary aus 4.3e (README des Programms), danach eine Simulation, die nicht mehr mit 4100 endet.
 - [ ] Squad auf Devnet anlegen, ein Programm übertragen, ein Upgrade einmal durchspielen.
 - [ ] Verzögerung festlegen: länger als die längste Sperre (Zahlkanal-Ablauf, Swap-Fristen).

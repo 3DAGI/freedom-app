@@ -48,7 +48,6 @@ Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
 | Punkt | Offen | Quelle |
 |---|---|---|
-| 0.G Programm-ID | Entschieden am 11.10. (A: bei `B6W19U…` bleiben) – **vorausgesetzt, das Upgrade-Recht `8DhKPv…` liegt beim MENSCHEN**. Das ist noch nicht bestätigt. In `FORTSCHRITT.md` steht 0.G noch als „offen“. | Sammlung M-1 |
 | Phase 9, Teil der Agenten | Keiner Spur zugeteilt: `docs/BEDROHUNGSMODELL.md` (9.1), `SECURITY.md` (9.2), Deploy-Skripte und Rücknahmeplan (9.3), KI-Hinweis nach Art. 50 AI Act und C2PA (9.4). Wer, und wann? | [`phase-9.md`](phase-9.md) |
 | Phase 9, Teil des MENSCHEN | Auditoren; Beträge der Bug-Bounty (Sats und SOL); Zeitpunkt Mainnet; CASP-Einordnung nach AMLR (Frist 10.07.2027), Steuer, Impressum und Firmenname (0.F) | [`phase-9.md`](phase-9.md), FORTSCHRITT 0.F |
 
@@ -81,7 +80,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Nr. | Aufgabe | hält auf |
 |---|---|---|
 | M-2 | Zahlkanal auf Devnet (`F9P2…`) mit der Binary aus 4.3e upgraden – die erste lehnt jeden Aufruf ab | KI-Zahlung mit SOL; 11.3d3, B-18 (8.9c), P5d, A-10 A, Wegfall der Hinterlegung für KI (E8); Devnet-Tests 4.5, 7.4 |
-| M-1 / 0.G | HTLC-Programm bei `B6W19U…` auf den aktuellen Code upgraden, A-28 im selben Upgrade, `3UmRR…` schließen | A-28 wirksam |
+| M-1 | HTLC seit 13.10. an `FVb19s…` (0.G erledigt); `3UmRR…` schließen (gibt Miete zurück); A-28 als Upgrade an `FVb19s…` | A-28 wirksam |
 | M-7 | GX10 auf den aktuellen `main` – optional mit `TORRENT=1` und `KI_ANTRIEB=openai` (B-29c), Docker-Bild neu bauen (aria2) | KI-Anfragen der Live-App, wo die App einen neueren Knoten braucht |
 | Signierschlüssel | mindestens zwei (Personen oder Geräte), danach `TRUSTED_SIGNERS`; fester Android-Keystore in den Secrets | 0.D, 5.2, 6.1a4b, 11.2a „geprüft“, Release 1.0 |
 | A-17 W5 | API-Schlüssel für Breez beantragen | Bau von A-17 mit Breez |
@@ -142,7 +141,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | A-17c | Cashu-Baustein (`@cashu/cashu-ts`: Mint wählen, Token senden und empfangen, NUT-11/12) | frei ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
 | RM2a–c | Cashu-Pfand für Lightning-Sitzungen (RM2d Oberfläche, Spur C) | nach A-17c ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
-| A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam erst mit dem Upgrade (M-1) |
+| A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |
 | E8 | Hinterlegung für KI entfernen | nach M-2 |

@@ -9392,3 +9392,50 @@ nicht dass er das repo ändert, mach es richtig damit alles gut funktioniert.“
 
 **Offen:** T1–T5 (MENSCH). Danach TMA-2: Knoten-Teil – feste Fehlertexte, keine Telegram-IDs im
 Log, Dateien 0600, Grenzen; dazu die Programm-ID des HTLC (`FVb19s…`, 731923b) in der Doku.
+
+## Schritt TMA-2 – Mini-App im Knoten nach den Regeln, HTLC an `FVb19s…` dokumentiert
+
+Spur A, zweiter Teil der Reparatur (Wunsch MENSCH 14.10.).
+
+**Knoten (`tma-server.ts`, `stars-server.ts`, `tma-kommentar.ts`, `main.ts`):**
+- **Umgebung streng über `tmaAusUmgebung()`:** Bot-Token mit Form, TON-Adresse, Port; `TELEGRAM_API_BASE`
+  nur https oder dieser Rechner. Ungültig → kein Start.
+  - TON nur mit `TON_DEPOT_ADDRESS`. Bis hier fiel der Knoten auf `NODE_SOL_ADDRESS` zurück, also auf eine
+    Solana-Adresse als Ziel für TON.
+  - Host `127.0.0.1` statt `0.0.0.0`.
+- **Nach außen feste Texte** (`antworte()`), nie Meldungen der Bot-API oder von Fehlern. Zu große Anfragen
+  (über 4 KB) → 413, kaputtes JSON → 400.
+- **Ins Log keine Telegram-IDs, `charge_id`, Kommentare oder Transaktionskennungen**, nur Zahlen und
+  Fehlernamen.
+- **Dateien:** `~/.freedom/tma` 0700, die Dateien darin 0600 (Telegram-IDs und Zahlungskennungen).
+- **Zahlungen:**
+  - Jede Zahlung nur einmal je `charge_id`.
+  - Vor dem Bezahlen nur Sterne, ein bekannter Auftrag und genau sein Preis (`preCheckoutPasst()`).
+  - Die Nonce im TON-Kommentar aus `randomBytes`; Auftrag und Betrag im TON-Auftrag geprüft.
+- **Icon:** ein echtes PNG mit 180 × 180 Pixeln (vorher SVG mit der Aufschrift „SW“).
+
+**HTLC-Programm-ID (731923b, 0.G):**
+- Der lokale Agent des MENSCHEN hat am 13.10. neu an `FVb19s…` deployt. Upgrade-Recht ist `FsUyQ…`,
+  wie beim Zahlkanal.
+- Geprüft am 14.10. per RPC und Simulation: ausführbar, Upgrade-Recht `FsUyQ…`. `refund` endet mit 3012
+  (Konto fehlt), nicht mit 4100 – `declare_id!` passt.
+- Nachgezogen:
+  - `CLAUDE.md` (Fallstrick), `contracts/CLAUDE.md`;
+  - `DEPLOY.md`, `docs/SOLANA-UPGRADE-AUTHORITY.md` (Checkliste);
+  - `phase-0.md`, FORTSCHRITT 0.G, OFFEN (M-1, A-28), Sammlung M-1.
+- Offen bleiben:
+  - `3UmRR…` schließen; das gibt die Miete zurück.
+  - A-28 als Upgrade an `FVb19s…`.
+
+**Nebenbei (Smoke „raum“ rot in der CI dieses PRs, App unverändert):** Wurden Repo-Einstellungen in derselben
+Sekunde gespeichert wie das Repo angelegt, hatten beide Ankündigungen (30617) dasselbe `created_at`. Die App nahm dann die
+zuerst gelesene, Relays nach NIP-01 die mit der kleineren Id – die Änderung ging zufällig verloren. C-40 hatte nur länger
+gewartet. Jetzt bekommt die neue Fassung eine spätere Sekunde (`zeitNachDer()`, Karte kennt `ankuendigungZeit`), und
+`repoZeilen()` entscheidet gleiche Sekunden nach NIP-01 (kleinere Id). Code von Spur C, klein gehalten; Fallstrick in
+`packages/app/CLAUDE.md`; app +1 Test (mit Gegenprobe).
+
+**Tests:** node +4 (`tma-reparatur.test.ts`):
+- Umgebung (sechs Fälle und Gegenproben).
+- `preCheckoutPasst()` und Nonce.
+- Doppelte Zustellung einmal gebucht, Log ohne ID und Kennung, Dateirechte. Gegenprobe ohne Schutz: rot.
+- Feste Texte, 413, TON ohne Adresse 503, ungültige TON-Aufträge 400.

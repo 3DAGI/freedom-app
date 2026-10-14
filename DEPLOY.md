@@ -1,12 +1,16 @@
 # Devnet Deployment Info — 0.C + 1.1
 
-## HTLC-SolangProgramm (unveraendert von Phase 0)
-- **Program ID**: 3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8
+## HTLC-Programm (seit 13.10.2026, Schritt 0.G)
+- **Program ID**: FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD
 - **Upgrade Authority**: FsUyQBHzW1dKEaj7MRBEh4UadqbbTAdgdcrfoTdTP3rA
 - **Cluster**: Devnet
-- **Zuletzt deployed**: 2026-09-24 (Slot 503410699)
-- **Binary**: target/deploy/solana_htlc.so (217,416 Bytes)
-- **TimelockExpired Check**: Phase 0 (claim nur vor Ablauf) — unveraendert
+- **Deployed**: 2026-10-13 (Commit 731923b), Programmdaten `BmQPDFXWvUAseUBwyte6CxwPi6LHfNFUsSu5T9uLPwdg` (217,461 Bytes)
+- **Geprüft 14.10.2026**: ausführbar, Upgrade-Recht wie oben; eine Simulation von `refund`
+  endet mit 3012 (Konto fehlt), nicht mit 4100 – `declare_id!` passt. Ob die Binary bitgleich
+  aus dem Quelltext entsteht, ist nicht geprüft.
+- **Abgelöst**: `3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8` (24.09.2026, lehnt jeden Aufruf ab, 4100;
+  gleiches Upgrade-Recht – schließen gibt die Miete zurück) und `B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk`
+  (Code vom Juli, Upgrade-Recht `8DhKPv…`).
 
 ## Website
 - **URL**: https://3dagi.github.io/freedom-app/

@@ -289,7 +289,7 @@ Entscheidungsvorlage vom 28.09.2026 und sind hier gekürzt.
 
 | Nr. | Punkt |
 |---|---|
-| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). Geprüft 09.10.: nur `B6W19U…` nimmt Aufrufe an (Stand Juli, Upgrade-Recht `8DhKPv…`), `3UmRR…` lehnt alle ab (4100). – **entschieden 11.10.2026 (MENSCH): A** – bei `B6W19U…` bleiben (vorausgesetzt, das Upgrade-Recht `8DhKPv…` liegt beim MENSCHEN), den aktuellen Code dort deployen, `3UmRR…` schließen; A-28 im selben Upgrade. |
+| M-1 | **0.G** Programm-ID abgleichen (Code `B6W19U…`, laut `DEPLOY.md` deployt `3UmRR…`). Geprüft 09.10.: nur `B6W19U…` nimmt Aufrufe an (Stand Juli, Upgrade-Recht `8DhKPv…`), `3UmRR…` lehnt alle ab (4100). – **entschieden 11.10.2026 (MENSCH): A** – bei `B6W19U…` bleiben (vorausgesetzt, das Upgrade-Recht `8DhKPv…` liegt beim MENSCHEN), den aktuellen Code dort deployen, `3UmRR…` schließen; A-28 im selben Upgrade. · **13.10.2026: anders gelöst** – der lokale Agent des MENSCHEN hat den aktuellen Code neu an `FVb19s…` deployt (Upgrade-Recht `FsUyQ…`, wie beim Zahlkanal; 731923b), Code und Doku nennen diese ID (TMA-2); `3UmRR…` schließen bleibt, A-28 als Upgrade an `FVb19s…` |
 | M-2 | **Deploy des Zahlkanals** – auf Devnet seit 09.10. (`F9P2…`), die erste Binary lehnt aber jeden Aufruf ab (alte `declare_id!`). Offen: Upgrade mit der Binary aus 4.3e (README des Programms) – ohne M-1 und M-2 keine KI-Zahlung mit SOL. |
 | M-3 | Adressen der Entwicklung (`ENTWICKLUNG` in `aufteilung.ts`), Testnet-Test der Zahlung (aus 5.1). |
 | M-4 | Konten der Spiegel (`docs/KONTEN.md`, 5.3). |

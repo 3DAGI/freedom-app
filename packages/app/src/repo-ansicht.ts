@@ -11,7 +11,16 @@ import {
   type RepoAnkuendigung,
 } from "@freedomstack/protocol";
 
-/** Je Eigentuemer und Kennung nur die neueste Ankuendigung (ersetzbares Event). */
+/**
+ * Zeit für die neue Fassung eines ersetzbaren Events: nie in derselben Sekunde wie die geltende
+ * oder davor – bei gleicher Sekunde behalten Relays nach NIP-01 die kleinere Id, die Änderung ginge
+ * dann zufällig verloren (so wackelte der Smoke-Test „raum“, Repo-Einstellungen gleich nach dem Anlegen).
+ */
+export function zeitNachDer(alt: number | undefined, jetzt = Math.floor(Date.now() / 1000)): number {
+  return Math.max(jetzt, (alt ?? 0) + 1);
+}
+
+/** Je Eigentuemer und Kennung nur die neueste Ankuendigung (ersetzbares Event; gleiche Sekunde: kleinere Id, NIP-01). */
 export function repoZeilen(events: readonly NostrEvent[]): GelesenesRepo[] {
   const neueste = new Map<string, NostrEvent>();
   for (const ev of events) {
@@ -19,7 +28,7 @@ export function repoZeilen(events: readonly NostrEvent[]): GelesenesRepo[] {
     const d = ev.tags.find((t) => t[0] === "d")?.[1] ?? "";
     const k = `${ev.pubkey}:${d}`;
     const alt = neueste.get(k);
-    if (!alt || ev.created_at > alt.created_at) neueste.set(k, ev);
+    if (!alt || ev.created_at > alt.created_at || (ev.created_at === alt.created_at && ev.id < alt.id)) neueste.set(k, ev);
   }
   const repos: GelesenesRepo[] = [];
   for (const ev of neueste.values()) {
@@ -153,6 +162,8 @@ export interface RepoKarte {
   offen: number;
   /** Letzte Aktivität (Sekunden): Ankündigung, Bundle, Patch oder Status. */
   zuletzt: number;
+  /** Zeit der geltenden Ankündigung – eine neue Fassung braucht eine spätere (`zeitNachDer()`). */
+  ankuendigungZeit?: number;
 }
 
 export function repoKarten(
@@ -182,6 +193,7 @@ export function repoKarten(
       ...(raumBestaetigt && zustand?.space ? { raumName: zustand.space.name.slice(0, 80) } : {}),
       ...(repo.beschreibung ? { beschreibung: repo.beschreibung } : {}),
       offen: zeilen.filter((z) => z.status === "offen" || z.status === "entwurf").length, zuletzt,
+      ankuendigungZeit: zeitVon.get(schluessel),
     });
   }
   for (const ev of bundles) {

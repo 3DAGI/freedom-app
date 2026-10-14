@@ -4,10 +4,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   baueRepoAnkuendigung, bauePatch, baueStatus, generateKeypair, leseRepoAnkuendigung, lesePatch, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
-import { patchZeilen, repoZeilen } from "../src/repo-ansicht.js";
+import { patchZeilen, repoKarten, repoZeilen, zeitNachDer } from "../src/repo-ansicht.js";
 
 const eigen = generateKeypair(), helfer = generateKeypair(), autor = generateKeypair(), fremd = generateKeypair();
 const patchText = (betreff: string) => `From ${"a".repeat(40)} Mon Sep 17 00:00:00 2001
@@ -49,3 +50,21 @@ test("Patches: Maintainer annehmen/Entwurf/schliessen, Autor Entwurf/zurueckzieh
   assert.deepEqual(fuer(fremd.pk)[0].aktionen, []);
   assert.deepEqual(fuer(undefined)[0].aktionen, []);
 });
+
+test("Ankündigung derselben Sekunde: kleinere Id gilt (NIP-01), eine neue Fassung bekommt eine spätere Sekunde", () => {
+  // Zwei Fassungen in derselben Sekunde – egal in welcher Reihenfolge, es gilt die kleinere Id (wie bei den Relays)
+  const a = ank("gleich", "Fassung A", 1_790_000_500), b = ank("gleich", "Fassung B", 1_790_000_500);
+  const kleiner = a.id < b.id ? a : b;
+  for (const reihe of [[a, b], [b, a]]) assert.equal(repoZeilen(reihe)[0]!.name, leseRepoAnkuendigung(kleiner).name);
+  // Die Karte kennt die Zeit der geltenden Ankündigung; die neue Fassung liegt danach, auch in derselben Sekunde
+  const karte = repoKarten([a], [], [], [], undefined)[0]!;
+  assert.equal(karte.ankuendigungZeit, 1_790_000_500);
+  assert.equal(zeitNachDer(karte.ankuendigungZeit, 1_790_000_500), 1_790_000_501, "gleiche Sekunde → eine später");
+  assert.equal(zeitNachDer(karte.ankuendigungZeit, 1_790_000_400), 1_790_000_501, "Uhr zurück → trotzdem später");
+  assert.equal(zeitNachDer(karte.ankuendigungZeit, 1_790_000_900), 1_790_000_900, "sonst die Uhr");
+  assert.equal(zeitNachDer(undefined, 5), 5);
+  assert.match(readFileSync(new URL("../src/shell/tabs/repo-seite.ts", import.meta.url), "utf8"),
+    /const ev = baueRepoAnkuendigung\(angaben, state\.keypair\.pk\);\n {4}ev\.created_at = zeitNachDer\(k\.ankuendigungZeit, ev\.created_at\);/,
+    "Einstellungen speichern nie in derselben Sekunde wie die geltende Ankündigung");
+});
+

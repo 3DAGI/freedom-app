@@ -46,7 +46,7 @@ eigenem Branch mit eigenen Pull Requests. Regeln dazu in `CLAUDE.md`
 | 0.D | Signierte Releases | offen |  | MENSCH: Signierschlüssel |
 | 0.E | Wallet-Erweiterungen unter CSP | offen |  | MENSCH |
 | 0.F | Texte angleichen | Code-Teil fertig (mit 8.16h, Spur B) | #149 (mit 8.16h) | MENSCH: Firmenname und Impressum (Fußzeile „Kein Unternehmen“), Marketing-Entwürfe |
-| 0.G | Solana-Programm-ID abgleichen | offen |  | MENSCH: Entscheidung A/B |
+| 0.G | Solana-Programm-ID abgleichen | erledigt (13.10.) |  | MENSCH: neuer Deploy an `FVb19s…` (Upgrade-Recht `FsUyQ…`, 731923b); Doku mit TMA-2. `3UmRR…` schließen bleibt |
 | 0.H | Instabilen Knoten-Test reparieren | fertig | [#3](https://github.com/3DAGI/freedom-app/pull/3) | Ursache: Frist zweimal aus der Uhr berechnet; 120 Läufe am Stück grün |
 | 0.I | Veröffentlichung über GitHub Actions | fertig | [#1](https://github.com/3DAGI/freedom-app/pull/1), [#2](https://github.com/3DAGI/freedom-app/pull/2) | live seit 24.09. über `pages.yml`; Prüfsumme Datei = `freedom.html.sha256` = Startseite; Standard-Branch `main` |
 | 0.J | Event-Felder streng prüfen | fertig | [#6](https://github.com/3DAGI/freedom-app/pull/6) | Freigabe 24.09.; `verifyEvent()` prüft die Form nach NIP-01; dazu Hashlock-Prüfung im LP-Daemon |
