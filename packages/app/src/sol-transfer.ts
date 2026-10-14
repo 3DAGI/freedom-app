@@ -6,12 +6,18 @@
  */
 import { t } from "./i18n.js";
 
-/** Ueberweisung in Lamports (Schritt 4.1b: fuer die Solana-Schiene). */
-export async function buildSolTransfer(fromPubkey: string, toPubkey: string, lamports: number, referenz?: string): Promise<unknown> {
+/**
+ * Ueberweisung in Lamports (Schritt 4.1b: fuer die Solana-Schiene). Die Verbindung
+ * nur fuer den Blockhash; ohne Angabe die beste aus dem Pool (Tests geben eine an, A-21a).
+ */
+export async function buildSolTransfer(
+  fromPubkey: string, toPubkey: string, lamports: number, referenz?: string,
+  verbindung?: Pick<import("@solana/web3.js").Connection, "getLatestBlockhash">,
+): Promise<unknown> {
   const web3 = await import("@solana/web3.js");
   if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error(t("zahl.ungueltigerBetrag"));
 
-  const connection = new web3.Connection(await solRpcUrl(), "confirmed");
+  const connection = verbindung ?? new web3.Connection(await solRpcUrl(), "confirmed");
 
   const ueberweisung = web3.SystemProgram.transfer({
     fromPubkey: new web3.PublicKey(fromPubkey),

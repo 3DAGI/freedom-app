@@ -9243,3 +9243,39 @@ Den Agenten, der darin arbeitet, bringt VKc2 (wartet auf VK-W1n und VK-W6).
 **Prüfungen:** protocol 1290 grün, node 443 (+9, 9 übersprungen), app 1114, mls 13, Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
 
+## Schritt A-21a – Solana-Vektoren: die Bytes jeder Transaktion festgehalten
+
+Spur A, erster Teilschritt von A-21 (`docs/KIT-PLAN.md`, freigegeben 11.10.: A-21a und A-21b vor A-12a).
+Bevor web3.js v1 durch `@solana/kit` ersetzt wird, hält ein Test die Nachricht jeder Transaktion fest,
+die App, Protokoll und Knoten heute bauen. Jeder spätere Schritt muss dieselben Bytes liefern. Keine
+neue Abhängigkeit.
+
+**Neu:**
+- **`protocol/test/fixtures/solana-vektoren.json`:** 17 Nachrichten (base64), erzeugt mit web3.js 1.98.4.
+  Feste Schlüssel aus Seeds, fester Blockhash, Frist weit in der Zukunft. Die Datei wird nie neu erzeugt.
+  - **Protokoll und Knoten** (`protocol/test/sol-vektoren-faelle.ts`, 10):
+    - Zahlkanal: öffnen, aufstocken, einlösen mit Ed25519, erstatten.
+    - Nonce-Konto: anlegen, schließen; Überweisung ohne Internet.
+    - LP-Adapter (HTLC): sperren, einlösen, zurückholen – über eine Attrappe der Verbindung, die wie
+      web3.js signiert.
+  - **App** (`app/test/sol-vektoren-faelle.ts`, 9):
+    - HTLC: Deposit mit zwei Sperren, Gegenrichtung, einlösen, zurückholen.
+    - Einlösung über einen Relayer mit Erstattung.
+    - Zahlkanal öffnen und aufstocken über `sendeMitWallet()` – Byte für Byte gleich wie im Protokoll.
+    - Überweisung und Trinkgeld, mit und ohne Referenz.
+    - Verbindung und Wallet sind Attrappen; die Wallet signiert mit einem festen Schlüssel.
+- **`sol-transfer.ts`:** `buildSolTransfer()` nimmt optional eine Verbindung (nur für den Blockhash).
+  Ohne sie gilt wie bisher die beste aus dem Pool. Die Schiene ruft unverändert mit vier Werten.
+- **Fallstrick** in `packages/protocol/CLAUDE.md`: Vektoren nie neu erzeugen; `HTLC_PROGRAM_ID` in der
+  Umgebung ändert die LP-Vektoren, der Test sagt das.
+
+**Tests:**
+- protocol +3: alle Fälle gleich dem Vektor, keiner fehlt oder ist zu viel; zweimal gebaut, dieselben Bytes;
+  Blockhash und Zahler je Vektor, Ed25519-Anweisung mit dem Sitzungsschlüssel, der Gutschrift und einer
+  gültigen Signatur.
+- app +3: alle Fälle gleich; Zahlkanal gleich wie im Protokoll; zweimal dieselben Bytes.
+- Gegenprobe: Mit einer anderen HTLC-Programm-ID scheitern die LP-Vektoren.
+
+**Prüfungen:** protocol 1293 (+3), node 443 (9 übersprungen), app 1117 (+3), mls 13, Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
+

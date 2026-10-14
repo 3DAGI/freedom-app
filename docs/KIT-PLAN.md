@@ -39,7 +39,8 @@ Freizugeben sind deshalb die Abhängigkeiten und die Antworten auf W1–W3. **Fr
 
 Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün.
 
-- **A-21a Vektoren.** Für jede Transaktion, die App oder Knoten heute bauen, gibt es einen Test
+- **A-21a Vektoren** – **fertig** (14.10.2026): `protocol/test/fixtures/solana-vektoren.json`, 17 Nachrichten
+  (Protokoll und Knoten 10, App 9, davon 2 gleich). Für jede Transaktion, die App oder Knoten heute bauen, gibt es einen Test
   mit festen Schlüsseln und festem Blockhash. Er hält die Bytes der Nachricht fest, die web3.js v1
   heute erzeugt. Abgedeckt sind:
   - HTLC: sperren, einlösen, zurückholen;

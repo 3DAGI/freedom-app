@@ -149,8 +149,8 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.5n | Pakete holen | nach W6a |
 | 11.5c | Knoten: Ablauf für Repo-Aufträge, Patch einreichen | nach W3a, W7 |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach W3a, W7 |
-| A-21a–f | `@solana/kit` statt web3.js v1 | frei ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
-| A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21a/b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
+| A-21b–f | `@solana/kit` statt web3.js v1 (A-21a ✓ Vektoren) | frei ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17 | Eingebaute Lightning-Wallet (Breez, Cashu) | frei; Breez nach dem API-Schlüssel ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
 | RM2 | Cashu-Pfand für Lightning-Sitzungen | nach RM2 W1–W5 |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam erst mit dem Upgrade (M-1) |
