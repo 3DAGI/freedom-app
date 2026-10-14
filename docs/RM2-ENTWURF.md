@@ -2,7 +2,8 @@
 
 Stand 11.10.2026, Spur A. Freizugeben sind die Vorschläge V1–V9 und die Antworten auf die
 Fragen W1–W5 am Ende. „Wie vorgeschlagen“ genügt; jede Frage lässt sich einzeln anders
-entscheiden. Bis zur Freigabe ändert sich am Code nichts.
+entscheiden. **Freigegeben am 14.10.2026 (MENSCH): wie vorgeschlagen** (Abschnitt
+„Entscheidungen vom 14.10.2026“ am Ende).
 
 ## Worum es geht
 
@@ -212,3 +213,19 @@ Quellen (11.10.2026):
   - [Routstr](https://blog.cashu.space/routstr/);
   - [L402](https://docs.lightning.engineering/the-lightning-network/l402);
   - [Hold-Rechnungen](https://www.spark.money/glossary/hold-invoice).
+
+## Entscheidungen vom 14.10.2026 (MENSCH)
+
+„Ja zu allen deinen Vorschlägen für die offenen Entscheidungen.“
+
+| Nr. | Entscheidung |
+|---|---|
+| V1–V9 | wie vorgeschlagen |
+| W1 | **A** – Cashu-Pfand jetzt, Spilman-Kanal später als Fassung 2 |
+| W2 | **A** – der Nutzer wählt die Mint, der Provider nennt seine Liste, es gilt die Schnittmenge |
+| W3 | **So** – 20 sats und eine Stunde, wie heute |
+| W4 | **A** – Anteile der übrigen Empfänger nach der Antwort aus dem Guthaben per Lightning, gesammelt |
+| W5 | **A** – E4b V3 geändert: Cashu ist der Weg für Lightning-Sitzungen; jede Ladung bestätigt der Nutzer, die Mint steht immer dabei; wer keine Mint will, fragt mit Gebot je Auftrag |
+
+Reihenfolge: A-17c (Cashu-Baustein, freigegeben mit derselben Antwort), dann RM2a–RM2d.
+`@cashu/cashu-ts` kommt mit A-17c, im Knoten mit RM2b – je mit Größe und Lizenz im Pull Request.

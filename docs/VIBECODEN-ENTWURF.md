@@ -8,8 +8,9 @@ Stand 14.10.2026 (nach VKc1), Spur A.
   entschieden werden.
 - **Freigegeben 11.10. (MENSCH, „Ja“):** den Entwurf festhalten und mit VKa
   beginnen.
-- **Offen:** die Fragen VK-W1 bis VK-W5 am Ende. Bis zur Antwort gelten die
-  Empfehlungen als Arbeitsgrundlage. VKa hängt an keiner von ihnen.
+- **Entschieden:** VK-W2 bis VK-W5 am 13.10., VK-W1n und VK-W6 bis VK-W9 am
+  14.10. (MENSCH: „Ja zu allen deinen Vorschlägen“) – Abschnitte „Entscheidungen
+  vom 13.10.2026“ und „Entscheidungen vom 14.10.2026“; sie gelten vor den Fragen.
 
 ## Was es schon gibt
 
@@ -338,3 +339,19 @@ Quellen (13./14.10.2026):
   [Home Assistant](https://raspberry.tips/en/smart-home/home-assistant-mcp-server-ai-setup).
 - **PAKE:** [CPace (Go)](https://pkg.go.dev/filippo.io/cpace),
   [CPace (libsodium)](https://github-redirect.dependabot.com/jedisct1/cpace).
+
+## Entscheidungen vom 14.10.2026 (MENSCH)
+
+„Ja zu allen deinen Vorschlägen für die offenen Entscheidungen.“ Dieser Abschnitt gilt vor
+den neuen Fragen oben.
+
+| Nr. | Entscheidung |
+|---|---|
+| VK-W1n | **C** – der Knoten ist ACP-Client; Hermes ist der erste Motor (gepinnt, in der Sandbox, Freedom-MCP statt Nous Portal), weitere ACP-Motoren tauschbar. Aufträge Fremder (11.5) behalten den flüchtigen eigenen Ablauf |
+| VK-W6 | **Ja** – `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0, 6,1 MB entpackt, keine weiteren Abhängigkeiten) im Knoten, exakt gepinnt |
+| VK-W7 | **A** – Werkbank-Knoten: weitere eigene Rechner per QR für Programme ohne ARM64 |
+| VK-W8 | **A** – Vorschau erst für Web und Linux, dann Android, dann Windows |
+| VK-W9 | **K1** – zwölf Zeichen ohne neue Kryptografie, gestreckt mit PBKDF2 wie der Tresor; K2 (PAKE) später |
+
+Damit sind VKc2 (ACP-Client), VKf (Kurzcode) und VKj (Werkbank-Knoten) frei; VKc3 und VKd
+folgen nach VKc2 und der Sandbox (VKb, Spur B).

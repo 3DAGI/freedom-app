@@ -7,7 +7,9 @@ NUT-12); Cashu immer als verwahrt benennen und die Mint nennen
 legt fest, *wie*. Freizugeben sind die Vorschläge V1–V6 und die Antworten auf
 die Fragen W1–W5. „Wie vorgeschlagen“ genügt; jede Frage lässt sich einzeln
 anders entscheiden. **Freigegeben am 11.10.2026 (MENSCH): wie vorgeschlagen**
-(Abschnitt „Entscheidungen vom 11.10.2026“ am Ende).
+(Abschnitt „Entscheidungen vom 11.10.2026“ am Ende). Am 14.10.2026 mit RM2 W5 geändert:
+Cashu ist der Weg für Lightning-Sitzungen (V3 „nie Vorgabe“ gilt dafür nicht mehr), und
+A-17c ist frei – ohne den API-Schlüssel von Breez.
 
 ## Worum es geht
 
@@ -99,3 +101,12 @@ Wie vorgeschlagen:
 | W3 | **Ja** – Vorgabe für Lightning, wenn kein NWC verbunden ist, mit Rückfrage vor dem ersten Aufladen |
 | W4 | **10.000 sats** Höchstbetrag für Cashu |
 | W5 | **Ja** – der MENSCH beantragt den API-Schlüssel bei Breez und legt ihn als Secret ab |
+
+## Entscheidungen vom 14.10.2026 (MENSCH)
+
+„Ja zu allen deinen Vorschlägen“ (zu RM2 und A-17c):
+
+| Nr. | Entscheidung |
+|---|---|
+| V3 | **geändert (RM2 W5 A):** Cashu ist der Weg für Lightning-Sitzungen – jede Ladung bestätigt der Nutzer, die Mint steht immer dabei; sonst bleibt Cashu für kleine Beträge und ohne Netz |
+| A-17c | **frei** – Cashu-Baustein mit `@cashu/cashu-ts` (Mint wählen, Token senden und empfangen, NUT-11/12); Größe und Lizenz im Pull Request |
