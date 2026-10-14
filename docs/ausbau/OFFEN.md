@@ -28,6 +28,22 @@ Am 14.10.2026 entschieden (MENSCH: „Ja zu allen deinen Vorschlägen“): VK-W1
 bis VK-W9, W3a, W6a, W7 und RM2 W1–W5 – eingetragen in den Entwürfen (Abschnitte
 „Entscheidungen vom 14.10.2026“). Offen sind nur noch die Punkte unten.
 
+### 1.0 Telegram-Mini-App (TMA-1, 14.10.2026)
+
+Die Mini-App kam ohne Pull Request auf `main`. Spur A hat sie repariert (eigener Build,
+Signatur nur an den TMA-Server, CSP nur für die Datei des SDK, `/tma/` nachgebaut). Stars
+und TON bleiben unverdrahtet, bis diese Fragen beantwortet sind:
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| T1 | Wofür zahlen Sterne? Sie sind verwahrt beim Bot-Besitzer und passen nicht zu A+ und RM2. | B – Guthaben nur für KI an den eigenen Knoten des Bot-Besitzers, als „verwahrt“ benannt |
+| T2 | TON als dritte Kette? | B – weglassen, Sterne reichen |
+| T3 | Das SDK von `telegram.org` im Mini-App-Build | A – so lassen, eigene Brücke später prüfen |
+| T4 | Lightning und SOL in der Mini-App (Telegram erlaubt dort für Krypto nur TON) | A – dort ausblenden, falls T1 B |
+| T5 | Grenze „telegram“ im Datenschutzbericht | ja, mit T1 |
+
+Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |

@@ -54,14 +54,16 @@ jobs:
         env:
           # Adresse dieser Auslieferung – Webseed des Torrents (5.3b)
           SPIEGEL_BASIS_URL: ${{ steps.pages.outputs.base_url }}
-          # Mini-App: API-Host für Stars/TON. Pages liefert nur statisch —
-          # der Bot zeigt auf $base_url/tma/, die API ruft den TMA-Server.
-          # Frei lassen = Mini-App-Build ohne /tma/ (nur PWA veröffentlicht).
+          # Mini-App für Telegram (docs/MINI-APP-TMA.md): https-Herkunft des TMA-Servers.
+          # Gesetzt → zusätzlich /tma/ (BotFather zeigt darauf); leer → keine Mini-App.
           FREEDOM_TMA_API: ${{ vars.FREEDOM_TMA_API }}
         run: scripts/build-site.sh site
       - name: Veroeffentlichte freedom.html und freedom-sw.js nachbauen
         # 5.9: Was hinausgeht, muss ein frischer Build desselben Commits bitgleich
-        # ergeben – sonst wird nichts veroeffentlicht. Seit B-12c auch der Weck-Worker.
+        # ergeben – sonst wird nichts veroeffentlicht. Seit B-12c auch der Weck-Worker,
+        # seit TMA-1 die Mini-App (/tma/, mit derselben Adresse des TMA-Servers).
+        env:
+          FREEDOM_TMA_API: ${{ vars.FREEDOM_TMA_API }}
         run: bash scripts/repro-build.sh --vergleiche-ordner site
       - uses: actions/upload-pages-artifact@v3
         with:

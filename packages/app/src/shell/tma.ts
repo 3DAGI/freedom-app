@@ -1,17 +1,27 @@
 /**
- * Telegram-Mini-App-Brücke (FREEDOM_TMA=1).
+ * Telegram-Mini-App-Brücke – nur im Mini-App-Build (`FREEDOM_TMA=1`, eigener Ordner
+ * `dist/tma/`, `docs/MINI-APP-TMA.md`).
  *
  * Erkennt, ob die App in Telegram läuft, liest `initData` (den signierten
- * Query-String mit der User-ID), macht ready()/expand() und hängt den
- * Authorization-Header an jeden ausgehenden fetch.
+ * Query-String mit der User-ID) und macht ready()/expand(). Die Signatur geht nur
+ * über `tmaFetch()` hinaus, nur an den TMA-Server – bis zur Reparatur (TMA-1) hängte
+ * ein globaler fetch-Patch sie an jeden Aufruf derselben Herkunft, auf GitHub Pages
+ * also an GitHub.
  *
  * Verifikation passiert ausschließlich serverseitig (tma-auth.ts auf dem
  * Node) — hier im Client wird nur der rohe String weitergereicht, nie
  * `initDataUnsafe.user.id` blind vertraut.
  *
- * Im Nicht-TMA-Build ist `tma` immer `undefined`, der Rest der App merkt
- * nichts davon.
+ * Im Web-Build ist `FREEDOM_TMA` nie gesetzt: Die Brücke tut dort nichts, auch wenn
+ * ein `Telegram`-Objekt da ist.
  */
+declare global {
+  /** Nur im Mini-App-Build `true` (esbuild `define` in `build.mjs`). */
+  var FREEDOM_TMA: boolean | undefined;
+  /** Herkunft des TMA-Servers im Mini-App-Build; leer = dieselbe wie die App (Betrieb A). */
+  var FREEDOM_TMA_API: string | undefined;
+}
+
 export interface TmaUser {
   id: number;
   first_name: string;
@@ -46,21 +56,36 @@ interface TmaWebApp {
   themeParams?: Record<string, string>;
 }
 
-const W = (globalThis as unknown as { Telegram?: { WebApp?: TmaWebApp } }).Telegram;
+/** Im Mini-App-Build? Nur dann gibt es eine Brücke (`globalThis.FREEDOM_TMA` ersetzt esbuild). */
+export function istTmaBuild(): boolean {
+  return globalThis.FREEDOM_TMA === true;
+}
+
+/** Basis des TMA-Servers – leer heißt dieselbe Herkunft wie die App. */
+export function tmaApiBasis(): string {
+  return globalThis.FREEDOM_TMA_API ?? "";
+}
+
+/** Das WebApp-Objekt von Telegram – nur im Mini-App-Build und erst beim Aufruf gelesen. */
+function webApp(): TmaWebApp | undefined {
+  if (!istTmaBuild()) return undefined;
+  return (globalThis as unknown as { Telegram?: { WebApp?: TmaWebApp } }).Telegram?.WebApp;
+}
 
 /** true nur im echten Mini-App-WebView. */
 export function inTelegram(): boolean {
-  return !!(W?.WebApp?.initData || W?.WebApp?.initDataUnsafe?.user);
+  const wa = webApp();
+  return !!(wa?.initData || wa?.initDataUnsafe?.user);
 }
 
 /** Die unterzeichnete Rohzeichenkette (nur serverseitig verifizierbar). */
 export function initDataRaw(): string {
-  return W?.WebApp?.initData ?? "";
+  return webApp()?.initData ?? "";
 }
 
 /** Anzeigedaten – NUR für Darstellung, nie für Autorisierung. */
 export function tmaUser(): TmaUser | undefined {
-  return W?.WebApp?.initDataUnsafe?.user;
+  return webApp()?.initDataUnsafe?.user;
 }
 
 /** 64-Zeichen-Hex des Users (Nostr-kompatible Kennung, stabil). */
@@ -72,7 +97,7 @@ export function tmaUserHex(): string | undefined {
 
 /** Theme (dark/light) aus Telegram übernehmen. */
 export function tmaTheme(): "dark" | "light" | undefined {
-  const c = W?.WebApp?.themeParams?.bg_color;
+  const c = webApp()?.themeParams?.bg_color;
   if (!c) return undefined;
   const m = c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
   if (!m) return undefined;
@@ -80,47 +105,22 @@ export function tmaTheme(): "dark" | "light" | undefined {
   return lum < 128 ? "dark" : "light";
 }
 
-let _patched = false;
-
 /**
- * fetch() patchen: Jeder Request an unseren Origin bekommt
- * `Authorization: tma <initData>` (die Signatur) mit — der Server prüft sie
- * pro Request. Ohne diesen Header kennt der Server den Nutzer nicht.
+ * Aufruf an den TMA-Server (`/tma/…`) mit `Authorization: tma <initData>` – der Server
+ * prüft die Signatur je Aufruf. Nur dieser Weg trägt sie hinaus; `fetch` bleibt
+ * unverändert (kein globaler Patch).
  */
-export function patchFetchForTma(): void {
-  if (_patched || !inTelegram()) return;
-  _patched = true;
-  const orig = globalThis.fetch;
+export function tmaFetch(pfad: string, init: RequestInit = {}): Promise<Response> {
+  if (!pfad.startsWith("/tma/")) return Promise.reject(new Error("tmaFetch: nur Pfade unter /tma/"));
+  const headers = new Headers(init.headers);
   const raw = initDataRaw();
-  if (!raw) return;
-  // Der TMA-Server darf auf einer ANDEREN Origin liegen als die App selbst
-  // (App auf GitHub Pages, API auf dem GX10-Node). FREEDOM_TMA_API nennt
-  // sie — nur diese und der eigene Origin bekommen die Signatur mit.
-  const apiBasis = (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    let zielOrigin = "";
-    try {
-      if (typeof input === "string") {
-        zielOrigin = new URL(input, location.href).origin;
-      } else if (input instanceof URL) {
-        zielOrigin = input.origin;
-      } else if (input instanceof Request) {
-        zielOrigin = new URL(input.url).origin;
-      }
-    } catch { return orig(input, init); }
-    // Nur der eigene Origin und der konfigurierte API-Host — fremde APIs
-    // (Relays, TON, Solana-RPC) bekommen nichts.
-    const erlaubt = zielOrigin === location.origin || (apiBasis !== "" && zielOrigin === new URL(apiBasis).origin);
-    if (!erlaubt) return orig(input, init);
-    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
-    if (!headers.has("authorization")) headers.set("authorization", `tma ${raw}`);
-    return orig(input, { ...init, headers });
-  }) as typeof fetch;
+  if (raw) headers.set("authorization", `tma ${raw}`);
+  return fetch(`${tmaApiBasis()}${pfad}`, { ...init, headers });
 }
 
 /** ready() + expand() — erst danach ist die Fläche nutzbar. */
 export function tmaReady(): void {
-  const wa = W?.WebApp;
+  const wa = webApp();
   if (!wa) return;
   try {
     wa.ready();
@@ -132,30 +132,28 @@ export function tmaReady(): void {
 
 /** Kurzer Vibrations-Hinweis bei Erfolg/Fehler. */
 export function tmaHaptic(ok: boolean): void {
-  W?.WebApp?.HapticFeedback?.notificationOccurred(ok ? "success" : "error");
+  webApp()?.HapticFeedback?.notificationOccurred(ok ? "success" : "error");
 }
 
 /** "Zurück"-Knopf von Telegram anzeigen (cb feuert beim Druck). */
 export function tmaBackButton(cb: () => void): void {
-  const b = W?.WebApp?.BackButton;
+  const b = webApp()?.BackButton;
   if (!b) return;
   b.onClick(cb);
   b.show();
 }
 
 export function tmaHideBackButton(): void {
-  W?.WebApp?.BackButton?.hide();
+  webApp()?.BackButton?.hide();
 }
 
 /**
- * Mini-App-Shell: Zeigt Profil (Name/Username aus initDataUnsafe), ein
- * Theme-Attribut am <html> und den Patched-fetch. Kein DOM-Overlay nötig —
- * die App bringt ihre eigene Oberfläche mit.
+ * Mini-App-Shell: ready()/expand() und ein Theme-Attribut am <html>. Kein DOM-Overlay
+ * nötig — die App bringt ihre eigene Oberfläche mit.
  */
 export function startTelegramShell(): void {
   if (!inTelegram()) return;
   tmaReady();
-  patchFetchForTma();
   const theme = tmaTheme();
   if (theme) document.documentElement.setAttribute("data-tma-theme", theme);
 }

@@ -9349,3 +9349,46 @@ Entscheidungen.“
 
 **Als Nächstes:** die Commits des lokalen Agenten zur Telegram-Mini-App prüfen und reparieren
 (Wunsch MENSCH 14.10.), dann A-21b1.
+
+## Schritt TMA-1 – Mini-App für Telegram repariert: eigener Build, Signatur nur an den Server
+
+Spur A, Wunsch MENSCH 14.10.2026: „repariere die tma-commits, das war mein lokaler agent, wusste
+nicht dass er das repo ändert, mach es richtig damit alles gut funktioniert.“ Die Commits d6e8e71,
+840cada, ac1315b und e548286 kamen am 13./14.10. ohne Pull Request auf `main`.
+
+**Befunde:**
+- Mit `FREEDOM_TMA_API` hätte `build-site.sh` die Telegram-Fassung als `freedom.html` veröffentlicht,
+  und `repro-build.sh` hätte jede Veröffentlichung gestoppt. Zusätzlich änderte die Variable die CSP des
+  Web-Builds. Heute ist sie nicht gesetzt (`/tma/` liefert 404, die Live-App enthält kein `telegram.org`).
+- Ein globaler fetch-Patch hängte die Telegram-Signatur (ID, Name, Benutzername) an jeden Aufruf
+  derselben Herkunft, auf Pages also an GitHub.
+- Das Inline-Skript mit der API-Adresse ließ die CSP nicht zu – Betrieb B erreichte den Server nie.
+- Die CSP öffnete ganz `telegram.org`, `'self'` und den API-Host für Skripte. TON Connect UI kam
+  ungenutzt vom Knoten. Das „Icon“ war eine SVG-Datei mit der Aufschrift „SW“.
+- Stars und TON sind nicht verdrahtet: Nichts in der App ruft sie auf, gebuchte Sterne kaufen nichts.
+
+**Repariert:**
+- `build.mjs`: `FREEDOM_TMA=1` schreibt nur `dist/tma/index.html` (+ `.sha256`). Flag und Adresse
+  (`FREEDOM_TMA_API`, nur https-Herkunft, sonst Abbruch) kommen per `define` ins Skript. Die CSP
+  erlaubt zusätzlich nur `https://telegram.org/js/telegram-web-app.js`; der Build prüft, dass außer dem
+  eingebetteten Skript nur dieses eine geladen wird.
+- `tma.ts`: kein globaler Patch mehr, `tmaFetch()` nur für `/tma/…` an den Server. Die Brücke wirkt
+  nur im Mini-App-Build; `boot()` lädt sie sonst nicht.
+- `stars-checkout.ts`, `ton-connect.ts`: über `tmaFetch()`/`tmaApiBasis()`, Sprache der App, kein
+  `Math.random`; im Kopf als „nicht verdrahtet“ markiert.
+- `build-site.sh` legt `/tma/` aus `dist/tma/` an. `repro-build.sh` baut mit `FREEDOM_TMA_API` auch die
+  Mini-App nach, und `pages.yml` gibt dem Nachbau dieselbe Adresse.
+- Knoten: `/` liefert `tma/index.html` aus dem App-Dist, nicht mehr `freedom.html`.
+- Doku: `docs/MINI-APP-TMA.md` (Stand, Fragen T1–T5), Fallstrick in `packages/app/CLAUDE.md`,
+  `OFFEN.md` 1.0.
+
+**Tests:**
+- app +4 (`tma.test.ts`):
+  - Web-Build ohne Brücke.
+  - Signatur nur über `tmaFetch()`, `fetch` unverändert.
+  - Echter Mini-App-Build: Web-Build unberührt, zwei Skripte, CSP, `define`, falsche Adressen.
+  - Website und Pages.
+- node +1: `/` liefert die Mini-App.
+
+**Offen:** T1–T5 (MENSCH). Danach TMA-2: Knoten-Teil – feste Fehlertexte, keine Telegram-IDs im
+Log, Dateien 0600, Grenzen; dazu die Programm-ID des HTLC (`FVb19s…`, 731923b) in der Doku.

@@ -14,8 +14,12 @@
  *
  * Wichtig: Nie vor `successful_payment` liefern — answerPreCheckout allein
  * garantiert keine Zahlung.
+ *
+ * Noch nicht verdrahtet (TMA-1): Wofür Sterne zahlen und an wen das Geld geht,
+ * entscheidet der MENSCH (`docs/MINI-APP-TMA.md`, „Offen“) – bis dahin ruft nichts
+ * in der App diese Funktionen auf.
  */
-import { tmaHaptic, tmaUserHex } from "./tma.js";
+import { tmaFetch, tmaHaptic, tmaUserHex } from "./tma.js";
 import { toast } from "./ui.js";
 import { t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
@@ -36,16 +40,6 @@ export interface StarsStatus {
   recent: { chargeId: string; stars: number; payload: string; at: number }[];
 }
 
-/** Server-Endpoint — konfigurierbar für lokale Tests. */
-function endpoint(path: string): string {
-  // FREEDOM_TMA_API (Build-Define): wenn gesetzt, zeigt es auf den
-  // TMA-Server (z. B. der GX10-Node) — die App selbst kann auf GitHub Pages
-  // liegen. Ohne Define: Same-Origin (App und API auf einem Host, der
-  // klassische Node-Betrieb).
-  const basis = (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
-  return `${basis}/tma/stars/${path}`;
-}
-
 /**
  * Legt eine Rechnung an und öffnet Telegram's natives Stars-Sheet.
  * `auftrag` ist die interne Kennung (Auftrags-ID), `stars` der Preis.
@@ -58,7 +52,7 @@ export async function zahleMitStars(auftrag: string, stars: number): Promise<voi
   if (!Number.isInteger(stars) || stars <= 0) { toast(t("tma.stars.betrag"), true); return; }
   let inv: StarsInvoice;
   try {
-    const r = await fetch(endpoint("invoice"), {
+    const r = await tmaFetch("/tma/stars/invoice", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ auftrag, stars }),
@@ -93,7 +87,7 @@ export function openStarsInvoice(inv: StarsInvoice): void {
 /** Aktuelles Stars-Guthaben + letzte Zahlungen (für die Anzeige). */
 export async function starsStatus(): Promise<StarsStatus | undefined> {
   try {
-    const r = await fetch(endpoint("status"));
+    const r = await tmaFetch("/tma/stars/status");
     if (!r.ok) return undefined;
     return await r.json();
   } catch { return undefined; }

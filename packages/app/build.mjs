@@ -5,6 +5,11 @@
  *
  * Ergebnis: dist/freedom.html + dist/manifest.json, dazu dist/freedom-sw.js
  * (seit B-12c: Service Worker nur zum Wecken, eigene Datei neben der App).
+ *
+ *   FREEDOM_TMA=1 [FREEDOM_TMA_API=https://…] node build.mjs
+ *
+ * Mini-App für Telegram (`docs/MINI-APP-TMA.md`): nur dist/tma/index.html – der
+ * Web-Build bleibt unberührt (bis TMA-1 überschrieb dieser Lauf dist/freedom.html).
  */
 import { build } from "esbuild";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -29,6 +34,22 @@ await mkdir(join(root, "dist"), { recursive: true });
   if (!soll || ist !== soll) throw new Error(`build: MLS-WASM passt nicht zu SHA256SUMS (${ist})`);
 }
 
+// Mini-App (FREEDOM_TMA=1): eigener Build mit Telegram-SDK. Die Adresse des TMA-Servers
+// (FREEDOM_TMA_API, nur https, nur Herkunft) kommt per `define` ins Skript – ein
+// eigenes Inline-Skript dafür ließe die CSP nicht zu. Der Web-Build liest beides nie.
+const TMA = process.env.FREEDOM_TMA === "1";
+const TMA_API = (() => {
+  const roh = TMA ? (process.env.FREEDOM_TMA_API ?? "").trim() : "";
+  if (!roh) return "";
+  const u = new URL(roh);
+  if (u.protocol !== "https:" || u.username || u.password || u.search || u.hash || !["", "/"].includes(u.pathname)) {
+    throw new Error("build: FREEDOM_TMA_API muss eine https-Herkunft ohne Pfad sein (z. B. https://knoten.example)");
+  }
+  return u.origin;
+})();
+/** Das SDK von Telegram – die einzige fremde Quelle, und nur im Mini-App-Build. */
+const TELEGRAM_SDK = "https://telegram.org/js/telegram-web-app.js";
+
 // 1. JS bundeln (iife, browser)
 const result = await build({
   entryPoints: [join(root, "src/shell/app.ts")],
@@ -39,7 +60,10 @@ const result = await build({
   // globalName: macht die exports (boot) unter diesem Namen global verfuegbar
   globalName: "freedomApp",
   write: false,
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: {
+    "process.env.NODE_ENV": '"production"',
+    ...(TMA ? { "globalThis.FREEDOM_TMA": "true", "globalThis.FREEDOM_TMA_API": JSON.stringify(TMA_API) } : {}),
+  },
   // Node-Builtins durch Browser-Pendants ersetzen
   alias: {
     "node:crypto": join(root, "src/shell/shims/crypto.ts"),
@@ -171,33 +195,10 @@ html = html.replace("<!-- APP_CSS -->", () => `<style>\n${css}\n</style>`);
 const scriptBody = `\n${polyfills}\n${js}\nwindow.freedomApp.boot();\n`;
 html = html.replace("<!-- APP_JS -->", () => `<script>${scriptBody}</script>`);
 
-// ── Mini-App (FREEDOM_TMA=1) ───────────────────────────────────────────
-// Telegram verlangt sein SDK VOR allen anderen Skripten. Das bricht die
-// Ein-Skript-CSP — für den TMA-Build erlauben wir zusätzlich die
-// telegram.org-Quelle (gehört Telegram, wird von Telegram selbst signiert
-// ausgeliefert). tonconnect-ui.min.js kommt vom Node-Server (gleicher
-// Origin, kein CSP-Thema). Der TMA-Build ist NICHT bitgleich mit dem
-// Web-Build — das ist gewollt (anderer Einsatzort, andere Regeln).
-const TMA = process.env.FREEDOM_TMA === "1";
-if (TMA) {
-  // API-Basis: FREEDOM_TMA_API (Default: gleicher Origin). tonconnect-ui.js
-  // und das Manifest kommen vom API-Host — liegt die App statisch auf
-  // GitHub Pages, liefert sie selbst kein Manifest aus. Der Wert wird als
-  // winziges Inline-Snippet im Header gesetzt (vor dem App-Skript, damit die
-  // Brücke ihn lesen kann) — kein esbuild-Define nötig.
-  const apiBasis = (process.env.FREEDOM_TMA_API ?? "").replace(/\/$/, "");
-  const tmaHeader = [
-    `<script src="https://telegram.org/js/telegram-web-app.js"></script>`,
-    `<meta name="telegram-app-name" content="freedom" />`,
-    ...(apiBasis ? [`<script>globalThis.FREEDOM_TMA_API=${JSON.stringify(apiBasis)};</script>`] : []),
-    // TON Connect UI: lokal gebündelt (kein CDN-Vertrauen nötig).
-    `<script src="${apiBasis}/tma/tonconnect-ui.js"></script>`,
-  ].join("\n  ");
-  html = html.replace("<!-- TMA_HEADER -->", () => tmaHeader);
-  console.log(`[build] FREEDOM_TMA=1 — Mini-App-Build (API: ${apiBasis || "gleicher Origin"})`);
-} else {
-  html = html.replace("<!-- TMA_HEADER -->", () => "");
-}
+// Mini-App: das SDK von Telegram vor der App (Telegram verlangt es so), sonst nichts.
+// TON Connect UI lädt der Build nicht – TON ist noch nicht verdrahtet (TMA-1).
+html = html.replace("<!-- TMA_HEADER -->", () =>
+  TMA ? `<script src="${TELEGRAM_SDK}"></script>\n  <meta name="telegram-app-name" content="freedom" />` : "");
 
 // Content-Security-Policy (Schritt 0.3 im Ausbauplan).
 // Nur genau dieses eine eingebettete Skript darf laufen – erkannt an seinem
@@ -211,16 +212,9 @@ if (TMA) {
 {
   const { createHash: h } = await import("node:crypto");
   const scriptHash = h("sha256").update(scriptBody, "utf8").digest("base64");
-  // connect-src: bei getrennter API-Origin (Pages + Node) muss die API-Origin
-  // erlaubt sein, sonst blockt die CSP die signierten /tma/*-Aufrufe.
-  const apiOrigin = process.env.FREEDOM_TMA_API ? new URL(process.env.FREEDOM_TMA_API).origin : "";
-  const scriptSrc = TMA
-    // Mini-App: zusätzlich telegram.org (SDK) und der eigene Origin
-    // (tonconnect-ui.js, vom Node ausgeliefert). telegram.org gehört Telegram.
-    // Das Inline-Snippet für FREEDOM_TMA_API ist ein fester String, sein Hash
-    // wird unten ergänzt — es lädt nichts von außen.
-    ? `'sha256-${scriptHash}' 'wasm-unsafe-eval' https://telegram.org 'self'${apiOrigin ? " " + apiOrigin : ""}`
-    : `'sha256-${scriptHash}' 'wasm-unsafe-eval'`;
+  // Mini-App: zusätzlich genau die Datei des Telegram-SDK (nur dieser Pfad, nicht ganz
+  // telegram.org). Der TMA-Server ist https und damit schon in connect-src.
+  const scriptSrc = `'sha256-${scriptHash}' 'wasm-unsafe-eval'${TMA ? ` ${TELEGRAM_SDK}` : ""}`;
   const csp = [
     "default-src 'none'",
     `script-src ${scriptSrc}`,
@@ -228,7 +222,7 @@ if (TMA) {
     "img-src https: data: blob:",
     "media-src https: data: blob:",
     "font-src https: data:",
-    `connect-src https: http: wss: ws: data: blob:${apiOrigin ? " " + apiOrigin : ""}`,
+    "connect-src https: http: wss: ws: data: blob:",
     // 'self' seit B-12c (W3 A): nur freedom-sw.js derselben Herkunft – aus demselben,
     // über pages.yml veröffentlichten und bitgleich nachgebauten Stand
     "worker-src blob: 'self'",
@@ -240,12 +234,23 @@ if (TMA) {
   const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
   if (!/<head[^>]*>/i.test(html)) throw new Error("build: kein <head> fuer die CSP gefunden");
   html = html.replace(/<head[^>]*>/i, (m) => `${m}\n${meta}`);
-  // Bitgleich-Check gilt nur für den Web-Build. Der Mini-App-Build hat
-  // absichtlich mehrere <script>-Tags (Telegram-SDK + TON Connect UI) — die
-  // CSP-Quelle deckt die ab, der Hash nur das App-Skript.
-  if (!TMA && (html.match(/<script[\s>]/gi) ?? []).length !== 1) {
-    throw new Error("build: genau ein <script> erwartet – sonst deckt der CSP-Hash nicht alles ab");
+  // Genau ein eingebettetes Skript (der Hash deckt es); im Mini-App-Build dazu nur das SDK.
+  const skripte = html.match(/<script[^>]*>/gi) ?? [];
+  const fremde = skripte.filter((s) => s !== "<script>");
+  if (skripte.length - fremde.length !== 1 || fremde.length !== (TMA ? 1 : 0) || (TMA && fremde[0] !== `<script src="${TELEGRAM_SDK}">`)) {
+    throw new Error("build: genau ein eingebettetes <script> erwartet (Mini-App: dazu nur das Telegram-SDK) – sonst deckt die CSP nicht alles ab");
   }
+}
+
+if (TMA) {
+  // Nur die Mini-App – Web-Build, Manifest und Weck-Worker bleiben, wie sie sind.
+  const { createHash: h } = await import("node:crypto");
+  await mkdir(join(root, "dist/tma"), { recursive: true });
+  await writeFile(join(root, "dist/tma/index.html"), html);
+  const tmaSha = h("sha256").update(html).digest("hex");
+  await writeFile(join(root, "dist/tma/index.html.sha256"), `${tmaSha}  index.html\n`);
+  console.log(`dist/tma/index.html (${(html.length / 1024).toFixed(0)} KB, API ${TMA_API || "gleiche Herkunft"}, sha256 ${tmaSha})`);
+  process.exit(0);
 }
 
 await writeFile(join(root, "dist/freedom.html"), html);
@@ -253,20 +258,6 @@ await writeFile(
   join(root, "dist/manifest.json"),
   await readFile(join(root, "src/shell/manifest.json"), "utf8"),
 );
-// Icon für den Mini-App-Ordner (Wallet-Picker + Manifest). Quelle: das
-// mitgelieferte TMA-Asset aus packages/node/dist-tma; im Repo liegt es
-// zusätzlich unter src/shell/icon.png als kanonische Kopie.
-{
-  const quellen = [join(root, "src/shell/icon.png"), join(root, "..", "node", "dist-tma", "icon.png")];
-  for (const q of quellen) {
-    try {
-      const icon = await readFile(q);
-      await writeFile(join(root, "dist/icon.png"), icon);
-      break;
-    } catch { /* nächste Quelle */ }
-  }
-}
-
 // Service Worker nur zum Wecken (B-12c): eigene Datei, gleiche Regeln wie die App –
 // nichts Zeit- oder Pfadabhängiges, damit der Build bitgleich bleibt (5.9).
 const sw = await build({
