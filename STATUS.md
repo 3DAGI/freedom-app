@@ -9322,3 +9322,30 @@ betreffen erst 11.5c und 11.5d.
 **Prüfungen:** protocol 1297 (+4), node 443 (9 übersprungen), app 1119 (+2), mls 13, Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
 
+
+## Schritt Entscheidungen 14.10. – Vibecoden, Repo-Agenten, RM2, kit, Cashu
+
+Nur Doku, Spur A. Der MENSCH am 14.10.2026: „Ja zu allen deinen Vorschlägen für die offenen
+Entscheidungen.“
+
+**Eingetragen** (je ein Abschnitt „Entscheidungen vom 14.10.2026“, gilt vor den Fragen):
+- `docs/VIBECODEN-ENTWURF.md`:
+  - VK-W1n C – der Knoten ist ACP-Client, Hermes der erste Motor (gepinnt, Sandbox, Freedom-MCP
+    statt Nous Portal);
+  - VK-W6 ja – `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0);
+  - VK-W7 A (Werkbank-Knoten), VK-W8 A (erst Web und Linux), VK-W9 K1 (zwölf Zeichen, PBKDF2).
+- `docs/REPO-AGENTEN-ENTWURF.md`: W3a A (Ablauf wie mini-swe-agent in TypeScript), W6a wie
+  vorgeschlagen, W7 A (nur Mitglieds-Agenten mit Modell auf demselben Rechner).
+- `docs/RM2-ENTWURF.md`: V1–V9 und W1–W5 wie vorgeschlagen; Bau nach A-17c.
+- `docs/KIT-PLAN.md`: A-21b in zwei Teilen (b1 Protokoll mit Brücke zu web3.js, b2 App),
+  `@solana/kit` exakt 8.4.0 (8.5.0 erschien am 13.10.).
+- `docs/E4B-ENTWURF.md`: V3 mit RM2 W5 geändert, A-17c frei.
+
+**Übersichten:**
+- `OFFEN.md`: die Fragen in 1.1 und 1.2 gelöscht (Abschnitte neu nummeriert).
+- Neuer Stand: VKc2, VKf, VKj, 11.5n, A-21b1/b2 und A-17c frei; RM2a–c nach A-17c; 11.5c nach
+  Spur B (11.5s, 11.5a).
+- `FORTSCHRITT.md` (Zeile Spur A) und `SAMMLUNG.md` (A-17, A-21, A-31, RM2) nachgezogen.
+
+**Als Nächstes:** die Commits des lokalen Agenten zur Telegram-Mini-App prüfen und reparieren
+(Wunsch MENSCH 14.10.), dann A-21b1.

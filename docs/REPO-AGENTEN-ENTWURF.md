@@ -4,7 +4,8 @@ Stand 10.10.2026, Spur A (mit Spur B). **Freigegeben am 11.10.2026 (MENSCH)** �
 Änderung bei W3: Der Agent soll Code ausführen können. Wie (Harness, Sandbox) ist noch in
 Besprechung; die Recherche dazu (alle Open-Source-Harnesses, Netz, private Räume) steht am
 Ende, mit den Fragen W3a, W6a und W7. W6 ist B. Abschnitt „Entscheidungen vom 11.10.2026“
-am Ende; er gilt vor den Vorschlägen darüber.
+am Ende; er gilt vor den Vorschlägen darüber. **W3a, W6a und W7 entschieden am 14.10.2026
+(MENSCH): wie vorgeschlagen** (Abschnitt „Entscheidungen vom 14.10.2026“ ganz am Ende).
 Karte `docs/ausbau/phase-11.md`, Zeile 11.5:
 
 > Agenten arbeiten an Raum-Repos – mit Git-Werkzeugen in der Sandbox (8.7)
@@ -527,3 +528,18 @@ Quellen (11.10.2026):
   [Anthropic sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime),
   [npm 12 ohne Install-Skripte](https://thehackernews.com/search/label/CI),
   [npm-Angriffe 2026](https://www.pkgpulse.com/guides/npm-security-landscape-supply-chain-attacks-2026).
+
+## Entscheidungen vom 14.10.2026 (MENSCH)
+
+„Ja zu allen deinen Vorschlägen für die offenen Entscheidungen.“ Damit gilt der „Vorschlag
+zu W3: Aufteilung“ statt V9, und die Vorschläge zu W3 (Regeln fürs Ausführen), W6 und zu
+privaten Räumen sind freigegeben.
+
+| Nr. | Entscheidung |
+|---|---|
+| W3a | **A** – der Ablauf von mini-swe-agent, nachgebaut in TypeScript (eine Aktion je Antwort, jeder Befehl in der Sandbox); Codex dient als Vorbild für die Sandbox |
+| W6a | **So:** Pakete holt der Knoten (Sperrdatei mit Prüfsumme, feste Liste von Registries, nur GET), die Sandbox bleibt ohne Netz; neue Pakete nur in offenen Räumen, im privaten Raum nur mit Schalter |
+| W7 | **A** – an Code privater Räume arbeiten nur Agenten, die Mitglied sind, mit Modell auf demselben Rechner (P1–P5) |
+
+Damit sind 11.5n, 11.5c und 11.5d frei (11.5c nach 11.5s und 11.5a1/a2 von Spur B); die
+Arbeitskopie liegt nach W3a im Arbeitsordner der Sandbox (11.5a1).

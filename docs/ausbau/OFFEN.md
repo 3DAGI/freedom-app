@@ -1,6 +1,6 @@
 # Offen – alle offenen Punkte und Entscheidungen
 
-Stand 13.10.2026, `main` bei `55bc5fd` (nach C-35). Zusammengetragen von Spur B
+Stand 14.10.2026, `main` bei `1a52c7a` (nach 11.5b, Entscheidungen vom 14.10.). Zusammengetragen von Spur B
 auf Wunsch des MENSCHEN („so dass alle Agents es sehen können“).
 
 **Zweck:** eine Übersicht über alles, was noch offen ist – Entscheidungen, Aufgaben
@@ -24,39 +24,11 @@ verweist nur; bei Widerspruch gilt die Quelle.
 
 ## 1. Entscheidungen des MENSCHEN
 
-### 1.1 Agenten führen Code aus (11.5 und A-31 Vibecoden)
+Am 14.10.2026 entschieden (MENSCH: „Ja zu allen deinen Vorschlägen“): VK-W1n C, VK-W6
+bis VK-W9, W3a, W6a, W7 und RM2 W1–W5 – eingetragen in den Entwürfen (Abschnitte
+„Entscheidungen vom 14.10.2026“). Offen sind nur noch die Punkte unten.
 
-Für die VK-Fragen gelten bis zur Antwort die Empfehlungen als Arbeitsgrundlage
-(Entwurf, Kopf) – außer VK-W6: eine neue Abhängigkeit erst nach der Antwort.
-Für W3a, W6a und W7 nicht – dort baut niemand. VK-W2 bis VK-W5 sind seit
-13.10. entschieden (Entwurf, „Entscheidungen vom 13.10.2026“).
-
-| Nr. | Frage | Empfehlung | Quelle | hält auf |
-|---|---|---|---|---|
-| W3a | Welcher Harness für Aufträge Fremder? | A – Ablauf von mini-swe-agent in TypeScript nachbauen | [`REPO-AGENTEN-ENTWURF.md`](../REPO-AGENTEN-ENTWURF.md), „Fragen dazu“ | 11.5c, 11.5d, Ort der Arbeitskopie (11.5a1) |
-| W6a | Netz in der Sandbox | Pakete holt der Knoten (Sperrdatei mit Prüfsumme, feste Liste, nur GET), die Sandbox bleibt ohne Netz | ebd. | 11.5n |
-| W7 | Wer darf an Code privater Räume arbeiten? | A – nur Agenten, die Mitglied sind, mit Modell auf demselben Rechner | ebd. | 11.5c, 11.5d |
-| VK-W1n | Wie arbeitet der Agent auf dem eigenen Knoten? | C – Knoten als ACP-Client, Hermes als erster Motor (gepinnt, in der Sandbox, Freedom-MCP statt Nous Portal), weitere Motoren tauschbar | [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), „Neue Fragen“ | VKc2, VKc3, VKd |
-| VK-W6 | Neue Abhängigkeit `@agentclientprotocol/sdk` 1.8.0 (Apache-2.0, 6,1 MB, keine weiteren) | ja | ebd. | VKc2 |
-| VK-W7 | Werkbank-Knoten für Programme ohne ARM64 (Unity, Unreal, Resolve, Ableton, Xcode) | A – weitere eigene Rechner per QR | ebd. | VKj |
-| VK-W8 | Reihenfolge der Live-Vorschau | A – Web und Linux, dann Android, dann Windows | ebd. | VKg, VKh, VKi |
-| VK-W9 | Code zum Eintippen | K1 – zwölf Zeichen ohne neue Kryptografie; K2 (PAKE) später | ebd. | VKf |
-
-### 1.2 Lightning wie der Zahlkanal (RM2, Cashu-Pfand)
-
-Ohne Antwort baut niemand daran.
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| W1 | Wie geht „einmal zahlen, viele Nachrichten“ mit Lightning? | A – Cashu-Pfand jetzt, Spilman-Kanal später als Fassung 2 |
-| W2 | Wer wählt die Mint? | A – der Nutzer; es gilt die Schnittmenge mit der Liste des Providers |
-| W3 | Fenster und Frist | 20 sats und eine Stunde, wie heute |
-| W4 | Anteile der übrigen Empfänger | A – nach der Antwort aus dem Guthaben per Lightning, gesammelt |
-| W5 | Cashu als Weg für Lightning-Sitzungen (ändert E4b V3 „nie Vorgabe“) | A – jede Ladung bestätigt der Nutzer, die Mint steht immer dabei |
-
-Quelle: [`RM2-ENTWURF.md`](../RM2-ENTWURF.md), „Fragen an den MENSCHEN“.
-
-### 1.3 Bestätigungen und Zuteilungen
+### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
 |---|---|---|
@@ -64,7 +36,7 @@ Quelle: [`RM2-ENTWURF.md`](../RM2-ENTWURF.md), „Fragen an den MENSCHEN“.
 | Phase 9, Teil der Agenten | Keiner Spur zugeteilt: `docs/BEDROHUNGSMODELL.md` (9.1), `SECURITY.md` (9.2), Deploy-Skripte und Rücknahmeplan (9.3), KI-Hinweis nach Art. 50 AI Act und C2PA (9.4). Wer, und wann? | [`phase-9.md`](phase-9.md) |
 | Phase 9, Teil des MENSCHEN | Auditoren; Beträge der Bug-Bounty (Sats und SOL); Zeitpunkt Mainnet; CASP-Einordnung nach AMLR (Frist 10.07.2027), Steuer, Impressum und Firmenname (0.F) | [`phase-9.md`](phase-9.md), FORTSCHRITT 0.F |
 
-### 1.4 Zurückgestellt – ohne Termin
+### 1.2 Zurückgestellt – ohne Termin
 
 Keine Frage für jetzt; hier, damit nichts verloren geht.
 
@@ -139,25 +111,27 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc2 | Knoten: ACP-Client – Schritte, Freigaben, Stopp auf VKa abbilden, Commit je Schritt; Motor tauschbar | nach VK-W1n, VK-W6 |
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B) | nach VK-W1n, VKb |
+| VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk` 1.8.0) – Schritte, Freigaben, Stopp auf VKa abbilden, Commit je Schritt; Motor tauschbar | frei |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B) | nach VKc2, VKb |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | nach VKc2 |
-| VKf | Kopplung mit Code zum Eintippen | frei (VK-W9 K1 als Grundlage) |
-| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | nach VK-W7 |
+| VKf | Kopplung mit Code zum Eintippen (K1: zwölf Zeichen, PBKDF2 wie der Tresor) | frei |
+| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | VKl | „Als Repo in einen Raum stellen“ | frei, nach VKc2 |
-| 11.5n | Pakete holen | nach W6a |
-| 11.5c | Knoten: Ablauf für Repo-Aufträge, Patch einreichen | nach W3a, W7 |
-| 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach W3a, W7 |
-| A-21b–f | `@solana/kit` statt web3.js v1 (A-21a ✓ Vektoren) | frei ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| 11.5n | Pakete holen (W6a) | frei |
+| 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5s, 11.5a1, 11.5a2 (Spur B) |
+| 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
+| A-21b1, A-21b2 | `@solana/kit` 8.4.0: Protokoll (Zahlkanal, ohne Internet, Brücke zu web3.js), dann App (HTLC, Kanal, Relayer) | frei – als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| A-21c–f | RPC, Signieren, Knoten, Aufräumen | nach A-21b2 |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
-| A-17 | Eingebaute Lightning-Wallet (Breez, Cashu) | frei; Breez nach dem API-Schlüssel ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
-| RM2 | Cashu-Pfand für Lightning-Sitzungen | nach RM2 W1–W5 |
+| A-17c | Cashu-Baustein (`@cashu/cashu-ts`: Mint wählen, Token senden und empfangen, NUT-11/12) | frei ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
+| A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
+| RM2a–c | Cashu-Pfand für Lightning-Sitzungen (RM2d Oberfläche, Spur C) | nach A-17c ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam erst mit dem Upgrade (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |
 | E8 | Hinterlegung für KI entfernen | nach M-2 |
 | E9-5 | Cluster-Betrieb | nach zwei Geräten (MENSCH) |
-| L2-3 A | Netzweite Ausfall-Kenntnis | später (1.4) |
+| L2-3 A | Netzweite Ausfall-Kenntnis | später (1.2) |
 
 ### Spur B – Mesh und Bausteine
 
@@ -166,8 +140,8 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | E9-4 | Katalog 38080 mit Verweis aufs Manifest, „geprüft“ je Modell | frei – als Nächstes |
 | E9-2 | Gratis-Grenze für Speicher im `storage`-Tag, `network-capacity.ts` raus | frei, nach E9-4 |
 | E9-1 | `cluster.ts` aufräumen (Kinds, alte Gebühr und Bilanz raus, Angebot 38028) | frei, nach E9-2 |
-| VKb = 11.5s | Sandbox (bubblewrap je Befehl, Grenzen, leere Umgebung), Selbstprüfung „Sandbox“ | frei (VK-Empfehlungen als Grundlage) |
-| 11.5a1, 11.5a2 | Bundle-Leser, Patch-Schreiber (W1 B) | frei; Ort der Arbeitskopie nach W3a |
+| VKb = 11.5s | Sandbox (bubblewrap je Befehl, Grenzen, leere Umgebung), Selbstprüfung „Sandbox“ | frei |
+| 11.5a1, 11.5a2 | Bundle-Leser, Patch-Schreiber (W1 B); Arbeitskopie im Arbeitsordner der Sandbox (W3a A) | frei |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30 | Atomic Agent als Harness | frei (AG1 A) |
@@ -192,4 +166,4 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| 9.1–9.4 (Agenten) | Bedrohungsmodell, `SECURITY.md`, Deploy-Checklisten, KI-Hinweis nach Art. 50 AI Act | Zuteilung offen (1.3) |
+| 9.1–9.4 (Agenten) | Bedrohungsmodell, `SECURITY.md`, Deploy-Checklisten, KI-Hinweis nach Art. 50 AI Act | Zuteilung offen (1.1) |

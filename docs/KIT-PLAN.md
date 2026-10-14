@@ -53,6 +53,14 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
 - **A-21b Protokoll.** Anweisungen werden zu kit-`Instruction`s mit Adressen als Text
   (`channel.ts`, `relayer.ts`, `sol-offline.ts`, `relay-zugang.ts`, in der App `sol-htlc.ts` und
   `zahlkanal.ts`). Die Ed25519-Anweisung wird von Hand gebaut, und die Vektoren müssen stimmen.
+  Geteilt (14.10.2026, MENSCH: „Ja“), weil er sonst rund 20 Dateien berührt:
+  - **A-21b1** Protokoll: Zahlkanal (`channel.ts`) und Überweisung ohne Internet
+    (`sol-offline.ts`) als kit-Anweisungen; eine Übergangsbrücke zu web3.js
+    (`TransactionInstruction`) hält die Aufrufer unverändert, bis A-21d/e sie umstellen;
+  - **A-21b2** App: HTLC (`sol-htlc.ts`) und Zahlkanal der App (`zahlkanal.ts`), Relayer.
+
+  `@solana/kit` exakt **8.4.0** (die neueste Fassung 8.5.0 ist jünger als zwei Wochen) und
+  `@solana-program/system` 0.15.0 (Peer kit ^8.3.0).
 - **A-21c RPC.** Der `RpcPool` bleibt der einzige Weg (Stichprobe 5.8). kit spricht über einen
   eigenen Transport auf dem Pool (`createSolanaRpcFromTransport`). Betroffen sind
   `deposit-verify.ts`, `verdienst.ts` und `solana-adapter.ts`.
@@ -88,3 +96,8 @@ Wie vorgeschlagen:
 | W1 | **Freigegeben:** `@solana/kit` (MIT) und `@solana-program/system` (Apache-2.0), exakt gepinnt |
 | W2 | **Ja** – Signieren über `@noble/curves`, Schlüssel nur kurz, danach genullt |
 | W3 | **A-21a und A-21b vor A-12a**, der Rest danach – die Anweisungen der Kasse entstehen gleich für kit |
+
+## Entscheidung vom 14.10.2026 (MENSCH)
+
+„Ja zu allen deinen Vorschlägen“: A-21b in zwei Teilen (A-21b1 Protokoll mit Übergangsbrücke,
+A-21b2 App), `@solana/kit` exakt 8.4.0.
