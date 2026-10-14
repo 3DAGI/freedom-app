@@ -109,6 +109,13 @@ export class TmaServer {
   private async route(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     res.setHeader("Access-Control-Allow-Origin", "*");
+    // InitData im Authorization-Header ist für die API lesbar nötig — bei
+    // getrennten Origins (App auf Pages, API auf Node) verlangt der Browser
+    // dafür eine erlaubte Origin statt '*'. Wir spiegeln die anfragende
+    // Origin zurück (die Signatur schützt, nicht die Origin-Prüfung).
+    const origin = req.headers.origin;
+    if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Headers", "authorization, content-type");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }

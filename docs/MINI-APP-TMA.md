@@ -22,20 +22,31 @@ Manifest-Muster stammen aus `~/swarm/mini-app/`.
 
 ## Bauen und starten
 
-```bash
-# 1. TMA-Build der App (Telegram-SDK + TON Connect im Header)
-cd packages/app && FREEDOM_TMA=1 npm run build
+Zwei Betriebsarten — beides mit demselben Code:
 
-# 2. Node mit Mini-App-Server (Port 3601)
-cd ../node && \
-  FREEDOM_TMA=1 \
-  TELEGRAM_BOT_TOKEN=<eigener Bot aus BotFather> \
-  TON_DEPOT_ADDRESS=<TON-Adresse für Gram-Zahlungen> \
-  TONCENTER_API_KEY=<optional> \
-  npx tsx src/main.ts
+**A) Alles auf einem Host** (Node liefert App + API):
+```bash
+cd packages/app && FREEDOM_TMA=1 npm run build
+cd ../node && FREEDOM_TMA=1 TELEGRAM_BOT_TOKEN=<Token> TON_DEPOT_ADDRESS=<EQ…> npx tsx src/main.ts
 ```
 
-Umgebungsvariablen:
+**B) App statisch auf GitHub Pages, API auf dem Node** (empfohlen für viele Nutzer):
+```bash
+# 1. Repository → Settings → Secrets and variables → Actions → Variables:
+#    FREEDOM_TMA_API = https://<dein-node>.ts.net     (der TMA-Server)
+# 2. Push auf main → pages.yml baut /tma/ selbst mit
+# 3. BotFather → /newapp → https://3dagi.github.io/freedom-app/tma/
+# 4. API-Server wie in A, aber nur der Node (kein Static-Serving nötig)
+```
+
+Bei B liegt die App auf Pages (schnell, weltweit ausgeliefert), `/tma/*`
+(Stars, TON) läuft gegen den Node. Der Build schreibt die API-Adresse als
+`globalThis.FREEDOM_TMA_API` in den Header, der fetch-Patch hängt die Signatur
+an jeden Aufruf an den API-Host, die CSP erlaubt die Origin. Cross-Origin mit
+`Authorization`-Header braucht den gespiegelten `Access-Control-Allow-Origin` —
+der Server macht das (die HMAC-Signatur schützt, nicht die Origin).
+
+Umgebungsvariablen (Server):
 
 | Variable | Default | Bedeutung |
 |---|---|---|
@@ -45,8 +56,14 @@ Umgebungsvariablen:
 | `TMA_PORT` | `3601` | HTTP-Port des Mini Apps |
 | `TON_TESTNET` | `1` | `0` = Mainnet |
 | `TONCENTER_API_KEY` | – | höheres RPC-Limit |
-| `TMA_STATISCH` | `packages/app/dist` | Wo freedom.html liegt |
 | `TELEGRAM_API_BASE` | `https://api.telegram.org` | Bot-API-Basis — nur für Tests/Proxies umbiegen |
+| `TMA_STATISCH` | `packages/app/dist` | Wo freedom.html liegt (nur für Betriebsart A) |
+
+Build-Variable (nur für Betriebsart B):
+
+| Variable | Bedeutung |
+|---|---|
+| `FREEDOM_TMA_API` | API-Basis beim App-Build (z. B. `https://gx10-7f4a.tail0aa21d.ts.net`). In `build-site.sh` und als Repository-Variable für pages.yml gesetzt → `/tma/` wird mitgebaut. Leer/ungenutzt = gleicher Origin (Betriebsart A). |
 
 ## Bot einrichten (BotFather)
 

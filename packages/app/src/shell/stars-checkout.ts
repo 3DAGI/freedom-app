@@ -18,6 +18,7 @@
 import { tmaHaptic, tmaUserHex } from "./tma.js";
 import { toast } from "./ui.js";
 import { t } from "../i18n.js";
+import { fehlerText } from "../protokoll-texte.js";
 
 export interface StarsInvoice {
   /** t.me/$... Link, per Telegram.WebApp.openInvoice geöffnet. */
@@ -37,7 +38,12 @@ export interface StarsStatus {
 
 /** Server-Endpoint — konfigurierbar für lokale Tests. */
 function endpoint(path: string): string {
-  return `/tma/stars/${path}`;
+  // FREEDOM_TMA_API (Build-Define): wenn gesetzt, zeigt es auf den
+  // TMA-Server (z. B. der GX10-Node) — die App selbst kann auf GitHub Pages
+  // liegen. Ohne Define: Same-Origin (App und API auf einem Host, der
+  // klassische Node-Betrieb).
+  const basis = (globalThis as { FREEDOM_TMA_API?: string }).FREEDOM_TMA_API ?? "";
+  return `${basis}/tma/stars/${path}`;
 }
 
 /**
@@ -48,7 +54,7 @@ function endpoint(path: string): string {
  */
 export async function zahleMitStars(auftrag: string, stars: number): Promise<void> {
   const u = tmaUserHex();
-  if (!u) { toast(t("tma.stars.keinNutzer") ?? "Nicht in Telegram", true); return; }
+  if (!u) { toast(t("tma.stars.keinNutzer"), true); return; }
   if (!Number.isInteger(stars) || stars <= 0) { toast(t("tma.stars.betrag"), true); return; }
   let inv: StarsInvoice;
   try {
@@ -60,7 +66,7 @@ export async function zahleMitStars(auftrag: string, stars: number): Promise<voi
     if (!r.ok) throw new Error(`invoice ${r.status}`);
     inv = await r.json();
   } catch (e) {
-    toast(`${t("tma.stars.fehlschlag") ?? "Rechnung fehlgeschlagen"}: ${(e as Error).message}`, true);
+    toast(`${t("tma.stars.fehlschlag")}: ${fehlerText(e)}`, true);
     return;
   }
   openStarsInvoice(inv);
@@ -74,10 +80,10 @@ export function openStarsInvoice(inv: StarsInvoice): void {
   const wa = (globalThis as unknown as { Telegram?: { WebApp?: { openInvoice?(u: string, cb?: (s: string) => void): void } } }).Telegram?.WebApp;
   if (wa?.openInvoice) {
     wa.openInvoice(inv.link, (status) => {
-      if (status === "paid") { tmaHaptic(true); toast(t("tma.stars.bezahlt") ?? "Bezahlt ⭐"); }
-      else if (status === "failed") { tmaHaptic(false); toast(t("tma.stars.fehlschlag") ?? "Zahlung fehlgeschlagen", true); }
-      else if (status === "pending") toast(t("tma.stars.ausstehend") ?? "Zahlung ausstehend…");
-      else toast(t("tma.stars.abgebrochen") ?? "Abgebrochen");
+      if (status === "paid") { tmaHaptic(true); toast(t("tma.stars.bezahlt")); }
+      else if (status === "failed") { tmaHaptic(false); toast(t("tma.stars.fehlschlag"), true); }
+      else if (status === "pending") toast(t("tma.stars.ausstehend"));
+      else toast(t("tma.stars.abgebrochen"));
     });
     return;
   }

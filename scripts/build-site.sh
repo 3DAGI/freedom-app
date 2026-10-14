@@ -16,6 +16,17 @@ W="$ROOT/packages/website"
 
 ( cd "$ROOT/packages/app" && node build.mjs >/dev/null )
 
+# Mini-App-Build (FREEDOM_TMA=1): Telegram-SDK + TON Connect, API auf dem
+# konfigurierten Host. FREEDOM_TMA_API nennt ihn — leer/ungenutzt = gleicher
+# Origin (klassischer Node-Betrieb). Liegt die App auf GitHub Pages, muss
+# FREEDOM_TMA_API auf den TMA-Server zeigen (z. B. der GX10-Node).
+# Der TMA-Build ist NICHT bitgleich mit dem Web-Build — repro-build prüft
+# deshalb weiter nur den Web-Build (kein FREEDOM_TMA im pages.yml).
+if [ -n "${FREEDOM_TMA_API:-}" ]; then
+  ( cd "$ROOT/packages/app" && FREEDOM_TMA=1 FREEDOM_TMA_API="$FREEDOM_TMA_API" node build.mjs >/dev/null )
+  echo "Mini-App-Build (API: $FREEDOM_TMA_API)"
+fi
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
@@ -29,6 +40,15 @@ echo "$SUM" > "$OUT/freedom.html.sha256"
 # Weck-Worker (B-12c): neben freedom.html, sonst deckt worker-src 'self' ihn nicht
 cp "$ROOT/packages/app/dist/freedom-sw.js" "$OUT"/freedom-sw.js
 (cd "$OUT" && sha256sum freedom-sw.js | cut -d' ' -f1) > "$OUT/freedom-sw.js.sha256"
+# Mini-App (FREEDOM_TMA_API gesetzt): dieselbe Datei zusätzlich als /tma/ —
+# BotFather zeigt auf diese URL, und relative Pfade (./manifest.json) lösen
+# innerhalb des Unterordners richtig auf. icon.png liegt daneben (Wallet-Picker).
+if [ -n "${FREEDOM_TMA_API:-}" ]; then
+  mkdir -p "$OUT/tma"
+  cp "$ROOT/packages/app/dist/freedom.html" "$OUT/tma/index.html"
+  cp "$ROOT/packages/app/dist/manifest.json" "$OUT/tma/manifest.json"
+  cp "$ROOT/packages/app/dist/icon.png" "$OUT/tma/icon.png" 2>/dev/null || true
+fi
 # Provider-Installer (C-21): aus demselben Stand wie die App, nie von einer fremden Domain
 cp "$ROOT/scripts/install-freedom.sh" "$OUT"/install.sh
 (cd "$OUT" && sha256sum install.sh | cut -d' ' -f1) > "$OUT/install.sh.sha256"
