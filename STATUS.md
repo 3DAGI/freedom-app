@@ -9517,3 +9517,6 @@ Spur A, `docs/KIT-PLAN.md` (A-21b in zwei Teilen, MENSCH 14.10.). Keine neue Abh
   - Die Verdrahtung der Referenz liegt jetzt in `ueberweisungAnweisung()`.
 - Alle 17 Vektoren aus A-21a unverändert (Protokoll 10, App 9).
 - Bundle 8448 → 8449 KB.
+- Nachtrag nach dem ersten CI-Lauf: Die Validator-Tests (`contracts/solana-channel/tests/kanal.test.ts`)
+  importierten die entfernten `…Ix` – die Suche davor deckte `contracts/` nicht ab. Sie bauen die
+  web3.js-Fassung jetzt selbst über `alsWeb3()` (dieselben Bytes); Fallstrick in `packages/protocol/CLAUDE.md`.

@@ -23,11 +23,17 @@ import {
   ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
-  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, erstatteKanalIx, kanalAdresse, leseKanal, neuerSitzungsSchluessel,
-  oeffneKanalIx, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufIx, teileKanalZahlung,
+  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, erstatteKanalAnweisung, kanalAdresse, leseKanal, neuerSitzungsSchluessel,
+  oeffneKanalAnweisung, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufAnweisung, teileKanalZahlung,
   type Gutschrift, type KanalEmpfaenger,
 } from "../../../packages/protocol/src/channel.js";
+import { alsWeb3 } from "../../../packages/protocol/src/kit-bruecke.js";
 import { KanalKasse } from "../../../packages/node/src/kanal-kasse.js";
+
+// Seit A-21b2 gibt es die web3.js-Fassungen nur noch über alsWeb3 – dieselben Bytes (Vektoren aus A-21a)
+const oeffneKanalIx = (...a: Parameters<typeof oeffneKanalAnweisung>) => alsWeb3(oeffneKanalAnweisung(...a));
+const erstatteKanalIx = (...a: Parameters<typeof erstatteKanalAnweisung>) => alsWeb3(erstatteKanalAnweisung(...a));
+const stockeKanalAufIx = (...a: Parameters<typeof stockeKanalAufAnweisung>) => alsWeb3(stockeKanalAufAnweisung(...a));
 
 const SO = fileURLToPath(new URL("../target/deploy/solana_channel.so", import.meta.url));
 const hatValidator = spawnSync("solana-test-validator", ["--version"]).status === 0;
