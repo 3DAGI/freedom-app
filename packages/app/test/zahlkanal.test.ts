@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { Keypair, PublicKey, type Transaction } from "@solana/web3.js";
 import {
-  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, fromHex, kanalAdresse, leseGutschriftTags, msatZuLamports,
+  AccountRole, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, fromHex, kanalAdresse, leseGutschriftTags, msatZuLamports,
   neuerSitzungsSchluessel, pruefeGutschrift, signiereGutschrift, toHex, type KanalStand,
 } from "@freedomstack/protocol";
 import {
@@ -245,10 +245,10 @@ test("4.3d2: Kanal planen – Adresse nach den Seeds, Anweisung nach docs/ZAHLKA
   const { eintrag, ix } = planeKanal({ provider: PROVIDER, providerSol, kunde, lamports: 50_000_000n, laufzeitSek: 7 * 86_400, empfaenger, jetzt: JETZT });
   assert.equal(eintrag.kanal, kanalAdresse(kunde, providerSol, BigInt(eintrag.nonce)).adresse);
   assert.deepEqual([eintrag.ablauf, eintrag.eingezahlt, eintrag.letzte, eintrag.abgerechnet, eintrag.offen], [JETZT + 7 * 86_400, "50000000", "0", "0", []]);
-  assert.equal(ix.programId.toBase58(), KANAL_PROGRAMM_ID);
-  assert.deepEqual(ix.keys.map((k) => [k.pubkey.toBase58(), k.isSigner, k.isWritable]).slice(0, 3), [[kunde, true, true], [providerSol, false, false], [eintrag.kanal, false, true]]);
+  assert.equal(ix.programAddress, KANAL_PROGRAMM_ID);
+  assert.deepEqual(ix.accounts!.map((k) => [k.address, k.role]).slice(0, 3), [[kunde, AccountRole.WRITABLE_SIGNER], [providerSol, AccountRole.READONLY], [eintrag.kanal, AccountRole.WRITABLE]]);
   // Daten: Diskriminator, nonce, Betrag, Ablauf, Sitzungsschlüssel, Empfänger
-  const d = Buffer.from(ix.data);
+  const d = Buffer.from(ix.data!);
   assert.equal(d.readBigUInt64LE(8), BigInt(eintrag.nonce));
   assert.equal(d.readBigUInt64LE(16), 50_000_000n);
   assert.equal(d.readBigInt64LE(24), BigInt(JETZT + 7 * 86_400));
@@ -334,7 +334,7 @@ test("E8 Verdrahtung: Aufstocken nur mit der Wallet des Kunden, erst bestätigen
   assert.ok(fn.indexOf("signer.publicKey.toBase58() !== e.kunde") < fn.indexOf("await dialog("), "die Wallet zuerst prüfen");
   assert.ok(fn.indexOf("await bestaetige(") < fn.indexOf("await sendeMitWallet("), "erst bestätigen");
   assert.ok(fn.indexOf("await sendeMitWallet(") < fn.indexOf("await kanalBuch.aufgestockt("), "Einlage erst nach der Kette");
-  assert.match(fn, /stockeKanalAufIx\(\{ kunde: e\.kunde, kanal, betrag: lamports \}\)/);
+  assert.match(fn, /stockeKanalAufAnweisung\(\{ kunde: e\.kunde, kanal, betrag: lamports \}\)/);
   assert.match(fn, /solZuLamports\(String\(w\.sol\)\)/, "Betrag ohne Gleitkomma");
   assert.match(ui, /if \(e\.ablauf - jetzt >= KANAL_NUTZBAR_SEK\) \{\s*const knopf = el\("button", t\("waehr\.kanalAufstocken"\)/, "Knopf nur, solange der Kanal taugt");
   const kz = readFileSync(new URL("../src/shell/ki-zahlung.ts", import.meta.url), "utf8");

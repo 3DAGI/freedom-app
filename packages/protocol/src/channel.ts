@@ -10,8 +10,9 @@
  * Läuft auch im Browser: keine Node-Module, Zahlen über `DataView` (das
  * Buffer-Polyfill kennt `readBigInt64LE` & Co. nicht).
  *
- * Anweisungen seit A-21b1 als kit-`Instruction` (`…Anweisung`); die `…Ix`-Fassungen
- * für web3.js entstehen daraus über `alsWeb3()` (`kit-bruecke.ts`), bis A-21d/e.
+ * Anweisungen seit A-21b1 als kit-`Instruction` (`…Anweisung`); web3.js bekommt sie über
+ * `alsWeb3()` (`kit-bruecke.ts`) – die App seit A-21b2 selbst, der Knoten über
+ * `rechneKanalAbIxs()` bis A-21e.
  */
 import { AccountRole, address, type Instruction } from "@solana/kit";
 import { PublicKey, type TransactionInstruction } from "@solana/web3.js";
@@ -213,10 +214,6 @@ export function oeffneKanalAnweisung(p: KanalOeffnen, programmId = KANAL_PROGRAM
   };
 }
 
-export function oeffneKanalIx(p: KanalOeffnen, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  return alsWeb3(oeffneKanalAnweisung(p, programmId));
-}
-
 export interface KanalAbrechnen {
   provider: string; gutschrift: Gutschrift; sitzungsSchluessel: string; empfaenger: readonly KanalEmpfaenger[];
 }
@@ -262,10 +259,6 @@ export function erstatteKanalAnweisung(p: { kunde: string; kanal: string }, prog
   };
 }
 
-export function erstatteKanalIx(p: { kunde: string; kanal: string }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  return alsWeb3(erstatteKanalAnweisung(p, programmId));
-}
-
 export function stockeKanalAufAnweisung(p: { kunde: string; kanal: string; betrag: bigint }, programmId = KANAL_PROGRAMM_ID): Instruction {
   if (p.betrag <= 0n) throw new ProtokollFehler("kanal-betrag", "Betrag muss größer als 0 sein");
   return {
@@ -273,10 +266,6 @@ export function stockeKanalAufAnweisung(p: { kunde: string; kanal: string; betra
     accounts: [konto(p.kunde, AccountRole.WRITABLE_SIGNER), konto(p.kanal, AccountRole.WRITABLE), konto(SYSTEM_PROGRAMM, AccountRole.READONLY)],
     data: verbinde(diskriminator("global", "top_up"), u64(p.betrag)),
   };
-}
-
-export function stockeKanalAufIx(p: { kunde: string; kanal: string; betrag: bigint }, programmId = KANAL_PROGRAMM_ID): TransactionInstruction {
-  return alsWeb3(stockeKanalAufAnweisung(p, programmId));
 }
 
 /** Das Konto eines Kanals lesen (Daten von `getAccountInfo`); wirft bei falscher Art oder Länge. */

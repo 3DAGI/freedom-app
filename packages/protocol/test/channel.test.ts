@@ -12,10 +12,16 @@ import { ed25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
   GUTSCHRIFT_LAENGE, GUTSCHRIFT_PRAEFIX, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID,
-  erstatteKanalIx, gutschriftNachricht, gutschriftTags, kanalAdresse, leseGutschriftTags, leseKanal, neuerSitzungsSchluessel, oeffneKanalIx,
-  pruefeGutschrift, pruefeKanalEmpfaenger, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufIx, teileKanalZahlung,
-  type KanalStand,
+  erstatteKanalAnweisung, gutschriftNachricht, gutschriftTags, kanalAdresse, leseGutschriftTags, leseKanal, neuerSitzungsSchluessel,
+  oeffneKanalAnweisung, pruefeGutschrift, pruefeKanalEmpfaenger, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufAnweisung,
+  teileKanalZahlung, type KanalStand,
 } from "../src/channel.js";
+import { alsWeb3 } from "../src/kit-bruecke.js";
+
+// Seit A-21b2 baut die App die web3.js-Fassung selbst über alsWeb3 – die Tests prüfen dieselben Felder
+const oeffneKanalIx = (...a: Parameters<typeof oeffneKanalAnweisung>) => alsWeb3(oeffneKanalAnweisung(...a));
+const erstatteKanalIx = (...a: Parameters<typeof erstatteKanalAnweisung>) => alsWeb3(erstatteKanalAnweisung(...a));
+const stockeKanalAufIx = (...a: Parameters<typeof stockeKanalAufAnweisung>) => alsWeb3(stockeKanalAufAnweisung(...a));
 
 const kunde = Keypair.generate().publicKey.toBase58();
 const provider = Keypair.generate().publicKey.toBase58();

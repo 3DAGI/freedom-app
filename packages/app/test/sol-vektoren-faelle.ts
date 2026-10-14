@@ -5,7 +5,7 @@
  * merkt, was gesendet wird; die Wallet signiert mit einem festen Schlüssel.
  */
 import { Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { kanalAdresse, oeffneKanalIx, stockeKanalAufIx } from "@freedomstack/protocol";
+import { kanalAdresse, oeffneKanalAnweisung, stockeKanalAufAnweisung } from "@freedomstack/protocol";
 import { lockDeposit, lockRueckSwap, refundDepositOnChain, type WalletSigner } from "../src/sol-htlc.js";
 import { claimSwap } from "../src/swap-client.js";
 import { baueRelayEinloesung } from "../src/relay-einloesung.js";
@@ -67,10 +67,10 @@ export async function appFaelle(): Promise<Record<string, string>> {
       connection: attrappe().connection, wallet: wallet(1), swapId: "rueck-2", preimage, initiator: PROVIDER,
       relayer: { pubkey: "cd".repeat(32), solAdresse: adresse(6), erstattungLamports: 10_000 },
     })),
-    "kanal-oeffnen": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [oeffneKanalIx({
+    "kanal-oeffnen": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [oeffneKanalAnweisung({
       kunde: KUNDE, provider: PROVIDER, nonce: 7n, betrag: 50_000_000n, ablauf: 1_800_000_000n, sitzungsSchluessel: sitzung, empfaenger,
     })])),
-    "kanal-aufstocken": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [stockeKanalAufIx({ kunde: KUNDE, kanal, betrag: 10_000_000n })])),
+    "kanal-aufstocken": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [stockeKanalAufAnweisung({ kunde: KUNDE, kanal, betrag: 10_000_000n })])),
     "ueberweisung": alsText((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, undefined, attrappe().connection) as Transaction).serializeMessage()),
     "ueberweisung-referenz": alsText((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, adresse(12), attrappe().connection) as Transaction).serializeMessage()),
   };

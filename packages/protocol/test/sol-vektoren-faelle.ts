@@ -6,8 +6,8 @@
  */
 import { Keypair, PublicKey, Transaction, type TransactionInstruction } from "@solana/web3.js";
 import {
-  AnchorSolanaHtlc, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalIx, kanalAdresse,
-  oeffneKanalIx, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufIx, type KanalEmpfaenger,
+  alsWeb3, AnchorSolanaHtlc, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
+  kanalAdresse, oeffneKanalAnweisung, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufAnweisung, type KanalEmpfaenger,
 } from "../src/index.js";
 
 export const schluessel = (n: number): Keypair => Keypair.fromSeed(new Uint8Array(32).fill(n));
@@ -63,12 +63,12 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
   const gutschrift = signiereGutschrift(SITZUNG_GEHEIM, KANAL, 12_345_678n, 1_800_000_000n);
   const stand = { autoritaet: KUNDE, nonce: adresse(98), lamportsJeSignatur: 5000 };
   return {
-    "kanal-oeffnen": nachricht(KUNDE, [oeffneKanalIx({
+    "kanal-oeffnen": nachricht(KUNDE, [alsWeb3(oeffneKanalAnweisung({
       kunde: KUNDE, provider: PROVIDER, nonce: 7n, betrag: 50_000_000n, ablauf: 1_800_000_000n, sitzungsSchluessel: SITZUNG, empfaenger: EMPFAENGER,
-    })]),
-    "kanal-aufstocken": nachricht(KUNDE, [stockeKanalAufIx({ kunde: KUNDE, kanal: KANAL, betrag: 10_000_000n })]),
+    }))]),
+    "kanal-aufstocken": nachricht(KUNDE, [alsWeb3(stockeKanalAufAnweisung({ kunde: KUNDE, kanal: KANAL, betrag: 10_000_000n }))]),
     "kanal-einloesen": nachricht(PROVIDER, rechneKanalAbIxs({ provider: PROVIDER, gutschrift, sitzungsSchluessel: SITZUNG, empfaenger: EMPFAENGER })),
-    "kanal-erstatten": nachricht(adresse(5), [erstatteKanalIx({ kunde: KUNDE, kanal: KANAL })]),
+    "kanal-erstatten": nachricht(adresse(5), [alsWeb3(erstatteKanalAnweisung({ kunde: KUNDE, kanal: KANAL }))]),
     "nonce-anlegen": alsText(baueNonceKontoAnlegen({ zahler: KUNDE, nonceKonto: adresse(10), mieteLamports: 1_447_680, blockhash: BLOCKHASH }).serializeMessage()),
     "nonce-schliessen": alsText(baueNonceKontoSchliessen({ autoritaet: KUNDE, nonceKonto: adresse(10), lamports: 1_447_680, blockhash: BLOCKHASH }).serializeMessage()),
     "offline-ueberweisung": alsText(baueOfflineUeberweisung({ von: KUNDE, an: adresse(11), lamports: 2_500_000, nonceKonto: adresse(10), stand }).serializeMessage()),

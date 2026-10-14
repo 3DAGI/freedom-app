@@ -117,6 +117,8 @@ test("8.4c: Verdrahtung – anmelden nur bei eigenen und gekauften Relays über 
   const settings = q("../src/shell/tabs/settings.ts");
   assert.match(settings, /zahle: \(a\) => zahle\(zahlschienen\(\), a\),/);
   assert.match(settings, /merke: \(z\) => merkeZugang\(localStorage, url, z\),/);
-  assert.match(q("../src/sol-transfer.ts"), /if \(referenz\) ueberweisung\.keys\.push\(\{ pubkey: new web3\.PublicKey\(referenz\), isSigner: false, isWritable: false \}\);/);
+  // Seit A-21b2 hängt das Protokoll die Referenz an (kit-Anweisung, nur lesend – Bytes: kit-bruecke.test.ts)
+  assert.match(q("../src/sol-transfer.ts"), /ueberweisungAnweisung\(\{ von: fromPubkey, an: toPubkey, lamports: BigInt\(lamports\), referenz \}\)/);
+  assert.match(q("../../protocol/src/kit-bruecke.ts"), /p\.referenz \? \{ \.\.\.ix, accounts: \[\.\.\.ix\.accounts, konto\(p\.referenz, AccountRole\.READONLY\)\] \} : ix/);
   assert.match(q("../src/shell/index.html"), /id="relay-zugang-karte"/);
 });

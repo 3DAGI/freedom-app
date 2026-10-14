@@ -768,3 +768,10 @@ Fallstricke dieses Bereichs unten anhängen.
   gleiche Sekunde → kleinere Id (`repoZeilen()`). So wackelte der Smoke-Test, wenn Anlegen und Speichern in dieselbe
   Sekunde fielen (C-40 wartete nur länger).
 
+- **`@solana/kit` nur über das Protokoll** (seit A-21b2, `docs/KIT-PLAN.md`): Die App baut Solana-Anweisungen als
+  kit-`Instruction` mit `anweisung()`, `ueberweisungAnweisung()`, `AccountRole` und `type Instruction` aus
+  `@freedomstack/protocol` (`kit-bruecke.ts`) und gibt sie web3.js nur über `alsWeb3()` – bis A-21d baut web3.js die
+  Transaktion. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
+  Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
+  `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
+  App über http im Heimnetz fehlt. Die Bytes jeder Nachricht halten die Vektoren (`test/sol-vektoren-faelle.ts`).

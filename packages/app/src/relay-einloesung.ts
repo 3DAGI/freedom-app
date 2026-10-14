@@ -12,7 +12,7 @@
  */
 import {
   type RelayerAngebot,
-  MAX_ERSTATTUNG_LAMPORTS, pruefeRelayAuftrag,
+  alsWeb3, MAX_ERSTATTUNG_LAMPORTS, pruefeRelayAuftrag, ueberweisungAnweisung,
 } from "@freedomstack/protocol";
 import { buildClaimInstruction } from "./swap-client.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "./sol-htlc.js";
@@ -66,11 +66,11 @@ export async function baueRelayEinloesung(p: {
   initiator: string;
   relayer: RelayerKandidat;
 }): Promise<Uint8Array> {
-  const { PublicKey, SystemProgram, Transaction } = await import("@solana/web3.js");
+  const { PublicKey, Transaction } = await import("@solana/web3.js");
   const empfaenger = p.wallet.publicKey.toBase58();
   const tx = new Transaction().add(
-    await buildClaimInstruction(p.swapId, p.preimage, empfaenger, p.initiator),
-    SystemProgram.transfer({ fromPubkey: new PublicKey(empfaenger), toPubkey: new PublicKey(p.relayer.solAdresse), lamports: p.relayer.erstattungLamports }),
+    alsWeb3(await buildClaimInstruction(p.swapId, p.preimage, empfaenger, p.initiator)),
+    alsWeb3(ueberweisungAnweisung({ von: empfaenger, an: p.relayer.solAdresse, lamports: BigInt(p.relayer.erstattungLamports) })),
   );
   tx.feePayer = new PublicKey(p.relayer.solAdresse);
   tx.recentBlockhash = (await p.connection.getLatestBlockhash("confirmed")).blockhash;

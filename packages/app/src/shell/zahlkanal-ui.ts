@@ -15,7 +15,7 @@
  * sonst trügen weitere Anfragen Gutschriften für einen Kanal, den es nicht gibt.
  * Fremde Angaben (Schlüssel, Beträge) nur über textContent.
  */
-import { KANAL_PROGRAMM_ID, kanalEmpfaenger, stockeKanalAufIx } from "@freedomstack/protocol";
+import { KANAL_PROGRAMM_ID, kanalEmpfaenger, stockeKanalAufAnweisung } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { solText } from "../preis-anzeige.js";
@@ -145,7 +145,7 @@ export async function stockeKanalAuf(kanal: string): Promise<void> {
   try {
     const { Connection } = await import("@solana/web3.js");
     const conn = new Connection(await solRpcUrl(), "confirmed");
-    await sendeMitWallet(conn, signer, [stockeKanalAufIx({ kunde: e.kunde, kanal, betrag: lamports })], (schritt) => melde(schritt));
+    await sendeMitWallet(conn, signer, [stockeKanalAufAnweisung({ kunde: e.kunde, kanal, betrag: lamports })], (schritt) => melde(schritt));
     await kanalBuch.aufgestockt(kanal, lamports);
     melde(t("waehr.kanalAufgestockt", { betrag: solText(Number(lamports)) }), "ok");
   } catch (err) {

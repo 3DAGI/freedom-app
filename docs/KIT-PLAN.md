@@ -62,7 +62,19 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
     alle 17 Vektoren unverändert. Die PDA rechnet noch web3.js (kit ist dort asynchron) – mit
     A-21f eine eigene, synchrone Rechnung. Das Bundle wächst im Übergang um 138 KB (beide
     Bibliotheken), A-21f nimmt web3.js heraus;
-  - **A-21b2** App: HTLC (`sol-htlc.ts`) und Zahlkanal der App (`zahlkanal.ts`), Relayer.
+  - **A-21b2** App: HTLC (`sol-htlc.ts`) und Zahlkanal der App (`zahlkanal.ts`), Relayer –
+    **fertig** (14.10.2026): HTLC sperren, einlösen und zurückholen, die Einlösung über einen
+    Relayer samt Erstattung, die Überweisung (mit Referenz) und der Zahlkanal der App bauen
+    kit-Anweisungen; die Transaktion baut bis A-21d noch web3.js (`alsWeb3()`). kit bekommt die
+    App nur über das Protokoll (`kit-bruecke.ts` reicht `AccountRole` und `Instruction` weiter,
+    dazu `anweisung()` und `ueberweisungAnweisung()`) – eine eigene Abhängigkeit legte eine
+    zweite Kopie von kit 8.4.0 neben die des Protokolls (im Wurzelordner liegt 5.x), und das
+    Bundle trüge beide. Die `…Ix`-Fassungen von öffnen, aufstocken, erstatten fielen weg; der
+    Knoten nutzt bis A-21e nur `rechneKanalAbIxs()`. Die Referenz nach Solana Pay
+    (`solReferenz()`) entsteht ohne web3.js. Unverändert: die HTLC-PDA (`swapAddress()`) über
+    web3.js – kit rechnet sie nur mit `crypto.subtle`, und das fehlt der App über http im
+    Heimnetz; ebenso das Lesen eines Relay-Auftrags in `pruefeRelayAuftrag()` (Transaktion,
+    Signaturen) – das gehört zu A-21d. Alle 17 Vektoren unverändert, Bundle +1 KB.
 
   `@solana/kit` exakt **8.4.0** (die neueste Fassung 8.5.0 ist jünger als zwei Wochen) und
   `@solana-program/system` 0.15.0 (Peer kit ^8.3.0).
