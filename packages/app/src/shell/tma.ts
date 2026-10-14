@@ -111,7 +111,7 @@ export function tmaTheme(): "dark" | "light" | undefined {
  * unverändert (kein globaler Patch).
  */
 export function tmaFetch(pfad: string, init: RequestInit = {}): Promise<Response> {
-  if (!pfad.startsWith("/tma/")) return Promise.reject(new Error("tmaFetch: nur Pfade unter /tma/"));
+  if (!pfad.startsWith("/tma/")) return Promise.reject(new Error("tmaFetch: nur Pfade unter /tma/")); // kein UI-Text
   const headers = new Headers(init.headers);
   const raw = initDataRaw();
   if (raw) headers.set("authorization", `tma ${raw}`);
