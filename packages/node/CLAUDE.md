@@ -227,3 +227,11 @@ Bereichs unten anhängen.
   `projekte.test.ts`). Neue git-Befehle nur über `git()` und mit Blick darauf, was sie aus der Konfiguration
   ausführen. Projektnamen sind Inhalt: Fehler des Dateisystems (tragen den Pfad) nur als `code-ablage`
   hinaus und ins Log, `outputPreview` nur mit Zahlen.
+- **Mini-App für Telegram nur über `tmaAusUmgebung()`** (seit TMA-2, `tma-server.ts`, `docs/MINI-APP-TMA.md`): nur mit
+  `FREEDOM_TMA=1` und gültigem Bot-Token (ungültig → kein Start), Host `127.0.0.1`, TON nur mit eigener
+  `TON_DEPOT_ADDRESS` – nie eine Adresse einer anderen Kette als Rückfall (bis TMA-2 `NODE_SOL_ADDRESS`).
+  Antworten nur über `antworte()` mit festen Texten; ins Log nie Telegram-IDs, `charge_id`, Kommentare oder
+  Transaktionskennungen – nur Zahlen und Fehlernamen (`fehlerName()`); `~/.freedom/tma` 0700, Dateien 0600.
+  Gebucht wird eine Zahlung nur einmal je `charge_id`, angenommen vor dem Bezahlen nur über `preCheckoutPasst()`
+  (Sterne, bekannter Auftrag, genau sein Preis). `/` liefert nur `dist/tma/index.html`, nie den Web-Build.
+

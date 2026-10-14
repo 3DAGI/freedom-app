@@ -820,29 +820,23 @@ async function main(): Promise<void> {
   console.log(`freedomstack-node laeuft. pubkey=${keypair.pk.slice(0, 16)}...`);
   console.log(`Relays: ${relayUrls.join(", ")} | Poll alle ${pollMs / 1000}s`);
 
-  // ── Mini-App (FREEDOM_TMA=1): Telegram-Stars + TON auf Port 3601 ──────
-  // Eigenes Server-Objekt neben dem Provider-Loop: die PWA-App (freedom.html,
-  // TMA-Build) + Auth (initData HMAC) + Stars (XTR) + TON (Gram, toncenter).
-  // Der Bot-Token MUSS ein eigener sein (nicht der Hermes-Gateway-Token) —
-  // sonst konkurriert das Long-Polling mit dem Hermes-Gateway.
+  // ── Mini-App (FREEDOM_TMA=1, docs/MINI-APP-TMA.md): Telegram-Stars + TON ─────
+  // Eigenes Server-Objekt neben dem Provider-Loop: Mini-App (dist/tma/), Auth (initData-HMAC),
+  // Stars (XTR), TON (Gram, toncenter). Der Bot-Token MUSS ein eigener sein – sonst konkurriert
+  // das Long-Polling mit einem anderen Dienst desselben Bots. Ungültig → kein Start (TMA-2).
   let tma: import("./tma-server.js").TmaServer | undefined;
   if (process.env.FREEDOM_TMA === "1") {
-    const { TmaServer } = await import("./tma-server.js");
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const tonDepot = process.env.NODE_SOL_ADDRESS; // TON-Zieladresse
-    if (!botToken) {
-      console.warn("[tma] FREEDOM_TMA=1 ohne TELEGRAM_BOT_TOKEN — Mini-App-Server startet nicht");
-    } else {
-      tma = new TmaServer({
-        botToken,
-        tonDepot: process.env.TON_DEPOT_ADDRESS ?? tonDepot ?? "",
-        tonApiKey: process.env.TONCENTER_API_KEY,
-        tonTestnet: process.env.TON_TESTNET !== "0",
-        port: Number(process.env.TMA_PORT ?? 3601),
-        host: process.env.TMA_HOST ?? "0.0.0.0",
-        statisch: process.env.TMA_STATISCH ?? join(process.cwd(), "..", "app", "dist"),
-        daten: join(process.env.HOME ?? ".", ".freedom", "tma"),
-      });
+    const { TmaServer, tmaAusUmgebung } = await import("./tma-server.js");
+    const wahl = tmaAusUmgebung(process.env, {
+      statisch: join(process.cwd(), "..", "app", "dist"),
+      daten: join(process.env.HOME ?? ".", ".freedom", "tma"),
+    });
+    if (wahl?.grund) {
+      console.error(`[tma] ${wahl.grund} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    if (wahl?.cfg) {
+      tma = new TmaServer(wahl.cfg);
       tma.start();
     }
   }

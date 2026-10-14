@@ -59,6 +59,10 @@ der Fußzeile („Kein Unternehmen“), Marketing-Entwürfe.
 
 ## 0.G Solana-Programm-ID abgleichen – MENSCH-Entscheidung
 
+**Erledigt am 13.10.2026:** Der HTLC liegt neu an `FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD`
+(Upgrade-Recht `FsUyQ…`, deployt mit dem Schlüssel des MENSCHEN, 731923b); Code und Doku nennen
+diese ID (`DEPLOY.md`). Der Text darunter ist der Stand davor.
+
 Im Code steht überall `B6W19UfZ1iYDoJYaSesZDiP96TpeZACQu3Xs6VSJ4kJk`, laut
 `DEPLOY.md` wurde nach `3UmRRrMySUbPwRfV4x7c1A6ah94K7SQt3dDH2uqqdeZ8` deployt.
 Anchor lehnt jeden Aufruf ab, wenn `declare_id!` nicht zur Adresse passt.

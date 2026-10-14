@@ -65,7 +65,7 @@ export function starsPreis(auftrag: string): number | undefined {
  * Preis kommt aus PREISE — der Request-Preis wird ignoriert (Verhindert
  * Manipulation: 1 Stern für alles).
  */
-export async function erstelleStarsRechnung(token: string, auftrag: string, userId: number): Promise<{ link: string; stars: number }> {
+export async function erstelleStarsRechnung(token: string, auftrag: string, userId: number): Promise<{ link: string; stars: number; payload: string }> {
   const stars = starsPreis(auftrag);
   if (stars === undefined) throw new Error(`kein Preis für ${auftrag}`);
   const payload = `${auftrag}:${randomUUID().slice(0, 8)}`;
@@ -78,7 +78,7 @@ export async function erstelleStarsRechnung(token: string, auftrag: string, user
     provider_token: "",           // digital goods: kein Provider
     prices: [{ label: auftrag, amount: stars }], // amount in GANZEN Sternen
   })) as string;
-  return { link, stars };
+  return { link, stars, payload };
 }
 
 /** Long-Polling: Updates einsammeln. */

@@ -16,9 +16,13 @@
  * Stars-Updates (pre_checkout_query, successful_payment) laufen über
  * Long-Polling (getUpdates) im Hintergrund — der Node hat kein öffentliches
  * HTTPS für Webhooks. TON läuft über Polling von toncenter.
+ *
+ * Seit TMA-2: nach außen nur feste Texte, ins Log keine Telegram-IDs, Zahlungs- oder
+ * Transaktionskennungen (nur Zahlen und Fehlernamen), Dateien 0600, Anfragen höchstens
+ * `TMA_GRENZEN.koerperBytes`, TON nur mit eigener `TON_DEPOT_ADDRESS`.
  */
 import http from "node:http";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, extname, dirname as pathDirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,7 +39,7 @@ import { auftragsKommentar } from "./tma-kommentar.js";
 export interface TmaConfig {
   /** Bot-Token aus BotFather (EIGENER Bot, nicht der Hermes-Bot). */
   botToken: string;
-  /** Adresse, an die TON-Zahlungen gehen (Node/Depot). */
+  /** Adresse, an die TON-Zahlungen gehen – leer: TON aus. */
   tonDepot: string;
   /** toncenter API-Key (optional, höheres Limit). */
   tonApiKey?: string;
@@ -43,7 +47,7 @@ export interface TmaConfig {
   tonTestnet?: boolean;
   /** Port (Standard 3601). */
   port?: number;
-  /** Host (Standard 0.0.0.0). */
+  /** Host (Standard 127.0.0.1 – nach außen über einen Tunnel, seit TMA-2). */
   host?: string;
   /** App-Dist mit tma/index.html (Mini-App-Build; seit TMA-1 nicht mehr freedom.html). */
   statisch: string;
@@ -54,6 +58,50 @@ export interface TmaConfig {
 }
 
 interface Guthaben { [userId: string]: { stars: number; zahlliste: StarsGutschrift[] } }
+
+export const TMA_GRENZEN = {
+  /** Höchstens so viele Bytes je Anfrage (JSON mit Auftrag und Betrag). */
+  koerperBytes: 4096,
+} as const;
+
+/** Bot-Token aus BotFather: `<Zahl>:<mindestens 30 Zeichen>`. */
+const BOT_TOKEN_FORM = /^\d{5,}:[A-Za-z0-9_-]{30,}$/;
+/** TON-Adresse: benutzerfreundlich (48 Zeichen base64url) oder roh (`<workchain>:<64 Hex>`). */
+const TON_ADRESSE = /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/;
+
+/**
+ * Mini-App aus der Umgebung (TMA-2, wie die übrigen Rollen): ohne `FREEDOM_TMA=1` keine,
+ * ungültig → `grund` (kein Start). TON nur mit `TON_DEPOT_ADDRESS` – bis TMA-2 fiel der
+ * Knoten auf `NODE_SOL_ADDRESS` zurück, eine Solana-Adresse als Ziel für TON.
+ */
+export function tmaAusUmgebung(env: NodeJS.ProcessEnv, opts: { statisch: string; daten: string }): { cfg?: TmaConfig; grund?: string } | null {
+  if (env.FREEDOM_TMA !== "1") return null;
+  const botToken = env.TELEGRAM_BOT_TOKEN ?? "";
+  if (!BOT_TOKEN_FORM.test(botToken)) return { grund: "FREEDOM_TMA=1 braucht TELEGRAM_BOT_TOKEN (eigener Bot, Form <Zahl>:<Geheimnis>)" };
+  const tonDepot = (env.TON_DEPOT_ADDRESS ?? "").trim();
+  if (tonDepot && !TON_ADRESSE.test(tonDepot)) return { grund: "TON_DEPOT_ADDRESS ist keine TON-Adresse" };
+  const port = Number(env.TMA_PORT || 3601);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return { grund: "TMA_PORT ungültig" };
+  const api = env.TELEGRAM_API_BASE;
+  if (api !== undefined && !/^https:\/\/[^/]+$|^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(api)) {
+    return { grund: "TELEGRAM_API_BASE nur https oder dieser Rechner (der Bot-Token steht in jeder Adresse)" };
+  }
+  return {
+    cfg: {
+      botToken, tonDepot, tonApiKey: env.TONCENTER_API_KEY || undefined, tonTestnet: env.TON_TESTNET !== "0",
+      port, host: env.TMA_HOST || "127.0.0.1", statisch: env.TMA_STATISCH || opts.statisch, daten: opts.daten,
+    },
+  };
+}
+
+/** Feste Antwort – nie Text aus Fehlern, Bot-API oder Anfrage. */
+function antworte(res: http.ServerResponse, status: number, inhalt: Record<string, unknown>): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(inhalt));
+}
+
+/** Fehlername fürs Log – nie die Meldung (sie kann Adressen oder Antworten Dritter tragen). */
+const fehlerName = (e: unknown): string => (e instanceof Error ? e.name : "Fehler");
 
 export class TmaServer {
   private server?: http.Server;
@@ -78,20 +126,25 @@ export class TmaServer {
     } catch { /* neu */ }
   }
 
+  /** Telegram-IDs und Zahlungskennungen – nur für den Betreiber lesbar (0700/0600). */
   async speichereDaten(): Promise<void> {
-    const { writeFile, mkdir } = await import("node:fs/promises");
-    await mkdir(this.cfg.daten, { recursive: true });
-    await writeFile(join(this.cfg.daten, "tma-stars.json"), JSON.stringify(this.guthaben));
-    await writeFile(join(this.cfg.daten, "tma-ton.json"), JSON.stringify([...this.tonVerbraucht]));
+    await mkdir(this.cfg.daten, { recursive: true, mode: 0o700 });
+    for (const [name, inhalt] of [["tma-stars.json", this.guthaben], ["tma-ton.json", [...this.tonVerbraucht]]] as const) {
+      const datei = join(this.cfg.daten, name);
+      await writeFile(datei, JSON.stringify(inhalt), { mode: 0o600 });
+      await chmod(datei, 0o600);
+    }
   }
 
   start(): void {
     this.server = http.createServer((req, res) => this.route(req, res).catch((e) => {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: (e as Error).message }));
+      if (e instanceof ZuGross) return antworte(res, 413, { error: "zu gross" });
+      if (e instanceof SyntaxError) return antworte(res, 400, { error: "kein JSON" });
+      console.warn(`[tma] Anfrage: ${fehlerName(e)}`);
+      antworte(res, 500, { error: "interner Fehler" });
     }));
-    this.server.listen(this.cfg.port ?? 3601, this.cfg.host ?? "0.0.0.0", () => {
-      console.log(`[tma] Mini-App aktiv: http://${this.cfg.host ?? "0.0.0.0"}:${this.cfg.port ?? 3601}/`);
+    this.server.listen(this.cfg.port ?? 3601, this.cfg.host ?? "127.0.0.1", () => {
+      console.log(`[tma] Mini-App aktiv: http://${this.cfg.host ?? "127.0.0.1"}:${this.cfg.port ?? 3601}/ (TON ${this.cfg.tonDepot ? "an" : "aus"})`);
     });
     // Stars-Long-Polling starten
     void this.pollStars();
@@ -141,7 +194,7 @@ export class TmaServer {
 
     // ── Auth
     const user = this.auth(req);
-    if (!user) { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "nicht autorisiert" })); return; }
+    if (!user) return antworte(res, 401, { error: "nicht autorisiert" });
 
     // ── Stars
     if (url.pathname === "/tma/stars/invoice" && req.method === "POST") return this.starsInvoice(req, res, user);
@@ -151,8 +204,7 @@ export class TmaServer {
     if (url.pathname === "/tma/ton/invoice" && req.method === "POST") return this.tonInvoice(req, res, user);
     if (url.pathname.startsWith("/tma/ton/status/") && req.method === "GET") return this.tonStatus(res, user, url.pathname.slice("/tma/ton/status/".length));
 
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "nicht gefunden" }));
+    antworte(res, 404, { error: "nicht gefunden" });
   }
 
   private auth(req: http.IncomingMessage): TmaInitData | undefined {
@@ -182,8 +234,7 @@ export class TmaServer {
         return;
       } catch { /* nächster Ordner */ }
     }
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: `${name} nicht gefunden — baue die App mit FREEDOM_TMA=1` }));
+    antworte(res, 404, { error: "nicht gefunden – die App mit FREEDOM_TMA=1 bauen" });
   }
 
   private async sendeManifest(res: http.ServerResponse, url: URL): Promise<void> {
@@ -201,31 +252,25 @@ export class TmaServer {
   private async starsInvoice(req: http.IncomingMessage, res: http.ServerResponse, user: TmaInitData): Promise<void> {
     const body = await this.leseJson(req);
     const auftrag = String(body.auftrag ?? "");
-    if (!auftrag) { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "auftrag fehlt" })); return; }
+    if (!auftrag) return antworte(res, 400, { error: "auftrag fehlt" });
     // Preis VOR dem Bot-Aufruf prüfen — sonst wird aus einem unbekannten
     // Auftrag ein 500 (Bot-API-Fehler), fachlich gehört das ein 400.
-    if (starsPreis(auftrag) === undefined) {
-      res.writeHead(400, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: `kein Preis für ${auftrag}` }));
-      return;
-    }
+    if (starsPreis(auftrag) === undefined) return antworte(res, 400, { error: "kein Preis für diesen Auftrag" });
     try {
-      const { link, stars } = await erstelleStarsRechnung(this.cfg.botToken, auftrag, user.userId);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ link, stars, payload: `${auftrag}:${user.userId}` }));
+      const { link, stars, payload } = await erstelleStarsRechnung(this.cfg.botToken, auftrag, user.userId);
+      antworte(res, 200, { link, stars, payload });
     } catch (e) {
-      res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: (e as Error).message }));
+      console.warn(`[tma] Stars-Rechnung: ${fehlerName(e)}`);
+      antworte(res, 502, { error: "Rechnung nicht möglich" });
     }
   }
 
   private starsStatus(res: http.ServerResponse, user: TmaInitData): void {
     const g = this.guthaben[String(user.userId)] ?? { stars: 0, zahlliste: [] };
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({
+    antworte(res, 200, {
       balance: g.stars,
       recent: g.zahlliste.slice(-20).map((z) => ({ chargeId: z.chargeId, stars: z.stars, payload: z.payload, at: z.at })),
-    }));
+    });
   }
 
   /** Long-Polling der Bot-Updates. */
@@ -236,26 +281,26 @@ export class TmaServer {
         this.updateOffset = nextOffset;
         for (const u of updates as { pre_checkout_query?: Record<string, unknown>; message?: Record<string, unknown> }[]) {
           if (u.pre_checkout_query) {
-            const pcq = u.pre_checkout_query as { id: string; invoice_payload?: string; total_amount?: number };
-            // Preise prüfen (nur bekannte Aufträge)
-            const auftrag = (pcq.invoice_payload ?? "").split(":")[0];
-            const ok = auftrag.length > 0 && !auftrag.includes("/");
+            const pcq = u.pre_checkout_query as { id: string; currency?: string; invoice_payload?: string; total_amount?: number };
+            const ok = preCheckoutPasst(pcq);
             await antwortePreCheckout(this.cfg.botToken, pcq.id, ok, ok ? undefined : "Unbekannter Auftrag");
           }
           if (u.message) {
             const g = erfolgreicheZahlung(u.message);
-            if (g && g.chargeId) {
+            if (g && g.chargeId && g.userId > 0) {
               const eintrag = this.guthaben[String(g.userId)] ?? { stars: 0, zahlliste: [] };
+              // Jede Zahlung nur einmal – auch wenn Telegram ein Update erneut zustellt
+              if (eintrag.zahlliste.some((z) => z.chargeId === g.chargeId)) continue;
               eintrag.stars += g.stars;
               eintrag.zahlliste.push(g);
               this.guthaben[String(g.userId)] = eintrag;
-              console.log(`[tma] Stars gutgeschrieben: user=${g.userId} stars=${g.stars} charge=${g.chargeId}`);
+              console.log(`[tma] Stars gutgeschrieben: ${g.stars}`);
               await this.speichereDaten();
             }
           }
         }
       } catch (e) {
-        console.warn(`[tma] Stars-Polling: ${(e as Error).message}`);
+        console.warn(`[tma] Stars-Polling: ${fehlerName(e)}`);
         await new Promise((r) => setTimeout(r, 5000));
       }
     }
@@ -264,52 +309,50 @@ export class TmaServer {
   // ─────────────────────────────────────────── TON
   private async tonInvoice(req: http.IncomingMessage, res: http.ServerResponse, user: TmaInitData): Promise<void> {
     const body = await this.leseJson(req);
+    if (!this.cfg.tonDepot) return antworte(res, 503, { error: "TON aus" });
     const auftrag = String(body.auftrag ?? "");
     const nano = String(body.nano ?? "");      // Client sendet nanoTON-String
-    if (!auftrag || !/^\d+$/.test(nano)) { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "auftrag/nano fehlt" })); return; }
+    if (!/^[a-z0-9-]{1,32}$/.test(auftrag) || !/^[1-9]\d{0,18}$/.test(nano)) return antworte(res, 400, { error: "auftrag/nano ungültig" });
     const kommentar = auftragsKommentar(auftrag);
     this.tonOffen.set(kommentar, { nano, kommentar, at: Date.now() });
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ an: this.cfg.tonDepot, nano, kommentar }));
+    antworte(res, 200, { an: this.cfg.tonDepot, nano, kommentar });
   }
 
   private async tonStatus(res: http.ServerResponse, user: TmaInitData, kommentarRaw: string): Promise<void> {
-    const kommentar = decodeURIComponent(kommentarRaw);
+    let kommentar: string;
+    try { kommentar = decodeURIComponent(kommentarRaw); } catch { return antworte(res, 400, { error: "Auftrag unbekannt" }); }
     const offen = this.tonOffen.get(kommentar);
-    if (!offen) { res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "Auftrag unbekannt" })); return; }
+    if (!offen) return antworte(res, 404, { error: "Auftrag unbekannt" });
     let beleg: TonBeleg | undefined;
     try {
       beleg = await this.verifier.pruefe(this.cfg.tonDepot, offen);
     } catch (e) {
       // Netz/RPC-Fehler: NICHT als bezahlt melden — der Hintergrund-Polling-
       // Loop prüft weiter. Lieber „unbekannt/ausstehend" als fälschlich grün.
-      console.warn(`[tma] TON-Status: ${(e as Error).message}`);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ bezahlt: false, fehler: "pruefung nicht möglich" }));
-      return;
+      console.warn(`[tma] TON-Status: ${fehlerName(e)}`);
+      return antworte(res, 200, { bezahlt: false, fehler: "pruefung nicht möglich" });
     }
-    if (!beleg) { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ bezahlt: false })); return; }
+    if (!beleg) return antworte(res, 200, { bezahlt: false });
     this.verifier.verbrauche(beleg);
     this.tonOffen.delete(kommentar);
     await this.speichereDaten();
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ bezahlt: true, hash: beleg.hash }));
+    antworte(res, 200, { bezahlt: true, hash: beleg.hash });
   }
 
   private async pollTon(): Promise<void> {
-    while (!this.stopPolling) {
+    while (!this.stopPolling && this.cfg.tonDepot) {
       try {
         for (const [k, v] of this.tonOffen) {
           const beleg = await this.verifier.pruefe(this.cfg.tonDepot, v);
           if (beleg) {
             this.verifier.verbrauche(beleg);
             this.tonOffen.delete(k);
-            console.log(`[tma] TON bezahlt: kommentar=${k} hash=${beleg.hash.slice(0, 12)}…`);
+            console.log("[tma] TON bezahlt");
             await this.speichereDaten();
           }
         }
       } catch (e) {
-        console.warn(`[tma] TON-Polling: ${(e as Error).message}`);
+        console.warn(`[tma] TON-Polling: ${fehlerName(e)}`);
       }
       await new Promise((r) => setTimeout(r, 10_000));
     }
@@ -318,7 +361,12 @@ export class TmaServer {
   private async leseJson(req: http.IncomingMessage): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      req.on("data", (c: Buffer) => chunks.push(c));
+      let laenge = 0;
+      req.on("data", (c: Buffer) => {
+        laenge += c.length;
+        if (laenge > TMA_GRENZEN.koerperBytes) { reject(new ZuGross()); req.destroy(); return; }
+        chunks.push(c);
+      });
       req.on("end", () => {
         try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown> : {}); }
         catch (e) { reject(e); }
@@ -326,4 +374,16 @@ export class TmaServer {
       req.on("error", reject);
     });
   }
+}
+
+class ZuGross extends Error { override name = "ZuGross"; }
+
+/**
+ * Vor dem Bezahlen (`pre_checkout_query`): nur Sterne, nur ein bekannter Auftrag aus
+ * unserer Rechnung, genau sein Preis (TMA-2 – vorher genügte ein Auftrag ohne „/“).
+ */
+export function preCheckoutPasst(pcq: { currency?: string; invoice_payload?: string; total_amount?: number }): boolean {
+  const auftrag = (pcq.invoice_payload ?? "").split(":")[0] ?? "";
+  const preis = starsPreis(auftrag);
+  return pcq.currency === "XTR" && preis !== undefined && pcq.total_amount === preis;
 }

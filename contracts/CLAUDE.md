@@ -27,4 +27,5 @@ Bereichs unten anhängen.
   „Ausführbar“ (`ausfuehrbar()`, `programmBereit()`) sagt darüber nichts; ob ein
   Deploy taugt, zeigt nur eine Simulation. So lag der Zahlkanal am 09.10.2026 auf
   Devnet und nahm keinen Aufruf an, ebenso der HTLC an `3UmRR…`. Erst die ID
-  eintragen, dann bauen, dann deployen – nie umgekehrt.
+  eintragen, dann bauen, dann deployen – nie umgekehrt. Der HTLC liegt seit
+  13.10.2026 an `FVb19s…` (0.G, `DEPLOY.md`).
