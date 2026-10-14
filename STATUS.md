@@ -9158,3 +9158,44 @@ Kein App-Code geändert.
 
 **Prüfungen:** protocol 1290 grün, node 412 (ohne Netz), app 1114 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt VK-Recherche – Hermes über ACP, Live-Vorschau, MCP-Katalog, Kurzcode
+
+Nur Dokumente (`docs/VIBECODEN-ENTWURF.md`).
+
+**Entscheidungen 13.10. (MENSCH):**
+- VK-W2 A (git ins Bild);
+- VK-W4 B (Schalter „Internet frei“);
+- VK-W5 B (auch ein Code zum Eintippen);
+- VK-W3 erweitert: Live-Vorschau für APK, Linux, Windows und Web, dazu MCP für gängige Programme.
+- Zu VK-W1 fragte der MENSCH, was gegen Hermes mit Freedom-Diensten statt Nous Portal spricht.
+
+**Befunde:**
+- **Hermes:**
+  - MIT, sehr groß und schnell bewegt, Abhängigkeiten exakt gepinnt.
+  - Spricht ACP: Werkzeuge, Diffs, Befehle und Freigaben als Strom, MCP-Server je Sitzung. Das
+    passt auf VKa.
+  - Das Portal (Modelle und Tool Gateway: Suche, Bilder, Sprache, Browser) lässt sich durch das
+    eigene Modell und Freedom-MCP ersetzen.
+  - Gegenmittel: gepinnt bauen statt `curl | bash`, fremde Anmeldungen aus, `local` in unserer
+    Sandbox mit Freigaben `manual`, Telemetrie vorher prüfen, Gedächtnis nur für eigene
+    Projekte.
+- **GX10:**
+  - ist ARM64 (GB10), hat NVENC;
+  - Unity, Unreal, Resolve und Ableton laufen dort nicht → Werkbank-Knoten (weitere eigene
+    Rechner per QR);
+  - Android über redroid mit scrcpy, `aapt2` nur über einen Community-Bau oder FEX;
+  - Windows über Wine und Hangover.
+- **Vorschau** wie ein Anruf (WebRTC über den eigenen TURN, versiegelter Aufbau, Eingaben über
+  einen Datenkanal).
+- **MCP-Katalog** mit Lizenzen aus den Repos (Godot, Unity, Unreal, Blender, FreeCAD, KiCad,
+  OpenSCAD, GIMP, Inkscape, Krita, OBS, Resolve, Ableton, LibreOffice, Jupyter, QGIS,
+  Playwright, Chrome DevTools, mobile-mcp, ComfyUI, Home Assistant, Referenz-Server).
+- **Kurzcode K1:** zwölf Zeichen (60 Bit) mit PBKDF2 wie der Tresor, ohne neue Kryptografie.
+  PAKE (K2) später.
+
+**Fragen an den MENSCHEN:** VK-W1n (Empfehlung C: ACP mit Hermes als erstem Motor), VK-W6
+(`@agentclientprotocol/sdk`), VK-W7 (Werkbank), VK-W8 (Reihenfolge der Vorschau), VK-W9 (K1).
+Neue Aufteilung VKb–VKl.
+
+**Prüfungen:** nur Dokumente – siehe Pull Request.
