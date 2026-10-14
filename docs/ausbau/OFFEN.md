@@ -145,7 +145,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | VKf | Kopplung mit Code zum Eintippen | frei (VK-W9 K1 als Grundlage) |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | nach VK-W7 |
 | VKl | „Als Repo in einen Raum stellen“ | frei, nach VKc2 |
-| 11.5b | Protokoll: Repo-Tag in der Erwähnung, `patchStatus()` ohne Agenten | frei |
 | 11.5n | Pakete holen | nach W6a |
 | 11.5c | Knoten: Ablauf für Repo-Aufträge, Patch einreichen | nach W3a, W7 |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach W3a, W7 |

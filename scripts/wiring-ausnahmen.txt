@@ -211,3 +211,7 @@ knoten-code.ts|baueCodeAuftrag|Vibecoden auf dem eigenen Knoten: die App baut Au
 knoten-code.ts|leseCodeAntwort|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
 knoten-code.ts|leseCodeSchritt|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
 knoten-code.ts|codeSchrittText|Vibecoden auf dem eigenen Knoten: der Knoten meldet Schritte erst mit dem Agenten (A-31, VKc2)
+repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag erst mit „Agent beauftragen“ (11.5b → 11.5d)
+repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
+repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
+repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)

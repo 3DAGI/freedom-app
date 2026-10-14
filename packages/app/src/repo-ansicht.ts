@@ -6,7 +6,7 @@
 import {
   KIND_GIT_REPO_REF, KIND_REPO_ANKUENDIGUNG, KIND_STATUS_ANGENOMMEN, KIND_STATUS_ENTWURF, KIND_STATUS_GESCHLOSSEN, KIND_STATUS_OFFEN,
   KIND_SPACE, RAUM_REPO_RECHT, bewertungenZu, can, darfAnnehmen, issueStatus, istReviewTeil, kommentareZu, leseIssue, lesePatch, leseRepoAnkuendigung,
-  labelStandZu, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoReleasesZu, sterneZu, zeilenKommentareZu,
+  istAgentIm, labelStandZu, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoReleasesZu, sterneZu, zeilenKommentareZu,
   type GeleseneBewertung, type GelesenesRepoRelease, type GelesenerKommentar, type GelesenerZeilenKommentar, type GelesenerPatch, type GelesenesIssue, type GelesenesRepo, type IssueStatus, type NostrEvent, type PatchStatus,
   type RepoAnkuendigung,
 } from "@freedomstack/protocol";
@@ -80,7 +80,11 @@ const STATUS_KIND: Record<PatchStatus, number> = {
  * Patches eines Repos mit Status – neueste zuerst; dazu, was ich tun darf
  * (`patchAktionen()`), und die Begründung des geltenden Status.
  */
-export function patchZeilen(repo: GelesenesRepo, patches: readonly NostrEvent[], status: readonly NostrEvent[], ich: string | undefined): PatchZeile[] {
+export function patchZeilen(
+  repo: GelesenesRepo, patches: readonly NostrEvent[], status: readonly NostrEvent[], ich: string | undefined,
+  /** Agenten des Raums (11.5b, V6) – ihr Status zählt nie. */
+  istAgent?: (pk: string) => boolean,
+): PatchZeile[] {
   const zeilen: PatchZeile[] = [];
   for (const ev of patches) {
     let patch: GelesenerPatch;
@@ -90,7 +94,7 @@ export function patchZeilen(repo: GelesenesRepo, patches: readonly NostrEvent[],
       continue;
     }
     if (patch.repoAdresse !== repo.adresse) continue;
-    const st = patchStatus(patch, repo, status);
+    const st = patchStatus(patch, repo, status, istAgent);
     // Das Event, das gilt: derselbe Absender, dieselbe Zeit, dieselbe Art, an diesen Patch
     const geltend = st.von ? status.find((e) => e.pubkey === st.von && e.created_at === st.zeit && e.kind === STATUS_KIND[st.status]
       && e.tags.some((t) => t[0] === "e" && t[1] === patch.id)) : undefined;
@@ -156,6 +160,8 @@ export function repoKarten(
   status: readonly NostrEvent[], ich: string | undefined,
   /** Struktur der öffentlichen Räume, auf die Repos verweisen (34700–34702, 11.4a). */
   raumEvents: readonly NostrEvent[] = [],
+  /** Agenten ohne offenen Raum – privat die Karten der Gruppe (11.5b, V6). */
+  istAgentPrivat?: (pk: string) => boolean,
 ): RepoKarte[] {
   const karten = new Map<string, RepoKarte>();
   const zeitVon = new Map<string, number>();
@@ -164,10 +170,11 @@ export function repoKarten(
     zeitVon.set(`${ev.pubkey}:${d}`, Math.max(zeitVon.get(`${ev.pubkey}:${d}`) ?? 0, ev.created_at));
   }
   for (const gelesen of repoZeilen(ankuendigungen)) {
-    // Rechte aus den Raum-Rollen (11.4a): Pfleger des Raums zählen wie Maintainer
+    // Rechte aus den Raum-Rollen (11.4a): Pfleger des Raums zählen wie Maintainer, Agenten nie (11.5b)
     const zustand = gelesen.raum ? raumZustandFuer(gelesen.raum, raumEvents) : undefined;
-    const { raumBestaetigt, ...repo } = mitRaumRechten(gelesen, zustand);
-    const zeilen = patchZeilen(repo, patches, status, ich);
+    const istAgent = zustand ? istAgentIm(zustand) : istAgentPrivat;
+    const { raumBestaetigt, ...repo } = mitRaumRechten(gelesen, zustand, istAgent);
+    const zeilen = patchZeilen(repo, patches, status, ich, istAgent);
     const schluessel = `${repo.eigentuemer}:${repo.id}`;
     const zuletzt = Math.max(zeitVon.get(schluessel) ?? 0, ...zeilen.map((z) => z.patch.zeit));
     karten.set(schluessel, {
@@ -199,10 +206,15 @@ export function repoKarten(
  * vermischt –, und `privatRaum` leitet jede Aktion in die Gruppe.
  */
 export function privateRaumKarten(
-  r: { gruppe: string; name?: string; ankuendigungen: readonly NostrEvent[]; bundles: readonly NostrEvent[]; patches: readonly NostrEvent[]; status: readonly NostrEvent[] },
+  r: {
+    gruppe: string; name?: string; ankuendigungen: readonly NostrEvent[]; bundles: readonly NostrEvent[]; patches: readonly NostrEvent[]; status: readonly NostrEvent[];
+    /** Agenten der Gruppe (an ihrer Karte, 11.5b) – ihr Status zählt nie. */
+    agenten?: readonly string[];
+  },
   ich: string | undefined,
 ): RepoKarte[] {
-  return repoKarten(r.ankuendigungen, r.bundles, r.patches, r.status, ich)
+  const agenten = new Set(r.agenten ?? []);
+  return repoKarten(r.ankuendigungen, r.bundles, r.patches, r.status, ich, [], (pk) => agenten.has(pk))
     .map((k) => ({ ...k, schluessel: `mls:${r.gruppe}:${k.schluessel}`, privatRaum: r.gruppe, ...(r.name ? { raumName: r.name.slice(0, 80) } : {}) }));
 }
 

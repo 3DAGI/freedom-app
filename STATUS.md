@@ -9279,3 +9279,46 @@ neue Abhängigkeit.
 **Prüfungen:** protocol 1293 (+3), node 443 (9 übersprungen), app 1117 (+3), mls 13, Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
 
+## Schritt 11.5b – Repo-Aufträge: Tag in der Erwähnung, Agenten pflegen nie
+
+Spur A, Protokoll-Schritt aus `docs/REPO-AGENTEN-ENTWURF.md` (V1 und V6, freigegeben 11.10.; im neuen
+Zuschnitt nach W3 unverändert). Hängt an keiner offenen Frage: Harness (W3a) und private Räume (W7)
+betreffen erst 11.5c und 11.5d.
+
+**Neu:**
+- **`protocol/src/repo-auftrag.ts`** (`docs/PROTOCOL.md` 33):
+  - Der Repo-Auftrag ist eine Erwähnung des Agenten mit `["a", "30617:<eigentümer>:<kennung>", "", "repo"]`,
+    optional `["e", <issue>, "", "issue"]`. Bauen mit `repoAuftragTags()`, lesen mit `leseRepoAuftrag()`:
+    genau ein Repo, höchstens ein Issue, sonst kein Auftrag.
+  - **Zum Raum gehören:**
+    - offen über `repoImOffenenRaum()`: die neueste Ankündigung verweist auf genau diesen Raum, ihr
+      Eigentümer hat `repos_pflegen` (`mitRaumRechten()`) und ist kein Agent;
+    - privat über `repoImPrivatenRaum()`: von einem Pfleger der Gruppe angekündigt.
+    - Sonst gilt `agent-repo-fremd`.
+- **Agenten pflegen nie (V6)**, über den neuen optionalen Parameter `istAgent`:
+  - `patchStatus()`: Status-Events von Agenten zählen nie, auch nicht als Maintainer, auch nicht am
+    eigenen Patch.
+  - `mitRaumRechten()`: Agenten sind keine Pfleger; ein von einem Agenten angekündigtes Repo gehört nicht
+    zum Raum.
+  - `raumReposPrivat()`: Agenten pflegen nicht, auch als Admin.
+- **App** (`repo-ansicht.ts`, `shell/raum-repos.ts`):
+  - Repo-Karten offener Räume erkennen Agenten an der Rolle `agent` (`istAgentIm()`), private an ihrer
+    Karte in der Gruppe (`raumAgentKarten()` → `PrivateRepos.agenten`).
+  - Die Annahme eines Agenten zeigt die App also nie als angenommen.
+- Vier Ausnahmen in `wiring-ausnahmen.txt`: Den Auftrag liest erst der Knoten (11.5c), das Tag setzt erst
+  die App (11.5d).
+- **Fallstrick** in `packages/protocol/CLAUDE.md`.
+
+**Tests:**
+- protocol +4 (`repo-auftrag.test.ts`):
+  - Tags: Hin- und Rückweg; fremde `a`- und `e`-Tags zählen nicht; zwei Repos oder zwei Issues ergeben
+    keinen Auftrag.
+  - Offener Raum mit einem Agenten, der sogar `repos_pflegen` hat; neueste Ankündigung.
+  - `patchStatus()` mit Agent als Pfleger und als Autor.
+  - Privater Raum mit einem Agenten als Admin.
+  - Jeweils die Gegenprobe ohne `istAgent`.
+- app +2: Karte im offenen und im privaten Raum (mit Gegenprobe), Verdrahtung.
+
+**Prüfungen:** protocol 1297 (+4), node 443 (9 übersprungen), app 1119 (+2), mls 13, Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke, build-site, repro-build grün.
+

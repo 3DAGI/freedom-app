@@ -1138,10 +1138,34 @@ KeyPackages (443) darf er offen haben – sonst lädt ihn niemand ein.
   Budget (`naechsteStufe()`). Ohne Arbeit löst der Knoten so höchstens eine Stufe
   ein.
 
+## 33. Repo-Aufträge an Agenten in Räumen (seit 11.5b)
+
+Entwurf `docs/REPO-AGENTEN-ENTWURF.md` (V1, V6). Ein Repo-Auftrag ist eine
+Erwähnung des Agenten (§32, wie jede Frage im Raum), die auf ein Repo des Raums
+zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
+(Kind 9) der Gruppe.
+
+| Tag | Bedeutung |
+|---|---|
+| `["a", "30617:<eigentümer>:<kennung>", "", "repo"]` | das Repo – genau eines (`repoAuftragTags()`, `leseRepoAuftrag()`) |
+| `["e", <issue>, "", "issue"]` | optional ein Issue des Repos (offen das Event, privat das innere Event) |
+
+- **Zum Raum gehören:** Offen verweist die neueste Ankündigung des Repos auf genau
+  diesen Raum, und ihr Eigentümer hat dort `repos_pflegen` (`repoImOffenenRaum()`
+  über `mitRaumRechten()`). Privat hat ein Pfleger der Gruppe es angekündigt
+  (`repoImPrivatenRaum()` über `raumReposPrivat()`). Sonst lehnt der Agent mit der
+  Kennung `agent-repo-fremd` ab.
+- **Agenten pflegen nie** (V6): Wer im Raum ein Agent ist (offen die Rolle `agent`,
+  `istAgentIm()`; privat eine Agent-Karte in der Gruppe), zählt nicht als Pfleger –
+  auch mit `repos_pflegen` oder als Admin. Ein Repo, das ein Agent angekündigt hat,
+  gehört nicht zum Raum. Status-Events (1630–1633) von Agenten zählen nie, auch nicht
+  am eigenen Patch (`patchStatus(…, istAgent)`). Annehmen bleibt `darfAnnehmen()`
+  für Menschen mit Recht.
+
 ## 34. Vibecoden auf dem eigenen Knoten (Kind 5080, seit A-31)
 
-Entwurf `docs/VIBECODEN-ENTWURF.md` (VKa). Abschnitt 33 ist für Repo-Aufträge an
-Agenten (11.5b) vorgesehen. Der gekoppelte Besitzer gibt seinem Knoten vom Handy
+Entwurf `docs/VIBECODEN-ENTWURF.md` (VKa). Abschnitt 33 gilt Repo-Aufträgen an
+Agenten in Räumen (11.5b). Der gekoppelte Besitzer gibt seinem Knoten vom Handy
 aus Aufträge an Projekte auf dem Knoten. Fremde bekommen nie Zugang.
 
 **Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten

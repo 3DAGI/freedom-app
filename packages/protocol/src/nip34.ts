@@ -196,18 +196,21 @@ export function baueStatus(
 /**
  * Status eines Patches aus den Status-Events: der neueste gueltige zaehlt.
  * „Angenommen“ nur von Eigentuemer oder Maintainer; die uebrigen auch vom Autor.
- * Events anderer zaehlen nicht.
+ * Events anderer zaehlen nicht. Agenten (11.5b, V6: `istAgent` aus dem Raum)
+ * setzen nie einen Status – auch nicht als Maintainer, auch nicht am eigenen Patch.
  */
 export function patchStatus(
   patch: Pick<GelesenerPatch, "id" | "autor">,
   repo: Pick<GelesenesRepo, "eigentuemer" | "maintainer">,
   events: readonly NostrEvent[],
+  istAgent?: (pk: string) => boolean,
 ): { status: PatchStatus; von?: string; zeit?: number; commits?: string[] } {
   const art = new Map<number, PatchStatus>(Object.entries(STATUS_KIND).map(([s, k]) => [k, s as PatchStatus]));
   let bester: NostrEvent | undefined;
   for (const ev of events) {
     const status = art.get(ev.kind);
     if (!status || !ev.tags.some((t) => t[0] === "e" && t[1] === patch.id)) continue;
+    if (istAgent?.(ev.pubkey)) continue;
     const maintainer = darfAnnehmen(repo, ev.pubkey);
     if (!maintainer && (status === "angenommen" || ev.pubkey !== patch.autor)) continue;
     if (!bester || ev.created_at > bester.created_at) bester = ev;
