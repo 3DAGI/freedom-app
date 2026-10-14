@@ -1200,6 +1200,26 @@ Der Knoten antwortet nur aus einem Umschlag mit gültigem Nachweis
 zwischen dem Besitzer und seinem Knoten; ins Log kommen nur Zahlen und
 Kennungen.
 
+**Ablauf eines Laufs** (seit VKc2, Motor über ACP – Agent Client Protocol):
+- `auftrag` startet den Lauf im Hintergrund; das Ergebnis (6080) kommt erst an
+  seinem Ende. Je Projekt läuft höchstens ein Lauf, auf dem Knoten höchstens drei.
+- Jeder Werkzeug-Aufruf des Motors ist ein Schritt: erst `befehl`, nach seinem Ende
+  `ausgabe`. Nennt der Motor keinen Rückgabewert, ist `code` 0 bei Erfolg und 1
+  bei Fehlschlag. Ein Schritt mit Änderungen im Projekt wird ein Commit
+  `Schritt <nr>`.
+- Im Modus `fragen` kommt der `befehl` eines Schritts, der auf Freigabe wartet, mit
+  `wartet` – auch ein zweites Mal, wenn er zuvor ohne kam. Ein Schritt wartet,
+  solange zu seiner `nr` ein `befehl` mit `wartet` und noch keine `ausgabe`
+  vorliegt. Die Reihenfolge der Umschläge sagt nichts (Zeitstempel nach NIP-59):
+  die App ordnet nach `nr`, `befehl` vor `ausgabe`.
+- `freigabe` wählt beim Motor „einmal erlauben“ bzw. „einmal ablehnen“, nie „immer“.
+  Ohne Antwort nach 300 s gilt „nein“. Im Modus `frei` erlaubt der Knoten jeden
+  Befehl einzeln selbst.
+- `stopp` bricht den Lauf ab (`gestoppt`); nach 60 min bricht der Knoten selbst ab
+  (`grenze`), ebenso nach 200 Schritten.
+- `freigabe` und `stopp` antworten `ok: false`, wenn der Schritt nicht wartet bzw.
+  der Lauf nicht (mehr) läuft.
+
 **Ablehnungen** (seit VKc1): Rückmeldung 7000 mit `status` = `error` und
 `["fall", <kennung>]`, versiegelt wie die Antwort. Die App erkennt den Fall am
 Tag, nie am Text:
@@ -1207,7 +1227,8 @@ Tag, nie am Text:
 | `fall` | Bedeutung |
 |---|---|
 | `code-aus` | Vibecoden ist auf dem Knoten aus (`VIBECODEN=1` fehlt, oder git fehlt) |
-| `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat noch keinen Agenten (bis VKc2) |
+| `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat keinen Motor – er startet ihn nur in der Sandbox (VKb, VKc3) |
+| `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei |
 | `code-zu-viele` | `neu`: schon 100 Projekte |
 | `code-git` | `neu`: git konnte das Projekt nicht anlegen |
 | `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |

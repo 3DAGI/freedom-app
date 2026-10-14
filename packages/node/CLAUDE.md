@@ -234,4 +234,16 @@ Bereichs unten anhängen.
   Transaktionskennungen – nur Zahlen und Fehlernamen (`fehlerName()`); `~/.freedom/tma` 0700, Dateien 0600.
   Gebucht wird eine Zahlung nur einmal je `charge_id`, angenommen vor dem Bezahlen nur über `preCheckoutPasst()`
   (Sterne, bekannter Auftrag, genau sein Preis). `/` liefert nur `dist/tma/index.html`, nie den Web-Build.
-
+- **Code-Läufe nur über `CodeLaeufe` und einen ACP-Motor** (seit VKc2, `code-motor.ts`, VK-W1n C): Der Knoten ist
+  ACP-Client (`@agentclientprotocol/sdk` 1.8.0, exakt gepinnt; `client()`, nicht das veraltete `ClientSideConnection`),
+  ohne Datei- und Terminal-Fähigkeiten – der Motor arbeitet selbst, in der Sandbox. Gestartet nur über eine `MotorStart`
+  aus `main.ts`, und die gibt es nur mit Sandbox (VK4; VKb, VKc3) – nie `prozessMotor()` direkt auf dem Rechner. Die
+  Sandbox bindet `.git` nur lesbar ein: Die Commits (`sichere()`) laufen im Knoten, ein Filter oder fsmonitor in
+  `.git/config` liefe dort. Ein `auftrag` läuft im Hintergrund – `handleCode` wartet nie auf sein Ende, sonst hinge im
+  Abfrage-Betrieb (`pollOnce`) jede Freigabe hinter ihrem Lauf. Schritte und Ergebnis gehen in einer Kette, versiegelt an
+  den Sitzungsschlüssel; Updates verarbeitet der `onNotification`-Handler synchron, Commits nacheinander (zwei `git add`
+  zugleich scheitern am Index), und die Freigabe-Anfrage wartet einen Takt (`takt()`), bis der Werkzeug-Aufruf davor
+  verarbeitet ist – die Handler des SDK laufen nicht streng nacheinander. Eine Freigabe erst eintragen, dann melden: Ein
+  `stopp` kann aus der Meldung heraus kommen. „fragen“ wählt nur „einmal erlauben“, nie „immer“. Die Uhren eines Laufs
+  nicht mit `unref()` – sie halten den Knoten wach, solange er läuft, und enden mit ihm. Schritte aus dem Relay nie nach
+  Ankunft ordnen: Umschläge tragen zufällige Zeitstempel (NIP-59) – es zählen `nr` und `art`.

@@ -58,7 +58,7 @@ import {
   KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
-  KIND_DVM_KNOTEN_CODE, codeAntwortText, leseCodeAuftrag, type CodeAntwort,
+  KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
 } from "@freedomstack/protocol";
@@ -66,6 +66,7 @@ import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
+import type { CodeLaeufe } from "./code-motor.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -153,6 +154,8 @@ export interface ProviderConfig {
   turn?: TurnDienst;
   /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
   projekte?: ProjektAblage;
+  /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
+  code?: CodeLaeufe;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -930,9 +933,9 @@ export class DvmProvider {
   /**
    * Code-Auftrag (5080, seit A-31 VKc1, Entwurf `docs/VIBECODEN-ENTWURF.md`):
    * nur aus einem Umschlag und mit Nachweis (`istBesitzer()`), gelesen nur über
-   * `leseCodeAuftrag()`. Projekte auflisten und anlegen (`ProjektAblage`); einen
-   * Lauf (`auftrag`, `freigabe`, `stopp`) gibt es erst mit dem Motor (VKc2) –
-   * bis dahin `code-ohne-motor`. Projektnamen sind Inhalt: ins Log nur Zahlen.
+   * `leseCodeAuftrag()`. Projekte auflisten und anlegen (`ProjektAblage`); Läufe
+   * (`auftrag`, `freigabe`, `stopp`) nur mit Motor (`CodeLaeufe`, VKc2) – sonst
+   * `code-ohne-motor`. Projektnamen sind Inhalt: ins Log nur Zahlen.
    */
   private async handleCode(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
     const start = Date.now();
@@ -945,7 +948,11 @@ export class DvmProvider {
     else if (a.aktion === "neu") {
       await this.cfg.projekte.neu(a.projekt);
       antwort = { aktion: "neu", projekt: a.projekt };
-    } else throw new CodeAbgelehnt("code-ohne-motor");
+    } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
+    else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
+    else antwort = a.aktion === "freigabe"
+      ? { aktion: "freigabe", ok: this.cfg.code.freigabe(a.lauf, a.schritt, a.ja) }
+      : { aktion: "stopp", ok: this.cfg.code.stopp(a.lauf) };
     const resultEvent = signEvent(
       buildJobResult({
         providerPubkey: this.cfg.keypair.pk,
@@ -965,8 +972,37 @@ export class DvmProvider {
       amountMsat: 0,
       providerMsat: 0,
       aufteilung: [],
-      outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer` : "Code: Projekt angelegt",
+      outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer`
+        : antwort.aktion === "neu" ? "Code: Projekt angelegt" : `Code: ${antwort.aktion}`,
       durationMs: Date.now() - start,
+    };
+  }
+
+  /**
+   * Lauf im Hintergrund (VKc2): `handleCode` wartet nicht auf sein Ende – sonst
+   * hinge im Abfrage-Betrieb jede Freigabe hinter ihrem Lauf. Schritte (7000,
+   * `partial`) und am Ende das Ergebnis (6080) gehen in einer Kette, versiegelt an
+   * den Sitzungsschlüssel des Auftrags; ins Log nur Kennung und Zahlen.
+   */
+  private starteLauf(request: NostrEvent, a: Extract<CodeAktion, { aktion: "auftrag" }>, code: CodeLaeufe, start: number): ProcessedJob {
+    let kette = Promise.resolve();
+    const sende = (ev: () => NostrEvent) => {
+      kette = kette.then(() => this.antworte(ev(), request, true)).catch(() => { /* best effort, wie Zwischenstände */ });
+    };
+    const melde = (s: CodeSchritt) => sende(() => signEvent(
+      buildEvent(this.cfg.keypair.pk, 7000, [["e", request.id], ["p", request.pubkey], ["status", "partial"]], codeSchrittText(s)),
+      this.cfg.keypair.sk,
+    ));
+    void code.starte(request.id, a, melde).then((e) => {
+      sende(() => signEvent(buildJobResult({
+        providerPubkey: this.cfg.keypair.pk, requestId: request.id, requestKind: request.kind, customerPubkey: request.pubkey,
+        output: codeAntwortText({ aktion: "auftrag", ...e }), amountMsat: 0,
+      }), this.cfg.keypair.sk));
+      console.log(`[code] Lauf ${request.id.slice(0, 8)}: ${e.ende}, ${e.schritte} Schritt(e)`);
+    });
+    return {
+      requestId: request.id, resultEventId: "", customerPubkey: request.pubkey, amountMsat: 0, providerMsat: 0, aufteilung: [],
+      outputPreview: "Code: Lauf gestartet", durationMs: Date.now() - start,
     };
   }
 
