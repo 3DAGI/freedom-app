@@ -56,7 +56,12 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
   Geteilt (14.10.2026, MENSCH: „Ja“), weil er sonst rund 20 Dateien berührt:
   - **A-21b1** Protokoll: Zahlkanal (`channel.ts`) und Überweisung ohne Internet
     (`sol-offline.ts`) als kit-Anweisungen; eine Übergangsbrücke zu web3.js
-    (`TransactionInstruction`) hält die Aufrufer unverändert, bis A-21d/e sie umstellen;
+    (`TransactionInstruction`) hält die Aufrufer unverändert, bis A-21d/e sie umstellen –
+    **fertig** (14.10.2026): `kit-bruecke.ts` (`alsWeb3()`, `ed25519Anweisung()` von Hand),
+    `…Anweisung` neben `…Ix` im Zahlkanal, System-Anweisungen aus `@solana-program/system`;
+    alle 17 Vektoren unverändert. Die PDA rechnet noch web3.js (kit ist dort asynchron) – mit
+    A-21f eine eigene, synchrone Rechnung. Das Bundle wächst im Übergang um 138 KB (beide
+    Bibliotheken), A-21f nimmt web3.js heraus;
   - **A-21b2** App: HTLC (`sol-htlc.ts`) und Zahlkanal der App (`zahlkanal.ts`), Relayer.
 
   `@solana/kit` exakt **8.4.0** (die neueste Fassung 8.5.0 ist jünger als zwei Wochen) und

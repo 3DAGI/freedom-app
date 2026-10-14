@@ -9439,3 +9439,39 @@ gewartet. Jetzt bekommt die neue Fassung eine spätere Sekunde (`zeitNachDer()`,
 - `preCheckoutPasst()` und Nonce.
 - Doppelte Zustellung einmal gebucht, Log ohne ID und Kennung, Dateirechte. Gegenprobe ohne Schutz: rot.
 - Feste Texte, 413, TON ohne Adresse 503, ungültige TON-Aufträge 400.
+
+## Schritt A-21b1 – Zahlkanal und Überweisung ohne Internet als `@solana/kit`-Anweisungen
+
+Spur A, `docs/KIT-PLAN.md` (freigegeben 11.10., Teilung und kit 8.4.0 am 14.10.).
+
+**Neue Abhängigkeiten** (Protokoll, exakt gepinnt):
+- `@solana/kit` 8.4.0 (MIT) und `@solana-program/system` 0.15.0 (Apache-2.0).
+- Dazu kommen 43 Unterpakete `@solana/*` (MIT) sowie `commander`, `ws` und `undici-types` (MIT).
+- Rund 75 MB installiert, solange die Pakete doppelt neben den 2.x-Paketen von web3.js liegen (bis A-21f).
+- Das App-Bundle wächst im Übergang um 138 KB (8310 → 8448 KB).
+
+**Code:**
+- `kit-bruecke.ts`:
+  - `alsWeb3()` macht aus einer kit-Anweisung eine web3.js-Anweisung (vier Rollen).
+  - `konto()` baut ein Konto.
+  - `ed25519Anweisung()` ist von Hand gebaut, Byte für Byte wie `Ed25519Program`.
+  - Feste Adressen: System-Programm, Ed25519, Sysvar der Anweisungen.
+- `channel.ts`:
+  - `oeffneKanalAnweisung()`, `rechneKanalAbAnweisungen()`, `erstatteKanalAnweisung()` und
+    `stockeKanalAufAnweisung()` liefern kit-`Instruction`.
+  - Die bisherigen `…Ix` entstehen daraus über `alsWeb3()`; die Aufrufer in App und Knoten bleiben
+    unverändert.
+- `sol-offline.ts`: Nonce anlegen, schließen und weiterschalten sowie die Überweisung kommen aus
+  `@solana-program/system`. Die Unterschrift steht nur als Rolle drin (`createNoopSigner()`).
+- **Unverändert:** Die PDA (`kanalAdresse()`) rechnet weiter web3.js, weil kit sie asynchron rechnet;
+  ebenso das Lesen in `pruefeOfflineUeberweisung()`. Beides ändert A-21f.
+- **Fallstrick** in `packages/protocol/CLAUDE.md`.
+
+**Tests:**
+- protocol +3 (`kit-bruecke.test.ts`):
+  - Rollen und Daten der Brücke.
+  - Ed25519 gegen web3.js bei vier Nachrichtenlängen, dazu falsche Längen.
+  - Rollen der Kanal-Anweisungen, darunter „erstatten“ ohne Unterschrift (Z1).
+- Alle 17 Vektoren aus A-21a gleich (Protokoll 10, App 9).
+- Vorab geprüft: kit selbst ergibt beim Zusammensetzen der Nachricht dieselben Bytes wie web3.js (Probe
+  mit den vier Kanal-Fällen).

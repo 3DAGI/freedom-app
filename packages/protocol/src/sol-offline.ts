@@ -16,6 +16,12 @@
  * Geprueft wird ohne Buffer-BigInt-Methoden (DataView): die App prueft im Browser.
  */
 import { PublicKey, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SystemProgram, Transaction } from "@solana/web3.js";
+import { address, createNoopSigner } from "@solana/kit";
+import {
+  getAdvanceNonceAccountInstruction, getCreateAccountInstruction, getInitializeNonceAccountInstruction,
+  getTransferSolInstruction, getWithdrawNonceAccountInstruction,
+} from "@solana-program/system";
+import { alsWeb3, SYSTEM_PROGRAMM } from "./kit-bruecke.js";
 import { pruefeSolanaTx, type SolanaTxFehler } from "./mesh-transport.js";
 import { ProtokollFehler } from "./fehler.js";
 
@@ -46,14 +52,16 @@ export function nonceKontoKosten(mieteLamports: number): { miete: number; gebueh
  */
 export function baueNonceKontoAnlegen(p: { zahler: string; nonceKonto: string; mieteLamports: number; blockhash: string }): Transaction {
   nonceKontoKosten(p.mieteLamports);
-  const zahler = new PublicKey(p.zahler);
-  const tx = SystemProgram.createNonceAccount({
-    fromPubkey: zahler,
-    noncePubkey: new PublicKey(p.nonceKonto),
-    authorizedPubkey: zahler,
-    lamports: p.mieteLamports,
-  });
-  tx.feePayer = zahler;
+  // Anweisungen aus @solana-program/system (A-21b1); unterschrieben wird später – hier nur die Rolle
+  const zahler = createNoopSigner(address(p.zahler));
+  const nonceKonto = createNoopSigner(address(p.nonceKonto));
+  const tx = new Transaction().add(
+    alsWeb3(getCreateAccountInstruction({
+      payer: zahler, newAccount: nonceKonto, lamports: p.mieteLamports, space: NONCE_KONTO_BYTES, programAddress: address(SYSTEM_PROGRAMM),
+    })),
+    alsWeb3(getInitializeNonceAccountInstruction({ nonceAccount: nonceKonto.address, nonceAuthority: zahler.address })),
+  );
+  tx.feePayer = new PublicKey(p.zahler);
   tx.recentBlockhash = p.blockhash;
   return tx;
 }
@@ -65,11 +73,11 @@ export function baueNonceKontoAnlegen(p: { zahler: string; nonceKonto: string; m
  */
 export function baueNonceKontoSchliessen(p: { autoritaet: string; nonceKonto: string; lamports: number; blockhash: string }): Transaction {
   if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new Error("Guthaben ungültig");
-  const autoritaet = new PublicKey(p.autoritaet);
-  const tx = new Transaction().add(SystemProgram.nonceWithdraw({
-    noncePubkey: new PublicKey(p.nonceKonto), authorizedPubkey: autoritaet, toPubkey: autoritaet, lamports: p.lamports,
-  }));
-  tx.feePayer = autoritaet;
+  const autoritaet = createNoopSigner(address(p.autoritaet));
+  const tx = new Transaction().add(alsWeb3(getWithdrawNonceAccountInstruction({
+    nonceAccount: address(p.nonceKonto), recipientAccount: autoritaet.address, nonceAuthority: autoritaet, withdrawAmount: p.lamports,
+  })));
+  tx.feePayer = new PublicKey(p.autoritaet);
   tx.recentBlockhash = p.blockhash;
   return tx;
 }
@@ -108,12 +116,12 @@ export function baueOfflineUeberweisung(p: {
   if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new ProtokollFehler("betrag-positiv", "Betrag muss eine positive ganze Zahl sein");
   if (p.von === p.an) throw new ProtokollFehler("an-sich-selbst", "Überweisung an sich selbst");
   if (p.stand.autoritaet !== p.von) throw new ProtokollFehler("nonce-andere-adresse", "Das Nonce-Konto gehört einer anderen Adresse");
-  const von = new PublicKey(p.von);
+  const von = createNoopSigner(address(p.von));
   const tx = new Transaction().add(
-    SystemProgram.nonceAdvance({ noncePubkey: new PublicKey(p.nonceKonto), authorizedPubkey: von }),
-    SystemProgram.transfer({ fromPubkey: von, toPubkey: new PublicKey(p.an), lamports: p.lamports }),
+    alsWeb3(getAdvanceNonceAccountInstruction({ nonceAccount: address(p.nonceKonto), nonceAuthority: von })),
+    alsWeb3(getTransferSolInstruction({ source: von, destination: address(p.an), amount: p.lamports })),
   );
-  tx.feePayer = von;
+  tx.feePayer = new PublicKey(p.von);
   tx.recentBlockhash = p.stand.nonce;
   return tx;
 }

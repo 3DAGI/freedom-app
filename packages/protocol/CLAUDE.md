@@ -71,3 +71,11 @@ Fallstricke dieses Bereichs unten anhängen.
   pflegen nie (V6): Wer Rechte oder Status eines Raum-Repos rechnet und den Raum kennt, gibt `istAgent` mit –
   `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()` (offen `istAgentIm()`, privat die Agent-Karten der
   Gruppe). Ohne `istAgent` zählt ein Agent mit `repos_pflegen` oder als Admin wie ein Mensch.
+- **Solana-Anweisungen nur als kit-`Instruction`** (seit A-21b1, `docs/KIT-PLAN.md`): neue Anweisungen über
+  `@solana/kit` (`address()`, `AccountRole`, Konten über `konto()`), System-Anweisungen aus `@solana-program/system`
+  (Unterschrift nur als Rolle über `createNoopSigner()`), Ed25519 nur über `ed25519Anweisung()` – web3.js bekommt sie
+  nur über `alsWeb3()` (`kit-bruecke.ts`), bis A-21f die Brücke entfernt. Beide Pakete exakt gepinnt (kit 8.4.0,
+  system 0.15.0). Die Bytes jeder Nachricht halten die Vektoren fest – ein neuer Weg, eine Nachricht zu bauen, braucht
+  den Vergleich mit ihnen. `getProgramDerivedAddress()` ist asynchron; bis A-21f rechnet `kanalAdresse()` die PDA
+  weiter synchron mit web3.js.
+
