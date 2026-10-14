@@ -60,3 +60,8 @@ Fallstricke dieses Bereichs unten anhängen.
   nie `xs`/`as`; weiter geht nur der neu gebaute `link`. Seeds einer Fassung nur über `magnetQuellen()` mit
   `inhaltsKennung()` (gleich für jeden Herausgeber derselben Dateien) – Vertrauen braucht die Wahl nicht, die
   Bytes prüft das Manifest. Eine Base32-Kennung im Test nur mit `base64.b32encode` erzeugen.
+- **Solana-Vektoren nie neu erzeugen** (seit A-21a, `docs/KIT-PLAN.md`): `test/fixtures/solana-vektoren.json` hält
+  die Nachrichten aller Transaktionen fest, wie web3.js v1 sie baut (Eingaben in `test/sol-vektoren-faelle.ts` und
+  `app/test/sol-vektoren-faelle.ts`). Der Umbau auf `@solana/kit` (A-21b–f) muss dieselben Bytes liefern – scheitert
+  ein Vektor, ist der Umbau falsch, nicht die Datei. Eine neue Transaktion bekommt einen neuen Fall samt Eintrag.
+  `HTLC_PROGRAM_ID` in der Umgebung ändert die LP-Vektoren – die Tests laufen nur ohne.
