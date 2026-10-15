@@ -283,3 +283,11 @@ Bereichs unten anhängen.
   `darfAusliefern()` der Verbindung zeigen würde, und lehnt Filter auf Umschläge ohne Anmeldung ab
   (`brauchtAnmeldung()`) – ein Fingerabdruck verriete sonst, welche Umschläge an wen dort liegen. Offene Abgleiche zählen
   wie Abos, jede Nachricht wie eine Abfrage, höchstens `NEG_RELAY.events`; `NEG-ERR` nur mit festen Texten.
+- **seccomp nur über `seccompFilter()`** (seit 11.5s2, `seccomp.ts`): cBPF ohne libseccomp, über `--seccomp 3` (Datei als
+  `stdio[3]`, nach dem Lauf geschlossen). Zuerst die Architektur prüfen (sonst töten), auf x86_64 die x32-Aufrufe sperren;
+  gesperrte Aufrufe ergeben `EPERM`, `clone3` `ENOSYS` (die C-Bibliothek nimmt dann `clone`, dessen Flags der Filter sieht).
+  Nummern je Architektur aus den Kernel-Headern – nie von x86_64 auf arm64 übertragen. Netz-Aufrufe bleiben erlaubt:
+  ohne Netz-Namensraum erreichen sie nur `lo`, und die Brücke zum Modell (VKc3) braucht sie. Speicher je Befehl nie mit
+  `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
+  (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
+  Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.

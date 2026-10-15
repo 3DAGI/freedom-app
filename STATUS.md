@@ -9961,6 +9961,47 @@ offene). Protokoll `relay-zugang.test.ts`: NIP-11 mit 77.
 
 Knoten-Stand: neu nötig für den Abgleich; ältere Knoten antworten auf `NEG-OPEN` mit `NOTICE` (unbekannter Typ).
 
+## Schritt 11.5s2 – seccomp in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3“: seccomp wie bei Codex als zweite Stufe, ohne neue
+Abhängigkeit). Die Sandbox (VKb) hat schon kein Netz und keine Fähigkeiten; der Filter nimmt dazu, was den Kern
+angreifbar macht und kein Werkzeug braucht.
+
+- **`node/src/seccomp.ts`:** `seccompFilter(arch)` baut einen cBPF-Filter mit einem kleinen eigenen Assembler (Marken,
+  Sprungweiten geprüft): Architektur prüfen (sonst töten), x32 auf x86_64 sperren, `EPERM` für `io_uring_*`, `keyctl`,
+  `add_key`, `request_key`, `bpf`, `perf_event_open`, `userfaultfd`, `kexec_*`, Module, `open_by_handle_at`, `unshare`,
+  `setns`, Einhängen (`mount`, `umount2`, `pivot_root`, neue Mount-API), `swapon`/`swapoff`, `reboot`; `clone` mit
+  `CLONE_NEW*` gesperrt, `clone3` mit `ENOSYS`. Nur x86_64 und arm64, sonst kein Filter.
+- **`sandbox.ts`:** der Filter als Datei im eigenen `/etc`-Ordner, offen als `stdio[3]`, `--seccomp 3` – für Befehle und
+  den Motor; `pruefeSandbox()` meldet `seccomp` und unterscheidet `sandbox.seccomp` (geht nur ohne Filter).
+- **Noch nicht:** Speicher je Befehl → 11.5s3 (`ulimit -v` bricht Node und WASM).
+- **Doku:** Entwurf, OFFEN (11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `seccomp.test.ts` (3, neu): Aufbau je Architektur (Architektur zuerst, töten am Ende, Sprünge im
+Programm, x32 nur auf x86_64); mit echtem bubblewrap und Python: `io_uring_setup`, `keyctl`, `bpf`, `perf_event_open`,
+`userfaultfd` ergeben `EPERM`, Threads und Kindprozesse laufen; `unshare -U` scheitert in der Sandbox.
+`sandbox.test.ts` angepasst (Selbstprüfung mit `seccomp`).
+
+Knoten-Stand: neu für den Filter; ohne `VIBECODEN=1` ändert sich nichts.
+
+## Schritt 11.5s3 – Speicher je Befehl in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (11.5s3). Bisher begrenzte die Sandbox Zeit, Dateigröße und offene
+Dateien, aber nicht den Arbeitsspeicher – ein Befehl konnte den Rechner des Providers in den Speichermangel treiben.
+
+- **`ulimit -d` statt cgroups:** `RLIMIT_DATA` zählt seit Linux 4.7 privaten, beschreibbaren Speicher (Heap und
+  `mmap`), nicht reservierten Adressraum – Node und WASM reservieren viel und belegen wenig, `ulimit -v` bräche sie.
+  cgroups v2 brauchen ein Nutzer-systemd oder Rechte, die unter Docker meist fehlen; die Grenze je Prozess geht überall.
+- **`sandbox.ts`:** `SANDBOX_GRENZEN.speicherKiB` (4 GiB) in `mitGrenzen()`; der Motor (`sandboxMotor()`) läuft jetzt
+  auch über `mitGrenzen(…, false)` – Dateigröße, offene Dateien, Speicher, aber keine Rechenzeit (er läuft so lange wie
+  der Auftrag). Seine Befehle erben die Grenzen.
+- **Noch nicht:** alle Prozesse eines Befehls zusammen → 11.5s4 (cgroups v2, wo es sie gibt; später, nachrangig).
+- **Doku:** Entwurf, OFFEN (11.5s4 statt 11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (1 neu, 1 erweitert): Grenzen samt `ulimit -d`; mit echtem bubblewrap und Python
+scheitert ein Puffer über der Grenze mit `MemoryError`, 64 MB gehen; der Motor sieht Speichergrenze, aber keine
+Rechenzeitgrenze.
+
 ## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
 
 Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue
