@@ -82,7 +82,8 @@
 .pille-leiste .send-btn { border-radius: 999px; }
 
 /* ---------- Empty State (Agent) ---------- */
-.ai-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+/* min-height statt height (C-43): Steht die Führung als Karte darüber, wächst der leere Zustand und rollt, statt oben abgeschnitten zu werden */
+.ai-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; box-sizing: border-box; text-align: center; padding: 20px; }
 .ai-empty-logo { color: var(--accent); font-size: 42px; font-weight: 800; letter-spacing: 4px; margin-bottom: 12px; text-shadow: 0 0 24px rgba(123,200,10,0.3); }
 .ai-empty-sub { color: var(--text); font-size: 15px; font-family: var(--font-body); margin-bottom: 24px; }
 .ai-empty-examples { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; margin-bottom: 20px; }
