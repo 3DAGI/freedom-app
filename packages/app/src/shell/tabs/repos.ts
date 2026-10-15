@@ -9,7 +9,7 @@
  * Die Liste wird mit DOM-Aufrufen und textContent gebaut, nie per innerHTML:
  * Namen, Betreffe und Adressen kommen von Fremden.
  */
-import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
+import { BUNDLE_GRENZEN, type GelesenesRepo, type NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { type RaumZiel, type RepoKarte, filtereKarten, mitForks, mitIssues, mitSternen, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
@@ -25,7 +25,6 @@ import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js"
 import { geheim } from "../tresor.js";
 import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbgleichen, leseGesehen, neuGesamt, neuigkeiten } from "../../repo-neuigkeiten.js";
 import { LOKAL_MAX, LokalVoll } from "../../lokale-repos.js";
-import { BUNDLE_GRENZEN } from "../../git-bundle.js";
 import { lokaleRepos } from "../lokale-repos-ablage.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 

@@ -9836,3 +9836,32 @@ Arbeitsordner, `.git`, `/usr`, `/etc` und die Wurzel nur lesbar, Dateien des Kno
 Exit-Code, Kürzung, Zeitgrenze samt Kind im Hintergrund, Motor über stdin/stdout mit eigenem Home.
 
 Knoten-Stand: für die Selbstprüfung neu; ohne `VIBECODEN=1` ändert sich nichts.
+
+## Schritt 11.5a1 – Bundle-Leser im Protokoll, Arbeitskopie
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (V3, V4, W1 B, W3a A). Der Knoten braucht für Repo-Aufträge (11.5c)
+denselben Leser wie die App und daraus einen Arbeitsordner, in dem der Agent in der Sandbox (VKb) arbeitet.
+
+- **Leser ins Protokoll:** `git-bundle.ts` von `packages/app/src/` nach `packages/protocol/src/` (unverändert bis auf
+  den Kopfkommentar), aus `index.ts` exportiert; die App (`code-reiter.ts`, `repos.ts`) nimmt ihn aus
+  `@freedomstack/protocol` – ohne Änderung im Verhalten. Die Tests des Lesers und die Probe-Bundles ziehen mit
+  (`protocol/test/git-bundle.test.ts`, `protocol/test/fixtures/probe-*.bundle`); die vier Tests der Verdrahtung im
+  Reiter „Code“ bleiben in der App (`app/test/code-reiter.test.ts`). Der Smoke-Test liest die Bundles vom neuen Ort.
+- **Arbeitskopie (`protocol/src/arbeitskopie.ts`):** `arbeitskopie(bundle, commit?)` – der Baum am Kopf als Dateien
+  (`datei`, `ausfuehrbar`, `verweis` mit dem Ziel als Inhalt) samt Kennung aus dem Baum, Submodule nur als Pfad
+  und Commit (für den Patch, 11.5a2). `istRepoPfad()` nach V4; jeder
+  Name einmal je Ordner; `ARBEITSKOPIE_GRENZEN` (20 000 Dateien, 256 MB, Tiefe 32, Verweis 1 KB) je Stelle im Baum.
+- **Arbeitsordner (`node/src/arbeitskopie.ts`):** `neuerArbeitsordner()` in `/dev/shm` (sonst Temp), 0700, `weg()`;
+  `schreibeArbeitskopie()` nur in einen leeren, echten Ordner, `O_EXCL | O_NOFOLLOW`, Verweise zuletzt.
+- **Verdrahtet:** der Leser im Reiter „Code“ der App wie bisher (`code-reiter.ts`); `arbeitskopie()` ruft erst 11.5c
+  (Spur A) – Ausnahme in `scripts/wiring-ausnahmen.txt` mit diesem Grund.
+- **Doku:** Entwurf (11.5a1 fertig), OFFEN (11.5a2 offen, 11.5c nur noch danach), Fallstricke in
+  `packages/protocol/CLAUDE.md` und `packages/node/CLAUDE.md`, Verweis in `packages/app/CLAUDE.md`.
+
+**Tests:** Protokoll `arbeitskopie.test.ts` (5, neu): Pfad-Regeln, echtes Bundle von git (Modi, Verweis, Submodul
+gleich `git ls-tree`), Probe-Bundle, feindliche Bäume (`.git` in jeder Schreibweise, doppelte Namen, fehlende
+Objekte, kaputte Verweise), Grenzen (Fächer aus demselben Ordner, Bytes, Tiefe); `git-bundle.test.ts` (9, aus der App
+verschoben). Knoten `arbeitskopie.test.ts` (4, neu, einer mit echtem bubblewrap). App: neun Tests des Lesers ins
+Protokoll verschoben (vier bleiben), sonst unverändert – zusammen steigt die Zahl um 9.
+
+Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).

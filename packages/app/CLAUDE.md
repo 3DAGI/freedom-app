@@ -311,7 +311,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `alsRufZusammenfassung()` am Ende der Kette in `oeffneUmschlag()`, gemerkt in
   `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`).
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/website/CLAUDE.md`.)*
-- **Git-Bundles nur über `leseBundle()`** (seit C.3c1, `git-bundle.ts`): ohne
+- **Git-Bundles nur über `leseBundle()`** (seit C.3c1, `git-bundle.ts` – seit 11.5a1 im Protokoll): ohne
   neue Abhängigkeit (`DecompressionStream`, `crypto.subtle`), Grenzen aus
   `BUNDLE_GRENZEN`, Prüfsumme des Packs und jede Kennung nachgerechnet, Fehler
   nur als `BundleFehler`-Kennung (nie Text aus dem Bundle). Geladen nur auf

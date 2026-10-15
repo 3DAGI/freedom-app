@@ -21,6 +21,7 @@ antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
 
 
+arbeitskopie.ts|arbeitskopie|Arbeitskopie eines Repo-Auftrags – der Knoten schreibt sie mit schreibeArbeitskopie(); aufgerufen erst im Ablauf für Repo-Aufträge (11.5c, Spur A)
 cluster.ts|buildClusterOffer|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
 cluster.ts|baueClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
 cluster.ts|oeffneClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1

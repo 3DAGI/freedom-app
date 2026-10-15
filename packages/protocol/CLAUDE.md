@@ -97,3 +97,9 @@ Fallstricke dieses Bereichs unten anhängen.
   oder 38027 – Kurs-Ticker und Provider-Angebot), gelesen streng über `parseClusterOffer()`; die Absprache zweier Knoten nur
   versiegelt über `baueClusterAbsprache()`/`oeffneClusterAbsprache()` (innen 25050). Kein öffentliches Paar-Event, keine
   Bilanz, kein Vorrang daraus, keine Protokollgebühr – der Kunde zahlt nur den führenden Knoten nach A+.
+- **Arbeitskopie nur über `arbeitskopie()`** (seit 11.5a1, `arbeitskopie.ts`): der Baum am Kopf nur aus dem Bundle
+  (`kopfCommit()`, nie `head` aus dem Verweis), jeder Pfad nach `istRepoPfad()` (kein `..`, kein `.git` in keiner
+  Schreibweise, keine Steuerzeichen), jeder Name einmal je Ordner, Grenzen je Stelle im Baum (`ARBEITSKOPIE_GRENZEN` –
+  derselbe Ordner an vielen Stellen wären sonst Millionen Dateien aus wenigen Objekten). Fehlt ein Objekt, gibt es keine
+  Arbeitskopie (`BundleFehler("kaputt")`), nie eine halbe. Den Bundle-Leser hat seit 11.5a1 das Protokoll – die App
+  nimmt ihn von dort, die Probe-Bundles liegen in `protocol/test/fixtures/`.
