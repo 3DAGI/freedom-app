@@ -32,7 +32,8 @@ test("B-8c: verdrahtet – Karte in Settings → Geräte, Code verdeckt und scan
   assert.match(lies("shell/app.ts"), /wireBunkerKarte\(beschaeftigt\);\n\s+wireMeinKnoten\(\);/);
   const k = lies("shell/mein-knoten.ts");
   assert.match(k, /\{ art: "text", name: "code", label: t\("set\.knotenCode"\), pflicht: true, mono: true, scannen: true, verdeckt: true \}/);
-  assert.match(k, /pruefe: \(v\) => \(leseKopplungscode\(String\(v\.code \?\? ""\)\) \? null : t\("set\.knotenCodeFalsch"\)\),/);
+  // Seit VKf auch der Code zum Eintippen – beide streng geprüft, sonst der feste Hinweis
+  assert.match(k, /pruefe: \(v\) => \(leseKopplungscode\(String\(v\.code \?\? ""\)\) \|\| leseKurzcode\(String\(v\.code \?\? ""\)\) \? null : t\("set\.knotenCodeFalsch"\)\),/);
   assert.match(k, /if \(alt && alt\.knoten !== k\.knoten\n\s+&& !await bestaetige\(/, "einen anderen Knoten ersetzt es nur nach Rückfrage");
   assert.match(k, /export function kopplungFuer\(knoten: string\): Kopplung \| null \{\n\s+const k = meineKopplung\(\);\n\s+return k && k\.knoten === knoten \? k : null;/);
   assert.match(lies("shell/tabs/agent.ts"), /import \{[^}]*\bkopplungFuer\b[^}]*\} from "\.\.\/mein-knoten\.js";/);

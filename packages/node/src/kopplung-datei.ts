@@ -8,7 +8,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type Kopplung, kopplungscode, neueKopplung, qrCode } from "@freedomstack/protocol";
+import { KURZCODE_GUELTIG, type Kopplung, kopplungscode, leseKurzcode, neueKopplung, neuerKurzcode, qrCode } from "@freedomstack/protocol";
 
 export const kopplungsDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "kopplung.json");
 
@@ -52,4 +52,30 @@ export function kopplungImTerminal(k: Kopplung): string {
     zeilen.push(`\x1b[30;47m${z}\x1b[0m`);
   }
   return zeilen.join("\n");
+}
+
+/** Code zum Eintippen (VKf): `~/.freedom/kurzcode.json` – `npm run koppeln -- --code` legt ihn an, der laufende Knoten veröffentlicht ihn. */
+export const kurzcodeDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "kurzcode.json");
+
+export interface KurzcodeEintrag { code: string; bis: number }
+
+/** Neuen Code ablegen (0600) – ersetzt einen alten; gültig `KURZCODE_GUELTIG` Sekunden. */
+export function legeKurzcodeAn(datei: string, jetzt: number): KurzcodeEintrag {
+  const e = { code: neuerKurzcode(), bis: jetzt + KURZCODE_GUELTIG };
+  mkdirSync(dirname(datei), { recursive: true, mode: 0o700 });
+  writeFileSync(`${datei}.tmp`, JSON.stringify(e), { mode: 0o600 });
+  renameSync(`${datei}.tmp`, datei);
+  return e;
+}
+
+/** Den abgelegten Code lesen – streng, auch abgelaufen (dann räumt der Knoten auf); kaputt oder fehlend → null. */
+export function leseKurzcodeEintrag(datei: string): KurzcodeEintrag | null {
+  if (!existsSync(datei)) return null;
+  try {
+    const e = JSON.parse(readFileSync(datei, "utf8")) as Partial<KurzcodeEintrag>;
+    const code = typeof e.code === "string" ? leseKurzcode(e.code) : null;
+    return code && Number.isInteger(e.bis) ? { code, bis: e.bis! } : null;
+  } catch {
+    return null;
+  }
 }

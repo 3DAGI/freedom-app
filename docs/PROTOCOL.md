@@ -139,6 +139,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38059 / 38060 | *nicht mehr belegt* (Runde und Zuteilung aus einem Topf, nie veröffentlicht, entfernt mit E10 B am 04.10.2026) |
 | 38061 | Kopfgeld für eine Aufgabe, meist ein Issue – in sats, SOL oder beiden (§29, `kopfgeld.ts`) |
 | 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
+| 38076 | Code zum Eintippen: Kopplungscode des Knotens, verschlüsselt mit einem Schlüssel aus dem Code, Ablauf zehn Minuten (§35, seit VKf) |
 | 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
 | 38081 | *nicht mehr belegt* (Messbericht eines Prüfers je Provider und Modell, P1b bis P5a; Prüfer entfielen mit der Entscheidung vom 05.10.2026, §28) |
 
@@ -1235,3 +1236,33 @@ Tag, nie am Text:
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
+
+## 35. Code zum Eintippen (Kind 38076, seit VKf)
+
+Koppeln ohne Kamera (K1 aus `docs/VIBECODEN-ENTWURF.md`, VK-W9). `npm run koppeln -- --code` zeigt
+zwölf Zeichen Crockford-Base32 in drei Vierern (`7KQ2-9XMB-4TRP`, 60 Bit), gültig zehn Minuten; das
+Skript legt nur `~/.freedom/kurzcode.json` an (0600) und verbindet sich mit keinem Relay.
+
+**Ableitung** (`kurzcodeAbleitung()`): PBKDF2-SHA256 über die zwölf Zeichen (ohne Striche), Salz
+`freedomstack-kurzcode-v1`, 600 000 Runden, 64 Byte. Die ersten 32 Byte sind der Schlüssel für
+NIP-44 v2 (als Gesprächsschlüssel, ohne ECDH), die letzten 32 Byte – als Hex – die Suchkennung.
+
+**Event des Knotens** (`baueKurzcodeEvent()`, signiert mit dem Schlüssel des Knotens):
+
+```
+kind 38076, pubkey = Knoten
+tags: ["d", <Suchkennung>], ["expiration", <Frist>]
+content: NIP-44(Schlüssel aus dem Code, "freedom-kopplung:1:<knoten>:<geheimnis>")
+```
+
+Die App sucht `{"kinds": [38076], "#d": [<Suchkennung>]}` am eigenen Pool und an der Startliste und
+nimmt nur, was `leseKurzcodeEvent()` durchlässt: gültige Signatur, passende Kennung, Frist nicht
+vorbei und höchstens zehn Minuten nach `created_at`, entschlüsselbar und der Knoten im Kopplungscode
+gleich dem Autor. Eingelöst wird der Code mit der Statusabfrage (§ B-11a, 5077): im versiegelten Kern
+`["kurzcode", <Suchkennung>]`; der Knoten prüft zuerst den Nachweis des Besitzers und löscht dann das
+Event (NIP-09: `e`, `a` = `38076:<knoten>:<Suchkennung>`, `k`) samt Datei – ebenso nach der Frist.
+
+**Was Relays sehen:** dass dieser Knoten einen Code zum Koppeln veröffentlicht hat, und wann. Nicht
+den Code, nicht das Geheimnis, nicht wer koppelt. Wer das Event mitliest, muss für jeden der 2^60
+Codes 600 000 Runden rechnen – auch, um es überhaupt einem Code zuzuordnen.
+

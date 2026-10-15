@@ -36,7 +36,7 @@ export async function powFuerKnoten(knoten: string): Promise<number> {
  * „Wecken“ (B-12d2, sein VAPID-Schlüssel). Zurück der gelesene Status oder ein
  * Satz, warum es keinen gibt (nur als Text zeigen).
  */
-export async function frageKnotenStatus(k: Kopplung): Promise<{ status: KnotenStatus } | { grund: string }> {
+export async function frageKnotenStatus(k: Kopplung, kurzcode?: string): Promise<{ status: KnotenStatus } | { grund: string }> {
   const powBits = await powFuerKnoten(k.knoten);
   const sitzung = new LocalSigner(generateKeypair().sk);
   // Alles über meinen Knoten (B-9c2): mit Haken nur über sein Relay – ohne Relay geht nichts hinaus
@@ -44,7 +44,8 @@ export async function frageKnotenStatus(k: Kopplung): Promise<{ status: KnotenSt
   if (!weg) return { grund: t("set.knotenOhneRelay") };
   let antwort: Awaited<ReturnType<typeof warteAufKnoten>>;
   try {
-    const { wrap, requestId } = await baueStatusAuftrag({ sitzung, kopplung: k, powBits });
+    // Mit `kurzcode` (VKf) löst die Abfrage zugleich den Code zum Eintippen ein
+    const { wrap, requestId } = await baueStatusAuftrag({ sitzung, kopplung: k, powBits, kurzcode });
     await weg.publish(wrap);
     antwort = await warteAufKnoten(weg, sitzung, requestId, KIND_DVM_KNOTEN_STATUS + 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS);
   } finally {

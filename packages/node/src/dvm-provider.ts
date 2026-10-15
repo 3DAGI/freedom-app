@@ -55,7 +55,7 @@ import {
   leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
   kuerzeAntwort, leseKurzWunsch,
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
-  KIND_DVM_KNOTEN_STATUS, knotenStatusText, type KnotenStatus,
+  KIND_DVM_KNOTEN_STATUS, KURZCODE_TAG, knotenStatusText, type KnotenStatus,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
@@ -136,6 +136,8 @@ export interface ProviderConfig {
    * Leer oder nicht gesetzt: kein Besitzer.
    */
   besitzer?: () => readonly string[];
+  /** Code zum Eintippen eingelöst (VKf) – der Dienst löscht dann dessen Event. */
+  kurzcodeEingeloest?: (suche: string) => void;
   /**
    * Status für den Besitzer (B-11a, L6 A – nur lesen): was `main.ts` über
    * den Prozess weiß (Fassung, Start, laufende Rollen, Modelle, Relay).
@@ -852,6 +854,9 @@ export class DvmProvider {
   private async handleKnotenStatus(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
     const start = Date.now();
     if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Status nur für den Besitzer");
+    // Code zum Eintippen eingelöst (VKf): erst nach dem Nachweis – dann löscht der Knoten dessen Event
+    const kurzcode = getTag(request, KURZCODE_TAG);
+    if (kurzcode) this.cfg.kurzcodeEingeloest?.(kurzcode);
     const basis = this.cfg.status?.();
     if (!basis) throw new Error("kein Status");
     const sp = this.storage?.stats();
