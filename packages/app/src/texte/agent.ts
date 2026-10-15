@@ -209,7 +209,7 @@ export const agent: Texte = {
   "agent.zahlungUnklar": { de: "Zahlung an den Provider unklar – sieh in deiner Wallet nach. In dieser Sitzung zahlt die App nicht noch einmal.", en: "Payment to the provider unclear – check your wallet. The app won't pay again in this session." },
   "agent.belegGesammelt": { de: "Beleg gespeichert – gezahlt wird gesammelt ab {sats} sats", en: "Receipt saved – paid in bulk from {sats} sats" },
   "agent.belegNichtBezahlt": { de: "Beleg gespeichert, nicht bezahlt: {grund}", en: "Receipt saved, not paid: {grund}" },
-  "agent.anteilUnklar": { de: "Eine gesammelte Zahlung ist unklar – unter Währung › Zahlen prüfen.", en: "A bulk payment is unclear – check under Wallet › Pay." },
+  "agent.anteilUnklar": { de: "Eine gesammelte Zahlung ist unklar – unter Wallet › Zahlen prüfen.", en: "A bulk payment is unclear – check under Wallet › Pay." },
   "agent.keineSitzung": { de: "Noch keine Sitzung. Die erste Anfrage startet eine.", en: "No session yet. The first request starts one." },
   "agent.sitzung": { de: "Sitzung: {bezahlt}/{max} sats ({pct} %)", en: "session: {bezahlt}/{max} sats ({pct}%)" },
   // Reklamation

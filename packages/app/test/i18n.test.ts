@@ -43,9 +43,9 @@ test("8.16: t() – aktuelle Sprache, Werte eingesetzt, Unbekanntes sichtbar; Sp
   const vorher = getLang();
   try {
     setLang("de");
-    assert.equal(t("navComm"), "Kommunikation");
+    assert.equal(t("nav.mehr"), "Mehr");
     setLang("en");
-    assert.equal(t("navComm"), "Chat");
+    assert.equal(t("nav.mehr"), "More");
     assert.equal(t("gibt-es-nicht"), "gibt-es-nicht", "unbekannt → der Schlüssel selbst");
     assert.equal(t("{n} von {m}", { n: 2, m: 5 }), "2 von 5");
     assert.equal(t("{n} und {x}", { n: 1 }), "1 und {x}", "fehlender Wert bleibt sichtbar");
@@ -144,7 +144,7 @@ test("8.16a: Rahmen – Navigation und Kopfzeile über Schlüssel, gespeicherte 
   assert.match(app, /setLang\(gespeicherteSprache\(localStorage\.getItem\("freedom\.lang"\)\) \?\? detectLang\(\)\);\s*document\.documentElement\.lang = getLang\(\);/);
   assert.match(app, /querySelectorAll\("\[data-i18n-title\]"\)/);
   assert.match(app, /querySelectorAll\("\[data-i18n-aria\]"\)/);
-  for (const k of ["navAi", "navComm", "navWallet", "navEarn", "navProfile", "navSettings"]) assert.match(html, new RegExp(`<span data-i18n="${k}">`));
+  for (const k of ["navAi", "nav.chats", "nav.wallet", "navEarn", "navProfile", "navSettings"]) assert.match(html, new RegExp(`<span data-i18n="${k.replace(".", "\\.")}">`));
   assert.doesNotMatch(html, /id="gate"|gate-lightning|gate-solana|gate-local/);
   assert.doesNotMatch(app, /#gate/);
 });

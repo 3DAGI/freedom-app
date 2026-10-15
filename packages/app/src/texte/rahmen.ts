@@ -15,8 +15,9 @@ export const rahmen: Texte = {
   import: { de: "Importieren", en: "import" },
   // Navigation
   navAi: { de: "Agent", en: "Agent" },
-  navComm: { de: "Kommunikation", en: "Chat" },
-  navWallet: { de: "Währung", en: "Wallet" },
+  // Seit C-47 dieselben Namen auf Desktop und Handy (Oberflächen-Review): Chats statt „Kommunikation“/„Chat“, Wallet statt „Währung“
+  "nav.chats": { de: "Chats", en: "Chats" },
+  "nav.wallet": { de: "Wallet", en: "Wallet" },
   navEarn: { de: "Verdienen", en: "Earn" },
   navProfile: { de: "Profil", en: "Profile" },
   navSettings: { de: "Settings", en: "Settings" },

@@ -83,10 +83,10 @@ def sprache_pruefen(browser, url: str) -> dict:
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
     for locale, gespeichert, soll_lang, soll_nav, soll_titel, soll_zurueck, soll_aufgabe, soll_deposit, soll_sicherheit, soll_phrase in [
-        ("de-DE", None, "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit", "Deine Wiederherstellungs-Phrase"),
-        ("en-US", None, "en", "Chat", "Balance", "‹ Back", "New task", "deposit", "Security", "Your recovery phrase"),
-        ("en-US", "fr", "en", "Chat", "Balance", "‹ Back", "New task", "deposit", "Security", "Your recovery phrase"),
-        ("en-US", "de", "de", "Kommunikation", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit", "Deine Wiederherstellungs-Phrase"),
+        ("de-DE", None, "de", "Verdienen", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit", "Deine Wiederherstellungs-Phrase"),
+        ("en-US", None, "en", "Earn", "Balance", "‹ Back", "New task", "deposit", "Security", "Your recovery phrase"),
+        ("en-US", "fr", "en", "Earn", "Balance", "‹ Back", "New task", "deposit", "Security", "Your recovery phrase"),
+        ("en-US", "de", "de", "Verdienen", "Guthaben", "‹ Zurück", "Neue Aufgabe", "hinterlegen", "Sicherheit", "Deine Wiederherstellungs-Phrase"),
     ]:
         ctx = browser.new_context(locale=locale)
         ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -99,7 +99,8 @@ def sprache_pruefen(browser, url: str) -> dict:
         # Frisches Profil: neue Identität, zuerst der Sicherungsdialog (8.16g1)
         s.wait_for_selector("#bk-done", timeout=30000)
         ist = s.evaluate("() => [document.documentElement.lang,"
-                         " document.querySelector('[data-tab=\"comm\"] [data-i18n]').textContent,"
+                         # seit C-47 heißt „Chats“ in beiden Sprachen gleich – die Sprache zeigt „Verdienen“/„Earn“
+                         " document.querySelector('[data-tab=\"earn\"] [data-i18n]').textContent,"
                          " document.getElementById('balance').title, document.getElementById('chat-back').textContent,"
                          " document.querySelector('#agent-new [data-i18n]').textContent,"
                          " document.getElementById('dep-start').textContent,"
@@ -537,8 +538,10 @@ def rahmen_pruefen(browser, url: str) -> dict:
                 erg["fehler"].append(f"desktop: Inhalte {inhalte}")
         else:
             erg["mobil"] = {"leiste": sichtbare}
-            if sichtbare != ["ai", "comm", "wallet", "mehr"] or not sichtbar('[data-tab="comm"] .nav-kurz'):
-                erg["fehler"].append(f"mobil: untere Leiste {sichtbare}")
+            # Seit C-47 dieselben Namen wie am Desktop: „Chats“ und „Wallet“ ganz, ohne Kurzform
+            namen = ev("() => ['comm', 'wallet'].map(t => document.querySelector(`.app-nav [data-tab=\"${t}\"]`).textContent.trim())")
+            if sichtbare != ["ai", "comm", "wallet", "mehr"] or namen != ["Chats", "Wallet"]:
+                erg["fehler"].append(f"mobil: untere Leiste {sichtbare} {namen}")
             klick("#agent-zu-verlauf")
             verlauf = [sichtbar("#agent-history"), not sichtbar(".agent-main"), ev("() => location.hash")]
             klick("#agent-seite-zurueck")
