@@ -777,6 +777,34 @@ def waehrung_pruefen(browser, url: str) -> dict:
     erg["angebote"] = knoepfe
     if sorted(knoepfe) != sorted([["sats → SOL", "tauschen", False], ["sats → SOL", "veraltet", True], ["SOL → sats", "tauschen", False]]):
         erg["fehler"].append(f"Angebote {knoepfe}")
+    # Tauschformular (C-51): über den Angeboten, das günstigste versiegelte Angebot vorgewählt; SOL → sats genau
+    # (rueckSwapLamports), sats → SOL ohne Marktkurs ohne Betrag; „tauschen“ belegt den Dialog nur vor
+    ev("() => document.querySelector('[data-subtab-group=\"wallet\"] [data-subtab=\"swap\"]').click()")
+    def tausch(sats: str) -> list:
+        ev("(v) => { const f = document.getElementById('tausch-sats'); f.value = v; f.dispatchEvent(new Event('input')); }", sats)
+        return ev("() => ['tausch-zahlst', 'tausch-bekommst', 'tausch-gebuehr', 'tausch-grenzen', 'tausch-lp', 'tausch-hinweis', 'tausch-kurs', 'tausch-frist']"
+                  ".map(id => document.getElementById(id).textContent).concat([document.getElementById('tausch-los').disabled])")
+    hin_lp = next(e["pubkey"] for e in relay.events if ["d", "probe-hin"] in e["tags"])
+    rueck_lp = next(e["pubkey"] for e in relay.events if ["d", "probe-rueck"] in e["tags"])
+    kurz = lambda pk: pk[:8] + "…" + pk[-4:]
+    tf = {"sichtbar": ev("() => [!!document.getElementById('tausch-formular').offsetParent, document.getElementById('lp-alle').open,"
+                         " document.getElementById('lp-anzahl').textContent]"),
+          "hin": tausch("10000"), "zu_klein": tausch("999")}
+    ev("() => document.querySelector('#tausch-formular [data-richtung=\"sol-sats\"]').click()")
+    tf["rueck"] = tausch("10000")
+    ev("() => document.querySelector('#tausch-formular [data-richtung=\"sats-sol\"]').click()")
+    tausch("12345")
+    ev("() => document.getElementById('tausch-los').click()")
+    tf["dialog"] = warte_dialog("sats gegen SOL tauschen")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+    erg["tauschformular"] = tf
+    if not (tf["sichtbar"] == [True, False, "(3)"]
+            and tf["hin"] == ["10.000 sats", "nennt der Anbieter vor dem Zahlen", "0,3 %", "1.000–50.000 sats", kurz(hin_lp), "", "—", "2 h", False]
+            and tf["zu_klein"][5] == "Dieser Anbieter tauscht 1.000–50.000 sats." and tf["zu_klein"][8] is True
+            and tf["rueck"] == ["0,01003 SOL", "10.000 sats", "0,3 %", "2.000–20.000 sats", kurz(rueck_lp), "", "1 SOL = 1.000.000 sats", "2 h", False]
+            and tf["dialog"]["felder"] == ["Betrag in sats"] and tf["dialog"]["werte"] == ["12345"]):
+        erg["fehler"].append(f"Tauschformular {tf}")
 
     ev("() => [...document.querySelectorAll('#lp-offers .stat')].find(z => z.textContent.includes('sats → SOL') && !z.querySelector('button').disabled).querySelector('button').click()")
     betrag = warte_dialog("sats gegen SOL tauschen")

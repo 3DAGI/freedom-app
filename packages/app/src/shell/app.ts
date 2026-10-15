@@ -53,6 +53,7 @@ import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
 import { wireWalletAktionen } from "./wallet-gesamt-ui.js";
+import { wireTauschformular } from "./tauschformular-ui.js";
 import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
@@ -988,6 +989,7 @@ function starte(): void {
   wireBelege();
   wireSenden();
   wireWalletAktionen(); // Kontostand oben, Tauschen und Hinterlegen (C-50a)
+  wireTauschformular(); // Tauschformular über den Angeboten (C-51)
   wireEmpfangen();
   wireVerlauf();
   setupCopyButtons();

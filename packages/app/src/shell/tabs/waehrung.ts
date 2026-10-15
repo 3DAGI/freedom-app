@@ -25,6 +25,7 @@ import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, leererZustand, toast, updateSidebarBalances } from "../ui.js";
 import { merkeStand } from "../wallet-gesamt-ui.js";
+import { zeigeTauschformular } from "../tauschformular-ui.js";
 import { startRueckSwap, startSwap, starteRueckholWaechter } from "./tausch.js";
 
 // ------------------------------------------------------------- Wallet-Tab
@@ -71,6 +72,7 @@ export async function loadWallet(): Promise<void> {
       .filter((x): x is { ev: NostrEvent; offer: ReturnType<typeof parseLpOffer> } => x !== null)
       .filter(({ offer }) => offer.expiry > now);
 
+    zeigeTauschformular(valid.map(({ ev, offer }) => ({ pubkey: ev.pubkey, offer }))); // Formular über der Liste (C-51)
     const box = $("#lp-offers");
     // SICHERHEIT: offerId/pubkey kommen aus FREMDEN Relay-Events. Frueher
     // wurden sie in ein inline onclick="startSwap('...')" interpoliert — ein

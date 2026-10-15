@@ -465,7 +465,28 @@
             <button id="belege-export" class="ghost" type="button" data-i18n="belege.speichern">Als CSV speichern</button>
             <div id="belege-status" class="mono-sm" aria-live="polite"></div>
           </div></div>
-          <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3 data-i18n="waehr.tauschangebote">Tauschangebote</h3><div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div><div id="swap-invoice" class="mono-sm hidden">
+          <div class="subpane" data-subpane="wallet:swap"><div class="card"><h3 data-i18n="waehr.tauschangebote">Tauschangebote</h3>
+            <!-- Formular (C-51): Richtung, Betrag, „Du zahlst / Du bekommst“, das günstigste Angebot vorgewählt -->
+            <div id="tausch-formular" class="tausch-formular" hidden>
+              <div class="seg tausch-richtung" role="group" aria-label="Richtung" data-i18n-aria="tausch.richtung"><button type="button" data-richtung="sats-sol" class="active" aria-pressed="true">sats → SOL</button><button type="button" data-richtung="sol-sats" aria-pressed="false">SOL → sats</button></div>
+              <label for="tausch-sats" data-i18n="tausch.betrag">Betrag auf der Lightning-Seite (sats)</label>
+              <input id="tausch-sats" type="number" min="1" step="1" inputmode="numeric" />
+              <div class="tausch-zeilen">
+                <div class="tausch-zeile"><span data-i18n="tausch.zahlst">Du zahlst</span><strong id="tausch-zahlst">—</strong></div>
+                <div class="tausch-zeile"><span data-i18n="tausch.bekommst">Du bekommst</span><strong id="tausch-bekommst">—</strong></div>
+                <div class="tausch-zeile klein"><span data-i18n="tausch.kurs">Kurs</span><span id="tausch-kurs">—</span></div>
+                <div class="tausch-zeile klein"><span data-i18n="tausch.gebuehr">Gebühr</span><span id="tausch-gebuehr">—</span></div>
+                <div class="tausch-zeile klein"><span data-i18n="tausch.frist">Frist</span><span id="tausch-frist">—</span></div>
+                <div class="tausch-zeile klein"><span data-i18n="tausch.grenzen">Grenzen</span><span id="tausch-grenzen">—</span></div>
+                <div class="tausch-zeile klein"><span data-i18n="tausch.anbieter">Anbieter</span><span id="tausch-lp" class="mono">—</span></div>
+              </div>
+              <p id="tausch-hinweis" class="mono-sm muted" aria-live="polite"></p>
+              <p class="mono-sm muted" data-i18n="tausch.atomar">Atomar: Wer das Preimage kennt, löst auf beiden Seiten ein; läuft eine Frist ab, geht das Geld an den zurück, der gesperrt hat. Niemand verwahrt es dazwischen.</p>
+              <button id="tausch-los" class="primaer" type="button" disabled data-i18n="waehr.tauschen">tauschen</button>
+            </div>
+            <details id="lp-alle" class="lp-alle" open><summary><span data-i18n="tausch.alleAngebote">Alle Angebote</span> <span id="lp-anzahl"></span></summary>
+            <div id="swap-book" class="mono-sm">—</div><div id="lp-offers" class="mono-sm"></div>
+            </details><div id="swap-invoice" class="mono-sm hidden">
             <!-- Der Zahl-Link bleibt gesperrt, bis die Gegenleistung auf der
                  Kette geprueft ist. Genau hier verliert ein Kunde sonst Geld. -->
             <div id="swap-bolt11" class="mono-sm" style="word-break:break-all"></div>
