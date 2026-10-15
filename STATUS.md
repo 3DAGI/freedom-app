@@ -9722,6 +9722,30 @@ App `speicher-abruf.test.ts` (+1).
 
 Knoten-Stand: für die Grenze neu nötig; ohne `STORAGE_GRATIS_MB` wie bisher.
 
+## Schritt E9-1 – Cluster-Pairing aufgeräumt
+
+Spur B, aus `docs/E9-ENTWURF.md` (V1 A, freigegeben 08.10.2026; übergeben 09.10.). Betrieben wird
+ein Paar erst mit zwei Geräten (E9-5, MENSCH); hier nur, was vor jeder Anbindung stimmen muss.
+
+- **B1 Kinds:** Das Angebot lag auf 38026 (Kurs-Ticker), das Paar-Event auf 38027 (Provider-Angebot) –
+  jede App hätte ein Paar-Event als kaputtes Provider-Angebot gelesen. Jetzt Angebot 38028
+  (`KIND_CLUSTER_OFFER`), gelesen streng über `parseClusterOffer()` (Zahlen nicht negativ, Region
+  `[a-z0-9-]`, Zeitfenster nicht leer).
+- **B2/B3 Gebühr und Bilanz:** `computeReciprocity()`, `hoursNeededToRent()` (5 % „Protokollfee“, die es
+  seit A+ nicht gibt), `buildPairedEvent()` und der Vorrang aus der Bilanz im Matching sind weg –
+  eine öffentliche Bilanz wäre eine Rangliste und verriete Geschäftsbeziehungen. Gewichtung im
+  Matching: Verbindung 0,35, Laufzeit 0,25, Vertrauen 0,25, Preis 0,15.
+- **Absprache versiegelt:** `baueClusterAbsprache()`/`oeffneClusterAbsprache()` – innen Kind 25050 (Modell,
+  Zeitfenster, sats je Stunde, optional Bezug als Bestätigung), nur im Umschlag (NIP-59) an den Partner;
+  offen steht nur der Empfänger.
+- **Doku:** PROTOCOL (38028 in der Tabelle, §36), E9-Entwurf, Fallstrick in `packages/protocol/CLAUDE.md`;
+  Wiring-Ausnahmen mit neuem Grund (Betrieb erst E9-5).
+
+**Tests:** `cluster.test.ts` – vier zur Bilanz und Gebühr entfernt (der Baustein fiel weg), drei neu
+(Kind, strenges Lesen, versiegelte Absprache). Protokoll 1309 → 1308.
+
+Knoten-Stand: unverändert (nur Protokoll).
+
 ## Schritt C-Review – Oberflächen-Review: Karten C-41 bis C-59
 
 Auf Wunsch des MENSCHEN hat Spur C die ganze Oberfläche (alle Seiten und Unterreiter, Desktop

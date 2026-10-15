@@ -16,18 +16,27 @@
  * das: unter der Woche vermieten, am Wochenende ein zweites dazumieten und mit
  * doppelter Kapazität arbeiten.
  *
- * KEIN NEUER TOKEN
- * Die Reziprozitäts-Rechnung unten ist eine ANSICHT auf bereits existierende,
- * signierte Ereignisse — keine Währung, kein Guthaben, das jemand verwahrt.
- * Wer mehr beigetragen als verbraucht hat, bekommt Vorrang beim Matching.
- * Bezahlt wird weiterhin in sats, non-custodial, an der Quelle gesplittet.
+ * EIN PROVIDER NACH AUSSEN (E9-1, V1 A aus `docs/E9-ENTWURF.md`, freigegeben 08.10.2026)
+ * Der Kunde sieht nur den führenden Knoten und zahlt nur ihn – nach A+, wie
+ * jede KI-Antwort. Den Partner mietet der führende selbst und bezahlt ihn
+ * direkt, außerhalb des Protokolls; er haftet für die Antwort.
+ * - Öffentlich ist nur das Angebot „Gerät als Cluster-Hälfte verfügbar“
+ *   (Kind 38028 – bis E9-1 lag es auf 38026, dem Kurs-Ticker).
+ * - Die Absprache (Modell, Zeitraum, Preis je Stunde) geht nur versiegelt an
+ *   den anderen Knoten (innen Kind 25050, `baueClusterAbsprache()`).
+ * - Kein öffentliches Paar-Ereignis, keine Bilanz, kein Vorrang aus ihr: Das
+ *   alte Paar-Event (38027, das Kind des Provider-Angebots), die
+ *   „Reziprozität“ und die Rechnung mit 5 % Protokollgebühr fielen mit E9-1.
+ * Betrieben wird ein Paar erst mit zwei Geräten (E9-5).
  */
-import { UnsignedEvent, NostrEvent, buildEvent, getTag } from "./event.js";
+import { UnsignedEvent, NostrEvent, buildEvent, computeEventId, getTag } from "./event.js";
+import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
+import type { Signer } from "./signer.js";
 
-/** Angebot: „mein Gerät ist in diesem Zeitfenster als Cluster-Hälfte verfügbar". */
-export const KIND_CLUSTER_OFFER = 38026;
-/** Zwei Geräte erklären sich für einen Zeitraum als Paar. */
-export const KIND_CLUSTER_PAIRED = 38027;
+/** Angebot: „mein Gerät ist in diesem Zeitfenster als Cluster-Hälfte verfügbar" (seit E9-1 eigenes Kind). */
+export const KIND_CLUSTER_OFFER = 38028;
+/** Absprache zweier Knoten – nur als inneres Event im Umschlag (NIP-59) an den Partner. */
+export const KIND_CLUSTER_ABSPRACHE = 25050;
 
 export interface ClusterOffer {
   pubkey: string;
@@ -71,26 +80,86 @@ export function buildClusterOffer(o: ClusterOffer, createdAt?: number): Unsigned
   );
 }
 
+/** Fremde Zahlen nur als nicht negative Dezimalzahl (höchstens 12 Stellen vor dem Komma) – sonst NaN. */
+const zahl = (roh: string | undefined): number => (roh !== undefined && /^\d{1,12}(\.\d{1,6})?$/.test(roh) ? Number(roh) : NaN);
+const REGION = /^[a-z0-9-]{1,32}$/;
+
+/** Ein fremdes Angebot streng lesen – wirft bei allem, was nicht passt (seit E9-1). */
 export function parseClusterOffer(ev: UnsignedEvent): ClusterOffer {
   if (ev.kind !== KIND_CLUSTER_OFFER) throw new Error(`kein Cluster-Angebot: kind ${ev.kind}`);
   const win = ev.tags.find((t) => t[0] === "window");
-  const num = (tag: string): number => Number(getTag(ev, tag) ?? "NaN");
   const o: ClusterOffer = {
     pubkey: ev.pubkey,
-    memoryGb: num("mem_gb"),
-    memBandwidthGbs: num("mem_bw"),
-    uplinkMbit: num("uplink"),
+    memoryGb: zahl(getTag(ev, "mem_gb")),
+    memBandwidthGbs: zahl(getTag(ev, "mem_bw")),
+    uplinkMbit: zahl(getTag(ev, "uplink")),
     region: getTag(ev, "region") ?? "",
-    rttMs: num("rtt"),
-    rateSatsPerHour: num("rate"),
-    availableFrom: Number(win?.[1] ?? 0),
-    availableUntil: Number(win?.[2] ?? 0),
+    rttMs: zahl(getTag(ev, "rtt")),
+    rateSatsPerHour: zahl(getTag(ev, "rate")),
+    availableFrom: zahl(win?.[1]),
+    availableUntil: zahl(win?.[2]),
     directLink: getTag(ev, "direct_link") === "1",
   };
-  if (!Number.isFinite(o.memoryGb) || !Number.isFinite(o.rateSatsPerHour)) {
-    throw new Error("Cluster-Angebot ohne mem_gb/rate");
-  }
+  const zahlen = [o.memoryGb, o.memBandwidthGbs, o.uplinkMbit, o.rttMs, o.rateSatsPerHour, o.availableFrom, o.availableUntil];
+  if (!zahlen.every(Number.isFinite)) throw new Error("Cluster-Angebot mit fehlender oder ungültiger Zahl");
+  if (!REGION.test(o.region)) throw new Error("Cluster-Angebot ohne gültige Region");
+  if (o.availableUntil <= o.availableFrom) throw new Error("Cluster-Angebot mit leerem Zeitfenster");
   return o;
+}
+
+// ------------------------------------------------------- Absprache (versiegelt)
+
+export interface ClusterAbsprache {
+  /** Modell, das das Paar zusammen rechnet (Name wie im Angebot des führenden Knotens). */
+  modell: string;
+  /** Unix-Zeit von/bis. */
+  von: number;
+  bis: number;
+  /** Preis je Stunde in sats, den der führende Knoten dem Partner direkt zahlt. */
+  satsJeStunde: number;
+}
+
+const MODELL = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$/;
+const HEX64 = /^[0-9a-f]{64}$/;
+
+function abspracheOk(a: ClusterAbsprache): boolean {
+  return MODELL.test(a.modell) && Number.isSafeInteger(a.von) && Number.isSafeInteger(a.bis) && a.von >= 0 && a.bis > a.von
+    && Number.isSafeInteger(a.satsJeStunde) && a.satsJeStunde >= 0;
+}
+
+/**
+ * Absprache an den anderen Knoten – nur versiegelt (NIP-59), nie offen: Wer bei
+ * wem mietet, verrät Geschäftsbeziehungen (B3). `antwortAuf` nennt die
+ * Absprache, die damit bestätigt wird.
+ */
+export async function baueClusterAbsprache(p: { von: Signer; anPk: string; absprache: ClusterAbsprache; antwortAuf?: string; nowSecs?: number }): Promise<{ wrap: NostrEvent; id: string }> {
+  if (!HEX64.test(p.anPk)) throw new Error("Partner ungültig");
+  if (p.antwortAuf !== undefined && !HEX64.test(p.antwortAuf)) throw new Error("Bezug ungültig");
+  if (!abspracheOk(p.absprache)) throw new Error("Absprache ungültig");
+  const now = p.nowSecs ?? Math.floor(Date.now() / 1000);
+  const a = p.absprache;
+  const kern: UnsignedEvent = {
+    pubkey: p.von.publicKey(), kind: KIND_CLUSTER_ABSPRACHE, created_at: now,
+    tags: [["p", p.anPk], ["model", a.modell], ["window", String(a.von), String(a.bis)], ["rate", String(a.satsJeStunde)], ...(p.antwortAuf ? [["e", p.antwortAuf]] : [])],
+    content: "",
+  };
+  const wrap = await giftWrapMitSigner(kern, p.von, p.anPk, { nowSecs: now });
+  return { wrap, id: computeEventId(kern) };
+}
+
+/** Eine Absprache als Partner öffnen – null, wenn der Umschlag keine gültige ist. */
+export async function oeffneClusterAbsprache(wrap: NostrEvent, signer: Signer): Promise<{ von: string; id: string; absprache: ClusterAbsprache; antwortAuf?: string } | null> {
+  const r = await giftUnwrapMitSigner(wrap, signer);
+  if (!r.ok || !r.inner || r.inner.kind !== KIND_CLUSTER_ABSPRACHE || r.inner.pubkey !== r.senderPubkey) return null;
+  const ev = r.inner;
+  if (getTag(ev, "p") !== signer.publicKey()) return null;
+  const win = ev.tags.find((t) => t[0] === "window");
+  const ganz = (x: string | undefined) => (x !== undefined && /^\d{1,15}$/.test(x) ? Number(x) : NaN);
+  const absprache: ClusterAbsprache = { modell: getTag(ev, "model") ?? "", von: ganz(win?.[1]), bis: ganz(win?.[2]), satsJeStunde: ganz(getTag(ev, "rate")) };
+  if (!abspracheOk(absprache)) return null;
+  const e = getTag(ev, "e");
+  if (e !== undefined && !HEX64.test(e)) return null;
+  return { von: ev.pubkey, id: computeEventId(ev), absprache, ...(e ? { antwortAuf: e } : {}) };
 }
 
 // ------------------------------------------------------- Modell-Machbarkeit
@@ -270,8 +339,6 @@ export interface MatchOptions {
   /** Vertrauenswerte aus wot.ts — ohne Vertrauen kein Paar. */
   trust?: Map<string, number>;
   minTrust?: number;
-  /** Reziprozität: wer mehr beigetragen hat, bekommt Vorrang. */
-  reciprocity?: Map<string, number>;
   /** Gewünschtes Zeitfenster. */
   from?: number;
   until?: number;
@@ -327,16 +394,13 @@ export function findPairPartners(
       warnings.push("Partner ist deutlich langsamer — das Paar läuft im Takt des Langsameren.");
     }
 
-    // Score: Verbindung zählt am meisten, dann Vertrauen, dann Preis.
+    // Score: Verbindung zählt am meisten, dann Vertrauen, dann Preis – nie eine öffentliche Bilanz (E9-1, B3).
     const linkScore = Math.min(1, linkMbit / 1000);
     const rttScore = 1 / (1 + estimatedRttMs / 20);
     const trustScore = opts.trust ? Math.min(1, trust) : 0.5;
-    const recip = opts.reciprocity?.get(c.pubkey) ?? 0;
-    const recipScore = 1 / (1 + Math.exp(-recip / 10)); // sanft, kein Schwellwert
     const priceScore = 1 / (1 + c.rateSatsPerHour / 1000);
 
-    const score =
-      linkScore * 0.3 + rttScore * 0.25 + trustScore * 0.25 + recipScore * 0.1 + priceScore * 0.1;
+    const score = linkScore * 0.35 + rttScore * 0.25 + trustScore * 0.25 + priceScore * 0.15;
 
     out.push({
       partner: c,
@@ -349,89 +413,4 @@ export function findPairPartners(
   }
 
   return out.sort((a, b) => b.score - a.score);
-}
-
-// --------------------------------------------------------- Reziprozität
-
-export interface ReciprocityEntry {
-  pubkey: string;
-  /** Stunden, die dieses Gerät anderen zur Verfügung gestellt hat. */
-  hoursContributed: number;
-  /** Stunden, die es von anderen bezogen hat. */
-  hoursConsumed: number;
-  /** Positiv = mehr gegeben als genommen. */
-  balance: number;
-  /** Deckt der Beitrag den Bezug nach Abzug der Protokollfee? */
-  selfSustaining: boolean;
-}
-
-/**
- * Reziprozitäts-Bilanz aus signierten Paar-Ereignissen.
- *
- * Ausdrücklich KEINE Währung: hier entsteht kein Guthaben, das jemand
- * verwahrt oder das übertragbar wäre. Es ist eine Auswertung dessen, was
- * ohnehin öffentlich signiert auf den Relays liegt, und dient allein der
- * Reihenfolge beim Matching. Bezahlt wird in sats.
- */
-export function computeReciprocity(pairEvents: NostrEvent[], feePercent = 5): Map<string, ReciprocityEntry> {
-  const acc = new Map<string, { given: number; taken: number }>();
-  const bump = (pk: string, given: number, taken: number): void => {
-    const e = acc.get(pk) ?? { given: 0, taken: 0 };
-    e.given += given;
-    e.taken += taken;
-    acc.set(pk, e);
-  };
-
-  for (const ev of pairEvents) {
-    if (ev.kind !== KIND_CLUSTER_PAIRED) continue;
-    const provider = getTag(ev, "provider");
-    const renter = getTag(ev, "renter");
-    const hours = Number(getTag(ev, "hours") ?? "0");
-    if (!provider || !renter || !Number.isFinite(hours) || hours <= 0) continue;
-    bump(provider, hours, 0);
-    bump(renter, 0, hours);
-  }
-
-  const out = new Map<string, ReciprocityEntry>();
-  for (const [pubkey, e] of acc) {
-    // Wer N Stunden beziehen will, muss N/(1-fee) Stunden beitragen — die
-    // Protokollfee fällt auf der Verdienstseite an, nicht auf der Ausgabenseite.
-    const needed = e.taken / (1 - feePercent / 100);
-    out.set(pubkey, {
-      pubkey,
-      hoursContributed: e.given,
-      hoursConsumed: e.taken,
-      balance: e.given - e.taken,
-      selfSustaining: e.given >= needed,
-    });
-  }
-  return out;
-}
-
-/** Wie viele Stunden muss man vermieten, um N Stunden zu mieten? */
-export function hoursNeededToRent(hoursWanted: number, feePercent = 5): number {
-  return hoursWanted / (1 - feePercent / 100);
-}
-
-export function buildPairedEvent(
-  providerPubkey: string,
-  renterPubkey: string,
-  hours: number,
-  ratesSatsPerHour: number,
-  createdAt?: number,
-): UnsignedEvent {
-  return buildEvent(
-    providerPubkey,
-    KIND_CLUSTER_PAIRED,
-    [
-      ["d", `pair:${renterPubkey}:${createdAt ?? Math.floor(Date.now() / 1000)}`],
-      ["provider", providerPubkey],
-      ["renter", renterPubkey],
-      ["hours", String(hours)],
-      ["rate", String(ratesSatsPerHour)],
-      ["p", renterPubkey],
-    ],
-    "",
-    createdAt,
-  );
 }
