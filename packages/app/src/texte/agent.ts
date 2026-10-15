@@ -73,7 +73,7 @@ export const agent: Texte = {
   "agent.unterhaltung": { de: "Unterhaltung", en: "Conversation" },
   "agent.kopierenAlle": { de: "Ganze Unterhaltung kopieren", en: "Copy whole conversation" },
   "agent.modellWaehlen": { de: "Modell wählen", en: "Choose model" },
-  "agent.autoSchnellste": { de: "auto (schnellste)", en: "auto (fastest)" },
+  "agent.autoSchnellste": { de: "Auto (schnellste)", en: "Auto (fastest)" },
   "agent.arbeitsbereich": { de: "Arbeitsbereich", en: "Workspace" },
   "agent.keinRepo": { de: "Kein Repository verbunden.", en: "No repository connected." },
   "agent.werkzeuge": { de: "Werkzeuge", en: "Tools" },
