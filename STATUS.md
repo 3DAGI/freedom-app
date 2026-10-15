@@ -10057,3 +10057,22 @@ Spur B, Sammlung B-30 (AG1 A, 09.10.). Nur Doku, kein Code – der Befund passt 
 - **Doku:** OFFEN (1.0b, B-30 wartet), Sammlung, FORTSCHRITT.
 
 **Tests:** keine (nur Doku).
+
+## Schritt B-33-Entwurf – Tor mit Brücken in der Hülle
+
+Spur B, Sammlung B-33 (PT1 A: Snowflake und WebTunnel, Größe und Lizenz vor dem Einbau nennen). Nur Doku:
+`docs/TOR-BRUECKEN-ENTWURF.md`.
+
+- **Gemessen:** aus den Quellen gebaut (Go 1.24.7, ohne cgo, `-trimpath -s -w`): `snowflake-client` 2.14.1
+  16,8 MB (gepackt 6,2 MB), WebTunnel-Client 0.0.7 5,0 MB, lyrebird 17,8 MB (6,6 MB). Android arm64 geht für
+  Snowflake nur mit `-checklinkname=0`.
+- **Lizenzen:** Snowflake BSD-3-Clause (alle 56 Abhängigkeiten frei), WebTunnel MIT, goptlib CC0. **lyrebird:**
+  `LICENSE` sagt BSD-2-Clause, aber `internal/x25519ell2` (obfs4) und `transports/meeklite` stehen unter
+  GPL-3.0-or-later – das Programm als Ganzes ist GPL-3. Nach der STOPP-Regel (starkes Copyleft) eine Frage.
+- **Vorschläge V1–V5:** aus den Quellen in der CI bauen, Desktop als Beigabe der Hülle und Android als
+  `lib<name>.so` (W^X), Brücken nur auf Wunsch, eingefügte Zeilen nur geprüft, ehrliche Texte.
+- **Fragen:** PT2 (welche Programme – Empfehlung A: Snowflake und WebTunnel, kein lyrebird), PT3 (woher Brücken –
+  Empfehlung A: eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen). Aufteilung B-33a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
