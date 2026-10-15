@@ -52,6 +52,13 @@ Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
 Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 
+### 1.0b Spur B, 15.10.2026: MCP-Größe und Reticulum
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| MC1-Größe | B-31 (MCP): `@modelcontextprotocol/sdk` 1.32.1 bringt 95 Pakete mit, 29 MB (MIT, ISC, BSD – kein Copyleft), darunter Express, Hono und Ajv für Server-Teile, die der Knoten als Client nicht braucht. MC1 A verlangt die Größe vor dem Einbau. A so einbauen · B eigener schlanker MCP-Client (stdio, JSON-RPC: `initialize`, `tools/list`, `tools/call`), keine Abhängigkeit | **B** – der Knoten braucht nur den Client; ~150 Zeilen statt 29 MB |
+| RN-W1–W5 | B-32 (Reticulum): Entwurf [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md) – RN1 geprüft: `@reticulum/core` steht unter EUPL-1.2, ohne Abhängigkeiten, gepflegt; Fragen zu Adresse, Zustellen, Reihenfolge, Größe | wie im Entwurf: W1 A, W2 A, W3 A, W4 A, W5 A |
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
@@ -163,8 +170,8 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30 | Atomic Agent als Harness | frei (AG1 A) |
-| B-31 | Werkzeuge über MCP, Kiwix | frei (MC1 A), Größe im PR nennen |
-| B-32 | Reticulum als zweiter Funkweg | frei – erst ein Entwurf (RN1) |
+| B-31 | Werkzeuge über MCP, Kiwix | wartet auf MC1-Größe (1.0b) |
+| B-32 | Reticulum als zweiter Funkweg | Entwurf ✓ ([`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – Bau nach RN-W1–W5 (1.0b) |
 | B-33 | Tor mit Pluggable Transports | frei (PT1 A), Größe und Lizenz im PR nennen |
 | B-34 | Gruppenanrufe über LiveKit | frei (LK1 A) |
 | B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille (Gateway, eigenes Relay mit anderen) | frei (NG1 B; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |

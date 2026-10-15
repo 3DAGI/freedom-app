@@ -10028,3 +10028,19 @@ Datei-Verschlüsselung wie Anhänge.
   das Bundle, Projektname nie im Log.
 
 **Offen:** VKl2 (App: Projekt und Raum wählen, Ankündigung und Bundle-Verweis in den Raum).
+
+## Schritt B-32-Entwurf – Reticulum als zweiter Funkweg
+
+Spur B, Sammlung B-32 (RN1: im Entwurf prüfen, RN2 A). Nur Doku, kein Code.
+
+- **`docs/RETICULUM-ENTWURF.md`:** Befunde zu reticulum-js – `@reticulum/core` 0.9.8 unter EUPL-1.2 (wie Freedom), ohne
+  Abhängigkeiten, im Browser lauffähig, RNode über WebSerial, LXMF als eigenes Paket, Releases fast täglich, noch ohne
+  Routing für andere; die Python-Referenz steht seit April 2025 unter einer eigenen Lizenz mit Schadens- und KI-Klausel –
+  Freedom bindet sie nicht ein. Ergebnis RN1: Bibliothek. Vorschläge V1–V6 (nur Umschläge, Identität je Gerät im Tresor,
+  Sendezeit, Adresse nur für Kontakte, Zustellen über den eigenen Knoten, Gateway nach der App), Fragen W1–W5,
+  Aufteilung B-32a–d.
+- **B-31:** Größe der MCP-Abhängigkeit vor dem Einbau genannt (MC1): `@modelcontextprotocol/sdk` 1.32.1 = 95 Pakete,
+  29 MB, ohne Copyleft; Vorschlag eigener schlanker Client – Frage in `OFFEN.md` 1.0b.
+- **Doku:** OFFEN (1.0b mit beiden Fragen, B-31 und B-32 wartend), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
