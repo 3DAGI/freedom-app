@@ -103,3 +103,11 @@ Fallstricke dieses Bereichs unten anhängen.
   derselbe Ordner an vielen Stellen wären sonst Millionen Dateien aus wenigen Objekten). Fehlt ein Objekt, gibt es keine
   Arbeitskopie (`BundleFehler("kaputt")`), nie eine halbe. Den Bundle-Leser hat seit 11.5a1 das Protokoll – die App
   nimmt ihn von dort, die Probe-Bundles liegen in `protocol/test/fixtures/`.
+- **Patches von Agenten nur über `schreibePatch()`** (seit 11.5a2a, `patch-schreiber.ts`): der Knoten baut den Patch,
+  nie das Modell. Der Commit in der ersten Zeile wird wie bei git gerechnet (Bäume, Submodule unverändert, Autor =
+  Committer, Nachricht so, wie `git am` sie liest) – ein Test wendet jeden Fall mit `git am --committer-date-is-author-date`
+  an und vergleicht die Kennung; ändert sich die Form (Kopf, Betreff, Beschreibung), muss dieser Test grün bleiben.
+  Betreff ohne `[…]`/`Re:`-Vorspann, Beschreibung ohne Zeilen, die git als Trenner, Diff oder Mbox liest (eingerückt).
+  Binär, kein UTF-8 oder über `PATCH_MAX_BYTES` gibt es keinen Patch, nur den Fall. Text mit `TextDecoder` nur mit
+  `ignoreBOM: true` – sonst fällt ein BOM still weg und der Patch passt nicht mehr (`alsText()` aus `git-bundle.ts`
+  entfernt es, für die Anzeige richtig). Im Test heißt der Committer wie der Autor – `git am` nimmt ihn aus der Umgebung.

@@ -141,7 +141,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | VKl2 | „Als Repo in einen Raum stellen“ – App: Projekt und Raum wählen, Bundle über die Code-Aktion `bundle` holen, Ankündigung und Bundle-Verweis in den Raum (offen oder privat) (VKl1 ✓: Knoten) | frei |
 | 11.5n | Pakete holen (W6a) | frei |
-| 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5a2 (Spur B; 11.5s ✓ als VKb, 11.5a1 ✓) |
+| 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5a2b (Spur B; 11.5s ✓ als VKb, 11.5a1 ✓, 11.5a2a ✓) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
@@ -160,7 +160,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.5s2 | seccomp in der Sandbox (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl (VKb ✓) | frei, nachrangig |
-| 11.5a2 | Patch-Schreiber (W1 B): Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch` – Verweise nur mit `lstat` lesen (11.5a1 ✓: Leser im Protokoll, Arbeitskopie) | frei |
+| 11.5a2b | Knoten: Arbeitsordner nach dem Auftrag lesen – nur `lstat`, Verweise als Text, `.gitignore` (was der Agent baut, gehört nicht in den Patch), Grenzen; dann `schreibePatch()` (11.5a1 ✓, 11.5a2a ✓: Patch-Schreiber im Protokoll) | frei |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30 | Atomic Agent als Harness | frei (AG1 A) |
