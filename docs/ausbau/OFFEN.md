@@ -150,8 +150,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| E9-4 | Katalog 38080 mit Verweis aufs Manifest, „geprüft“ je Modell | frei – als Nächstes |
-| E9-2 | Gratis-Grenze für Speicher im `storage`-Tag, `network-capacity.ts` raus | frei, nach E9-4 |
+| E9-2 | Gratis-Grenze für Speicher im `storage`-Tag, `network-capacity.ts` raus | frei – als Nächstes (E9-4 ✓) |
 | E9-1 | `cluster.ts` aufräumen (Kinds, alte Gebühr und Bilanz raus, Angebot 38028) | frei, nach E9-2 |
 | VKb = 11.5s | Sandbox (bubblewrap je Befehl, Grenzen, leere Umgebung), Selbstprüfung „Sandbox“ | frei |
 | 11.5a1, 11.5a2 | Bundle-Leser, Patch-Schreiber (W1 B); Arbeitskopie im Arbeitsordner der Sandbox (W3a A) | frei |

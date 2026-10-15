@@ -37,17 +37,17 @@ const T = 1_800_000_000;
 const manifest = (kp = KNOTEN, files: ModelFile[] = DATEIEN): NostrEvent =>
   signEvent(buildModelManifest({ modelId: NAME, name: "Qwen", files, upstream: `ollama:${NAME}`, publisherPubkey: kp.pk }, T), kp.sk);
 
-/** Hilfen mit Zählern: was wurde gefragt, festgehalten, geladen. Vertraut ist bis E9-4 nur der eigene Schlüssel. */
+/** Hilfen mit Zählern: was wurde gefragt, festgehalten, geladen. Ohne Katalog zählt nur der eigene Schlüssel. */
 function hilfen(teile: Partial<LaderHilfen> = {}) {
-  const zaehler = { manifeste: 0, registry: 0, festhalten: [] as ModelFile[][], pull: 0 };
+  const zaehler = { manifeste: 0, registry: 0, festhalten: [] as ModelFile[][], pull: 0, ids: [] as string[][] };
   const h: LaderHilfen = {
-    manifeste: async () => { zaehler.manifeste++; return [manifest()]; },
+    manifeste: async (_name, ids) => { zaehler.manifeste++; zaehler.ids.push([...ids]); return [manifest()]; },
     registry: async () => { zaehler.registry++; return DATEIEN; },
     festhalten: async (name, files) => { zaehler.festhalten.push(files); return signEvent(buildModelManifest({ modelId: name, name, files, upstream: `ollama:${name}`, publisherPubkey: KNOTEN.pk }, T), KNOTEN.sk); },
     pull: async (_name, fortschritt) => { zaehler.pull++; fortschritt(200_000_000); return SCHICHTEN; },
     tags: async () => [{ name: NAME, digest: "d1" }],
     speicherGb: 16,
-    vertraut: new Set(),
+    freigaben: async () => new Set(),
     eigener: KNOTEN.pk,
     ...teile,
   };
@@ -63,10 +63,27 @@ test("Laden: eigenes Manifest, passt, Registry gleich, Ollama lädt genau die Sc
     name: NAME, manifest: manifest().id, herausgeber: KNOTEN.pk, dateien: 3, bytes: 397_807_936 + 1_482 + 487, ollama: "d1", geprueft: T,
   });
   assert.deepEqual(schritte, ["manifest", "vorpruefung", "laden:0", "laden:200000000", "pruefen"]);
-  assert.deepEqual(zaehler, { manifeste: 1, registry: 1, festhalten: [], pull: 1 });
+  assert.deepEqual(zaehler, { manifeste: 1, registry: 1, festhalten: [], pull: 1, ids: [[]] });
 });
 
-test("Laden: ohne eigenes Manifest (ein Kurator zählt bis E9-4 nicht), zu groß oder abweichende Registry – Ollama lädt nichts", async () => {
+test("E9-4: ein abonnierter Katalog gibt ein Manifest frei – genau dieses wird gesucht und geladen, das eigene geht vor", async () => {
+  const kurator = manifest(KURATOR);
+  const { h, zaehler } = hilfen({ manifeste: async (_n, ids) => { zaehler.ids.push([...ids]); return [manifest(FREMD), kurator]; }, freigaben: async () => new Set([kurator.id]) });
+  const r = await ladeModell(NAME, h, () => {}, () => T);
+  assert.ok(r.ok && r.modell.herausgeber === KURATOR.pk && r.modell.manifest === kurator.id);
+  assert.deepEqual(zaehler.ids, [[kurator.id]], "die freigegebene Id wird mit gesucht");
+  // Ein anderes Manifest desselben Kurators ist nicht freigegeben
+  const anderes = signEvent(buildModelManifest({ modelId: NAME, name: "Qwen", files: DATEIEN.slice(1), upstream: `ollama:${NAME}`, publisherPubkey: KURATOR.pk }, T + 9), KURATOR.sk);
+  const nur = hilfen({ manifeste: async () => [anderes], freigaben: async () => new Set([kurator.id]) });
+  assert.equal((await ladeModell(NAME, nur.h, () => {}) as { fall?: string }).fall, "manifest.keins");
+  // Das eigene geht vor; ohne Antwort der Kataloge zählt nur das eigene
+  const eigen = await ladeModell(NAME, hilfen({ manifeste: async () => [kurator, manifest()], freigaben: async () => new Set([kurator.id]) }).h, () => {});
+  assert.ok(eigen.ok && eigen.modell.herausgeber === KNOTEN.pk);
+  const stumm = await ladeModell(NAME, hilfen({ manifeste: async () => [kurator], freigaben: async () => { throw new Error("relays"); } }).h, () => {});
+  assert.ok(!stumm.ok && stumm.fall === "manifest.keins");
+});
+
+test("Laden: ohne eigenes Manifest (ein Kurator zählt nur mit Freigabe aus einem Katalog), zu groß oder abweichende Registry – Ollama lädt nichts", async () => {
   for (const [teile, fall] of [
     [{ manifeste: async () => [manifest(FREMD)] }, "manifest.keins"],
     [{ manifeste: async () => [manifest(KURATOR)] }, "manifest.keins"],
@@ -288,12 +305,13 @@ test("Provider: ein geprüftes Modell aus dem Angebot wird angenommen, ein nicht
 test("Verdrahtet: main.ts lädt über den Dienst und bietet Geprüftes an; npm run modell verbindet sich mit keinem Relay", () => {
   const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
   const main = quelle("../src/main.ts");
-  assert.match(main, /vertraut: new Set\(\),\n    eigener: keypair\.pk,/, "bis E9-4 nur der eigene Schlüssel");
+  assert.match(main, /freigaben: \(name\) => katalogFreigaben\.fuer\(name\),\n    eigener: keypair\.pk,/, "seit E9-4: Freigaben nur aus abonnierten Katalogen");
+  assert.match(main, /const katalogFreigaben = new KatalogFreigaben\(\(f\) => pool\.query\(f\), katalogWahl\.adressen\);/);
   // Seit B-29c1b nennt der Lader die Herkunft (`ollama:<name>` bzw. `hf:<org/repo>@<commit>`) und die Lizenz
   assert.match(main, /festhalten: async \(name, files, upstream, license\) => \{\n      const ev = signEvent\(buildModelManifest\(\{ modelId: name, name, files, upstream, license, publisherPubkey: keypair\.pk \}\), keypair\.sk\);\n      await pool\.publish\(ev\);/);
   assert.match(quelle("../src/modell-laden.ts"), /events = \[await h\.festhalten\(name, reg, `ollama:\$\{name\}`\)\];/);
   assert.doesNotMatch(main, /MODELL_HERAUSGEBER/);
-  assert.match(main, /manifeste: \(name\) => pool\.query\(\{ kinds: \[KIND_MODEL_MANIFEST\], "#d": \[`model:\$\{name\}`\], limit: 100 \}\)/);
+  assert.match(main, /manifeste: async \(name, ids\) => \[\n      \.\.\.await pool\.query\(\{ kinds: \[KIND_MODEL_MANIFEST\], "#d": \[`model:\$\{name\}`\], limit: 100 \}\),\n      \.\.\.\(ids\.length \? await pool\.query\(\{ ids: \[\.\.\.ids\], limit: ids\.length \}\) : \[\]\),/);
   assert.match(main, /\.\.\.gepruefteModelle,\n  \]\)\];/);
   assert.match(main, /modelle: angebotModelle,/);
   // Seit B-41 fragt das Angebot dazwischen Ollama, welche Modelle es hat (`nurBeiOllama()`)

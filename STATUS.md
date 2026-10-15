@@ -9618,3 +9618,42 @@ brach nur nicht ab). Jetzt gilt:
 - node unverändert.
 
 Vektoren unverändert.
+
+## Schritt E9-4 – Kataloge geben Manifeste frei
+
+Spur B, aus `docs/E9-ENTWURF.md` (V3 A, freigegeben 08.10.2026; übergeben an Spur B 09.10.). Bis
+hierhin lud ein Knoten ein Modell nur nach dem eigenen Manifest – Kuratoren sollten über Kataloge
+dazukommen, ohne voreingestellten und ohne Liste vertrauter Schlüssel daneben.
+
+- **Protokoll** (`modell-katalog.ts`): ein Katalog-Eintrag kann das Manifest nennen –
+  `["model", <kennung>, <notiz>, <manifest-id>]`, ein viertes Feld, das ältere Leser übergehen
+  (`KatalogEintrag.manifest`, gebaut nur als Event-Id, sonst `ProtokollFehler("katalog-manifest")`,
+  gelesen streng – ein kaputtes Feld fällt weg, der Eintrag bleibt). `katalogFreigaben()` nennt je
+  Modell die Ids aus den Katalogen; `vergleicheKataloge()` sagt je Katalog, ob er eins nennt.
+- **Wahl** (`vertrautesManifest()`): statt einer Menge vertrauter Schlüssel (sie war immer leer) eine
+  Menge freigegebener Manifest-Ids. Es zählen das eigene (das neueste) und genau die freigegebenen –
+  ein späteres, anderes Manifest desselben Kurators nicht. Das eigene geht vor; nennen freigegebene
+  verschiedene Dateien, keine Wahl (`manifest.uneinig`).
+- **Knoten** (`modell-kataloge.ts`, neu): `MODELL_KATALOGE` (Adressen, höchstens 20, ungültig → kein
+  Start), `holeKataloge()` (nach den Kuratoren gefragt, nur gültig signiert, je Adresse der neueste,
+  nur abonnierte), `KatalogFreigaben` (frisch für zehn Minuten; ohne Antwort keine Freigaben). Der
+  Lader bekommt `freigaben()` statt `vertraut` und sucht die freigegebenen Ids mit
+  (`manifeste(name, ids)`). `npm run modell` nennt die Manifest-Id geprüfter Modelle – für den Katalog.
+- **App:** In der Katalog-Tabelle steht „✓ Prüfsummen“, wo der Kurator ein Manifest nennt, darunter
+  ehrlich, was das heißt (geprüft wird am Knoten, nicht in der App). Beim eigenen Katalog geht die Id
+  ans Ende der Zeile (`leseKatalogEingabe()`). Die App holt Kataloge weiter alle, ohne Filter (5.7).
+- **Texte:** „kein Manifest“ nennt jetzt auch die Kataloge (Knoten und App). Doku: PROTOCOL (38080, §31),
+  PROVIDER („Kataloge, denen der Knoten folgt“), E9-Entwurf, `docker-compose.yml` (`MODELL_KATALOGE`),
+  Fallstrick in `packages/node/CLAUDE.md`, Regel „Modelle laden nur geprüft“ in der Wurzel.
+- **Grenze, ehrlich:** Der Knoten fragt seine Relays nach den Katalogen der Kuratoren – sie sehen, wem
+  er folgt (die App holt alle). Steht in PROVIDER.md.
+
+**Tests:** Protokoll `modell-katalog.test.ts` (+2: viertes Feld, Freigaben und Vergleich),
+`modell-ollama.test.ts` (Wahl über Freigaben statt Schlüssel, umgestellt); Knoten
+`modell-kataloge.test.ts` (4, neu: Umgebung, Holen, Freigaben mit Frist, Verdrahtung),
+`modell-laden.test.ts` (+1: Freigabe greift, anderes Manifest desselben Kurators nicht, eigenes vor,
+stumme Relays), `modell-hf-laden.test.ts` (Freigabe auch für Hugging Face); App
+`modell-kataloge.test.ts` (Manifest-Id am Zeilenende).
+
+Knoten-Stand: für Kataloge neu nötig (`MODELL_KATALOGE`); ohne die Variable verhält sich der Knoten
+wie bisher.

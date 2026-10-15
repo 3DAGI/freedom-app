@@ -43,6 +43,8 @@ if (name) {
   for (const m of stand.modelle) {
     const wo = m.quelle === "hf" ? `, im Ordner ${m.ordner}` : "";
     console.log(`✓ ${m.name} – ${m.dateien} Dateien, ${(m.bytes / 1e9).toFixed(1)} GB, Manifest von ${m.herausgeber.slice(0, 12)}…${wo}`);
+    // Die Id für einen Modellkatalog (E9-4): Knoten, die ihm folgen, laden dann genau diese Dateien
+    console.log(`  Manifest-Id: ${m.manifest}`);
   }
   if (stand.laeuft) {
     const l = stand.laeuft;

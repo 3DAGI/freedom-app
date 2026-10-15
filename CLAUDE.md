@@ -680,9 +680,10 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   nichts weiter (7.5b). Die Region setzt die App nie selbst.
   *(Weitere Teile: `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`, `scripts/CLAUDE.md`.)*
 - **Modelle laden nur geprüft** (seit E9-3a, V3 A aus `docs/E9-ENTWURF.md`): Ein Manifest
-  (38057) wählt der Knoten nur über `vertrautesManifest()` (`modell-ollama.ts`) – bis E9-4 nur
-  der eigene Schlüssel (Freigabe 08.10.: Kuratoren nur über Kataloge, keine zweite Liste daneben),
-  kein voreingestellter Kurator; bei Streit keine Wahl, das eigene geht vor. Ein eigenes legt nur
+  (38057) wählt der Knoten nur über `vertrautesManifest()` (`modell-ollama.ts`): das eigene oder –
+  seit E9-4 – genau die Ids, die abonnierte Kataloge nennen (`MODELL_KATALOGE`, `KatalogFreigaben`,
+  `katalogFreigaben()`; nie ein Schlüssel allein, keine zweite Liste daneben), kein voreingestellter
+  Kurator; bei Streit keine Wahl, das eigene geht vor. Ein eigenes legt nur
   `--aus-registry` an (`festhalten()`: signiert, was die Registry jetzt nennt, veröffentlicht über
   den Pool). Für Ollama: `model` = Name bei Ollama mit Tag, `upstream` = `ollama:<derselbe>`,
   Dateien heißen `sha256-<hex>` (Schichten und Konfiguration, `ollamaDateien()`).

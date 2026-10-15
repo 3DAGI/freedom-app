@@ -87,29 +87,34 @@ test("Schichten prüfen: genau die Dateien des Manifests – fremde, fehlende, a
   assert.equal(pruefeSchichten(gguf, schichten).ok, false);
 });
 
-test("Manifest wählen: nur vertraute Schlüssel, das eigene geht vor, bei Streit keine Wahl", () => {
-  const vertraut = new Set([KURATOR.pk, ZWEITER.pk]);
-  const wahl = (evs: NostrEvent[]) => vertrautesManifest(evs, "qwen2.5:0.5b", vertraut, KNOTEN.pk);
-  // Ein fremder Schlüssel zählt nie – auch nicht als einziger
-  assert.deepEqual(wahl([manifest(FREMD)]), { ok: false, fall: "manifest.keins" });
-  const ok = wahl([manifest(FREMD), manifest(KURATOR)]);
-  assert.ok(ok.ok && ok.manifest.publisherPubkey === KURATOR.pk && ok.quelle.voll === "qwen2.5:0.5b");
-  // Zwei vertraute mit denselben Dateien: das neueste
-  const beide = wahl([manifest(KURATOR, T), manifest(ZWEITER, T + 5)]);
-  assert.ok(beide.ok && beide.manifest.publisherPubkey === ZWEITER.pk);
-  // Zwei vertraute mit verschiedenen Dateien: keine Wahl
+test("Manifest wählen: das eigene oder ein von Katalogen freigegebenes, das eigene geht vor, bei Streit keine Wahl (E9-4)", () => {
   const anders = dateien.map((f, i) => (i === 0 ? { ...f, sha256: hex(7), name: `sha256-${hex(7)}` } : f));
-  assert.deepEqual(wahl([manifest(KURATOR), manifest(ZWEITER, T, anders)]), { ok: false, fall: "manifest.uneinig", werte: { herausgeber: 2 } });
-  // Das eigene Manifest löst den Streit
-  const eigen = wahl([manifest(KURATOR), manifest(ZWEITER, T, anders), manifest(KNOTEN, T - 100, anders)]);
+  const [kurator, zweiter, kuratorAnders, zweiterAnders] = [manifest(KURATOR), manifest(ZWEITER, T + 5), manifest(KURATOR, T + 1, anders), manifest(ZWEITER, T, anders)];
+  const wahl = (evs: NostrEvent[], frei: NostrEvent[]) => vertrautesManifest(evs, "qwen2.5:0.5b", new Set(frei.map((e) => e.id)), KNOTEN.pk);
+  // Ohne Freigabe zählt kein fremdes – auch nicht als einziges, auch nicht vom Kurator selbst
+  assert.deepEqual(wahl([manifest(FREMD)], []), { ok: false, fall: "manifest.keins" });
+  assert.deepEqual(wahl([kurator], []), { ok: false, fall: "manifest.keins" }, "ein Schlüssel allein gibt nichts frei – nur die Id im Katalog");
+  const ok = wahl([manifest(FREMD), kurator], [kurator]);
+  assert.ok(ok.ok && ok.manifest.publisherPubkey === KURATOR.pk && ok.id === kurator.id && ok.quelle.voll === "qwen2.5:0.5b");
+  // Freigegeben ist genau die Id: ein neueres Manifest desselben Autors zählt nicht
+  const ohneFreigabe = wahl([kuratorAnders, kurator], [kurator]);
+  assert.ok(ohneFreigabe.ok && ohneFreigabe.id === kurator.id);
+  // Zwei freigegebene mit denselben Dateien: das neueste
+  const beide = wahl([kurator, zweiter], [kurator, zweiter]);
+  assert.ok(beide.ok && beide.manifest.publisherPubkey === ZWEITER.pk);
+  // Zwei freigegebene mit verschiedenen Dateien: keine Wahl – auch vom selben Autor
+  assert.deepEqual(wahl([kurator, zweiterAnders], [kurator, zweiterAnders]), { ok: false, fall: "manifest.uneinig", werte: { herausgeber: 2 } });
+  assert.deepEqual(wahl([kurator, kuratorAnders], [kurator, kuratorAnders]), { ok: false, fall: "manifest.uneinig", werte: { herausgeber: 2 } });
+  // Das eigene Manifest löst den Streit und braucht keine Freigabe
+  const eigen = wahl([kurator, zweiterAnders, manifest(KNOTEN, T - 100, anders)], [kurator, zweiterAnders]);
   assert.ok(eigen.ok && eigen.manifest.publisherPubkey === KNOTEN.pk);
-  // Je Schlüssel gilt das neueste: ein älteres, abweichendes stiftet keinen Streit
-  assert.equal(wahl([manifest(KURATOR, T - 50, anders), manifest(KURATOR, T), manifest(ZWEITER)]).ok, true);
+  // Vom eigenen gilt das neueste
+  const neuestes = wahl([manifest(KNOTEN, T - 50, anders), manifest(KNOTEN, T)], []);
+  assert.ok(neuestes.ok && neuestes.manifest.files[0]!.sha256 === dateien[0]!.sha256);
 });
 
 test("Manifest wählen: Signatur, Adresse und Name müssen stimmen; ohne Ollama-Quelle keine Wahl", () => {
-  const vertraut = new Set([KURATOR.pk]);
-  const wahl = (evs: NostrEvent[], kennung = "qwen2.5:0.5b") => vertrautesManifest(evs, kennung, vertraut, KNOTEN.pk);
+  const wahl = (evs: NostrEvent[], kennung = "qwen2.5:0.5b") => vertrautesManifest(evs, kennung, new Set(evs.map((e) => e.id)), KNOTEN.pk);
   const echt = manifest();
   assert.deepEqual(wahl([{ ...echt, tags: echt.tags.map((t) => (t[0] === "file" && t[2] === hex(1) ? [t[0], t[1]!, hex(5), t[3]!, ""] : t)) }]), { ok: false, fall: "manifest.keins" }, "nachträglich geänderte Summe: Signatur falsch");
   assert.deepEqual(wahl([echt], "qwen2.5:7b"), { ok: false, fall: "manifest.keins" }, "ein anderes Modell");

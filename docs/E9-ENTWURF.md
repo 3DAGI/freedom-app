@@ -166,7 +166,7 @@ Andere Wege:
 | E9-1 | `cluster.ts` aufräumen: eigene Kinds (B1), alte Gebühr und Bilanz raus (B2, B3), Angebot 38028, Absprache versiegelt | B (seit 09.10.) |
 | E9-2 | Gratis im Angebot: Tag `gratis` (KI), vierter Wert im `storage`-Tag; `network-capacity.ts` raus; App zeigt und wählt danach | B (seit 09.10.) |
 | E9-3 | Modelle laden im Knoten: Manifest von vertrauten Schlüsseln, `verifyFile()`, `fitsOnDevice()`, `npm run modell`, Selbstprüfung | B |
-| E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | B (seit 09.10.) |
+| E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | B (seit 09.10.) – ✓ 15.10. (`MODELL_KATALOGE`, in der App „✓ Prüfsummen“) |
 | E9-5 | Cluster-Betrieb mit zwei Geräten (Backend wählen, messen) | A, nach F3 |
 
 ## Freigabe vom 08.10.2026 (MENSCH)

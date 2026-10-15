@@ -45,6 +45,7 @@ import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBe
 import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
 import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
 import { holeUndTeile, teileModell } from "./modell-schwarm.js";
+import { KatalogFreigaben, katalogeAusUmgebung } from "./modell-kataloge.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
@@ -256,12 +257,23 @@ async function main(): Promise<void> {
     }
   } else if (torrentWahl.einstellung) console.log("[schwarm] TORRENT=1 gilt nur mit KI_ANTRIEB=openai – mit Ollama aus");
   const schwarmOrt = join(modellBasis, ".schwarm");
+  // Abonnierte Modellkataloge (E9-4): Manifeste, die sie nennen, gelten neben dem eigenen – kein voreingestellter
+  const katalogWahl = katalogeAusUmgebung(process.env);
+  if (katalogWahl.grund) {
+    console.error(`[modell] ${katalogWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  const katalogFreigaben = new KatalogFreigaben((f) => pool.query(f), katalogWahl.adressen);
+  if (katalogWahl.adressen.length) console.log(`[modell] ${katalogWahl.adressen.length} Modellkatalog(e) abonniert – deren Manifeste gelten neben dem eigenen`);
   // „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung – vom Schlüssel des Knotens
   const meldeVorhalten = async (m: import("@freedomstack/protocol").ModelManifest, magnet: string) => {
     await pool.publish(signEvent(buildModelSeed(m.modelId, keypair.pk, m.files.map((f) => f.name), undefined, undefined, { magnet, inhalt: inhaltsKennung(m) }), keypair.sk));
   };
   const modellDienst = new ModellDienst({
-    manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
+    manifeste: async (name, ids) => [
+      ...await pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
+      ...(ids.length ? await pool.query({ ids: [...ids], limit: ids.length }) : []),
+    ],
     registry: registryDateien,
     festhalten: async (name, files, upstream, license) => {
       const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream, license, publisherPubkey: keypair.pk }), keypair.sk);
@@ -294,7 +306,7 @@ async function main(): Promise<void> {
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
     tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
-    vertraut: new Set(),
+    freigaben: (name) => katalogFreigaben.fuer(name),
     eigener: keypair.pk,
   });
   gepruefteModelle = await modellDienst.imAngebot();
