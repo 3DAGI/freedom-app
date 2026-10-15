@@ -44,6 +44,14 @@ und TON bleiben unverdrahtet, bis diese Fragen beantwortet sind:
 
 Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
+### 1.3 Oberfläche (Spur C, 15.10.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| OR1 | Schrift Inter in `freedom.html` einbetten (OFL-1.1, rund 50 KB nur Latin, 130 KB mit Latin-Erweiterung, neue Abhängigkeit) oder bei der Systemschrift bleiben (SF, Segoe, Roboto)? C-42 baut ohne Einbetten. | Systemschrift – nichts Neues im Bundle, sieht auf jedem Gerät heimisch aus |
+
+Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
@@ -109,6 +117,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
 | Native Apps | Tor in Desktop und Android (`IsTor: true`) | 6.1 |
+| Oberfläche | kurzer Nutzertest: fünf Personen ohne Nostr-Vorwissen, drei Aufgaben (erste Frage, Wallet verbinden, Freund anschreiben), Zeit und Abbrüche | Review 15.10. |
 | Sonstiges | fremde Person richtet die App in unter fünf Minuten ein; QR-Scan am Handy; Radicle-Spiegel mit `rad` | 8.1, 11.1b, 8.10 |
 
 ### 2.4 Phase 9
@@ -167,6 +176,9 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
+| C-41 bis C-48 | Oberflächen-Review, sofort: Schlüssel per Klick, Schrift und Knöpfe, Führungsleiste, Avatare, leere Zustände, Agent-Kleinigkeiten, Namen, Website-Navigation ([`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md)) | frei, der Reihe nach (C-41 ✓ [#452](https://github.com/3DAGI/freedom-app/pull/452), C-47 ✓ [#453](https://github.com/3DAGI/freedom-app/pull/453)) |
+| C-49 bis C-55 | Oberflächen-Review, mittel: Agent-Eingabe, Wallet-Startseite, Tauschformular, Chat-Liste, Einstellungen, Verdienen, Onboarding | nach C-42 |
+| C-56 bis C-59 | Oberflächen-Review, größer: Bausteine und Bildvergleich, helles Design, Website-Auftritt, Rückmeldungen | nach C-42 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |

@@ -230,9 +230,9 @@ test("C-1e: der Rest – Abzeichen, Nachfolge, Bunker, Urteil, Notfall, Schlüss
   assert.ok(ur.indexOf("await dialog(") < ur.indexOf("buildPrivateUrteil({"));
   // Notfall: der Hinweis vor dem weiteren Start; Schlüssel ohne Zwischenablage nur zum Ansehen
   assert.match(q("shell/notfall.ts"), /await hinweis\(t\("ein\.notfallTitel"\), t\("ein\.nichtAllesGeloescht", \{ offen: offen\.join\(", "\) \}\)\);\s*return;/);
-  // Seit C-37 als npub – derselbe Schlüssel
-  assert.match(q("shell/app.ts"), /\{ art: "nurlesen", name: "pk", label: t\("ein\.pubkey"\), wert: npub \}/);
-  assert.match(q("shell/app.ts"), /const npub = encodeNpub\(state\.keypair\.pk\);/);
+  // Seit C-37 als npub – derselbe Schlüssel; seit C-41 in `identitaet-ui.ts` (Teilen und Klick auf die Kennung)
+  assert.match(q("shell/identitaet-ui.ts"), /\{ art: "nurlesen", name: "pk", label: t\("ein\.pubkey"\), wert: npub \}/);
+  assert.match(q("shell/identitaet-ui.ts"), /const npub = encodeNpub\(state\.keypair\.pk\);/);
 });
 
 test("C-1f: Reklamation im Dialog – Verfahren als Fließtext, Grund, Prüfer nur aus dem Netz, Material nur mit Haken", () => {
