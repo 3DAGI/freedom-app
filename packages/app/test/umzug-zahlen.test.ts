@@ -58,7 +58,8 @@ test("C-8: neue Beschriftungen mit neuen Schlüsseln, die Texte nennen den neuen
   setLang("de");
   assert.equal(t("waehr.tabHinterlegen"), "Hinterlegen");
   assert.equal(t("waehr.tabZahlen"), "Zahlen");
-  assert.match(t("agent.anteilUnklar"), /Währung › Zahlen/);
+  // Seit C-47 heißt die Seite „Wallet“
+  assert.match(t("agent.anteilUnklar"), /Wallet › Zahlen/);
   assert.match(t("agent.modelleText"), /Verdienen › Hosten/);
   setLang("en");
   assert.equal(t("waehr.tabHinterlegen"), "Deposit");
@@ -66,6 +67,6 @@ test("C-8: neue Beschriftungen mit neuen Schlüsseln, die Texte nennen den neuen
   assert.match(t("agent.anteilUnklar"), /Wallet › Pay/);
   // Die FAQ der Website sagt dasselbe
   const faq = readFileSync(new URL("../../website/faq.html", import.meta.url), "utf8");
-  assert.match(faq, /bis dahin bleibt das Geld bei dir \(Währung → Zahlen\)/);
+  assert.match(faq, /bis dahin bleibt das Geld bei dir \(Wallet → Zahlen\)/);
   assert.doesNotMatch(faq, /Settings → Gebühren/);
 });
