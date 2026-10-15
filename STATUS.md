@@ -9889,6 +9889,7 @@ im Pfad, BOM, Datei ohne Zeilenende, ausführbar, Verweis, Submodul, leerer Date
 alle Fälle ohne Patch. Dazu vorab 3000 Zufallsfälle gegen eine LCS-Rechnung (beide Seiten zurückgewonnen, minimal).
 
 Knoten-Stand: unverändert (Baustein im Protokoll).
+
 ## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
 
 Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue
