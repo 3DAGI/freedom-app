@@ -10110,3 +10110,31 @@ Spur B, Sammlung B-37 (nachrangig). Nur Doku: `docs/MESHCORE-ENTWURF.md`.
 - **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
 
 **Tests:** keine (nur Doku).
+
+## Schritt VKl2 – „Als Repo in einen Raum stellen“ aus „Mein Knoten“
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl, Teil 2: App). Keine neue Abhängigkeit, kein neues Event-Format: Code-Aufträge
+(5080) wie VKa, Ankündigung und Bundle-Verweis wie jedes Repo (11.4). Damit ist VKl fertig.
+
+**Gebaut:**
+- `shell/knoten-code-ui.ts` (neu):
+  - „Projekte“ in der Karte „Mein Knoten“ (nur gekoppelt, nur auf Klick) fragt den Knoten versiegelt nach der Liste
+    (`frageKnotenCode()`: frischer Sitzungsschlüssel, `wegZumKnoten()`, gelesen nur über `leseCodeAntwort()`).
+  - Je Projekt eine Zeile (Name, Schritte, letzte Änderung) und „Als Repo in einen Raum stellen“.
+  - `holeBundleVomKnoten()`: Aktion `bundle`, danach muss das Manifest an den eigenen Relays liegen – sonst fänden es
+    die im Raum auch nicht, und nichts wird angekündigt.
+- `tabs/repos.ts`: `stelleKnotenProjektEin()` → `kuendigeAn(…, ausKnoten)`: derselbe Dialog (Kennung vorbelegt, Wo:
+  öffentlich, offener oder privater Raum – nie „nur dieses Gerät“), private Räume frisch aus MLS. Erst das Bundle,
+  dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das Bundle, geht nichts hinaus. Privat nur `sendeInRaum()`.
+- `knoten-projekte.ts` (neu, ohne DOM): Zeilen, Bundle-Verweis, Ablehnungen nur über die Kennung des Knotens
+  (`CODE_FALL_TEXT`, ein Test vergleicht mit `CodeAbgelehnt` im Knoten) – nie Text vom Knoten.
+- `warteAufKnoten()` gibt bei einer Ablehnung zusätzlich die Kennung `fall` zurück.
+- Texte in beiden Sprachen, `wiring-ausnahmen.txt`: `baueCodeAuftrag` und `leseCodeAntwort` sind verdrahtet,
+  Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:** app +4 (`knoten-projekte.test.ts`): Kennungen gleich denen des Knotens, Ablehnung nur über die Kennung
+(auch `toString` nicht), Zeile und Verweis, Verdrahtung (versiegelt über den Weg, Manifest geprüft, erst Bundle, dann
+Ankündigung, privat nur in die Gruppe, nie „nur dieses Gerät“). Bestehende Quelltext-Tests bleiben unverändert bis auf
+die Zeile mit dem Hinweis (`raum-repos-ui.test.ts`).
+
+Knoten-Stand: mit VKl1 (Code-Aktion `bundle`).

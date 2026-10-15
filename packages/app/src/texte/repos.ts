@@ -150,6 +150,8 @@ export const repos: Texte = {
   "repo.hinweisOeffentlich": { de: "Öffentlich im Raum „{raum}“ und mit deinem Schlüssel signiert. Wer im Raum Repos pflegt, pflegt es mit.", en: "Public in the room “{raum}” and signed with your key. Whoever maintains repos in the room maintains it too." },
   "repo.hinweisPrivat": { de: "Im privaten Raum „{raum}“ – nur Mitglieder sehen es, verschlüsselt (MLS), auch den Schlüssel der Bundles.", en: "In the private room “{raum}” – only members see it, encrypted (MLS), including the bundle key." },
   "repo.wo": { de: "Wo", en: "Where" },
+  "repo.knotenHinweis": { de: "Dein Knoten packt das Projekt als Git-Bundle und legt es verschlüsselt ins Netz – unter einem Schlüssel, der nicht seiner ist. Öffentlich: für alle lesbar (der Schlüssel des Bundles steht im Verweis) und mit deinem Schlüssel signiert. Im privaten Raum sehen es nur die Mitglieder.", en: "Your node packs the project as a Git bundle and puts it on the network, encrypted – under a key that is not its own. Public: readable by anyone (the bundle key is in the reference) and signed with your key. In a private room only members see it." },
+  "repo.knotenEingestellt": { de: "Repo {id} angekündigt – der Code kommt von deinem Knoten", en: "Repo {id} announced – the code comes from your node" },
   "repo.woOeffentlich": { de: "öffentlich – jeder liest mit", en: "public – anyone can read" },
   "repo.privaterRaum": { de: "privater Raum", en: "private room" },
   "repo.privaterRaumName": { de: "{name} (privater Raum)", en: "{name} (private room)" },
