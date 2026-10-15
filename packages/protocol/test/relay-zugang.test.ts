@@ -87,7 +87,7 @@ test("8.4a: NIP-11 nennt Schlüssel, NIPs, Grenzen und ob Umschläge geschützt 
     name: "n", beschreibung: "b", pubkey: kp.pk, maxNachricht: 1000, aufbewahrungTage: 30, beschraenkt: false, umschlaegeGeschuetzt: true,
   }) as { pubkey: string; supported_nips: number[]; limitation: Record<string, unknown>; retention: { time: number }[]; freedom: Record<string, unknown> };
   assert.equal(info.pubkey, kp.pk);
-  assert.deepEqual(info.supported_nips, [1, 11, 40, 42]);
+  assert.deepEqual(info.supported_nips, [1, 11, 40, 42, 77]);
   assert.deepEqual(info.limitation, { max_message_length: 1000, auth_required: false, payment_required: false, restricted_writes: false });
   assert.equal(info.retention[0].time, 30 * 86400);
   assert.equal(info.freedom.umschlaege_nur_an_angemeldete, true);

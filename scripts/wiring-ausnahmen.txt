@@ -24,9 +24,6 @@ blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 
 arbeitskopie.ts|arbeitskopie|Arbeitskopie eines Repo-Auftrags – der Knoten schreibt sie mit schreibeArbeitskopie(); aufgerufen erst im Ablauf für Repo-Aufträge (11.5c, Spur A)
 patch-schreiber.ts|schreibePatch|Patch aus der Arbeitskopie – aufgerufen erst im Ablauf für Repo-Aufträge (11.5c, Spur A) mit leseArbeitsordner() aus dem Knoten
 patch-schreiber.ts|zeilenDiff|Teil von schreibePatch(), exportiert für den Test gegen eine LCS-Rechnung (11.5a2a)
-negentropy.ts|Negentropy|Abgleich nach NIP-77 – Relay-Rolle (NEG-OPEN) mit B-35b, Abgleich nach Funkstille mit B-35c
-negentropy.ts|NegSpeicher|Abgleich nach NIP-77 – Relay-Rolle (NEG-OPEN) mit B-35b, Abgleich nach Funkstille mit B-35c
-negentropy.ts|NegFehler|Abgleich nach NIP-77 – Relay-Rolle (NEG-OPEN) mit B-35b, Abgleich nach Funkstille mit B-35c
 cluster.ts|buildClusterOffer|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
 cluster.ts|baueClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
 cluster.ts|oeffneClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
