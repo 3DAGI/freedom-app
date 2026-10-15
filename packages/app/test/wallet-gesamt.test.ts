@@ -62,3 +62,25 @@ test("verdrahtet: die Stände kommen dorther, wo die App sie ohnehin holt – ke
   assert.match(karte, /id="wallet-tauschen"[^>]*data-subtab-ziel="swap"/);
   assert.match(karte, /id="wallet-hinterlegen"[^>]*data-subtab-ziel="lp"/);
 });
+
+test("C-50b: Konten als Zeilen mit Stand – die Verbindung dahinter, offen nur ohne Konto; „Wallet verbinden“ nur noch einmal", () => {
+  const html = quelle("../src/shell/index.html");
+  for (const [details, stand] of [["ln-verwalten", "ln-balance"], ["sol-verwalten", "sol-stand"]]) {
+    assert.match(html, new RegExp(`<div id="${stand}" class="konto-stand">—</div></div>\\s*<details id="${details}" class="konto-verwalten" open>`), details);
+  }
+  // Die Felder stehen in der Verbindung, nicht mehr offen auf der Übersicht
+  const ln = html.slice(html.indexOf('<details id="ln-verwalten"'), html.indexOf("</details>", html.indexOf('<details id="ln-verwalten"')));
+  for (const id of ["nwc-uri", "nwc-connect", "nwc-privat", "nwc-eigenes-relay"]) assert.match(ln, new RegExp(`id="${id}"`), id);
+  const sol = html.slice(html.indexOf('<details id="sol-verwalten"'), html.indexOf("</details>", html.indexOf('<details id="sol-verwalten"')));
+  for (const id of ["kurs-info", "sol-connect", "solw-box", "solw-einrichten"]) assert.match(sol, new RegExp(`id="${id}"`), id);
+  // Verbunden oder eingerichtet: zu; getrennt: wieder offen
+  const w = quelle("../src/shell/tabs/waehrung.ts");
+  assert.match(w, /merkeStand\("ln", balance\);[^\n]*\n\s+document\.getElementById\("ln-verwalten"\)\?\.removeAttribute\("open"\);/);
+  assert.match(w, /merkeStand\("ln", undefined\);\n\s+document\.getElementById\("ln-verwalten"\)\?\.setAttribute\("open", ""\);/);
+  assert.match(w, /document\.getElementById\("sol-verwalten"\)\?\.removeAttribute\("open"\);/);
+  assert.match(quelle("../src/shell/eingebaute-wallet.ts"), /document\.getElementById\("sol-verwalten"\)\?\.removeAttribute\("open"\);/);
+  // Der Kopf der Seite ohne „Wallet verbinden“; das KI-Budget als eigene Karte
+  assert.doesNotMatch(html, /id="nb-wallet"/);
+  assert.equal((html.match(/data-i18n="waehr\.walletVerbinden"/g) ?? []).length, 1, "nur noch an der Lightning-Verbindung");
+  assert.match(html, /<div class="card ki-budget-karte nav-balances" id="nav-balances">\s*<div class="nb-row">/);
+});

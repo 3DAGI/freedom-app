@@ -108,6 +108,7 @@ export function zeigeEingebauteWallet(): void {
     return;
   }
   $("#solw-adresse").textContent = adresse;
+  document.getElementById("sol-verwalten")?.removeAttribute("open"); // eingerichtet: die Einstellungen zu (C-50b)
   zeigeOfflineZahlung();
   ($("#solw-limit") as HTMLInputElement).value = String(eingebauteWallet.limit() / 1e9);
   const frei = eingebauteWallet.vorratFrei();

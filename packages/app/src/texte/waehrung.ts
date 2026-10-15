@@ -5,7 +5,6 @@ export const waehrung: Texte = {
   // Seite (index.html)
   "waehr.untertitel": { de: "Lightning, Solana, Tausch, Hinterlegen und Zahlen.", en: "Lightning, Solana, swaps, deposits and payments." },
   "waehr.walletVerbinden": { de: "Wallet verbinden", en: "Connect wallet" },
-  "waehr.solDeposit": { de: "+ SOL hinterlegen", en: "+ SOL deposit" },
   "waehr.tabUebersicht": { de: "Übersicht", en: "Overview" },
   "waehr.tabTauschen": { de: "Tauschen", en: "Swap" },
   // C-8 (C.6a, E2): „Liquidität“ hieß der Reiter mit Deposit und Zahlkanal; „Zahlen“ kam aus Settings › Gebühren
@@ -72,6 +71,7 @@ export const waehrung: Texte = {
   // Tausch sats → SOL
   "waehr.keineAngebote": { de: "Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.", en: "Nobody on your relays offers a swap right now. Offers come and go – search again later." },
   "wallet.gesamt": { de: "Gesamt", en: "Total" },
+  "wallet.verbindung": { de: "Verbindung", en: "Connection" },
   "wallet.keinKonto": { de: "Noch keine Wallet verbunden.", en: "No wallet connected yet." },
   "wallet.ohneKursSumme": { de: "ohne Kurs keine Summe", en: "no sum without a rate" },
   "wallet.unvollstaendig": { de: "nicht jeder Stand ist gerade abrufbar", en: "not every balance can be fetched right now" },

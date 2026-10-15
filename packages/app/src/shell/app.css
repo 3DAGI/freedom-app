@@ -419,8 +419,23 @@ nav button.active { color: var(--accent); }
 .tool-chip.active { background: var(--accent); color: #000; border-color: var(--accent); }
 .tool-chip .tool-preis { display: block; font-size: 11px; opacity: 0.75; margin-top: 1px; }
 
-.bal { font-size: 26px; font-weight: 700; color: var(--accent); }
-.bal small { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+/* Konten als Zeilen mit Stand (C-50b): Symbol, Name mit Zustand, Stand rechts; die Verbindung dahinter */
+.konto-kopf { display: flex; align-items: center; gap: 12px; }
+.konto-kopf h3 { margin: 0; }
+.konto-symbol { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; flex: none;
+  background: var(--surf2); border: 1px solid var(--line2); }
+.konto-ln { color: #E8A33D; }
+.konto-sol { color: #A98BF5; }
+.konto-name { flex: 1 1 auto; min-width: 0; }
+.konto-name .mono-sm { overflow-wrap: anywhere; }
+.konto-stand { flex: none; font: 600 16px var(--font-mono); color: var(--text); text-align: right; }
+.konto-stand small { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+.konto-verwalten { margin-top: 12px; border-top: 1px solid var(--line2); padding-top: 10px; }
+.konto-verwalten > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); min-height: 32px; display: flex; align-items: center; }
+.konto-verwalten[open] > summary { margin-bottom: 8px; }
+.ki-budget-karte .nb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ki-budget-karte .nb-label { font-size: 14px; font-weight: 600; }
+.ki-budget-karte .nb-val { font: 600 15px var(--font-mono); color: var(--text); }
 
 .stat { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .stat:last-child { border-bottom: none; }
@@ -781,14 +796,6 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 }
 .nq-fill.low { background: var(--amber); }
 .nq-text { font-size: 11px; color: var(--text-muted); }
-#nb-wallet.cta-pulse {
-  animation: wallet-cta 1.6s ease-in-out infinite;
-  border-color: var(--accent) !important; color: var(--accent) !important;
-}
-@keyframes wallet-cta {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(123,200,10,.35); }
-  50% { box-shadow: 0 0 0 6px rgba(123,200,10,.12); }
-}
 
 /* ---------- Sprach-Umschalter in der Sidebar ---------- */
 .nav-lang { padding: 10px 18px; border-top: 1px solid var(--border); margin-top: auto; }
@@ -1137,11 +1144,6 @@ main { min-width: 0; }
 @media (max-width: 760px) { .seg { padding: 0 8px; overflow-x: auto; } }
 
 /* Guthaben im Kopf von Waehrung */
-.head-balances { display: flex; align-items: center; gap: 16px; }
-.head-balances .nb-row { display: flex; align-items: baseline; gap: 6px; }
-.head-balances .nb-label { font-size: 12px; color: var(--text-muted); }
-.head-balances .nb-val { font-family: var(--font-mono); font-size: 15px; color: var(--text); }
-.head-balances button { width: auto; padding: 6px 11px; font-size: 12px; }
 
 /* ---------- Agent: Verlauf | Gespraech | Arbeitsbereich ---------- */
 .agent-layout { display: flex; height: 100%; min-height: 0; }
