@@ -98,7 +98,7 @@ function zeigeSeite(
   karte.dataset.seite = seite;
   const ueberspringen = el("button", t("ein.ueberspringen"), "ghost");
   ueberspringen.id = "ein-abbrechen";
-  ueberspringen.style.cssText = "width:auto;padding:2px 8px;font-size:10px"; // kein UI-Text
+  ueberspringen.style.cssText = "width:auto;padding:2px 8px;font-size:12px"; // kein UI-Text
   const fuss = leise(`${t("ein.schrittVon", { nr, von })} · `);
   fuss.style.marginTop = "14px";
   fuss.append(ueberspringen);

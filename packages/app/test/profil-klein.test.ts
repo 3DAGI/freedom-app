@@ -39,8 +39,9 @@ test("„Teilen“ kopiert den npub – derselbe Schlüssel, unter dem das Profi
   assert.equal(t("ein.pubkeyKopiert"), "Öffentlicher Schlüssel (npub) kopiert");
 });
 
-test("Name im Profilkopf so, wie er ist – `.card h3` setzt sonst Großbuchstaben", () => {
-  assert.match(css, /\.card h3 \{\n\s+font-size: 11px; text-transform: uppercase;/);
+test("Name im Profilkopf so, wie er ist – `.card h3` setzte früher Großbuchstaben", () => {
+  // Seit C-42a stehen Kartentitel selbst in normaler Schreibung, 15 px
+  assert.match(css, /\.card h3 \{\n\s+font-size: 15px; color: var\(--text\); margin-bottom: 10px; font-weight: 600;\n\}/);
   assert.match(css, /\.profile-text h3 \{ margin: 0 0 3px; font-size: 16px; text-transform: none; letter-spacing: normal; \}/);
   // Die spätere Regel gewinnt bei gleicher Spezifität
   assert.ok(css.indexOf(".profile-text h3 {") > css.indexOf(".card h3 {"));

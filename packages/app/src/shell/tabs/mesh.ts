@@ -433,7 +433,7 @@ async function zeigeOfflineFaehigkeiten(link: "lora" | "bluetooth" | "datei"): P
   box.replaceChildren(kopf, ...offlineFaehigkeiten(link).map((f) => {
     const zeile = el("div", undefined, "usage-row");
     const notiz = el("span", f.note, "muted");
-    notiz.style.cssText = "font-size:10px;max-width:58%";
+    notiz.style.cssText = "font-size:12px;max-width:58%";
     zeile.append(el("span", `${f.works ? "✓" : "✕"} ${f.feature}`), notiz);
     return zeile;
   }));
