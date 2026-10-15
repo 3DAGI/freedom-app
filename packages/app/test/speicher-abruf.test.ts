@@ -14,10 +14,10 @@ import { downloadBlob, oeffneAnhang, uploadAnhang, uploadBlob } from "../src/blo
 import { speicherKnoten, frageKnotenAn } from "../src/speicher-abruf.js";
 
 const JETZT = Math.floor(Date.now() / 1000);
-const angebot = (k: { pk: string; sk: Uint8Array }, at: number, storage = true, pow = 0) =>
+const angebot = (k: { pk: string; sk: Uint8Array }, at: number, storage = true, pow = 0, gratisBytes?: number) =>
   signEvent(buildCapabilities({
     pubkey: k.pk, tier: "free", models: [], textRatePerKTokenMsat: 0, tools: [], currentlyFree: true,
-    ...(storage ? { storage: { capacityBytes: 1e9, priceMsatPerMB: 1, bootstrap: false } } : {}), powBits: pow,
+    ...(storage ? { storage: { capacityBytes: 1e9, priceMsatPerMB: 1, bootstrap: false, ...(gratisBytes !== undefined ? { gratisBytes } : {}) } } : {}), powBits: pow,
   }, at), k.sk);
 
 test("8.9b: Speicherknoten aus Angeboten – frisch, mit Speicher, je Schluessel das neueste", () => {
@@ -26,6 +26,18 @@ test("8.9b: Speicherknoten aus Angeboten – frisch, mit Speicher, je Schluessel
   assert.deepEqual(k, [{ pk: a.pk, powBits: 10 }]);
   const viele = Array.from({ length: 6 }, () => generateKeypair());
   assert.equal(speicherKnoten(viele.map((x, i) => angebot(x, JETZT - i)), JETZT).length, 4);
+});
+
+test("E9-2: mit Größe nur Knoten, deren Gratis-Grenze die Datei fasst – ohne Angabe wie bisher, es gilt das neueste Angebot", () => {
+  const [klein, gross, ohne, wechsel] = [generateKeypair(), generateKeypair(), generateKeypair(), generateKeypair()];
+  const angebote = [
+    angebot(klein, JETZT, true, 0, 100_000), angebot(gross, JETZT - 1, true, 0, 10_000_000), angebot(ohne, JETZT - 2),
+    // Erst groß genug, dann verkleinert: das neueste zählt
+    angebot(wechsel, JETZT - 10, true, 0, 10_000_000), angebot(wechsel, JETZT - 3, true, 0, 1_000),
+  ];
+  assert.deepEqual(speicherKnoten(angebote, JETZT, 4, 500_000).map((k) => k.pk), [gross.pk, ohne.pk]);
+  assert.deepEqual(speicherKnoten(angebote, JETZT, 4, 100_000).map((k) => k.pk), [klein.pk, gross.pk, ohne.pk], "genau an der Grenze passt es");
+  assert.equal(speicherKnoten(angebote, JETZT, 4).length, 4, "ohne Größe zählt keine Grenze");
 });
 
 /** Knoten wie in 8.9a: haelt Stuecke, veroeffentlicht sie auf versiegelten Abruf erneut. */

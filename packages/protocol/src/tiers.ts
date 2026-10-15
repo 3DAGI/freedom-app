@@ -43,7 +43,12 @@ export interface ProviderCapabilities {
   /** Ob aktuell gratis (Bootstrap oder freiwillig). */
   currentlyFree: boolean;
   /** Storage-Rolle: dieser Provider seedet Blobs. */
-  storage?: { capacityBytes: number; priceMsatPerMB: number; bootstrap: boolean };
+  /**
+   * Speicher-Rolle: Kapazität, Preis, Bootstrap – und seit E9-2 (`docs/E9-ENTWURF.md`, V2 A),
+   * bis zu welcher Größe einer Datei der Knoten gratis hält (`gratisBytes`, vierter Wert im
+   * `storage`-Tag). Ohne die Angabe sagt das Angebot nichts darüber.
+   */
+  storage?: { capacityBytes: number; priceMsatPerMB: number; bootstrap: boolean; gratisBytes?: number };
   /** Rechenarbeit (NIP-13-Bits), die private Anfragen tragen muessen (Schritt 3.1). */
   powBits?: number;
   /**
@@ -94,6 +99,20 @@ export interface ProviderCapabilities {
   updatedAt: number;
 }
 
+/** Höchstens so groß darf eine Gratis-Grenze für Speicher sein (1 TiB) – darüber ist sie unplausibel. */
+export const SPEICHER_GRATIS_MAX = 2 ** 40;
+
+/**
+ * Die Gratis-Grenze eines Speicherknotens lesen (E9-2): Bytes als ganze Zahl
+ * ohne Vorzeichen und führende Nullen, höchstens `SPEICHER_GRATIS_MAX` – sonst
+ * `undefined` (keine Angabe). Gilt beim Bauen wie beim Lesen fremder Angebote.
+ */
+export function leseSpeicherGratis(roh: string): number | undefined {
+  if (!/^(0|[1-9]\d{0,12})$/.test(roh)) return undefined;
+  const n = Number(roh);
+  return n <= SPEICHER_GRATIS_MAX ? n : undefined;
+}
+
 export function buildCapabilities(
   c: Omit<ProviderCapabilities, "updatedAt">,
   createdAt = Math.floor(Date.now() / 1000),
@@ -107,7 +126,8 @@ export function buildCapabilities(
   for (const m of c.models) tags.push(["model", m]);
   for (const t of c.tools) tags.push(["tool", String(t.kind), t.name, String(t.priceMsat)]);
   if (c.storage) {
-    tags.push(["storage", String(c.storage.capacityBytes), String(c.storage.priceMsatPerMB), c.storage.bootstrap ? "1" : "0"]);
+    const gratis = c.storage.gratisBytes !== undefined ? leseSpeicherGratis(String(c.storage.gratisBytes)) : undefined;
+    tags.push(["storage", String(c.storage.capacityBytes), String(c.storage.priceMsatPerMB), c.storage.bootstrap ? "1" : "0", ...(gratis !== undefined ? [String(gratis)] : [])]);
   }
   if (c.powBits !== undefined) tags.push(["pow", String(c.powBits)]);
   if (c.kurs) tags.push(["kurs", "SOL/BTC", String(c.kurs.satsProSol), c.kurs.quelle]);
@@ -147,11 +167,14 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   // nichts — obwohl es im Event stand. `network-capacity.ts` liest den Tag
   // direkt und war deshalb nie betroffen, was den Fehler verdeckt hat.
   const st = ev.tags.find((t) => t[0] === "storage");
+  // Gratis-Grenze (E9-2): fremde Angabe – nur eine ganze Zahl im Bereich, sonst keine
+  const speicherGratis = st?.[4] !== undefined ? leseSpeicherGratis(st[4]) : undefined;
   const storage = st
     ? {
         capacityBytes: Number(st[1] ?? "0"),
         priceMsatPerMB: Number(st[2] ?? "0"),
         bootstrap: st[3] === "1",
+        ...(speicherGratis !== undefined ? { gratisBytes: speicherGratis } : {}),
       }
     : undefined;
 

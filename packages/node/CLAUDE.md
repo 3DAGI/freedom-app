@@ -253,3 +253,8 @@ Bereichs unten anhängen.
   (`KatalogFreigaben.fuer()` → `vertrautesManifest()`) – nie ein Schlüssel allein, nie ein anderes Manifest desselben
   Kurators. Antworten die Relays nicht, gibt es keine Freigaben (nie die von gestern). Den Lader erreichen Freigaben nur
   über `LaderHilfen.freigaben()`; `manifeste()` holt die freigegebenen Ids mit.
+- **Speicher gratis nur bis zur genannten Grenze** (seit E9-2, V2 A): `STORAGE_GRATIS_MB` nur über
+  `speicherGratisAusUmgebung()` (ungültig → kein Start), dieselbe Zahl für beide Speicher-Rollen in `main.ts` und das
+  Angebot (vierter Wert im `storage`-Tag, `leseSpeicherGratis()`). `nimmAuf()` lehnt Stücke größerer Dateien ab
+  (Größe aus `pruefeSpeicherStueck()`), nie die des Besitzers (`halten`). Eine netzweite Schwelle gibt es nicht mehr –
+  `network-capacity.ts` nicht wieder einführen.

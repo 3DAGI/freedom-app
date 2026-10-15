@@ -129,7 +129,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
-| 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30) |
+| 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |

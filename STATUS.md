@@ -9692,3 +9692,32 @@ stumme Relays), `modell-hf-laden.test.ts` (Freigabe auch für Hugging Face); App
 
 Knoten-Stand: für Kataloge neu nötig (`MODELL_KATALOGE`); ohne die Variable verhält sich der Knoten
 wie bisher.
+
+## Schritt E9-2 – Speicher gratis nur bis zur genannten Grenze
+
+Spur B, aus `docs/E9-ENTWURF.md` (V2 A, freigegeben 08.10.2026; übergeben 09.10.). Den KI-Teil
+(Tag `gratis`) hatte A-14 gebaut; hier bleibt nur der Speicher.
+
+- **Protokoll** (`tiers.ts`): vierter Wert im `storage`-Tag – bis zu welcher Größe einer Datei
+  der Knoten gratis hält (`gratisBytes`). Gebaut und gelesen nur über `leseSpeicherGratis()`
+  (ganze Zahl ohne führende Nullen, höchstens `SPEICHER_GRATIS_MAX` = 1 TiB, sonst keine Angabe).
+  `pruefeSpeicherStueck()` nennt die Größe der ganzen Datei (`groesse`).
+- **Weg:** `network-capacity.ts` (netzweite Schwelle aus der Summe aller Kapazitäten, mit
+  Sybil-Schwäche: dieselbe Pubkey zählte mehrfach) samt Export, Wiring-Ausnahmen und seinen sieben
+  Tests – Entscheidung V2 A: wer Kosten trägt, entscheidet selbst.
+- **Knoten:** `STORAGE_GRATIS_MB` über `speicherGratisAusUmgebung()` (ganze MB bis 1 TiB, ungültig →
+  kein Start); beide Speicher-Rollen in `main.ts` und das Angebot bekommen dieselbe Zahl.
+  `StorageRole.nimmAuf()` lehnt Stücke größerer Dateien ab („größer als gratis“) – nie die des
+  Besitzers (`halten`). Ohne Variable wie bisher.
+- **App:** `speicherKnoten(…, groesse)` fragt beim Abruf fehlender Stücke nur Knoten, deren Grenze
+  die Datei fasst (je Schlüssel das neueste Angebot; ohne Angabe wie bisher); `blob-client.ts`
+  übergibt `manifest.sizeBytes`.
+- **Doku:** PROTOCOL (38027, `storage`), PROVIDER („Gratis-Grenze“), E9-Entwurf,
+  `docker-compose.yml` (`STORAGE_GRATIS_MB`), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Protokoll `speicher-gratis.test.ts` (3, neu), `wot-capacity.test.ts` (−8 mit der
+Netzkapazität: sieben zur Schwelle und das Lesen über `extractStorageCaps()` – das Lesen prüft
+jetzt `speicher-gratis.test.ts` über `parseCapabilities()`); Knoten `speicher-gratis.test.ts` (3, neu);
+App `speicher-abruf.test.ts` (+1).
+
+Knoten-Stand: für die Grenze neu nötig; ohne `STORAGE_GRATIS_MB` wie bisher.

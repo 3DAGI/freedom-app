@@ -185,7 +185,8 @@ export async function downloadBlob(
   if (chunks.size < manifest.dataShards && manifest.encrypted && pool.publish) {
     const { KIND_PROVIDER_CAPABILITIES } = await import("@freedomstack/protocol");
     const { frageKnotenAn, speicherKnoten } = await import("./speicher-abruf.js");
-    const knoten = speicherKnoten(await pool.query({ kinds: [KIND_PROVIDER_CAPABILITIES], limit: 200 }) as unknown as NostrEvent[]);
+    // Nur Knoten, deren Gratis-Grenze die Datei fasst (E9-2)
+    const knoten = speicherKnoten(await pool.query({ kinds: [KIND_PROVIDER_CAPABILITIES], limit: 200 }) as unknown as NostrEvent[], undefined, undefined, manifest.sizeBytes);
     const fehlend = Array.from({ length: total }, (_, i) => i).filter((i) => !chunks.has(i));
     if (knoten.length > 0 && (await frageKnotenAn({ pool: { publish: (ev) => pool.publish!(ev) }, knoten, blobId: manifest.blobId, fehlend })) > 0) {
       for (let t = 0; t < KNOTEN_WARTEN_MS && chunks.size < manifest.dataShards; t += KNOTEN_TAKT_MS) {

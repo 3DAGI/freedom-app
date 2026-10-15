@@ -146,6 +146,14 @@ den Kopplungscode verschlüsselt auf seine Relays, die App findet ihn über den
 Code und koppelt wie mit dem QR; danach löscht der Knoten das Event wieder
 (Format: `docs/PROTOCOL.md` §35).
 
+**Gratis-Grenze (E9-2):** Mit `STORAGE_GRATIS_MB=<MB>` hält der Knoten Dateien
+anderer nur bis zu dieser Größe gratis; Stücke größerer nimmt er nicht auf.
+Die Grenze steht in seinem Angebot, und die App fragt beim Abruf nur Knoten,
+deren Grenze die Datei fasst. Ohne die Variable hält er jede Größe (bis zur
+Quota) und sagt im Angebot nichts dazu; `0` heißt: nichts gratis. Eine
+ungültige Angabe heißt: Der Knoten startet nicht. Dateien des Besitzers (unten)
+hält er unabhängig davon.
+
 Mit `STORAGE_ENABLED=1` hält der Knoten verschlüsselte Dateien seines
 Besitzers dauerhaft (B-9b): Nach jedem Hochladen (Repo-Bundles, Anhänge)
 schickt die App einen versiegelten Auftrag mit dem Nachweis – abschaltbar unter
