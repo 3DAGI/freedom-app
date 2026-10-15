@@ -37,6 +37,7 @@ import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } fr
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
 import { projekteAusUmgebung } from "./projekte.js";
+import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
@@ -397,6 +398,8 @@ async function main(): Promise<void> {
   }
   if (projekte) statusRollen.add("code");
   console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
+  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log; den Motor startet erst VKc3 darin
+  if (projekte) console.log(`[code] ${sandboxText(await pruefeSandbox())}`);
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
   const agentWahl = agentAusUmgebung(process.env);
   if (agentWahl?.grund) {

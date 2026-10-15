@@ -57,6 +57,7 @@ Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 | Punkt | Offen | Quelle |
 |---|---|---|
 | Phase 9, Teil der Agenten | Keiner Spur zugeteilt: `docs/BEDROHUNGSMODELL.md` (9.1), `SECURITY.md` (9.2), Deploy-Skripte und Rücknahmeplan (9.3), KI-Hinweis nach Art. 50 AI Act und C2PA (9.4). Wer, und wann? | [`phase-9.md`](phase-9.md) |
+| Sandbox unter Docker (VKb) | Das Standard-Seccomp von Docker sperrt meist Nutzer-Namensräume – im Docker-Bild führt der Knoten dann keinen Code aus (die Selbstprüfung sagt das; ungeprüft, hier läuft kein Docker). Empfehlung: ein eigenes Seccomp-Profil mitliefern (Standard plus `unshare`/`clone` für Namensräume) und in `docker-compose.yml` nur bei `VIBECODEN=1` setzen; sonst Vibecoden nur mit dem Installer. Wie läuft der GX10-Knoten? | [`PROVIDER.md`](../PROVIDER.md), „Vibecoden“ |
 | Phase 9, Teil des MENSCHEN | Auditoren; Beträge der Bug-Bounty (Sats und SOL); Zeitpunkt Mainnet; CASP-Einordnung nach AMLR (Frist 10.07.2027), Steuer, Impressum und Firmenname (0.F) | [`phase-9.md`](phase-9.md), FORTSCHRITT 0.F |
 
 ### 1.2 Zurückgestellt – ohne Termin
@@ -135,12 +136,12 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓) | nach VKb |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓); die Sandbox hat kein Netz – das Modell erreicht der Motor nur über eine Brücke (Unix-Socket, wie Codex) | frei (VKb ✓: `sandboxMotor()`) |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | VKl | „Als Repo in einen Raum stellen“ | frei |
 | 11.5n | Pakete holen (W6a) | frei |
-| 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5s, 11.5a1, 11.5a2 (Spur B) |
+| 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | nach 11.5a1, 11.5a2 (Spur B; 11.5s ✓ als VKb) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
@@ -158,8 +159,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| E9-1 | `cluster.ts` aufräumen (Kinds, alte Gebühr und Bilanz raus, Angebot 38028) | frei – als Nächstes (E9-2 ✓) |
-| VKb = 11.5s | Sandbox (bubblewrap je Befehl, Grenzen, leere Umgebung), Selbstprüfung „Sandbox“ | frei |
+| 11.5s2 | seccomp in der Sandbox (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl (VKb ✓) | frei, nachrangig |
 | 11.5a1, 11.5a2 | Bundle-Leser, Patch-Schreiber (W1 B); Arbeitskopie im Arbeitsordner der Sandbox (W3a A) | frei |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |

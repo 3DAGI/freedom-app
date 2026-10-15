@@ -93,3 +93,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Anweisung nur nach dem Format des Programms lesen: `claim` nimmt `[u8; 32]` ohne Längenpräfix – bis A-21c suchte
   `getRevealedPreimage()` vier Byte Länge und fand das Preimage nie. Im Test die Kette als JSON-RPC-Attrappe hinter einem
   echten Pool (`fetchImpl`), nicht als Objekt mit passenden Methoden – sonst prüft der Test kit und Pool nicht mit.
+- **Cluster-Pairing nur nach E9-1** (`cluster.ts`, `docs/PROTOCOL.md` §36): das Angebot auf Kind 38028 (nie wieder 38026
+  oder 38027 – Kurs-Ticker und Provider-Angebot), gelesen streng über `parseClusterOffer()`; die Absprache zweier Knoten nur
+  versiegelt über `baueClusterAbsprache()`/`oeffneClusterAbsprache()` (innen 25050). Kein öffentliches Paar-Event, keine
+  Bilanz, kein Vorrang daraus, keine Protokollgebühr – der Kunde zahlt nur den führenden Knoten nach A+.
