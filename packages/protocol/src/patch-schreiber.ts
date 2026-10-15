@@ -39,7 +39,8 @@ export interface PatchAngaben {
   beschreibung?: string;
 }
 
-export type PatchFall = "patch.angaben" | "patch.keine-aenderung" | "patch.binaer" | "patch.gross";
+/** `patch.ordner`: den Arbeitsordner konnte der Knoten nicht lesen (11.5a2b). */
+export type PatchFall = "patch.angaben" | "patch.keine-aenderung" | "patch.binaer" | "patch.gross" | "patch.ordner";
 export type PatchErgebnis = { ok: true; text: string; commit: string; geaendert: string[] } | { ok: false; fall: PatchFall };
 
 const MODUS = { datei: "100644", ausfuehrbar: "100755", verweis: "120000" } as const;

@@ -143,3 +143,4 @@ export * from "./agent-raum.js";
 export * from "./git-bundle.js";
 export * from "./arbeitskopie.js";
 export * from "./patch-schreiber.js";
+export * from "./gitignore.js";
