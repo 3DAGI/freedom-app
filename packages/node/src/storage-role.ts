@@ -21,7 +21,7 @@
  */
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { computeEventId, getTag, pruefeSpeicherStueck, sha256, toHex, type NostrEvent } from "@freedomstack/protocol";
+import { SPEICHER_GRATIS_MAX, computeEventId, getTag, leseSpeicherGratis, pruefeSpeicherStueck, sha256, toHex, type NostrEvent } from "@freedomstack/protocol";
 
 export interface StorageConfig {
   /** Speicherort fuer Chunk-Dateien. */
@@ -30,6 +30,23 @@ export interface StorageConfig {
   quotaBytes: number;
   /** Bootstrap: alle gesehenen Chunks halten (Netz-Startphase). */
   bootstrapSeeder: boolean;
+  /**
+   * Bis zu dieser Größe einer Datei hält der Knoten gratis (E9-2, `STORAGE_GRATIS_MB`) – Stücke
+   * größerer nimmt er nicht auf, außer für den Besitzer (`halten`). Ohne Angabe: jede Größe.
+   */
+  gratisBytes?: number;
+}
+
+/** `STORAGE_GRATIS_MB` lesen: ganze MB von 0 bis 1 TiB, leer → keine Grenze. Ungültig → Grund, kein Start. */
+export function speicherGratisAusUmgebung(env: Record<string, string | undefined>): { gratisBytes?: number; grund?: string } {
+  const roh = env.STORAGE_GRATIS_MB?.trim();
+  if (!roh) return {};
+  const mb = /^(0|[1-9]\d{0,6})$/.test(roh) ? Number(roh) : NaN;
+  const bytes = mb * 1024 * 1024;
+  if (!Number.isSafeInteger(bytes) || bytes > SPEICHER_GRATIS_MAX || leseSpeicherGratis(String(bytes)) === undefined) {
+    return { grund: "STORAGE_GRATIS_MB ist keine ganze Zahl von 0 bis 1048576" };
+  }
+  return { gratisBytes: bytes };
 }
 
 export interface StoredChunk {
@@ -122,6 +139,8 @@ export class StorageRole {
   async nimmAuf(ev: NostrEvent, opts: { halten?: boolean } = {}): Promise<{ ok: true } | { ok: false; grund: string }> {
     const r = pruefeSpeicherStueck(ev);
     if (!r.ok) return r;
+    // Gratis nur bis zur angekündigten Größe der ganzen Datei – für den Besitzer gilt sie nicht (E9-2)
+    if (!opts.halten && this.cfg.gratisBytes !== undefined && r.groesse > this.cfg.gratisBytes) return { ok: false, grund: "größer als gratis" };
     const hash = getTag(ev, "sha256") ?? "";
     if (opts.halten && !this.gehalten.has(hash) && this.cfg.quotaBytes > 0 && this.gehaltenBytes + r.bytes.length > this.cfg.quotaBytes) {
       return { ok: false, grund: "Speicher voll" };

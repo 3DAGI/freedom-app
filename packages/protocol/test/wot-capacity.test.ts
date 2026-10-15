@@ -1,20 +1,14 @@
 /**
- * Tests fuer Web-of-Trust und Netzkapazitaet.
+ * Tests fuer Web-of-Trust (die Netzkapazitaet fiel mit E9-2 weg).
  *
- * Beides steuert, wer wie viel bekommt: Vertrauen entscheidet ueber
- * Bonuszahlungen, Kapazitaet ueber die Gratis-Schwelle. Der Schwerpunkt liegt
- * auf Sybil-Angriffen — beide Mechanismen sind dafuer der naheliegende Hebel.
+ * Vertrauen entscheidet, wer wie viel bekommt. Der Schwerpunkt liegt auf
+ * Sybil-Angriffen – dafuer ist das der naheliegende Hebel.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeypair, signEvent, buildEvent, NostrEvent } from "../src/event.js";
 import { extractEdges, computeTrust, trustOf } from "../src/wot.js";
-import {
-  extractStorageCaps, computeNetworkCapacity,
-  FREE_HARD_MAX_BYTES, FREE_MIN_BYTES, FREE_CAPACITY_FACTOR,
-} from "../src/network-capacity.js";
 
-const NOW = 1_800_000_000;
 const ANKER = generateKeypair();
 const A = generateKeypair(), B = generateKeypair(), C = generateKeypair();
 
@@ -97,72 +91,5 @@ test("Gescheiterte Swaps zaehlen nicht als Vertrauen", () => {
 });
 
 // ------------------------------------------------------------ Kapazitaet
-
-/** Faehigkeiten-Event mit Speicherangabe: ["storage", bytes, preis, bootstrap]. */
-const speicher = (kp: typeof A, bytes: number, at = NOW) =>
-  signEvent(buildEvent(kp.pk, 38025, [["storage", String(bytes), "1", "0"]], "", at), kp.sk);
-
-test("Speicherangaben werden gelesen", () => {
-  const caps = extractStorageCaps([speicher(A, 1_000_000_000)]);
-  assert.equal(caps.length, 1);
-  assert.equal(caps[0].capacityBytes, 1_000_000_000);
-});
-
-test("Gratis-Schwelle waechst mit dem Netz, aber gedeckelt", () => {
-  // Ohne Deckel wuerde ein einzelner Grossanbieter das Gratiskontingent fuer
-  // alle so weit anheben, dass niemand mehr zahlt.
-  const klein = computeNetworkCapacity([speicher(A, 10_000_000_000)], NOW);
-  const riesig = computeNetworkCapacity(
-    [speicher(A, 10_000_000_000_000_000)], NOW);
-  assert.ok(riesig.freeUploadLimitBytes <= FREE_HARD_MAX_BYTES);
-  assert.ok(klein.freeUploadLimitBytes >= FREE_MIN_BYTES);
-});
-
-test("Ohne Anbieter gibt es kein Gratiskontingent — und das ist richtig", () => {
-  // Anders als beim Gratis-Tier fuer Inferenz waere hier ein Mindestbetrag
-  // ein gebrochenes Versprechen: Speicher, den niemand anbietet, kann man
-  // nicht verschenken. Der Nutzer bekaeme eine Zusage und dann einen Fehler.
-  const leer = computeNetworkCapacity([], NOW);
-  assert.equal(leer.freeUploadLimitBytes, 0);
-  assert.equal(leer.activeSeeders, 0);
-});
-
-test("Veraltete Angaben zaehlen nicht mit", () => {
-  // Ein Anbieter, der vor drei Monaten etwas angekuendigt hat, ist kein
-  // Beleg fuer heute vorhandenen Speicher.
-  const alt = computeNetworkCapacity([speicher(A, 10_000_000_000, NOW - 90 * 86400)], NOW);
-  assert.equal(alt.activeSeeders, 0);
-  assert.equal(alt.freeUploadLimitBytes, 0);
-});
-
-test("Sobald ein Anbieter da ist, greift das Mindestkontingent", () => {
-  // Ein winziger Anbieter wuerde sonst ein Kontingent von wenigen Kilobyte
-  // ergeben — unbrauchbar zum Ausprobieren.
-  const winzig = computeNetworkCapacity([speicher(A, 1_000_000)], NOW);
-  assert.equal(winzig.freeUploadLimitBytes, FREE_MIN_BYTES);
-});
-
-test("Mehr Anbieter heben die Gesamtkapazitaet", () => {
-  const einer = computeNetworkCapacity([speicher(A, 10_000_000_000)], NOW);
-  const drei = computeNetworkCapacity(
-    [speicher(A, 10_000_000_000), speicher(B, 10_000_000_000), speicher(C, 10_000_000_000)], NOW);
-  assert.equal(drei.activeSeeders, 3);
-  assert.ok(drei.totalBytes > einer.totalBytes);
-});
-
-test("HINWEIS: dieselbe Pubkey wird derzeit MEHRFACH gezaehlt", () => {
-  // Das ist eine echte Schwaeche: Ein Einzelner kann durch wiederholtes
-  // Ankuendigen die Gratis-Schwelle fuer alle anheben. Der Deckel begrenzt
-  // den Schaden, beseitigt ihn aber nicht. Der Test haelt den Zustand fest,
-  // damit die Annahme nicht unbemerkt weiterlebt.
-  const zehnmal = computeNetworkCapacity(
-    Array.from({ length: 10 }, (_, i) => speicher(A, 1_000_000_000, NOW - i)), NOW);
-  assert.equal(zehnmal.activeSeeders, 10, "zehn Meldungen derselben Pubkey");
-  assert.ok(zehnmal.freeUploadLimitBytes <= FREE_HARD_MAX_BYTES, "der Deckel haelt trotzdem");
-});
-
-test("Der Faktor ist konservativ gewaehlt", () => {
-  // Ein halbes Prozent der Netzkapazitaet je Nutzer: Bei tausend Nutzern
-  // waeren das das Fuenffache dessen, was da ist — deshalb der Deckel.
-  assert.ok(FREE_CAPACITY_FACTOR > 0 && FREE_CAPACITY_FACTOR <= 0.01);
-});
+// Die netzweite Gratis-Schwelle (`network-capacity.ts`) fiel mit E9-2 weg (V2 A, freigegeben
+// 08.10.2026): Jeder Speicherknoten nennt seine Grenze selbst im Angebot – `speicher-gratis.test.ts`.

@@ -350,7 +350,7 @@ const HEX = /^(?:[0-9a-f]{2})*$/;
 const ZAHL = /^\d{1,12}$/;
 
 export type SpeicherPruefung =
-  | { ok: true; blobId: string; index: number; bytes: Uint8Array }
+  | { ok: true; blobId: string; index: number; bytes: Uint8Array; /** Größe der ganzen Datei laut Stück (seit E9-2). */ groesse: number }
   | { ok: false; grund: string };
 
 /**
@@ -377,7 +377,7 @@ export function pruefeSpeicherStueck(ev: UnsignedEvent): SpeicherPruefung {
   const nutz = nutzLaenge(index, groesse, chunkSize, daten, paritaet);
   for (let i = nutz; i < bytes.length; i++) if (bytes[i] !== 0) return { ok: false, grund: "Füllung nicht leer" };
   if (!wirktZufaellig(bytes.subarray(0, nutz))) return { ok: false, grund: "sieht nicht verschlüsselt aus" };
-  return { ok: true, blobId, index, bytes };
+  return { ok: true, blobId, index, bytes, groesse };
 }
 
 /**

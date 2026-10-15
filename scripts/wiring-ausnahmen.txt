@@ -110,8 +110,6 @@ moderation.ts|moderationInfo|Moderationsrechte und Hinweistext ohne Oberfläche 
 
 naming.ts|searchByName|Namenssuche ohne Oberfläche (Lokale Suche, 8.13)
 
-network-capacity.ts|computeNetworkCapacity|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
-network-capacity.ts|extractStorageCaps|dezentrale Gratis-Schwelle, noch nicht angebunden (Gebührenmodell, 5.1)
 
 nwc.ts|formatNwcUri|NWC-Verbindungstext erzeugen, ohne Oberfläche (Lightning privat, 6.3)
 

@@ -121,6 +121,8 @@ services:
       GRATIS_TOKENS_JE_ANTWORT: "${GRATIS_TOKENS_JE_ANTWORT:-}"
       GRATIS_POW_BITS: "${GRATIS_POW_BITS:-}"
       STORAGE_ENABLED: "${STORAGE_ENABLED:-1}"
+      # E9-2: bis zu dieser Groesse (MB) haelt der Knoten Dateien anderer gratis – leer: jede Groesse, 0: nichts
+      STORAGE_GRATIS_MB: "${STORAGE_GRATIS_MB:-}"
       RELAY_ENABLED: "${RELAY_ENABLED:-0}"
       # Ein Relay ohne oeffentliche Adresse ist fuer das Netz unsichtbar —
       # deshalb hier standardmaessig aus, statt still nichts beizutragen.
