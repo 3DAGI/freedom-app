@@ -2759,6 +2759,19 @@ def einrichtung_wahl_pruefen(browser, url: str) -> dict:
     erg["danach"] = ev("""() => ({ hash: location.hash, seite: document.querySelector('.tab-page.active')?.id,
         titel: document.querySelector('#onboarding-bar .ob-title')?.textContent, knopf: document.getElementById('ob-action')?.textContent ?? null,
         in_chats: !!document.querySelector('#page-comm .seiten-hinweis[data-hinweis="comm"] > #onboarding-bar') })""")
+    # Ohne Unterhaltungen: Symbol, ein Satz und der Knopf, der eine beginnt (C-45)
+    erg["leer"] = ev("""() => { const l = document.querySelector('#chat-list .leer-zustand');
+        return l ? [!!l.querySelector('.leer-symbol svg'), l.querySelector('.leer-satz').textContent.split('.')[0], l.querySelector('button')?.textContent] : null; }""")
+    ev("() => document.querySelector('#chat-list .leer-zustand button')?.click()")
+    try:
+        s.wait_for_selector("[role=dialog][aria-modal=true]", timeout=5000)
+        erg["leer"].append(True)
+        s.keyboard.press("Escape")
+        s.wait_for_function("() => !document.querySelector('[role=dialog][aria-modal=true]')", timeout=5000)
+    except Exception:
+        erg["leer"] = (erg["leer"] or []) + [False]
+    if erg["leer"] != [True, "Noch keine Unterhaltungen", "Neue Unterhaltung", True]:
+        erg["fehler"].append(f"leere Chat-Liste {erg['leer']}")
     # Seit C-43 steht die Karte in den Chats (ohne Knopf dorthin) – beim Agenten nicht
     ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
     s.wait_for_timeout(300)
@@ -4271,6 +4284,12 @@ def raum_pruefen(browser, url: str) -> dict:
         liste = ev(karte)
         ev("() => { const s = document.getElementById('repos-suche'); s.value = 'gibt-es-nicht'; s.dispatchEvent(new Event('input')); }")
         leer = ev(karte)
+        # Seit C-45: leer mit Satz und „Suche leeren“ – der Knopf bringt die Liste zurück
+        leer_zustand = ev("() => [document.querySelector('#repos-karten .leer-satz')?.textContent, document.querySelector('#repos-karten .leer-zustand button')?.textContent]")
+        ev("() => document.querySelector('#repos-karten .leer-zustand button')?.click()")
+        geleert = [ev("() => document.getElementById('repos-suche').value"), ev(karte)]
+        if leer_zustand != ["Kein Repo passt zur Suche.", "Suche leeren"] or geleert != ["", liste]:
+            erg["fehler"].append(f"{groesse}: leere Suche {leer_zustand} {geleert}")
         ev("() => { const s = document.getElementById('repos-suche'); s.value = 'WERKZEUGE'; s.dispatchEvent(new Event('input')); }")
         gesucht = ev(karte)
         ev("() => document.querySelector('#repos-filter [data-filter=meine]').click()")

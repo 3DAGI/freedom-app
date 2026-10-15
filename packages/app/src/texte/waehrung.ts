@@ -70,7 +70,8 @@ export const waehrung: Texte = {
   "waehr.verbunden": { de: "verbunden", en: "connected" },
   "waehr.knopfVerbunden": { de: "Verbunden", en: "Connected" },
   // Tausch sats → SOL
-  "waehr.keineAngebote": { de: "keine LP-Angebote gefunden", en: "no LP offers found" },
+  "waehr.keineAngebote": { de: "Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.", en: "Nobody on your relays offers a swap right now. Offers come and go – search again later." },
+  "waehr.nochmalSuchen": { de: "Noch einmal suchen", en: "Search again" },
   "waehr.tauschen": { de: "tauschen", en: "swap" },
   "waehr.veraltet": { de: "veraltet", en: "outdated" },
   "waehr.veraltetTitel": { de: "Dieser LP liest keine versiegelten Anfragen. Die App fragt ihn nicht an – Adresse bzw. Rechnung stünden sonst offen auf den Relays.", en: "This LP doesn't read sealed requests. The app doesn't ask it – address or invoice would otherwise be public on the relays." },

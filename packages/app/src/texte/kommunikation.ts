@@ -161,7 +161,8 @@ export const kommunikation: Texte = {
   "komm.lade": { de: "lade…", en: "loading…" },
   "komm.zuWenigStuecke": { de: "Nicht genug Stücke im Netz gefunden", en: "Not enough pieces found in the network" },
   "komm.nichtGespeichert": { de: "Unterhaltungen nicht gespeichert: {grund}", en: "Conversations not saved: {grund}" },
-  "komm.keineUnterhaltungen": { de: "Noch keine Unterhaltungen. Mit + beginnst du eine.", en: "No conversations yet. Start one with +." },
+  "komm.keineUnterhaltungen": { de: "Noch keine Unterhaltungen. Schreib jemandem – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer.", en: "No conversations yet. Write to someone – end-to-end encrypted, no phone number." },
+  "komm.neueUnterhaltung": { de: "Neue Unterhaltung", en: "New conversation" },
   // Dialoge statt prompt()/confirm()/alert() (C-1b)
   "komm.nameTitel": { de: "Eigener Name", en: "Your own name" },
   "komm.eigenerName": { de: "Eigener Name für {pk}", en: "Your own name for {pk}" },

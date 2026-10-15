@@ -17,7 +17,7 @@ import { ladeBeobachtet } from "./repo-sterne-ui.js";
 import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
-import { toast } from "../ui.js";
+import { leererZustand, toast } from "../ui.js";
 import { switchTab } from "../app.js";
 import { geheZuRaum, oeffentlicheRaeume } from "./raeume.js";
 import { kennungVon } from "../../oeffentliche-raeume.js";
@@ -236,8 +236,27 @@ function zeige(fokus = false): void {
   }
   const suche = (document.getElementById("repos-suche") as HTMLInputElement | null)?.value ?? "";
   const gezeigt = filtereKarten(karten, suche, nurMeine, state.keypair?.pk).filter((k) => !nurNeu || neuIn(k));
-  const leer = nurNeu ? "repo.nichtsNeues" : karten.length ? "repo.nichtsGefunden" : "repo.keineRepos";
-  box.replaceChildren(...(gezeigt.length ? gezeigt.map(karte) : [el("p", t(leer), "mono-sm muted")]));
+  box.replaceChildren(...(gezeigt.length ? gezeigt.map(karte) : [leerAnsicht(nurNeu, karten.length > 0)]));
+}
+
+/** Leer (C-45): Symbol, ein Satz und der Weg weiter – ankündigen, die Suche leeren oder alle zeigen. */
+function leerAnsicht(nurNeuGewaehlt: boolean, gibtRepos: boolean): HTMLElement {
+  if (nurNeuGewaehlt) {
+    return leererZustand("git", t("repo.nichtsNeues"), { text: t("repo.alleZeigen"), beiKlick: () => document.querySelector<HTMLElement>('#repos-filter [data-filter="alle"]')?.click() });
+  }
+  if (gibtRepos) {
+    return leererZustand("search", t("repo.nichtsGefunden"), {
+      text: t("repo.sucheLeeren"),
+      beiKlick: () => {
+        const feld = document.getElementById("repos-suche") as HTMLInputElement | null;
+        if (!feld) return;
+        feld.value = "";
+        feld.dispatchEvent(new Event("input"));
+        feld.focus();
+      },
+    });
+  }
+  return leererZustand("git", t("repo.keineRepos"), { text: t("agent.repoAnkuendigen"), beiKlick: () => document.getElementById("nip34-ankuendigen")?.click() });
 }
 
 /** Eine Karte: Name, Eigentümer, Beschreibung, offene Patches, letzte Aktivität, Marke „Bundle“. */
