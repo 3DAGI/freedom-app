@@ -1314,5 +1314,9 @@ ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfa
   Rahmengröße (ab 4096 Byte) bricht eine Antwort vorher ab und nennt für den Rest einen Fingerabdruck.
 - **Grenzen** (`NEG_GRENZEN`): Nachricht höchstens 512 KB, Id-Liste höchstens 100 000 Ids, Varints bis 2^53;
   Unpassendes ergibt `NegFehler` mit Kennung (`neg.format`, `neg.gross`, `neg.fassung`), nie Text aus der Nachricht.
-- **Noch nicht:** `NEG-OPEN`/`NEG-MSG`/`NEG-CLOSE` in der Relay-Rolle (B-35b, dort nur, was `darfAusliefern()`
-  zeigen würde) und der Abgleich nach Funkstille (B-35c).
+- **Relay-Rolle (seit B-35b):** `NEG-OPEN` (Kennung, ein Filter, erste Nachricht) legt den Stand fest – nur Events,
+  die `darfAusliefern()` der Verbindung auch per `REQ` zeigen würde (Umschläge nur an den angemeldeten Empfänger; ein
+  Filter auf Umschläge ohne Anmeldung ergibt `blocked: … auth-required`). Höchstens 50 000 Events je Abgleich, Rahmen
+  60 000 Byte, offene Abgleiche zählen wie Abos, jede Nachricht wie eine Abfrage. `NEG-ERR` nur mit festen Texten
+  (`blocked:`, `closed:`, `error:`); NIP-11 nennt 77.
+- **Noch nicht:** der Abgleich nach Funkstille (B-35c: eigenes Relay mit anderen, Gateway).
