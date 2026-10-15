@@ -10076,3 +10076,21 @@ Spur B, Sammlung B-33 (PT1 A: Snowflake und WebTunnel, Größe und Lizenz vor de
 - **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
 
 **Tests:** keine (nur Doku).
+
+## Schritt B-34-Entwurf – Gruppenanrufe über LiveKit
+
+Spur B, Sammlung B-34 (LK1 A: nur in privaten Räumen, Schlüssel aus MLS). Nur Doku: `docs/GRUPPENANRUF-ENTWURF.md`.
+
+- **Gemessen:** `livekit-server` 1.13.10 (Apache-2.0, Docker 43,7 MB amd64 / 41,5 MB arm64); `livekit-client`
+  2.22.4 (Apache-2.0, 15 Pakete ohne Copyleft) bringt 561 KB minifiziert und einen E2EE-Worker von 294 KB –
+  `freedom.html` wüchse von 8,7 MB um etwa 8 bis 10 %.
+- **Befunde:** Zugang nur mit JWT des Servers (das Geheimnis bleibt beim Knoten); E2EE über einen Schlüssel der
+  App, der SFU sieht Metadaten und IPs; `packages/mls` gibt kein Exporter-Geheimnis heraus; die CSP erlaubt den
+  Worker schon (`worker-src blob:`).
+- **Vorschläge V1–V5:** Dienst wie coturn, Zugänge nur versiegelt und je Teilnehmer, Schlüssel je Epoche, IP nur
+  bewusst zeigen (eigener TURN oder Warnung), ehrliche Texte.
+- **Fragen:** LK2 (Client ins Bundle), LK3 (Schlüssel aus dem MLS-Exporter oder vom Gastgeber), LK4 (IP der
+  Teilnehmer) – Empfehlung jeweils A. Aufteilung B-34a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
