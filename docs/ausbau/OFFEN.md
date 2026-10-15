@@ -177,7 +177,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
-| C-41 bis C-48 | Oberflächen-Review, sofort: Schlüssel per Klick, Schrift und Knöpfe, Führungsleiste, Avatare, leere Zustände, Agent-Kleinigkeiten, Namen, Website-Navigation ([`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md)) | frei, der Reihe nach |
+| C-41 bis C-48 | Oberflächen-Review, sofort: Schlüssel per Klick, Schrift und Knöpfe, Führungsleiste, Avatare, leere Zustände, Agent-Kleinigkeiten, Namen, Website-Navigation ([`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md)) | frei, der Reihe nach (C-41 ✓ [#452](https://github.com/3DAGI/freedom-app/pull/452)) |
 | C-49 bis C-55 | Oberflächen-Review, mittel: Agent-Eingabe, Wallet-Startseite, Tauschformular, Chat-Liste, Einstellungen, Verdienen, Onboarding | nach C-42 |
 | C-56 bis C-59 | Oberflächen-Review, größer: Bausteine und Bildvergleich, helles Design, Website-Auftritt, Rückmeldungen | nach C-42 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
