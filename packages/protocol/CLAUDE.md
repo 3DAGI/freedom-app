@@ -111,3 +111,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Binär, kein UTF-8 oder über `PATCH_MAX_BYTES` gibt es keinen Patch, nur den Fall. Text mit `TextDecoder` nur mit
   `ignoreBOM: true` – sonst fällt ein BOM still weg und der Patch passt nicht mehr (`alsText()` aus `git-bundle.ts`
   entfernt es, für die Anzeige richtig). Im Test heißt der Committer wie der Autor – `git am` nimmt ihn aus der Umgebung.
+- **Negentropy nur über `negentropy.ts`** (seit B-35a, NIP-77, NG1 B): eigene Umsetzung, Byte für Byte wie die Referenz
+  von hoytech – die Vektoren (`test/fixtures/negentropy-referenz.json`: Startwerte der Mengen, je Nachricht Länge und
+  SHA-256) nur mit `scripts/negentropy-referenz.mjs` neu erzeugen (Referenz auf Commit und Prüfsumme gepinnt, in einer VM nur
+  mit `crypto`). Der Port in nostr-tools (`nip77`) ist keine Referenz für die antwortende Seite – sie antwortet nie mit
+  einer Id-Liste. Nachrichten von außen nur in `NEG_GRENZEN`, Fehler nur als `NegFehler` mit Kennung.

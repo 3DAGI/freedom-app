@@ -9915,3 +9915,27 @@ draußen), Patch, `git am` ergibt denselben Commit, nichts Ignoriertes und kein 
 Protokoll `gitignore.test.ts` (2, neu).
 
 Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).
+
+## Schritt B-35a – Negentropy im Protokoll (NIP-77)
+
+Spur B, Sammlung B-35 (Anhang E, NG1 B, 09.10.: eigene Umsetzung mit Vektoren aus der Referenz). Mit wenig Daten
+herausfinden, welche Events der anderen Seite fehlen – Grundlage für den Abgleich zwischen eigenem Relay und anderen,
+nach Funkstille und über Gateways. B-35 ist geteilt: a Kern im Protokoll, b Relay-Rolle (`NEG-OPEN`), c Abgleich.
+
+- **`protocol/src/negentropy.ts`:** `NegSpeicher` (Einträge Zeit + Id, sortiert, keine doppelten, Fingerabdruck
+  als SHA-256 über die Summe der Ids mod 2^256 und die Anzahl), `Negentropy` (`beginne()`, `abgleich()`): Bereiche mit
+  kürzesten Grenzen, Überspringen, Fingerabdruck, Id-Liste, 16 Teile ab 32 Einträgen, Rahmengröße ab 4096 Byte; die
+  beginnende Seite sammelt `habe` und `brauche`, die andere antwortet. Nachrichten von außen begrenzt (`NEG_GRENZEN`),
+  Fehler nur als `NegFehler` mit Kennung.
+- **Vektoren aus der Referenz:** `scripts/negentropy-referenz.mjs` lädt die JS-Referenz von Doug Hoyte (MIT) an einem
+  festen Commit, prüft die Prüfsumme, führt sie in einer VM nur mit `crypto` aus und spielt sieben Abgleiche durch (leer,
+  gleich, klein, einseitig, groß über mehrere Runden, gleiche Zeiten, Rahmen 4096 mit 20 Nachrichten); die Datei hält nur
+  Startwerte, Längen und SHA-256 (10 KB).
+- **Verdrahtet:** mit B-35b (Relay-Rolle) – Ausnahmen in `scripts/wiring-ausnahmen.txt` mit Grund.
+- **Doku:** `PROTOCOL.md` §37, Sammlung, OFFEN, FORTSCHRITT, Fallstricke in `packages/protocol/CLAUDE.md` und
+  `scripts/CLAUDE.md` (Namen in `check-wiring.py`).
+
+**Tests:** Protokoll `negentropy.test.ts` (3, neu): alle Nachrichten und Ergebnisse wie die Referenz; 40 Zufallsabgleiche
+gegen die Mengenlehre, mit und ohne Rahmen; feindliche Nachrichten (Hex, Längen, Varints, Modus, Fassung, Id-Listen).
+
+Knoten-Stand: unverändert (Baustein im Protokoll).
