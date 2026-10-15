@@ -491,7 +491,8 @@ gemacht.“
 
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
-| 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 |
+| 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 – **fertig** als VKb (`node/src/sandbox.ts`; den Arbeitsordner auf tmpfs legt 11.5c an) |
+| 11.5s2 | seccomp in der Sandbox wie bei Codex (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl | B | ~200 |
 | 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 |
 | 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 |
 | 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 – **fertig** (14.10.: `repo-auftrag.ts`; `istAgent` an `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()`, Repo-Karten der App) |

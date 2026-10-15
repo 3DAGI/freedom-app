@@ -284,7 +284,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
-| VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 |
+| VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 – **fertig** (`node/src/sandbox.ts`: `fuehreAus()` je Befehl, `sandboxMotor()` für den Motor, `pruefeSandbox()` beim Start und in `npm run pruefen`; Arbeitsspeicher und seccomp noch nicht – 11.5s2; unter Docker sperrt das Standard-Seccomp Nutzer-Namensräume, Frage in `OFFEN.md` 1.1); den Bildschirm bringt VKg |
 | VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 – **fertig** (`liste`, `neu`; ein Lauf bis VKc2 mit `code-ohne-motor` abgelehnt) |
 | VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 – **fertig** (`code-motor.ts`: Lauf im Hintergrund, Commit je Schritt; gestartet wird der Motor erst mit der Sandbox in VKc3, bis dahin `code-ohne-motor`) |
 | VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 |
@@ -355,3 +355,8 @@ den neuen Fragen oben.
 
 Damit sind VKc2 (ACP-Client), VKf (Kurzcode) und VKj (Werkbank-Knoten) frei; VKc3 und VKd
 folgen nach VKc2 und der Sandbox (VKb, Spur B).
+
+**Seit VKb (15.10.2026):** Die Sandbox hat kein Netz. Den Endpunkt des Modells und die
+MCP-Server erreicht der Motor darin nur über eine Brücke, die VKc3 baut (wie die Proxy-Brücke
+von Codex: ein Unix-Socket in die Sandbox, dahinter nur das Modell) – nie, indem die Sandbox
+das Netz des Rechners teilt.

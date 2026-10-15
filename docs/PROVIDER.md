@@ -510,6 +510,18 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   sich dort auch ohne Freedom mit git öffnen.
 - **Wer darf:** nur gekoppelte Geräte des Besitzers, versiegelt (Kind 5080). Ins
   Log kommen nur Zahlen, nie Projektnamen.
+- **Sandbox (seit VKb):** Code führt der Knoten nur in bubblewrap aus
+  (`apt install bubblewrap`, das Docker-Bild bringt es mit) – ohne Netz, die
+  Wurzel nur lesbar, schreibbar nur der Projektordner (darin `.git` nur lesbar),
+  leere Umgebung; dein Home und `~/.freedom` sieht der Code nicht. Grenzen je
+  Befehl: 60 s, 120 s Rechenzeit, Dateien bis 512 MB, 1024 offene Dateien,
+  `/tmp` mit 512 MB. Den Arbeitsspeicher begrenzt die Sandbox noch nicht.
+  Ob sie geht, steht beim Start im Log (`[code] Sandbox …`) und in
+  `npm run pruefen`. Ohne bubblewrap oder ohne Nutzer-Namensräume läuft kein
+  Code – nie direkt auf dem Rechner. **Unter Docker** sperrt das
+  Standard-Seccomp meist Nutzer-Namensräume; dann meldet die Prüfung das. Ubuntu ab 24.04
+  kann sie per AppArmor sperren (`kernel.apparmor_restrict_unprivileged_userns`).
+  Den Agenten startet der Knoten darin erst mit VKc3.
 
 ## Gratis-Start (A-14)
 
