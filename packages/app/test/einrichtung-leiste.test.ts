@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setLang } from "../src/i18n.js";
-import { nextStep, type Readiness } from "../src/onboarding.js";
+import { hinweisSeite, nextStep, type Readiness } from "../src/onboarding.js";
 
 const quelle = (pfad: string) => readFileSync(new URL(pfad, import.meta.url), "utf8");
 const neu: Readiness = { hasIdentity: true, backedUp: false, hasVault: false, hasWallet: false, hasUsedOnce: false, gratisErschoepft: false };
@@ -16,7 +16,7 @@ test("die Wahl aus der Einrichtung zählt ab dem ersten Schritt", () => {
   const schreiben = nextStep(neu, "kommunizieren");
   assert.equal(schreiben.id, "los-chat");
   assert.equal(schreiben.title, "Schreib jemandem");
-  assert.equal(schreiben.action, "Zu den Nachrichten");
+  assert.equal(schreiben.action, undefined, "seit C-43 steht die Karte schon in den Chats – kein Knopf, der nur hinführt");
   assert.match(schreiben.body, /Profil › Teilen/);
   assert.equal(nextStep(neu, "verdienen").id, "provider-anleitung");
   // Ohne Wahl und mit „KI fragen“ wie bisher
@@ -26,9 +26,10 @@ test("die Wahl aus der Einrichtung zählt ab dem ersten Schritt", () => {
   for (const intent of ["kommunizieren", "verdienen", "nutzen"] as const) assert.equal(nextStep({ ...neu, hasUsedOnce: true }, intent).id, "sichern");
 });
 
-test("der Knopf der Leiste führt in die Nachrichten; die erste Nachricht ist die erste Nutzung", () => {
+test("die Karte steht in den Nachrichten (seit C-43 statt eines Knopfs dorthin); die erste Nachricht ist die erste Nutzung", () => {
+  assert.equal(hinweisSeite("los-chat", "kommunizieren"), "comm");
   const app = quelle("../src/shell/app.ts");
-  assert.match(app, /else if \(schritt\.id === "los-chat"\) document\.querySelector<HTMLElement>\('\[data-tab="comm"\]'\)\?\.click\(\);/);
+  assert.doesNotMatch(app, /schritt\.id === "los-chat"/);
   const komm = quelle("../src/shell/tabs/kommunikation.ts");
   assert.match(komm, /if \(localStorage\.getItem\("freedom\.usedOnce"\) !== "1"\) \{\n\s+localStorage\.setItem\("freedom\.usedOnce", "1"\);\n\s+void zeigeOnboarding\(\);/);
 });

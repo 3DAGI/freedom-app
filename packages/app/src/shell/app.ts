@@ -309,15 +309,20 @@ export function merkeGratisAbgelehnt(): void {
 async function zeigeBackupWarnung(): Promise<void> {
   try {
     const { backupStatus } = await import("../identity.js");
+    const { hinweisSeite } = await import("../onboarding.js");
     const st = backupStatus();
     const warn = $("#backup-warn");
     if (!warn) return;
     if (st.warning && localStorage.getItem("freedom.usedOnce") === "1" && !leisteZeigtSichern) {
-      const knopf = el("button", t("set.jetztSichern"), "ghost");
+      const knopf = el("button", t("set.jetztSichern"), "primaer");
       knopf.id = "bk-now";
-      knopf.style.cssText = "width:auto;padding:4px 8px";
       knopf.addEventListener("click", () => void sichereJetzt());
-      warn.replaceChildren(`⚠ ${st.warning} `, knopf);
+      const knoepfe = el("div", "", "ob-knoepfe");
+      knoepfe.append(knopf);
+      // Als Karte neben der Führung (C-43): auf der Seite, die man in der Einrichtung gewählt hat
+      const seite = hinweisSeite("sichern", (localStorage.getItem("freedom.intent") as never) ?? "unbekannt");
+      document.querySelector(`.seiten-hinweis[data-hinweis="${seite}"]`)?.append(warn);
+      warn.replaceChildren(el("p", `⚠ ${st.warning}`, "ob-body"), knoepfe);
       warn.classList.remove("hidden");
     } else {
       warn.classList.add("hidden");
@@ -417,7 +422,7 @@ export async function zeigeOnboarding(): Promise<void> {
   const bar = $("#onboarding-bar");
   if (!bar) return;
   try {
-    const { nextStep } = await import("../onboarding.js");
+    const { hinweisSeite, nextStep } = await import("../onboarding.js");
     const { backupStatus } = await import("../identity.js");
     // Während der Einrichtung keine Leiste daneben (C-39, Nutzertest E-1: „nichts einzurichten“ neben
     // Merkphrase und Assistent) – danach zeigt die Einrichtung sie selbst. Erst nach dem Laden prüfen:
@@ -425,6 +430,7 @@ export async function zeigeOnboarding(): Promise<void> {
     if (einrichtungLaeuft()) { bar.classList.add("hidden"); return; }
 
     const bu = backupStatus();
+    const absicht = (localStorage.getItem("freedom.intent") as never) ?? "unbekannt";
     const schritt = nextStep({
       hasIdentity: !!state.keypair,
       backedUp: bu.confirmed,
@@ -433,7 +439,7 @@ export async function zeigeOnboarding(): Promise<void> {
       hasUsedOnce: localStorage.getItem("freedom.usedOnce") === "1",
       gratisErschoepft: gratisAbgelehnt,
       merkphraseDa: geheim.getItem(LS_MERKPHRASE) !== null,
-    }, (localStorage.getItem("freedom.intent") as never) ?? "unbekannt");
+    }, absicht);
 
     leisteZeigtSichern = schritt.id === "sichern";
     void zeigeBackupWarnung();
@@ -442,46 +448,39 @@ export async function zeigeOnboarding(): Promise<void> {
       return;
     }
 
-    bar.className = `mono-sm urgency-${schritt.urgency}`;
-    // Seit C.5b als DOM; auf dem Handy nur Titel und Knöpfe – den Text klappt „mehr“ auf
-    const knopf = (id: string, text: string) => {
+    // Als Karte auf der Seite, zu der der Schritt gehört (C-43) – bis dahin eine Leiste über jeder Seite
+    document.querySelector(`.seiten-hinweis[data-hinweis="${hinweisSeite(schritt.id, absicht)}"]`)?.prepend(bar);
+    bar.className = `hinweis-karte urgency-${schritt.urgency}`;
+    // Seit C.5b als DOM; Titel, Text und Knöpfe untereinander, der Text immer ganz (C-43)
+    const knopf = (id: string, text: string, art: string) => {
       const b = document.createElement("button");
       b.id = id;
       b.type = "button";
-      b.className = "ghost";
+      b.className = art;
       b.textContent = text;
       return b;
     };
-    const titel = document.createElement("span");
+    const titel = document.createElement("strong");
     titel.className = "ob-title";
     titel.textContent = schritt.title;
-    const text = document.createElement("span");
+    const text = document.createElement("p");
     text.className = "ob-body";
-    text.id = "ob-body";
     text.textContent = schritt.body;
-    const mehr = knopf("ob-mehr", t("ein.obMehr"));
-    mehr.setAttribute("aria-controls", "ob-body");
-    mehr.setAttribute("aria-expanded", "false");
-    mehr.addEventListener("click", () => {
-      const auf = bar.classList.toggle("ob-offen");
-      mehr.setAttribute("aria-expanded", String(auf));
-      mehr.textContent = t(auf ? "ein.obWeniger" : "ein.obMehr");
-    });
-    bar.replaceChildren(titel, text, mehr,
-      ...(schritt.action ? [knopf("ob-action", schritt.action)] : []),
-      ...(schritt.skippable ? [knopf("ob-skip", t("ein.spaeter"))] : []));
+    const knoepfe = document.createElement("div");
+    knoepfe.className = "ob-knoepfe";
+    knoepfe.append(
+      ...(schritt.action ? [knopf("ob-action", schritt.action, "primaer")] : []),
+      ...(schritt.skippable ? [knopf("ob-skip", t("ein.spaeter"), "ghost")] : []));
+    bar.replaceChildren(titel, text, ...(knoepfe.childElementCount ? [knoepfe] : []));
 
     bar.querySelector("#ob-action")?.addEventListener("click", () => {
       if (schritt.id === "sichern") void sichereJetzt();
       else if (schritt.id === "tresor") void richteTresorEin().then(() => zeigeOnboarding());
       else if (schritt.id === "wallet") document.querySelector<HTMLElement>('[data-tab="wallet"]')?.click();
-      else if (schritt.id === "los-chat") document.querySelector<HTMLElement>('[data-tab="comm"]')?.click();
       else if (schritt.id === "provider-anleitung") {
         // Der Befehl steht in Earn › Hosten (C-24), nicht in der Übersicht
-        document.querySelector<HTMLElement>('[data-tab="earn"]')?.click();
         document.querySelector<HTMLElement>('[data-subtab-group="earn"] [data-subtab="host"]')?.click();
       }
-      else document.querySelector<HTMLElement>('[data-tab="ai"]')?.click();
     });
     // "Spaeter" blendet nur diesen Schritt aus, nicht die Fuehrung: Wer
     // dauerhaft wegklickt, verliert bei geloeschten Browserdaten alles.

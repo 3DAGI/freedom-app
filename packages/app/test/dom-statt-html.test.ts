@@ -83,7 +83,8 @@ test("C-6b: Merkphrase, Sicherungs-Warnung und Sprachmenü als DOM", () => {
   const app = quelle("../src/shell/app.ts");
   assert.match(app, /liste\.append\(\.\.\.woerter\.map\(\(w\) => el\("li", w\)\)\);/);
   assert.match(app, /feld\.dataset\.pos = String\(p\);/);
-  assert.match(app, /warn\.replaceChildren\(`⚠ \$\{st\.warning\} `, knopf\);/);
+  // Seit C-43 als Karte: der Text als eigener Absatz, der Knopf darunter
+  assert.match(app, /warn\.replaceChildren\(el\("p", `⚠ \$\{st\.warning\}`, "ob-body"\), knoepfe\);/);
   assert.match(app, /const b = el\("button", `\$\{l\.code\.toUpperCase\(\)\} · \$\{l\.label\}`, l\.code === getLang\(\) \? "active" : undefined\);/);
   // Was bleibt, sind feste Vorlagen ohne Fremddaten: der Rahmen des Merkphrasen-Dialogs, Symbole, das Logo
   assert.doesNotMatch(app, /woerter\.map\(\(w\) => `/);
