@@ -41,6 +41,14 @@ test("5.7: eigene Eingabe – durch „;“ oder Zeilen getrennt, Notiz dahinter
     { modell: "deepseek-coder:6.7b", notiz: "schnell und klein" },
   ]);
   assert.deepEqual(leseKatalogEingabe("  ;\n "), []);
+  // E9-4: am Ende der Zeile optional die Id eines Manifests – nur genau 64 Zeichen hex, sonst gehört es zur Notiz
+  const id = "ab".repeat(32);
+  assert.deepEqual(leseKatalogEingabe(`qwen2.5:0.5b klein ${id}\nllama3.2:3b ${id}\nmistral:7b notiz ${id.toUpperCase()}\n${id}`), [
+    { modell: "qwen2.5:0.5b", notiz: "klein", manifest: id },
+    { modell: "llama3.2:3b", manifest: id },
+    { modell: "mistral:7b", notiz: `notiz ${id.toUpperCase()}` },
+    { modell: id },
+  ]);
   assert.equal(katalogKennung("Zum Programmieren – schnell & günstig!"), "zum-programmieren-schnell-gunstig");
   assert.equal(katalogKennung("???"), "katalog");
   assert.equal(katalogKennung("x".repeat(100)).length, 64);

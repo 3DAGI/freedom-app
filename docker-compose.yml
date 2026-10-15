@@ -111,6 +111,9 @@ services:
       # E9-3: Modelle geprueft laden (docker compose exec node npm run modell -- <name> --aus-registry,
       # docs/PROVIDER.md); passt es in den Speicher? Leer: Arbeitsspeicher des Rechners
       MODELL_SPEICHER_GB: "${MODELL_SPEICHER_GB:-}"
+      # E9-4: Modellkataloge, denen der Knoten folgt (38080:<kurator>:<kennung>, mit Komma) – deren Manifeste
+      # gelten neben dem eigenen. Leer: nur das eigene; ungueltig: der Knoten startet nicht
+      MODELL_KATALOGE: "${MODELL_KATALOGE:-}"
       FREE_TOKENS_PER_DAY: "${FREE_TOKENS_PER_DAY:-2000}"
       # Gratis-Start (A-14): Budget des Knotens je Tag fuer alle zusammen, Grenze je Antwort,
       # Rechenarbeit einer Gratis-Anfrage. Leer = Vorgabe (100000 / 2000 / 16), GRATIS_TOKENS_TAG=0 schaltet ab.

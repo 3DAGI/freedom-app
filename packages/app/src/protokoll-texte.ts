@@ -561,6 +561,7 @@ const FEHLER: Record<string, string> = {
   "katalog-doppelt": "pf.katalogDoppelt",
   "meshtastic-ohne-kanal": "pf.meshtasticOhneKanal",
   "katalog-notiz": "pf.katalogNotiz",
+  "katalog-manifest": "pf.katalogManifest",
   "kontakte-max": "pf.kontakteMax",
   "kontakte-unlesbar": "pf.kontakteUnlesbar",
   "kontakte-kaputt": "pf.kontakteKaputt",

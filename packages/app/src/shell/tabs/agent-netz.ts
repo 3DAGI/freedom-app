@@ -226,8 +226,10 @@ export async function zeigeKataloge(): Promise<void> {
         const tr = neu("tr");
         tr.append(neu("td", z.modell));
         z.in.forEach((drin, i) => {
-          const td = neu("td", drin ? "✓" : "–", drin ? "ok" : "muted");
-          if (z.notizen[i]) td.title = z.notizen[i]!;
+          // Nennt der Kurator ein Manifest (E9-4), steht es als Text da – geprüft wird am Knoten, nicht hier
+          const td = neu("td", drin ? (z.manifeste[i] ? t("agent.mitPruefsummen") : "✓") : "–", drin ? "ok" : "muted");
+          const titel = [z.notizen[i], z.manifeste[i] ? t("agent.pruefsummenTitel") : undefined].filter(Boolean).join(" – ");
+          if (titel) td.title = titel;
           tr.append(td);
         });
         tr.append(neu("td", String(z.provider), z.provider > 0 ? "" : "err"));
@@ -235,6 +237,7 @@ export async function zeigeKataloge(): Promise<void> {
         tabelle.append(tr);
       }
       vergleichBox.append(tabelle);
+      if (v.zeilen.some((z) => z.manifeste.some(Boolean))) vergleichBox.append(neu("div", t("agent.pruefsummenTitel"), "muted"));
     }
 
     gefundenBox.replaceChildren();

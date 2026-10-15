@@ -8,13 +8,13 @@ import assert from "node:assert/strict";
 import { generateKeypair, signEvent, buildEvent, verifyEvent, type NostrEvent } from "../src/event.js";
 import {
   KIND_MODELL_KATALOG, KATALOG_MAX_MODELLE, baueModellKatalog, katalogAdresse, leseKatalogAdresse,
-  leseModellKatalog, modellAngebote, neuesteKataloge, vergleicheKataloge,
+  katalogFreigaben, leseModellKatalog, modellAngebote, neuesteKataloge, vergleicheKataloge,
 } from "../src/modell-katalog.js";
 
 const ANNA = generateKeypair();
 const BERT = generateKeypair();
 
-function katalog(kp = ANNA, modelle: Array<{ modell: string; notiz?: string }> = [{ modell: "qwen3.5:9b" }], opts: { d?: string; titel?: string; zeit?: number } = {}): NostrEvent {
+function katalog(kp = ANNA, modelle: Array<{ modell: string; notiz?: string; manifest?: string }> = [{ modell: "qwen3.5:9b" }], opts: { d?: string; titel?: string; zeit?: number } = {}): NostrEvent {
   return signEvent(baueModellKatalog({ kurator: kp.pk, d: opts.d ?? "code", titel: opts.titel ?? "Zum Programmieren", modelle }, opts.zeit ?? 1_790_000_000), kp.sk);
 }
 
@@ -113,4 +113,29 @@ test("5.7/8.8: zwei Kataloge vergleichen – gemeinsam, nur in einem, mit Angebo
   const eins = vergleicheKataloge([text], angebote);
   assert.deepEqual([eins.gemeinsam, eins.nurIn], [[], [["llama3.2:3b", "Qwen3.5:9b"]]]);
   assert.deepEqual(vergleicheKataloge([], angebote), { zeilen: [], gemeinsam: [], nurIn: [] });
+});
+
+test("E9-4: ein Eintrag nennt das Manifest – viertes Feld, ältere Leser übergehen es", () => {
+  const MANIFEST = "ab".repeat(32);
+  const ev = katalog(ANNA, [{ modell: "qwen2.5:0.5b", manifest: MANIFEST }, { modell: "llama3.2:3b", notiz: "klein", manifest: "cd".repeat(32) }, { modell: "ohne:1b" }]);
+  assert.deepEqual(ev.tags.slice(2), [["model", "qwen2.5:0.5b", "", MANIFEST], ["model", "llama3.2:3b", "klein", "cd".repeat(32)], ["model", "ohne:1b"]]);
+  const k = leseModellKatalog(ev);
+  assert.deepEqual(k.modelle, [{ modell: "qwen2.5:0.5b", manifest: MANIFEST }, { modell: "llama3.2:3b", notiz: "klein", manifest: "cd".repeat(32) }, { modell: "ohne:1b" }]);
+  // Bauen: nur eine Event-Id, sonst Fehler mit Kennung
+  assert.throws(() => katalog(ANNA, [{ modell: "x:1b", manifest: "AB".repeat(32) }]), (e: Error & { kennung?: string }) => e.kennung === "katalog-manifest");
+  assert.throws(() => katalog(ANNA, [{ modell: "x:1b", manifest: "ab".repeat(31) }]), /Manifest zu x:1b/);
+  // Lesen: ein kaputtes viertes Feld fällt weg, der Eintrag bleibt
+  const roh = signEvent(buildEvent(BERT.pk, KIND_MODELL_KATALOG, [["d", "x"], ["model", "a:1b", "", "nicht-hex"], ["model", "b:1b", "", "ab".repeat(32) + "00"], ["model", "c:1b", "n", MANIFEST, "mehr"]], "", 1_790_000_000), BERT.sk);
+  assert.deepEqual(leseModellKatalog(roh).modelle, [{ modell: "a:1b" }, { modell: "b:1b" }, { modell: "c:1b", notiz: "n", manifest: MANIFEST }]);
+});
+
+test("E9-4: Freigaben je Modell aus den Katalogen, Vergleich zeigt, wer ein Manifest nennt", () => {
+  const [M1, M2] = ["11".repeat(32), "22".repeat(32)];
+  const a = leseModellKatalog(katalog(ANNA, [{ modell: "Qwen2.5:0.5b", manifest: M1 }, { modell: "llama3.2:3b" }]));
+  const b = leseModellKatalog(katalog(BERT, [{ modell: "qwen2.5:0.5b", manifest: M2 }, { modell: "llama3.2:3b", manifest: M1 }]));
+  assert.deepEqual([...katalogFreigaben([a, b], "qwen2.5:0.5b")].sort(), [M1, M2], "Schreibweise wie im Katalog egal");
+  assert.deepEqual([...katalogFreigaben([a], "llama3.2:3b")], [], "ohne Manifest keine Freigabe");
+  assert.deepEqual([...katalogFreigaben([], "qwen2.5:0.5b")], []);
+  const v = vergleicheKataloge([a, b], new Map());
+  assert.deepEqual(v.zeilen.map((z) => [z.modell, z.manifeste]), [["llama3.2:3b", [false, true]], ["Qwen2.5:0.5b", [true, true]]]);
 });

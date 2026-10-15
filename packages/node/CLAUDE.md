@@ -247,3 +247,9 @@ Bereichs unten anhängen.
   `stopp` kann aus der Meldung heraus kommen. „fragen“ wählt nur „einmal erlauben“, nie „immer“. Die Uhren eines Laufs
   nicht mit `unref()` – sie halten den Knoten wach, solange er läuft, und enden mit ihm. Schritte aus dem Relay nie nach
   Ankunft ordnen: Umschläge tragen zufällige Zeitstempel (NIP-59) – es zählen `nr` und `art`.
+- **Manifeste von Kuratoren nur über abonnierte Kataloge** (seit E9-4, `modell-kataloge.ts`): Welchen Katalogen der
+  Knoten folgt, sagt nur `MODELL_KATALOGE` (`katalogeAusUmgebung()`, ungültig → kein Start, höchstens 20); gelesen nur
+  gültig signiert und je Adresse der neueste (`holeKataloge()`), frei wird nur die Id im vierten Feld eines Eintrags
+  (`KatalogFreigaben.fuer()` → `vertrautesManifest()`) – nie ein Schlüssel allein, nie ein anderes Manifest desselben
+  Kurators. Antworten die Relays nicht, gibt es keine Freigaben (nie die von gestern). Den Lader erreichen Freigaben nur
+  über `LaderHilfen.freigaben()`; `manifeste()` holt die freigegebenen Ids mit.

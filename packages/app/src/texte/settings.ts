@@ -166,7 +166,7 @@ export const settings: Texte = {
   "set.modLadenNurOllama": { de: "gewünscht über Ollama – mit diesem KI-Antrieb lädt der Knoten nur von Hugging Face", en: "requested via Ollama – with this AI engine the node downloads only from Hugging Face" },
   "set.modLadenNurAntrieb": { de: "gewünscht von Hugging Face – das geht nur mit einem OpenAI-kompatiblen KI-Antrieb", en: "requested from Hugging Face – this needs an OpenAI-compatible AI engine" },
   "set.modWartet": { de: "gewünscht, wartet auf den Knoten", en: "requested, waiting for the node" },
-  "set.modManifestKeins": { de: "kein eigenes Manifest des Knotens – am Knoten: npm run modell -- <name> --aus-registry bzw. --aus-hf", en: "no manifest of the node itself – on the node: npm run modell -- <name> --aus-registry or --aus-hf" },
+  "set.modManifestKeins": { de: "kein eigenes Manifest und keins aus einem abonnierten Katalog – am Knoten: npm run modell -- <name> --aus-registry bzw. --aus-hf, oder einen Katalog in MODELL_KATALOGE", en: "no manifest of its own and none from a subscribed catalog – on the node: npm run modell -- <name> --aus-registry or --aus-hf, or a catalog in MODELL_KATALOGE" },
   "set.modManifestUneinig": { de: "{herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl", en: "{herausgeber} publishers name different files – no choice" },
   "set.modManifestKeineQuelle": { de: "das Manifest nennt keine passende Quelle zu diesem Namen", en: "the manifest names no matching source for this name" },
   "set.modManifestNichtVeroeffentlicht": { de: "eigenes Manifest nicht veröffentlicht ({fehler}) – nichts geladen", en: "own manifest not published ({fehler}) – nothing downloaded" },
