@@ -22,6 +22,15 @@ export function wireWalletAktionen(): void {
   document.querySelectorAll<HTMLElement>("#wallet-gesamt [data-subtab-ziel]").forEach((b) => {
     b.addEventListener("click", () => document.querySelector<HTMLElement>(`[data-subtab-group="wallet"] [data-subtab="${b.dataset.subtabZiel}"]`)?.click());
   });
+  // Einrichtung (C-50c): jeder Weg führt zu dem Feld oder Knopf, den es schon gibt – nichts Neues dahinter
+  document.getElementById("weg-eingebaut")?.addEventListener("click", () => document.getElementById("solw-einrichten")?.click());
+  document.getElementById("weg-lightning")?.addEventListener("click", () => {
+    const details = document.getElementById("ln-verwalten");
+    details?.setAttribute("open", "");
+    details?.scrollIntoView({ block: "center" });
+    document.getElementById("nwc-uri")?.focus();
+  });
+  document.getElementById("weg-solana")?.addEventListener("click", () => document.getElementById("sol-connect")?.click());
   zeigeGesamt();
 }
 
@@ -41,6 +50,11 @@ export function zeigeGesamt(): void {
     solLamports: sol.length === 0 ? undefined : bekannt.length ? bekannt.reduce((a, b) => a + b, 0) : null,
     fehlt: bekannt.length < sol.length && bekannt.length > 0,
   }, kurs);
+  // Ohne Konto die Einrichtung als Assistent (C-50c); die eingebaute Wallet nur, wo es sie gibt (nicht mit Bunker)
+  const einrichten = document.getElementById("wallet-einrichten");
+  if (einrichten) einrichten.hidden = !!g;
+  const eingebaut = document.getElementById("weg-eingebaut");
+  if (eingebaut) eingebaut.hidden = !!document.getElementById("solw-einrichten")?.classList.contains("hidden");
   if (!g) {
     zahl.textContent = "—";
     einheit.textContent = "";
