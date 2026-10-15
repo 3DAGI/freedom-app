@@ -10001,3 +10001,30 @@ Dateien, aber nicht den Arbeitsspeicher – ein Befehl konnte den Rechner des Pr
 **Tests:** Knoten `sandbox.test.ts` (1 neu, 1 erweitert): Grenzen samt `ulimit -d`; mit echtem bubblewrap und Python
 scheitert ein Puffer über der Grenze mit `MemoryError`, 64 MB gehen; der Motor sieht Speichergrenze, aber keine
 Rechenzeitgrenze.
+
+## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue
+Abhängigkeit, kein neues Event-Format: Code-Auftrag 5080 (VKa) mit einer Aktion mehr, Blobs wie 8.9a,
+Datei-Verschlüsselung wie Anhänge.
+
+**Gebaut:**
+- Protokoll `knoten-code.ts`: Aktion `bundle` (Parameter `projekt`), Antwort mit `blob`, `manifest`, `schluessel`
+  (`DateiSchluessel`, genau vier Felder) und `bytes` (1 bis `CODE_GRENZEN.bundle` = 32 MB); jede andere Form
+  liest `leseCodeAntwort()` nicht.
+- Knoten:
+  - `ProjektAblage.bundle()`: `git bundle create --all` über `git()` in eine Datei mit Punkt neben den Projekten,
+    danach immer gelöscht; ohne Commit `code-leer`, über 32 MB `code-zu-gross`.
+  - `bundleInsBlobNetz()` im Provider: verschlüsselt (`verschluesseleDatei()`), `buildBlob(…, { verschluesselt: true })`,
+    signiert mit einem **Wegwerfschlüssel** (nie dem des Knotens – der Blob verriete sonst, wessen Knoten das Repo
+    baute), die Stücke hält der Knoten selbst (`nimmAuf(…, { halten: true })`), veröffentlicht über den Pool. Den
+    Schlüssel bekommt nur der Besitzer in der versiegelten Antwort.
+- Doku: `PROTOCOL.md` §34 (Aktion, Fälle, Absatz Bundle), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:**
+- protocol ±0: `knoten-code.test.ts` – Bundle hin und zurück, sechs kaputte Antworten (in bestehenden Fällen);
+- node +2: `projekt-bundle.test.ts` – `code-leer`, Bundle mit `main`, keine Datei bleibt liegen; der ganze Weg mit
+  Wegwerfschlüssel ≠ Knotenschlüssel, Stücke gehalten, Schlüssel nicht öffentlich, zusammengesetzt und entschlüsselt
+  das Bundle, Projektname nie im Log.
+
+**Offen:** VKl2 (App: Projekt und Raum wählen, Ankündigung und Bundle-Verweis in den Raum).

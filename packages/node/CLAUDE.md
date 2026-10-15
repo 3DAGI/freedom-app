@@ -227,6 +227,10 @@ Bereichs unten anhängen.
   `projekte.test.ts`). Neue git-Befehle nur über `git()` und mit Blick darauf, was sie aus der Konfiguration
   ausführen. Projektnamen sind Inhalt: Fehler des Dateisystems (tragen den Pfad) nur als `code-ablage`
   hinaus und ins Log, `outputPreview` nur mit Zahlen.
+  Ein Projekt verlässt den Knoten (seit VKl) nur als Bundle über `ProjektAblage.bundle()` (git über `git()`, Datei
+  mit Punkt neben den Projekten, danach gelöscht) und nur verschlüsselt ins Blob-Netz unter einem
+  **Wegwerfschlüssel** (`bundleInsBlobNetz()`) – nie unter dem Schlüssel des Knotens, der Blob läge sonst neben
+  seinem Angebot und verriete, wessen Knoten das Repo baute. Den Schlüssel bekommt nur der Besitzer versiegelt.
 - **Mini-App für Telegram nur über `tmaAusUmgebung()`** (seit TMA-2, `tma-server.ts`, `docs/MINI-APP-TMA.md`): nur mit
   `FREEDOM_TMA=1` und gültigem Bot-Token (ungültig → kein Start), Host `127.0.0.1`, TON nur mit eigener
   `TON_DEPOT_ADDRESS` – nie eine Adresse einer anderen Kette als Rückfall (bis TMA-2 `NODE_SOL_ADDRESS`).

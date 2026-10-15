@@ -56,6 +56,7 @@ import {
   kuerzeAntwort, leseKurzWunsch,
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
   KIND_DVM_KNOTEN_STATUS, KURZCODE_TAG, knotenStatusText, type KnotenStatus,
+  buildBlob, generateKeypair, verschluesseleDatei,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
@@ -945,7 +946,8 @@ export class DvmProvider {
     else if (a.aktion === "neu") {
       await this.cfg.projekte.neu(a.projekt);
       antwort = { aktion: "neu", projekt: a.projekt };
-    } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
+    } else if (a.aktion === "bundle") antwort = await this.bundleInsBlobNetz(this.cfg.projekte, a.projekt);
+    else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
       ? { aktion: "freigabe", ok: this.cfg.code.freigabe(a.lauf, a.schritt, a.ja) }
@@ -970,9 +972,32 @@ export class DvmProvider {
       providerMsat: 0,
       aufteilung: [],
       outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer`
-        : antwort.aktion === "neu" ? "Code: Projekt angelegt" : `Code: ${antwort.aktion}`,
+        : antwort.aktion === "neu" ? "Code: Projekt angelegt"
+        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz` : `Code: ${antwort.aktion}`,
       durationMs: Date.now() - start,
     };
+  }
+
+  /**
+   * Projekt als git-Bundle ins Blob-Netz (VKl): verschlüsselt wie ein Anhang (`verschluesseleDatei()`), Manifest
+   * und Stücke unter einem Wegwerfschlüssel – nicht unter dem des Knotens, sonst verbände das Repo im Raum
+   * Besitzer und Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst (`nimmAuf(…, { halten })`).
+   * Den Schlüssel bekommt nur der Besitzer, versiegelt in der Antwort.
+   */
+  private async bundleInsBlobNetz(projekte: ProjektAblage, projekt: string): Promise<CodeAntwort> {
+    const bytes = await projekte.bundle(projekt);
+    const { chiffrat, schluessel } = verschluesseleDatei(bytes);
+    const wegwerf = generateKeypair();
+    try {
+      const b = await buildBlob({ name: "", mime: "application/octet-stream", bytes: chiffrat }, wegwerf.pk, { verschluesselt: true });
+      const manifest = signEvent(b.manifestEvent, wegwerf.sk);
+      const stuecke = b.chunkEvents.map((c) => signEvent(c, wegwerf.sk));
+      for (const s of stuecke) await this.storage?.nimmAuf(s, { halten: true });
+      for (const ev of [manifest, ...stuecke]) await this.pool.publish(ev);
+      return { aktion: "bundle", blob: b.manifest.blobId, manifest: manifest.id, schluessel, bytes: bytes.length };
+    } finally {
+      wegwerf.sk.fill(0);
+    }
   }
 
   /**
