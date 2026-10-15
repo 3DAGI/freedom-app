@@ -5,9 +5,12 @@
  * `npm run koppeln -- --neu` entsteht ein neues Geheimnis; bisher gekoppelte
  * Geräte gelten dann nicht mehr als Besitzer. Der Code ist ein Schlüssel:
  * nur dem eigenen Gerät zeigen.
+ *
+ * Mit `--code` (VKf, K1) statt des QR ein Code zum Eintippen: zwölf Zeichen, zehn Minuten gültig.
+ * Hier entsteht nur die Datei – der laufende Knoten legt den Code verschlüsselt auf seine Relays.
  */
 import { kopplungscode } from "@freedomstack/protocol";
-import { erneuereKopplung, kopplungImTerminal, kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
+import { erneuereKopplung, kopplungImTerminal, kopplungsDatei, kurzcodeDatei, legeKurzcodeAn, leseKopplung } from "./kopplung-datei.js";
 import { SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 
 // Derselbe Schlüssel wie der Knoten (B-40): NODE_SECRET_KEY oder ~/.freedom/node-key – hier nie neu anlegen
@@ -21,6 +24,14 @@ try {
 const datei = kopplungsDatei();
 const neu = process.argv.includes("--neu");
 const k = (!neu && leseKopplung(datei, knoten)) || erneuereKopplung(datei, knoten);
+if (process.argv.includes("--code")) {
+  const e = legeKurzcodeAn(kurzcodeDatei(), Math.floor(Date.now() / 1000));
+  console.log(`Code zum Eintippen: ${e.code}`);
+  console.log(`Gültig bis ${new Date(e.bis * 1000).toLocaleTimeString()} – in der App unter „Mein Knoten koppeln“ eintippen.`);
+  console.log("Der Knoten muss laufen: Er legt den Code verschlüsselt auf seine Relays und löscht ihn nach dem Koppeln.");
+  if (neu) console.log("Neues Geheimnis – bisher gekoppelte Geräte gelten nicht mehr als Besitzer.");
+  process.exit(0);
+}
 console.log(kopplungImTerminal(k));
 console.log("");
 console.log(kopplungscode(k));

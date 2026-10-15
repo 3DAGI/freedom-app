@@ -9618,3 +9618,39 @@ brach nur nicht ab). Jetzt gilt:
 - node unverändert.
 
 Vektoren unverändert.
+
+## Schritt VKf – Kopplung mit Code zum Eintippen
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (K1, VK-W9 – MENSCH 14.10.). Keine neue Abhängigkeit, keine neue
+Kryptografie: PBKDF2-SHA256 (WebCrypto, sonst `@noble/hashes`) und NIP-44 v2.
+
+**Gebaut:**
+- Protokoll `kurzcode.ts`:
+  - Code: zwölf Zeichen Crockford-Base32 in drei Vierern (60 Bit), gelesen wie abgetippt (I/L → 1, O → 0).
+  - `kurzcodeAbleitung()`: 600 000 Runden, 64 Byte – 32 als NIP-44-Schlüssel, 32 als Suchkennung.
+  - Event 38076 (`baueKurzcodeEvent()`): `d` = Kennung, Ablauf zehn Minuten (NIP-40), Inhalt der Kopplungscode
+    verschlüsselt. `leseKurzcodeEvent()` koppelt nur mit gültiger Signatur, Kennung und Frist, entschlüsselbar und
+    mit dem Autor als Knoten. `baueKurzcodeLoeschung()` (NIP-09).
+  - `dm.ts`: NIP-44 auch mit fertigem Schlüssel (`nip44MitSchluessel()`/`nip44OeffnenMitSchluessel()`) – dieselbe
+    Verschlüsselung, `encryptDM()`/`decryptDM()` nutzen sie.
+  - `baueStatusAuftrag(…, { kurzcode })`: die Kennung im versiegelten Kern.
+- Knoten:
+  - `npm run koppeln -- --code` schreibt nur `~/.freedom/kurzcode.json` (0600) und zeigt den Code.
+  - `KurzcodeDienst` (alle 5 s in `main.ts`) veröffentlicht das Event und löscht es samt Datei, wenn der Code
+    eingelöst, ersetzt oder abgelaufen ist.
+  - Eingelöst wird nur aus der Statusabfrage nach `istBesitzer()`. Ins Log nur feste Texte.
+- App: Der Dialog „Mein Knoten koppeln“ nimmt beide Codes.
+  - Beim Code zum Eintippen sucht `kopplungAusKurzcode()` am Pool und an der Startliste und koppelt.
+  - Danach löst die Statusabfrage den Code ein.
+- Doku: `PROTOCOL.md` §35, `PROVIDER.md`, Fallstrick in der Wurzel-`CLAUDE.md`.
+
+**Bewusst anders als im Entwurf:** „Gefunden über einen Hash des Codes“ – ein schneller Hash hätte die
+600 000 Runden umgangen. Bei 2^60 Codes wären das mit viel Rechenleistung Tage gewesen, und das Geheimnis gilt
+über die zehn Minuten hinaus. Die Kennung kommt deshalb aus derselben PBKDF2-Rechnung wie der Schlüssel.
+
+**Tests:**
+- protocol +4: `kurzcode.test.ts` – Form, Ableitung WebCrypto = noble, Event mit allen Negativfällen, Tag nur
+  versiegelt;
+- node +4: `kurzcode.test.ts` – Datei, Dienst (veröffentlichen, einlösen, ablaufen, ersetzen, Log), Einlösen nur
+  für den Besitzer, Verdrahtung;
+- app +2: `kurzcode-kopplung.test.ts`; der Verdrahtungstest B-8c nennt beide Codes.

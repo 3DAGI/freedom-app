@@ -6,17 +6,23 @@
  * versiegelten Kern den Nachweis (`mitBesitzerNachweis()`, in `buildJobEvent()`)
  * und zahlen nichts – der Knoten rechnet sie gratis.
  *
+ * Statt des Kopplungscodes geht seit VKf auch der Code zum Eintippen (`npm run koppeln -- --code`):
+ * Die App sucht das Event des Knotens (`kopplungAusKurzcode()`) und löst den Code danach mit einer
+ * Statusabfrage ein – der Knoten löscht das Event.
+ *
  * Entkoppeln vergisst den Code nur auf diesem Gerät; ungültig für alle Geräte
  * wird er erst, wenn der Knoten ein neues Geheimnis erzeugt
  * (`npm run koppeln -- --neu`). Nur DOM und `textContent`.
  */
-import { type Kopplung, kopplungscode, leseKopplungscode } from "@freedomstack/protocol";
+import { type Kopplung, kopplungscode, leseKopplungscode, leseKurzcode, startUrls } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { bestaetige, dialog } from "./dialog.js";
 import { geheim } from "./tresor.js";
 import { pkShort } from "../shell-logic.js";
 import { toast } from "./ui.js";
 import { weckerAbmelden } from "../wecker-abmelden.js";
+import { kopplungAusKurzcode } from "../kurzcode-kopplung.js";
+import { ensurePool, frageAn } from "./state.js";
 
 export const LS_KOPPLUNG = "freedom.knoten.kopplung";
 
@@ -52,9 +58,21 @@ async function koppeln(): Promise<void> {
   const w = await dialog({
     titel: t("set.knotenKoppeln"), text: t("set.knotenKoppelnText"), ok: t("set.knotenKoppeln"),
     felder: [{ art: "text", name: "code", label: t("set.knotenCode"), pflicht: true, mono: true, scannen: true, verdeckt: true }],
-    pruefe: (v) => (leseKopplungscode(String(v.code ?? "")) ? null : t("set.knotenCodeFalsch")),
+    pruefe: (v) => (leseKopplungscode(String(v.code ?? "")) || leseKurzcode(String(v.code ?? "")) ? null : t("set.knotenCodeFalsch")),
   });
-  const k = w ? leseKopplungscode(String(w.code ?? "")) : null;
+  if (!w) return;
+  let k = leseKopplungscode(String(w.code ?? ""));
+  let kurzSuche: string | undefined;
+  const kurz = k ? null : leseKurzcode(String(w.code ?? ""));
+  if (kurz) {
+    toast(t("set.knotenKurzSucht"));
+    // Am eigenen Pool und an der Startliste – dort veröffentlicht der Knoten ohne eigene RELAYS
+    const urls = [...(await ensurePool()).urls, ...startUrls()];
+    const gefunden = await kopplungAusKurzcode(kurz, (f) => frageAn(f, urls)).catch(() => null);
+    if (!gefunden) return toast(t("set.knotenKurzFehlt"));
+    k = gefunden.kopplung;
+    kurzSuche = gefunden.suche;
+  }
   if (!k) return;
   const alt = meineKopplung();
   if (alt && alt.knoten !== k.knoten
@@ -62,6 +80,12 @@ async function koppeln(): Promise<void> {
   await geheim.setItem(LS_KOPPLUNG, kopplungscode(k));
   zeigeStatus();
   toast(t("set.knotenGekoppeltToast"));
+  // Den Code einlösen: Statusabfrage mit Nachweis und Kennung – der Knoten löscht das Event, sonst verfällt es nach zehn Minuten
+  if (kurzSuche) {
+    const { frageKnotenStatus } = await import("./knoten-status-ui.js");
+    const r = await frageKnotenStatus(k, kurzSuche).catch(() => null);
+    if (r && "status" in r) toast(t("set.knotenKurzEingeloest"));
+  }
 }
 
 async function entkoppeln(): Promise<void> {

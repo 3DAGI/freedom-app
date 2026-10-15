@@ -8,6 +8,7 @@
  * wäre L6 B und eine eigene Entscheidung.
  */
 import { KIND_DVM_KNOTEN_STATUS } from "./kinds.js";
+import { KURZCODE_TAG } from "./kurzcode.js";
 import { type Kopplung, mitBesitzerNachweis } from "./kopplung.js";
 import { buildJobRequest } from "./dvm.js";
 import { buildPrivateJobRequest } from "./private-job.js";
@@ -95,13 +96,17 @@ export interface KnotenStatus {
 /** VAPID-Schlüssel in der Form von `applicationServerKey`: 65 Byte (0x04 …) als base64url ohne Auffüllung. */
 export const WECK_SCHLUESSEL = /^B[A-Za-z0-9_-]{86}$/;
 
-/** Statusabfrage an den eigenen Knoten – versiegelt, mit Nachweis, ohne Gebot. */
+/**
+ * Statusabfrage an den eigenen Knoten – versiegelt, mit Nachweis, ohne Gebot. Mit `kurzcode` (der
+ * Suchkennung, VKf) löst die App zugleich einen Kurzcode ein: Der Knoten löscht dann dessen Event.
+ */
 export async function baueStatusAuftrag(p: {
-  sitzung: Signer; kopplung: Kopplung; powBits?: number; nowSecs?: number;
+  sitzung: Signer; kopplung: Kopplung; powBits?: number; nowSecs?: number; kurzcode?: string;
 }): Promise<{ wrap: NostrEvent; requestId: string }> {
   const kern = buildJobRequest({
     kind: KIND_DVM_KNOTEN_STATUS, customerPubkey: p.sitzung.publicKey(), input: "status", bidMsat: 0, providerPubkey: p.kopplung.knoten,
   }, p.nowSecs);
+  if (p.kurzcode !== undefined) kern.tags.push([KURZCODE_TAG, p.kurzcode]);
   const request = mitBesitzerNachweis(kern, p.kopplung);
   return buildPrivateJobRequest({ request, sessionSigner: p.sitzung, providerPk: p.kopplung.knoten, powBits: p.powBits, nowSecs: p.nowSecs });
 }
