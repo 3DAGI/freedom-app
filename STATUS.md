@@ -9774,3 +9774,20 @@ Tests:
 
 **Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-42a – Schrift ohne Serifen, Satzschreibung
+
+Aus dem Oberflächen-Review (15.10.2026): Fast alles stand in Monospace, und 64 % der Schriftgrößen in `app.css` waren höchstens 12 px. Hinweise standen in 10 px, Etiketten und Kartentitel in Großbuchstaben. Zur Schrift gehört auch C-42b (Knöpfe).
+
+- **Grundschrift** (`html, body`): `--font-body` (Inter, wenn installiert, sonst die Systemschrift) in 15 px. Aus der Regel des „Typografie-Hybrids“ fallen Überschriften, `.mono-sm`, `.who` und `.tool-chip` heraus. Monospace bleibt für `.mono`, `code`, `pre`, Beträge und Schlüssel. Fließtext, der noch eigene Monospace-Angaben hatte, steht jetzt in der Grundschrift: Hinweis unter den Beispielen, Wechsel des Modells, Schritte und Kontingent.
+- **Hinweise** (`.mono-sm`, rund 390 Stellen): 13 px statt 10 px, ohne Umbruch mitten im Wort.
+- **Normale Schreibung** statt Großbuchstaben: Etiketten (13 px), Kartentitel (15 px, Schriftfarbe), Kopf der Direktnachrichten, Absender im Agenten, Gruppen des Verlaufs und der Modellwahl, Titel der rechten Spalte, Hinweis auf der Startseite. Großbuchstaben bleiben nur für kleine Marken (Stufe, Sprache des Codeblocks, Tabellenköpfe der Rangliste, „Neu“).
+- **Untergrenze:** 8–9 px werden 11 px, 10–11 px werden 12 px. Das gilt in `app.css`, für ein Feld in `index.html` und für fünf Stellen im Code. Die Navigation steht seit C-47 in 11 px.
+- Inter wird nicht eingebettet: Das wäre eine neue Abhängigkeit, Entscheidung OR1 in `OFFEN.md`.
+
+Tests:
+- Angepasst: `geld-settings-klein` (Etiketten nie mehr in Großbuchstaben) und `profil-klein` (Kartentitel 15 px in normaler Schreibung).
+- Smoke „zugang“ (Kontrast), „mobil“ (Laufleisten, Flächen ab 40 px, Text in Knöpfen), „rahmen“ und „composer“ sind grün. Alle 74 Seiten wurden neu aufgenommen und durchgesehen.
+
+**Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
