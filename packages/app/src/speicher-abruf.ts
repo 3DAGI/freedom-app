@@ -21,19 +21,26 @@ export interface SpeicherKnoten {
 /** Hoechstens so viele Knoten je Download – jeder bekommt je fehlendem Stueck einen Abruf. */
 export const MAX_KNOTEN = 4;
 
-/** Speicherknoten aus Angeboten: frisch (24 h), mit Speicher-Rolle, je Schluessel das neueste. */
-export function speicherKnoten(angebote: readonly NostrEvent[], jetzt = Math.floor(Date.now() / 1000), max = MAX_KNOTEN): SpeicherKnoten[] {
-  const neueste = new Map<string, { at: number; k: SpeicherKnoten }>();
+/**
+ * Speicherknoten aus Angeboten: frisch (24 h), mit Speicher-Rolle, je Schluessel das neueste.
+ * Mit `groesse` (seit E9-2) nur Knoten, deren Gratis-Grenze die Datei fasst – wer eine kleinere
+ * nennt, haelt sie nicht; wer keine nennt, wird gefragt wie bisher.
+ */
+export function speicherKnoten(angebote: readonly NostrEvent[], jetzt = Math.floor(Date.now() / 1000), max = MAX_KNOTEN, groesse?: number): SpeicherKnoten[] {
+  // Je Schluessel das neueste Angebot – passt seine Grenze nicht, ist der Knoten draussen (k: null)
+  const neueste = new Map<string, { at: number; k: SpeicherKnoten | null }>();
   for (const ev of angebote) {
     if (ev.kind !== KIND_PROVIDER_CAPABILITIES || jetzt - ev.created_at > 86_400) continue;
     try {
       const c = parseCapabilities(ev);
       if (!c.storage || c.pubkey !== ev.pubkey) continue;
       const alt = neueste.get(ev.pubkey);
-      if (!alt || ev.created_at > alt.at) neueste.set(ev.pubkey, { at: ev.created_at, k: { pk: ev.pubkey, powBits: c.powBits ?? 0 } });
+      if (alt && ev.created_at <= alt.at) continue;
+      const fasst = groesse === undefined || c.storage.gratisBytes === undefined || groesse <= c.storage.gratisBytes;
+      neueste.set(ev.pubkey, { at: ev.created_at, k: fasst ? { pk: ev.pubkey, powBits: c.powBits ?? 0 } : null });
     } catch { /* fremdes Unfug-Angebot */ }
   }
-  return [...neueste.values()].sort((a, b) => b.at - a.at).slice(0, max).map((x) => x.k);
+  return [...neueste.values()].filter((x): x is { at: number; k: SpeicherKnoten } => x.k !== null).sort((a, b) => b.at - a.at).slice(0, max).map((x) => x.k);
 }
 
 /**

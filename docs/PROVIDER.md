@@ -146,6 +146,14 @@ den Kopplungscode verschlüsselt auf seine Relays, die App findet ihn über den
 Code und koppelt wie mit dem QR; danach löscht der Knoten das Event wieder
 (Format: `docs/PROTOCOL.md` §35).
 
+**Gratis-Grenze (E9-2):** Mit `STORAGE_GRATIS_MB=<MB>` hält der Knoten Dateien
+anderer nur bis zu dieser Größe gratis; Stücke größerer nimmt er nicht auf.
+Die Grenze steht in seinem Angebot, und die App fragt beim Abruf nur Knoten,
+deren Grenze die Datei fasst. Ohne die Variable hält er jede Größe (bis zur
+Quota) und sagt im Angebot nichts dazu; `0` heißt: nichts gratis. Eine
+ungültige Angabe heißt: Der Knoten startet nicht. Dateien des Besitzers (unten)
+hält er unabhängig davon.
+
 Mit `STORAGE_ENABLED=1` hält der Knoten verschlüsselte Dateien seines
 Besitzers dauerhaft (B-9b): Nach jedem Hochladen (Repo-Bundles, Anhänge)
 schickt die App einen versiegelten Auftrag mit dem Nachweis – abschaltbar unter
@@ -270,8 +278,10 @@ Der Name ist der Name bei Ollama. `npm run modell` merkt den Wunsch nur vor
    selbst signiert hat. Mit `--aus-registry` legt er es an: Er fragt
    `registry.ollama.ai`, welche Dateien das Modell jetzt hat, signiert daraus
    sein Manifest und veröffentlicht es. Ohne `--aus-registry` sucht er es über
-   seine Relays. Manifeste von Kuratoren aus Modellkatalogen kommen später
-   dazu (E9-4); einen voreingestellten Herausgeber gibt es nicht.
+   seine Relays. Seit E9-4 zählt auch ein Manifest, das ein Modellkatalog
+   nennt, dem der Knoten folgt – genau dieses, nie ein anderes desselben
+   Autors (siehe „Kataloge“ unten). Einen voreingestellten Herausgeber gibt
+   es nicht; das eigene Manifest geht immer vor.
 2. **Speicher prüfen:** Er prüft, ob das Modell in den Speicher passt –
    `MODELL_SPEICHER_GB`, sonst der Arbeitsspeicher des Rechners.
 3. **Vorab vergleichen:** Nennt die Registry andere Dateien als das Manifest,
@@ -294,6 +304,27 @@ Modell gut, sicher oder legal ist. Ein Manifest für Ollama hat:
 - `upstream`: `ollama:<derselbe Name>`;
 - je Datei den Namen ihres Blobs (`sha256-<hex>`), mit Summe und Größe – alle
   Schichten und die Konfiguration aus dem Manifest der Registry.
+
+### Kataloge, denen der Knoten folgt (E9-4)
+
+Wer nicht jedes Modell selbst festhalten will, folgt Modellkatalogen (Kind
+38080) von Kuratoren, denen er traut:
+
+```bash
+MODELL_KATALOGE=38080:<kurator-hex>:<kennung>,38080:<…>:<…>   # höchstens 20
+```
+
+- Nennt ein Eintrag im Katalog ein Manifest (viertes Feld), lädt der Knoten
+  das Modell auch nach diesem Manifest – genau nach dieser Id. Ein späteres,
+  anderes Manifest desselben Kurators zählt erst, wenn sein Katalog es nennt.
+- Das eigene Manifest geht vor. Nennen mehrere Kataloge verschiedene Dateien,
+  wählt der Knoten keines (`manifest.uneinig`).
+- Der Knoten fragt seine Relays nach den Katalogen dieser Kuratoren, höchstens
+  alle zehn Minuten. Die Relays sehen damit, welchen Kuratoren er folgt.
+- Eine ungültige Adresse in `MODELL_KATALOGE` heißt: Der Knoten startet nicht.
+- Einen Katalog mit Manifest-Ids veröffentlicht man in der App (Agent › Netz ›
+  Modelle › „Katalog veröffentlichen“): die Id am Ende der Zeile. Die Id des
+  eigenen Manifests nennt `npm run modell`.
 
 ### Von Hugging Face, für einen OpenAI-kompatiblen Antrieb (B-29c1b)
 

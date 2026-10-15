@@ -114,28 +114,33 @@ export type ManifestWahl<Q = OllamaName> =
   | { ok: false; fall: "manifest.keins" | "manifest.uneinig" | "manifest.keineQuelle"; werte?: { herausgeber: number } };
 
 /**
- * Das Manifest, nach dem der Knoten ein Modell lädt: nur von vertrauten
- * Schlüsseln (eigener oder vom Betreiber genannte Kuratoren, F5 – kein
- * voreingestellter), je Schlüssel das neueste. Das eigene geht vor; sonst
- * müssen alle vertrauten dieselben Dateien nennen – bei Streit keine Wahl.
+ * Das Manifest, nach dem der Knoten ein Modell lädt: das eigene (je das
+ * neueste) oder eines, das ein abonnierter Modellkatalog mit seiner Id nennt
+ * (`freigegeben`, aus `katalogFreigaben()`, seit E9-4) – kein voreingestellter
+ * Kurator (F5), keine Liste von Schlüsseln daneben. Das eigene geht vor; sonst
+ * müssen alle freigegebenen dieselben Dateien nennen – bei Streit keine Wahl.
  * Die Quelle liest `quelleVon` – Ollama (Vorgabe) oder Hugging Face (`hfQuelle()`, B-29c1a).
  */
 export function vertrautesManifest<Q = OllamaName>(
-  events: readonly NostrEvent[], kennung: string, vertraut: ReadonlySet<string>, eigener: string,
+  events: readonly NostrEvent[], kennung: string, freigegeben: ReadonlySet<string>, eigener: string,
   quelleVon: (m: ModelManifest) => Q | null = ollamaQuelle as unknown as (m: ModelManifest) => Q | null,
 ): ManifestWahl<Q> {
-  const neueste = new Map<string, { ev: NostrEvent; m: ModelManifest }>();
+  let eigenes: { ev: NostrEvent; m: ModelManifest } | undefined;
+  const frei = new Map<string, { ev: NostrEvent; m: ModelManifest }>();
   for (const ev of events) {
     if (ev.kind !== KIND_MODEL_MANIFEST || getTag(ev, "d") !== `model:${kennung}`) continue;
-    if (ev.pubkey !== eigener && !vertraut.has(ev.pubkey)) continue;
+    if (ev.pubkey !== eigener && !freigegeben.has(ev.id)) continue;
     if (!verifyEvent(ev)) continue;
     let m: ModelManifest;
     try { m = parseModelManifest(ev); } catch { continue; }
     if (m.modelId !== kennung) continue;
-    const bisher = neueste.get(ev.pubkey);
-    if (!bisher || ev.created_at > bisher.ev.created_at) neueste.set(ev.pubkey, { ev, m });
+    if (ev.pubkey === eigener) {
+      if (!eigenes || ev.created_at > eigenes.ev.created_at) eigenes = { ev, m };
+    } else {
+      frei.set(ev.id, { ev, m });
+    }
   }
-  const kandidaten = neueste.has(eigener) ? [neueste.get(eigener)!] : [...neueste.values()];
+  const kandidaten = eigenes ? [eigenes] : [...frei.values()];
   if (kandidaten.length === 0) return { ok: false, fall: "manifest.keins" };
   const fingerabdruck = (m: ModelManifest) => m.files.map((f) => `${f.sha256}:${f.sizeBytes}`).sort().join(",");
   if (new Set(kandidaten.map((k) => fingerabdruck(k.m))).size > 1) return { ok: false, fall: "manifest.uneinig", werte: { herausgeber: kandidaten.length } };

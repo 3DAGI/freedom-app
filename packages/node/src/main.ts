@@ -46,6 +46,8 @@ import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBe
 import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
 import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
 import { holeUndTeile, teileModell } from "./modell-schwarm.js";
+import { KatalogFreigaben, katalogeAusUmgebung } from "./modell-kataloge.js";
+import { speicherGratisAusUmgebung } from "./storage-role.js";
 import { providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { type KnotenSchluessel, SchluesselFehler, knotenSchluesselDatei, ladeKnotenSchluessel } from "./knoten-schluessel.js";
 import { KnotenAgent, agentAusUmgebung, agentBeantwortetDatei, agentSchluesselDatei } from "./knoten-agent.js";
@@ -211,6 +213,12 @@ async function main(): Promise<void> {
   if (torProxy) statusRollen.add("tor");
   // Gratis-Start (A-14, G1): Budget des Knotens je Tag, steht im Angebot – GRATIS_TOKENS_TAG=0 schaltet es ab.
   // Ungültig → kein Start, sonst verschenkte der Knoten still etwas anderes als verlangt
+  // Gratis-Grenze für Speicher (E9-2): ungültig → kein Start
+  const speicherGratis = speicherGratisAusUmgebung(process.env);
+  if (speicherGratis.grund) {
+    console.error(`[speicher] ${speicherGratis.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
   const { gratis, grund: gratisGrund } = gratisAusUmgebung(process.env);
   if (gratisGrund) {
     console.error(`[gratis] ${gratisGrund} – der Knoten startet nicht mit anderen Werten als verlangt`);
@@ -257,12 +265,23 @@ async function main(): Promise<void> {
     }
   } else if (torrentWahl.einstellung) console.log("[schwarm] TORRENT=1 gilt nur mit KI_ANTRIEB=openai – mit Ollama aus");
   const schwarmOrt = join(modellBasis, ".schwarm");
+  // Abonnierte Modellkataloge (E9-4): Manifeste, die sie nennen, gelten neben dem eigenen – kein voreingestellter
+  const katalogWahl = katalogeAusUmgebung(process.env);
+  if (katalogWahl.grund) {
+    console.error(`[modell] ${katalogWahl.grund} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  const katalogFreigaben = new KatalogFreigaben((f) => pool.query(f), katalogWahl.adressen);
+  if (katalogWahl.adressen.length) console.log(`[modell] ${katalogWahl.adressen.length} Modellkatalog(e) abonniert – deren Manifeste gelten neben dem eigenen`);
   // „Ich halte vor“ (38058) mit Magnet und Inhalts-Kennung – vom Schlüssel des Knotens
   const meldeVorhalten = async (m: import("@freedomstack/protocol").ModelManifest, magnet: string) => {
     await pool.publish(signEvent(buildModelSeed(m.modelId, keypair.pk, m.files.map((f) => f.name), undefined, undefined, { magnet, inhalt: inhaltsKennung(m) }), keypair.sk));
   };
   const modellDienst = new ModellDienst({
-    manifeste: (name) => pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
+    manifeste: async (name, ids) => [
+      ...await pool.query({ kinds: [KIND_MODEL_MANIFEST], "#d": [`model:${name}`], limit: 100 }),
+      ...(ids.length ? await pool.query({ ids: [...ids], limit: ids.length }) : []),
+    ],
     registry: registryDateien,
     festhalten: async (name, files, upstream, license) => {
       const ev = signEvent(buildModelManifest({ modelId: name, name, files, upstream, license, publisherPubkey: keypair.pk }), keypair.sk);
@@ -295,7 +314,7 @@ async function main(): Promise<void> {
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
     tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,
-    vertraut: new Set(),
+    freigaben: (name) => katalogFreigaben.fuer(name),
     eigener: keypair.pk,
   });
   gepruefteModelle = await modellDienst.imAngebot();
@@ -481,6 +500,7 @@ async function main(): Promise<void> {
           dir: process.env.STORAGE_DIR ?? join(process.env.HOME ?? ".", "freedom-data", "storage"),
           quotaBytes: Number(process.env.STORAGE_QUOTA_MB ?? 10240) * 1024 * 1024,
           bootstrapSeeder: process.env.BOOTSTRAP_SEEDER === "1",
+          ...(speicherGratis.gratisBytes !== undefined ? { gratisBytes: speicherGratis.gratisBytes } : {}),
         })
       : undefined,
   );
@@ -719,6 +739,8 @@ async function main(): Promise<void> {
         capacityBytes: Number(process.env.STORAGE_QUOTA_MB ?? 10240) * 1024 * 1024,
         priceMsatPerMB: Number(process.env.STORAGE_PRICE_MSAT_PER_MB ?? 1),
         bootstrap: process.env.BOOTSTRAP_SEEDER === "1",
+        // Bis zu welcher Größe er gratis hält (E9-2) – ohne STORAGE_GRATIS_MB keine Angabe
+        ...(speicherGratis.gratisBytes !== undefined ? { gratisBytes: speicherGratis.gratisBytes } : {}),
       } : undefined,
       powBits: privatePowBits,
       // Mit diesem Kurs rechnet der Anbieter SOL-Preise (4.4); ohne Kurs keiner.
@@ -860,6 +882,7 @@ async function main(): Promise<void> {
       dir,
       quotaBytes: Number(process.env.STORAGE_QUOTA_MB ?? 10240) * 1024 * 1024,
       bootstrapSeeder: process.env.BOOTSTRAP_SEEDER === "1",
+      ...(speicherGratis.gratisBytes !== undefined ? { gratisBytes: speicherGratis.gratisBytes } : {}),
     });
     await storage.init();
     console.log(`Storage-Rolle aktiv: ${dir} (${storage.stats().totalBytes} bytes, bootstrap=${process.env.BOOTSTRAP_SEEDER === "1"})`);

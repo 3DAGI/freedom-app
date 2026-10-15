@@ -46,13 +46,16 @@ export function katalogRang(kataloge: readonly ModellKatalog[]): Map<string, num
 /**
  * Eigene Eingabe: Modelle getrennt durch „;“ oder Zeilen, je Modell optional
  * eine Notiz dahinter („qwen3.5:9b gut für Code; llama3.2:3b“) – ein
- * `prompt()` kennt keine Zeilenumbrüche.
+ * `prompt()` kennt keine Zeilenumbrüche. Seit E9-4 am Ende der Zeile optional
+ * die Id eines Manifests (64 Zeichen hex): Knoten, die dem Katalog folgen,
+ * laden das Modell dann nur mit genau diesen Dateien.
  */
 export function leseKatalogEingabe(eingabe: string): KatalogEintrag[] {
   return eingabe.split(/[\n;]/).map((z) => z.trim()).filter(Boolean).map((z) => {
     const [modell, ...rest] = z.split(/\s+/);
+    const manifest = rest.length > 0 && /^[0-9a-f]{64}$/.test(rest.at(-1)!) ? rest.pop() : undefined;
     const notiz = rest.join(" ");
-    return notiz ? { modell: modell!, notiz } : { modell: modell! };
+    return { modell: modell!, ...(notiz ? { notiz } : {}), ...(manifest ? { manifest } : {}) };
   });
 }
 

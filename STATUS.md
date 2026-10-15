@@ -9654,3 +9654,70 @@ Kryptografie: PBKDF2-SHA256 (WebCrypto, sonst `@noble/hashes`) und NIP-44 v2.
 - node +4: `kurzcode.test.ts` – Datei, Dienst (veröffentlichen, einlösen, ablaufen, ersetzen, Log), Einlösen nur
   für den Besitzer, Verdrahtung;
 - app +2: `kurzcode-kopplung.test.ts`; der Verdrahtungstest B-8c nennt beide Codes.
+## Schritt E9-4 – Kataloge geben Manifeste frei
+
+Spur B, aus `docs/E9-ENTWURF.md` (V3 A, freigegeben 08.10.2026; übergeben an Spur B 09.10.). Bis
+hierhin lud ein Knoten ein Modell nur nach dem eigenen Manifest – Kuratoren sollten über Kataloge
+dazukommen, ohne voreingestellten und ohne Liste vertrauter Schlüssel daneben.
+
+- **Protokoll** (`modell-katalog.ts`): ein Katalog-Eintrag kann das Manifest nennen –
+  `["model", <kennung>, <notiz>, <manifest-id>]`, ein viertes Feld, das ältere Leser übergehen
+  (`KatalogEintrag.manifest`, gebaut nur als Event-Id, sonst `ProtokollFehler("katalog-manifest")`,
+  gelesen streng – ein kaputtes Feld fällt weg, der Eintrag bleibt). `katalogFreigaben()` nennt je
+  Modell die Ids aus den Katalogen; `vergleicheKataloge()` sagt je Katalog, ob er eins nennt.
+- **Wahl** (`vertrautesManifest()`): statt einer Menge vertrauter Schlüssel (sie war immer leer) eine
+  Menge freigegebener Manifest-Ids. Es zählen das eigene (das neueste) und genau die freigegebenen –
+  ein späteres, anderes Manifest desselben Kurators nicht. Das eigene geht vor; nennen freigegebene
+  verschiedene Dateien, keine Wahl (`manifest.uneinig`).
+- **Knoten** (`modell-kataloge.ts`, neu): `MODELL_KATALOGE` (Adressen, höchstens 20, ungültig → kein
+  Start), `holeKataloge()` (nach den Kuratoren gefragt, nur gültig signiert, je Adresse der neueste,
+  nur abonnierte), `KatalogFreigaben` (frisch für zehn Minuten; ohne Antwort keine Freigaben). Der
+  Lader bekommt `freigaben()` statt `vertraut` und sucht die freigegebenen Ids mit
+  (`manifeste(name, ids)`). `npm run modell` nennt die Manifest-Id geprüfter Modelle – für den Katalog.
+- **App:** In der Katalog-Tabelle steht „✓ Prüfsummen“, wo der Kurator ein Manifest nennt, darunter
+  ehrlich, was das heißt (geprüft wird am Knoten, nicht in der App). Beim eigenen Katalog geht die Id
+  ans Ende der Zeile (`leseKatalogEingabe()`). Die App holt Kataloge weiter alle, ohne Filter (5.7).
+- **Texte:** „kein Manifest“ nennt jetzt auch die Kataloge (Knoten und App). Doku: PROTOCOL (38080, §31),
+  PROVIDER („Kataloge, denen der Knoten folgt“), E9-Entwurf, `docker-compose.yml` (`MODELL_KATALOGE`),
+  Fallstrick in `packages/node/CLAUDE.md`, Regel „Modelle laden nur geprüft“ in der Wurzel.
+- **Grenze, ehrlich:** Der Knoten fragt seine Relays nach den Katalogen der Kuratoren – sie sehen, wem
+  er folgt (die App holt alle). Steht in PROVIDER.md.
+
+**Tests:** Protokoll `modell-katalog.test.ts` (+2: viertes Feld, Freigaben und Vergleich),
+`modell-ollama.test.ts` (Wahl über Freigaben statt Schlüssel, umgestellt); Knoten
+`modell-kataloge.test.ts` (4, neu: Umgebung, Holen, Freigaben mit Frist, Verdrahtung),
+`modell-laden.test.ts` (+1: Freigabe greift, anderes Manifest desselben Kurators nicht, eigenes vor,
+stumme Relays), `modell-hf-laden.test.ts` (Freigabe auch für Hugging Face); App
+`modell-kataloge.test.ts` (Manifest-Id am Zeilenende).
+
+Knoten-Stand: für Kataloge neu nötig (`MODELL_KATALOGE`); ohne die Variable verhält sich der Knoten
+wie bisher.
+
+## Schritt E9-2 – Speicher gratis nur bis zur genannten Grenze
+
+Spur B, aus `docs/E9-ENTWURF.md` (V2 A, freigegeben 08.10.2026; übergeben 09.10.). Den KI-Teil
+(Tag `gratis`) hatte A-14 gebaut; hier bleibt nur der Speicher.
+
+- **Protokoll** (`tiers.ts`): vierter Wert im `storage`-Tag – bis zu welcher Größe einer Datei
+  der Knoten gratis hält (`gratisBytes`). Gebaut und gelesen nur über `leseSpeicherGratis()`
+  (ganze Zahl ohne führende Nullen, höchstens `SPEICHER_GRATIS_MAX` = 1 TiB, sonst keine Angabe).
+  `pruefeSpeicherStueck()` nennt die Größe der ganzen Datei (`groesse`).
+- **Weg:** `network-capacity.ts` (netzweite Schwelle aus der Summe aller Kapazitäten, mit
+  Sybil-Schwäche: dieselbe Pubkey zählte mehrfach) samt Export, Wiring-Ausnahmen und seinen sieben
+  Tests – Entscheidung V2 A: wer Kosten trägt, entscheidet selbst.
+- **Knoten:** `STORAGE_GRATIS_MB` über `speicherGratisAusUmgebung()` (ganze MB bis 1 TiB, ungültig →
+  kein Start); beide Speicher-Rollen in `main.ts` und das Angebot bekommen dieselbe Zahl.
+  `StorageRole.nimmAuf()` lehnt Stücke größerer Dateien ab („größer als gratis“) – nie die des
+  Besitzers (`halten`). Ohne Variable wie bisher.
+- **App:** `speicherKnoten(…, groesse)` fragt beim Abruf fehlender Stücke nur Knoten, deren Grenze
+  die Datei fasst (je Schlüssel das neueste Angebot; ohne Angabe wie bisher); `blob-client.ts`
+  übergibt `manifest.sizeBytes`.
+- **Doku:** PROTOCOL (38027, `storage`), PROVIDER („Gratis-Grenze“), E9-Entwurf,
+  `docker-compose.yml` (`STORAGE_GRATIS_MB`), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Protokoll `speicher-gratis.test.ts` (3, neu), `wot-capacity.test.ts` (−8 mit der
+Netzkapazität: sieben zur Schwelle und das Lesen über `extractStorageCaps()` – das Lesen prüft
+jetzt `speicher-gratis.test.ts` über `parseCapabilities()`); Knoten `speicher-gratis.test.ts` (3, neu);
+App `speicher-abruf.test.ts` (+1).
+
+Knoten-Stand: für die Grenze neu nötig; ohne `STORAGE_GRATIS_MB` wie bisher.

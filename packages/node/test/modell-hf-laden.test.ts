@@ -56,7 +56,7 @@ const manifest = (kp = KNOTEN, files = DATEIEN, upstream = `hf:${NAME}@${COMMIT}
   signEvent(buildModelManifest({ modelId: NAME, name: NAME, files, upstream, publisherPubkey: kp.pk }, T), kp.sk);
 
 /** Hilfen wie in `main.ts`, mit Hugging Face aus der Attrappe und einem Antrieb, der `namen` bedient. */
-function hilfen(basis: string, hfUrl: string, o: { manifeste?: NostrEvent[]; namen?: string[] | null } = {}) {
+function hilfen(basis: string, hfUrl: string, o: { manifeste?: NostrEvent[]; namen?: string[] | null; frei?: string[] } = {}) {
   const veroeffentlicht: NostrEvent[] = [];
   const h: LaderHilfen = {
     manifeste: async () => o.manifeste ?? [manifest()],
@@ -69,7 +69,7 @@ function hilfen(basis: string, hfUrl: string, o: { manifeste?: NostrEvent[]; nam
     pull: async () => { throw new Error("nicht über Ollama"); },
     tags: async () => [],
     speicherGb: 16,
-    vertraut: new Set(),
+    freigaben: async () => new Set(o.frei ?? []),
     eigener: KNOTEN.pk,
     hf: {
       basis,
@@ -128,7 +128,8 @@ test("Laden: fremdes Manifest, andere Dateien bei Hugging Face, falsche Bytes, f
       const r = await ladeHfModell(NAME, hilfen(basis, hf.url, o).h, () => {}, () => T);
       return r.ok ? "ok" : r.fall;
     };
-    assert.equal(await fall({ manifeste: [manifest(FREMD)] }), "manifest.keins", "bis E9-4 nur der eigene Schlüssel");
+    assert.equal(await fall({ manifeste: [manifest(FREMD)] }), "manifest.keins", "ohne Freigabe aus einem Katalog nur der eigene Schlüssel");
+    assert.equal(await fall({ manifeste: [manifest(FREMD)], frei: [manifest(FREMD).id] }), "ok", "seit E9-4: ein Katalog gibt genau dieses Manifest frei");
     assert.equal(await fall({ manifeste: [manifest(KNOTEN, DATEIEN, "ollama:qwen2.5:0.5b")] }), "manifest.keineQuelle");
     const groesser = DATEIEN.map((f) => (f.name === "config.json" ? { ...f, sizeBytes: f.sizeBytes + 1 } : f));
     assert.equal(await fall({ manifeste: [manifest(KNOTEN, groesser)] }), "hf.anders", "Vorprüfung: Hugging Face nennt eine andere Größe");

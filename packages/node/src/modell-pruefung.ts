@@ -51,7 +51,7 @@ export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) =>
   "modell.ladenNurOllama": () => "gewünscht über Ollama – mit diesem KI-Antrieb lädt der Knoten nur von Hugging Face (npm run modell -- <org/repo>)",
   "modell.ladenNurAntrieb": () => "gewünscht von Hugging Face – das geht nur mit einem OpenAI-kompatiblen KI-Antrieb (KI_ANTRIEB=openai)",
   "modell.wartet": () => "gewünscht, wartet auf den Knoten",
-  "modell.manifestKeins": () => "kein eigenes Manifest des Knotens – festhalten, was die Quelle jetzt nennt: npm run modell -- <name> --aus-registry bzw. --aus-hf",
+  "modell.manifestKeins": () => "kein eigenes Manifest und keins aus einem abonnierten Katalog (MODELL_KATALOGE) – festhalten, was die Quelle jetzt nennt: npm run modell -- <name> --aus-registry bzw. --aus-hf",
   "modell.manifestUneinig": (w) => `${w.herausgeber} Herausgeber nennen verschiedene Dateien – keine Wahl`,
   "modell.manifestKeineQuelle": () => "das Manifest nennt keine passende Quelle zu diesem Namen (upstream ollama:<name> bzw. hf:<org/repo>@<commit>)",
   "modell.manifestNichtVeroeffentlicht": (w) => `eigenes Manifest nicht veröffentlicht (${w.fehler}) – nichts geladen`,

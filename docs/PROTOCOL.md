@@ -129,7 +129,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
-| 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30) |
+| 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
@@ -140,7 +140,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38061 | Kopfgeld für eine Aufgabe, meist ein Issue – in sats, SOL oder beiden (§29, `kopfgeld.ts`) |
 | 38075 | Zusammenfassung des Rufs, nur als versiegelter Kern an Kontakte (§17) |
 | 38076 | Code zum Eintippen: Kopplungscode des Knotens, verschlüsselt mit einem Schlüssel aus dem Code, Ablauf zehn Minuten (§35, seit VKf) |
-| 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>]`; `modell-katalog.ts`) |
+| 38080 | Modellkatalog eines Kurators (NIP-51-Set: `d`, `title`, `description`, je Modell `["model", <kennung>, <notiz?>, <manifest-id?>]` – das vierte Feld seit E9-4: die Id eines Manifests 38057, nach dem Knoten laden, die dem Katalog folgen; `modell-katalog.ts`) |
 | 38081 | *nicht mehr belegt* (Messbericht eines Prüfers je Provider und Modell, P1b bis P5a; Prüfer entfielen mit der Entscheidung vom 05.10.2026, §28) |
 
 **Regel:** Neue Features bekommen NEUE Kinds. Bestehende Kinds ändern ihre
@@ -961,8 +961,9 @@ alle zusammen und nennt es im Angebot:
 Ein Manifest beschreibt ein Modell samt Prüfsummen (`model-registry.ts`).
 Ersetzbar je Autor und `d`. Jeder kann eines veröffentlichen; wem ein Knoten
 glaubt, entscheidet sein Betreiber (V3 A aus `docs/E9-ENTWURF.md`, freigegeben
-08.10.2026): bis E9-4 nur dem eigenen Schlüssel, danach auch Kuratoren aus
-abonnierten Modellkatalogen (38080).
+08.10.2026): dem eigenen Schlüssel und – seit E9-4 – genau den Manifesten, die
+Modellkataloge nennen, denen er folgt (38080, viertes Feld im `model`-Tag;
+`MODELL_KATALOGE` im Knoten).
 
 | Tag | Inhalt |
 |---|---|
@@ -979,11 +980,12 @@ abonnierten Modellkatalogen (38080).
   Dazu gehören alle Schichten und die Konfiguration aus dem Manifest der
   Registry (Docker-Format v2); `ollamaDateien()` baut diese Liste.
 - **Manifest wählen:** Der Knoten wählt eines über `vertrautesManifest()`.
-  - Es zählen nur der eigene Schlüssel und vertraute Kuratoren (bis E9-4
-    keine), je Schlüssel das neueste.
+  - Es zählen nur das eigene Manifest (das neueste) und Manifeste, deren Id
+    ein abonnierter Katalog nennt (`katalogFreigaben()`) – kein Schlüssel
+    gibt allein etwas frei.
   - Das eigene geht vor.
-  - Sonst müssen alle vertrauten dieselben Dateien nennen; bei Streit wählt
-    er keines.
+  - Sonst müssen alle freigegebenen dieselben Dateien nennen; bei Streit
+    wählt er keines.
 - **Eigenes Manifest:** `npm run modell -- <name> --aus-registry`. Der Knoten
   signiert, was die Registry jetzt nennt, und veröffentlicht es. Später geladen
   wird gegen dieses Manifest; eine neue Fassung in der Registry braucht ein

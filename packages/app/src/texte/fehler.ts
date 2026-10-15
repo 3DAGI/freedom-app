@@ -108,6 +108,7 @@ export const fehler: Texte = {
   "pf.katalogModell": { de: "Keine Modell-Kennung: {modell}", en: "Not a model ID: {modell}" },
   "pf.katalogDoppelt": { de: "Doppelt: {modell}", en: "Duplicate: {modell}" },
   "pf.katalogNotiz": { de: "Notiz zu {modell}: höchstens {max} Zeichen", en: "Note on {modell}: at most {max} characters" },
+  "pf.katalogManifest": { de: "Manifest zu {modell}: keine Event-Id (64 Zeichen hex)", en: "Manifest for {modell}: not an event id (64 hex characters)" },
   "pf.kontakteMax": { de: "Höchstens {max} Kontakte", en: "At most {max} contacts" },
   "pf.kontakteUnlesbar": { de: "Kontaktliste nicht lesbar", en: "Contact list not readable" },
   "pf.kontakteKaputt": { de: "Kontaktliste beschädigt", en: "Contact list damaged" },

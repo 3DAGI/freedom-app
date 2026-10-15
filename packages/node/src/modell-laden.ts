@@ -1,9 +1,9 @@
 /**
  * Modelle laden im Knoten (Schritt E9-3a, Entwurf `docs/E9-ENTWURF.md`, V3 A).
  *
- * Ablauf je Modell: Manifest (38057) nur vom eigenen Schlüssel des Knotens
- * (`vertrautesManifest()`; Kuratoren über Kataloge kommen mit E9-4 dazu –
- * Freigabe vom 08.10.), passt es auf das Gerät (`fitsOnDevice()`), nennt
+ * Ablauf je Modell: Manifest (38057) vom eigenen Schlüssel des Knotens oder –
+ * seit E9-4 – genau das, das ein abonnierter Modellkatalog nennt
+ * (`vertrautesManifest()` mit `freigaben()`, `modell-kataloge.ts`), passt es auf das Gerät (`fitsOnDevice()`), nennt
  * die Registry dieselben Dateien (Vorprüfung, spart einen falschen Download),
  * dann lädt Ollama – und erst wenn die Schichten, die Ollama geladen und
  * geprüft hat, genau die des Manifests sind (`pruefeSchichten()`), steht das
@@ -135,8 +135,8 @@ export function offeneWuensche(wuensche: readonly Wunsch[], stand: ModellStand):
 }
 
 export interface LaderHilfen {
-  /** Manifeste zu `model:<name>` von den Relays des Knotens (die Wahl trifft `vertrautesManifest()`). */
-  manifeste(name: string): Promise<NostrEvent[]>;
+  /** Manifeste zu `model:<name>` von den Relays des Knotens, dazu die mit diesen Ids (die Wahl trifft `vertrautesManifest()`). */
+  manifeste(name: string, ids: readonly string[]): Promise<NostrEvent[]>;
   /** Dateien laut Registry; null, wenn sie nicht zu befragen war. */
   registry(q: OllamaName): Promise<ModelFile[] | null>;
   /** Eigenes Manifest aus diesen Dateien signieren und veröffentlichen (`--aus-registry`, `--aus-hf`). */
@@ -145,8 +145,8 @@ export interface LaderHilfen {
   pull(name: string, fortschritt: (geladen: number) => void): Promise<Schicht[]>;
   tags(): Promise<Array<{ name: string; digest: string }>>;
   speicherGb: number;
-  /** Kuratoren – bis E9-4 (Kataloge) leer: es zählt nur der eigene Schlüssel. */
-  vertraut: ReadonlySet<string>;
+  /** Seit E9-4: Ids der Manifeste, die abonnierte Kataloge (`MODELL_KATALOGE`) für dieses Modell nennen. */
+  freigaben(name: string): Promise<ReadonlySet<string>>;
   eigener: string;
   /** Seit B-29c1b, nur mit einem OpenAI-kompatiblen Antrieb: Hugging Face als Quelle. */
   hf?: HfHilfen;
@@ -188,6 +188,7 @@ export async function ladeModell(
 ): Promise<LadeErgebnis> {
   melde("manifest");
   let events: NostrEvent[];
+  let frei: ReadonlySet<string> = new Set();
   let reg: ModelFile[] | null | undefined;
   if (ausRegistry) {
     // Festhalten, was die Registry jetzt nennt – ohne sie gibt es nichts festzuhalten
@@ -200,9 +201,10 @@ export async function ladeModell(
       return { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: fehlerName(e) } };
     }
   } else {
-    events = await h.manifeste(name);
+    frei = await h.freigaben(name).catch(() => new Set<string>());
+    events = await h.manifeste(name, [...frei]);
   }
-  const wahl = vertrautesManifest(events, name, h.vertraut, h.eigener);
+  const wahl = vertrautesManifest(events, name, frei, h.eigener);
   if (!wahl.ok) return { ok: false, fall: wahl.fall, werte: wahl.werte };
   const { manifest: m, quelle } = wahl;
   const passt = fitsOnDevice(m, h.speicherGb);
@@ -248,6 +250,7 @@ export async function ladeHfModell(
   if (!hf || !n) return { ok: false, fall: "hf.form" };
   melde("manifest");
   let events: NostrEvent[];
+  let frei: ReadonlySet<string> = new Set();
   if (ausHf) {
     let f: Festgehalten;
     try { f = await hf.halteFest(n); } catch (e) { return { ok: false, fall: "hf.nichtErreichbar", werte: { fehler: fehlerName(e) } }; }
@@ -258,9 +261,10 @@ export async function ladeHfModell(
       return { ok: false, fall: "manifest.nichtVeroeffentlicht", werte: { fehler: fehlerName(e) } };
     }
   } else {
-    events = await h.manifeste(n.voll);
+    frei = await h.freigaben(n.voll).catch(() => new Set<string>());
+    events = await h.manifeste(n.voll, [...frei]);
   }
-  const wahl = vertrautesManifest(events, n.voll, h.vertraut, h.eigener, hfQuelle);
+  const wahl = vertrautesManifest(events, n.voll, frei, h.eigener, hfQuelle);
   if (!wahl.ok) return { ok: false, fall: wahl.fall, werte: wahl.werte };
   const { manifest: m, quelle } = wahl;
   const passt = fitsOnDevice(m, h.speicherGb);

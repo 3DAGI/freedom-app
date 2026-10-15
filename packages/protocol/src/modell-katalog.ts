@@ -14,6 +14,12 @@
  * Der Katalog sagt nicht, ob ein Modell gut, sicher oder legal ist – nur, wer
  * es empfiehlt. Ob die Gewichte echt sind, prüft der Modell-Katalog der
  * Manifeste (`model-registry.ts`).
+ *
+ * Seit E9-4 kann ein Eintrag das Manifest (38057) nennen, nach dem Knoten das
+ * Modell laden: `["model", <kennung>, <notiz>, <manifest-id>]` – ein viertes
+ * Feld, das ältere Leser übergehen. Ein Knoten, der den Katalog abonniert
+ * (`MODELL_KATALOGE`), lädt das Modell dann nur mit genau den Dateien dieses
+ * Manifests (`katalogFreigaben()` → `vertrautesManifest()`).
  */
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import type { ProviderCapabilities } from "./tiers.js";
@@ -30,10 +36,13 @@ const NOTIZ_MAX = 140;
 const MODELL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$/;
 const D_WERT = /^[A-Za-z0-9._-]{1,64}$/;
 const PUBKEY = /^[0-9a-f]{64}$/;
+const EVENT_ID = /^[0-9a-f]{64}$/;
 
 export interface KatalogEintrag {
   modell: string;
   notiz?: string;
+  /** Id des Manifests (38057), nach dem Knoten das Modell laden (seit E9-4). */
+  manifest?: string;
 }
 
 export interface ModellKatalog {
@@ -84,7 +93,8 @@ export function baueModellKatalog(
     gesehen.add(schluessel(e.modell));
     const notiz = e.notiz === undefined ? "" : text(e.notiz, NOTIZ_MAX + 1);
     if (notiz.length > NOTIZ_MAX) throw new ProtokollFehler("katalog-notiz", `Notiz zu ${e.modell}: höchstens ${NOTIZ_MAX} Zeichen`, { modell: e.modell, max: NOTIZ_MAX });
-    tags.push(notiz ? ["model", e.modell, notiz] : ["model", e.modell]);
+    if (e.manifest !== undefined && !EVENT_ID.test(e.manifest)) throw new ProtokollFehler("katalog-manifest", `Manifest zu ${e.modell}: keine Event-Id (64 Zeichen hex)`, { modell: e.modell });
+    tags.push(e.manifest !== undefined ? ["model", e.modell, notiz, e.manifest] : notiz ? ["model", e.modell, notiz] : ["model", e.modell]);
   }
   return buildEvent(k.kurator, KIND_MODELL_KATALOG, tags, "", createdAt);
 }
@@ -108,7 +118,8 @@ export function leseModellKatalog(ev: NostrEvent): ModellKatalog {
     if (gesehen.has(schluessel(t[1]))) continue;
     gesehen.add(schluessel(t[1]));
     const notiz = typeof t[2] === "string" ? text(t[2], NOTIZ_MAX) : "";
-    modelle.push(notiz ? { modell: t[1], notiz } : { modell: t[1] });
+    const manifest = typeof t[3] === "string" && EVENT_ID.test(t[3]) ? t[3] : undefined;
+    modelle.push({ modell: t[1], ...(notiz ? { notiz } : {}), ...(manifest ? { manifest } : {}) });
   }
   const titel = text(getTag(ev, "title") ?? "", TITEL_MAX) || d;
   const beschreibung = text(getTag(ev, "description") ?? "", BESCHREIBUNG_MAX);
@@ -121,6 +132,19 @@ export function leseModellKatalog(ev: NostrEvent): ModellKatalog {
     modelle,
     createdAt: ev.created_at,
   };
+}
+
+/**
+ * Welche Manifeste die Kataloge für ein Modell freigeben (E9-4): die Ids aus
+ * dem vierten Feld ihrer Einträge zu `kennung` (Groß- und Kleinschreibung wie
+ * im Katalog egal). Die Kataloge wählt der Betreiber des Knotens
+ * (`MODELL_KATALOGE`) – kein voreingestellter, keine Liste von Schlüsseln
+ * daneben. Ein Knoten lädt dann nur genau diese Dateien (`vertrautesManifest()`).
+ */
+export function katalogFreigaben(kataloge: readonly ModellKatalog[], kennung: string): Set<string> {
+  const ids = new Set<string>();
+  for (const k of kataloge) for (const e of k.modelle) if (e.manifest && schluessel(e.modell) === schluessel(kennung)) ids.add(e.manifest);
+  return ids;
 }
 
 /** Je Adresse der neueste Katalog (bei Gleichstand die kleinere Event-ID, wie NIP-01). */
@@ -168,6 +192,8 @@ export interface VergleichsZeile {
   in: boolean[];
   /** Notizen der Kuratoren, je Katalog. */
   notizen: Array<string | undefined>;
+  /** Je Katalog: nennt er ein Manifest dazu (E9-4)? */
+  manifeste: boolean[];
   provider: number;
   preisMsat?: number;
 }
@@ -189,11 +215,13 @@ export function vergleicheKataloge(
         modell: e.modell,
         in: kataloge.map(() => false),
         notizen: kataloge.map(() => undefined),
+        manifeste: kataloge.map(() => false),
         provider: angebote.get(key)?.provider ?? 0,
         ...(angebote.get(key)?.preisMsat !== undefined ? { preisMsat: angebote.get(key)!.preisMsat } : {}),
       };
       z.in[i] = true;
       z.notizen[i] = e.notiz;
+      z.manifeste[i] = e.manifest !== undefined;
       zeilen.set(key, z);
     }
   });
