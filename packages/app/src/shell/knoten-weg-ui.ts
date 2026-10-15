@@ -17,6 +17,7 @@ import { bestaetige } from "./dialog.js";
 import { meineKopplung } from "./mein-knoten.js";
 import { alsGeraet, ensurePool, nimmInPool, signiere, state, veroeffentlicheWeit } from "./state.js";
 import { el } from "./ui.js";
+import { zeigeRelaySatz } from "./relay-liste-ui.js";
 
 /** Gefundene Adresse je Knoten – nur für diese Sitzung. */
 let gemerkt: { knoten: string; url: string | null } | null = null;
@@ -129,8 +130,8 @@ export async function uebernimmKnotenRelay(): Promise<void> {
     zeige(t("set.veroeffentliche"));
     if (!await setzeEigeneRelays({ relays, pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage })) return zeige(t("set.nichtVeroeffentlichtKeiner"));
     await nimmInPool(relays);
-    const feld = document.getElementById("eigene-relays") as HTMLTextAreaElement | null;
-    if (feld) feld.value = relays.join("\n");
+    // Die Liste in Settings › Verbindung zeigt den neuen Satz (C-53a)
+    zeigeRelaySatz(relays);
     zeige(t("set.knotenRelayDrin", { url, n: relays.length }));
   } catch (e) {
     zeige(t("set.nichtVeroeffentlicht", { fehler: fehlerText(e) }));

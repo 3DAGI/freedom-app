@@ -882,7 +882,19 @@
             <button id="bunker-abmelden" class="ghost" style="width:auto;padding:6px 10px" hidden data-i18n="set.abmelden">abmelden</button>
           </div>
         </div></div>
-            <div class="subpane" data-subpane="settings:network"><h2 class="settings-h" data-i18n="set.tabVerbindung">Verbindung</h2><div class="card">
+            <div class="subpane" data-subpane="settings:network"><h2 class="settings-h" data-i18n="set.tabVerbindung">Verbindung</h2><div class="card" id="relay-karte">
+          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.relaysTitel">Nostr-Relays (dein Satz)</span></h3>
+          <p class="einst-satz" data-i18n="set.relaysKurz">Hier veröffentlichst du, und hier liegt dein Posteingang. Gilt nach „Veröffentlichen“ für alle deine Geräte.</p>
+          <!-- Liste mit Stand (C-53a) statt eines Textfelds – geändert wird ein Entwurf, veröffentlicht nur über setzeEigeneRelays() -->
+          <ul id="relay-liste" class="relay-liste" aria-label="Deine Relays" data-i18n-aria="set.relaysAria"></ul>
+          <div class="relay-dazu">
+            <input id="relay-neu" class="mono-sm" placeholder="wss://…" autocomplete="off" spellcheck="false" aria-label="Relay hinzufügen" data-i18n-aria="set.relayNeuAria" />
+            <button id="relay-hinzufuegen" type="button" data-i18n="set.relayHinzufuegen">Hinzufügen</button>
+          </div>
+          <div class="einst-knoepfe"><button id="eigene-relays-save" class="primaer" type="button" disabled data-i18n="set.veroeffentlichen">veröffentlichen</button></div>
+          <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
+          <details class="einst-mehr"><summary data-i18n="set.mehrDazu">Mehr dazu</summary><p class="mono-sm muted" data-i18n="set.relaysText">Hier veröffentlichst du (NIP-65), und hier liegt dein Posteingang (Kind 10050): Kontakte lesen dort, was du schreibst, und stellen dir dort Nachrichten zu. Dazu liest die App bei den Relays deiner Kontakte und je Sitzung bei ein paar wechselnden der Startliste. Eine Adresse je Zeile, nur wss:// (unverschlüsselt nur .onion), höchstens acht. Nach dem Veröffentlichen gilt der Satz für alle deine Geräte; wer noch die alte Liste kennt, schreibt bis zum Nachladen an die alten Relays.</p></details>
+        </div><details class="einst-erweitert" id="verbindung-erweitert"><summary><span data-i18n="set.erweitert">Erweitert</span> <span class="einst-erweitert-was" data-i18n="set.erweitertWas">Solana-Endpunkte, Relay-Zugang</span></summary><div class="card">
           <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.endpunkteTitel">Eigene Endpunkte</span></h3>
           <p class="mono-sm" data-i18n="set.endpunkteText">Eigene Solana-Endpunkte, kommagetrennt. Sie werden zuerst benutzt; fällt einer aus, nimmt die App den nächsten. Voreingestellt sind vier Anbieter verschiedener Betreiber. Ab und zu fragt die App einen zweiten Anbieter nach demselben (Netz, letzter Blockhash, ein Kontostand) und warnt, wenn die Antworten sich widersprechen.</p>
           <input id="sol-rpcs" data-i18n-aria="set.endpunkteTitel" class="mono-sm" style="width:100%"
@@ -892,14 +904,6 @@
             <button id="sol-rpcs-check" class="ghost" style="width:auto;padding:6px 10px" data-i18n="set.erreichbarkeit">erreichbarkeit prüfen</button>
           </div>
           <div id="sol-rpcs-status" class="mono-sm"></div>
-        </div><div class="card" id="relay-karte">
-          <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.relaysTitel">Nostr-Relays (dein Satz)</span></h3>
-          <p class="mono-sm" data-i18n="set.relaysText">Hier veröffentlichst du (NIP-65), und hier liegt dein Posteingang (Kind 10050): Kontakte lesen dort, was du schreibst, und stellen dir dort Nachrichten zu. Dazu liest die App bei den Relays deiner Kontakte und je Sitzung bei ein paar wechselnden der Startliste. Eine Adresse je Zeile, nur wss:// (unverschlüsselt nur .onion), höchstens acht. Nach dem Veröffentlichen gilt der Satz für alle deine Geräte; wer noch die alte Liste kennt, schreibt bis zum Nachladen an die alten Relays.</p>
-          <textarea id="eigene-relays" class="mono-sm" rows="4" style="width:100%" spellcheck="false" autocomplete="off" aria-label="Eigene Relays, eine Adresse je Zeile" data-i18n-aria="set.relaysAria"></textarea>
-          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <button id="eigene-relays-save" class="ghost" style="width:auto;padding:6px 10px" type="button" data-i18n="set.veroeffentlichen">veröffentlichen</button>
-          </div>
-          <div id="eigene-relays-status" class="mono-sm" aria-live="polite"></div>
         </div><div class="card" id="relay-zugang-karte">
           <h3><span class="ic" data-icon="server"></span> <span data-i18n="set.zugangTitel">Relay-Zugang kaufen</span></h3>
           <p class="mono-sm" data-i18n="set.zugangText">Manche Relays nehmen Post nur für Zahlende an und geben deine Umschläge nur an dich heraus, wenn du dich anmeldest (NIP-42). Die App meldet sich nur bei deinen eigenen Relays und bei Relays mit gekauftem Zugang an – nur, wenn der Relay es verlangt. Kaufen verrät dem Betreiber deinen Schlüssel und deine IP-Adresse; mit SOL auch deine Absenderadresse, und auf der Kette sieht jeder, dass sie diesen Relay bezahlt hat. Mit Sats sieht der Betreiber nur die Zahlung.</p>
@@ -912,7 +916,8 @@
             <button id="relay-zugang-pruefen" class="ghost hidden" style="width:auto;padding:6px 10px" type="button" data-i18n="set.zahlungPruefen">Zahlung erneut prüfen</button>
           </div>
           <div id="relay-zugang-status" class="mono-sm" aria-live="polite"></div>
-        </div></div>
+        </div></details>
+            </div>
             <div class="subpane" data-subpane="settings:privacy"><h2 class="settings-h" data-i18n="set.tabDatenschutz">Datenschutz</h2><div class="card">
           <h3><span class="ic" data-icon="shield"></span> <span data-i18n="set.sichtbarTitel">Was sichtbar ist</span></h3>
           <p class="mono-sm muted" data-i18n="set.sichtbarText">Was in deiner Einstellung für andere sichtbar ist.</p>

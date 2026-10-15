@@ -190,15 +190,19 @@ test("5.4b2: Satz ändern – erst beide Listen veröffentlichen, dann merken; s
 });
 
 test("5.4b2: verdrahtet – Karte in den Settings, als Gerät nur lesbar, neue Relays gleich in den Pool", () => {
-  const settings = ["settings", "sicherung", "mesh"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
+  // Seit C-53a eine Liste mit Stand in relay-liste-ui.ts (statt eines Textfelds) – dieselben Regeln
+  const f = readFileSync(new URL("../src/shell/relay-liste-ui.ts", import.meta.url), "utf8");
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
-  assert.match(html, /id="eigene-relays"/);
-  const f = settings.slice(settings.indexOf("function wireRelayKarte("));
-  assert.match(f, /if \(alsGeraet\(\)\) \{\s*feld\.readOnly = true;\s*knopf\.disabled = true;/);
-  assert.match(f, /pruefeRelayEingabe\(feld\.value\)/);
+  assert.match(html, /<ul id="relay-liste"/);
+  assert.match(html, /<button id="eigene-relays-save" class="primaer" type="button" disabled/);
+  assert.match(f, /if \(alsGeraet\(\)\) \{\s*if \(neu\) neu\.disabled = true;\s*if \(dazu\) dazu\.disabled = true;\s*return;/);
+  assert.match(f, /knopf\.disabled = geraet \|\| !geaendert\(\) \|\| entwurf\.length === 0;/);
+  assert.match(f, /pruefeRelayEingabe\(\[\.\.\.entwurf, adresse\]\.join\("\\n"\)\)/, "Hinzufügen prüft wie bisher");
+  assert.match(f, /pruefeRelayEingabe\(entwurf\.join\("\\n"\)\)/);
   assert.match(f, /setzeEigeneRelays\(\{ relays: r\.relays, pk: state\.keypair\.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage \}\)/);
   assert.ok(f.indexOf("setzeEigeneRelays(") < f.indexOf("nimmInPool(r.relays)"), "erst veröffentlichen, dann in den Pool");
-  assert.doesNotMatch(f, /innerHTML/, "Fehlertexte nur per textContent");
-  assert.match(settings, /wireRelayKarte\(\);/);
+  assert.doesNotMatch(f, /innerHTML/, "Adressen und Fehlertexte nur per textContent");
+  assert.match(readFileSync(new URL("../src/shell/tabs/mesh.ts", import.meta.url), "utf8"), /wireRelayKarte\(\);/);
+  assert.match(readFileSync(new URL("../src/shell/knoten-weg-ui.ts", import.meta.url), "utf8"), /zeigeRelaySatz\(relays\);/);
 });
 

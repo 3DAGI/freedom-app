@@ -1813,6 +1813,62 @@ def privatraum_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def relay_liste_pruefen(browser, url: str) -> dict:
+    """Relays als Liste (C-53a): je Relay eine Zeile mit Stand, „Hinzufügen“ prüft die Adresse wie bisher, geändert
+    ist ein Entwurf (Veröffentlichen erst dann an), Entfernen stellt den Stand wieder her; „Veröffentlichen“ sendet die
+    NIP-65-Liste und den Posteingang (10002, 10050). Endpunkte und Relay-Zugang stehen unter „Erweitert“."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg)
+    ev, s = seite.ev, seite.s
+    ev("() => { location.hash = '#/settings'; }")
+    s.wait_for_selector("[data-subtab-group=settings] [data-subtab=network]", state="attached", timeout=30000)
+    s.wait_for_function("() => JSON.parse(localStorage.getItem('freedom.relays.eigene') ?? '[]').length > 0", timeout=30000)
+    ev("() => document.querySelector('[data-subtab-group=settings] [data-subtab=network]').click()")
+    stand = """() => [[...document.querySelectorAll('#relay-liste .relay-zeile')].map(z => z.dataset.relay),
+      document.getElementById('eigene-relays-save').disabled, document.getElementById('eigene-relays-status').textContent]"""
+    gespeichert = ev("() => JSON.parse(localStorage.getItem('freedom.relays.eigene'))")
+    r = {"anfang": ev(stand)}
+    # Stand je Zeile: Punkt und Text (verbunden, nicht verbunden, noch nicht benutzt)
+    s.wait_for_function("() => [...document.querySelectorAll('#relay-liste .relay-stand')].every(e => e.textContent !== '')", timeout=10000)
+    r["staende"] = sorted(set(ev("() => [...document.querySelectorAll('#relay-liste .relay-stand')].map(e => e.textContent)")))
+    def dazu(adresse: str) -> list:
+        ev("(a) => { document.getElementById('relay-neu').value = a; document.getElementById('relay-hinzufuegen').click(); }", adresse)
+        return ev(stand)
+    r["falsch"] = dazu("http://kein-wss.example")
+    r["neu"] = dazu("wss://neu.example")
+    ev("() => document.querySelector('#relay-liste [data-relay=\"wss://neu.example\"] button').click()")
+    r["weg"] = ev(stand)
+    r["erweitert"] = ev("() => [document.getElementById('verbindung-erweitert').open, !!document.querySelector('#verbindung-erweitert #sol-rpcs'),"
+                        " !!document.querySelector('#verbindung-erweitert #relay-zugang-url')]")
+    vorher = sum(1 for e in relay.gesendet if e.get("kind") in (10002, 10050))
+    dazu("wss://neu.example")
+    ev("() => document.getElementById('eigene-relays-save').click()")
+    s.wait_for_function("() => document.getElementById('eigene-relays-status').textContent.startsWith('Veröffentlicht')", timeout=20000)
+    r["veroeffentlicht"] = [ev(stand)[1], "wss://neu.example" in ev("() => localStorage.getItem('freedom.relays.eigene')"),
+                            sum(1 for e in relay.gesendet if e.get("kind") in (10002, 10050)) > vorher]
+    erg["relays"] = r
+    if not (r["anfang"][0] == gespeichert and r["anfang"][1] is True and r["anfang"][2] == ""):
+        erg["fehler"].append(f"Anfang {r['anfang']} {gespeichert}")
+    if not r["staende"] or not set(r["staende"]) <= {"verbunden", "nicht verbunden", "noch nicht benutzt"}:
+        erg["fehler"].append(f"Stand {r['staende']}")
+    if not (r["falsch"][0] == gespeichert and r["falsch"][1] is True and r["falsch"][2].startswith("Adresse ")):
+        erg["fehler"].append(f"falsche Adresse {r['falsch']}")
+    if r["neu"] != [gespeichert + ["wss://neu.example"], False, "Geändert – gilt erst nach „Veröffentlichen“."]:
+        erg["fehler"].append(f"hinzugefügt {r['neu']}")
+    if r["weg"] != [gespeichert, True, ""]:
+        erg["fehler"].append(f"entfernt {r['weg']}")
+    if r["erweitert"] != [False, True, True]:
+        erg["fehler"].append(f"Erweitert {r['erweitert']}")
+    if r["veroeffentlicht"] != [True, True, True]:
+        erg["fehler"].append(f"veröffentlicht {r['veroeffentlicht']}")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def einstellungen_pruefen(browser, url: str) -> dict:
     """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
     Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus.
@@ -5773,6 +5829,10 @@ def main() -> int:
             except Exception as e:
                 erg["chat_liste"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["relay_liste"] = relay_liste_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["relay_liste"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5919,6 +5979,7 @@ def main() -> int:
           and erg.get("kontaktname", {}).get("bestanden") is True
           and erg.get("chat_klein", {}).get("bestanden") is True
           and erg.get("chat_liste", {}).get("bestanden") is True
+          and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
