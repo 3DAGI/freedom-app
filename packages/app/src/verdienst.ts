@@ -11,8 +11,7 @@
  * Grenze: Nach dem Ablauf holt der Kunde den Rest zurück und schließt den
  * Kanal – dann steht er nicht mehr auf der Kette und zählt hier nicht mehr.
  */
-import type { Connection } from "@solana/web3.js";
-import { KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, leseKanal, teileKanalZahlung, type KanalStand } from "@freedomstack/protocol";
+import { KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, leseKanal, leseProgrammKonten, teileKanalZahlung, type KanalStand, type SolRpc } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { decodeNpub } from "./identity.js";
 
@@ -35,24 +34,20 @@ export const PROVIDER_OFFSET = 8 + 32;
 
 export interface KanalAmKnoten { adresse: string; stand: KanalStand }
 
-/** Alle Kanäle an diese Provider-Adresse. Der RPC filtert; geprüft wird trotzdem jedes Konto. */
-export async function kanaeleDesKnotens(
-  conn: Pick<Connection, "getProgramAccounts">, providerSol: string,
-): Promise<KanalAmKnoten[]> {
-  const { PublicKey } = await import("@solana/web3.js");
-  const konten = await conn.getProgramAccounts(new PublicKey(KANAL_PROGRAMM_ID), {
-    commitment: "confirmed",
-    filters: [{ dataSize: KANAL_KONTO_BYTES }, { memcmp: { offset: PROVIDER_OFFSET, bytes: new PublicKey(providerSol).toBase58() } }],
+/** Alle Kanäle an diese Provider-Adresse (seit A-21c über kit auf dem RpcPool). Der RPC filtert; geprüft wird trotzdem jedes Konto. */
+export async function kanaeleDesKnotens(rpc: SolRpc, providerSol: string): Promise<KanalAmKnoten[]> {
+  const konten = await leseProgrammKonten(rpc, KANAL_PROGRAMM_ID, {
+    groesse: KANAL_KONTO_BYTES, adresseAb: { ab: PROVIDER_OFFSET, adresse: providerSol },
   });
   const aus: KanalAmKnoten[] = [];
   for (const k of konten) {
     let stand: KanalStand;
     try {
-      stand = leseKanal(k.account.data);
+      stand = leseKanal(k.daten);
     } catch {
       continue; // kein Kanal-Konto
     }
-    if (stand.provider === providerSol) aus.push({ adresse: k.pubkey.toBase58(), stand });
+    if (k.eigentuemer === KANAL_PROGRAMM_ID && stand.provider === providerSol) aus.push({ adresse: k.adresse, stand });
   }
   return aus;
 }

@@ -85,3 +85,11 @@ Fallstricke dieses Bereichs unten anhängen.
   nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur
   `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json` – A-21b2 entfernte `oeffneKanalIx()` & Co.,
   erst der CI-Job „Zahlkanal“ fand die Nutzer dort.
+- **Solana lesen nur über `poolRpc()`** (seit A-21c, `kit-rpc.ts`): kit fragt die Kette nur über den `RpcPool`
+  (`poolTransport()` → `pool.call()`), nie über `createSolanaRpc(url)` oder eine neue `Connection` zum Lesen – sonst fallen
+  Ausweichen, eigene Endpunkte zuerst und die Stichprobe (5.8) weg. Die App nimmt `solRpc()` (`shell/state.ts`, der
+  gemeinsame Pool), der Knoten `poolRpc(new RpcPool(…))`. Konten über `leseKonto()`/`leseProgrammKonten()` (Adressen per
+  `address()` geprüft); was der RPC liefert, prüft der Aufrufer trotzdem (Eigentümer, Diskriminator, Länge). Daten einer
+  Anweisung nur nach dem Format des Programms lesen: `claim` nimmt `[u8; 32]` ohne Längenpräfix – bis A-21c suchte
+  `getRevealedPreimage()` vier Byte Länge und fand das Preimage nie. Im Test die Kette als JSON-RPC-Attrappe hinter einem
+  echten Pool (`fetchImpl`), nicht als Objekt mit passenden Methoden – sonst prüft der Test kit und Pool nicht mit.

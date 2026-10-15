@@ -19,8 +19,8 @@
  */
 import type { Connection } from "@solana/web3.js";
 import {
-  KANAL_PROGRAMM_ID, alsWeb3, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, msatZuLamports,
-  neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, type Instruction, type KanalEmpfaenger, type KanalStand,
+  KANAL_PROGRAMM_ID, alsWeb3, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, leseKonto, msatZuLamports,
+  neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, type Instruction, type KanalEmpfaenger, type KanalStand, type SolRpc,
 } from "@freedomstack/protocol";
 import type { WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
@@ -221,10 +221,9 @@ export async function kanalAufKette(conn: Connection, kanal: string): Promise<Ka
   }
 }
 
-/** Liegt das Kanal-Programm auf dieser Kette? (Bis zum Deploy nicht – dann kein Kanal.) */
-export async function programmBereit(conn: Connection): Promise<boolean> {
-  const { PublicKey } = await import("@solana/web3.js");
-  return (await conn.getAccountInfo(new PublicKey(KANAL_PROGRAMM_ID), "confirmed"))?.executable === true;
+/** Liegt das Kanal-Programm auf dieser Kette? (Bis zum Deploy nicht – dann kein Kanal.) Seit A-21c über kit auf dem Pool. */
+export async function programmBereit(rpc: SolRpc): Promise<boolean> {
+  return (await leseKonto(rpc, KANAL_PROGRAMM_ID))?.ausfuehrbar === true;
 }
 
 /**

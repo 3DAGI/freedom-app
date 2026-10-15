@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { verifyDepositOnChain, DepositVerificationCache } from "../src/deposit-verify.js";
 import { AnchorSolanaHtlc } from "../src/solana-adapter.js";
 import type { ParsedSolDepositOpen } from "../src/sol-deposit.js";
-import type { Connection } from "@solana/web3.js";
+import type { SolRpc } from "../src/kit-rpc.js";
 
 const PROVIDER_SOL = "So11111111111111111111111111111111111111112";
 const NOW = 1_800_000_000;
@@ -54,7 +54,7 @@ const chainLock = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const conn = {} as Connection;
+const conn = {} as SolRpc;
 const opts = { nowUnix: NOW, expectedRecipient: PROVIDER_SOL };
 
 test("Deposit: gedecktes HTLC wird akzeptiert", async () => {

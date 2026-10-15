@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, teileKanalZahlung } from "@freedomstack/protocol";
+import { KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, poolRpc, RpcPool, teileKanalZahlung } from "@freedomstack/protocol";
 import { encodeNpub } from "../src/identity.js";
 import { fasseKanaeleZusammen, kanaeleDesKnotens, knotenAusEingabe, PROVIDER_OFFSET, type KanalAmKnoten } from "../src/verdienst.js";
 
@@ -19,7 +19,7 @@ const JETZT = 1_900_000_000;
 const provider = Keypair.generate().publicKey.toBase58();
 const adr = () => Keypair.generate().publicKey.toBase58();
 
-function konto(p: { provider?: string; eingezahlt: bigint; ausgezahlt: bigint; ablauf: number; empfaenger?: { adresse: string; ppm: number }[] }): Buffer {
+function konto0(p: { provider?: string; eingezahlt: bigint; ausgezahlt: bigint; ablauf: number; empfaenger?: { adresse: string; ppm: number }[] }): Buffer {
   const b = Buffer.alloc(KANAL_KONTO_BYTES);
   createHash("sha256").update("account:Channel").digest().subarray(0, 8).copy(b, 0);
   let o = 8;
@@ -33,29 +33,37 @@ function konto(p: { provider?: string; eingezahlt: bigint; ausgezahlt: bigint; a
   return b;
 }
 
-test("Kanäle des Knotens: gefiltert nach genau dieser Adresse, jedes Konto selbst geprüft", async () => {
-  const gut = adr(), fremd = adr(), kaputt = adr();
-  let gefragt: { programm: string; opts: unknown } | undefined;
-  const conn = {
-    getProgramAccounts: async (programm: PublicKey, opts: unknown) => {
-      gefragt = { programm: programm.toBase58(), opts };
-      return [
-        { pubkey: new PublicKey(gut), account: { data: konto({ eingezahlt: 5n, ausgezahlt: 1n, ablauf: JETZT }) } },
-        // Ein RPC, der falsch filtert: Kanal eines anderen Providers
-        { pubkey: new PublicKey(fremd), account: { data: konto({ provider: adr(), eingezahlt: 5n, ausgezahlt: 1n, ablauf: JETZT }) } },
-        { pubkey: new PublicKey(kaputt), account: { data: Buffer.alloc(KANAL_KONTO_BYTES) } },
-      ];
-    },
-  } as unknown as Parameters<typeof kanaeleDesKnotens>[0];
-  const k = await kanaeleDesKnotens(conn, provider);
-  assert.deepEqual(k.map((x) => x.adresse), [gut]);
-  assert.equal(gefragt!.programm, KANAL_PROGRAMM_ID);
-  assert.deepEqual(gefragt!.opts, {
-    commitment: "confirmed",
-    filters: [{ dataSize: KANAL_KONTO_BYTES }, { memcmp: { offset: PROVIDER_OFFSET, bytes: provider } }],
+test("Kanäle des Knotens: gefiltert nach genau dieser Adresse, jedes Konto selbst geprüft (kit auf dem Pool, A-21c)", async () => {
+  const gut = adr(), fremd = adr(), kaputt = adr(), anderesProgramm = adr();
+  const gefragt: { method: string; params: unknown[] }[] = [];
+  const konto = (pubkey: string, daten: Buffer, owner = KANAL_PROGRAMM_ID) => ({
+    pubkey, account: { data: [daten.toString("base64"), "base64"], executable: false, lamports: 1_000_000, owner, rentEpoch: 0, space: daten.length },
   });
+  const rpc = poolRpc(new RpcPool([{ url: "https://rpc.test" }], {
+    fetchImpl: (async (_u: unknown, init?: RequestInit) => {
+      const { id, method, params } = JSON.parse(String(init!.body)) as { id: number; method: string; params: unknown[] };
+      gefragt.push({ method, params });
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id, result: [
+        konto(gut, konto0({ eingezahlt: 5n, ausgezahlt: 1n, ablauf: JETZT })),
+        // Ein RPC, der falsch filtert: Kanal eines anderen Providers, ein Konto eines anderen Programms, Unsinn
+        konto(fremd, konto0({ provider: adr(), eingezahlt: 5n, ausgezahlt: 1n, ablauf: JETZT })),
+        konto(anderesProgramm, konto0({ eingezahlt: 5n, ausgezahlt: 1n, ablauf: JETZT }), adr()),
+        konto(kaputt, Buffer.alloc(KANAL_KONTO_BYTES)),
+      ] }));
+    }) as typeof fetch,
+  }));
+  const k = await kanaeleDesKnotens(rpc, provider);
+  assert.deepEqual(k.map((x) => x.adresse), [gut]);
+  assert.deepEqual(gefragt, [{
+    method: "getProgramAccounts",
+    params: [KANAL_PROGRAMM_ID, {
+      encoding: "base64", commitment: "confirmed",
+      filters: [{ dataSize: KANAL_KONTO_BYTES }, { memcmp: { offset: PROVIDER_OFFSET, bytes: provider, encoding: "base58" } }],
+    }],
+  }]);
   assert.equal(PROVIDER_OFFSET, 40, "Diskriminator + customer");
-  await assert.rejects(kanaeleDesKnotens(conn, "keine-adresse"));
+  await assert.rejects(kanaeleDesKnotens(rpc, "keine-adresse"));
+  assert.equal(gefragt.length, 1, "eine kaputte Adresse fragt die Kette nicht");
 });
 
 test("Übersicht: Teil des Providers wie das Programm, offen, laufende Kanäle und nächste Frist", () => {
@@ -100,7 +108,9 @@ test("verdrahtet: Kette nur im geöffneten Tab, nur textContent, Lightning vom e
   assert.equal(app.match(/zeigeSolEinnahmen\(/g)?.length, 1, "sonst nirgends – nicht beim Start");
   assert.match(app, /wireVerdienst\(loadEarnings\);/);
   assert.doesNotMatch(ui, /innerHTML/);
-  assert.match(ui, /kanaeleDesKnotens\(conn, adresse\)/);
+  assert.match(ui, /kanaeleDesKnotens\(rpc, adresse\)/);
+  assert.match(ui, /const rpc = await solRpc\(\);/);
+  assert.doesNotMatch(ui, /new Connection\(/, "Lesen nur über den Pool");
   assert.match(ui, /angebot\.kanal\.programm !== KANAL_PROGRAMM_ID/);
   assert.match(earn, /authors: \[knotenSchluessel\(\) \?\? state\.keypair\.pk\]/);
   for (const id of ["earn-knoten", "earn-sol-status", "earn-kanaele", "earn-events"]) assert.match(html, new RegExp(`id="${id}"`));

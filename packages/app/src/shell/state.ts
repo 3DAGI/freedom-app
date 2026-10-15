@@ -261,6 +261,12 @@ export async function solTransaktion(signatur: string): Promise<unknown> {
   return (await ensureRpcPool()).getTransaction(signatur);
 }
 
+/** kit-RPC auf dem Pool (A-21c): Lesen nur hierüber – mit Ausweichen und eigenen Endpunkten zuerst. */
+export async function solRpc(): Promise<import("@freedomstack/protocol").SolRpc> {
+  const [{ poolRpc }, pool] = await Promise.all([import("@freedomstack/protocol"), ensureRpcPool()]);
+  return poolRpc(pool);
+}
+
 /** Beste erreichbare RPC-URL fuer Bibliotheken, die eine feste Adresse wollen. */
 export async function solRpcUrl(): Promise<string> {
   return (await ensureRpcPool()).bestUrl();

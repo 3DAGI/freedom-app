@@ -263,14 +263,15 @@ export class RpcPool {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const json = (await res.json()) as { result?: T; error?: { message?: string; code?: number } };
+    const json = (await res.json()) as { result?: T; error?: { message?: string; code?: number; data?: unknown } };
     if (json.error) {
       // Ein fachlicher Fehler der Kette ist KEIN Endpunktproblem — ihn an
       // den nächsten Endpunkt weiterzureichen würde nur Zeit kosten und
-      // dort dieselbe Antwort ergeben.
+      // dort dieselbe Antwort ergeben. `data` reicht der kit-Transport weiter (A-21c).
       throw Object.assign(new Error(json.error.message ?? `RPC-Fehler ${json.error.code}`), {
         rpcLevel: true,
         code: json.error.code,
+        data: json.error.data,
       });
     }
     return json.result as T;

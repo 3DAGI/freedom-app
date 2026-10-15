@@ -9572,3 +9572,49 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C, VK-W6 ja – MENSCH 14.10.).
 - Kürzen;
 - Motor als Prozess (Attrappe über stdio, keine Variable des Knotens);
 - Weg durch den Knoten (versiegelt, nie offen, nichts im Log).
+
+## Schritt A-21c – Lesen über `@solana/kit` auf dem RpcPool
+
+Spur A, `docs/KIT-PLAN.md` (W1–W3 freigegeben 11.10., MENSCH). Keine neue Abhängigkeit.
+
+**Gebaut:**
+- `protocol/src/kit-rpc.ts`:
+  - `poolTransport()`/`poolRpc()`: kit baut die Anfragen und liest die Antworten, gesendet wird nur über
+    `RpcPool.call()` – mit Ausweichen, Sperrfrist und eigenen Endpunkten zuerst.
+  - Ein Fehler der Kette bleibt beim ersten Endpunkt und kommt als `SolanaError` mit Code zurück (der Pool reicht
+    dafür `data` weiter). Ist kein Endpunkt erreichbar, bleibt es `rpc-unerreichbar`.
+  - BigInt aus kit geht als Zahl hinaus; größere als 2^53 hält kit vorher an.
+  - Die Leser `leseKonto()`, `leseProgrammKonten()` und `leseGuthaben()` prüfen jede Adresse mit `address()`.
+- `solana-adapter.ts`:
+  - `get()` und `getRevealedPreimage()` lesen über kit; `reader(rpc)` statt `reader(conn)`.
+  - Der Adapter mit Schlüssel (LP) liest über einen Pool aus seiner URL und schreibt bis A-21e weiter über web3.js.
+  - Eine Sperre ist nur ein Konto des HTLC-Programms.
+- `deposit-verify.ts`: `verifyDepositOnChain(deposit, rpc)`. Der Knoten (`dvm-provider.ts`) baut den Zugang
+  synchron aus `solanaRpcUrl` (`solRpc` statt `solConnection`).
+- App (`solRpc()` in `shell/state.ts`, der gemeinsame Pool mit `verteilen`) liest damit:
+  - Kanäle des Knotens, Guthaben und das Kanal-Programm im Verdienen-Tab;
+  - `programmBereit()` beim Öffnen eines Kanals;
+  - die Prüfung der Gegenseite im Tausch;
+  - offene Sperren im Rückhol-Wächter (`walletRefundRunner(conn, wallet, rpc)`).
+  Der Verdienen-Tab baut keine `Connection` mehr.
+- Noch über web3.js, weil sie die Verbindung mit Schreibpfaden teilen: `kanalAufKette()` und die Zahlschienen
+  (A-21d), die Lesestellen des Knotens (A-21e).
+
+**Behoben:** `getRevealedPreimage()` las vier Byte Länge vor dem Preimage. Seit 0.I nimmt `claim` aber ein festes
+`[u8; 32]` ohne Präfix, also fand die Funktion das Preimage nie. Folge: Der LP hätte nach einer Einlösung die
+Hold-Invoice nicht abgerechnet. Nach deren Ablauf hätte der Kunde SOL und sats gehabt (Devnet; der Schutz aus 8.3
+brach nur nicht ab). Jetzt gilt:
+- genau Sighash plus 32 Byte;
+- nur Anweisungen des HTLC-Programms;
+- der LP prüft wie bisher gegen den Hashlock.
+
+**Größe:** Bundle 8 654 058 → 8 697 829 Byte (+44 KB, RPC-Schicht von kit) bis A-21f.
+
+**Tests:**
+- protocol +5: `kit-rpc.test.ts`;
+- `solana-lesen.test.ts` geht den ganzen Weg und prüft das Preimage samt alter Form und fremdem Programm;
+- app +2: `sperren-lesen.test.ts`;
+- `verdienst`/`zahlkanal` gegen eine JSON-RPC-Attrappe hinter einem echten Pool;
+- node unverändert.
+
+Vektoren unverändert.
