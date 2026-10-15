@@ -25,7 +25,7 @@ Frage lässt sich einzeln anders entscheiden.
 | Agent auf dem Gerät | beantwortet Erwähnungen, der Ersteller zahlt (11.3c) | `app/src/shell/agenten-lauschen.ts` |
 | Repos in Räumen | offen: Ankündigung mit Raum, Pfleger mit `repos_pflegen`; privat: alles innere Events der Gruppe (11.4) | `protocol/src/raum-repo.ts` |
 | Code eines Repos | Git-Bundle, verschlüsselt im Blob-Netz; der Verweis (38042) trägt den Schlüssel – offen öffentlich, privat nur in der Gruppe | `protocol/src/git.ts`, `app/src/shell/tabs/repos.ts` |
-| Bundle lesen | eigener Leser ohne Abhängigkeit und ohne DOM: Commits, Bäume, Dateien, Deltas, Suche; alles begrenzt (`BUNDLE_GRENZEN`), jedes Objekt nachgerechnet | `app/src/git-bundle.ts` |
+| Bundle lesen | eigener Leser ohne Abhängigkeit und ohne DOM: Commits, Bäume, Dateien, Deltas, Suche; alles begrenzt (`BUNDLE_GRENZEN`), jedes Objekt nachgerechnet | `protocol/src/git-bundle.ts` (bis 11.5a1 `app/src/`) |
 | Patches | NIP-34 Kind 1617, höchstens 60 KB (`PATCH_MAX_BYTES`), Text aus `git format-patch`; angenommen zählt nur von Eigentümer oder Maintainer (`patchStatus()`) | `protocol/src/nip34.ts` |
 | Werkzeuge im Knoten | Grenzen je Aufruf (`WERKZEUG_GRENZEN`), Netz nur über den SSRF-Wächter, Dateien nur im Workspace (8.7) | `node/src/tools.ts` |
 
@@ -493,7 +493,7 @@ gemacht.“
 |---|---|---|---|
 | 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 – **fertig** als VKb (`node/src/sandbox.ts`; den Arbeitsordner auf tmpfs legt 11.5c an) |
 | 11.5s2 | seccomp in der Sandbox wie bei Codex (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl | B | ~200 |
-| 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 |
+| 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 – **fertig** (`protocol/src/git-bundle.ts`, `arbeitskopie()` und `istRepoPfad()` in `protocol/src/arbeitskopie.ts`; Arbeitsordner `node/src/arbeitskopie.ts`: `neuerArbeitsordner()` in `/dev/shm`, `schreibeArbeitskopie()`) |
 | 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 |
 | 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 – **fertig** (14.10.: `repo-auftrag.ts`; `istAgent` an `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()`, Repo-Karten der App) |
 | 11.5n | Pakete holen (W6): Sperrdateien lesen (npm, PyPI), Archive mit Prüfsumme nur von der Liste, Zwischenspeicher; `paket_holen` nur in offenen Räumen; Schalter im privaten Raum | A | ~300 |
