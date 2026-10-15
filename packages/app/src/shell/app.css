@@ -94,7 +94,22 @@
 .chat-item { padding: 8px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; color: var(--text); margin-bottom: 2px; display: flex; gap: 8px; align-items: center; }
 .chat-item:hover { background: var(--border); }
 .chat-item.active { background: var(--border); color: var(--accent); }
-.chat-item .av { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 12px; color: #000; flex-shrink: 0; }
+.chat-item .av { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 13px; color: #000; flex-shrink: 0; }
+/* Personen ohne Bild (C-44): Buchstabe in einem Kreis, Farbe aus dem Schlüssel (`avatarFarbe()`, acht Farben,
+   weiße Schrift jeweils mindestens 4,5:1) – dieselben Farben in Kopfzeile und Profil */
+.avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
+  background: #3A3F44; color: #fff; font-family: var(--font-body); font-size: 13px; font-weight: 600; line-height: 1; }
+.chat-item .avatar { width: 32px; height: 32px; font-size: 14px; color: #fff; }
+.avatar[data-farbe="0"], header .ident[data-farbe="0"]::before, .profile-avatar-fallback[data-farbe="0"] { background: #2F6B3A; }
+.avatar[data-farbe="1"], header .ident[data-farbe="1"]::before, .profile-avatar-fallback[data-farbe="1"] { background: #2E5E8C; }
+.avatar[data-farbe="2"], header .ident[data-farbe="2"]::before, .profile-avatar-fallback[data-farbe="2"] { background: #7A4B9A; }
+.avatar[data-farbe="3"], header .ident[data-farbe="3"]::before, .profile-avatar-fallback[data-farbe="3"] { background: #9A4A5A; }
+.avatar[data-farbe="4"], header .ident[data-farbe="4"]::before, .profile-avatar-fallback[data-farbe="4"] { background: #8A5A1E; }
+.avatar[data-farbe="5"], header .ident[data-farbe="5"]::before, .profile-avatar-fallback[data-farbe="5"] { background: #2E7A78; }
+.avatar[data-farbe="6"], header .ident[data-farbe="6"]::before, .profile-avatar-fallback[data-farbe="6"] { background: #5A5FA8; }
+.avatar[data-farbe="7"], header .ident[data-farbe="7"]::before, .profile-avatar-fallback[data-farbe="7"] { background: #8C4A2E; }
+.chat-partner { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px 0; font-weight: 600; }
+.chat-partner-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Ungelesenes (C-30, Nutzertest C-11): Name fett, Marke „neu“, Zähler an „Chat“ und an den Direktnachrichten */
 .chat-item.ungelesen .label { font-weight: 700; }
 .chat-ungelesen { margin-left: auto; padding: 1px 6px; border-radius: 8px; background: var(--accent); color: #000; font-size: 12px; font-weight: 700; flex-shrink: 0; }
@@ -899,7 +914,8 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   flex:1; background:#16181A; border:1px solid #2A2A2A; border-radius:6px;
   color:#E8E8E8; padding:10px 12px; font-size:13px; min-height:42px;
 }
-.msg-group { padding:5px 0; }
+.msg-group { padding:5px 0 5px 46px; position:relative; }
+.msg-group > .msg-av { position:absolute; left:0; top:8px; width:36px; height:36px; font-size:15px; }
 .msg-meta { display:flex; align-items:baseline; gap:8px; font-size:12px; }
 .msg-author { font-weight:600; }
 .msg-time { color:#6E6E6E; font-size:12px; }
@@ -912,7 +928,7 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 }
 .member-col { border-left:1px solid #1E1E1E; padding:10px; overflow-y:auto; }
 .member-col h3 { margin:0 0 8px; font-size:12px; font-weight:600; color:#7A7A7A; }
-.member-row { display:flex; align-items:center; gap:6px; padding:4px 0; font-size:12px; }
+.member-row { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
 .icon-btn { width:auto; padding:4px 8px; min-height:30px; }
 
 @media (max-width: 900px) {
@@ -951,7 +967,7 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 .profile-avatar-fallback {
   width: 56px; height: 56px; border-radius: 50%; display: flex;
   align-items: center; justify-content: center; font-weight: 600;
-  font-size: 20px; border: 2px solid currentColor; flex-shrink: 0;
+  font-size: 20px; border: 2px solid currentColor; flex-shrink: 0; color: #fff;
 }
 .profile-text { position: relative; min-width: 0; }
 .profile-text h3 { margin: 0 0 3px; font-size: 16px; text-transform: none; letter-spacing: normal; }
@@ -1761,6 +1777,7 @@ header .ident::before {
   font-size: 13px; font-weight: 700; font-family: var(--font-body);
 }
 header .ident[data-initial=""]::before { display: none; }
+header .ident[data-farbe]::before { color: #fff; border-color: transparent; }
 @media (max-width: 1023px) {
   /* Berührflächen mindestens 40 px (WCAG 2.5.8 verlangt 24, die Plattformen empfehlen 44/48) */
   #app button, #app select, #app [role="tab"], .dlg-huelle button,

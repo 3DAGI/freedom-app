@@ -1114,7 +1114,8 @@ def kontaktname_pruefen(browser, url: str) -> dict:
     ev("() => { location.hash = '#/chat'; }")
     zeile = f"#chat-list .chat-item[data-cid='{probe['absender']}']"
     lies = f"""() => {{ const z = document.querySelector("{zeile}"); return z ? {{ label: z.querySelector('.label').textContent,
-        zeichen: z.querySelector('.av').textContent, elemente: z.querySelectorAll('b, img').length }} : null; }}"""
+        zeichen: z.querySelector('.av').textContent, farbe: z.querySelector('.av').dataset.farbe, elemente: z.querySelectorAll('b, img').length }} : null; }}"""
+    kopf = """() => [document.querySelector('#chat-partner .avatar')?.textContent, document.querySelector('#chat-partner .chat-partner-name')?.textContent]"""
     try:
         seite.s.wait_for_function(f"() => document.querySelector(\"{zeile} .label\")?.textContent.includes('~')", timeout=30000)
     except Exception:
@@ -1129,13 +1130,18 @@ def kontaktname_pruefen(browser, url: str) -> dict:
     except Exception:
         pass
     erg["nachher"] = ev(lies)
+    # Seit C-44 steht die Person auch im Kopf der Unterhaltung – Zeichen und Name wie in der Liste
+    erg["kopf"] = ev(kopf)
     erg["gespeichert"] = ev("""(pk) => { const c = JSON.parse(localStorage.getItem('freedom.chats') ?? '[]').find(x => x.id === pk);
         return c ? { anfrage: c.anfrage ?? null, profil: c.profil ?? null } : null; }""", probe["absender"])
     name = probe["name"]
-    if erg["vorher"] != {"label": f"Anfrage · ~{name}", "zeichen": "A", "elemente": 0}:
+    farbe = str(int(probe["absender"][:2], 16) % 8)  # C-44: Farbe aus dem Schlüssel (avatarFarbe())
+    if erg["vorher"] != {"label": f"Anfrage · ~{name}", "zeichen": "A", "farbe": farbe, "elemente": 0}:
         erg["fehler"].append(f"vorher {erg['vorher']}")
-    if erg["nachher"] != {"label": f"~{name}", "zeichen": "A", "elemente": 0}:
+    if erg["nachher"] != {"label": f"~{name}", "zeichen": "A", "farbe": farbe, "elemente": 0}:
         erg["fehler"].append(f"nach der Antwort {erg['nachher']}")
+    if erg["kopf"] != ["A", f"~{name}"]:
+        erg["fehler"].append(f"Kopf der Unterhaltung {erg['kopf']}")
     if erg["gespeichert"] != {"anfrage": False, "profil": name}:
         erg["fehler"].append(f"gespeichert {erg['gespeichert']}")
     if seite.browser_dialoge:

@@ -14,7 +14,7 @@ import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsBeiNeuem, mlsErreichbar, mlsGesperrt, mlsSendeAn } from "../mls-konto.js";
 import { geheim } from "../tresor.js";
 import { dialog, hinweis } from "../dialog.js";
-import { $, el, toast } from "../ui.js";
+import { $, avatar, el, toast } from "../ui.js";
 import { oeffneMenueAn } from "../menue.js";
 import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
@@ -164,6 +164,7 @@ export function loadChatList(): void {
   if (markiereGelesen()) saveConversations();
   // Ohne gewählte Unterhaltung keine Eingabe und keine Anruf-Knöpfe (C-34, Nutzertest C-3)
   document.querySelector(".comm-dm .chat-main")?.classList.toggle("ohne-unterhaltung", !conversations.some((c) => c.id === activeConversation));
+  zeigePartner(conversations.find((c) => c.id === activeConversation));
   const list = $("#chat-list");
   // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
   const dms = conversations.filter((c) => c.type === "dm");
@@ -181,7 +182,8 @@ export function loadChatList(): void {
       const zeile = el("div", undefined, c.id === activeConversation ? "chat-item active" : "chat-item");
       zeile.dataset.cid = c.id;
       // Name mit Anfrage-Zusatz und Profilname (C-33) – das Zeichen nie aus „Anfrage“ oder dem Schlüssel allein
-      zeile.append(el("span", c.type === "community" ? "🏠" : kontaktInitiale(c), "av"), el("span", kontaktAnzeige(c), "label"));
+      // Seit C-44 in der Farbe des Schlüssels (`avatar()`), ohne Namen „?“ statt eines Zeichens aus dem Schlüssel
+      zeile.append(c.type === "community" ? el("span", "🏠", "av") : avatar(c.id, kontaktInitiale(c)), el("span", kontaktAnzeige(c), "label"));
       // Ungelesenes (C-30): fett, mit Punkt und für Vorleser als Text
       if (istUngelesen(c)) {
         zeile.classList.add("ungelesen");
@@ -229,6 +231,13 @@ export function nimmAnfrageAn(cid: string): void {
   if (istAnfrageName(c.name, c.id)) c.name = pkShort(c.id);
   saveConversations();
   loadChatList();
+}
+
+/** Wer in der offenen Unterhaltung schreibt – Zeichen und Name im Kopf (C-44), nur als Text. */
+function zeigePartner(c: ChatConversation | undefined): void {
+  const kopf = document.getElementById("chat-partner");
+  if (!kopf) return;
+  kopf.replaceChildren(...(c?.type === "dm" ? [avatar(c.id, kontaktInitiale(c)), el("span", kontaktAnzeige(c), "chat-partner-name")] : []));
 }
 
 export function openConversation(cid: string): void {
