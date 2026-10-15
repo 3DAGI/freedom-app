@@ -296,7 +296,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
 | VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 |
-| VKl | „Als Repo in einen Raum stellen“ | A | ~200 |
+| VKl | „Als Repo in einen Raum stellen“ | A | ~200 – **fertig** (VKl1 Knoten: Code-Aktion `bundle`, `PROTOCOL.md` §34; VKl2 App: „Mein Knoten“ › Projekte) |
 
 ### Neue Fragen
 

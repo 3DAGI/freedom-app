@@ -227,6 +227,10 @@ Bereichs unten anhängen.
   `projekte.test.ts`). Neue git-Befehle nur über `git()` und mit Blick darauf, was sie aus der Konfiguration
   ausführen. Projektnamen sind Inhalt: Fehler des Dateisystems (tragen den Pfad) nur als `code-ablage`
   hinaus und ins Log, `outputPreview` nur mit Zahlen.
+  Ein Projekt verlässt den Knoten (seit VKl) nur als Bundle über `ProjektAblage.bundle()` (git über `git()`, Datei
+  mit Punkt neben den Projekten, danach gelöscht) und nur verschlüsselt ins Blob-Netz unter einem
+  **Wegwerfschlüssel** (`bundleInsBlobNetz()`) – nie unter dem Schlüssel des Knotens, der Blob läge sonst neben
+  seinem Angebot und verriete, wessen Knoten das Repo baute. Den Schlüssel bekommt nur der Besitzer versiegelt.
 - **Mini-App für Telegram nur über `tmaAusUmgebung()`** (seit TMA-2, `tma-server.ts`, `docs/MINI-APP-TMA.md`): nur mit
   `FREEDOM_TMA=1` und gültigem Bot-Token (ungültig → kein Start), Host `127.0.0.1`, TON nur mit eigener
   `TON_DEPOT_ADDRESS` – nie eine Adresse einer anderen Kette als Rückfall (bis TMA-2 `NODE_SOL_ADDRESS`).
@@ -279,3 +283,22 @@ Bereichs unten anhängen.
   `darfAusliefern()` der Verbindung zeigen würde, und lehnt Filter auf Umschläge ohne Anmeldung ab
   (`brauchtAnmeldung()`) – ein Fingerabdruck verriete sonst, welche Umschläge an wen dort liegen. Offene Abgleiche zählen
   wie Abos, jede Nachricht wie eine Abfrage, höchstens `NEG_RELAY.events`; `NEG-ERR` nur mit festen Texten.
+- **seccomp nur über `seccompFilter()`** (seit 11.5s2, `seccomp.ts`): cBPF ohne libseccomp, über `--seccomp 3` (Datei als
+  `stdio[3]`, nach dem Lauf geschlossen). Zuerst die Architektur prüfen (sonst töten), auf x86_64 die x32-Aufrufe sperren;
+  gesperrte Aufrufe ergeben `EPERM`, `clone3` `ENOSYS` (die C-Bibliothek nimmt dann `clone`, dessen Flags der Filter sieht).
+  Nummern je Architektur aus den Kernel-Headern – nie von x86_64 auf arm64 übertragen. Netz-Aufrufe bleiben erlaubt:
+  ohne Netz-Namensraum erreichen sie nur `lo`, und die Brücke zum Modell (VKc3) braucht sie. Speicher je Befehl nie mit
+  `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
+  (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
+  Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
+- **Pakete nur über `pakete.ts`** (seit 11.5n, W6a „So“): Die Sandbox bleibt ohne Netz, Pakete holt der Knoten vorher –
+  nur aus `package-lock.json` (Fassung 2/3, `integrity` sha512) und `requirements.txt` mit `--hash=sha256` (`holeAusSperre()`)
+  oder mit Namen und fester Version (`paketHolen()`, höchstens 20 je Auftrag, nur offene Räume – das prüft der Aufrufer).
+  Nur GET von `PAKET_QUELLEN` (genau diese Hosts, https, ohne Port), ohne Weiterleitung; fehlt einem Paket die Prüfsumme
+  oder kommt es von woanders, ist die ganze Sperrdatei abgelehnt. `tor` muss der Aufrufer nennen (`torAusUmgebung()`,
+  sonst `null`) – mit Tor geht jeder Abruf über `torGet()`, nie direkt. Abgelegt erst nach der Prüfung (`O_EXCL`,
+  `O_NOFOLLOW`, 0600): npm nach Inhalt (`npm/_cacache/content-v2/sha512/…`, wie der Cache von npm – so installiert
+  `npm ci --offline --ignore-scripts --cache <ziel>/npm`), PyPI unter dem Dateinamen für `pip install --no-index
+  --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
+  Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
+  außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.

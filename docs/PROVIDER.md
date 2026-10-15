@@ -515,7 +515,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Wurzel nur lesbar (aus `/etc` nur `/etc/alternatives` und der Cache des Laders), schreibbar nur der Projektordner (darin `.git` nur lesbar),
   leere Umgebung; dein Home und `~/.freedom` sieht der Code nicht. Grenzen je
   Befehl: 60 s, 120 s Rechenzeit, Dateien bis 512 MB, 1024 offene Dateien,
-  `/tmp` mit 512 MB. Den Arbeitsspeicher begrenzt die Sandbox noch nicht.
+  `/tmp` mit 512 MB, seit 11.5s3 4 GB Arbeitsspeicher je Prozess (ein Befehl mit
+  vielen Prozessen kann zusammen mehr belegen – das begrenzt die Sandbox noch nicht).
+  Seit 11.5s2 sperrt ein seccomp-Filter Kernaufrufe, die kein Werkzeug braucht
+  (`io_uring`, Schlüsselbund, eBPF, neue Namensräume) – auf x86_64 und arm64.
   Ob sie geht, steht beim Start im Log (`[code] Sandbox …`) und in
   `npm run pruefen`. Ohne bubblewrap oder ohne Nutzer-Namensräume läuft kein
   Code – nie direkt auf dem Rechner. **Unter Docker** sperrt das

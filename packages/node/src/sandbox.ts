@@ -20,13 +20,14 @@
  * dem Rechner.
  */
 import { spawn } from "node:child_process";
-import { existsSync, lstatSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, lstatSync, mkdtempSync, openSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { ndJsonStream } from "@agentclientprotocol/sdk";
 import { CODE_GRENZEN } from "@freedomstack/protocol";
 import { kuerzeAusgabe, type MotorStart } from "./code-motor.js";
+import { seccompFilter } from "./seccomp.js";
 
 /** Grenzen je Befehl (Vorgabe; der Betreiber kann sie senken). */
 export const SANDBOX_GRENZEN = {
@@ -38,6 +39,11 @@ export const SANDBOX_GRENZEN = {
   cpuSek: 120,
   dateiKiB: 512 * 1024,
   offeneDateien: 1024,
+  /**
+   * Arbeitsspeicher je Prozess (KiB, 11.5s3) über `ulimit -d` (RLIMIT_DATA): zählt seit Linux 4.7
+   * privaten, beschreibbaren Speicher – nicht reservierten Adressraum. `ulimit -v` bräche Node und WASM.
+   */
+  speicherKiB: 4 * 1024 * 1024,
 } as const;
 
 export interface SandboxOrt {
@@ -51,17 +57,20 @@ export interface SandboxOrt {
   bwrap?: string;
 }
 
-export type SandboxPruefung = { ok: true } | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" };
+/** `seccomp`: ob der Filter aus 11.5s2 mitläuft (nur x86_64 und arm64). */
+export type SandboxPruefung = { ok: true; seccomp: boolean } | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" };
 
 /** Feste Sätze für Log und `npm run pruefen` – nie Text von bubblewrap. */
-export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.fehlt" | "sandbox.namensraum", string> = {
-  "sandbox.ok": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar)",
+export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp", string> = {
+  "sandbox.ok": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar, seccomp)",
+  "sandbox.ok-ohne-seccomp": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar) – seccomp gibt es für diese Architektur nicht",
   "sandbox.fehlt": "Sandbox fehlt: bubblewrap ist nicht installiert (apt install bubblewrap) – ohne Sandbox führt der Knoten keinen Code aus",
   "sandbox.namensraum": "Sandbox geht nicht: bubblewrap darf keine Nutzer-Namensräume anlegen (Docker-Seccomp, AppArmor ab Ubuntu 24.04) – ohne Sandbox führt der Knoten keinen Code aus",
+  "sandbox.seccomp": "Sandbox geht nicht: bubblewrap lädt den seccomp-Filter nicht – ohne Sandbox führt der Knoten keinen Code aus",
 };
 
 export function sandboxText(p: SandboxPruefung): string {
-  return SANDBOX_TEXT[p.ok ? "sandbox.ok" : p.fall];
+  return SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
 }
 
 const PATH_INNEN = "/usr/local/bin:/usr/bin:/bin";
@@ -105,20 +114,45 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
   return a;
 }
 
-/** Grenzen über `ulimit` (je Grenze ein Aufruf – dash nimmt nur eine), dann der Befehl – `sh` aus dem nur lesbaren `/usr`. */
-function mitGrenzen(befehl: readonly string[]): string[] {
+/**
+ * Grenzen über `ulimit` (je Grenze ein Aufruf – dash nimmt nur eine), dann der Befehl – `sh` aus dem nur
+ * lesbaren `/usr`. Der Motor läuft lange: für ihn keine Rechenzeit, die übrigen Grenzen erben seine Befehle.
+ */
+function mitGrenzen(befehl: readonly string[], rechenzeit = true): string[] {
   const g = SANDBOX_GRENZEN;
-  return ["/bin/sh", "-c", `ulimit -t ${g.cpuSek} && ulimit -f ${g.dateiKiB} && ulimit -n ${g.offeneDateien} && exec "$@"`, "sandbox", ...befehl];
+  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`];
+  return ["/bin/sh", "-c", `${grenzen.join(" && ")} && exec "$@"`, "sandbox", ...befehl];
 }
 
-/** Ein eigenes `/etc` mit genau drei Dateien – nach dem Lauf gelöscht. */
-function eigenesEtc(): { ort: string; weg: () => void } {
+/**
+ * Ein eigenes `/etc` mit genau drei Dateien und – wo es ihn gibt – der seccomp-Filter
+ * als offene Datei (`fd`, für `--seccomp 3`); nach dem Lauf geschlossen und gelöscht.
+ */
+function eigenesEtc(mitSeccomp = true): { ort: string; fd: number | null; weg: () => void } {
   const ort = mkdtempSync(join(tmpdir(), "freedom-sandbox-etc-"));
   writeFileSync(join(ort, "passwd"), "agent:x:1000:1000::/home/agent:/bin/sh\n");
   writeFileSync(join(ort, "group"), "agent:x:1000:\n");
   writeFileSync(join(ort, "hosts"), "127.0.0.1 localhost sandbox\n");
-  return { ort, weg: () => rmSync(ort, { recursive: true, force: true }) };
+  const filter = mitSeccomp ? seccompFilter() : null;
+  let fd: number | null = null;
+  if (filter) {
+    writeFileSync(join(ort, "seccomp.bpf"), filter, { mode: 0o600 });
+    fd = openSync(join(ort, "seccomp.bpf"), "r");
+  }
+  let weg = false;
+  return {
+    ort, fd,
+    weg: () => {
+      if (weg) return;
+      weg = true;
+      if (fd !== null) closeSync(fd);
+      rmSync(ort, { recursive: true, force: true });
+    },
+  };
 }
+
+/** Der Filter liegt im Kind auf fd 3 (`stdio[3]`), bubblewrap lädt ihn mit `--seccomp 3`. */
+const mitSeccomp = (fd: number | null): string[] => (fd === null ? [] : ["--seccomp", "3"]);
 
 export interface SandboxErgebnis {
   /** Exit-Code des Befehls; `null`, wenn er abgebrochen wurde. */
@@ -134,12 +168,12 @@ export interface SandboxErgebnis {
  * Ausgabe (stdout und stderr zusammen) gekürzt wie im Code-Lauf (`kuerzeAusgabe()`); nach `befehlMs` endet die ganze
  * Prozessgruppe. Wirft nur, wenn bubblewrap gar nicht startet.
  */
-export function fuehreAus(befehl: readonly string[], o: SandboxOrt, zeitMs: number = SANDBOX_GRENZEN.befehlMs): Promise<SandboxErgebnis> {
+export function fuehreAus(befehl: readonly string[], o: SandboxOrt & { ohneSeccomp?: boolean }, zeitMs: number = SANDBOX_GRENZEN.befehlMs): Promise<SandboxErgebnis> {
   if (befehl.length === 0 || befehl.some((t) => typeof t !== "string" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
-  const etc = eigenesEtc();
+  const etc = eigenesEtc(!o.ohneSeccomp);
   return new Promise((fertig, scheitern) => {
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), "--", ...mitGrenzen(befehl)], {
-      stdio: ["ignore", "pipe", "pipe"], detached: true, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" },
+    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl)], {
+      stdio: ["ignore", "pipe", "pipe", ...(etc.fd === null ? [] : [etc.fd])], detached: true, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" },
     });
     let text = "";
     const nimm = (b: Buffer) => { if (text.length < CODE_GRENZEN.ausgabe * 4) text += b.toString("utf8"); };
@@ -162,13 +196,17 @@ export function fuehreAus(befehl: readonly string[], o: SandboxOrt, zeitMs: numb
 /**
  * Geht die Sandbox hier? Startet `true` darin. Fehlt bubblewrap: `sandbox.fehlt`;
  * startet es, scheitert aber an den Namensräumen (Docker-Seccomp, AppArmor):
- * `sandbox.namensraum`.
+ * `sandbox.namensraum`; geht es nur ohne den Filter aus 11.5s2: `sandbox.seccomp`.
  */
 export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
   const arbeit = mkdtempSync(join(tmpdir(), "freedom-sandbox-pruefung-"));
   try {
+    const seccomp = seccompFilter() !== null;
     const r = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap }, 10_000);
-    return r.code === 0 ? { ok: true } : { ok: false, fall: "sandbox.namensraum" };
+    if (r.code === 0) return { ok: true, seccomp };
+    if (!seccomp) return { ok: false, fall: "sandbox.namensraum" };
+    const ohne = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap, ohneSeccomp: true }, 10_000);
+    return { ok: false, fall: ohne.code === 0 ? "sandbox.seccomp" : "sandbox.namensraum" };
   } catch {
     return { ok: false, fall: "sandbox.fehlt" };
   } finally {
@@ -187,8 +225,8 @@ export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: str
   return (ordner) => {
     const etc = eigenesEtc();
     const ort: SandboxOrt = { arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}) };
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), "--", ...befehl], {
-      stdio: ["pipe", "pipe", "ignore"], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
+    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
+      stdio: ["pipe", "pipe", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
     });
     kind.on("error", () => { /* fehlt bubblewrap, endet der Strom – der Lauf endet mit „fehler“ */ });
     kind.on("close", () => etc.weg());

@@ -9977,3 +9977,218 @@ seine); Fehler und Grenzen (unbekannte Kennung, kaputte Nachricht, kein Filter, 
 offene). Protokoll `relay-zugang.test.ts`: NIP-11 mit 77.
 
 Knoten-Stand: neu nötig für den Abgleich; ältere Knoten antworten auf `NEG-OPEN` mit `NOTICE` (unbekannter Typ).
+
+## Schritt 11.5s2 – seccomp in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3“: seccomp wie bei Codex als zweite Stufe, ohne neue
+Abhängigkeit). Die Sandbox (VKb) hat schon kein Netz und keine Fähigkeiten; der Filter nimmt dazu, was den Kern
+angreifbar macht und kein Werkzeug braucht.
+
+- **`node/src/seccomp.ts`:** `seccompFilter(arch)` baut einen cBPF-Filter mit einem kleinen eigenen Assembler (Marken,
+  Sprungweiten geprüft): Architektur prüfen (sonst töten), x32 auf x86_64 sperren, `EPERM` für `io_uring_*`, `keyctl`,
+  `add_key`, `request_key`, `bpf`, `perf_event_open`, `userfaultfd`, `kexec_*`, Module, `open_by_handle_at`, `unshare`,
+  `setns`, Einhängen (`mount`, `umount2`, `pivot_root`, neue Mount-API), `swapon`/`swapoff`, `reboot`; `clone` mit
+  `CLONE_NEW*` gesperrt, `clone3` mit `ENOSYS`. Nur x86_64 und arm64, sonst kein Filter.
+- **`sandbox.ts`:** der Filter als Datei im eigenen `/etc`-Ordner, offen als `stdio[3]`, `--seccomp 3` – für Befehle und
+  den Motor; `pruefeSandbox()` meldet `seccomp` und unterscheidet `sandbox.seccomp` (geht nur ohne Filter).
+- **Noch nicht:** Speicher je Befehl → 11.5s3 (`ulimit -v` bricht Node und WASM).
+- **Doku:** Entwurf, OFFEN (11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `seccomp.test.ts` (3, neu): Aufbau je Architektur (Architektur zuerst, töten am Ende, Sprünge im
+Programm, x32 nur auf x86_64); mit echtem bubblewrap und Python: `io_uring_setup`, `keyctl`, `bpf`, `perf_event_open`,
+`userfaultfd` ergeben `EPERM`, Threads und Kindprozesse laufen; `unshare -U` scheitert in der Sandbox.
+`sandbox.test.ts` angepasst (Selbstprüfung mit `seccomp`).
+
+Knoten-Stand: neu für den Filter; ohne `VIBECODEN=1` ändert sich nichts.
+
+## Schritt 11.5s3 – Speicher je Befehl in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (11.5s3). Bisher begrenzte die Sandbox Zeit, Dateigröße und offene
+Dateien, aber nicht den Arbeitsspeicher – ein Befehl konnte den Rechner des Providers in den Speichermangel treiben.
+
+- **`ulimit -d` statt cgroups:** `RLIMIT_DATA` zählt seit Linux 4.7 privaten, beschreibbaren Speicher (Heap und
+  `mmap`), nicht reservierten Adressraum – Node und WASM reservieren viel und belegen wenig, `ulimit -v` bräche sie.
+  cgroups v2 brauchen ein Nutzer-systemd oder Rechte, die unter Docker meist fehlen; die Grenze je Prozess geht überall.
+- **`sandbox.ts`:** `SANDBOX_GRENZEN.speicherKiB` (4 GiB) in `mitGrenzen()`; der Motor (`sandboxMotor()`) läuft jetzt
+  auch über `mitGrenzen(…, false)` – Dateigröße, offene Dateien, Speicher, aber keine Rechenzeit (er läuft so lange wie
+  der Auftrag). Seine Befehle erben die Grenzen.
+- **Noch nicht:** alle Prozesse eines Befehls zusammen → 11.5s4 (cgroups v2, wo es sie gibt; später, nachrangig).
+- **Doku:** Entwurf, OFFEN (11.5s4 statt 11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (1 neu, 1 erweitert): Grenzen samt `ulimit -d`; mit echtem bubblewrap und Python
+scheitert ein Puffer über der Grenze mit `MemoryError`, 64 MB gehen; der Motor sieht Speichergrenze, aber keine
+Rechenzeitgrenze.
+
+## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue
+Abhängigkeit, kein neues Event-Format: Code-Auftrag 5080 (VKa) mit einer Aktion mehr, Blobs wie 8.9a,
+Datei-Verschlüsselung wie Anhänge.
+
+**Gebaut:**
+- Protokoll `knoten-code.ts`: Aktion `bundle` (Parameter `projekt`), Antwort mit `blob`, `manifest`, `schluessel`
+  (`DateiSchluessel`, genau vier Felder) und `bytes` (1 bis `CODE_GRENZEN.bundle` = 32 MB); jede andere Form
+  liest `leseCodeAntwort()` nicht.
+- Knoten:
+  - `ProjektAblage.bundle()`: `git bundle create --all` über `git()` in eine Datei mit Punkt neben den Projekten,
+    danach immer gelöscht; ohne Commit `code-leer`, über 32 MB `code-zu-gross`.
+  - `bundleInsBlobNetz()` im Provider: verschlüsselt (`verschluesseleDatei()`), `buildBlob(…, { verschluesselt: true })`,
+    signiert mit einem **Wegwerfschlüssel** (nie dem des Knotens – der Blob verriete sonst, wessen Knoten das Repo
+    baute), die Stücke hält der Knoten selbst (`nimmAuf(…, { halten: true })`), veröffentlicht über den Pool. Den
+    Schlüssel bekommt nur der Besitzer in der versiegelten Antwort.
+- Doku: `PROTOCOL.md` §34 (Aktion, Fälle, Absatz Bundle), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:**
+- protocol ±0: `knoten-code.test.ts` – Bundle hin und zurück, sechs kaputte Antworten (in bestehenden Fällen);
+- node +2: `projekt-bundle.test.ts` – `code-leer`, Bundle mit `main`, keine Datei bleibt liegen; der ganze Weg mit
+  Wegwerfschlüssel ≠ Knotenschlüssel, Stücke gehalten, Schlüssel nicht öffentlich, zusammengesetzt und entschlüsselt
+  das Bundle, Projektname nie im Log.
+
+**Offen:** VKl2 (App: Projekt und Raum wählen, Ankündigung und Bundle-Verweis in den Raum).
+
+## Schritt B-32-Entwurf – Reticulum als zweiter Funkweg
+
+Spur B, Sammlung B-32 (RN1: im Entwurf prüfen, RN2 A). Nur Doku, kein Code.
+
+- **`docs/RETICULUM-ENTWURF.md`:** Befunde zu reticulum-js – `@reticulum/core` 0.9.8 unter EUPL-1.2 (wie Freedom), ohne
+  Abhängigkeiten, im Browser lauffähig, RNode über WebSerial, LXMF als eigenes Paket, Releases fast täglich, noch ohne
+  Routing für andere; die Python-Referenz steht seit April 2025 unter einer eigenen Lizenz mit Schadens- und KI-Klausel –
+  Freedom bindet sie nicht ein. Ergebnis RN1: Bibliothek. Vorschläge V1–V6 (nur Umschläge, Identität je Gerät im Tresor,
+  Sendezeit, Adresse nur für Kontakte, Zustellen über den eigenen Knoten, Gateway nach der App), Fragen W1–W5,
+  Aufteilung B-32a–d.
+- **B-31:** Größe der MCP-Abhängigkeit vor dem Einbau genannt (MC1): `@modelcontextprotocol/sdk` 1.32.1 = 95 Pakete,
+  29 MB, ohne Copyleft; Vorschlag eigener schlanker Client – Frage in `OFFEN.md` 1.0b.
+- **Doku:** OFFEN (1.0b mit beiden Fragen, B-31 und B-32 wartend), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-30-Entwurf – Atomic Agent als Agent-Harness
+
+Spur B, Sammlung B-30 (AG1 A, 09.10.). Nur Doku, kein Code – der Befund passt nicht zur Annahme der Sammlung.
+
+- **`docs/ATOMIC-AGENT-ENTWURF.md`:** Atomic Agent (MIT) braucht Node ≥ 25.7 (der Knoten läuft auf 22), spricht kein ACP
+  (nur OpenAI-kompatibles `serve` und ein eigenes NDJSON-Sidecar), bringt viele Netzwege mit (Composio, Postfach,
+  Telegram, Skills aus ClawHub) und hat **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**. Seit VK-W1n C
+  ist Hermes über ACP der Motor des Knotens. Vorschlag: nicht als Motor im Knoten, sondern als lokaler OpenAI-Server unter
+  „Dieses Gerät“, mit ehrlichem Hinweis; Fragen W1–W4, Aufteilung B-30a.
+- **Doku:** OFFEN (1.0b, B-30 wartet), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-33-Entwurf – Tor mit Brücken in der Hülle
+
+Spur B, Sammlung B-33 (PT1 A: Snowflake und WebTunnel, Größe und Lizenz vor dem Einbau nennen). Nur Doku:
+`docs/TOR-BRUECKEN-ENTWURF.md`.
+
+- **Gemessen:** aus den Quellen gebaut (Go 1.24.7, ohne cgo, `-trimpath -s -w`): `snowflake-client` 2.14.1
+  16,8 MB (gepackt 6,2 MB), WebTunnel-Client 0.0.7 5,0 MB, lyrebird 17,8 MB (6,6 MB). Android arm64 geht für
+  Snowflake nur mit `-checklinkname=0`.
+- **Lizenzen:** Snowflake BSD-3-Clause (alle 56 Abhängigkeiten frei), WebTunnel MIT, goptlib CC0. **lyrebird:**
+  `LICENSE` sagt BSD-2-Clause, aber `internal/x25519ell2` (obfs4) und `transports/meeklite` stehen unter
+  GPL-3.0-or-later – das Programm als Ganzes ist GPL-3. Nach der STOPP-Regel (starkes Copyleft) eine Frage.
+- **Vorschläge V1–V5:** aus den Quellen in der CI bauen, Desktop als Beigabe der Hülle und Android als
+  `lib<name>.so` (W^X), Brücken nur auf Wunsch, eingefügte Zeilen nur geprüft, ehrliche Texte.
+- **Fragen:** PT2 (welche Programme – Empfehlung A: Snowflake und WebTunnel, kein lyrebird), PT3 (woher Brücken –
+  Empfehlung A: eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen). Aufteilung B-33a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-34-Entwurf – Gruppenanrufe über LiveKit
+
+Spur B, Sammlung B-34 (LK1 A: nur in privaten Räumen, Schlüssel aus MLS). Nur Doku: `docs/GRUPPENANRUF-ENTWURF.md`.
+
+- **Gemessen:** `livekit-server` 1.13.10 (Apache-2.0, Docker 43,7 MB amd64 / 41,5 MB arm64); `livekit-client`
+  2.22.4 (Apache-2.0, 15 Pakete ohne Copyleft) bringt 561 KB minifiziert und einen E2EE-Worker von 294 KB –
+  `freedom.html` wüchse von 8,7 MB um etwa 8 bis 10 %.
+- **Befunde:** Zugang nur mit JWT des Servers (das Geheimnis bleibt beim Knoten); E2EE über einen Schlüssel der
+  App, der SFU sieht Metadaten und IPs; `packages/mls` gibt kein Exporter-Geheimnis heraus; die CSP erlaubt den
+  Worker schon (`worker-src blob:`).
+- **Vorschläge V1–V5:** Dienst wie coturn, Zugänge nur versiegelt und je Teilnehmer, Schlüssel je Epoche, IP nur
+  bewusst zeigen (eigener TURN oder Warnung), ehrliche Texte.
+- **Fragen:** LK2 (Client ins Bundle), LK3 (Schlüssel aus dem MLS-Exporter oder vom Gastgeber), LK4 (IP der
+  Teilnehmer) – Empfehlung jeweils A. Aufteilung B-34a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-37-Entwurf – MeshCore als zweites LoRa-Format
+
+Spur B, Sammlung B-37 (nachrangig). Nur Doku: `docs/MESHCORE-ENTWURF.md`.
+
+- **Befunde:** Companion-Schnittstelle (Fassung 3) über USB (1 Byte Richtung, 2 Byte Länge LE), Bluetooth
+  (Nordic UART) oder TCP; Gruppen-Datagramme über `SendChannelData` (62) mit 16-Bit-Datentyp, Empfang
+  `ChannelDataRecv` (27); Versuchsbereich `FF00`–`FFFF`, feste Bereiche nur über einen Pull Request beim
+  Projekt; höchstens 184 Byte je Paket – unsere Rahmen (200 Byte) passen nicht. Firmware und `meshcore.js`
+  stehen unter MIT; Freedom bräuchte nur das Format.
+- **Vorschläge V1–V4:** Format ohne Abhängigkeit mit Vektoren aus `meshcore.js`, Rahmengröße je Strecke
+  (`fragment()` mit Größe, nie mischen), nur Gruppen-Datagramme auf „freedom“, Sendezeitkonto.
+- **Fragen:** MCO-W1 (Datentyp beantragen – MENSCH), MCO-W2 (jetzt oder erst mit Gerät vor Ort – Empfehlung B).
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt VKl2 – „Als Repo in einen Raum stellen“ aus „Mein Knoten“
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl, Teil 2: App). Keine neue Abhängigkeit, kein neues Event-Format: Code-Aufträge
+(5080) wie VKa, Ankündigung und Bundle-Verweis wie jedes Repo (11.4). Damit ist VKl fertig.
+
+**Gebaut:**
+- `shell/knoten-code-ui.ts` (neu):
+  - „Projekte“ in der Karte „Mein Knoten“ (nur gekoppelt, nur auf Klick) fragt den Knoten versiegelt nach der Liste
+    (`frageKnotenCode()`: frischer Sitzungsschlüssel, `wegZumKnoten()`, gelesen nur über `leseCodeAntwort()`).
+  - Je Projekt eine Zeile (Name, Schritte, letzte Änderung) und „Als Repo in einen Raum stellen“.
+  - `holeBundleVomKnoten()`: Aktion `bundle`, danach muss das Manifest an den eigenen Relays liegen – sonst fänden es
+    die im Raum auch nicht, und nichts wird angekündigt.
+- `tabs/repos.ts`: `stelleKnotenProjektEin()` → `kuendigeAn(…, ausKnoten)`: derselbe Dialog (Kennung vorbelegt, Wo:
+  öffentlich, offener oder privater Raum – nie „nur dieses Gerät“), private Räume frisch aus MLS. Erst das Bundle,
+  dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das Bundle, geht nichts hinaus. Privat nur `sendeInRaum()`.
+- `knoten-projekte.ts` (neu, ohne DOM): Zeilen, Bundle-Verweis, Ablehnungen nur über die Kennung des Knotens
+  (`CODE_FALL_TEXT`, ein Test vergleicht mit `CodeAbgelehnt` im Knoten) – nie Text vom Knoten.
+- `warteAufKnoten()` gibt bei einer Ablehnung zusätzlich die Kennung `fall` zurück.
+- Texte in beiden Sprachen, `wiring-ausnahmen.txt`: `baueCodeAuftrag` und `leseCodeAntwort` sind verdrahtet,
+  Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:** app +4 (`knoten-projekte.test.ts`): Kennungen gleich denen des Knotens, Ablehnung nur über die Kennung
+(auch `toString` nicht), Zeile und Verweis, Verdrahtung (versiegelt über den Weg, Manifest geprüft, erst Bundle, dann
+Ankündigung, privat nur in die Gruppe, nie „nur dieses Gerät“). Bestehende Quelltext-Tests bleiben unverändert bis auf
+die Zeile mit dem Hinweis (`raum-repos-ui.test.ts`).
+
+Knoten-Stand: mit VKl1 (Code-Aktion `bundle`).
+
+## Schritt 11.5n – Pakete holen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W6 B, W6a „So“, entschieden 14.10.). Keine neue Abhängigkeit, kein neues
+Event-Format. Bausteine für den Ablauf aus 11.5c – dort ruft der Knoten sie auf.
+
+**Gebaut:**
+- `node/src/pakete.ts` (neu):
+  - `leseNpmSperre()`: `package-lock.json` Fassung 2/3, jedes installierte Paket mit `resolved` von der Liste und
+    `integrity` sha512. Verweise, Bündel, Arbeitsbereiche und Pakete anderer Plattformen (`os`, `cpu`, `libc` wie bei
+    npm) bleiben weg. Fremde Quelle oder fehlende Prüfsumme → die ganze Datei abgelehnt.
+  - `lesePipAnforderungen()`: `requirements.txt` wie pip – `name==version`, danach nur `--hash=sha256:…`; andere
+    Optionen (`--index-url`, `-e`, `-r`) und Bereiche lehnen die Datei ab.
+  - `passendeDateien()`: von einer PyPI-Version nur, was die Sandbox braucht – ein reines Rad, sonst Linux/glibc mit
+    Prozessor und Python-Fassung (auch `abi3`), sonst das Quellarchiv. Sonst hätte etwa numpy dutzende Räder geholt.
+  - `holeAusSperre()` und `paketHolen()` (neues Paket mit fester Version, höchstens 20 je Auftrag): nur GET von
+    `PAKET_QUELLEN`, ohne Weiterleitung, über `safeFetch()`; mit Tor (`tor` muss der Aufrufer nennen) nur über
+    `torGet()`. Prüfsumme vor dem Ablegen; npm nach Inhalt wie im Cache von npm, PyPI unter dem Dateinamen;
+    `O_EXCL`, `O_NOFOLLOW`, 0600. Grenzen: 500 Pakete, 200 MiB zusammen, 50 MiB je Archiv, zehn Minuten.
+  - Nach außen nur `PaketAbgelehnt.fall`.
+- `node/src/tor.ts`: `torGet()` – ein GET über https durch den SOCKS5-Proxy, Name beim Proxy, ohne Weiterleitung.
+- **Befund:** `npm install --package-lock-only --offline` (Entwurf) braucht die Metadaten im Cache, nicht nur die
+  Archive. `paketHolen()` gibt deshalb Adresse und Prüfsumme in der Form der Sperrdatei zurück; die Zeilen schreibt der
+  Agent selbst (Entwurf ergänzt).
+- **Doku:** Fallstrick in `packages/node/CLAUDE.md`, FORTSCHRITT, OFFEN (11.5n gestrichen), Entwurf, Stand-Zeile.
+
+**Tests:** node +11 (`pakete.test.ts`):
+- beide Sperrdateien mit Negativfällen;
+- Wahl der Räder;
+- Ablage nach Inhalt (auch bei zwei sha512), 0600, nichts doppelt;
+- falsche Prüfsumme, Netz, Weiterleitung, Größe, Zeit, Verweis an der Zielstelle – nichts abgelegt, nur die Kennung;
+- PyPI-Name nach PEP 503, Dateien fremder Hosts übergangen;
+- `paketHolen()` mit Namen und Versionen;
+- mit Tor nur über den Proxy (Adresstyp 3);
+- `npm ci --offline --ignore-scripts` und `pip install --no-index --require-hashes` installieren aus dem Zwischenspeicher.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; 11.5c).

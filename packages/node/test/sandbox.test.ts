@@ -51,8 +51,9 @@ test("VKb: Argumente – alle Namensräume, keine Fähigkeiten, leere Umgebung, 
 });
 
 test("VKb: Selbstprüfung mit festen Sätzen – je Fall einer", () => {
-  assert.equal(sandboxText({ ok: true }), SANDBOX_TEXT["sandbox.ok"]);
-  for (const fall of ["sandbox.fehlt", "sandbox.namensraum"] as const) assert.match(sandboxText({ ok: false, fall }), /führt der Knoten keinen Code aus/);
+  assert.equal(sandboxText({ ok: true, seccomp: true }), SANDBOX_TEXT["sandbox.ok"]);
+  assert.match(sandboxText({ ok: true, seccomp: false }), /seccomp gibt es für diese Architektur nicht/);
+  for (const fall of ["sandbox.fehlt", "sandbox.namensraum", "sandbox.seccomp"] as const) assert.match(sandboxText({ ok: false, fall }), /führt der Knoten keinen Code aus/);
 });
 
 test("VKb: ohne bubblewrap kein Ausführen – nie direkt auf dem Rechner", async () => {
@@ -68,10 +69,10 @@ test("VKb (bubblewrap): leere Umgebung, eigener Nutzer, kein Netz, Grenzen geset
   assert.equal(env.code, 0);
   assert.deepEqual(env.ausgabe.trim().split("\n").map((z) => z.split("=")[0]).sort(), ["HOME", "LANG", "PATH", "PWD"]);
   assert.ok(!env.ausgabe.includes("nie-in-der-sandbox"));
-  const r = await fuehreAus(["/bin/sh", "-c", "id -u; pwd; ulimit -t; ulimit -f; ulimit -n; grep NoNewPrivs /proc/self/status; tail -n +3 /proc/net/dev | cut -d: -f1"], { arbeit: projekt() });
+  const r = await fuehreAus(["/bin/sh", "-c", "id -u; pwd; ulimit -t; ulimit -f; ulimit -n; ulimit -d; grep NoNewPrivs /proc/self/status; tail -n +3 /proc/net/dev | cut -d: -f1"], { arbeit: projekt() });
   assert.equal(r.code, 0);
-  const [uid, pwd, cpu, datei, dateien, nnp, ...netz] = r.ausgabe.trim().split("\n").map((z) => z.trim());
-  assert.deepEqual([uid, pwd, cpu, datei, dateien], ["1000", "/arbeit", String(SANDBOX_GRENZEN.cpuSek), String(SANDBOX_GRENZEN.dateiKiB), String(SANDBOX_GRENZEN.offeneDateien)]);
+  const [uid, pwd, cpu, datei, dateien, speicher, nnp, ...netz] = r.ausgabe.trim().split("\n").map((z) => z.trim());
+  assert.deepEqual([uid, pwd, cpu, datei, dateien, speicher], ["1000", "/arbeit", String(SANDBOX_GRENZEN.cpuSek), String(SANDBOX_GRENZEN.dateiKiB), String(SANDBOX_GRENZEN.offeneDateien), String(SANDBOX_GRENZEN.speicherKiB)]);
   assert.match(nnp!, /NoNewPrivs:\s+1/);
   assert.deepEqual(netz, ["lo"]);
 });
@@ -128,4 +129,23 @@ test("VKb (bubblewrap): der Motor läuft in der Sandbox – Strom über stdin/st
   m.beende();
   assert.equal((await leser.read()).done, true);
   assert.throws(() => sandboxMotor([]), /leer/);
+});
+
+test("11.5s3 (bubblewrap): Speicher je Prozess begrenzt – mehr als die Grenze scheitert sofort, weniger geht", { skip: ohne || (!existsSync("/usr/bin/python3") && "python3 fehlt") }, async () => {
+  const gib = SANDBOX_GRENZEN.speicherKiB / (1024 * 1024);
+  const skript = `
+try:
+    b = bytearray(${gib + 1} * 2**30); print("zu-viel-ging")
+except MemoryError:
+    print("zu-viel-scheitert")
+c = bytearray(64 * 2**20); print("wenig-geht", len(c) // 2**20)`;
+  const r = await fuehreAus(["/usr/bin/python3", "-c", skript], { arbeit: projekt() });
+  assert.equal(r.code, 0, r.ausgabe);
+  assert.match(r.ausgabe, /zu-viel-scheitert/);
+  assert.match(r.ausgabe, /wenig-geht 64/);
+  // der Motor erbt Speicher, Dateien und Dateigröße, aber keine Rechenzeit (er läuft lange)
+  const m = sandboxMotor(["/bin/sh", "-c", `printf '{"t":"%s","d":"%s"}\\n' "$(ulimit -t)" "$(ulimit -d)"; exec cat`])(projekt());
+  const leser = (m.strom as Stream).readable.getReader();
+  assert.deepEqual((await leser.read()).value, { t: "unlimited", d: String(SANDBOX_GRENZEN.speicherKiB) });
+  m.beende();
 });

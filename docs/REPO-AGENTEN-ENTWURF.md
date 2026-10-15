@@ -423,6 +423,11 @@ AsyncAPI). Also: Pakete holen und Code ausführen trennen – ausgeführt wird n
    - Höchstens 20 je Auftrag.
    - Danach schreibt der Agent die Sperrdatei in der Sandbox offline
      (`npm install --package-lock-only --offline`).
+   - **Befund 11.5n (15.10.):** `npm install --package-lock-only --offline` braucht die Metadaten
+     der Pakete im Cache von npm, nicht nur die Archive. `paketHolen()` gibt deshalb je Datei
+     Adresse und Prüfsumme in der Form der Sperrdatei zurück (`sha512-…`, `sha256:…`); die Zeilen
+     schreibt der Agent selbst, Abhängigkeiten holt er einzeln (sie stehen in der `package.json`
+     im Archiv). Bei pip genügt die Zeile `name==version --hash=sha256:…`.
 - **Warum so:**
   - Code in der Sandbox erreicht keine Adresse, weder das Internet noch das Heimnetz des Betreibers.
   - Hinaus geht nur ein GET des Knotens nach Paketen, die eine Sperrdatei mit Prüfsumme
@@ -492,11 +497,13 @@ gemacht.“
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
 | 11.5s | Sandbox-Baustein (`bwrap` wie oben, Grenzen, leere Umgebung, tmpfs-Ordner) und Selbstprüfung „Sandbox“ – gemeinsam mit B-31 | B | ~250 – **fertig** als VKb (`node/src/sandbox.ts`; den Arbeitsordner auf tmpfs legt 11.5c an) |
-| 11.5s2 | seccomp in der Sandbox wie bei Codex (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl | B | ~200 |
+| 11.5s2 | seccomp in der Sandbox wie bei Codex (Netz-Aufrufe, `io_uring`) als BPF ohne neue Abhängigkeit, Speicher je Befehl | B | ~200 – **seccomp fertig** (`node/src/seccomp.ts`: `io_uring`, Schlüsselbund, eBPF, Leistungszähler, `userfaultfd`, Module, Einhängen, neue Namensräume gesperrt; x86_64 und arm64); Netz-Aufrufe bleiben erlaubt – ohne Netz-Namensraum erreichen sie nur `lo`, und die Brücke zum Modell (VKc3) braucht sie; Speicher je Befehl → 11.5s3 |
+| 11.5s3 | Speicher je Befehl (cgroups v2 über `systemd-run --user --scope` oder eigene cgroup; `ulimit -v` bricht Node und WASM) | B | ~150 – **fertig je Prozess** über `ulimit -d` (RLIMIT_DATA, seit Linux 4.7 privater beschreibbarer Speicher, nicht Adressraum): 4 GiB je Prozess, für Befehle und den Motor; ohne cgroups, die unter Docker und ohne Nutzer-systemd fehlen. Alle Prozesse eines Befehls zusammen → 11.5s4 |
+| 11.5s4 | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt; sonst wie heute je Prozess) | B | ~150 – später, nachrangig |
 | 11.5a1 | Bundle-Leser ins Protokoll; Arbeitskopie: Baum am Kopf in den Arbeitsordner, Pfad-Regeln aus V4 | B | ~250 – **fertig** (`protocol/src/git-bundle.ts`, `arbeitskopie()` und `istRepoPfad()` in `protocol/src/arbeitskopie.ts`; Arbeitsordner `node/src/arbeitskopie.ts`: `neuerArbeitsordner()` in `/dev/shm`, `schreibeArbeitskopie()`) |
 | 11.5a2 | Patch-Schreiber: Arbeitsordner gegen den Kopf des Bundles, Text wie `git format-patch`, Tests gegen git | B | ~350 – geteilt: **a2a fertig** (`protocol/src/patch-schreiber.ts`: `schreibePatch()` – Myers-Diff, Commit wie git, `git am` ergibt dieselbe Kennung); **a2b fertig** (`leseArbeitsordner()` in `node/src/arbeitskopie.ts`: nur `lstat`, Verweise als Text, `.gitignore` wie git – `protocol/src/gitignore.ts`, Grenzen) |
 | 11.5b | Protokoll: Repo-Tag in der Erwähnung, „Repo gehört zum Raum“, `patchStatus()` ohne Agenten, `docs/PROTOCOL.md` 33 | A | ~250 – **fertig** (14.10.: `repo-auftrag.ts`; `istAgent` an `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()`, Repo-Karten der App) |
-| 11.5n | Pakete holen (W6): Sperrdateien lesen (npm, PyPI), Archive mit Prüfsumme nur von der Liste, Zwischenspeicher; `paket_holen` nur in offenen Räumen; Schalter im privaten Raum | A | ~300 |
+| 11.5n | Pakete holen (W6): Sperrdateien lesen (npm, PyPI), Archive mit Prüfsumme nur von der Liste, Zwischenspeicher; `paket_holen` nur in offenen Räumen; Schalter im privaten Raum | A | ~300 – **fertig** (15.10.: `node/src/pakete.ts` – `holeAusSperre()`, `paketHolen()`, `passendeDateien()`; mit Tor über `torGet()`; npm nach Inhalt in `npm/_cacache`, PyPI in `pypi/`; Tests installieren mit `npm ci --offline` und `pip install --no-index`). Das Werkzeug `paket_holen` und der Schalter kommen mit 11.5c/11.5d |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (eine Aktion je Antwort, jeder Befehl in der Sandbox), Bundle holen, P1–P4, Patch einreichen, Antwort im Raum | A | ~400, ggf. zwei Teile |
 | 11.5d | App: „Agent beauftragen“, Obergrenze, Kennzeichen an Patches von Agenten, Schalter „Pakete holen“ im privaten Raum | A (Oberfläche mit C) | ~250 |
 
