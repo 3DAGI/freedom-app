@@ -59,7 +59,9 @@ export const agent: Texte = {
   "agent.anhangKamera": { de: "Kamera", en: "camera" },
   // Namen für Vorleser (C-4)
   "agent.stufeAria": { de: "Stufe der Antwort", en: "Answer tier" },
-  "agent.anhaengenAria": { de: "Anhang hinzufügen", en: "Add attachment" },
+  "agent.plusAria": { de: "Anhängen und Werkzeuge", en: "Attach and tools" },
+  "agent.anhaengen": { de: "Anhängen", en: "Attach" },
+  "agent.werkzeugWeg": { de: "{name} entfernen", en: "Remove {name}" },
   "agent.werkzeugWeb": { de: "Web", en: "web" },
   "agent.werkzeugBrowser": { de: "Browser", en: "browser" },
   "agent.werkzeugBild": { de: "Bild", en: "image" },

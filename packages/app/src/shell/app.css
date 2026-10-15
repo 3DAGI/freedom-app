@@ -64,8 +64,22 @@
 @media (min-width: 1100px) {
   .ai-thread, .composer-inner { max-width: 1100px; }
 }
-.composer-row { display: flex; gap: 8px; align-items: flex-end; }
-.composer-row textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; font-family: var(--font-body); }
+/* Eingabe als Pille (C-49a): oben der Text, unten eine Leiste mit „+“, gewählten Werkzeugen, Modell und Senden */
+.eingabe-pille { background: var(--surf2); border: 1px solid var(--line2); border-radius: 18px; padding: 10px 10px 8px; }
+.eingabe-pille:focus-within { border-color: var(--accent-dim); }
+.eingabe-pille textarea { display: block; width: 100%; resize: none; min-height: 44px; max-height: 200px; padding: 4px 6px;
+  background: transparent; border: 0; outline: none; box-shadow: none; font: 15px/1.5 var(--font-body); color: var(--text); }
+.pille-leiste { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.pille-luecke { flex: 1 1 auto; }
+.plus-knopf { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+.werkzeug-auswahl { display: flex; gap: 6px; flex-wrap: wrap; }
+.werkzeug-auswahl:empty { display: none; }
+.werkzeug-gewaehlt { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  background: rgba(123,200,10,.10); border: 1px solid var(--accent-dim); color: var(--accent); }
+.werkzeug-weg { opacity: .8; }
+.pille-leiste .model-popover { left: auto; right: 0; }
+.pille-leiste .model-btn { border-radius: 999px; min-width: 0; }
+.pille-leiste .send-btn { border-radius: 999px; }
 
 /* ---------- Empty State (Agent) ---------- */
 .ai-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
@@ -351,17 +365,23 @@ nav button.active { color: var(--accent); }
 .usage-row.total span { color: var(--accent); }
 
 /* ---------- Attach (multimodal) ---------- */
-.attach-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .attach-dropdown { position: relative; }
 .attach-toggle { width: auto; padding: 8px 12px; font-size: 12px; }
 .attach-menu {
-  position: absolute; bottom: 100%; left: 0; margin-bottom: 4px; z-index: 20;
-  background: var(--card); border: 1px solid var(--border); border-radius: 2px;
-  display: flex; flex-direction: column; min-width: 140px;
+  position: absolute; bottom: 100%; left: 0; margin-bottom: 8px; z-index: 20;
+  background: var(--card); border: 1px solid var(--line2); border-radius: var(--r-lg); padding: 6px;
+  display: flex; flex-direction: column; min-width: 240px; box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }
+/* Im Menü (seit C-49a): Überschriften der Gruppen, Werkzeuge als Zeilen mit Preis rechts */
+.attach-menu .menue-gruppe { padding: 8px 10px 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.attach-menu .tool-row { flex-direction: column; align-items: stretch; gap: 2px; margin: 0; }
+.attach-menu .tool-chip { display: flex; justify-content: flex-start; border: 0; border-radius: var(--r-sm); padding: 9px 10px; font-size: 14px; color: var(--text); }
+.attach-menu .tool-chip .tool-preis { display: inline; margin: 0 0 0 auto; font-size: 13px; color: var(--text-muted); opacity: 1; }
+.attach-menu .tool-chip.active { background: rgba(123,200,10,.12); color: var(--accent); }
+.attach-menu .tool-chip.active .tool-preis { color: var(--accent); }
 .attach-menu button {
   background: transparent; border: none; color: var(--text); text-align: left;
-  padding: 9px 12px; font-size: 12px; text-transform: none; letter-spacing: 0; width: 100%;
+  padding: 9px 10px; font-size: 14px; text-transform: none; letter-spacing: 0; width: 100%; border-radius: var(--r-sm);
 }
 .attach-menu button:hover { background: var(--border); color: var(--accent); }
 .attach-thumb { max-width: 120px; max-height: 120px; border-radius: 3px; border: 1px solid var(--border); margin-top: 6px; }
@@ -1811,10 +1831,6 @@ header .ident[data-farbe]::before { color: #fff; border-color: transparent; }
   /* Tastatur: solange ein Feld den Fokus hat, weicht die untere Leiste (navigation.ts) –
      mit interactive-widget=resizes-content steht das Feld dann direkt über der Tastatur */
   body.tippt .app-nav { display: none; }
-  /* Werkzeuge des Agenten in einer Reihe zum Wischen – mit 40 px je Knopf stünden sie sonst untereinander
-     und verdrängten das Gespräch */
-  .tool-row { flex-wrap: nowrap; overflow-x: auto; min-width: 0; flex: 1 1 auto; scrollbar-width: none; }
-  .tool-row .tool-chip { flex: none; }
   /* Weitere Reiter rechts: ein Verlauf zeigt, dass die Leiste weiterläuft */
   .settings-nav { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
 }

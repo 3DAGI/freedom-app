@@ -48,8 +48,27 @@ export function setupToolChips(): void {
       const videoActive = selectedTools.some((t) => t.name === "video_gen");
       const opts = document.getElementById("video-opts");
       if (opts) opts.classList.toggle("hidden", !videoActive);
+      zeigeWerkzeugAuswahl();
     });
   });
+}
+
+/**
+ * Gewählte Werkzeuge als Chips in der Eingabe (C-49a) – die Werkzeuge selbst stehen mit Preis im „+“-Menü.
+ * Das „×“ klickt den Knopf im Menü, so bleibt `selectedTools` an einer Stelle.
+ */
+function zeigeWerkzeugAuswahl(): void {
+  const box = document.getElementById("werkzeug-auswahl");
+  if (!box) return;
+  box.replaceChildren(...[...document.querySelectorAll<HTMLElement>(".tool-chip.active")].map((chip) => {
+    const name = chip.querySelector("[data-i18n]")?.textContent ?? chip.dataset.name ?? "";
+    const b = el("button", undefined, "werkzeug-gewaehlt");
+    b.type = "button";
+    b.setAttribute("aria-label", t("agent.werkzeugWeg", { name }));
+    b.append(el("span", name), el("span", "×", "werkzeug-weg"));
+    b.addEventListener("click", () => chip.click());
+    return b;
+  }));
 }
 
 /** Empty-State: Beispiel-Prompts klickbar; Empty ausblenden sobald Verlauf da. */
@@ -79,16 +98,26 @@ export function setupAttach(): void {
   const input = $("#attach-input") as HTMLInputElement;
   const status = $("#attach-status");
 
+  // Seit C-49a „+“ für Anhänge und Werkzeuge – mit aria-expanded, Escape schließt
+  const setze = (auf: boolean) => {
+    menu.classList.toggle("hidden", !auf);
+    btn.setAttribute("aria-expanded", String(auf));
+  };
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    menu.classList.toggle("hidden");
+    setze(menu.classList.contains("hidden"));
   });
-  document.addEventListener("click", () => menu.classList.add("hidden"));
+  document.addEventListener("click", () => setze(false));
+  // Im Menü bleibt es offen – mehrere Werkzeuge nacheinander; ein Anhang schließt es selbst
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !menu.classList.contains("hidden")) { setze(false); btn.focus(); }
+  });
 
   menu.querySelectorAll("button[data-attach]").forEach((b) => {
     b.addEventListener("click", () => {
       const type = (b as HTMLElement).dataset.attach!;
-      menu.classList.add("hidden");
+      setze(false);
       const accept =
         type === "image" ? "image/*" :
         type === "audio" ? "audio/*" :
