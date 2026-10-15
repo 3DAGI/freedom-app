@@ -124,8 +124,8 @@ export function zeigeEingebauteWallet(): void {
       const summe = je.reduce((s, x) => s + x, 0);
       const mit = je.filter((x) => x > 0).length;
       $("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: ausLamports(summe, aktuellerKurs()) }) + (mit > 1 ? t("waehr.verteilt", { n: mit }) : "");
-      merkeStand("solEingebaut", summe); // Kontostand oben (C-50a)
       void guthabenStichprobe(adressen);
+      merkeStand("solEingebaut", summe); // Kontostand oben (C-50a)
     } catch {
       $("#solw-guthaben").textContent = t("waehr.guthabenRpc");
       merkeStand("solEingebaut", null);
