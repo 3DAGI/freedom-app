@@ -9865,3 +9865,27 @@ verschoben). Knoten `arbeitskopie.test.ts` (4, neu, einer mit echtem bubblewrap)
 Protokoll verschoben (vier bleiben), sonst unverändert – zusammen steigt die Zahl um 9.
 
 Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).
+
+## Schritt 11.5a2a – Patch-Schreiber im Protokoll
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (V5, W1 B). 11.5a2 ist geteilt: a2a der Patch-Schreiber im Protokoll,
+a2b das Lesen des Arbeitsordners im Knoten (`lstat`, `.gitignore`) – zusammen wären es deutlich über 400 Zeilen.
+
+- **`protocol/src/patch-schreiber.ts`:** `schreibePatch(alt, neu, angaben)` – die Dateien nach dem Auftrag gegen die
+  Arbeitskopie am Kopf (11.5a1). Myers-Diff je Datei (`zeilenDiff()`, höchstens 4000 Schritte), Abschnitte mit drei
+  Zeilen Kontext wie git, `\ No newline at end of file`, volle Kennungen in `index`, Pfade gequotet wie git
+  (`core.quotePath`); Datei ↔ Verweis als Löschen und Anlegen, Modus allein als `old mode`/`new mode`.
+- **Commit wie git:** Bäume aus allen Dateien (Submodule aus der Arbeitskopie unverändert), Eltern = Kopf, Autor =
+  Committer, Nachricht so, wie `git am` sie aus der Mail liest; Kopf mit RFC 2047 und `8bit`, wo Nicht-ASCII steht.
+- **Kein Patch, nur ein Fall:** `patch.keine-aenderung`, `patch.binaer` (Nullbyte oder kein UTF-8), `patch.gross`
+  (über `PATCH_MAX_BYTES` oder zu viele Schritte), `patch.angaben` (Name, Mail, Betreff, Zeit, Pfade). Was
+  herauskommt, nimmt `lesePatchText()` an.
+- **Verdrahtet:** erst in 11.5c (Spur A) nach 11.5a2b – Ausnahmen in `scripts/wiring-ausnahmen.txt` mit Grund.
+- **Doku:** Entwurf (11.5a2 geteilt), OFFEN (11.5a2b), FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`.
+
+**Tests:** Protokoll `patch-schreiber.test.ts` (5, neu): Diff minimal und vollständig; ein Repo mit Ordnern, Umlauten
+im Pfad, BOM, Datei ohne Zeilenende, ausführbar, Verweis, Submodul, leerer Datei – `git apply --check` nimmt den Patch,
+`git am` ergibt dieselbe Kennung und dieselbe Nachricht; böse Betreffe und Beschreibungen; Artwechsel und nur Modus;
+alle Fälle ohne Patch. Dazu vorab 3000 Zufallsfälle gegen eine LCS-Rechnung (beide Seiten zurückgewonnen, minimal).
+
+Knoten-Stand: unverändert (Baustein im Protokoll).
