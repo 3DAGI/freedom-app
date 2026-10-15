@@ -9960,3 +9960,26 @@ seine); Fehler und Grenzen (unbekannte Kennung, kaputte Nachricht, kein Filter, 
 offene). Protokoll `relay-zugang.test.ts`: NIP-11 mit 77.
 
 Knoten-Stand: neu nötig für den Abgleich; ältere Knoten antworten auf `NEG-OPEN` mit `NOTICE` (unbekannter Typ).
+
+## Schritt 11.5s2 – seccomp in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3“: seccomp wie bei Codex als zweite Stufe, ohne neue
+Abhängigkeit). Die Sandbox (VKb) hat schon kein Netz und keine Fähigkeiten; der Filter nimmt dazu, was den Kern
+angreifbar macht und kein Werkzeug braucht.
+
+- **`node/src/seccomp.ts`:** `seccompFilter(arch)` baut einen cBPF-Filter mit einem kleinen eigenen Assembler (Marken,
+  Sprungweiten geprüft): Architektur prüfen (sonst töten), x32 auf x86_64 sperren, `EPERM` für `io_uring_*`, `keyctl`,
+  `add_key`, `request_key`, `bpf`, `perf_event_open`, `userfaultfd`, `kexec_*`, Module, `open_by_handle_at`, `unshare`,
+  `setns`, Einhängen (`mount`, `umount2`, `pivot_root`, neue Mount-API), `swapon`/`swapoff`, `reboot`; `clone` mit
+  `CLONE_NEW*` gesperrt, `clone3` mit `ENOSYS`. Nur x86_64 und arm64, sonst kein Filter.
+- **`sandbox.ts`:** der Filter als Datei im eigenen `/etc`-Ordner, offen als `stdio[3]`, `--seccomp 3` – für Befehle und
+  den Motor; `pruefeSandbox()` meldet `seccomp` und unterscheidet `sandbox.seccomp` (geht nur ohne Filter).
+- **Noch nicht:** Speicher je Befehl → 11.5s3 (`ulimit -v` bricht Node und WASM).
+- **Doku:** Entwurf, OFFEN (11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `seccomp.test.ts` (3, neu): Aufbau je Architektur (Architektur zuerst, töten am Ende, Sprünge im
+Programm, x32 nur auf x86_64); mit echtem bubblewrap und Python: `io_uring_setup`, `keyctl`, `bpf`, `perf_event_open`,
+`userfaultfd` ergeben `EPERM`, Threads und Kindprozesse laufen; `unshare -U` scheitert in der Sandbox.
+`sandbox.test.ts` angepasst (Selbstprüfung mit `seccomp`).
+
+Knoten-Stand: neu für den Filter; ohne `VIBECODEN=1` ändert sich nichts.
