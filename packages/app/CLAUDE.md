@@ -775,3 +775,11 @@ Fallstricke dieses Bereichs unten anhängen.
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
   App über http im Heimnetz fehlt. Die Bytes jeder Nachricht halten die Vektoren (`test/sol-vektoren-faelle.ts`).
+- **Projekte meines Knotens nur über `shell/knoten-code-ui.ts`** (seit VKl2): Code-Aufträge an den eigenen
+  Knoten nur über `frageKnotenCode()` – frischer Sitzungsschlüssel, `wegZumKnoten()`, gelesen nur über
+  `leseCodeAntwort()`; Ablehnungen nur über `codeAblehnungText(fall)` (`knoten-projekte.ts`, Kennung aus
+  `warteAufKnoten()`), nie Text vom Knoten. „Als Repo in einen Raum stellen“ nur über `stelleKnotenProjektEin()` →
+  `kuendigeAn(…, ausKnoten)`: erst das Bundle (`holeBundleVomKnoten()` – das Manifest muss an den eigenen Relays
+  liegen, sonst fänden es die im Raum auch nicht), dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das
+  Bundle, geht nichts hinaus. Vom Knoten nie „nur dieses Gerät“, privat nur `sendeInRaum()`. Nie in
+  `mein-knoten.ts` – dort liegt der Kopplungscode.
