@@ -56,7 +56,7 @@ test("C-4: Kontrast – Rot als Schrift heller als die Fläche Rot, nichts Lesba
 test("C-4: die Identität in der Kopfzeile geht auch mit der Tastatur; keine Tab-Reihenfolge von Hand", () => {
   assert.match(html, /<span class="nb-ident" id="nb-ident" role="button" tabindex="0"/);
   const app = quelle("../src/shell/app.ts");
-  assert.match(app, /nbIdent\.addEventListener\("keydown", \(e\) => \{\s*if \(e\.key === "Enter" \|\| e\.key === " "\) \{ e\.preventDefault\(\); void exportIdentity\(\); \}/);
+  assert.match(app, /nbIdent\.addEventListener\("keydown", \(e\) => \{\s*if \(e\.key === "Enter" \|\| e\.key === " "\) \{ e\.preventDefault\(\); void kopiereKennung\(\); \}/);
   assert.doesNotMatch(html, /tabindex="[1-9]/, "tabindex > 0 bringt die Reihenfolge durcheinander");
   // Als Knopf ist sie auch eine Berührfläche – mobil mindestens 40 px (Regel aus C.5a, Smoke „mobil“)
   assert.match(css, /\.ident-row \.nb-ident \{ display: inline-flex; align-items: center; min-height: 40px; \}/);

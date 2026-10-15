@@ -17,15 +17,17 @@ test("Schlüssel und „Importieren“ in einer Karte mit Überschrift und einem
   assert.match(html, /<div class="card" id="ident-karte">\n\s+<h3><span class="ic" data-icon="user"><\/span> <span data-i18n="profil\.identitaet">Identität<\/span><\/h3>\n\s+<p class="mono-sm" data-i18n="profil\.identText">[^<]+<\/p>\n\s+<div class="ident-row">/);
   setLang("de");
   assert.equal(t("profil.identitaet"), "Identität");
-  // Der Satz sagt, was der Klick tut – er kopiert den privaten Schlüssel (exportIdentity)
-  assert.match(t("profil.identText"), /kopiert den privaten Schlüssel – nur zum Sichern, nie weitergeben/);
-  assert.match(app, /nbIdent\.onclick = exportIdentity;/);
+  // Der Satz sagt, was der Klick tut – seit C-41 kopiert er nur die öffentliche Kennung (kopiereKennung)
+  assert.match(t("profil.identText"), /ein Klick kopiert sie \(npub\), die darfst du weitergeben/);
+  assert.match(app, /nbIdent\.onclick = \(\) => void kopiereKennung\(\);/);
   setLang("en");
   assert.equal(t("profil.identitaet"), "Identity");
 });
 
 test("„Teilen“ kopiert den npub – derselbe Schlüssel, unter dem das Profil hinausgeht", () => {
-  const teilen = app.slice(app.indexOf('getElementById("profile-share")'), app.indexOf("const ziele: Record<string, string>"));
+  // Seit C-41 über `kopiereKennung()` – derselbe Weg wie der Klick auf die Kennung
+  assert.match(app, /getElementById\("profile-share"\)\?\.addEventListener\("click", \(\) => void kopiereKennung\(\)\);/);
+  const teilen = quelle("../src/shell/identitaet-ui.ts");
   assert.match(teilen, /const npub = encodeNpub\(state\.keypair\.pk\);/);
   assert.match(teilen, /navigator\.clipboard\.writeText\(npub\)/);
   assert.match(teilen, /wert: npub \}/, "auch im Dialog ohne Zwischenablage");
