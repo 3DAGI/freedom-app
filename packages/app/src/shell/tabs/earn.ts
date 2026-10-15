@@ -17,6 +17,7 @@ import { $, el, timeAgo, toast } from "../ui.js";
 import { loeseWerberName, merkeWerber, werbeLink, werbeRef, werbeSolAdresse } from "../../werbung.js";
 import { eigeneBasis } from "../../eigene-adresse.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
+import { einnahmenKacheln, summeText } from "../../verdienst-kacheln.js";
 import { mitwirkendeListe } from "../mitwirkende.js";
 import { gebietText, zeigeKarte } from "./karte.js";
 import { leseStandort, rundeStandort } from "../../karte-ansicht.js";
@@ -215,6 +216,9 @@ export async function loadTrust(): Promise<void> {
     if (jobsEl) jobsEl.textContent = t("profil.jobs", { n: jobs });
     const tierEl = document.getElementById("trust-tier");
     if (tierEl) tierEl.textContent = tier;
+    // Ziel (C-54): wie weit bis zur nächsten Stufe
+    const ziel = document.getElementById("trust-ziel");
+    if (ziel) ziel.textContent = xp >= 50 ? t("earn.trustOben") : t("earn.trustZiel", { n: next - xp, stufe: t(xp >= 10 ? "profil.stufePro" : "profil.stufeClassic") });
     // Tier-Marker positionieren (10 XP / 50 XP Schwellen relativ zum nächsten Ziel)
     const bar = document.getElementById("trust-bar-track");
     if (bar) {
@@ -236,18 +240,25 @@ export async function loadEarnings(): Promise<void> {
   try {
     const pool = await ensurePool();
     // Der eigene Knoten (4.5b): gemerkter Schlüssel, sonst die eigene Identität
+    // Seit C-54 die letzten 30 Tage – für die Kacheln; die Liste zeigt weiter die neuesten 20
+    const jetzt = new Date();
     const events = await pool.query({
       kinds: [KIND_PERFORMANCE],
       authors: [knotenSchluessel() ?? state.keypair.pk],
-      limit: 20,
+      since: Math.floor(jetzt.getTime() / 1000) - 30 * 86_400,
+      limit: 500,
     });
     const sorted = events.sort((a, b) => b.created_at - a.created_at);
     const kette = (ev: NostrEvent) => ev.tags.find((x) => x[0] === "chain")?.[1];
     // SOL-Einnahmen in SOL (C-2) – den Kurs nur holen, wenn es welche gibt
     const kurs = sorted.some((ev) => kette(ev) === "solana") ? (aktuellerKurs() ?? await aktualisiereKurs().catch(() => undefined)) : undefined;
+    const k = einnahmenKacheln(sorted, jetzt);
+    $("#kachel-heute").textContent = summeText(k.heute, kurs);
+    $("#kachel-monat").textContent = summeText(k.monat, kurs);
+    $("#kachel-auftraege").textContent = String(k.auftraege);
     // Zeilen nur als Text (C-6) – die Tags kommen vom Relay
     box.replaceChildren(...(sorted.length
-      ? sorted.map((ev) => {
+      ? sorted.slice(0, 20).map((ev) => {
           const get = (n: string) => ev.tags.find((t) => t[0] === n)?.[1] ?? "—";
           const zeile = el("div", undefined, "stat");
           zeile.append(
