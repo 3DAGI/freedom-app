@@ -69,7 +69,7 @@ async function koppeln(): Promise<void> {
     // Am eigenen Pool und an der Startliste – dort veröffentlicht der Knoten ohne eigene RELAYS
     const urls = [...(await ensurePool()).urls, ...startUrls()];
     const gefunden = await kopplungAusKurzcode(kurz, (f) => frageAn(f, urls)).catch(() => null);
-    if (!gefunden) return toast(t("set.knotenKurzFehlt"));
+    if (!gefunden) return toast(t("set.knotenKurzFehlt"), true);
     k = gefunden.kopplung;
     kurzSuche = gefunden.suche;
   }

@@ -1799,11 +1799,20 @@ def einstellungen_pruefen(browser, url: str) -> dict:
     kd_typen = ev("() => [...document.querySelectorAll('[role=dialog] input')].map(i => i.type)")
     feld(0, "freedom-kopplung:1:kaputt")
     kd_falsch = bestaetigen()
+    # Code zum Eintippen (VKf): gelesen wie abgetippt, der Dialog schließt; ohne Event des Knotens an den Relays
+    # meldet die App „nicht gefunden“ und koppelt nicht
+    feld(0, "7kq2 9xmb 4trp")
+    bestaetigen()
+    seite.warte_zu()
+    seite.s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Code nicht gefunden')", timeout=30000)
+    kd_kurz = [ev("() => document.getElementById('toast').className"), ev("() => localStorage.getItem('freedom.knoten.kopplung')")]
+    ev("() => document.getElementById('knoten-koppeln').click()")
+    seite.warte_dialog("Mein Knoten koppeln")
     code = "freedom-kopplung:1:" + "ab" * 32 + ":" + "cd" * 32
     feld(0, code)
     bestaetigen()
     seite.warte_zu()
-    knoten = {"typen": kd_typen, "falsch": kd_falsch["meldung"] if kd_falsch else None,
+    knoten = {"typen": kd_typen, "falsch": kd_falsch["meldung"] if kd_falsch else None, "kurz": kd_kurz,
               "status": ev("() => document.getElementById('knoten-status')?.textContent"),
               "gemerkt": ev("() => localStorage.getItem('freedom.knoten.kopplung')") == code,
               "entkoppeln": ev("() => !document.getElementById('knoten-entkoppeln').hidden"),
@@ -1843,7 +1852,8 @@ def einstellungen_pruefen(browser, url: str) -> dict:
                         ev("() => document.getElementById('knoten-status-holen').hidden"), ev("() => document.getElementById('knoten-relay-uebernehmen').hidden"),
                         ev("() => document.getElementById('knoten-wecken-zeile').hidden")]
     erg["knoten"] = knoten
-    if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode – er beginnt mit freedom-kopplung:1:", "status": "Gekoppelt mit abababab…abab",
+    if knoten != {"typen": ["password"], "falsch": "Kein Kopplungscode (beginnt mit freedom-kopplung:1:) und kein Code zum Eintippen (zwölf Zeichen)",
+                  "kurz": ["err", None], "status": "Gekoppelt mit abababab…abab",
                   "gemerkt": True, "entkoppeln": True, "halten": [True, True], "nur": [True, False], "status": [True, ""], "halten_aus": "0", "nur_an": "1",
                   "relay_knopf": True, "relay_ohne": ["Mein Knoten nennt kein Relay – nichts übernommen", False, True],
                   "wecken_vorher": [True, False], "wecken_ohne": [False, 0],
