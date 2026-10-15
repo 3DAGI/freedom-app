@@ -99,6 +99,34 @@ def release_dateien() -> set[str]:
 DASHBOARD_NIE = ["38010", "38075", "38025", "KIND_PERFORMANCE", "Leistungsnachweis", "worker"]
 
 
+def navigation_pruefen() -> list[str]:
+    """Eine Navigation für alle Seiten (C-48): dieselben Ziele, der Menü-Knopf fürs Handy samt Skript,
+    die eigene Seite als „aria-current“; Text ohne Serifen, Monospace nur für Code."""
+    fehler: list[str] = []
+    listen: dict[str, list[str]] = {}
+    for datei in SEITEN:
+        inhalt = open(os.path.join(BASIS, datei), encoding="utf-8").read()
+        m = re.search(r'<nav id="site-nav" aria-label="Website">(.*?)</nav>', inhalt, re.S)
+        if not m:
+            fehler.append(f"{datei}: keine Navigation „site-nav“ (C-48)")
+            continue
+        listen[datei] = re.findall(r'<a href="([^"]+)"', m.group(1))
+        if 'id="nav-toggle"' not in inhalt or 'aria-controls="site-nav"' not in inhalt or '<script src="js/nav.js"></script>' not in inhalt:
+            fehler.append(f"{datei}: Menü-Knopf oder js/nav.js fehlt (C-48)")
+        eigene = re.findall(r'<a href="([^"]+)" aria-current="page">', m.group(1))
+        if datei != "index.html" and eigene != [datei]:
+            fehler.append(f"{datei}: die eigene Seite ist nicht als aria-current markiert {eigene} (C-48)")
+    erste = listen.get(SEITEN[0])
+    for datei, liste in listen.items():
+        if liste != erste:
+            fehler.append(f"{datei}: andere Navigation als {SEITEN[0]} – {liste} statt {erste} (C-48)")
+    css = open(os.path.join(BASIS, "css", "style.css"), encoding="utf-8").read()
+    koerper = re.search(r"\nbody \{(.*?)\}", css, re.S)
+    if not koerper or "font-family: var(--font-body);" not in koerper.group(1) or "monospace" in koerper.group(1):
+        fehler.append("css/style.css: Fließtext nicht ohne Serifen (C-48)")
+    return fehler
+
+
 def main() -> int:
     fehler: list[str] = []
     im_release = release_dateien()
@@ -147,6 +175,8 @@ def main() -> int:
             fehler.append(f"{datei}: kein <title>")
         if 'name="description"' not in inhalt:
             fehler.append(f"{datei}: keine Beschreibung")
+
+    fehler += navigation_pruefen()
 
     for datei in EINSTIEG:
         inhalt = open(datei, encoding="utf-8").read()
