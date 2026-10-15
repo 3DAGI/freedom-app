@@ -2,7 +2,6 @@
 import type { Texte } from "../i18n.js";
 
 export const navigation: Texte = {
-  "nav.chatKurz": { de: "Chat", en: "Chat" },
   "nav.mehr": { de: "Mehr", en: "More" },
   "nav.netz": { de: "Netz", en: "Network" },
   "nav.netzUntertitel": { de: "Wo es Provider und Funk gibt – und Nachrichten ohne Internet.", en: "Where there are providers and radio – and messages without internet." },

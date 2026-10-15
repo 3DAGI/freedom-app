@@ -1200,7 +1200,7 @@ main { min-width: 0; }
 
 /* ---------- Mobil: untere Leiste mit sechs Tabs ---------- */
 @media (max-width: 1023px) {
-  .app-nav button { font-size: 9px; padding: 8px 2px 10px; min-width: 0; }
+  .app-nav button { font-size: 11px; padding: 8px 2px 10px; min-width: 0; }
   .app-nav button span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 }
 
@@ -1222,7 +1222,7 @@ main { min-width: 0; }
   #page-ai .ai-thread, #page-ai .composer-inner { max-width: none; }
   /* Die Eingabe folgt der Lesespalte des Gespraechs */
   #page-ai .composer-inner { max-width: 760px; margin-inline: auto; }
-  .app-nav button { width: 68px; font-size: 8.5px; letter-spacing: -.01em; }
+  .app-nav button { width: 68px; font-size: 11px; }
   .app-nav button span:last-child { max-width: 68px; }
 }
 
@@ -1271,7 +1271,7 @@ main { min-width: 0; }
 
 /* Hauptnavigation: kein abgeschnittener Eintrag */
 @media (min-width: 1024px) {
-  .app-nav button { font-size: 8px; letter-spacing: -.02em; }
+  .app-nav button { font-size: 11px; }
   .app-nav button span:last-child { max-width: none; overflow: visible; text-overflow: clip; }
 }
 
@@ -1393,11 +1393,9 @@ main { min-width: 0; }
   #app > main:has(#page-repos.active), #app > main:has(#page-netz.active) { padding: 0; }
 }
 
-/* Mobil: Agent · Chat · Währung · Mehr (E1); „Chat“ als kurze Beschriftung (B15) */
-.app-nav .nav-kurz { display: none; }
+/* Mobil: Agent · Chats · Wallet · Mehr (E1; seit C-47 dieselben Namen wie am Desktop) */
 @media (max-width: 1023px) {
-  .app-nav .nav-mehr-teil, .app-nav button[data-tab="comm"] > [data-i18n="navComm"] { display: none; }
-  .app-nav .nav-kurz { display: inline; }
+  .app-nav .nav-mehr-teil { display: none; }
 }
 header .balance, header .ident { cursor: pointer; }
 

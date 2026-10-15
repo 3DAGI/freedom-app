@@ -9752,3 +9752,25 @@ Aus dem Oberflächen-Review (15.10.2026, Sicherheit): Im Profil kopierte ein Kli
 
 **Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-47 – Einheitliche Seitennamen: Chats und Wallet
+
+Aus dem Oberflächen-Review (15.10.2026):
+- Dieselbe Seite hieß am Desktop „Kommunikation“ und am Handy „Chat“. Dafür gab es eine zweite, kurze Beschriftung.
+- Das Wallet hieß „Währung“.
+- Wegen des langen Worts stand die Navigation am Desktop in 8–9 px.
+
+Jetzt heißen die Seiten überall gleich:
+- „Chats“ und „Wallet“ – neue Schlüssel `nav.chats` und `nav.wallet` (E2). Die alten (`navComm`, `navWallet`, `nav.chatKurz`) nutzte nichts mehr, sie sind entfernt.
+- Der Seitentitel des Wallets heißt ebenso.
+- Die Navigation steht in 11 px. Die Kurzform am Handy samt ihrer CSS-Regel entfällt.
+- Vier Texte, die den Weg nennen („unter Währung › Zahlen“, „Währung › Hinterlegen“), sagen jetzt „Wallet ›“. Die FAQ der Website sagt ebenso „Wallet → Zahlen“ und „Wallet → Lightning“.
+
+Tests:
+- `umzug-zahlen.test.ts`: prüft die neuen Wege „Wallet › Zahlen“ und „Wallet → Zahlen“.
+- `i18n.test.ts`: prüft die Sprache an „Mehr/More“ statt am alten Namen; die Liste der Schlüssel in der Navigation ist neu.
+- Smoke „sprache“: liest die Sprache an „Verdienen/Earn“ ab – „Chats“ heißt in beiden Sprachen gleich.
+- Smoke „rahmen“: Die untere Leiste am Handy zeigt „Chats“ und „Wallet“ ganz.
+
+**Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
