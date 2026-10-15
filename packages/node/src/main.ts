@@ -37,7 +37,8 @@ import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } fr
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
 import { projekteAusUmgebung } from "./projekte.js";
-import { kopplungsDatei, leseKopplung } from "./kopplung-datei.js";
+import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
+import { KurzcodeDienst } from "./kurzcode-dienst.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
@@ -363,6 +364,11 @@ async function main(): Promise<void> {
   // Kopplung mit dem Besitzer (B-8b): je Anfrage frisch gelesen – ein neues Geheimnis (npm run koppeln -- --neu) gilt sofort
   const kopplungOrt = kopplungsDatei();
   console.log(leseKopplung(kopplungOrt, keypair.pk) ? "[kopplung] mit dem Besitzer gekoppelt" : "[kopplung] nicht gekoppelt – npm run koppeln");
+  // Code zum Eintippen (VKf): `npm run koppeln -- --code` legt die Datei an, der Knoten veröffentlicht und löscht
+  const kurzcode = new KurzcodeDienst({
+    datei: kurzcodeDatei(), sk: keypair.sk, kopplung: () => leseKopplung(kopplungOrt, keypair.pk), veroeffentliche: (ev) => pool.publish(ev),
+  });
+  setInterval(() => void kurzcode.takt(), 5_000);
   // Weckdienst (B-12a, W1 A): VAPID-Schlüssel und Anmeldungen des Besitzers, beide 0600 in ~/.freedom
   const vapid = ladeVapid(vapidDatei());
   if (!vapid) console.warn("[wecken] vapid.json nicht lesbar – kein Weckdienst");
@@ -435,6 +441,7 @@ async function main(): Promise<void> {
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
+      kurzcodeEingeloest: (suche) => { kurzcode.eingeloest(suche); void kurzcode.takt(); },
       modelle: angebotModelle,
       status: () => {
         const r = relayRole?.stats();

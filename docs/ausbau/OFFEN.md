@@ -128,7 +128,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 |---|---|---|
 | VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓) | nach VKb |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
-| VKf | Kopplung mit Code zum Eintippen (K1: zwölf Zeichen, PBKDF2 wie der Tresor) | frei |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | VKl | „Als Repo in einen Raum stellen“ | frei |
 | 11.5n | Pakete holen (W6a) | frei |

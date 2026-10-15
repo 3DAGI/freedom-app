@@ -140,6 +140,12 @@ Gerät zeigen. `npm run koppeln -- --neu` erzeugt ein neues Geheimnis – alle
 bisher gekoppelten Geräte gelten dann nicht mehr als Besitzer. Im Log steht
 beim Start `[kopplung] mit dem Besitzer gekoppelt` oder `nicht gekoppelt`.
 
+Ohne Kamera: `npm run koppeln -- --code` zeigt einen Code zum Eintippen
+(`7KQ2-9XMB-4TRP`, zehn Minuten gültig). Der Knoten muss dabei laufen – er legt
+den Kopplungscode verschlüsselt auf seine Relays, die App findet ihn über den
+Code und koppelt wie mit dem QR; danach löscht der Knoten das Event wieder
+(Format: `docs/PROTOCOL.md` §35).
+
 Mit `STORAGE_ENABLED=1` hält der Knoten verschlüsselte Dateien seines
 Besitzers dauerhaft (B-9b): Nach jedem Hochladen (Repo-Bundles, Anhänge)
 schickt die App einen versiegelten Auftrag mit dem Nachweis – abschaltbar unter

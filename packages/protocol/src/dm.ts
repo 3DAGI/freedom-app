@@ -191,12 +191,20 @@ export async function encryptDM(
   senderSk: Uint8Array,
   recipientPk: string,
 ): Promise<string> {
+  return nip44MitSchluessel(plaintext, await conversationKey(senderSk, recipientPk));
+}
+
+/**
+ * NIP-44 v2 mit einem fertigen Gesprächsschlüssel (32 Byte) – für Schlüssel, die nicht aus ECDH
+ * stammen (Kurzcode, VKf: aus PBKDF2). Dieselbe Verschlüsselung wie `encryptDM()`.
+ */
+export async function nip44MitSchluessel(plaintext: string, convKey: Uint8Array): Promise<string> {
   const { chacha20 } = await import("@noble/ciphers/chacha.js");
   const { hmac } = await import("@noble/hashes/hmac.js");
   const { sha256 } = await import("@noble/hashes/sha2.js");
   const { randomBytes } = await import("@noble/hashes/utils.js");
 
-  const convKey = await conversationKey(senderSk, recipientPk);
+  if (convKey.length !== 32) throw new Error("NIP-44: Schluessel muss 32 Byte haben");
   const nonce = randomBytes(32);
   const { chachaKey, chachaNonce, hmacKey } = await messageKeys(convKey, nonce);
 
@@ -222,6 +230,11 @@ export async function decryptDM(
   recipientSk: Uint8Array,
   senderPk: string,
 ): Promise<string> {
+  return nip44OeffnenMitSchluessel(payloadB64, await conversationKey(recipientSk, senderPk));
+}
+
+/** Gegenstück zu `nip44MitSchluessel()` – wirft bei falschem MAC. */
+export async function nip44OeffnenMitSchluessel(payloadB64: string, convKey: Uint8Array): Promise<string> {
   const { chacha20 } = await import("@noble/ciphers/chacha.js");
   const { hmac } = await import("@noble/hashes/hmac.js");
   const { sha256 } = await import("@noble/hashes/sha2.js");
@@ -239,7 +252,7 @@ export async function decryptDM(
   const ciphertext = payload.subarray(33, payload.length - 32);
   const mac = payload.subarray(payload.length - 32);
 
-  const convKey = await conversationKey(recipientSk, senderPk);
+  if (convKey.length !== 32) throw new Error("NIP-44: Schluessel muss 32 Byte haben");
   const { chachaKey, chachaNonce, hmacKey } = await messageKeys(convKey, nonce);
 
   const macInput = new Uint8Array(nonce.length + ciphertext.length);
