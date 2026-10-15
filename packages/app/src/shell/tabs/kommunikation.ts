@@ -591,10 +591,10 @@ export async function sendChatMessage(): Promise<void> {
     leereAnhaenge();
     setAttachStatus($("#chat-attach-list"), "");
     c.lastTs = Math.floor(Date.now() / 1000);
-    // Vorschau in der Liste (C-52a), mit Ablauf (2.5) nur bis dahin
-    if (c.type === "dm") merkeVorschau(c.id, { inhalt: gesendet, vonMir: true, zeit: c.lastTs, ...(c.ablaufSecs ? { ablauf: c.lastTs + c.ablaufSecs } : {}) });
     // Die erste Antwort nimmt die Anfrage an (C-33) – danach heißt die Person nur noch mit ihrem Namen
     if (c.type === "dm") nimmAnfrageAn(c.id);
+    // Vorschau in der Liste (C-52a), mit Ablauf (2.5) nur bis dahin
+    if (c.type === "dm") merkeVorschau(c.id, { inhalt: gesendet, vonMir: true, zeit: c.lastTs, ...(c.ablaufSecs ? { ablauf: c.lastTs + c.ablaufSecs } : {}) });
     saveConversations();
     zeileNachziehen(c);
     loadChatMessages(activeConversation);
