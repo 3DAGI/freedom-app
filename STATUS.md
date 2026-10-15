@@ -9889,3 +9889,29 @@ im Pfad, BOM, Datei ohne Zeilenende, ausführbar, Verweis, Submodul, leerer Date
 alle Fälle ohne Patch. Dazu vorab 3000 Zufallsfälle gegen eine LCS-Rechnung (beide Seiten zurückgewonnen, minimal).
 
 Knoten-Stand: unverändert (Baustein im Protokoll).
+
+## Schritt 11.5a2b – Arbeitsordner lesen, .gitignore wie git
+
+Spur B, zweiter Teil von 11.5a2 (`docs/REPO-AGENTEN-ENTWURF.md` V5). Nach dem Auftrag liest der Knoten, was der Agent
+in der Sandbox hinterlassen hat – ohne git (W1 B: kein fremdes Programm auf fremden Daten, `.git/config` stammt dann
+vom Agenten) und ohne Verweisen zu folgen.
+
+- **`leseArbeitsordner(ordner, alt)`** (`node/src/arbeitskopie.ts`): nur `lstat`, Dateien mit `O_NOFOLLOW`,
+  ausführbar aus dem Modus, Verweise als ihr Text (auch einer auf `/etc/passwd` oder `~/.freedom` bleibt Text),
+  Sonderdateien fallen weg; `.git` in jeder Schreibweise und Submodule betritt er nie. Grenzen wie die Arbeitskopie,
+  sonst `patch.gross`; Unlesbares oder ein Ordner, der ein Verweis ist: `patch.ordner` (neuer Fall) – nie ein halber Stand.
+- **`.gitignore` (`protocol/src/gitignore.ts`):** `leseIgnore()` und `istIgnoriert()` nach gitignore(5) – Kommentar,
+  `!`, nur Ordner, verankert, `*`, `?`, `[…]`, `**`, Escapes; tiefere Dateien gelten unter ihrem Ordner und gehen vor;
+  begrenzt (1000 Regeln, 1000 Zeichen). Ein ignorierter Ordner wird nicht betreten (`node_modules`, `dist`), außer git
+  kennt Dateien darin – bekannte Dateien bleiben wie bei git immer drin.
+- **Verdrahtet:** erst in 11.5c (Spur A): Arbeitsordner → `leseArbeitsordner()` → `schreibePatch()`. Damit sind die
+  Bausteine von Spur B für 11.5c fertig (Sandbox, Arbeitskopie, Patch).
+- **Doku:** Entwurf, OFFEN (11.5c frei), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `arbeitskopie.test.ts` (+4): `.gitignore` gegen `git add -A`/`git ls-files` auf einem Ordner mit
+allen Regelarten; bekannte Dateien bleiben, `.git`, Submodule, FIFO nie, Verweise als Text; Grenzen und Unlesbares;
+Ende zu Ende – Bundle, Arbeitsordner, Änderungen wie von einem Agenten (bauen, `git init` mit fsmonitor, Verweis nach
+draußen), Patch, `git am` ergibt denselben Commit, nichts Ignoriertes und kein Inhalt hinter dem Verweis im Patch.
+Protokoll `gitignore.test.ts` (2, neu).
+
+Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).

@@ -271,3 +271,7 @@ Bereichs unten anhängen.
   Datei neu (`O_EXCL`, `O_NOFOLLOW`), Verweise zuletzt. Nach dem Auftrag `weg()`, auch wenn er scheitert. Liest der
   Knoten den Ordner danach (Patch, 11.5a2), nur mit `lstat` und Verweise als Text – der Agent legt in der Sandbox
   Verweise auf alles an, auch auf `~/.freedom`; wer ihnen folgt, packt den Schlüssel des Knotens in den Patch.
+  Gelesen wird der Ordner nach dem Auftrag nur über `leseArbeitsordner()` (seit 11.5a2b): `lstat`, Dateien mit
+  `O_NOFOLLOW`, Verweise als Text, `.git` und Submodule nie betreten, Ignoriertes nach `.gitignore` wie git
+  (`istIgnoriert()` – ein ignorierter Ordner wird nicht betreten, außer git kennt Dateien darin). Ein Test vergleicht
+  mit `git ls-files`; neue Regeln für `.gitignore` nur mit diesem Vergleich.
