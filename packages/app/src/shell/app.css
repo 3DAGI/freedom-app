@@ -114,7 +114,10 @@
 .leer-symbol { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
   background: var(--surf2); border: 1px solid var(--line2); color: var(--accent); }
 .leer-satz { margin: 0; max-width: 36ch; font-size: 14px; line-height: 1.5; color: var(--text-muted); }
-.chat-partner { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px 0; font-weight: 600; }
+.chat-partner { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px 0; font-weight: 600; }
+/* Der Kopf schrumpft mit dem Namen, nie über die Breite hinaus (C-44: am Handy lief die Spalte sonst 7 px über –
+   der volle Name zählte zur Mindestbreite der Spalte, daher min-width: 0 auch an .chat-main) */
+.chat-kopf .chat-back, .chat-kopf .chat-anruf-knoepfe { flex: none; white-space: nowrap; }
 .chat-partner-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Ungelesenes (C-30, Nutzertest C-11): Name fett, Marke „neu“, Zähler an „Chat“ und an den Direktnachrichten */
 .chat-item.ungelesen .label { font-weight: 700; }
@@ -124,7 +127,7 @@
   position: absolute; top: 2px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: 8px; background: var(--accent); color: #000; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center;
 }
-.chat-main { flex: 1; display: flex; flex-direction: column; }
+.chat-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 /* Ohne gewählte Unterhaltung keine Eingabe und keine Anruf-Knöpfe (C-34, Nutzertest C-3) */
 .chat-main.ohne-unterhaltung .chat-composer, .chat-main.ohne-unterhaltung .chat-anruf-knoepfe,
 .chat-main.ohne-unterhaltung #chat-voice-status, .chat-main.ohne-unterhaltung #chat-attach-list { display: none; }
