@@ -9940,6 +9940,27 @@ gegen die Mengenlehre, mit und ohne Rahmen; feindliche Nachrichten (Hex, Längen
 
 Knoten-Stand: unverändert (Baustein im Protokoll).
 
+## Schritt B-35b – Abgleich (NIP-77) in der Relay-Rolle
+
+Spur B, Sammlung B-35 (NG1 B). Der Relay des Knotens beantwortet `NEG-OPEN`, `NEG-MSG` und `NEG-CLOSE` mit dem Kern aus
+B-35a – andere Relays und Clients können mit ihm abgleichen, statt alles neu zu laden.
+
+- **`relay-role.ts`:** je Verbindung offene Abgleiche (`abgleiche`); `NEG-OPEN` legt den Stand fest – nur Events, die
+  `darfAusliefern()` dieser Verbindung auch per `REQ` zeigen würde, abgelaufene (NIP-40) nicht; ein Filter auf Umschläge
+  ohne Anmeldung ergibt `blocked: … auth-required`. Grenzen: `NEG_RELAY` (50 000 Events, Rahmen 60 000 Byte), offene
+  Abgleiche zählen wie Abos (`abosJeVerbindung`), jede Nachricht wie eine Abfrage. Fehler nur als `NEG-ERR` mit festen
+  Texten (`blocked:`, `closed:`, `error:` samt Kennung aus `NegFehler`).
+- **NIP-11:** `supported_nips` nennt 77 (`baueRelayInfo()`, Test angepasst).
+- **Verdrahtet:** `relay-role.ts` `handleMessage()` → `abgleich()` – die Ausnahmen für `negentropy.ts` sind raus.
+- **Doku:** `PROTOCOL.md` §37, Sammlung, OFFEN (offen nur c), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `relay-negentropy.test.ts` (3, neu, echter WebSocket): Abgleich in beide Richtungen über mehrere Runden
+mit Rahmen, Filter wirkt; Umschläge nur für den angemeldeten Empfänger (fremd `blocked`, ohne Kind still weg, als Bob nur
+seine); Fehler und Grenzen (unbekannte Kennung, kaputte Nachricht, kein Filter, zu lange Kennung, geschlossen, zu viele
+offene). Protokoll `relay-zugang.test.ts`: NIP-11 mit 77.
+
+Knoten-Stand: neu nötig für den Abgleich; ältere Knoten antworten auf `NEG-OPEN` mit `NOTICE` (unbekannter Typ).
+
 ## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
 
 Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue

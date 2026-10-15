@@ -279,3 +279,7 @@ Bereichs unten anhängen.
   `O_NOFOLLOW`, Verweise als Text, `.git` und Submodule nie betreten, Ignoriertes nach `.gitignore` wie git
   (`istIgnoriert()` – ein ignorierter Ordner wird nicht betreten, außer git kennt Dateien darin). Ein Test vergleicht
   mit `git ls-files`; neue Regeln für `.gitignore` nur mit diesem Vergleich.
+- **Abgleich (NIP-77) nur wie ein REQ** (seit B-35b, `relay-role.ts`): `NEG-OPEN` nimmt nur Events, die
+  `darfAusliefern()` der Verbindung zeigen würde, und lehnt Filter auf Umschläge ohne Anmeldung ab
+  (`brauchtAnmeldung()`) – ein Fingerabdruck verriete sonst, welche Umschläge an wen dort liegen. Offene Abgleiche zählen
+  wie Abos, jede Nachricht wie eine Abfrage, höchstens `NEG_RELAY.events`; `NEG-ERR` nur mit festen Texten.
