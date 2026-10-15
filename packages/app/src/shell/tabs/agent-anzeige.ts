@@ -164,6 +164,21 @@ function blasenGeruest(role: "user" | "ai", meta: string, model?: string): { bla
   const koerper = el("div", undefined, "body");
   blase.append(el("div", role === "user" ? t("komm.du") : `agent${model ? ` · ${model}` : ""}`, "who"), koerper);
   if (meta) blase.append(el("div", meta, "cost"));
+  // Unter jeder Antwort „Kopieren“ (C-46) – statt „Letzte kopieren“ unter der Eingabe; kopiert wird nur der Text
+  if (role === "ai") {
+    const kopieren = el("button", undefined, "ghost mini antwort-kopieren");
+    kopieren.type = "button";
+    kopieren.title = t("agent.kopierenAntwort");
+    kopieren.setAttribute("aria-label", t("agent.kopierenAntwort"));
+    kopieren.append(iconEl("copy", 14), el("span", t("agent.kopieren")));
+    kopieren.addEventListener("click", () => {
+      void navigator.clipboard.writeText(koerper.textContent?.trim() ?? "")
+        .then(() => toast(t("ein.antwortKopiert")), () => toast(t("ein.nichtKopiert"), true));
+    });
+    const aktionen = el("div", undefined, "antwort-aktionen");
+    aktionen.append(kopieren);
+    blase.append(aktionen);
+  }
   return { blase, koerper };
 }
 

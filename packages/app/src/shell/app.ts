@@ -1001,9 +1001,8 @@ function starte(): void {
 }
 
 /** Onboarding: 3-Schritt-Wizard fuer neue Nutzer. */
-/** Copy-Buttons: letzte antwort + ganze konversation. */
+/** „Alle kopieren“ im Arbeitsbereich (seit C-46); „Kopieren“ steht unter jeder Antwort (`blasenGeruest()`). */
 function setupCopyButtons(): void {
-  const copyLast = $("#copy-last");
   const copyAll = $("#copy-all");
   const getBubbles = () => Array.from(document.querySelectorAll("#ai-thread .bubble"));
   const bubbleText = (b: Element) => {
@@ -1011,13 +1010,6 @@ function setupCopyButtons(): void {
     const txt = b.querySelector(".body")?.textContent?.trim() ?? "";
     return who ? `${who}: ${txt}` : txt;
   };
-  copyLast?.addEventListener("click", async () => {
-    const bubbles = getBubbles().filter((b) => b.classList.contains("ai"));
-    const last = bubbles[bubbles.length - 1];
-    if (!last) { toast(t("ein.keineAntwort"), true); return; }
-    await navigator.clipboard.writeText(bubbleText(last));
-    toast(t("ein.antwortKopiert"));
-  });
   copyAll?.addEventListener("click", async () => {
     const bubbles = getBubbles();
     if (bubbles.length === 0) { toast(t("ein.keineKonversation"), true); return; }
