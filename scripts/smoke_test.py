@@ -4568,7 +4568,11 @@ def raum_pruefen(browser, url: str) -> dict:
               art: document.querySelector('#repo-seite .diff-datei-kopf .msg-role')?.textContent, fokus: document.activeElement?.classList.contains('patch-senden') })""")
             vorher = len([e for e in relay.gesendet if e.get("kind") == 1617])
             ev("() => document.querySelector('#repo-seite .patch-senden').click()")
-            s.wait_for_timeout(800)
+            # Gesendet, dann neu geladen – auf die Liste warten statt einer festen Pause (VKb: unter Last reichten 800 ms nicht)
+            try:
+                s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-patch-betreff').length > 0", timeout=10000)
+            except Exception:
+                pass
             gesendet_patch = [e for e in relay.gesendet if e.get("kind") == 1617][vorher:]
             vorschau["gesendet"] = [t[1] for t in (gesendet_patch[-1]["tags"] if gesendet_patch else []) if t[0] == "a"]
             vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")

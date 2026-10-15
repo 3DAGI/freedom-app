@@ -53,6 +53,8 @@ dieses Bereichs unten anhängen.
   und hoffen. Nachstellen lässt sich Langsamkeit mit CDP `Emulation.setCPUThrottlingRate`.
   Ebenso nach dem Speichern der Repo-Einstellungen (C-40): erst veröffentlichen, dann `neuLaden()` –
   auf den neuen Link warten, nie eine feste Pause (800 ms reichten im CI-Runner zweimal nicht).
+  Ebenso nach „Patch senden“ im Raum (VKb): erst senden, dann neu laden – auf die Patch-Liste warten; 800 ms reichten
+  nicht, als der Rechner nebenher Knoten-Tests rechnete. Den Smoke-Test nie neben anderen schweren Läufen starten.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*

@@ -9798,3 +9798,41 @@ Tests:
 
 **Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt VKb – Sandbox mit bubblewrap (= 11.5s)
+
+Spur B, aus `docs/VIBECODEN-ENTWURF.md` (VK4, VKb) und `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3:
+Regeln fürs Ausführen“, Vorbild Codex unter Linux). Code führt der Knoten nur in bubblewrap aus – je
+Befehl (11.5c) oder als ganzer Motor eines Code-Laufs (VKc3).
+
+- **`node/src/sandbox.ts`:** `sandboxArgumente()` – eigene Namensräume (`--unshare-all`,
+  `--unshare-user`), endet mit dem Knoten, eigene Sitzung, keine Fähigkeiten, leere Umgebung bis auf
+  `PATH`, `HOME`, `LANG`; nur lesbar `/usr` (Verweise wie `/bin` → `usr/bin` als Verweis), aus `/etc`
+  nur ein eigenes `passwd`, `group`, `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (sonst startet
+  `python3` nicht – unter Debian ein Verweis dorthin); schreibbar nur `/arbeit` (darin `.git` nur lesbar),
+  `/tmp` als tmpfs mit 512 MB, Home ein tmpfs oder ein eigener Ordner; danach die Wurzel selbst nur
+  lesbar (`--remount-ro /`). Kein Netz; GPU nur auf Wunsch.
+- **Ausführen:** `fuehreAus()` mit `ulimit` (Rechenzeit, Dateigröße, offene Dateien – je Grenze ein
+  Aufruf, dash nimmt nur eine), 60 s je Befehl, danach endet die ganze Prozessgruppe; Ausgabe gekürzt
+  wie im Code-Lauf (`kuerzeAusgabe()`). `sandboxMotor()` ist die `MotorStart` für VKc3 (stderr
+  verworfen). Ohne bubblewrap oder ohne Nutzer-Namensräume läuft nichts – `pruefeSandbox()` sagt
+  `sandbox.fehlt` bzw. `sandbox.namensraum`, feste Sätze in `SANDBOX_TEXT`.
+- **Verdrahtet:** `main.ts` prüft die Sandbox beim Start, sobald Vibecoden an ist (`[code] Sandbox …`),
+  `npm run pruefen` mit `VIBECODEN=1` ebenso. Den Motor startet erst VKc3 darin – die Sandbox hat
+  kein Netz, das Modell erreicht er nur über eine Brücke, die VKc3 baut.
+- **Bild und CI:** bubblewrap im Docker-Bild (unter Docker sperrt das Standard-Seccomp meist
+  Nutzer-Namensräume – Frage in `OFFEN.md` 1.1); die CI installiert bubblewrap und gibt im
+  Wegwerf-Runner Nutzer-Namensräume frei, damit die Tests laufen statt sich zu überspringen.
+- **Noch nicht:** Arbeitsspeicher je Befehl und seccomp (Netz-Aufrufe, `io_uring`) – 11.5s2.
+- **Smoke-Test „raum“:** Nach „Patch senden“ wartete er 800 ms fest und las dann die Liste – unter Last war sie noch
+  leer (lokal rot, während nebenher Knoten-Tests liefen). Jetzt wartet er auf die Liste (Frist 10 s), wie die anderen
+  Stellen dort; Fallstrick in `scripts/CLAUDE.md`. Klein in einer Datei aller Spuren.
+- **Doku:** PROVIDER („Sandbox“), Entwürfe, OFFEN (VKb raus, 11.5s2 neu, VKc3 und 11.5c frei bzw.
+  nach 11.5a), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (7, neu): Argumente, feste Sätze, ohne bubblewrap kein Ausführen;
+mit echtem bubblewrap leere Umgebung, Nutzer 1000, nur `lo`, Grenzen, `NoNewPrivs`, schreibbar nur der
+Arbeitsordner, `.git`, `/usr`, `/etc` und die Wurzel nur lesbar, Dateien des Knotens unsichtbar,
+Exit-Code, Kürzung, Zeitgrenze samt Kind im Hintergrund, Motor über stdin/stdout mit eigenem Home.
+
+Knoten-Stand: für die Selbstprüfung neu; ohne `VIBECODEN=1` ändert sich nichts.

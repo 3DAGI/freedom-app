@@ -258,3 +258,11 @@ Bereichs unten anhängen.
   Angebot (vierter Wert im `storage`-Tag, `leseSpeicherGratis()`). `nimmAuf()` lehnt Stücke größerer Dateien ab
   (Größe aus `pruefeSpeicherStueck()`), nie die des Besitzers (`halten`). Eine netzweite Schwelle gibt es nicht mehr –
   `network-capacity.ts` nicht wieder einführen.
+- **Code nur in der Sandbox** (seit VKb = 11.5s, `sandbox.ts`): Befehle nur über `fuehreAus()`, ein Motor nur über
+  `sandboxMotor()` – nie `spawn` eines fremden oder vom Modell gewählten Befehls daneben, nie `prozessMotor()` allein.
+  bubblewrap mit allen Namensräumen (`--unshare-all` und `--unshare-user`, kein Netz), leere Umgebung, nur lesbar
+  `/usr` und die Wurzel (`--remount-ro /` zuletzt – sonst ist die tmpfs-Wurzel samt `/etc` schreibbar), aus `/etc`
+  nur die drei eigenen Dateien und nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (ohne sie startet etwa
+  `python3` nicht – unter Debian ein Verweis dorthin), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
+  dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
+  Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
