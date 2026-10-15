@@ -10044,3 +10044,16 @@ Spur B, Sammlung B-32 (RN1: im Entwurf prüfen, RN2 A). Nur Doku, kein Code.
 - **Doku:** OFFEN (1.0b mit beiden Fragen, B-31 und B-32 wartend), Sammlung, FORTSCHRITT.
 
 **Tests:** keine (nur Doku).
+
+## Schritt B-30-Entwurf – Atomic Agent als Agent-Harness
+
+Spur B, Sammlung B-30 (AG1 A, 09.10.). Nur Doku, kein Code – der Befund passt nicht zur Annahme der Sammlung.
+
+- **`docs/ATOMIC-AGENT-ENTWURF.md`:** Atomic Agent (MIT) braucht Node ≥ 25.7 (der Knoten läuft auf 22), spricht kein ACP
+  (nur OpenAI-kompatibles `serve` und ein eigenes NDJSON-Sidecar), bringt viele Netzwege mit (Composio, Postfach,
+  Telegram, Skills aus ClawHub) und hat **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**. Seit VK-W1n C
+  ist Hermes über ACP der Motor des Knotens. Vorschlag: nicht als Motor im Knoten, sondern als lokaler OpenAI-Server unter
+  „Dieses Gerät“, mit ehrlichem Hinweis; Fragen W1–W4, Aufteilung B-30a.
+- **Doku:** OFFEN (1.0b, B-30 wartet), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
