@@ -51,8 +51,9 @@ test("VKb: Argumente – alle Namensräume, keine Fähigkeiten, leere Umgebung, 
 });
 
 test("VKb: Selbstprüfung mit festen Sätzen – je Fall einer", () => {
-  assert.equal(sandboxText({ ok: true }), SANDBOX_TEXT["sandbox.ok"]);
-  for (const fall of ["sandbox.fehlt", "sandbox.namensraum"] as const) assert.match(sandboxText({ ok: false, fall }), /führt der Knoten keinen Code aus/);
+  assert.equal(sandboxText({ ok: true, seccomp: true }), SANDBOX_TEXT["sandbox.ok"]);
+  assert.match(sandboxText({ ok: true, seccomp: false }), /seccomp gibt es für diese Architektur nicht/);
+  for (const fall of ["sandbox.fehlt", "sandbox.namensraum", "sandbox.seccomp"] as const) assert.match(sandboxText({ ok: false, fall }), /führt der Knoten keinen Code aus/);
 });
 
 test("VKb: ohne bubblewrap kein Ausführen – nie direkt auf dem Rechner", async () => {
