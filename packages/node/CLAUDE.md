@@ -266,3 +266,8 @@ Bereichs unten anhängen.
   `python3` nicht – unter Debian ein Verweis dorthin), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
   dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
   Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
+- **Arbeitsordner nur über `arbeitskopie.ts`** (seit 11.5a1): je Repo-Auftrag `neuerArbeitsordner()` (0700, in
+  `/dev/shm`, wo es ihn gibt), geschrieben nur mit `schreibeArbeitskopie()` – nur in einen leeren, echten Ordner, jede
+  Datei neu (`O_EXCL`, `O_NOFOLLOW`), Verweise zuletzt. Nach dem Auftrag `weg()`, auch wenn er scheitert. Liest der
+  Knoten den Ordner danach (Patch, 11.5a2), nur mit `lstat` und Verweise als Text – der Agent legt in der Sandbox
+  Verweise auf alles an, auch auf `~/.freedom`; wer ihnen folgt, packt den Schlüssel des Knotens in den Patch.
