@@ -21,16 +21,15 @@ antispam.ts|spamFilterInfo|Spam- und Flutschutz, weder im Relay des Knotens noch
 blob.ts|parseBlobChunk|Blob-Stücke lesen, noch ohne Speicher-Client (Speicher, 8.9)
 
 
-cluster.ts|buildClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|buildPairedEvent|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|computeReciprocity|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|estimateClusterPerf|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|findPairPartners|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|hoursNeededToRent|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|kvCacheGb|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|modelFitsOnCluster|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|parseClusterOffer|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
-cluster.ts|recommendMode|Cluster-Pairing ohne Oberfläche und ohne Anbindung im Knoten (Provider-Knoten, 8.2)
+cluster.ts|buildClusterOffer|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|baueClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|oeffneClusterAbsprache|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|estimateClusterPerf|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|findPairPartners|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|kvCacheGb|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|modelFitsOnCluster|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|parseClusterOffer|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
+cluster.ts|recommendMode|Cluster-Pairing: Betrieb erst mit zwei Geräten (E9-5, MENSCH) – Bausteine nach E9-1
 
 consensus.ts|consensusCostPreview|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)
 consensus.ts|recommendedRedundancy|Redundanz-Konsens – vom Kunden nicht mehr wählbar (Entscheidung 04.10.2026), Baustein der Pflicht-Prüfrunden (P5c, docs/FREEDOM-PRUEFUNG.md 3.2)

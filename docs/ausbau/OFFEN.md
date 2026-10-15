@@ -149,7 +149,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| E9-1 | `cluster.ts` aufräumen (Kinds, alte Gebühr und Bilanz raus, Angebot 38028) | frei – als Nächstes (E9-2 ✓) |
 | VKb = 11.5s | Sandbox (bubblewrap je Befehl, Grenzen, leere Umgebung), Selbstprüfung „Sandbox“ | frei |
 | 11.5a1, 11.5a2 | Bundle-Leser, Patch-Schreiber (W1 B); Arbeitskopie im Arbeitsordner der Sandbox (W3a A) | frei |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |

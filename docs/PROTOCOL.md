@@ -130,6 +130,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
 | 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
+| 38028 | Cluster-Angebot: Gerät als Hälfte eines Paars verfügbar (§36, seit E9-1 – vorher lag es auf 38026, dem Kurs-Ticker) |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
@@ -1268,3 +1269,30 @@ Event (NIP-09: `e`, `a` = `38076:<knoten>:<Suchkennung>`, `k`) samt Datei – eb
 den Code, nicht das Geheimnis, nicht wer koppelt. Wer das Event mitliest, muss für jeden der 2^60
 Codes 600 000 Runden rechnen – auch, um es überhaupt einem Code zuzuordnen.
 
+## 36. Cluster-Pairing: Angebot offen, Absprache versiegelt (Kind 38028, innen 25050, seit E9-1)
+
+Zwei Geräte rechnen ein großes Modell gemeinsam (K = 2). Nach V1 A aus
+`docs/E9-ENTWURF.md` (freigegeben 08.10.2026) sieht der Kunde nur den
+**führenden Knoten**: Er zahlt nur ihn (A+ wie jede KI-Antwort), und der
+haftet für die Antwort. Den Partner mietet der führende Knoten selbst und
+bezahlt ihn direkt, außerhalb des Protokolls.
+
+**Angebot (Kind 38028, ersetzbar je `d`):** `["d", "cluster:<region>"]`,
+`["mem_gb", …]`, `["mem_bw", …]` (GB/s), `["uplink", …]` (Mbit/s),
+`["region", …]` (`[a-z0-9-]`, höchstens 32), `["rtt", …]` (ms),
+`["rate", …]` (sats je Stunde), `["window", <von>, <bis>]`, optional
+`["direct_link", "1"]`. Gelesen nur über `parseClusterOffer()` – Zahlen nicht
+negativ, Zeitfenster nicht leer, sonst ungültig.
+
+**Absprache (innen Kind 25050, nur im Umschlag nach NIP-59 an den Partner):**
+`["p", <partner>]`, `["model", <name>]`, `["window", <von>, <bis>]`,
+`["rate", <sats je Stunde>]`, optional `["e", <Id der Absprache>]` als
+Bestätigung. Gebaut und gelesen nur über `baueClusterAbsprache()` und
+`oeffneClusterAbsprache()`.
+
+- Kein öffentliches Paar-Ereignis und keine Bilanz daraus: Wer bei wem
+  mietet, verrät Geschäftsbeziehungen, und eine Bilanz mit Vorrang wäre eine
+  öffentliche Rangliste. Das alte Paar-Event (bis E9-1 auf 38027, dem Kind des
+  Provider-Angebots) und die „Reziprozität“ mit 5 % Protokollgebühr fielen weg.
+- Betrieben wird ein Paar erst mit zwei Geräten (E9-5); bis dahin sind es
+  Bausteine.
