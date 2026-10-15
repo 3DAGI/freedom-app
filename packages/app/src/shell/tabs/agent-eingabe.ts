@@ -87,6 +87,30 @@ export function hideEmptyState(): void {
 }
 
 
+/**
+ * „Stufe und Bezahlung“ (C-49b): Stufe, Gebot mit Einheit, „privat“ und „über Funk“ in einem Popover an der
+ * Eingabe – am Handy als Blatt von unten. Die Felder selbst und ihre Logik bleiben, wie sie waren.
+ */
+export function setupOptionen(): void {
+  const knopf = document.getElementById("ai-optionen-btn");
+  const box = document.getElementById("ai-optionen");
+  if (!knopf || !box) return;
+  const setze = (auf: boolean) => {
+    box.classList.toggle("hidden", !auf);
+    knopf.setAttribute("aria-expanded", String(auf));
+    if (auf) box.querySelector<HTMLElement>("select, input")?.focus();
+  };
+  knopf.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setze(box.classList.contains("hidden"));
+  });
+  box.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", () => { if (!box.classList.contains("hidden")) setze(false); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !box.classList.contains("hidden")) { setze(false); knopf.focus(); }
+  });
+}
+
 /** Angehaengte Datei (multimodal). */
 export let attachment: { type: string; name: string; dataUrl: string } | null = null;
 /** Angeforderte Tools fuer den naechsten Job. */

@@ -3115,6 +3115,22 @@ def agent_klein_pruefen(browser, url: str) -> dict:
             or gewaehlt["gewaehlt"] != ["Web×"] or not gewaehlt["web"] or not gewaehlt["offen"] \
             or zurueck["gewaehlt"] != [] or zurueck["web"] or zu["offen"] or zu["aria"] != "false":
         erg["fehler"].append(f"Menü „+“ {erg['plus']}")
+    # Seit C-49b: Stufe, Gebot und „privat“ im Popover „Stufe und Bezahlung“; „Privat“ bleibt als Marke in der Eingabe sichtbar
+    optionen = """() => { const b = document.getElementById('ai-optionen'); const r = (id) => document.getElementById(id).getBoundingClientRect();
+        return { offen: !b.classList.contains('hidden'), aria: document.getElementById('ai-optionen-btn').getAttribute('aria-expanded'),
+          stufe: r('ai-tier').height > 0, privat: r('ai-privat-wahl').height > 0,
+          marke: getComputedStyle(document.querySelector('.privat-marke')).display !== 'none' }; }"""
+    ev("() => document.getElementById('ai-optionen-btn').click()")
+    o_auf = ev(optionen)
+    ev("() => document.getElementById('ai-privat').click()")
+    o_privat = ev(optionen)
+    ev("() => document.getElementById('ai-privat').click()")
+    s.keyboard.press("Escape")
+    o_zu = ev(optionen)
+    erg["optionen"] = [o_auf, o_privat, o_zu]
+    if o_auf != {"offen": True, "aria": "true", "stufe": True, "privat": True, "marke": False} or not o_privat["marke"] \
+            or o_zu != {"offen": False, "aria": "false", "stufe": False, "privat": False, "marke": False}:
+        erg["fehler"].append(f"Stufe und Bezahlung {erg['optionen']}")
     # „erneut“: Tarif Free ohne Provider – Fehlerblase mit Knopf; danach dieselbe Frage genau einmal
     frage = "Erneut gefragt 5150"
     ev("(f) => { document.getElementById('ai-tier').value = 'free'; document.getElementById('ai-prompt').value = f;"
@@ -5430,6 +5446,11 @@ def mobil_pruefen(browser, url: str) -> dict:
             links: Math.round(r.left), rechts: Math.round(innerWidth - r.right), text: !!t && getComputedStyle(t).display !== 'none' && t.scrollWidth <= t.clientWidth + 1,
             leer_oben: Math.round(document.getElementById('ai-empty').getBoundingClientRect().top - document.getElementById('ai-thread').getBoundingClientRect().top) }; }"""
         beim_agenten = ev(karte)
+        # Seit C-49: die Eingabe als Pille, Stufe und Bezahlung im Blatt – vorher 410 von 844 px
+        eingabe = ev("() => Math.round(document.querySelector('#page-ai .composer').getBoundingClientRect().height)")
+        erg[lage]["eingabe_hoehe"] = eingabe
+        if eingabe > (300 if lage == "hoch" else 240):
+            erg["fehler"].append(f"{lage}: Eingabe des Agenten {eingabe} px hoch")
         ev("() => { location.hash = '#/chat'; }")
         s.wait_for_function("() => document.getElementById('page-comm').classList.contains('active')", timeout=5000)
         in_chats = ev(karte)["sichtbar"]

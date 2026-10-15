@@ -37,3 +37,17 @@ test("gewählte Werkzeuge als Chips – „×“ klickt den Knopf im Menü, eine
   assert.match(eingabe, /if \(e\.key === "Escape" && !menu\.classList\.contains\("hidden"\)\) \{ setze\(false\); btn\.focus\(\); \}/);
   assert.match(eingabe, /menu\.addEventListener\("click", \(e\) => e\.stopPropagation\(\)\);/);
 });
+
+test("C-49b: Stufe, Gebot, „privat“ und „über Funk“ im Popover – unter der Eingabe nur der Stand; „Privat“ bleibt sichtbar", () => {
+  const optionen = html.slice(html.indexOf('<div class="optionen-wrap">'), html.indexOf('<div class="model-picker-wrap">'));
+  for (const id of ["ai-tier", "bid-wrap", "ai-bid", "ai-schiene", "ai-privat-wahl", "ai-funk-wahl"]) assert.match(optionen, new RegExp(`id="${id}"`), id);
+  assert.match(optionen, /id="ai-optionen-btn"[^>]*aria-haspopup="true" aria-expanded="false" aria-controls="ai-optionen"/);
+  const meta = html.slice(html.indexOf('<div class="composer-meta">'), html.indexOf("</div>", html.indexOf('<div class="composer-meta">')));
+  assert.deepEqual([...meta.matchAll(/id="([^"]+)"/g)].map((m) => m[1]), ["ai-fee-preview", "ai-budget", "ai-gratis"]);
+  const css = quelle("../src/shell/app.css");
+  assert.match(css, /\.eingabe-pille:has\(#ai-privat:checked\) \.privat-marke, \.eingabe-pille:has\(#ai-funk:checked\) \.funk-marke \{ display: inline-flex; \}/);
+  assert.match(css, /@media \(max-width: 760px\) \{\n\s+\.ai-optionen \{ position: fixed; left: 0; right: 0; bottom: 0;/, "am Handy ein Blatt von unten");
+  const eingabe = quelle("../src/shell/tabs/agent-eingabe.ts");
+  assert.match(eingabe, /export function setupOptionen\(\): void \{/);
+  assert.match(quelle("../src/shell/app.ts"), /setupAttach\(\);\n\s+setupOptionen\(\);/);
+});

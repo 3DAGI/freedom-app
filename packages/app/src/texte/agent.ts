@@ -60,6 +60,10 @@ export const agent: Texte = {
   // Namen für Vorleser (C-4)
   "agent.stufeAria": { de: "Stufe der Antwort", en: "Answer tier" },
   "agent.plusAria": { de: "Anhängen und Werkzeuge", en: "Attach and tools" },
+  "agent.optionen": { de: "Stufe und Bezahlung", en: "Tier and payment" },
+  "agent.stufe": { de: "Stufe", en: "Tier" },
+  "agent.privatMarke": { de: "Privat", en: "Private" },
+  "agent.funkMarke": { de: "Über Funk", en: "Via radio" },
   "agent.anhaengen": { de: "Anhängen", en: "Attach" },
   "agent.werkzeugWeg": { de: "{name} entfernen", en: "Remove {name}" },
   "agent.werkzeugWeb": { de: "Web", en: "web" },
