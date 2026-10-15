@@ -1869,6 +1869,38 @@ def relay_liste_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def einst_zeilen_pruefen(browser, url: str) -> dict:
+    """Settings › Datenschutz als Zeilen (C-53b): drei Gruppen, Schalter (role=switch) mit Namen aus der Zeile, ein Klick
+    auf die Zeile schaltet und wird wie bisher gemerkt; „Mehr dazu“ zu, ab 48 px je Zeile, am Handy nichts seitlich."""
+    erg = {"fehler": []}
+    for groesse, vp, mobil in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True)):
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil)
+        ev, s = seite.ev, seite.s
+        ev("() => { location.hash = '#/settings'; }")
+        s.wait_for_selector("[data-subtab-group=settings] [data-subtab=privacy]", state="attached", timeout=30000)
+        ev("() => document.querySelector('[data-subtab-group=settings] [data-subtab=privacy]').click()")
+        s.wait_for_function("() => !!document.getElementById('ki-platzhalter').offsetParent", timeout=10000)
+        g = {"aufbau": ev("""() => { const p = document.querySelector('[data-subpane="settings:privacy"]');
+            const zeilen = [...p.querySelectorAll('.einst-zeile')].filter(z => z.offsetParent);
+            return [p.querySelectorAll('.einst-gruppe').length,
+              [...p.querySelectorAll('input.schalter')].filter(i => i.offsetParent).map(i => [i.id, i.getAttribute('role'), i.labels?.[0]?.querySelector('.einst-titel')?.textContent.length > 0]),
+              zeilen.every(z => z.getBoundingClientRect().height >= 48), [...p.querySelectorAll('details.einst-mehr')].some(d => d.open),
+              document.documentElement.scrollWidth <= innerWidth]; }""")}
+        vorher = ev("() => [document.getElementById('ki-platzhalter').checked, localStorage.getItem('freedom.platzhalter')]")
+        ev("() => document.getElementById('ki-platzhalter').closest('.einst-zeile').querySelector('.einst-titel').click()")
+        g["geschaltet"] = [vorher, ev("() => [document.getElementById('ki-platzhalter').checked, localStorage.getItem('freedom.platzhalter')]")]
+        erg[groesse] = g
+        if g["aufbau"] != [3, [["kontakte-sichern", "switch", True], ["ki-platzhalter", "switch", True], ["ruf-teilen", "switch", True]], True, False, True]:
+            erg["fehler"].append(f"{groesse}: Aufbau {g['aufbau']}")
+        if g["geschaltet"][0][0] is not True or g["geschaltet"][1][0] is not False or g["geschaltet"][1][1] == g["geschaltet"][0][1]:
+            erg["fehler"].append(f"{groesse}: Schalter {g['geschaltet']}")
+        if seite.browser_dialoge:
+            erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+        seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def einstellungen_pruefen(browser, url: str) -> dict:
     """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
     Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus.
@@ -5833,6 +5865,10 @@ def main() -> int:
             except Exception as e:
                 erg["relay_liste"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["einst_zeilen"] = einst_zeilen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["einst_zeilen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5980,6 +6016,7 @@ def main() -> int:
           and erg.get("chat_klein", {}).get("bestanden") is True
           and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("relay_liste", {}).get("bestanden") is True
+          and erg.get("einst_zeilen", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
