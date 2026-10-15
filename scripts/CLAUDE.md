@@ -58,3 +58,8 @@ dieses Bereichs unten anhängen.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
+- **`check-wiring.py` ordnet Rümpfe nach Namen** (gefunden in B-35a): Deklarationen auf oberster Ebene zählen über alle
+  Protokolldateien unter ihrem Namen. Ein privater Helfer mit dem Namen eines verdrahteten in einer anderen Datei (`Leser`
+  gibt es in `ots.ts`, `meshtastic.ts`, `lnd-macaroon.ts`) macht alles „verdrahtet“, was er benutzt – die Ausnahme gilt dann
+  als veraltet. Private Helfer eindeutig benennen (`NegLeser`). Ebenso zählt jeder Bezeichner in `scripts/` als Aufruf:
+  Namen einer fremden Referenz dort über Zeichenketten ansprechen (`modul.exports["Negentropy"]`).
