@@ -52,7 +52,7 @@ Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
 Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 
-### 1.0b Spur B, 15.10.2026: MCP-Größe, Reticulum, Tor-Brücken, Gruppenanrufe
+### 1.0b Spur B, 15.10.2026: MCP-Größe, Reticulum, Tor-Brücken, Gruppenanrufe, MeshCore
 
 | Nr. | Frage | Empfehlung |
 |---|---|---|
@@ -62,6 +62,7 @@ Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 | RN-W1–W5 | B-32 (Reticulum): Entwurf [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md) – RN1 geprüft: `@reticulum/core` steht unter EUPL-1.2, ohne Abhängigkeiten, gepflegt; Fragen zu Adresse, Zustellen, Reihenfolge, Größe | wie im Entwurf: W1 A, W2 A, W3 A, W4 A, W5 A |
 | PT2, PT3 | B-33 (Tor-Brücken): Entwurf [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md) – Größe und Lizenz gemessen (PT1 A). **Befund: lyrebird enthält GPL-3-Code** (Elligator 2 für obfs4, meek) – nach der STOPP-Regel eine Frage. PT2: A `snowflake-client` (BSD-3) und WebTunnel-Client (MIT), ~22 MB je Plattform, ohne obfs4 · B lyrebird als eigenes Programm (GPL-3) · C eigenes Go-Programm. PT3: A eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen · B dazu Moat | PT2 A, PT3 A |
 | LK2–LK4 | B-34 (Gruppenanrufe): Entwurf [`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md) – Server Apache-2.0 (Docker 44 MB), `livekit-client` 2.22.4 Apache-2.0, +0,6 bis 0,9 MB in `freedom.html`. LK2 Client ins Bundle? LK3 Schlüssel aus dem MLS-Exporter (Crate ändern) oder vom Gastgeber je Epoche? LK4 IP der Teilnehmer: über den eigenen TURN, sonst Warnung – oder immer direkt? | LK2 A, LK3 A, LK4 A |
+| MCO-W1, W2 | B-37 (MeshCore): Entwurf [`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md) – Gruppen-Datagramme mit 16-Bit-Datentyp, höchstens 184 Byte je Paket (unsere Rahmen haben 200 – kleinere nur für diese Strecke). W1: festen Datentyp beim MeshCore-Projekt beantragen (MENSCH, Pull Request dort) oder im Versuchsbereich `FF00`–`FFFF` bleiben? W2: jetzt bauen oder erst mit einem Gerät vor Ort? | W1 A, W2 B |
 
 ### 1.1 Bestätigungen und Zuteilungen
 
@@ -179,7 +180,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-33 | Tor mit Pluggable Transports | Entwurf ✓ ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) – Bau nach PT2/PT3 (1.0b) |
 | B-34 | Gruppenanrufe über LiveKit | Entwurf ✓ ([`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md)) – Bau nach LK2–LK4 (1.0b) |
 | B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille | wartet auf NG2 (1.0b; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
-| B-37 | MeshCore als zweites LoRa-Format | frei, nachrangig |
+| B-37 | MeshCore als zweites LoRa-Format | Entwurf ✓ ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) – Bau nach MCO-W1/W2 (1.0b), nachrangig |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 
 ### Spur C – Oberfläche

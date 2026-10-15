@@ -10094,3 +10094,19 @@ Spur B, Sammlung B-34 (LK1 A: nur in privaten Räumen, Schlüssel aus MLS). Nur 
 - **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
 
 **Tests:** keine (nur Doku).
+
+## Schritt B-37-Entwurf – MeshCore als zweites LoRa-Format
+
+Spur B, Sammlung B-37 (nachrangig). Nur Doku: `docs/MESHCORE-ENTWURF.md`.
+
+- **Befunde:** Companion-Schnittstelle (Fassung 3) über USB (1 Byte Richtung, 2 Byte Länge LE), Bluetooth
+  (Nordic UART) oder TCP; Gruppen-Datagramme über `SendChannelData` (62) mit 16-Bit-Datentyp, Empfang
+  `ChannelDataRecv` (27); Versuchsbereich `FF00`–`FFFF`, feste Bereiche nur über einen Pull Request beim
+  Projekt; höchstens 184 Byte je Paket – unsere Rahmen (200 Byte) passen nicht. Firmware und `meshcore.js`
+  stehen unter MIT; Freedom bräuchte nur das Format.
+- **Vorschläge V1–V4:** Format ohne Abhängigkeit mit Vektoren aus `meshcore.js`, Rahmengröße je Strecke
+  (`fragment()` mit Größe, nie mischen), nur Gruppen-Datagramme auf „freedom“, Sendezeitkonto.
+- **Fragen:** MCO-W1 (Datentyp beantragen – MENSCH), MCO-W2 (jetzt oder erst mit Gerät vor Ort – Empfehlung B).
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
