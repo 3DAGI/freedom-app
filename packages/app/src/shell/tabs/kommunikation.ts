@@ -396,7 +396,7 @@ export async function loadChatMessages(cid: string): Promise<void> {
           // ist Moderation. Eine, die man nicht sieht, ist Manipulation.
           const zeigen = el("button", t("komm.trotzdemZeigen"), "ghost show-anyway");
           zeigen.dataset.id = ev.id;
-          zeigen.style.cssText = "width:auto;padding:2px 6px;font-size:10px";
+          zeigen.style.cssText = "width:auto;padding:2px 6px;font-size:12px";
           const marke = el("div", `${t("komm.ausgeblendetMarke", { grund: v.reason })} `, "txt mono-sm");
           marke.append(zeigen);
           const blase = el("div", undefined, "bubble hidden-msg");

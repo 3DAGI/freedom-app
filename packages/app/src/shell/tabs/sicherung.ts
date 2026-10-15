@@ -372,7 +372,7 @@ export async function zeigeGeraete(): Promise<void> {
           if (x.status === "aktiv") {
             const knopf = el("button", t("set.entziehen"), "ghost dev-revoke");
             knopf.dataset.pk = x.devicePubkey;
-            knopf.style.cssText = "width:auto;padding:1px 6px;font-size:10px";
+            knopf.style.cssText = "width:auto;padding:1px 6px;font-size:12px";
             stand.append(" · ", knopf);
           }
           zeile.append(el("span", x.label), stand);
