@@ -5371,14 +5371,16 @@ def mobil_pruefen(browser, url: str) -> dict:
         karte = """() => { const b = document.getElementById('onboarding-bar'); const r = b.getBoundingClientRect();
           const t = b.querySelector('.ob-body');
           return { sichtbar: b.offsetParent !== null, beim_agenten: document.getElementById('page-ai').contains(b), hoehe: Math.round(r.height),
-            links: Math.round(r.left), rechts: Math.round(innerWidth - r.right), text: !!t && getComputedStyle(t).display !== 'none' && t.scrollWidth <= t.clientWidth + 1 }; }"""
+            links: Math.round(r.left), rechts: Math.round(innerWidth - r.right), text: !!t && getComputedStyle(t).display !== 'none' && t.scrollWidth <= t.clientWidth + 1,
+            leer_oben: Math.round(document.getElementById('ai-empty').getBoundingClientRect().top - document.getElementById('ai-thread').getBoundingClientRect().top) }; }"""
         beim_agenten = ev(karte)
         ev("() => { location.hash = '#/chat'; }")
         s.wait_for_function("() => document.getElementById('page-comm').classList.contains('active')", timeout=5000)
         in_chats = ev(karte)["sichtbar"]
         erg[lage]["hinweiskarte"] = [beim_agenten, in_chats]
         if not beim_agenten["sichtbar"] or not beim_agenten["beim_agenten"] or not beim_agenten["text"] or beim_agenten["links"] < 8 \
-                or beim_agenten["rechts"] < 8 or beim_agenten["hoehe"] > vp["height"] * 0.45 or in_chats:
+                or beim_agenten["rechts"] < 8 or beim_agenten["hoehe"] > vp["height"] * 0.45 or in_chats \
+                or beim_agenten["leer_oben"] < 0:  # der leere Zustand darunter beginnt im Verlauf, nicht darüber abgeschnitten
             erg["fehler"].append(f"{lage}: Hinweiskarte {erg[lage]['hinweiskarte']}")
         # Kopfzeile: vor dem Schlüssel das eigene Bild (ohne Namen „?“), die Fläche zum Profil mindestens 40 px hoch
         kopf = ev("""() => { const i = document.getElementById('ident'); const vor = getComputedStyle(i, '::before');
