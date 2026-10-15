@@ -9721,3 +9721,16 @@ jetzt `speicher-gratis.test.ts` über `parseCapabilities()`); Knoten `speicher-g
 App `speicher-abruf.test.ts` (+1).
 
 Knoten-Stand: für die Grenze neu nötig; ohne `STORAGE_GRATIS_MB` wie bisher.
+
+## Schritt C-Review – Oberflächen-Review: Karten C-41 bis C-59
+
+Auf Wunsch des MENSCHEN hat Spur C die ganze Oberfläche (alle Seiten und Unterreiter, Desktop
+und Handy) und die Website aufgenommen, mit den besten Apps je Bereich verglichen und bewertet
+(App 5,1 von 10, Website 4,9) – Ergebnis und Soll-Bilder in `docs/ausbau/OBERFLAECHE-REVIEW.md`.
+Der MENSCH: „Setze alle diese Punkte um.“ Daraus die Karten C-41 bis C-59 (Sammlung, Abschnitt 3):
+sofort (C-41 privater Schlüssel per Klick im Profil – Sicherheit, zuerst; C-42 Schrift und Knöpfe;
+C-43 Führungsleiste; C-44 Avatare; C-45 leere Zustände; C-46 Agent-Kleinigkeiten; C-47 Namen;
+C-48 Website-Navigation), mittel (C-49 bis C-55) und größer (C-56 bis C-59). Neu in `OFFEN.md`:
+Entscheidung OR1 (Inter einbetten oder Systemschrift – C-42 baut ohne Einbetten) und der kurze
+Nutzertest als Aufgabe des MENSCHEN. Nur Doku, kein Code.
+
