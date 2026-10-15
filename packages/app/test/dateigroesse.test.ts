@@ -12,7 +12,7 @@ const lies = (d: string): string => readFileSync(new URL(`../src/${d}`, import.m
 const GRENZE = 700;
 const AUFGETEILT = [
   "shell/tabs/waehrung.ts", "shell/tabs/tausch.ts", "shell/tabs/hinterlegen.ts",
-  "shell/tabs/kommunikation.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts",
+  "shell/tabs/kommunikation.ts", "shell/tabs/chat-liste.ts", "shell/tabs/chat-anhaenge.ts", "shell/tabs/kontakte.ts", "shell/tabs/posteingang.ts",
   "shell/tabs/settings.ts", "shell/tabs/sicherung.ts", "shell/tabs/mesh.ts",
   "shell/tabs/agent.ts", "shell/tabs/modellwahl.ts", "shell/tabs/agent-verlauf.ts", "shell/tabs/agent-wege.ts", "shell/tabs/agent-anzeige.ts",
   "shell/tabs/agent-eingabe.ts",

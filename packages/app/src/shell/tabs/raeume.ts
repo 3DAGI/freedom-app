@@ -27,6 +27,7 @@ import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText, kanalVertraulichkeit } from "../../protokoll-texte.js";
 import { abrufTakt } from "../versand.js";
 import { activeConversation, conversations, oeffneCommunity, oeffneDirektnachricht, setzeKommModus } from "./kommunikation.js";
+import { zeigeRaeumeInListe } from "./chat-liste.js";
 import { fremderProfilName, ladeFremdeProfilNamen } from "./kontakte.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { type AgentZiel, agentKennzeichen, eigeneAgentAktionen } from "../raum-agenten-ui.js";
@@ -221,11 +222,36 @@ function raumBeitreten(eingabe: string): string | null {
   return beitreten(localStorage, eingabe);
 }
 
+/** Ein Raum, wie Leiste und Chat-Liste ihn zeigen (C-52b) – Namen privater Räume sind Fremddaten, nur als Text. */
+export interface RaumEintrag {
+  id: string;
+  name: string;
+  privat: boolean;
+  /** Ungelesenes aus dieser Sitzung (C-13a), nicht, was gerade vor Augen ist. */
+  ungelesen: boolean;
+  /** Noch nicht geöffnete Einladung (C-35): von wem. */
+  von?: string;
+}
+
+export function raeumeFuerListe(): RaumEintrag[] {
+  return meineRaeume().map((id) => {
+    const von = eingeladenVon.get(id);
+    return {
+      id, name: istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : kennungVon(id) ?? id,
+      privat: istPrivat(id), ungelesen: ungelesen.get(id) === true && !vorAugen(id), ...(von ? { von } : {}),
+    };
+  });
+}
+
+/** Einen Raum aus der Chat-Liste öffnen (C-52b) – derselbe Weg wie ein Klick in der Leiste. */
+export function waehleRaum(id: string): void {
+  void oeffneRaum(id);
+}
+
 /** Leiste mit den Räumen. */
 export async function zeigeRaumLeiste(): Promise<void> {
   const rail = $("#space-rail");
   if (!rail) return;
-  const ids = meineRaeume();
   // Bestehende Communities (C-10, E3 b): offen, in der Leiste neben den Räumen – neue gibt es nicht mehr
   const communities = conversations.filter((c) => c.type === "community").map((c) => {
     const b = document.createElement("button");
@@ -243,8 +269,7 @@ export async function zeigeRaumLeiste(): Promise<void> {
     return b;
   });
   // Namen privater Räume kommen aus ihrer Definition (Fremddaten) – nur textContent
-  rail.replaceChildren(...communities, ...ids.map((id) => {
-    const name = istPrivat(id) ? privatNamen.get(id) ?? t("komm.privaterRaum") : kennungVon(id) ?? id;
+  rail.replaceChildren(...communities, ...raeumeFuerListe().map(({ id, name, ungelesen: punkt, von }) => {
     const b = document.createElement("button");
     b.className = "space-pill";
     // Offen: die Kennung zeigen, geöffnet wird die Adresse mit dem Gründer (B-7)
@@ -252,12 +277,10 @@ export async function zeigeRaumLeiste(): Promise<void> {
     // Aktuell nur, was vor Augen steht – bei den Direktnachrichten ist kein Raum aktuell (C-13a)
     b.setAttribute("aria-current", String(vorAugen(id)));
     // Noch nicht geöffnete Einladung (C-35): wer eingeladen hat
-    const von = eingeladenVon.get(id);
     b.title = von ? t("komm.raumEingeladen", { raum: name, name: kontaktName(von) }) : name;
     // Privat mit Schloss, offen mit Weltkugel (C-13a); der Name für Vorleser samt Art und Ungelesenem
     b.textContent = istPrivat(id) ? `🔒${name.slice(0, 1).toUpperCase()}` : `🌐${name.slice(0, 1).toUpperCase()}`;
     const art = t(istPrivat(id) ? "komm.raumPrivatAria" : "komm.raumOffenAria", { name });
-    const punkt = ungelesen.get(id) === true && !vorAugen(id);
     const mitVon = von ? t("komm.raumEingeladen", { raum: art, name: kontaktName(von) }) : art;
     b.setAttribute("aria-label", punkt ? t("komm.ungelesenAria", { raum: mitVon }) : mitVon);
     if (punkt) b.append(el("span", undefined, "rail-punkt"));
@@ -265,6 +288,8 @@ export async function zeigeRaumLeiste(): Promise<void> {
     return b;
   }));
   railTabHalt();
+  // Dieselben Räume stehen in der Chat-Liste (C-52b) – mit Punkt und Namen wie hier
+  zeigeRaeumeInListe();
 }
 
 /** Einen Raum laden: Definition, Rollen, Zuweisungen, Nachrichten. */

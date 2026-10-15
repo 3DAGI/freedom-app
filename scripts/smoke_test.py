@@ -1205,6 +1205,60 @@ def kontaktname_pruefen(browser, url: str) -> dict:
     erg["bestanden"] = not erg["fehler"]
     return erg
 
+def chat_liste_pruefen(browser, url: str) -> dict:
+    """Chat-Liste (C-52b): Filter Alle · Direkt · Räume · Ungelesen; Räume stehen in der Liste (Name nur als Text) und
+    öffnen sich wie aus der Leiste. Am Handy ersetzt die Liste die Leiste (sie kostete 60 px), „Neu“ schwebt unten
+    rechts mit Unterhaltung, Raum anlegen, Raum beitreten; im Raum bleibt die Leiste zum Wechseln."""
+    erg = {"fehler": []}
+    adresse = f"34700:{'ab' * 32}:space:probe-raum"
+    liste = """() => [...document.querySelectorAll('#chat-list > *, #chat-raeume > *')].filter(e => e.id !== 'chat-raeume').map(e =>
+      e.classList.contains('raum-item') ? `raum:${e.querySelector('.label').textContent}|${e.querySelector('.chat-vorschau').textContent}`
+      : e.classList.contains('chat-abschnitt') ? `titel:${e.textContent}`
+      : e.classList.contains('leer-zustand') ? `leer:${e.querySelector('.leer-satz').textContent.slice(0, 20)}` : e.className)"""
+    for groesse, vp, mobil in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True)):
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil)
+        ev, s = seite.ev, seite.s
+        ev("(a) => localStorage.setItem('freedom.spaces', JSON.stringify([a]))", adresse)
+        s.reload(wait_until="load")
+        ev("() => { location.hash = '#/chat'; }")
+        s.wait_for_selector("#chat-list .raum-item", state="attached", timeout=30000)
+        g = {"filter": {}}
+        for f in ("alle", "direkt", "raeume", "ungelesen", "alle"):
+            ev("(f) => document.querySelector(`#chat-filter [data-filter=${f}]`).click()", f)
+            g["filter"][f] = [ev(liste), ev("() => [...document.querySelectorAll('#chat-filter [aria-pressed=true]')].map(b => b.dataset.filter)")]
+        if mobil:
+            # Ohne Raum offen: keine Leiste, „Neu“ sichtbar und im Bild, nichts läuft seitlich über
+            g["handy"] = ev("""() => { const f = document.getElementById('chat-neu').getBoundingClientRect();
+              return [getComputedStyle(document.querySelector('.comm-rail')).display, f.width > 0 && f.right <= innerWidth && f.bottom <= innerHeight,
+                document.documentElement.scrollWidth <= innerWidth]; }""")
+            ev("() => document.getElementById('chat-neu').click()")
+            g["neu"] = ev("() => [...document.querySelectorAll('.menue-schwebend [role=menuitem]')].map(b => b.textContent)")
+            s.keyboard.press("Escape")
+        ev("() => document.querySelector('#chat-list .raum-item').click()")
+        s.wait_for_function("() => document.querySelector('.comm-layout').dataset.commMode === 'space'", timeout=10000)
+        s.wait_for_function("() => document.querySelector('#space-rail .space-pill[data-space=\"probe-raum\"]')?.getAttribute('aria-current') === 'true'", timeout=10000)
+        g["raum"] = ev("() => [getComputedStyle(document.querySelector('.comm-rail')).display !== 'none', document.querySelector('.comm-layout').classList.contains('thread-open')]")
+        ev("() => document.getElementById('comm-dm-btn').click()")
+        g["zurueck"] = ev("() => [document.querySelector('.comm-layout').dataset.commMode, getComputedStyle(document.querySelector('.comm-rail')).display]")
+        erg[groesse] = g
+        raum = "raum:probe-raum|🌐 Offener Raum"
+        erwartet = {"alle": [[raum], ["alle"]], "direkt": [["leer:Noch keine Unterhalt"], ["direkt"]],
+                    "raeume": [[raum], ["raeume"]], "ungelesen": [["leer:Alles gelesen."], ["ungelesen"]]}
+        if g["filter"] != erwartet:
+            erg["fehler"].append(f"{groesse}: Filter {g['filter']}")
+        if g["raum"] != [True, False]:
+            erg["fehler"].append(f"{groesse}: im Raum {g['raum']}")
+        if g["zurueck"] != ["dm", "none" if mobil else "flex"]:
+            erg["fehler"].append(f"{groesse}: zurück {g['zurueck']}")
+        if mobil and (g["handy"] != ["none", True, True] or g["neu"] != ["Neue Unterhaltung", "Raum anlegen", "Raum beitreten"]):
+            erg["fehler"].append(f"Handy {g.get('handy')} {g.get('neu')}")
+        if seite.browser_dialoge:
+            erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+        seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def chat_klein_pruefen(browser, url: str) -> dict:
     """Chat-Kleinigkeiten (C-34, Nutzertest C-3, C-4, C-5, C-9): ohne gewählte Unterhaltung keine Eingabe und keine
     Anruf-Knöpfe; „Post mitnehmen/einlesen“ als Text im Menü „⋯“ statt „⇪ ⇩“; Nachrichten anderer als Blase mit
@@ -5715,6 +5769,10 @@ def main() -> int:
             except Exception as e:
                 erg["chat_klein"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["chat_liste"] = chat_liste_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["chat_liste"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -5860,6 +5918,7 @@ def main() -> int:
           and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("kontaktname", {}).get("bestanden") is True
           and erg.get("chat_klein", {}).get("bestanden") is True
+          and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
