@@ -1821,9 +1821,11 @@ def relay_liste_pruefen(browser, url: str) -> dict:
     relay = ProbeRelay()
     seite = DialogSeite(browser, url, relay, erg)
     ev, s = seite.ev, seite.s
+    # Ein eigener Satz wie nach dem ersten Verbinden – die Attrappe nimmt jede wss-Adresse an
+    ev("() => localStorage.setItem('freedom.relays.eigene', JSON.stringify(['wss://eins.example', 'wss://zwei.example']))")
+    s.reload(wait_until="load")
     ev("() => { location.hash = '#/settings'; }")
     s.wait_for_selector("[data-subtab-group=settings] [data-subtab=network]", state="attached", timeout=30000)
-    s.wait_for_function("() => JSON.parse(localStorage.getItem('freedom.relays.eigene') ?? '[]').length > 0", timeout=30000)
     ev("() => document.querySelector('[data-subtab-group=settings] [data-subtab=network]').click()")
     stand = """() => [[...document.querySelectorAll('#relay-liste .relay-zeile')].map(z => z.dataset.relay),
       document.getElementById('eigene-relays-save').disabled, document.getElementById('eigene-relays-status').textContent]"""
