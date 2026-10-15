@@ -10138,3 +10138,40 @@ Ankündigung, privat nur in die Gruppe, nie „nur dieses Gerät“). Bestehende
 die Zeile mit dem Hinweis (`raum-repos-ui.test.ts`).
 
 Knoten-Stand: mit VKl1 (Code-Aktion `bundle`).
+
+## Schritt 11.5n – Pakete holen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W6 B, W6a „So“, entschieden 14.10.). Keine neue Abhängigkeit, kein neues
+Event-Format. Bausteine für den Ablauf aus 11.5c – dort ruft der Knoten sie auf.
+
+**Gebaut:**
+- `node/src/pakete.ts` (neu):
+  - `leseNpmSperre()`: `package-lock.json` Fassung 2/3, jedes installierte Paket mit `resolved` von der Liste und
+    `integrity` sha512. Verweise, Bündel, Arbeitsbereiche und Pakete anderer Plattformen (`os`, `cpu`, `libc` wie bei
+    npm) bleiben weg. Fremde Quelle oder fehlende Prüfsumme → die ganze Datei abgelehnt.
+  - `lesePipAnforderungen()`: `requirements.txt` wie pip – `name==version`, danach nur `--hash=sha256:…`; andere
+    Optionen (`--index-url`, `-e`, `-r`) und Bereiche lehnen die Datei ab.
+  - `passendeDateien()`: von einer PyPI-Version nur, was die Sandbox braucht – ein reines Rad, sonst Linux/glibc mit
+    Prozessor und Python-Fassung (auch `abi3`), sonst das Quellarchiv. Sonst hätte etwa numpy dutzende Räder geholt.
+  - `holeAusSperre()` und `paketHolen()` (neues Paket mit fester Version, höchstens 20 je Auftrag): nur GET von
+    `PAKET_QUELLEN`, ohne Weiterleitung, über `safeFetch()`; mit Tor (`tor` muss der Aufrufer nennen) nur über
+    `torGet()`. Prüfsumme vor dem Ablegen; npm nach Inhalt wie im Cache von npm, PyPI unter dem Dateinamen;
+    `O_EXCL`, `O_NOFOLLOW`, 0600. Grenzen: 500 Pakete, 200 MiB zusammen, 50 MiB je Archiv, zehn Minuten.
+  - Nach außen nur `PaketAbgelehnt.fall`.
+- `node/src/tor.ts`: `torGet()` – ein GET über https durch den SOCKS5-Proxy, Name beim Proxy, ohne Weiterleitung.
+- **Befund:** `npm install --package-lock-only --offline` (Entwurf) braucht die Metadaten im Cache, nicht nur die
+  Archive. `paketHolen()` gibt deshalb Adresse und Prüfsumme in der Form der Sperrdatei zurück; die Zeilen schreibt der
+  Agent selbst (Entwurf ergänzt).
+- **Doku:** Fallstrick in `packages/node/CLAUDE.md`, FORTSCHRITT, OFFEN (11.5n gestrichen), Entwurf, Stand-Zeile.
+
+**Tests:** node +11 (`pakete.test.ts`):
+- beide Sperrdateien mit Negativfällen;
+- Wahl der Räder;
+- Ablage nach Inhalt (auch bei zwei sha512), 0600, nichts doppelt;
+- falsche Prüfsumme, Netz, Weiterleitung, Größe, Zeit, Verweis an der Zielstelle – nichts abgelegt, nur die Kennung;
+- PyPI-Name nach PEP 503, Dateien fremder Hosts übergangen;
+- `paketHolen()` mit Namen und Versionen;
+- mit Tor nur über den Proxy (Adresstyp 3);
+- `npm ci --offline --ignore-scripts` und `pip install --no-index --require-hashes` installieren aus dem Zwischenspeicher.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; 11.5c).

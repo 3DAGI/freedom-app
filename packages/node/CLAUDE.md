@@ -291,3 +291,14 @@ Bereichs unten anhängen.
   `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
   (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
   Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
+- **Pakete nur über `pakete.ts`** (seit 11.5n, W6a „So“): Die Sandbox bleibt ohne Netz, Pakete holt der Knoten vorher –
+  nur aus `package-lock.json` (Fassung 2/3, `integrity` sha512) und `requirements.txt` mit `--hash=sha256` (`holeAusSperre()`)
+  oder mit Namen und fester Version (`paketHolen()`, höchstens 20 je Auftrag, nur offene Räume – das prüft der Aufrufer).
+  Nur GET von `PAKET_QUELLEN` (genau diese Hosts, https, ohne Port), ohne Weiterleitung; fehlt einem Paket die Prüfsumme
+  oder kommt es von woanders, ist die ganze Sperrdatei abgelehnt. `tor` muss der Aufrufer nennen (`torAusUmgebung()`,
+  sonst `null`) – mit Tor geht jeder Abruf über `torGet()`, nie direkt. Abgelegt erst nach der Prüfung (`O_EXCL`,
+  `O_NOFOLLOW`, 0600): npm nach Inhalt (`npm/_cacache/content-v2/sha512/…`, wie der Cache von npm – so installiert
+  `npm ci --offline --ignore-scripts --cache <ziel>/npm`), PyPI unter dem Dateinamen für `pip install --no-index
+  --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
+  Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
+  außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.
