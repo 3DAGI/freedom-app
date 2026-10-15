@@ -10029,6 +10029,88 @@ Datei-Verschlüsselung wie Anhänge.
 
 **Offen:** VKl2 (App: Projekt und Raum wählen, Ankündigung und Bundle-Verweis in den Raum).
 
+## Schritt B-32-Entwurf – Reticulum als zweiter Funkweg
+
+Spur B, Sammlung B-32 (RN1: im Entwurf prüfen, RN2 A). Nur Doku, kein Code.
+
+- **`docs/RETICULUM-ENTWURF.md`:** Befunde zu reticulum-js – `@reticulum/core` 0.9.8 unter EUPL-1.2 (wie Freedom), ohne
+  Abhängigkeiten, im Browser lauffähig, RNode über WebSerial, LXMF als eigenes Paket, Releases fast täglich, noch ohne
+  Routing für andere; die Python-Referenz steht seit April 2025 unter einer eigenen Lizenz mit Schadens- und KI-Klausel –
+  Freedom bindet sie nicht ein. Ergebnis RN1: Bibliothek. Vorschläge V1–V6 (nur Umschläge, Identität je Gerät im Tresor,
+  Sendezeit, Adresse nur für Kontakte, Zustellen über den eigenen Knoten, Gateway nach der App), Fragen W1–W5,
+  Aufteilung B-32a–d.
+- **B-31:** Größe der MCP-Abhängigkeit vor dem Einbau genannt (MC1): `@modelcontextprotocol/sdk` 1.32.1 = 95 Pakete,
+  29 MB, ohne Copyleft; Vorschlag eigener schlanker Client – Frage in `OFFEN.md` 1.0b.
+- **Doku:** OFFEN (1.0b mit beiden Fragen, B-31 und B-32 wartend), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-30-Entwurf – Atomic Agent als Agent-Harness
+
+Spur B, Sammlung B-30 (AG1 A, 09.10.). Nur Doku, kein Code – der Befund passt nicht zur Annahme der Sammlung.
+
+- **`docs/ATOMIC-AGENT-ENTWURF.md`:** Atomic Agent (MIT) braucht Node ≥ 25.7 (der Knoten läuft auf 22), spricht kein ACP
+  (nur OpenAI-kompatibles `serve` und ein eigenes NDJSON-Sidecar), bringt viele Netzwege mit (Composio, Postfach,
+  Telegram, Skills aus ClawHub) und hat **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**. Seit VK-W1n C
+  ist Hermes über ACP der Motor des Knotens. Vorschlag: nicht als Motor im Knoten, sondern als lokaler OpenAI-Server unter
+  „Dieses Gerät“, mit ehrlichem Hinweis; Fragen W1–W4, Aufteilung B-30a.
+- **Doku:** OFFEN (1.0b, B-30 wartet), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-33-Entwurf – Tor mit Brücken in der Hülle
+
+Spur B, Sammlung B-33 (PT1 A: Snowflake und WebTunnel, Größe und Lizenz vor dem Einbau nennen). Nur Doku:
+`docs/TOR-BRUECKEN-ENTWURF.md`.
+
+- **Gemessen:** aus den Quellen gebaut (Go 1.24.7, ohne cgo, `-trimpath -s -w`): `snowflake-client` 2.14.1
+  16,8 MB (gepackt 6,2 MB), WebTunnel-Client 0.0.7 5,0 MB, lyrebird 17,8 MB (6,6 MB). Android arm64 geht für
+  Snowflake nur mit `-checklinkname=0`.
+- **Lizenzen:** Snowflake BSD-3-Clause (alle 56 Abhängigkeiten frei), WebTunnel MIT, goptlib CC0. **lyrebird:**
+  `LICENSE` sagt BSD-2-Clause, aber `internal/x25519ell2` (obfs4) und `transports/meeklite` stehen unter
+  GPL-3.0-or-later – das Programm als Ganzes ist GPL-3. Nach der STOPP-Regel (starkes Copyleft) eine Frage.
+- **Vorschläge V1–V5:** aus den Quellen in der CI bauen, Desktop als Beigabe der Hülle und Android als
+  `lib<name>.so` (W^X), Brücken nur auf Wunsch, eingefügte Zeilen nur geprüft, ehrliche Texte.
+- **Fragen:** PT2 (welche Programme – Empfehlung A: Snowflake und WebTunnel, kein lyrebird), PT3 (woher Brücken –
+  Empfehlung A: eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen). Aufteilung B-33a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-34-Entwurf – Gruppenanrufe über LiveKit
+
+Spur B, Sammlung B-34 (LK1 A: nur in privaten Räumen, Schlüssel aus MLS). Nur Doku: `docs/GRUPPENANRUF-ENTWURF.md`.
+
+- **Gemessen:** `livekit-server` 1.13.10 (Apache-2.0, Docker 43,7 MB amd64 / 41,5 MB arm64); `livekit-client`
+  2.22.4 (Apache-2.0, 15 Pakete ohne Copyleft) bringt 561 KB minifiziert und einen E2EE-Worker von 294 KB –
+  `freedom.html` wüchse von 8,7 MB um etwa 8 bis 10 %.
+- **Befunde:** Zugang nur mit JWT des Servers (das Geheimnis bleibt beim Knoten); E2EE über einen Schlüssel der
+  App, der SFU sieht Metadaten und IPs; `packages/mls` gibt kein Exporter-Geheimnis heraus; die CSP erlaubt den
+  Worker schon (`worker-src blob:`).
+- **Vorschläge V1–V5:** Dienst wie coturn, Zugänge nur versiegelt und je Teilnehmer, Schlüssel je Epoche, IP nur
+  bewusst zeigen (eigener TURN oder Warnung), ehrliche Texte.
+- **Fragen:** LK2 (Client ins Bundle), LK3 (Schlüssel aus dem MLS-Exporter oder vom Gastgeber), LK4 (IP der
+  Teilnehmer) – Empfehlung jeweils A. Aufteilung B-34a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-37-Entwurf – MeshCore als zweites LoRa-Format
+
+Spur B, Sammlung B-37 (nachrangig). Nur Doku: `docs/MESHCORE-ENTWURF.md`.
+
+- **Befunde:** Companion-Schnittstelle (Fassung 3) über USB (1 Byte Richtung, 2 Byte Länge LE), Bluetooth
+  (Nordic UART) oder TCP; Gruppen-Datagramme über `SendChannelData` (62) mit 16-Bit-Datentyp, Empfang
+  `ChannelDataRecv` (27); Versuchsbereich `FF00`–`FFFF`, feste Bereiche nur über einen Pull Request beim
+  Projekt; höchstens 184 Byte je Paket – unsere Rahmen (200 Byte) passen nicht. Firmware und `meshcore.js`
+  stehen unter MIT; Freedom bräuchte nur das Format.
+- **Vorschläge V1–V4:** Format ohne Abhängigkeit mit Vektoren aus `meshcore.js`, Rahmengröße je Strecke
+  (`fragment()` mit Größe, nie mischen), nur Gruppen-Datagramme auf „freedom“, Sendezeitkonto.
+- **Fragen:** MCO-W1 (Datentyp beantragen – MENSCH), MCO-W2 (jetzt oder erst mit Gerät vor Ort – Empfehlung B).
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
 ## Schritt VKl2 – „Als Repo in einen Raum stellen“ aus „Mein Knoten“
 
 Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl, Teil 2: App). Keine neue Abhängigkeit, kein neues Event-Format: Code-Aufträge
