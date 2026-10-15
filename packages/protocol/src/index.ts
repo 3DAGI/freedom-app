@@ -77,6 +77,7 @@ export * from "./relay-discovery.js";
 export * from "./aufteilung.js";
 export * from "./channel.js";
 export * from "./kit-bruecke.js";
+export * from "./kit-rpc.js";
 export * from "./release.js";
 export * from "./oberflaeche-update.js";
 export * from "./rpc-pool.js";

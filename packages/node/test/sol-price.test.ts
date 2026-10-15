@@ -12,7 +12,7 @@ import { InferenceBackend, InferenceRequest, InferenceResult } from "../src/infe
 import { defaultToolRegistry } from "../src/tools.js";
 import { buildSolDepositOpen } from "@freedomstack/protocol";
 import { AnchorSolanaHtlc } from "@freedomstack/protocol";
-import type { Connection } from "@solana/web3.js";
+import type { SolRpc } from "@freedomstack/protocol";
 import { mkdtemp, readdir, writeFile, rm } from "node:fs/promises";
 
 /** Simulierte Kette — der Provider prueft Deposits jetzt on-chain. */
@@ -27,7 +27,7 @@ function stubChain(recipient: string, amountLamports: number, timelockUnix: numb
   });
   return () => { (AnchorSolanaHtlc as unknown as { reader: unknown }).reader = orig; };
 }
-const fakeConn = {} as Connection;
+const fakeRpc = {} as SolRpc;
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -67,7 +67,7 @@ test("SOL-Preis: solPriceSats rechnet alle Preise (text+tool) in lamports um", a
         powDifficulty: 0, seasonId: "t",
         solanaAddress: "SoLprov1111111111111111111111111111111111",
         solPriceSats: SOL_PRICE,
-        solConnection: fakeConn,
+        solRpc: fakeRpc,
       },
       pool, new FakeBackend(), defaultToolRegistry(dir),
     );

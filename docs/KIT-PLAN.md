@@ -80,7 +80,19 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
   `@solana-program/system` 0.15.0 (Peer kit ^8.3.0).
 - **A-21c RPC.** Der `RpcPool` bleibt der einzige Weg (Stichprobe 5.8). kit spricht über einen
   eigenen Transport auf dem Pool (`createSolanaRpcFromTransport`). Betroffen sind
-  `deposit-verify.ts`, `verdienst.ts` und `solana-adapter.ts`.
+  `deposit-verify.ts`, `verdienst.ts` und `solana-adapter.ts` – **fertig** (15.10.2026):
+  `kit-rpc.ts` mit `poolTransport()`/`poolRpc()` (jede Anfrage über `pool.call()`, Fehler der
+  Kette als `SolanaError` mit Code, sonst `rpc-unerreichbar`) und den Lesern `leseKonto()`,
+  `leseProgrammKonten()`, `leseGuthaben()`. Über kit lesen jetzt: Sperren und das Preimage der
+  Einlösung (`AnchorSolanaHtlc.get()`/`getRevealedPreimage()`, `reader(rpc)`), die
+  Deposit-Prüfung des Knotens, die Kanäle des Knotens und das Kanal-Programm im Verdienen-Tab
+  (`programmBereit()`), der Rückhol-Wächter und die Prüfung der Gegenseite im Tausch – die App
+  über `solRpc()` auf ihrem gemeinsamen Pool. Dabei behoben: `getRevealedPreimage()` las vier Byte
+  Länge vor dem Preimage, die das Programm (`[u8; 32]`) nie schrieb, und fand es nie – der LP hätte
+  die Hold-Invoice nicht abgerechnet. Noch über web3.js lesen, weil sie die Verbindung mit
+  Schreibpfaden teilen: `kanalAufKette()` und die Zahlschienen (A-21d), die Lesestellen des
+  Knotens (A-21e). Ganzzahlen über 2^53 (etwa `rentEpoch`) kommen wie bei web3.js gerundet an.
+  Bundle +44 KB (RPC-Schicht von kit), bis A-21f web3.js geht.
 - **A-21d Signieren.** Ein kit-Signer über `@noble/curves` für `LocalSigner` und die eingebaute
   Wallet mit ihren frischen Adressen. Wallet Standard bekommt Bytes wie heute.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,

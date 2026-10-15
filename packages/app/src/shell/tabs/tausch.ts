@@ -19,7 +19,7 @@ import { escapeHtml, ganzeSats } from "../../shell-logic.js";
 import { anbieterKursWarnung, solText } from "../../preis-anzeige.js";
 import type { RueckPlan } from "../../rueck-swap.js";
 import { hinAnfrage, rueckAnfrage, swapAntworten, type SwapPost } from "../../swap-umschlag.js";
-import { ensurePool, solRpcUrl, state } from "../state.js";
+import { ensurePool, solRpc, solRpcUrl, state } from "../state.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { eingebauterHtlcSigner, frischeEmpfangsadresse } from "../eingebaute-wallet.js";
 import { aktualisiereKurs } from "../marktkurs.js";
@@ -190,13 +190,11 @@ async function pollSwapResponse(
       }
 
       try {
-        const { Connection, PublicKey } = await import("@solana/web3.js");
         const { AnchorSolanaHtlc, fromHex: fh } = await import("@freedomstack/protocol");
         const { verifyCounterpartyLock } = await import("../../swap-client.js");
-        const rpcUrl = await solRpcUrl();
-        void PublicKey;
 
-        const reader = AnchorSolanaHtlc.reader(new Connection(rpcUrl, "confirmed"));
+        // Lesen über kit auf dem Pool (A-21c) – Ausweichen, eigene Endpunkte zuerst
+        const reader = AnchorSolanaHtlc.reader(await solRpc());
         const chainLock = await reader.get(swapId);
 
         const verdict = verifyCounterpartyLock({
@@ -433,7 +431,7 @@ export async function starteRueckholWaechter(): Promise<void> {
   if (waechterStop || !signer) return;
   const [{ startRefundWatcher, walletRefundRunner }, { Connection }] = await Promise.all([sperren(), import("@solana/web3.js")]);
   const conn = new Connection(await solRpcUrl(), "confirmed");
-  waechterStop = startRefundWatcher(walletRefundRunner(conn, signer), (r) => {
+  waechterStop = startRefundWatcher(walletRefundRunner(conn, signer, await solRpc()), (r) => {
     if (!r.zurueckgeholt) return;
     toast(t("waehr.sperrenZurueck", { n: r.zurueckgeholt, betrag: solText(r.lamports) }));
     updateSidebarBalances();

@@ -26,7 +26,7 @@
  */
 import { AnchorSolanaHtlc } from "./solana-adapter.js";
 import { ParsedSolDepositOpen } from "./sol-deposit.js";
-import type { Connection } from "@solana/web3.js";
+import type { SolRpc } from "./kit-rpc.js";
 
 export interface OnChainCheck {
   ok: boolean;
@@ -71,7 +71,8 @@ export interface DepositVerifyOptions {
  */
 export async function verifyDepositOnChain(
   deposit: ParsedSolDepositOpen,
-  conn: Connection,
+  /** Nur lesend, seit A-21c kit auf dem RpcPool (`poolRpc()`). */
+  rpc: SolRpc,
   opts: DepositVerifyOptions = {},
 ): Promise<OnChainCheck> {
   const now = opts.nowUnix ?? Math.floor(Date.now() / 1000);
@@ -82,7 +83,7 @@ export async function verifyDepositOnChain(
   let lock: Awaited<ReturnType<AnchorSolanaHtlc["get"]>>;
   try {
     // Nur lesend — dafür wird kein Keypair gebraucht.
-    const reader = AnchorSolanaHtlc.reader(conn);
+    const reader = AnchorSolanaHtlc.reader(rpc);
     lock = await reader.get(deposit.spendSwapId);
   } catch (e) {
     return {

@@ -4,6 +4,8 @@
  *
  * Kein Anchor-Client: rohe @solana/web3.js-Transaktionen mit manueller
  * Borsh-(De)Serialisierung. Das haelt den Adapter klein und IDL-unabhaengig.
+ * Gelesen wird seit A-21c ueber @solana/kit auf dem RpcPool (`kit-rpc.ts`),
+ * geschrieben noch ueber web3.js (bis A-21e).
  *
  * Account-Layout (Swap, 8-Byte-Diskriminator + Felder):
  *   swap_id    [u8;32]
@@ -30,8 +32,11 @@ import {
   TransactionInstruction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import { address, getBase58Encoder } from "@solana/kit";
 import { createHash } from "node:crypto";
 import { SolanaHtlcAdapter, SolanaLock } from "./adapters.js";
+import { leseKonto, poolRpc, type SolRpc } from "./kit-rpc.js";
+import { RpcPool } from "./rpc-pool.js";
 
 /** Anchor-Sighash: SHA256("global:<name>")[0..8] */
 function sighash(name: string): Buffer {
@@ -54,9 +59,12 @@ export interface AnchorAdapterConfig {
 export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
   private conn: Connection;
   private kp: Keypair;
+  /** Lesen ueber kit auf dem Pool (A-21c) – immer „confirmed“. */
+  private rpc: SolRpc;
 
   constructor(cfg: AnchorAdapterConfig) {
     this.conn = new Connection(cfg.rpcUrl, cfg.commitment ?? "confirmed");
+    this.rpc = poolRpc(new RpcPool([{ url: cfg.rpcUrl }]));
     this.kp = cfg.keypair;
   }
 
@@ -67,9 +75,9 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
    * ihn einen erzeugen zu lassen, nur um get() aufrufen zu koennen, waere ein
    * unnoetiges Stueck Schluesselmaterial auf der Platte.
    */
-  static reader(conn: Connection): AnchorSolanaHtlc {
+  static reader(rpc: SolRpc): AnchorSolanaHtlc {
     const inst = Object.create(AnchorSolanaHtlc.prototype) as AnchorSolanaHtlc;
-    (inst as unknown as { conn: Connection }).conn = conn;
+    (inst as unknown as { rpc: SolRpc }).rpc = rpc;
     return inst;
   }
 
@@ -174,9 +182,10 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
 
   async get(swapId: string): Promise<SolanaLock | undefined> {
     const { pda } = AnchorSolanaHtlc.deriveSwapPda(swapId);
-    const info = await this.conn.getAccountInfo(pda);
-    if (!info) return undefined;
-    const d = Buffer.from(info.data);
+    const konto = await leseKonto(this.rpc, pda.toBase58());
+    // Eine Sperre ist nur ein Konto des Programms – an der PDA kann sonst hoechstens ein leeres liegen.
+    if (!konto || konto.eigentuemer !== HTLC_PROGRAMM_ID) return undefined;
+    const d = Buffer.from(konto.daten);
     if (d.length < 8 + 32 + 32 + 32 + 32 + 8 + 8 + 1 + 1 + 1) return undefined;
 
     // 8-Byte-Diskriminator ueberspringen
@@ -212,36 +221,37 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
   /**
    * Liest die offengelegte Preimage. Das Program speichert sie nicht im
    * Account — sie steht im Instruction-Data der Claim-Transaktion.
-   * Wir suchen die letzte Claim-TX des Swap-PDAs und extrahieren sie.
+   * Wir suchen die letzten Transaktionen des Swap-PDAs nach einer Einloesung ab.
    */
   async getRevealedPreimage(swapId: string): Promise<Uint8Array | undefined> {
     const { pda } = AnchorSolanaHtlc.deriveSwapPda(swapId);
-    const sigs = await this.conn.getSignaturesForAddress(pda, { limit: 10 });
-    const claimHash = sighash("claim");
+    const sigs = await this.rpc.getSignaturesForAddress(address(pda.toBase58()), { limit: 10, commitment: "confirmed" }).send();
     for (const sig of sigs) {
-      const tx = await this.conn.getTransaction(sig.signature, {
-        maxSupportedTransactionVersion: 0,
-      });
-      if (!tx) continue;
-      const msg = tx.transaction.message;
-      const ixs = (msg as { instructions?: unknown[]; compiledInstructions?: unknown[] })
-        .compiledInstructions ??
-        ((msg as { instructions?: unknown[] }).instructions ?? []);
-      for (const ix of ixs as Array<{ data?: string | Uint8Array }>) {
-        const raw =
-          typeof ix.data === "string"
-            ? Buffer.from(ix.data as string, "base64")
-            : Buffer.from(ix.data as Uint8Array);
-        if (raw.subarray(0, 8).equals(claimHash)) {
-          // Args: u32le Laenge + preimage bytes
-          const len = raw.readUInt32LE(8);
-          const pre = raw.subarray(12, 12 + len);
-          if (pre.length === 32) return new Uint8Array(pre);
-        }
-      }
+      const tx = await this.rpc.getTransaction(sig.signature, { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" }).send();
+      const preimage = tx ? claimPreimage(tx.transaction.message) : undefined;
+      if (preimage) return preimage;
     }
     return undefined;
   }
+}
+
+/**
+ * Das Preimage aus einer Einloesung dieses Programms. `claim` nimmt ein festes [u8; 32] – Borsh
+ * ohne Laengenpraefix, die Daten sind genau Sighash (8) + Preimage (32). Bis A-21c las der Adapter
+ * hier vier Byte Laenge, die das Programm nie schrieb, und fand das Preimage nie: Der LP haette die
+ * Hold-Invoice nicht abgerechnet, nach ihrem Ablauf haette der Kunde SOL und sats gehabt.
+ */
+function claimPreimage(msg: {
+  accountKeys: readonly string[];
+  instructions: readonly { programIdIndex: number | bigint; data: string }[];
+}): Uint8Array | undefined {
+  const claim = sighash("claim");
+  for (const ix of msg.instructions) {
+    if (msg.accountKeys[Number(ix.programIdIndex)] !== HTLC_PROGRAMM_ID) continue;
+    const daten = Buffer.from(getBase58Encoder().encode(ix.data));
+    if (daten.length === 8 + 32 && daten.subarray(0, 8).equals(claim)) return new Uint8Array(daten.subarray(8));
+  }
+  return undefined;
 }
 
 /** Laedt ein Solana-Keypair aus einer JSON-Datei (solana-keygen Format). */

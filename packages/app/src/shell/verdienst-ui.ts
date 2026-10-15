@@ -11,7 +11,7 @@
  * wenn der Tab offen ist – nie beim Start: Die Abfrage nennt dem RPC-Anbieter
  * die Adresse des Knotens. Fremdes nur über textContent.
  */
-import { KANAL_PROGRAMM_ID } from "@freedomstack/protocol";
+import { KANAL_PROGRAMM_ID, leseGuthaben } from "@freedomstack/protocol";
 import { encodeNpub } from "../identity.js";
 import { gebietsschema, t } from "../i18n.js";
 import { solText } from "../preis-anzeige.js";
@@ -19,7 +19,7 @@ import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
 import { fasseKanaeleZusammen, kanaeleDesKnotens, knotenAusEingabe } from "../verdienst.js";
 import { programmBereit } from "../zahlkanal.js";
-import { angebotVon, solRpcUrl, state } from "./state.js";
+import { angebotVon, solRpc, state } from "./state.js";
 import { $ } from "./ui.js";
 
 export const LS_EARN_KNOTEN = "freedom.earn.knoten";
@@ -60,19 +60,19 @@ export async function zeigeSolEinnahmen(): Promise<void> {
     if (!angebot) return melde(t("earn.solKeinKnoten"));
     if (!angebot.kanal) return melde(t("earn.solKeinKanal"));
     if (angebot.kanal.programm !== KANAL_PROGRAMM_ID) return melde(t("earn.solAnderesProgramm"));
-    const { Connection, PublicKey } = await import("@solana/web3.js");
-    const conn = new Connection(await solRpcUrl(), "confirmed");
-    if (!(await programmBereit(conn))) return melde(t("earn.solProgrammFehlt"));
+    // Lesen nur über kit auf dem Pool (A-21c) – Ausweichen, eigene Endpunkte zuerst
+    const rpc = await solRpc();
+    if (!(await programmBereit(rpc))) return melde(t("earn.solProgrammFehlt"));
     const adresse = angebot.kanal.adresse;
     const [kanaele, guthaben] = await Promise.all([
-      kanaeleDesKnotens(conn, adresse),
-      conn.getBalance(new PublicKey(adresse), "confirmed"),
+      kanaeleDesKnotens(rpc, adresse),
+      leseGuthaben(rpc, adresse),
     ]);
     const u = fasseKanaeleZusammen(kanaele, Math.floor(Date.now() / 1000));
     const datum = (s: number): string => new Date(s * 1000).toLocaleString(gebietsschema());
     melde(t("earn.solStand", {
       adresse: pkShort(adresse), deins: solText(Number(u.deins)), laufend: u.laufend,
-      frist: u.naechsteFrist ? datum(u.naechsteFrist) : "—", guthaben: solText(guthaben),
+      frist: u.naechsteFrist ? datum(u.naechsteFrist) : "—", guthaben: solText(Number(guthaben)),
     }));
     for (const z of u.kanaele) {
       const zeile = document.createElement("div");

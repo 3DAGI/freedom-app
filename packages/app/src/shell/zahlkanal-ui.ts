@@ -23,7 +23,7 @@ import { pkShort } from "../shell-logic.js";
 import { solZuLamports } from "../zahlungs-anforderung.js";
 import { KANAL_NUTZBAR_SEK, kanalAufKette, planeKanal, programmBereit, sendeMitWallet } from "../zahlkanal.js";
 import { empfaengerFuer, kanalBuch } from "./ki-zahlung.js";
-import { angebotVon, solRpcUrl, state } from "./state.js";
+import { angebotVon, solRpc, solRpcUrl, state } from "./state.js";
 import { htlcSigner } from "./tabs/waehrung.js";
 import { setzeKanalEinzahlung } from "./tabs/hinterlegen.js";
 import { sperren, starteRueckholWaechter } from "./tabs/tausch.js";
@@ -54,7 +54,7 @@ export async function oeffneZahlkanal(): Promise<void> {
     const angebot = await angebotVon(providerPk).catch(() => undefined);
     if (!angebot?.kanal) return melde(t("waehr.kanalNichtAngeboten"), "warn");
     if (angebot.kanal.programm !== KANAL_PROGRAMM_ID) return melde(t("waehr.kanalAnderesProgramm"), "err");
-    if (!(await programmBereit(conn))) return melde(t("waehr.kanalProgrammFehlt"), "warn");
+    if (!(await programmBereit(await solRpc()))) return melde(t("waehr.kanalProgrammFehlt"), "warn");
     if (!(await verlangeTresor(t("waehr.fuerKanal")))) return;
     const kunde = signer.publicKey.toBase58();
     // Anteile nach A+ mit SOL-Adresse – Provider und Kunde selbst nie

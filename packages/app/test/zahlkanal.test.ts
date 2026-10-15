@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { Keypair, PublicKey, type Transaction } from "@solana/web3.js";
 import {
   AccountRole, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, fromHex, kanalAdresse, leseGutschriftTags, msatZuLamports,
-  neuerSitzungsSchluessel, pruefeGutschrift, signiereGutschrift, toHex, type KanalStand,
+  neuerSitzungsSchluessel, poolRpc, pruefeGutschrift, RpcPool, signiereGutschrift, toHex, type KanalStand,
 } from "@freedomstack/protocol";
 import {
   KANAL_NUTZBAR_SEK, KanalBuch, LS_KANAELE, bedarfLamports, erstatteKanaele, kanalAufKette, planeKanal, programmBereit, type KanalEintrag,
@@ -179,7 +179,7 @@ test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; r
   ]));
   assert.equal((await kanalAufKette(k.conn, offen))?.kunde, kunde);
   assert.equal(await kanalAufKette(k.conn, fremdesProgramm), null);
-  const runner = walletRefundRunner(k.conn, k.wallet);
+  const runner = walletRefundRunner(k.conn, k.wallet, {} as import("@freedomstack/protocol").SolRpc);
   assert.deepEqual(await runner.offen!([offen, fremdesProgramm, weg], "kanal"), [offen]);
   const r = await runner.refund([offen], "kanal");
   assert.deepEqual(r, { signature: "sig1", refunded: [offen], failed: [] });
@@ -273,10 +273,20 @@ test("4.3d2: Kanal planen lehnt ab – Betrag 0, zu kurze Laufzeit, zu hohe Ante
 });
 
 test("4.3d2: Programm bereit nur, wenn es ausführbar auf der Kette liegt; Kanal-Buch räumt lange Abgelaufene weg", async () => {
-  const kette = (i: unknown) => ({ getAccountInfo: async () => i }) as unknown as import("@solana/web3.js").Connection;
-  assert.equal(await programmBereit(kette({ executable: true })), true);
-  assert.equal(await programmBereit(kette({ executable: false })), false);
-  assert.equal(await programmBereit(kette(null)), false, "bis zum Deploy: Platzhalter ohne Programm");
+  // Seit A-21c über kit auf dem Pool: die Kette als JSON-RPC-Attrappe
+  const gefragt: unknown[] = [];
+  const rpcMit = (value: unknown) => poolRpc(new RpcPool([{ url: "https://rpc.test" }], {
+    fetchImpl: (async (_u: unknown, init?: RequestInit) => {
+      const { id, params } = JSON.parse(String(init!.body)) as { id: number; params: unknown[] };
+      gefragt.push(params[0]);
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id, result: { context: { slot: 1 }, value } }));
+    }) as typeof fetch,
+  }));
+  const programm = (executable: boolean) => ({ data: ["", "base64"], executable, lamports: 1, owner: "BPFLoaderUpgradeab1e11111111111111111111111", rentEpoch: 0, space: 0 });
+  assert.equal(await programmBereit(rpcMit(programm(true))), true);
+  assert.equal(await programmBereit(rpcMit(programm(false))), false);
+  assert.equal(await programmBereit(rpcMit(null)), false, "bis zum Deploy: Platzhalter ohne Programm");
+  assert.deepEqual(gefragt, [KANAL_PROGRAMM_ID, KANAL_PROGRAMM_ID, KANAL_PROGRAMM_ID]);
   const { buch } = await buchMit(kanal({ ablauf: JETZT - 31 * 86_400 }).eintrag);
   const frisch = kanal({ ablauf: JETZT - 86_400 }).eintrag;
   await buch.merke(frisch);
@@ -290,8 +300,8 @@ test("4.3d2 Verdrahtung: Programm und Angebot prüfen, Tresor, merken, dann einz
   const ui = readFileSync(new URL("../src/shell/zahlkanal-ui.ts", import.meta.url), "utf8");
   const f = ui.slice(ui.indexOf("export async function oeffneZahlkanal("), ui.indexOf("export async function zeigeKanaele("));
   const i = (s: string) => { const n = f.indexOf(s); assert.ok(n >= 0, s); return n; };
-  assert.ok(i("if (angebot.kanal.programm !== KANAL_PROGRAMM_ID)") < i("await programmBereit(conn)"));
-  assert.ok(i("await programmBereit(conn)") < i("await verlangeTresor("));
+  assert.ok(i("if (angebot.kanal.programm !== KANAL_PROGRAMM_ID)") < i("await programmBereit(await solRpc())"));
+  assert.ok(i("await programmBereit(await solRpc())") < i("await verlangeTresor("));
   i("kanalEmpfaenger(await empfaengerFuer(providerPk), [angebot.kanal.adresse, kunde])");
   assert.ok(i("await verlangeTresor(") < i("await kanalBuch.merke(plan.eintrag);"));
   assert.ok(i("await kanalBuch.merke(plan.eintrag);") < i("await rememberLock({"));

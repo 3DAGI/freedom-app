@@ -16,7 +16,7 @@ import {
   KIND_DVM_TEXT_RESULT,
 } from "@freedomstack/protocol";
 import { AnchorSolanaHtlc } from "@freedomstack/protocol";
-import type { Connection } from "@solana/web3.js";
+import type { SolRpc } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
 import { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
 
@@ -47,7 +47,7 @@ function stubChain(recipient: string, amountLamports: number, timelockUnix: numb
 }
 
 /** Platzhalter-Verbindung: der Stub oben fragt sie nie wirklich ab. */
-const fakeConn = {} as Connection;
+const fakeRpc = {} as SolRpc;
 
 class EchoBackend implements InferenceBackend {
   name(): string { return "echo"; }
@@ -80,7 +80,7 @@ test("Solana-Deposit: Provider verarbeitet Job gegen Deposit, bietet SOL-Zahlung
       minBidMsat: 100,
       powDifficulty: 2,
       seasonId: "sol",
-      solConnection: fakeConn,
+      solRpc: fakeRpc,
     },
     pool,
     new EchoBackend(),
@@ -144,7 +144,7 @@ async function depositJob(kurs: { solPriceSats?: number }, zaehler: { aufrufe: n
   backend.complete = async (r) => { zaehler.aufrufe++; return complete(r); };
   const provider = new DvmProvider(
     { keypair: providerKp, lud16: "p@x.cash", solanaAddress: "ProviderSoLAddr111", ...kurs,
-      pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 2, seasonId: "sol", solConnection: fakeConn },
+      pricePerKTokenMsat: 1000, minBidMsat: 100, powDifficulty: 2, seasonId: "sol", solRpc: fakeRpc },
     pool, backend,
   );
   await pool.publish(signEvent(buildSolDepositOpen({
@@ -203,7 +203,7 @@ test("Solana-Deposit: Event verspricht eine Sekunde mehr Frist als die Kette -> 
         minBidMsat: 100,
         powDifficulty: 2,
         seasonId: "sol",
-        solConnection: fakeConn,
+        solRpc: fakeRpc,
       },
       pool,
       new EchoBackend(),

@@ -234,10 +234,11 @@ export function startRefundWatcher(
   };
 }
 
-/** Erzeugt einen Runner auf Basis der Wallet-Anbindung. */
+/** Erzeugt einen Runner auf Basis der Wallet-Anbindung; Sperren liest er über kit auf dem Pool (`rpc`, A-21c). */
 export function walletRefundRunner(
   connection: import("@solana/web3.js").Connection,
   wallet: WalletSigner,
+  rpc: import("@freedomstack/protocol").SolRpc,
 ): RefundRunner {
   return {
     async refund(swapIds: string[], kind?: PendingKind) {
@@ -257,7 +258,7 @@ export function walletRefundRunner(
         return offen;
       }
       const { AnchorSolanaHtlc } = await import("@freedomstack/protocol");
-      const leser = AnchorSolanaHtlc.reader(connection);
+      const leser = AnchorSolanaHtlc.reader(rpc);
       const offen: string[] = [];
       for (const id of swapIds) {
         const l = await leser.get(id);

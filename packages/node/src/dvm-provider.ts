@@ -51,7 +51,7 @@ import {
   lamportsProMsat,
 } from "@freedomstack/protocol";
 import {
-  verifyDepositOnChain, DepositVerificationCache, providerAnteilMsat, pruefeAufteilung, type Anteil,
+  verifyDepositOnChain, DepositVerificationCache, poolRpc, RpcPool, type SolRpc, providerAnteilMsat, pruefeAufteilung, type Anteil,
   leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
   kuerzeAntwort, leseKurzWunsch,
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
@@ -68,7 +68,6 @@ import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-ag
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
 import type { KanalKasse } from "./kanal-kasse.js";
-import type { Connection } from "@solana/web3.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
 import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
 
@@ -122,8 +121,8 @@ export interface ProviderConfig {
   region?: string;
   /** RPC-Endpunkt fuer die On-Chain-Pruefung von Deposits. */
   solanaRpcUrl?: string;
-  /** Fertige Verbindung statt URL — fuer Tests und fuer geteilte Verbindungen. */
-  solConnection?: Connection;
+  /** Fertiger Lesezugang (kit auf dem RpcPool, A-21c) statt URL — fuer Tests und geteilte Pools. */
+  solRpc?: SolRpc;
   /** Mindest-Restlaufzeit des Timelocks in Sekunden (Default 1 h). */
   depositMinRemainingSeconds?: number;
   /**
@@ -282,8 +281,8 @@ export class DvmProvider {
   }
   /** Ergebnisse der On-Chain-Pruefung, damit nicht jeder Job eine RPC-Abfrage ausloest. */
   private readonly depositCache = new DepositVerificationCache(60);
-  /** Nur-Lese-Verbindung zur Kette; undefined = Deposits werden abgelehnt. */
-  private solConnection?: Connection;
+  /** Nur-Lese-Zugang zur Kette; undefined = Deposits werden abgelehnt. */
+  private solRpc?: SolRpc;
   /** Free-Tier: verbrauchte Gratis-Tokens pro pubkey pro Tag (RAM). */
   private freeUsage = new Map<string, { day: string; used: number }>();
   /** Gratis-Budget des Knotens (A-14): verbrauchte Tokens des Tages, für alle zusammen (RAM). */
@@ -313,20 +312,13 @@ export class DvmProvider {
   ) {
     this.signer = new LocalSigner(cfg.keypair.sk);
     // Verbindung nur aufbauen, wenn beides konfiguriert ist. Fehlt eines,
-    // bleibt solConnection undefined und Deposits werden abgelehnt statt
+    // bleibt solRpc undefined und Deposits werden abgelehnt statt
     // ungeprueft akzeptiert.
-    if (cfg.solConnection && cfg.solanaAddress) {
-      this.solConnection = cfg.solConnection;
+    if (cfg.solRpc && cfg.solanaAddress) {
+      this.solRpc = cfg.solRpc;
     } else if (cfg.solanaRpcUrl && cfg.solanaAddress) {
-      void (async () => {
-        try {
-          const { Connection } = await import("@solana/web3.js");
-          this.solConnection = new Connection(cfg.solanaRpcUrl!, "confirmed");
-          console.log(`[deposit] On-Chain-Pruefung aktiv (${cfg.solanaRpcUrl})`);
-        } catch (e) {
-          console.warn(`[deposit] Solana-Verbindung fehlgeschlagen: ${(e as Error).message}`);
-        }
-      })();
+      this.solRpc = poolRpc(new RpcPool([{ url: cfg.solanaRpcUrl }]));
+      console.log(`[deposit] On-Chain-Pruefung aktiv (${cfg.solanaRpcUrl})`);
     } else if (cfg.solanaRpcUrl || cfg.solanaAddress) {
       console.warn(
         "[deposit] SOLANA_RPC_URL und die eigene Solana-Adresse muessen BEIDE " +
@@ -1127,7 +1119,7 @@ export class DvmProvider {
     // durchgewunken: eine fehlende Pruefmoeglichkeit ist kein Beweis fuer
     // Deckung.
     // ---------------------------------------------------------------------
-    if (!this.solConnection) {
+    if (!this.solRpc) {
       console.warn(
         `[deposit] ${sessionId}: keine Solana-Verbindung konfiguriert — ` +
         `Deposit nicht pruefbar, abgelehnt (SOLANA_RPC_URL + eigene SOL-Adresse setzen)`,
@@ -1136,7 +1128,7 @@ export class DvmProvider {
     }
 
     const cached = this.depositCache.get(sessionId);
-    const check = cached ?? await verifyDepositOnChain(deposit, this.solConnection, {
+    const check = cached ?? await verifyDepositOnChain(deposit, this.solRpc, {
       expectedRecipient: this.cfg.solanaAddress,
       minRemainingSeconds: this.cfg.depositMinRemainingSeconds ?? 3600,
     });
