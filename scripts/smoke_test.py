@@ -1184,6 +1184,11 @@ def kontaktname_pruefen(browser, url: str) -> dict:
     erg["kopf"] = ev(kopf)
     erg["gespeichert"] = ev("""(pk) => { const c = JSON.parse(localStorage.getItem('freedom.chats') ?? '[]').find(x => x.id === pk);
         return c ? { anfrage: c.anfrage ?? null, profil: c.profil ?? null } : null; }""", probe["absender"])
+    # C-52a: die eigene Antwort als Vorschau in der Zeile – nur im Speicher, nirgends im Browser gespeichert
+    erg["vorschau"] = ev(f"""() => [document.querySelector("{zeile} .chat-vorschau")?.textContent ?? null,
+        Object.keys(localStorage).filter(k => (localStorage.getItem(k) ?? '').includes('Ja, hallo'))]""")
+    if erg["vorschau"] != ["Du: Ja, hallo", []]:
+        erg["fehler"].append(f"Vorschau {erg['vorschau']}")
     name = probe["name"]
     farbe = str(int(probe["absender"][:2], 16) % 8)  # C-44: Farbe aus dem Schlüssel (avatarFarbe())
     if erg["vorher"] != {"label": f"Anfrage · ~{name}", "zeichen": "A", "farbe": farbe, "elemente": 0}:
@@ -2035,6 +2040,12 @@ def fremdtext_pruefen(browser, url: str) -> dict:
       return {{ zeile: z.classList.contains('ungelesen'), marke: z.querySelector('.chat-ungelesen')?.textContent ?? null,
         fett: getComputedStyle(z.querySelector('.label')).fontWeight, zahl: n?.textContent ?? null, vorleser: n?.getAttribute('aria-label') ?? null }}; }}"""
     erg["ungelesen"] = ev(lesestand)
+    # C-52a: die neueste Nachricht als Text in der Zeile (nie als HTML), die Zeit heute als Uhrzeit (kurz nach
+    # Mitternacht „gestern“ – die Nachricht ist 20 Sekunden alt)
+    erg["vorschau"] = ev(f"""() => {{ const z = document.querySelector("{zeile}");
+      return [z.querySelector('.chat-vorschau')?.textContent ?? null, z.querySelector('.chat-zeit')?.textContent ?? null]; }}""")
+    if erg["vorschau"][0] != html("text") or not re.fullmatch(r"\d\d:\d\d|gestern", erg["vorschau"][1] or ""):
+        erg["fehler"].append(f"Vorschau {erg['vorschau']}")
     ev(f"() => document.querySelector(\"{zeile}\").click()")
     seite.s.wait_for_function("() => document.querySelector('#chat-thread .bubble .txt')", timeout=30000)
     erg["gelesen"] = ev(lesestand)

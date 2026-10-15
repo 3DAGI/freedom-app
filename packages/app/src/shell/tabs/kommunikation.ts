@@ -23,6 +23,7 @@ import { zeigeRaumLeiste } from "./raeume.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { leseAnforderung } from "../../zahlungs-anforderung.js";
 import { ergaenzeGelesen, istUngelesen, zaehlerText, zahlUngelesen } from "../../ungelesen.js";
+import { merkeVorschau, vorschauVon, vorschauZeile, zeitKurz } from "../../chat-zeile.js";
 import { istAnfrage, istAnfrageName, istPlatzhalterName, kontaktAnzeige, kontaktInitiale } from "../../kontakt-name.js";
 import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons, zeigeAnhangListe } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
@@ -184,11 +185,19 @@ export function loadChatList(): void {
       zeile.dataset.cid = c.id;
       // Name mit Anfrage-Zusatz und Profilname (C-33) – das Zeichen nie aus „Anfrage“ oder dem Schlüssel allein
       // Seit C-44 in der Farbe des Schlüssels (`avatar()`), ohne Namen „?“ statt eines Zeichens aus dem Schlüssel
-      zeile.append(c.type === "community" ? el("span", "🏠", "av") : avatar(c.id, kontaktInitiale(c)), el("span", kontaktAnzeige(c), "label"));
+      // Seit C-52a zwei Zeilen: Name und Zeit, darunter die Vorschau (nur aus dieser Sitzung) und „neu“
+      const oben = el("div", undefined, "chat-zeile-oben");
+      oben.append(el("span", kontaktAnzeige(c), "label"), el("span", zeitKurz(c.lastTs), "chat-zeit"));
+      const unten = el("div", undefined, "chat-zeile-unten");
+      unten.append(el("span", "", "chat-vorschau"));
+      const mitte = el("div", undefined, "chat-zeile-mitte");
+      mitte.append(oben, unten);
+      zeile.append(c.type === "community" ? el("span", "🏠", "av") : avatar(c.id, kontaktInitiale(c)), mitte);
+      zeigeVorschau(zeile, c.id);
       // Ungelesenes (C-30): fett, mit Punkt und für Vorleser als Text
       if (istUngelesen(c)) {
         zeile.classList.add("ungelesen");
-        zeile.append(el("span", t("komm.ungelesen"), "chat-ungelesen"));
+        unten.append(el("span", t("komm.ungelesen"), "chat-ungelesen"));
       }
       return zeile;
     }));
@@ -221,6 +230,22 @@ export function loadChatList(): void {
         if (av) av.textContent = (Array.from(anzeige.replace(/^~/, ""))[0] ?? "?").toUpperCase();
       }
     });
+}
+
+/** Vorschau einer Zeile (C-52a): neueste Nachricht dieser Sitzung, nur als Text; ohne eine bleibt die Zeile leer. */
+function zeigeVorschau(zeile: Element | null | undefined, cid: string): void {
+  const feld = zeile?.querySelector(".chat-vorschau");
+  if (!feld) return;
+  const v = vorschauVon(cid);
+  feld.textContent = v ? vorschauZeile(v) : "";
+}
+
+/** Nach dem Senden oder Laden: die Zeile einer Unterhaltung in der Liste nachziehen, ohne die Liste neu zu bauen. */
+function zeileNachziehen(c: ChatConversation): void {
+  const zeile = document.querySelector(`#chat-list [data-cid="${CSS.escape(c.id)}"]`);
+  zeigeVorschau(zeile, c.id);
+  const zeit = zeile?.querySelector(".chat-zeit");
+  if (zeit) zeit.textContent = zeitKurz(c.lastTs);
 }
 
 /** Die Anfrage annehmen (C-33): nach der ersten Antwort oder der Prüfung des Sicherheitscodes. */
@@ -453,6 +478,13 @@ export async function loadChatMessages(cid: string): Promise<void> {
         return blase;
       }));
     if (c.type === "dm") schluesselHinweis(thread, c.id);
+    // Vorschau in der Liste (C-52a): die neueste gezeigte Nachricht – nie eine ausgeblendete oder unlesbare
+    const letzte = c.type === "dm" ? decrypted.filter((e) => !versteckt.has(e.id) && e.content !== entschluesselungFehlgeschlagen()).at(-1) : undefined;
+    if (letzte) {
+      const ablauf = (letzte as DmAnzeige).ablauf;
+      merkeVorschau(c.id, { inhalt: letzte.content, vonMir: [state.keypair.pk, state.person].includes(letzte.pubkey), zeit: letzte.created_at, ...(ablauf !== undefined ? { ablauf } : {}) });
+      zeileNachziehen(c);
+    }
     thread.scrollTop = thread.scrollHeight;
     wireBlobButtons(thread);
     thread.querySelectorAll(".show-anyway").forEach((b) => {
@@ -497,6 +529,8 @@ export async function sendChatMessage(): Promise<void> {
   if ((!text && chatAttachments.length === 0) || !state.keypair || !activeConversation) return;
   const c = conversations.find((x) => x.id === activeConversation);
   if (!c) return;
+  // Für die Vorschau in der Liste (C-52a) – die Anhänge sind nach dem Senden geleert
+  const gesendet = chatAttachments.length > 0 ? JSON.stringify({ text, attachments: chatAttachments }) : text;
   try {
     const pool = await ensurePool();
     // NIP-92 imeta-Tags fuer Community-Posts. Bei DMs duerfen die Anhaenge
@@ -557,9 +591,12 @@ export async function sendChatMessage(): Promise<void> {
     leereAnhaenge();
     setAttachStatus($("#chat-attach-list"), "");
     c.lastTs = Math.floor(Date.now() / 1000);
+    // Vorschau in der Liste (C-52a), mit Ablauf (2.5) nur bis dahin
+    if (c.type === "dm") merkeVorschau(c.id, { inhalt: gesendet, vonMir: true, zeit: c.lastTs, ...(c.ablaufSecs ? { ablauf: c.lastTs + c.ablaufSecs } : {}) });
     // Die erste Antwort nimmt die Anfrage an (C-33) – danach heißt die Person nur noch mit ihrem Namen
     if (c.type === "dm") nimmAnfrageAn(c.id);
     saveConversations();
+    zeileNachziehen(c);
     loadChatMessages(activeConversation);
     // Die erste Nachricht ist die erste Nutzung (C-39, E-7) – wie die erste KI-Antwort; danach fragt die Leiste nach der Sicherung
     if (localStorage.getItem("freedom.usedOnce") !== "1") {
