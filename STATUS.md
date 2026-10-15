@@ -9734,3 +9734,21 @@ C-48 Website-Navigation), mittel (C-49 bis C-55) und größer (C-56 bis C-59). N
 Entscheidung OR1 (Inter einbetten oder Systemschrift – C-42 baut ohne Einbetten) und der kurze
 Nutzertest als Aufgabe des MENSCHEN. Nur Doku, kein Code.
 
+## Schritt C-41 – Privater Schlüssel nur nach Warnung
+
+Aus dem Oberflächen-Review (15.10.2026, Sicherheit): Im Profil kopierte ein Klick auf die kurze Kennung den *privaten* Schlüssel – auf einem Element, das wie die öffentliche Kennung aussieht. Ohne Zwischenablage stand er sogar als Meldung unten im Bild (`toast(hex)`).
+
+- `shell/identitaet-ui.ts` (neu):
+  - `kopiereKennung()` kopiert die öffentliche Kennung als npub. Ohne Zwischenablage zeigt sie die Kennung zum Markieren im Dialog. Der Klick auf `#nb-ident` (auch per Tastatur) und „Teilen“ im Profil gehen beide über diesen Weg.
+  - `zeigePrivatenSchluessel()` fragt zuerst mit `bestaetige(… gefahr: true)` und der Warnung „Wer diesen Schlüssel hat, ist für alle anderen du …“. Erst danach leiht sie den Schlüssel über `mitRohemSchluessel()` und zeigt ihn als nsec nur im Dialog (Lesefeld mit „Kopieren“).
+  - Der Schlüssel erscheint nie als Meldung, wird nie gespeichert und landet nie von selbst in der Zwischenablage. Mit Bunker gibt es ihn nicht.
+- Die Karte „Identität“ bekommt den Knopf „Privaten Schlüssel zeigen“. Der Satz darüber sagt jetzt, was der Klick tut. Die Reihe bricht am Handy um.
+- „Importieren“ ersetzt eine vorhandene Identität nur nach Rückfrage („Identität ersetzen?“, rot). Ohne Sicherung wäre sie danach weg.
+- Tests:
+  - `identitaet-ui.test.ts`: Klick, Warnung vor dem Schlüssel, nichts gespeichert, Rückfrage beim Import, Texte.
+  - Angepasst: `browser-dialoge`, `profil-klein` und `zugang`. Sie prüfen jetzt `kopiereKennung()` statt `exportIdentity`.
+  - Smoke „profil_klein“: Der Klick ergibt einen npub. Vor der Warnung steht kein nsec im Dialog, danach ein gültiger. Er steht weder im Speicher noch in einer Meldung noch in der Zwischenablage.
+  - Smoke „qr“: Der Import auf dem neuen Gerät bestätigt die Rückfrage.
+
+**Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

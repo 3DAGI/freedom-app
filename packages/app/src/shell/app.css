@@ -1164,10 +1164,10 @@ main { min-width: 0; }
 
 /* ---------- Profil ---------- */
 .ident-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 10px 14px;
 }
-.ident-row .nb-ident { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.ident-row .nb-ident { flex: 1 1 auto; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .ident-row button { width: auto; padding: 6px 11px; font-size: 12px; }
 
 /* ---------- Settings: Abschnitte | Inhalt ---------- */

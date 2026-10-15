@@ -2415,6 +2415,13 @@ def qr_pruefen(browser, url: str) -> dict:
     gelesen = ev(dlg) or {}
     spuren = ev("() => ({ kamera: window.__kamera, aus: window.__spuren.length > 0 && window.__spuren.every(t => t.readyState === 'ended'), formate: window.__formate })")
     ev(ok)
+    # Seit C-41 ersetzt der Import die frische Identität erst nach Rückfrage
+    try:
+        s.wait_for_function("""() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
+          return d && document.getElementById(d.getAttribute('aria-labelledby'))?.textContent === 'Identität ersetzen?'; }""", timeout=10000)
+    except Exception:
+        erg["fehler"].append("keine Rückfrage vor dem Ersetzen der Identität")
+    ev(ok)
     try:
         s.wait_for_function("() => localStorage.getItem('freedom.geraet.person')", timeout=10000)
     except Exception:
@@ -3071,7 +3078,9 @@ def agent_klein_pruefen(browser, url: str) -> dict:
 
 def profil_klein_pruefen(browser, url: str) -> dict:
     """C-37 (Nutzertest P-1 bis P-3): Die Karte mit dem Schlüssel und „Importieren“ hat eine
-    Überschrift, „Teilen“ kopiert den npub, der Name im Profilkopf steht nicht in Großbuchstaben."""
+    Überschrift, „Teilen“ kopiert den npub, der Name im Profilkopf steht nicht in Großbuchstaben.
+    C-41: Der Klick auf die Kennung kopiert nur den npub; den privaten Schlüssel zeigt „Privaten
+    Schlüssel zeigen“ erst nach der Warnung, nur im Dialog – nie als Meldung, nie gespeichert."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
     relay = ProbeRelay()
@@ -3106,6 +3115,48 @@ def profil_klein_pruefen(browser, url: str) -> dict:
         }; }""")
     ctx.close()
     p = erg["profil"]
+    # C-41: Kennung anklicken → npub; „Privaten Schlüssel zeigen“ → erst Warnung, dann der Dialog mit nsec
+    ctx2 = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    ctx2.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
+    ctx2.route_web_socket(re.compile(r"^wss?://"), ProbeRelay().verbinde)
+    s = ctx2.new_page()
+    s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
+    ev = s.evaluate
+    s.goto(url, wait_until="load")
+    s.wait_for_selector("#bk-done", timeout=30000)
+    ev("() => document.getElementById('bk-later')?.click()")
+    s.wait_for_timeout(1500)
+    ev("() => document.getElementById('ein-abbrechen')?.click()")
+    ev("() => document.querySelector('.app-nav button[data-tab=\"profile\"]').click()")
+    s.wait_for_selector("#nb-export", timeout=10000)
+    ev("() => { window.__kopiert = null; navigator.clipboard.writeText = async (x) => { window.__kopiert = x; }; }")
+    ev("() => document.getElementById('nb-ident').click()")
+    s.wait_for_function("() => typeof window.__kopiert === 'string'", timeout=5000)
+    ident_kopiert = ev("() => window.__kopiert")
+    ev("() => { window.__kopiert = null; document.getElementById('nb-export').click(); }")
+    s.wait_for_selector("[role=dialog][aria-modal=true]", timeout=5000)
+    titel = """() => { const d = document.querySelector('[role=dialog][aria-modal=true]');
+      return d ? { titel: document.getElementById(d.getAttribute('aria-labelledby'))?.textContent,
+        felder: [...d.querySelectorAll('textarea, input')].map(f => f.value),
+        nsec: d.textContent.includes('nsec1') || [...d.querySelectorAll('textarea, input')].some(f => f.value.startsWith('nsec1')) } : null; }"""
+    warnung = ev(titel)
+    ev("() => [...document.querySelectorAll('[role=dialog] .dlg-knoepfe button')].pop().click()")
+    s.wait_for_function("() => [...document.querySelectorAll('[role=dialog] textarea')].some(f => f.value.startsWith('nsec1'))", timeout=5000)
+    gezeigt = ev(titel)
+    sk = next((f for f in gezeigt["felder"] if f.startswith("nsec1")), "")
+    spuren = ev("""(sk) => ({ gespeichert: [...Object.values(localStorage), ...Object.values(sessionStorage)].some(v => String(v).includes(sk)),
+      meldung: [...document.querySelectorAll('.toast, #toast, [role=status]')].some(t => t.textContent.includes(sk)),
+      kopiert: window.__kopiert })""", sk)
+    ctx2.close()
+    erg["schluessel"] = {"ident": ident_kopiert, "warnung": warnung, "gezeigt": gezeigt and gezeigt["titel"], "spuren": spuren}
+    if not re.fullmatch(r"npub1[02-9ac-hj-np-z]{58}", ident_kopiert or ""):
+        erg["fehler"].append(f"Klick auf die Kennung kopiert {ident_kopiert!r} statt npub")
+    if not (warnung and warnung["titel"] == "Privater Schlüssel" and not warnung["nsec"]):
+        erg["fehler"].append(f"vor der Warnung schon der Schlüssel? {warnung}")
+    if not re.fullmatch(r"nsec1[02-9ac-hj-np-z]{58}", sk):
+        erg["fehler"].append(f"nach der Warnung kein nsec im Dialog {gezeigt}")
+    if spuren != {"gespeichert": False, "meldung": False, "kopiert": None}:
+        erg["fehler"].append(f"privater Schlüssel gespeichert, gemeldet oder von selbst kopiert {spuren}")
     if not re.fullmatch(r"npub1[02-9ac-hj-np-z]{58}", p["kopiert"] or ""):
         erg["fehler"].append(f"Teilen kopiert {p['kopiert']!r} statt npub")
     if p["gross"] != "none":

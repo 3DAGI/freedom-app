@@ -47,7 +47,8 @@ import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-einga
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
 import { wireGebot } from "./tabs/agent-gebot.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
-import { alsModal, dialog } from "./dialog.js";
+import { alsModal, bestaetige, dialog } from "./dialog.js";
+import { kopiereKennung, zeigePrivatenSchluessel } from "./identitaet-ui.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
@@ -350,16 +351,6 @@ async function sichereJetzt(): Promise<void> {
   toast(t("ein.dateiGeladen"));
 }
 
-function exportIdentity(): void {
-  if (!state.keypair) return;
-  if (mitBunker()) { toast(t(NUR_IM_SIGNER), true); return; }
-  const hex = mitRohemSchluessel(t("ein.fuerExport"), toHex);
-  navigator.clipboard?.writeText(hex).then(
-    () => toast(t("ein.nsecKopiert")),
-    () => toast(hex),
-  );
-}
-
 async function importIdentity(): Promise<void> {
   if (mitBunker()) { toast(t("ein.erstAbmelden"), true); return; }
   // Dialog mit Feld zum Einfuegen und, wo der Browser es kann, Scannen per Kamera (11.1b)
@@ -386,6 +377,8 @@ async function importIdentity(): Promise<void> {
       return;
     }
   }
+  // Ersetzen nur nach Rückfrage (C-41): ohne Sicherung ist die bisherige Identität danach weg
+  if (state.keypair && !(await bestaetige({ titel: t("ein.ersetzenTitel"), text: t("ein.ersetzenText"), ok: t("ein.ersetzenOk"), gefahr: true }))) return;
   setzeIdentitaet(fromHex(hex), code?.person ?? null);
   // Eine noch offene Merkphrase gehoerte zur alten Identitaet (8.1a)
   void geheim.removeItem(LS_MERKPHRASE);
@@ -745,16 +738,18 @@ function starte(): void {
   });
   // Kopfzeile mobil, „Mehr“, Zurück und die Unterseiten des Agenten (C.1a)
   wireNavigation((seite) => switchTab(seite));
-  // Sidebar-Balances: ident + import klonen die header-handler (desktop)
+  // Karte „Identität“ im Profil: der Klick auf die Kennung kopiert nur die öffentliche (C-41),
+  // den privaten Schlüssel zeigt ein eigener Knopf erst nach einer Warnung
   const nbIdent = $("#nb-ident");
   const nbImport = $("#nb-import");
   if (nbIdent) {
-    nbIdent.onclick = exportIdentity;
+    nbIdent.onclick = () => void kopiereKennung();
     // Auch per Tastatur (C-4): die Identität ist ein Knopf, kein bloßer Text
     nbIdent.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void exportIdentity(); }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void kopiereKennung(); }
     });
   }
+  $("#nb-export")?.addEventListener("click", () => void zeigePrivatenSchluessel());
   if (nbImport) nbImport.onclick = importIdentity;
   // Wallet-Button in der Sidebar: springt zum Wallet-Tab (verbinden/deposit)
   const nbWallet = $("#nb-wallet");
@@ -895,18 +890,8 @@ function starte(): void {
   void aktualisiereSicherheitsStand();
   // Profil teilen: den oeffentlichen Schluessel als npub kopieren (C-37) – so nimmt ihn jeder Nostr-Client.
   // Derselbe Schluessel, unter dem „Profil speichern“ das Profil veroeffentlicht.
-  document.getElementById("profile-share")?.addEventListener("click", async () => {
-    if (!state.keypair) return;
-    const { encodeNpub } = await import("../identity.js");
-    const npub = encodeNpub(state.keypair.pk);
-    try {
-      await navigator.clipboard.writeText(npub);
-      toast(t("ein.pubkeyKopiert"));
-    } catch {
-      // Ohne Zwischenablage zum Markieren im Dialog (C-1e, statt prompt())
-      await dialog({ titel: t("ein.pubkeyTitel"), felder: [{ art: "nurlesen", name: "pk", label: t("ein.pubkey"), wert: npub }], ok: t("dlg.schliessen"), abbrechen: false });
-    }
-  });
+  // Ohne Zwischenablage zum Markieren im Dialog (C-1e, statt prompt()); dasselbe wie der Klick auf die Kennung (C-41)
+  document.getElementById("profile-share")?.addEventListener("click", () => void kopiereKennung());
   const ziele: Record<string, string> = { "1": "backup-now", "2": "rotation-prepare", "3": "succ-setup" };
   document.querySelectorAll<HTMLElement>(".sec-action").forEach((b) => {
     b.addEventListener("click", () => {

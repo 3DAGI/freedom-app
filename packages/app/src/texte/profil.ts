@@ -25,8 +25,9 @@ export const profil: Texte = {
   "profil.abzeichen": { de: "Abzeichen", en: "Badges" },
   "profil.abzeichenVergebenKnopf": { de: "Abzeichen vergeben", en: "Award a badge" },
   "profil.identitaet": { de: "Identität", en: "Identity" },
-  "profil.identText": { de: "Dein Schlüssel auf diesem Gerät. Ein Klick darauf kopiert den privaten Schlüssel – nur zum Sichern, nie weitergeben. „Importieren“ ersetzt diese Identität durch eine andere.", en: "Your key on this device. Clicking it copies the private key – only for backups, never share it. “Import” replaces this identity with another one." },
-  "profil.identTitel": { de: "Öffentlicher Schlüssel – Klick exportiert den privaten", en: "Public key – click exports the private one" },
+  "profil.identText": { de: "Deine öffentliche Kennung – ein Klick kopiert sie (npub), die darfst du weitergeben. Den privaten Schlüssel zeigt die App nur nach einer Warnung. „Importieren“ ersetzt diese Identität durch eine andere.", en: "Your public ID – a click copies it (npub); you may share it. The app shows the private key only after a warning. “Import” replaces this identity with another one." },
+  "profil.identTitel": { de: "Öffentliche Kennung – ein Klick kopiert sie", en: "Public ID – a click copies it" },
+  "profil.skZeigen": { de: "Privaten Schlüssel zeigen", en: "Show private key" },
   // Stilwerte (die Werte selbst gehen so ins Profil)
   "profil.stilMessing": { de: "Messing", en: "brass" },
   "profil.stilOrange": { de: "Orange", en: "orange" },
