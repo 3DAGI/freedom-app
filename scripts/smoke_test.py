@@ -3534,7 +3534,7 @@ def ohne_knoten_pruefen(browser, url: str) -> dict:
           // C-54: Checkliste mit drei Schritten statt eines Felds für einen Schlüssel, keine Kacheln, das Feld eingeklappt
           schritte: document.querySelectorAll('#earn-ohne-knoten .check-schritt').length,
           kacheln: getComputedStyle(document.getElementById('earn-kacheln')).display,
-          feld: !!document.getElementById('earn-knoten').offsetParent,
+          feld: document.getElementById('earn-anderer-knoten').open || !document.getElementById('earn-knoten').closest('details'),
           umgebung: /ZAHLKANAL|NODE_SOL_ADDRESS/.test(seite.innerText),
           deinKnoten: /Dein Knoten (hat|nimmt)/.test(seite.innerText),
         }; }""")
