@@ -1188,6 +1188,19 @@ main { min-width: 0; }
 .panel-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 .panel-check { display: flex; }
 @media (max-width: 1199px) { .agent-panel { display: none; } }
+/* Am Desktop nur auf Klick (C-49c): der Knopf oben rechts über dem Gespräch, im Fluss – er überdeckt nichts */
+.agent-panel-umschalten { display: none; }
+@media (min-width: 1200px) {
+  .agent-layout:not(.panel-offen) .agent-panel { display: none; }
+  .agent-panel-umschalten { display: inline-flex; align-items: center; gap: 6px; align-self: flex-end; flex: none;
+    margin: 10px 16px 0; padding: 6px 12px; font-size: 13px; }
+  .agent-layout.panel-offen .agent-panel-umschalten { color: var(--accent); border-color: var(--accent-dim); }
+}
+/* Gratis-Stand als Chip in der Eingabe (C-49c) */
+.gratis-chip { display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--accent); background: rgba(123,200,10,.08); border: 1px solid var(--accent-dim); white-space: nowrap; }
+.gratis-chip.leer { color: var(--text-muted); background: transparent; border-color: var(--line2); }
+.gratis-chip[hidden] { display: none; }
 @media (max-width: 859px) { .agent-side { display: none; } }
 
 /* ---------- Kommunikation: Discord-Aufbau ---------- */

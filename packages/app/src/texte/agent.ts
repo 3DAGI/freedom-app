@@ -63,6 +63,8 @@ export const agent: Texte = {
   "agent.optionen": { de: "Stufe und Bezahlung", en: "Tier and payment" },
   "agent.stufe": { de: "Stufe", en: "Tier" },
   "agent.privatMarke": { de: "Privat", en: "Private" },
+  "agent.gratisChip": { de: "{antworten}/{max} gratis", en: "{antworten}/{max} free" },
+  "agent.gratisChipLeer": { de: "Gratis aufgebraucht", en: "Free used up" },
   "agent.funkMarke": { de: "Über Funk", en: "Via radio" },
   "agent.anhaengen": { de: "Anhängen", en: "Attach" },
   "agent.werkzeugWeg": { de: "{name} entfernen", en: "Remove {name}" },
