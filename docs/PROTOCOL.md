@@ -1183,6 +1183,7 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `neu` | `projekt` | `projekt` |
 | `auftrag` | `projekt`, `text` (1–8000 Zeichen), `modus` (`fragen` oder `frei`) | `ende`, `schritte`, `abschluss` (höchstens 4000 Zeichen) – erst am Ende des Laufs |
 | `freigabe` | `lauf` (Id des Auftrags, 64 Hex), `schritt` (1–200), `antwort` (`ja` oder `nein`) | `ok` |
+| `bundle` (seit VKl) | `projekt` | `blob`, `manifest` (Id des Manifest-Events, 64 Hex), `schluessel` (`alg`, `key`, `nonce`, `ox` wie bei Anhängen, §2.4), `bytes` (1 bis 32 MiB) |
 | `stopp` | `lauf` | `ok` |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
@@ -1234,11 +1235,20 @@ Tag, nie am Text:
 | `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat keinen Motor – er startet ihn nur in der Sandbox (VKb, VKc3) |
 | `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei |
 | `code-zu-viele` | `neu`: schon 100 Projekte |
-| `code-git` | `neu`: git konnte das Projekt nicht anlegen |
+| `code-git` | `neu`: git konnte das Projekt nicht anlegen; `bundle`: git konnte das Bundle nicht bauen |
 | `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |
+| `code-leer` | `bundle`: das Projekt hat noch keinen Commit |
+| `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
+
+**Bundle** (seit VKl): Der Knoten erzeugt `git bundle create … --all`, verschlüsselt es wie einen
+Anhang (AES-GCM, `verschluesseleDatei()`) und legt Manifest (38040) und Stücke (38041, `verschluesselt`)
+ins Blob-Netz – signiert von einem **Wegwerfschlüssel**, nie vom Schlüssel des Knotens: Sonst verbände
+ein Repo im Raum den Besitzer mit seinem Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst
+(ohne Verdrängung, wie §B-9b). Den Schlüssel zum Blob bekommt nur der Besitzer, versiegelt in der Antwort;
+die App stellt das Repo damit in einen Raum (VKl2).
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 
