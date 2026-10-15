@@ -285,7 +285,8 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
 /** Einrichtung (8.1b) – mit Merkphrase, solange sie noch nicht bestaetigt ist. */
 function starteEinrichtung(merkphrase: string | null): Promise<void> {
   return zeigeEinrichtung({
-    ...(merkphrase ? { sichern: () => zeigeSicherungsDialog(merkphrase) } : {}),
+    // Neue Identität (C-55a): erst die Begrüßung – „Ich habe schon eine Identität“ übernimmt eine, ohne Rückfrage
+    ...(merkphrase ? { sichern: () => zeigeSicherungsDialog(merkphrase), importieren: () => importIdentity(true) } : {}),
     oeffne: (tab) => switchTab(tab),
     nenneWerber: () => void publishReferralClaim(),
   }).then(() => zeigeOnboarding());
@@ -358,14 +359,18 @@ async function sichereJetzt(): Promise<void> {
   toast(t("ein.dateiGeladen"));
 }
 
-async function importIdentity(): Promise<void> {
-  if (mitBunker()) { toast(t("ein.erstAbmelden"), true); return; }
+/**
+ * Identität übernehmen. `frisch` (C-55a): aus der Begrüßung, die eben angelegte Identität ist noch unbenutzt –
+ * dann ohne die Rückfrage aus C-41. `true`, wenn übernommen.
+ */
+async function importIdentity(frisch = false): Promise<boolean> {
+  if (mitBunker()) { toast(t("ein.erstAbmelden"), true); return false; }
   // Dialog mit Feld zum Einfuegen und, wo der Browser es kann, Scannen per Kamera (11.1b)
   const w = await dialog({
     titel: t("ein.importTitel"), ok: t("ein.importOk"),
     felder: [{ art: "textarea", name: "eingabe", label: t("ein.importFrage"), pflicht: true, mono: true, scannen: true }],
   });
-  if (!w) return;
+  if (!w) return false;
   const eingabe = String(w.eingabe);
   // Geraetecode (8.6c): Geraeteschluessel plus die Person, fuer die er spricht
   const code = leseGeraeteCode(eingabe);
@@ -381,11 +386,11 @@ async function importIdentity(): Promise<void> {
       mitMerkphrase = !!id.mnemonic;
     } catch (e) {
       toast(fehlerText(e), true);
-      return;
+      return false;
     }
   }
   // Ersetzen nur nach Rückfrage (C-41): ohne Sicherung ist die bisherige Identität danach weg
-  if (state.keypair && !(await bestaetige({ titel: t("ein.ersetzenTitel"), text: t("ein.ersetzenText"), ok: t("ein.ersetzenOk"), gefahr: true }))) return;
+  if (state.keypair && !frisch && !(await bestaetige({ titel: t("ein.ersetzenTitel"), text: t("ein.ersetzenText"), ok: t("ein.ersetzenOk"), gefahr: true }))) return false;
   setzeIdentitaet(fromHex(hex), code?.person ?? null);
   // Eine noch offene Merkphrase gehoerte zur alten Identitaet (8.1a)
   void geheim.removeItem(LS_MERKPHRASE);
@@ -405,6 +410,7 @@ async function importIdentity(): Promise<void> {
   loadChatList();
   loadWallet();
   loadEarnings();
+  return true;
 }
 
 // ------------------------------------------------------------- Onboarding
@@ -751,7 +757,7 @@ function starte(): void {
     });
   }
   $("#nb-export")?.addEventListener("click", () => void zeigePrivatenSchluessel());
-  if (nbImport) nbImport.onclick = importIdentity;
+  if (nbImport) nbImport.onclick = () => void importIdentity();
   $("#chat-send").onclick = sendChatMessage;
   // Media-Anhaenge im Chat (frueher Feed): kleine Dateien inline, grosse ueber
   // das Chunk-/Blob-Netz mit Blossom als Fallback.
