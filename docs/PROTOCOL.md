@@ -1306,3 +1306,23 @@ Bestätigung. Gebaut und gelesen nur über `baueClusterAbsprache()` und
   Provider-Angebots) und die „Reziprozität“ mit 5 % Protokollgebühr fielen weg.
 - Betrieben wird ein Paar erst mit zwei Geräten (E9-5); bis dahin sind es
   Bausteine.
+
+## 37. Abgleich mit Negentropy (NIP-77, seit B-35a)
+
+Zwei Seiten finden heraus, welche Events der anderen fehlen, ohne alle Ids zu schicken – nach einer Zeit
+ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfahren und Nachrichten wie
+[NIP-77](https://github.com/nostr-protocol/nips/blob/master/77.md) und die Referenz von Doug Hoyte, Fassung 1
+(`0x61`); eigene Umsetzung in `negentropy.ts` (Entscheidung NG1 B), Byte für Byte gleich der Referenz
+(Vektoren aus `scripts/negentropy-referenz.mjs`, Referenz gepinnt auf Commit und Prüfsumme).
+
+- **Einträge:** je Event Zeit (`created_at`) und Id, sortiert nach Zeit, dann Id; keine doppelten.
+- **Nachricht:** Fassung, dann Bereiche bis zu einer oberen Grenze (Zeit als Abstand + 1, `0` = unendlich;
+  kürzester Id-Präfix, der zwei Nachbarn trennt) mit Überspringen (0), Fingerabdruck (1: SHA-256 über die
+  Summe der Ids mod 2^256, little-endian, und die Anzahl als Varint – 16 Byte) oder Id-Liste (2). Ab 32
+  Einträgen teilt eine Seite einen Bereich in 16. Zahlen sind Varints mit der höchsten Stelle zuerst.
+- **Rollen:** Wer beginnt (`beginne()`), sammelt `habe` und `brauche`; die andere Seite antwortet nur. Mit
+  Rahmengröße (ab 4096 Byte) bricht eine Antwort vorher ab und nennt für den Rest einen Fingerabdruck.
+- **Grenzen** (`NEG_GRENZEN`): Nachricht höchstens 512 KB, Id-Liste höchstens 100 000 Ids, Varints bis 2^53;
+  Unpassendes ergibt `NegFehler` mit Kennung (`neg.format`, `neg.gross`, `neg.fassung`), nie Text aus der Nachricht.
+- **Noch nicht:** `NEG-OPEN`/`NEG-MSG`/`NEG-CLOSE` in der Relay-Rolle (B-35b, dort nur, was `darfAusliefern()`
+  zeigen würde) und der Abgleich nach Funkstille (B-35c).

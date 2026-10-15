@@ -167,7 +167,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-32 | Reticulum als zweiter Funkweg | frei – erst ein Entwurf (RN1) |
 | B-33 | Tor mit Pluggable Transports | frei (PT1 A), Größe und Lizenz im PR nennen |
 | B-34 | Gruppenanrufe über LiveKit | frei (LK1 A) |
-| B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung | frei (NG1 B) |
+| B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – b Relay-Rolle (`NEG-OPEN`, nur was `darfAusliefern()` zeigt), c Abgleich nach Funkstille (Gateway, eigenes Relay) | frei (NG1 B; a ✓: Kern im Protokoll, Byte für Byte wie die Referenz) |
 | B-37 | MeshCore als zweites LoRa-Format | frei, nachrangig |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 
