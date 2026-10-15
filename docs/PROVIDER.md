@@ -512,7 +512,7 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Log kommen nur Zahlen, nie Projektnamen.
 - **Sandbox (seit VKb):** Code führt der Knoten nur in bubblewrap aus
   (`apt install bubblewrap`, das Docker-Bild bringt es mit) – ohne Netz, die
-  Wurzel nur lesbar, schreibbar nur der Projektordner (darin `.git` nur lesbar),
+  Wurzel nur lesbar (aus `/etc` nur `/etc/alternatives` und der Cache des Laders), schreibbar nur der Projektordner (darin `.git` nur lesbar),
   leere Umgebung; dein Home und `~/.freedom` sieht der Code nicht. Grenzen je
   Befehl: 60 s, 120 s Rechenzeit, Dateien bis 512 MB, 1024 offene Dateien,
   `/tmp` mit 512 MB. Den Arbeitsspeicher begrenzt die Sandbox noch nicht.

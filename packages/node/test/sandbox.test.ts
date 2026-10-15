@@ -32,7 +32,8 @@ test("VKb: Argumente – alle Namensräume, keine Fähigkeiten, leere Umgebung, 
   assert.deepEqual(nach(a, "--setenv").sort(), ["HOME", "LANG", "PATH"]);
   // aus /etc nur drei Dateien, nie das ganze /etc, nie das Home des Knotens
   assert.deepEqual(nach(a, "--ro-bind").filter((q) => q === "/etc" || q.startsWith("/etc/")), []);
-  assert.deepEqual(a.filter((x) => x.startsWith("/etc/")).sort(), ["/etc/group", "/etc/hosts", "/etc/passwd"]);
+  assert.deepEqual([...new Set(a.filter((x) => x.startsWith("/etc/")))].sort(), ["/etc/alternatives", "/etc/group", "/etc/hosts", "/etc/ld.so.cache", "/etc/passwd"]);
+  assert.deepEqual(nach(a, "--ro-bind-try"), ["/etc/alternatives", "/etc/ld.so.cache"], "nur Verweise und der Cache des Laders, nur lesbar");
   assert.ok(!a.some((x) => x === process.env.HOME || x.includes(".freedom")));
   // schreibbar nur der Arbeitsordner – .git danach nur lesbar darüber
   assert.deepEqual(nach(a, "--bind"), [arbeit]);
@@ -88,11 +89,15 @@ test("VKb (bubblewrap): schreibbar nur der Arbeitsordner, .git und die Wurzel nu
     "touch /x 2>/dev/null || echo wurzel-tmpfs-nur-lesbar",
     `test -e ${geheim} || echo knoten-unsichtbar`,
     "test -e /etc/shadow || echo kein-shadow",
+    "test -e /etc/ssl || echo kein-ssl",
+    "command -v python3 >/dev/null && python3 -c 'print(1)' >/dev/null 2>&1 && echo python-ok || echo kein-python",
     "test -e /root || echo kein-root",
     "echo t > /tmp/t && echo tmp-ok",
   ].join("; ")], { arbeit });
   assert.equal(r.code, 0);
-  for (const z of ["arbeit-ok", "git-nur-lesbar", "wurzel-nur-lesbar", "etc-nur-lesbar", "wurzel-tmpfs-nur-lesbar", "knoten-unsichtbar", "kein-shadow", "kein-root", "tmp-ok"]) assert.ok(r.ausgabe.includes(z), z);
+  for (const z of ["arbeit-ok", "git-nur-lesbar", "wurzel-nur-lesbar", "etc-nur-lesbar", "wurzel-tmpfs-nur-lesbar", "knoten-unsichtbar", "kein-shadow", "kein-ssl", "kein-root", "tmp-ok"]) assert.ok(r.ausgabe.includes(z), z);
+  // Programme hinter `/etc/alternatives` (Debian/Ubuntu) starten – bis 11.5s2 fehlte der Ordner
+  if (existsSync("/usr/bin/python3")) assert.ok(r.ausgabe.includes("python-ok"), r.ausgabe);
   assert.equal(readFileSync(join(arbeit, "datei"), "utf8"), "neu\n");
   assert.equal(readFileSync(join(arbeit, ".git", "config"), "utf8"), "[core]\n");
   // /tmp der Sandbox ist ein eigenes tmpfs

@@ -9808,7 +9808,8 @@ Befehl (11.5c) oder als ganzer Motor eines Code-Laufs (VKc3).
 - **`node/src/sandbox.ts`:** `sandboxArgumente()` – eigene Namensräume (`--unshare-all`,
   `--unshare-user`), endet mit dem Knoten, eigene Sitzung, keine Fähigkeiten, leere Umgebung bis auf
   `PATH`, `HOME`, `LANG`; nur lesbar `/usr` (Verweise wie `/bin` → `usr/bin` als Verweis), aus `/etc`
-  nur ein eigenes `passwd`, `group`, `hosts`; schreibbar nur `/arbeit` (darin `.git` nur lesbar),
+  nur ein eigenes `passwd`, `group`, `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (sonst startet
+  `python3` nicht – unter Debian ein Verweis dorthin); schreibbar nur `/arbeit` (darin `.git` nur lesbar),
   `/tmp` als tmpfs mit 512 MB, Home ein tmpfs oder ein eigener Ordner; danach die Wurzel selbst nur
   lesbar (`--remount-ro /`). Kein Netz; GPU nur auf Wunsch.
 - **Ausführen:** `fuehreAus()` mit `ulimit` (Rechenzeit, Dateigröße, offene Dateien – je Grenze ein

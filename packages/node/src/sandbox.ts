@@ -9,7 +9,7 @@
  *   (`--unshare-all`), endet mit dem Knoten (`--die-with-parent`), eigene
  *   Sitzung, keine Fähigkeiten (`--cap-drop ALL`);
  * - nur lesbar: `/usr` und die Bibliotheken; aus `/etc` nur ein eigenes
- *   `passwd`, `group` und `hosts` – nicht das ganze `/etc`;
+ *   `passwd`, `group` und `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` – nicht das ganze `/etc`;
  * - schreibbar nur der Arbeitsordner (`/arbeit`), darin `.git` wieder nur lesbar
  *   (die Commits macht der Knoten, VKc2); `/tmp` als tmpfs mit Grenze;
  * - die Umgebung leer bis auf `PATH`, `HOME` und `LANG` – keine Variable des
@@ -87,6 +87,9 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
     "--ro-bind", join(etc, "passwd"), "/etc/passwd",
     "--ro-bind", join(etc, "group"), "/etc/group",
     "--ro-bind", join(etc, "hosts"), "/etc/hosts",
+    // Verweise der Paketverwaltung (`/usr/bin/python3` → `/etc/alternatives/python3`) und der Cache des Laders –
+    // ohne sie starten viele Programme nicht; beide tragen nichts Geheimes
+    "--ro-bind-try", "/etc/alternatives", "/etc/alternatives", "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
     "--proc", "/proc", "--dev", "/dev",
     "--size", String(SANDBOX_GRENZEN.tmpBytes), "--tmpfs", "/tmp",
     ...(o.home ? ["--bind", o.home, "/home/agent"] : ["--tmpfs", "/home/agent"]),
