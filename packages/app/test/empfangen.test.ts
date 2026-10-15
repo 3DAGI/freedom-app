@@ -39,5 +39,6 @@ test("12.7b: Verdrahtung – Knopf, eigene Rechnung bzw. Adresse, QR und Text; n
   assert.match(ui, /art: "nurlesen"/);
   assert.doesNotMatch(ui, /publish|localStorage|geheim|nwc\./, "kein Relay, nichts gemerkt, keine Wallet am Schienen vorbei");
   assert.match(src("../src/shell/app.ts"), /\n  wireEmpfangen\(\);\n/);
-  assert.match(src("../src/shell/index.html"), /<button id="wallet-empfangen" class="send-btn" type="button" data-i18n="empf.knopf">/);
+  // Seit C-50a eine der vier Aktionen unter dem Kontostand, die Hauptaktion
+  assert.match(src("../src/shell/index.html"), /<button id="wallet-empfangen" class="wa-knopf wa-haupt" type="button">.*<span data-i18n="empf\.knopf">Empfangen<\/span><\/button>/);
 });

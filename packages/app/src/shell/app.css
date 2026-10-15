@@ -720,7 +720,23 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
 .zap-btn { display: inline-flex; align-items: center; justify-content: center; }
 .send-btn { display: inline-flex; align-items: center; justify-content: center; }
 /* Wallet: Senden (12.7a) über den Karten der Übersicht */
-.wallet-aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+/* Kontostand oben und vier Aktionen (C-50a) */
+.wallet-gesamt { padding: 22px 24px; }
+.wg-label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.wg-betrag { margin-top: 2px; font-size: 40px; font-weight: 700; line-height: 1.15; color: var(--text); font-variant-numeric: tabular-nums; }
+.wg-einheit { font-size: 20px; font-weight: 500; color: var(--text-muted); }
+.wg-zusatz { margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+.wallet-aktionen { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+.wa-knopf { display: inline-flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; background: none; border: 0;
+  font-size: 13px; font-weight: 500; color: var(--text); min-width: 72px; }
+.wa-knopf:hover { background: none; }
+.wa-symbol { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px;
+  background: var(--surf2); border: 1px solid var(--line2); color: var(--text); }
+.wa-knopf:hover .wa-symbol { border-color: var(--accent-dim); }
+.wa-haupt .wa-symbol { background: var(--accent); border-color: var(--accent); color: #000; }
+.wa-knopf:focus-visible { outline: none; }
+.wa-knopf:focus-visible .wa-symbol { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) { .wallet-gesamt { padding: 18px 16px; } .wg-betrag { font-size: 34px; } .wallet-aktionen { justify-content: space-between; gap: 8px; } }
 .nb-row .nb-val { display: inline-flex; align-items: center; gap: 4px; }
 
 /* ---------- Replit-Stil: wachsende Schritt-Leiste ---------- */
