@@ -58,6 +58,7 @@ Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 |---|---|---|
 | MC1-Größe | B-31 (MCP): `@modelcontextprotocol/sdk` 1.32.1 bringt 95 Pakete mit, 29 MB (MIT, ISC, BSD – kein Copyleft), darunter Express, Hono und Ajv für Server-Teile, die der Knoten als Client nicht braucht. MC1 A verlangt die Größe vor dem Einbau. A so einbauen · B eigener schlanker MCP-Client (stdio, JSON-RPC: `initialize`, `tools/list`, `tools/call`), keine Abhängigkeit | **B** – der Knoten braucht nur den Client; ~150 Zeilen statt 29 MB |
 | AG-W1–W4 | B-30 (Atomic Agent): Entwurf [`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md) – MIT, aber Node ≥ 25.7, kein ACP, **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**; Vorschlag: nicht als Motor im Knoten (Hermes über ACP bleibt), nur als lokaler Server unter „Dieses Gerät“ mit ehrlichem Hinweis | W1 A, W2 A, W3 A, W4 A |
+| NG2 | B-35c (Abgleich nach Funkstille): Wer gleicht was ab? Der Knoten kennt den Schlüssel des Besitzers nicht (Kopplung nur über HMAC, B-8) und kann sich bei fremden Relays nicht für dessen Umschläge anmelden. A die App gleicht ab (sie kann sich als Nutzer anmelden): nach einer Pause der eigene Posteingang zwischen ihren Relays und dem eigenen Knoten – fehlende Umschläge holt sie dort, wo sie liegen, und legt sie beim Knoten ab · B der Knoten gleicht nur seine eigenen Events (Angebote, Manifeste, Kataloge, Kopplungs-Events) mit seinen `RELAYS` ab · C beides | **A**, B als kleiner Zusatz |
 | RN-W1–W5 | B-32 (Reticulum): Entwurf [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md) – RN1 geprüft: `@reticulum/core` steht unter EUPL-1.2, ohne Abhängigkeiten, gepflegt; Fragen zu Adresse, Zustellen, Reihenfolge, Größe | wie im Entwurf: W1 A, W2 A, W3 A, W4 A, W5 A |
 
 ### 1.1 Bestätigungen und Zuteilungen
@@ -175,7 +176,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-32 | Reticulum als zweiter Funkweg | Entwurf ✓ ([`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – Bau nach RN-W1–W5 (1.0b) |
 | B-33 | Tor mit Pluggable Transports | frei (PT1 A), Größe und Lizenz im PR nennen |
 | B-34 | Gruppenanrufe über LiveKit | frei (LK1 A) |
-| B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille (Gateway, eigenes Relay mit anderen) | frei (NG1 B; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
+| B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille | wartet auf NG2 (1.0b; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
 | B-37 | MeshCore als zweites LoRa-Format | frei, nachrangig |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 
