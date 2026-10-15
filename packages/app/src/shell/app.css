@@ -168,9 +168,9 @@
 .chat-item.ungelesen .chat-vorschau { color: var(--text); }
 /* Filter und Räume in der Liste (C-52b) */
 .chat-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 0; }
-.chat-filter button { width: auto; min-height: 32px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
-  background: transparent; color: var(--text-muted); border: 1px solid var(--line2); }
-.chat-filter button[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+/* Die Filter sind Chips (C-56a, Baustein .chip) – hier nur etwas kleiner */
+.chat-filter .chip { min-height: 32px; padding: 4px 12px; font-size: 13px; color: var(--text-muted); }
+.chat-filter .chip[aria-pressed="true"] { color: #000; }
 .chat-abschnitt { padding: 12px 10px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
 .chat-sidebar { position: relative; }
 .chat-fab { display: none; }
@@ -2122,6 +2122,21 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .wort-abfrage { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
 .wort-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .wort-nr { flex: none; min-width: 64px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
-.wort-chip { min-height: 40px; padding: 6px 14px; border-radius: 999px; font-family: var(--font-mono); font-size: 14px; font-weight: 500; }
-.wort-chip[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+.wort-chip { min-height: 40px; font-family: var(--font-mono); }
+
+/* ===== Bausteine (C-56a) – gemeinsam für alle Spuren, Übersicht in docs/ausbau/BAUSTEINE.md =====
+   Knopf: button (sekundär), .primaer (einmal je Ansicht), .ghost · Karte: .card · Zeile: .einst-zeile ·
+   Schalter: input.schalter · Blatt: .ai-optionen (am Handy) · Popover: .menue-schwebend · Toast: #toast ·
+   neu hier: Chip und Skelett. */
+.chip { display: inline-flex; align-items: center; gap: 6px; width: auto; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+  font-size: 14px; font-weight: 500; background: transparent; color: var(--text); border: 1px solid var(--line2); }
+.chip:hover { border-color: var(--accent); background: transparent; }
+.chip[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+.skelett { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+.skelett-zeile { height: 14px; border-radius: 7px; background: linear-gradient(90deg, var(--surf2) 0%, var(--line2) 50%, var(--surf2) 100%);
+  background-size: 200% 100%; animation: skelett 1.4s ease-in-out infinite; }
+.skelett-zeile:nth-child(3n + 2) { width: 85%; }
+.skelett-zeile:nth-child(3n) { width: 60%; }
+@keyframes skelett { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skelett-zeile { animation: none; } }
 

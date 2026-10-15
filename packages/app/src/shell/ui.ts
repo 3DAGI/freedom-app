@@ -38,6 +38,26 @@ function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attr: Record<string
   return e;
 }
 
+/**
+ * Chip (Baustein, C-56a): ein umschaltbarer Knopf mit `aria-pressed` – Filter, Auswahl, Wort-Chips. Text nur als Text.
+ * Weitere Klassen (für eigene Abstände oder Haken im Code) hängt `klasse` an.
+ */
+export function chip(text: string, gedrueckt = false, klasse?: string): HTMLButtonElement {
+  const b = el("button", text, klasse ? `chip ${klasse}` : "chip");
+  b.type = "button";
+  b.setAttribute("aria-pressed", String(gedrueckt));
+  return b;
+}
+
+/** Skelett (Baustein, C-56a): graue Zeilen, solange etwas lädt – für Vorleser „wird geladen“, in Bewegung nur ohne „weniger Bewegung“. */
+export function skelett(zeilen = 3, beschriftung = ""): HTMLElement {
+  const box = el("div", undefined, "skelett");
+  box.setAttribute("role", "status");
+  if (beschriftung) box.setAttribute("aria-label", beschriftung);
+  box.append(...Array.from({ length: zeilen }, () => el("span", undefined, "skelett-zeile")));
+  return box;
+}
+
 export function toast(msg: string, isErr = false): void {
   const box = $("#toast");
   box.textContent = msg;

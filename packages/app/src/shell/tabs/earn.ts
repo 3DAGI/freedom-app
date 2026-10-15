@@ -13,7 +13,7 @@ import { einnahmeText } from "../../preis-anzeige.js";
 import { aktualisiereKurs, aktuellerKurs } from "../marktkurs.js";
 import { ensurePool, frageBeiAutoren, signiere, solRpcUrl, state } from "../state.js";
 import { geheim } from "../tresor.js";
-import { $, el, timeAgo, toast } from "../ui.js";
+import { $, el, timeAgo, toast, skelett } from "../ui.js";
 import { loeseWerberName, merkeWerber, werbeLink, werbeRef, werbeSolAdresse } from "../../werbung.js";
 import { eigeneBasis } from "../../eigene-adresse.js";
 import { knotenSchluessel } from "../verdienst-ui.js";
@@ -236,7 +236,7 @@ export async function loadTrust(): Promise<void> {
 export async function loadEarnings(): Promise<void> {
   if (!state.keypair) return;
   const box = $("#earn-events");
-  box.replaceChildren(el("div", t("earn.lade"), "mono-sm"));
+  box.replaceChildren(skelett(3, t("earn.lade")));
   try {
     const pool = await ensurePool();
     // Der eigene Knoten (4.5b): gemerkter Schlüssel, sonst die eigene Identität

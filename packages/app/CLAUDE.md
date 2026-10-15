@@ -775,3 +775,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
   App über http im Heimnetz fehlt. Die Bytes jeder Nachricht halten die Vektoren (`test/sol-vektoren-faelle.ts`).
+- **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
+  Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
+  Variante nur mit Grund im Pull Request. Farben, Radien und Abstände nur über die Tokens in `app.css`.
+
