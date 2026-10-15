@@ -9983,3 +9983,21 @@ Programm, x32 nur auf x86_64); mit echtem bubblewrap und Python: `io_uring_setup
 `sandbox.test.ts` angepasst (Selbstprüfung mit `seccomp`).
 
 Knoten-Stand: neu für den Filter; ohne `VIBECODEN=1` ändert sich nichts.
+
+## Schritt 11.5s3 – Speicher je Befehl in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (11.5s3). Bisher begrenzte die Sandbox Zeit, Dateigröße und offene
+Dateien, aber nicht den Arbeitsspeicher – ein Befehl konnte den Rechner des Providers in den Speichermangel treiben.
+
+- **`ulimit -d` statt cgroups:** `RLIMIT_DATA` zählt seit Linux 4.7 privaten, beschreibbaren Speicher (Heap und
+  `mmap`), nicht reservierten Adressraum – Node und WASM reservieren viel und belegen wenig, `ulimit -v` bräche sie.
+  cgroups v2 brauchen ein Nutzer-systemd oder Rechte, die unter Docker meist fehlen; die Grenze je Prozess geht überall.
+- **`sandbox.ts`:** `SANDBOX_GRENZEN.speicherKiB` (4 GiB) in `mitGrenzen()`; der Motor (`sandboxMotor()`) läuft jetzt
+  auch über `mitGrenzen(…, false)` – Dateigröße, offene Dateien, Speicher, aber keine Rechenzeit (er läuft so lange wie
+  der Auftrag). Seine Befehle erben die Grenzen.
+- **Noch nicht:** alle Prozesse eines Befehls zusammen → 11.5s4 (cgroups v2, wo es sie gibt; später, nachrangig).
+- **Doku:** Entwurf, OFFEN (11.5s4 statt 11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (1 neu, 1 erweitert): Grenzen samt `ulimit -d`; mit echtem bubblewrap und Python
+scheitert ein Puffer über der Grenze mit `MemoryError`, 64 MB gehen; der Motor sieht Speichergrenze, aber keine
+Rechenzeitgrenze.

@@ -39,6 +39,11 @@ export const SANDBOX_GRENZEN = {
   cpuSek: 120,
   dateiKiB: 512 * 1024,
   offeneDateien: 1024,
+  /**
+   * Arbeitsspeicher je Prozess (KiB, 11.5s3) über `ulimit -d` (RLIMIT_DATA): zählt seit Linux 4.7
+   * privaten, beschreibbaren Speicher – nicht reservierten Adressraum. `ulimit -v` bräche Node und WASM.
+   */
+  speicherKiB: 4 * 1024 * 1024,
 } as const;
 
 export interface SandboxOrt {
@@ -109,10 +114,14 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
   return a;
 }
 
-/** Grenzen über `ulimit` (je Grenze ein Aufruf – dash nimmt nur eine), dann der Befehl – `sh` aus dem nur lesbaren `/usr`. */
-function mitGrenzen(befehl: readonly string[]): string[] {
+/**
+ * Grenzen über `ulimit` (je Grenze ein Aufruf – dash nimmt nur eine), dann der Befehl – `sh` aus dem nur
+ * lesbaren `/usr`. Der Motor läuft lange: für ihn keine Rechenzeit, die übrigen Grenzen erben seine Befehle.
+ */
+function mitGrenzen(befehl: readonly string[], rechenzeit = true): string[] {
   const g = SANDBOX_GRENZEN;
-  return ["/bin/sh", "-c", `ulimit -t ${g.cpuSek} && ulimit -f ${g.dateiKiB} && ulimit -n ${g.offeneDateien} && exec "$@"`, "sandbox", ...befehl];
+  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`];
+  return ["/bin/sh", "-c", `${grenzen.join(" && ")} && exec "$@"`, "sandbox", ...befehl];
 }
 
 /**
@@ -216,7 +225,7 @@ export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: str
   return (ordner) => {
     const etc = eigenesEtc();
     const ort: SandboxOrt = { arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}) };
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...befehl], {
+    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
       stdio: ["pipe", "pipe", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
     });
     kind.on("error", () => { /* fehlt bubblewrap, endet der Strom – der Lauf endet mit „fehler“ */ });

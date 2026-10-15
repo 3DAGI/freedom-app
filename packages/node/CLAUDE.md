@@ -284,4 +284,6 @@ Bereichs unten anhängen.
   gesperrte Aufrufe ergeben `EPERM`, `clone3` `ENOSYS` (die C-Bibliothek nimmt dann `clone`, dessen Flags der Filter sieht).
   Nummern je Architektur aus den Kernel-Headern – nie von x86_64 auf arm64 übertragen. Netz-Aufrufe bleiben erlaubt:
   ohne Netz-Namensraum erreichen sie nur `lo`, und die Brücke zum Modell (VKc3) braucht sie. Speicher je Befehl nie mit
-  `ulimit -v` – das bricht Node und WASM (11.5s3).
+  `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
+  (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
+  Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
