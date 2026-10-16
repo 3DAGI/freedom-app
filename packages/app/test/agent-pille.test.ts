@@ -43,11 +43,24 @@ test("C-49b: Stufe, Gebot, „privat“ und „über Funk“ im Popover – unte
   for (const id of ["ai-tier", "bid-wrap", "ai-bid", "ai-schiene", "ai-privat-wahl", "ai-funk-wahl"]) assert.match(optionen, new RegExp(`id="${id}"`), id);
   assert.match(optionen, /id="ai-optionen-btn"[^>]*aria-haspopup="true" aria-expanded="false" aria-controls="ai-optionen"/);
   const meta = html.slice(html.indexOf('<div class="composer-meta">'), html.indexOf("</div>", html.indexOf('<div class="composer-meta">')));
-  assert.deepEqual([...meta.matchAll(/id="([^"]+)"/g)].map((m) => m[1]), ["ai-fee-preview", "ai-budget", "ai-gratis"]);
+  // Der Gratis-Stand steht seit C-49c als Chip in der Eingabe
+  assert.deepEqual([...meta.matchAll(/id="([^"]+)"/g)].map((m) => m[1]), ["ai-fee-preview", "ai-budget"]);
   const css = quelle("../src/shell/app.css");
   assert.match(css, /\.eingabe-pille:has\(#ai-privat:checked\) \.privat-marke, \.eingabe-pille:has\(#ai-funk:checked\) \.funk-marke \{ display: inline-flex; \}/);
   assert.match(css, /@media \(max-width: 760px\) \{\n\s+\.ai-optionen \{ position: fixed; left: 0; right: 0; bottom: 0;/, "am Handy ein Blatt von unten");
   const eingabe = quelle("../src/shell/tabs/agent-eingabe.ts");
   assert.match(eingabe, /export function setupOptionen\(\): void \{/);
   assert.match(quelle("../src/shell/app.ts"), /setupAttach\(\);\n\s+setupOptionen\(\);/);
+});
+
+test("C-49c: rechte Spalte am Desktop nur auf Klick – gemerkt nur als Bequemlichkeit, ohne Speicher zu", () => {
+  const nav = quelle("../src/shell/navigation.ts");
+  const fn = nav.slice(nav.indexOf("function wireAgentPanel("), nav.indexOf("\n}\n", nav.indexOf("function wireAgentPanel(")));
+  assert.match(fn, /layout\.classList\.toggle\("panel-offen", auf\);\n\s+knopf\.setAttribute\("aria-expanded", String\(auf\)\);/);
+  assert.match(fn, /try \{ gemerkt = localStorage\.getItem\(LS_AGENT_PANEL\) === "1"; \} catch/);
+  assert.match(nav, /wireAgentPanel\(\);/);
+  const css = quelle("../src/shell/app.css");
+  assert.match(css, /@media \(min-width: 1200px\) \{\n\s+\.agent-layout:not\(\.panel-offen\) \.agent-panel \{ display: none; \}/);
+  assert.match(html, /<button id="agent-panel-umschalten"[^>]*aria-expanded="false" aria-controls="agent-panel">/);
+  assert.match(html, /<aside class="agent-panel" id="agent-panel"/);
 });
