@@ -3536,7 +3536,11 @@ def ohne_knoten_pruefen(browser, url: str) -> dict:
         const seite = document.getElementById('page-earn');
         return {
           hinweis: document.getElementById('earn-ohne-knoten').innerText,
-          sol: getComputedStyle(document.querySelector('#page-earn .nur-mit-knoten')).display,
+          sol: getComputedStyle(document.querySelector('#page-earn .card .nur-mit-knoten')).display,
+          // C-54: Checkliste mit drei Schritten statt eines Felds für einen Schlüssel, keine Kacheln, das Feld eingeklappt
+          schritte: document.querySelectorAll('#earn-ohne-knoten .check-schritt').length,
+          kacheln: getComputedStyle(document.getElementById('earn-kacheln')).display,
+          feld: document.getElementById('earn-anderer-knoten').open || !document.getElementById('earn-knoten').closest('details'),
           umgebung: /ZAHLKANAL|NODE_SOL_ADDRESS/.test(seite.innerText),
           deinKnoten: /Dein Knoten (hat|nimmt)/.test(seite.innerText),
         }; }""")
@@ -3546,7 +3550,8 @@ def ohne_knoten_pruefen(browser, url: str) -> dict:
                        " && getComputedStyle(document.getElementById('knoten-betreiben')).display !== 'none'")
     seite.ctx.close()
     st = erg["stand"]
-    if not st["hinweis"].startswith("Unter diesem Schlüssel ist kein Knoten zu finden") or st["sol"] != "none":
+    if not st["hinweis"].startswith("Eigenen Knoten einrichten") or "Unter diesem Schlüssel ist kein Knoten zu finden" not in st["hinweis"] \
+            or st["sol"] != "none" or st["schritte"] != 3 or st["kacheln"] != "none" or st["feld"]:
         erg["fehler"].append(f"Hinweis {st}")
     if st["umgebung"] or st["deinKnoten"]:
         erg["fehler"].append(f"ohne Knoten noch Knoten-Texte {st}")

@@ -10747,3 +10747,17 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1181 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-54 – Verdienen als Übersicht: Checkliste ohne Knoten, Kacheln mit Knoten
+
+Aus dem Oberflächen-Review (15.10.2026). Die erste Karte unter Verdienen verlangte „Dein Knoten: npub oder Hex“, auch von allen, die keinen Knoten haben.
+
+- **Ohne Knoten** (kein Angebot unter dem Schlüssel) steht eine Checkliste da: Knoten installieren (führt nach Hosten), mit dieser App koppeln (derselbe Dialog wie in Settings › Geräte; gekoppelt: „Gekoppelt.“), Auszahlung festlegen. Keine Umgebungsvariablen (Nutzertest V-1). Das Feld für einen Schlüssel steht unter „Anderer Knoten“.
+- **Mit Knoten** stehen Kacheln da: Stand (Angebot aktiv), heute, 30 Tage, Aufträge (30 Tage) – aus den Leistungs-Events, die der Knoten selbst meldet (`verdienst-kacheln.ts`), mit dem Satz „Wie dein Knoten es meldet – Kunden zählen nur ihre eigenen Quittungen.“ SOL nur mit Kurs als SOL.
+- **Gekoppelt** gilt der gekoppelte Knoten, solange kein anderer eingetragen ist.
+- **Vertrauensstufe mit Ziel:** „Noch n XP bis Classic/Pro.“
+
+Tests: neu `verdienst-kacheln.test.ts` (4: heute/30 Tage je Kette, Fremddaten nur ganze msat, Text, Verdrahtung); `verdienen-ohne-knoten.test.ts` angepasst (Checkliste, „Anderer Knoten“, keine Umgebungsvariablen). Smoke-Teil „ohne_knoten“: drei Schritte, keine Kacheln, Feld zugeklappt; „einnahmen“ unverändert grün.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1185 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
