@@ -35,11 +35,12 @@ async function swapClient(): Promise<typeof import("../../swap-client.js")> {
   return m;
 }
 
-export async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number): Promise<void> {
+export async function startSwap(lpPubkey: string, offerId: string, vorabSats?: number, betrag?: number): Promise<void> {
   if (!state.keypair) return;
+  // Aus dem Tauschformular (C-51) steht der Betrag schon da – der Dialog fragt trotzdem, nichts geht ungefragt hinaus
   const w = await dialog({
     titel: t("waehr.tauschTitel"),
-    felder: [{ art: "text", name: "betrag", label: t("waehr.betragSats"), pflicht: true }],
+    felder: [{ art: "text", name: "betrag", label: t("waehr.betragSats"), pflicht: true, ...(betrag ? { wert: String(betrag) } : {}) }],
     pruefe: (w) => (ganzeSats(w.betrag) ? null : t("waehr.ungueltigerBetrag")),
     ok: t("waehr.weiter"),
   });
@@ -443,7 +444,7 @@ export async function starteRueckholWaechter(): Promise<void> {
  * Lightning-Wallet – ihr Preimage verlaesst die Wallet nie; die App sperrt nur
  * unter dessen Hash. Zahlt der LP nicht, holt der Waechter nach der Frist zurueck.
  */
-export async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<void> {
+export async function startRueckSwap(lpPubkey: string, offer: LpOffer, betrag?: number): Promise<void> {
   const statusEl = $("#swap-status");
   const melde = (text: string, art = ""): void => { statusEl.textContent = text; statusEl.className = `mono-sm ${art}`; };
   const { istRueckAngebot, planeRueckSwap, rueckText } = await import("../../rueck-swap.js");
@@ -452,7 +453,7 @@ export async function startRueckSwap(lpPubkey: string, offer: LpOffer): Promise<
   if (!signer) return melde(t("waehr.erstSolanaWallet"), "warn");
   const ws = await dialog({
     titel: t("waehr.rueckTitel"),
-    felder: [{ art: "text", name: "sats", label: t("waehr.wievieleSats", { min: offer.minSats, max: offer.maxSats }), pflicht: true }],
+    felder: [{ art: "text", name: "sats", label: t("waehr.wievieleSats", { min: offer.minSats, max: offer.maxSats }), pflicht: true, ...(betrag ? { wert: String(betrag) } : {}) }],
     pruefe: (w) => {
       const n = ganzeSats(w.sats);
       if (!n) return t("waehr.ungueltigerBetrag");

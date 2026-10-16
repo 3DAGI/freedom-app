@@ -10607,3 +10607,37 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1159 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-51 – Tauschformular: günstigstes Angebot vorgewählt, „Du zahlst / Du bekommst“
+
+Aus dem Oberflächen-Review (15.10.2026). Bisher zeigte „Tauschen“ nur die Liste der LP-Angebote. Gebühren, Grenzen und Richtung musste man dort selbst vergleichen.
+
+- **Formular über der Liste:**
+  - Richtung „sats → SOL“ / „SOL → sats“ und ein Betrag auf der Lightning-Seite.
+  - Darunter: „Du zahlst“, „Du bekommst“, Kurs, Gebühr, Frist, Grenzen und Anbieter.
+  - Dazu der Satz „atomar“ aus `docs/SWAPS.md`.
+- **Vorgewählt** ist das günstigste gültige Angebot der Richtung (`bestesAngebot()` in `tausch-wahl.ts`):
+  - es darf nicht abgelaufen sein und muss Umschläge lesen (4.9b);
+  - Gebühr, Grenzen und Frist müssen rechenbare Zahlen sein, denn `parseLpOffer()` prüft sie nicht;
+  - bei gleicher Gebühr gewinnt das größere Angebot.
+- **Ehrliche Beträge:**
+  - SOL → sats ist genau: derselbe `rueckSwapLamports()` wie beim Sperren, Kurs aus `lamports_per_sat`.
+  - sats → SOL ist nur mit Marktkurs geschätzt (≈). Ohne Kurs steht „nennt der Anbieter vor dem Zahlen“.
+  - Die nicht erstattbare Vorab-Gebühr (4.6d) steht bei der Gebühr.
+- **„tauschen“** ruft denselben Ablauf wie die Liste (`startSwap()`/`startRueckSwap()`). Der Betrag steht im Dialog vorbelegt; der Dialog fragt weiter, nichts geht ungefragt hinaus.
+- **„Alle Angebote“** steht aufklappbar darunter. Mit Angeboten ist die Liste zu; ohne steht dort der leere Zustand aus C-45.
+
+Tests:
+- Neu: `tausch-wahl.test.ts` mit 9 Tests:
+  - Auswahl, Ausschlüsse und Gleichstand;
+  - genauer Betrag in der Gegenrichtung, Schätzung nur mit Kurs;
+  - Grenzen, Vorab-Gebühr, Kurs und Frist;
+  - Verdrahtung.
+- Der Smoke-Teil „waehrung“ prüft:
+  - das Formular ist sichtbar und die Liste zu;
+  - in beiden Richtungen das vorgewählte Angebot (das unversiegelte nie) mit allen Zeilen;
+  - einen zu kleinen Betrag;
+  - „tauschen“ öffnet den Dialog mit dem Betrag.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1168 (+9), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
