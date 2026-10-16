@@ -10365,3 +10365,135 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1138 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-44 – Avatare: Buchstabe im Kreis, Farbe aus dem Schlüssel
+
+Aus dem Oberflächen-Review (15.10.2026). Personen ohne Bild sahen alle gleich aus:
+- In der Chat-Liste stand ein grüner Kreis mit dem ersten Zeichen des Namens oder, ohne Namen, des Schlüssels.
+- Im Raum-Verlauf und bei den Mitgliedern stand gar kein Zeichen.
+- Im Kopf der Unterhaltung stand nicht einmal der Name.
+
+- **`avatar.ts`**:
+  - `avatarFarbe()` wählt eine von acht Farben aus den ersten zwei Hex-Zeichen des Schlüssels. Ohne gültigen Schlüssel ist es die erste.
+  - `personInitiale()` liefert den ersten Buchstaben des Namens, nach Zeichen gezählt (Emoji bleiben ganz), ohne „~“. Ohne eigenen Namen steht „?“ statt eines Zeichens aus dem Schlüssel; die Farbe unterscheidet die Personen trotzdem.
+  - `kontaktInitiale()` nutzt sie mit.
+- **`avatar()`** (`shell/ui.ts`) baut einen Kreis nur aus Text, mit `data-farbe` und `aria-hidden` (für Vorleser zählt der Name daneben). Er erscheint in:
+  - der Chat-Liste (32 px);
+  - dem neuen Kopf der Unterhaltung (`#chat-partner`: Zeichen und Name; er wird mit der Liste neu gezeichnet und folgt so Umbenennen und Profilnamen);
+  - dem Raum-Verlauf (36 px links neben jeder Gruppe);
+  - den Mitgliedern.
+  Das eigene Zeichen kommt aus dem eigenen Profilnamen (`eigeneInitiale()`, wie in der Kopfzeile).
+- **Kopfzeile und Profil** nutzen dieselben Farben: `header .ident[data-farbe]::before` und `.profile-avatar-fallback[data-farbe]`. Der Rand der Profil-Vorschau bleibt im gewählten Akzent.
+- Nie ein Bild aus dem Netz (Regel aus C.5a).
+
+Die acht Farben stehen nur in `app.css`. Ein Test liest sie dort und rechnet den Kontrast zu Weiß nach WCAG: Jede liegt bei mindestens 4,5:1 (die niedrigste bei etwa 5:1).
+
+Tests:
+- Neu ist `avatar.test.ts`:
+  - Farbe gleich für denselben Schlüssel, alle acht verteilt, kaputte Schlüssel ergeben 0;
+  - Buchstabe nur aus dem Namen, Gegenfälle ergeben „?“;
+  - Kontrast jeder Farbe;
+  - die Verdrahtung.
+- `kontakt-name.test.ts` erwartet ohne Namen jetzt „?“ statt einer Ziffer aus dem Schlüssel; das ist eine gewollte Änderung.
+- Der Smoke-Teil „kontaktname“ prüft zusätzlich die Farbe aus dem Schlüssel und Zeichen und Namen im Kopf der Unterhaltung.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1142 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-45 – Leere Zustände mit Symbol, Satz und nächstem Schritt
+
+Aus dem Oberflächen-Review (15.10.2026). Leere Listen zeigten bis jetzt einen grauen Satz ohne Weg weiter, oft mit Fachwort:
+- „Noch keine Unterhaltungen. Mit + beginnst du eine.“
+- „Noch keine Repos nach NIP-34 …“
+- „keine LP-Angebote gefunden“
+
+- **`leererZustand()`** (`shell/ui.ts`) zeigt ein Symbol im Kreis, einen Satz als Text und höchstens einen Knopf, die Hauptaktion (`.primaer`, C-42b). Kein HTML.
+- **Chat-Liste**: „Noch keine Unterhaltungen. Schreib jemandem – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer.“ Dazu „Neue Unterhaltung“; der Knopf öffnet denselben Dialog wie „＋“.
+- **Repos**, drei Fälle:
+  - Ohne Repos: „Repo ankündigen“.
+  - Wenn die Suche nichts findet: „Suche leeren“ (leert das Feld und zeigt die Liste wieder).
+  - Unter „Neu“ ohne Neuigkeiten: „Alle zeigen“.
+  Der Text nennt statt „NIP-34“ die Clients, die die Repos auch sehen.
+- **Tauschen**: „Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.“ Dazu „Noch einmal suchen“, das das Wallet neu lädt. Die Angebote liest die App weiter nur von den eigenen Relays; der Satz sagt genau das.
+
+Verdienen („Noch keine Einnahmen“) baut C-54 ohnehin um. Dort kommt der leere Zustand mit der Übersicht.
+
+Tests:
+- Neu ist `leer-zustand.test.ts`:
+  - der Baustein (nur Text, höchstens ein Knopf);
+  - die Verdrahtung an allen fünf Stellen samt Gegenprobe;
+  - Klartext ohne „NIP-34“, „LP“ und „mit +“ in beiden Sprachen.
+- Smoke-Teile:
+  - „einrichtung_wahl“: Die leere Chat-Liste zeigt Symbol, Satz und Knopf, und der Knopf öffnet den Dialog.
+  - „repos“: Die leere Suche zeigt Satz und „Suche leeren“, und der Knopf bringt die Liste zurück.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1145 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-46 – Agent-Kleinigkeiten: Kopieren je Antwort, ehrlicher Untertitel
+
+Aus dem Oberflächen-Review (15.10.2026), vier Kleinigkeiten auf der Agent-Seite:
+- **Kopieren**: Unter der Eingabe stand eine eigene Knopfreihe „Letzte kopieren · Alle kopieren“. Jetzt steht „Kopieren“ (Symbol und Wort) leise unter jeder Antwort, nicht unter den eigenen Fragen. Kopiert wird nur der Text der Antwort. Wenn der Browser die Zwischenablage nicht freigibt, sagt die Meldung das, statt „keine Antwort“. „Alle kopieren“ steht im Arbeitsbereich unter „Unterhaltung“. Eine Reihe weniger um die Eingabe; C-49 baut sie ganz um.
+- **Untertitel**: Bis jetzt stand dort „Stell eine Frage. Du zahlst pro Anfrage.“, über einer Karte, die „kostet kein Geld“ sagte. Jetzt: „Stell eine Frage. Bis zu 20 Antworten am Tag sind gratis, solange Provider es anbieten – danach zahlst du je Anfrage.“ Ein Test hält die Zahl gleich mit `GERAET_GRATIS`.
+- **Beispiele** stehen ohne Anführungszeichen und „…“, in Satzschreibung.
+- **„Modell wählen · Werkzeuge anhängen“** fällt weg. Das war Text, der wie ein Knopf aussah, die Knöpfe stehen direkt darunter.
+- **„Auto (schnellste)“** ist seit C-42b kein zweiter grüner Knopf neben „Senden“ mehr, sondern die Grundform. Ein Test hält fest, dass er keine grüne Klasse trägt.
+
+Tests:
+- `agent-kleinigkeiten.test.ts` hat zwei neue Tests:
+  - Kopieren nur unter Antworten und nur Text, „Alle kopieren“ im Arbeitsbereich, keine Reihe mehr;
+  - der Untertitel nennt die Zahl aus dem Kontingent in beiden Sprachen, Beispiele ohne Anführungszeichen, kein Schein-Knopf.
+- Der Smoke-Teil „agent_folgen“ prüft zusätzlich: sechs Antworten mit „Kopieren“, keine Frage mit; der Klick kopiert die letzte Antwort (Attrappe der Zwischenablage); „Alle kopieren“ steht im Arbeitsbereich.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-48 – Website: eine Navigation, Menü-Knopf am Handy, Text ohne Serifen
+
+Aus dem Oberflächen-Review (15.10.2026). Die Startseite hatte eine andere Navigation als die Unterseiten: Dort fehlten Downloads, dafür stand „Start“. Am Handy brach die Navigation zweizeilig um, in 10 px Großbuchstaben. Der ganze Text stand in Monospace.
+
+- **Eine Navigation** auf allen fünf Seiten: App, Downloads, Status, Whitepaper, Roadmap, FAQ, Code. Das Logo führt überall zur Startseite. Die eigene Seite ist als `aria-current="page"` markiert und grün. Die Sprachauswahl bleibt auf der Startseite, weil nur sie übersetzt ist. Die Unterseiten gibt es nur auf Deutsch, und eine Auswahl dort verspräche etwas anderes.
+- **Menü-Knopf am Handy** (bis 760 px): „Menü“ klappt die Links als Liste mit etwa 50 px hohen Zeilen auf (`js/nav.js`, `aria-expanded`, Escape schließt, ein Link schließt). Ohne Skript bleibt die Navigation offen sichtbar; versteckt wird sie erst, wenn das Skript läuft (`mit-skript`).
+- **Schrift**:
+  - Text ohne Serifen (`--font-body`, Systemschrift wie die App seit C-42a; Inter einzubetten bleibt Entscheidung OR1);
+  - Monospace nur für Code, Befehle und das Terminal-Fenster (`--font-mono`);
+  - Fließtext 16 px, kleinste Schrift 12 px (vorher 10–11 px), Karten-Text 14 px;
+  - Knöpfe in Satzschreibung mit Radius 10 px wie in der App.
+- Das Aussehen der Startseite und des Dashboards (Hero, Bild der App, Kacheln) bleibt C-58.
+
+Tests:
+- `check-website.py` prüft neu (`navigation_pruefen()`):
+  - dieselben Ziele auf allen Seiten;
+  - Menü-Knopf mit `aria-controls` und `js/nav.js`;
+  - die eigene Seite als `aria-current`;
+  - Fließtext ohne Monospace.
+- Gegenprobe: Eine FAQ-Seite ohne „Roadmap“ und ohne `aria-current` ergibt zwei Fehler, Ende mit 1.
+- Bildschirmfotos (1280 und 390 px, Menü offen): keine waagrechte Laufleiste, Schrift ohne Serifen.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-49a – Agent-Eingabe als Pille, Werkzeuge im Menü „+“
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-49. Um die Eingabe des Agenten standen fünf Bedienreihen: Werkzeug-Chips mit Preisen über dem Feld, Anhang-Knopf, Textfeld mit „Senden“, darunter Stufe, Modell, Gebot, „privat“ und Stände. Am Handy belegte das 410 von 844 px.
+
+- **Eine Pille**: oben das Textfeld ohne eigenen Rahmen, darunter eine Leiste mit:
+  - „+“;
+  - den gewählten Werkzeugen als Chips;
+  - dem Modell (`#ai-model-btn`, jetzt in der Pille, das Popover öffnet nach rechts);
+  - „Senden“.
+- **„+“** öffnet „Anhängen“ (Bild, Datei, Audio, Video, Kamera) und „Werkzeuge“ (Web, Browser, Bild, Video, je mit Preis rechts) in einem Menü. Es hat `aria-expanded`/`aria-controls`, Escape schließt das Menü und gibt den Fokus zurück. Ein Klick im Menü schließt es nicht (mehrere Werkzeuge nacheinander), ein Anhang schon.
+- **Gewählte Werkzeuge** stehen als Chip „Web ×“ in der Pille (`zeigeWerkzeugAuswahl()`). Das „×“ klickt den Knopf im Menü, so bleibt `selectedTools` an einer Stelle.
+- „Auto (schnellste)“ beginnt groß. `::first-letter` griff nicht, weil ein Symbol vor dem Text steht.
+- Die Werkzeug-Reihe zum Wischen am Handy (C.5a) fällt weg, weil die Werkzeuge im Menü untereinander stehen.
+
+Stufe, Gebot und „privat“ wandern mit C-49b ins Popover, der Gratis-Stand mit C-49c in einen Chip.
+
+Tests:
+- Neu ist `agent-pille.test.ts`: die Reihenfolge in der Pille, die vier Werkzeuge im Menü, `aria-*`, und die Chips, deren „×“ den Menü-Knopf klickt, ohne `selectedTools` und ohne HTML.
+- Der Smoke-Teil „agent_klein“:
+  - liest die Preise jetzt `attached` statt sichtbar;
+  - prüft zusätzlich: „+“ öffnet das Menü (vier Werkzeuge, `aria-expanded`), „Web“ ergibt den Chip „Web×“ und das Menü bleibt offen, „×“ nimmt das Werkzeug zurück, Escape schließt.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1149 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
