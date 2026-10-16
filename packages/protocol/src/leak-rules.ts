@@ -210,6 +210,7 @@ const ZAHLUNGS_TAGS = new Set([
   "amount", "amount_msat", "amount_lamports", "solana_address", "bid", "usage",
   "max_total_msat", "max_rate_per_ktoken_msat", "settle_every_msat", "cumulative_msat", "units", "payment",
   "gutschrift", // Zahlkanal (4.3d): Betrag, Ablauf und Signatur – nur im versiegelten Kern
+  "pfand", // Cashu-Pfand (RM2a): gesperrte Token sind Geld – nur im versiegelten Kern
 ]);
 
 /** Leistungs-Event des Providers (Reputation): Menge und Volumen ohne Kunden. */

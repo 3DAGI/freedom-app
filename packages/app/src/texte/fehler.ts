@@ -42,6 +42,7 @@ export const fehler: Texte = {
   "pf.betragPositiv": { de: "Betrag muss eine positive ganze Zahl sein", en: "The amount must be a positive whole number" },
   "pf.limitUngueltig": { de: "Limit muss eine nicht negative ganze Zahl sein", en: "The limit must be a non-negative whole number" },
   "pf.kanalBetrag": { de: "Betrag muss größer als 0 sein", en: "The amount must be greater than 0" },
+  "pf.pfandForm": { de: "Pfand hat nicht die Form", en: "The deposit is malformed" },
   // SOL ohne Internet (sol-offline)
   "pf.nonceNichtEingerichtet": { de: "Nonce-Konto ist nicht eingerichtet", en: "The nonce account is not set up" },
   "pf.anSichSelbst": { de: "Überweisung an sich selbst", en: "Transfer to yourself" },

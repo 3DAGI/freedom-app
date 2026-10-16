@@ -499,6 +499,7 @@ const FEHLER: Record<string, string> = {
   "betrag-positiv": "pf.betragPositiv",
   "limit-ungueltig": "pf.limitUngueltig",
   "kanal-betrag": "pf.kanalBetrag",
+  "pfand-form": "pf.pfandForm",
   "nonce-nicht-eingerichtet": "pf.nonceNichtEingerichtet",
   "an-sich-selbst": "pf.anSichSelbst",
   "nonce-andere-adresse": "pf.nonceAndereAdresse",
