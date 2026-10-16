@@ -47,7 +47,7 @@ Aufruf:  python3 agent/werkzeuge/smoke_test.py packages/app/dist
 Voraussetzung: pip install playwright && python3 -m playwright install chromium
 Exit-Code 0 = bestanden, 1 = durchgefallen.
 """
-import datetime, functools, http.server, json, re, socket, subprocess, sys, threading
+import datetime, functools, http.server, json, os, re, socket, subprocess, sys, threading
 
 # Verlauf mit HTML im Modellnamen und in meta – beides kam frueher roh ins HTML.
 PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages": [
@@ -5687,6 +5687,72 @@ MOBIL_MESSEN = """() => {
 }"""
 
 
+STIL_SOLL = Path(__file__).resolve().parent / "stil-soll.json"
+# Was der Abdruck je Seite misst: Bausteine (C-56a) und ihre Stile – nur Erklärtes aus dem CSS, keine Schriftmetrik
+STIL_ABDRUCK = """() => {
+  // Übergänge aus: gemessen werden die Endwerte, nie ein Zwischenstand (die Navigation färbt sich über 150 ms um)
+  const ruhe = document.createElement('style');
+  ruhe.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+  document.head.append(ruhe);
+  const stil = (e) => { if (!e) return null; const c = getComputedStyle(e); return [c.fontFamily.split(',')[0].trim(), c.fontSize,
+    c.fontWeight, c.textTransform, c.borderTopLeftRadius, c.backgroundColor, c.color, c.minHeight]; };
+  // Eine feste Probe aus allen Bausteinen (C-56a) – unabhängig davon, was die Seite gerade nachlädt
+  const probe = document.createElement('div');
+  probe.id = 'stil-probe';
+  const h = (tag, klasse, typ) => { const e = document.createElement(tag); if (klasse) e.className = klasse; if (typ) e.type = typ; probe.append(e); return e; };
+  const teile = {
+    knopf: h('button'), primaer: h('button', 'primaer'), ghost: h('button', 'ghost'), chip: h('button', 'chip'),
+    karte: h('div', 'card'), feld: h('input', '', 'text'), schalter: h('input', 'schalter', 'checkbox'), skelett: h('span', 'skelett-zeile'),
+  };
+  const gruppe = h('div', 'einst-gruppe');
+  const zeile = document.createElement('label'); zeile.className = 'einst-zeile'; gruppe.append(zeile);
+  (document.querySelector('.tab-page.active .page-body') ?? document.querySelector('.tab-page.active') ?? document.body).append(probe);
+  const erg = Object.fromEntries(Object.entries(teile).map(([k, e]) => [k, stil(e)]));
+  erg.gruppe = stil(gruppe); erg.zeile = stil(zeile);
+  probe.remove();
+  erg.text = stil(document.body);
+  erg.titel = stil(document.querySelector('.tab-page.active h1.page-title'));
+  erg.navigation = stil(document.querySelector('.app-nav button[data-tab].active, .app-nav button[data-tab][aria-current=page]'));
+  ruhe.remove();
+  return erg;
+}"""
+
+
+def stil_abdruck_pruefen(browser, url: str) -> dict:
+    """Bausteine bleiben gleich (C-56b, Oberflächen-Review): je Seite (Agent, Chats, Wallet, Verdienen, Einstellungen) auf
+    Desktop und Handy ein Abdruck aus den Stilen einer festen Probe aller Bausteine, des Seitentitels und der Navigation –
+    Schrift, Größe, Gewicht, Schreibung, Radius, Farben, Mindesthöhe; verglichen mit `scripts/stil-soll.json`. Gemessen wird nur, was das CSS
+    festlegt, nicht die Schrift des Rechners – Bildschirmfotos hingen von den Schriften des CI-Rechners ab. Gewollt
+    geändert: `STIL_NEU=1` schreibt die Datei neu (mitcommiten, im Pull Request nennen); `BILDER=<ordner>` legt dazu
+    Bildschirmfotos ab, zum Ansehen."""
+    erg = {"fehler": []}
+    ist = {}
+    bilder = os.environ.get("BILDER")
+    for groesse, vp, mobil in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True)):
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil)
+        ev, s = seite.ev, seite.s
+        for name, hash_ in (("agent", "#/agent"), ("chats", "#/chat"), ("wallet", "#/waehrung"), ("verdienen", "#/verdienen"), ("einstellungen", "#/settings")):
+            ev("(h) => { location.hash = h; }", hash_)
+            s.wait_for_function("() => !!document.querySelector('.tab-page.active')", timeout=10000)
+            ist[f"{groesse}/{name}"] = ev(STIL_ABDRUCK)
+            if bilder:
+                Path(bilder).mkdir(parents=True, exist_ok=True)
+                s.screenshot(path=str(Path(bilder) / f"{groesse}-{name}.png"))
+        seite.ctx.close()
+    erg["ist"] = ist
+    if os.environ.get("STIL_NEU") == "1":
+        STIL_SOLL.write_text(json.dumps(ist, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        erg["neu_geschrieben"] = str(STIL_SOLL)
+    soll = json.loads(STIL_SOLL.read_text(encoding="utf-8")) if STIL_SOLL.exists() else {}
+    for k in sorted(set(soll) | set(ist)):
+        for teil in sorted(set(soll.get(k, {})) | set(ist.get(k, {}))):
+            a, b = soll.get(k, {}).get(teil), ist.get(k, {}).get(teil)
+            if a != b:
+                erg["fehler"].append(f"{k} {teil}: soll {a}, ist {b}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def mobil_pruefen(browser, url: str) -> dict:
     """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
     40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
@@ -5945,6 +6011,10 @@ def main() -> int:
             except Exception as e:
                 erg["einst_zeilen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["stil_abdruck"] = stil_abdruck_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["stil_abdruck"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6093,6 +6163,7 @@ def main() -> int:
           and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("einst_zeilen", {}).get("bestanden") is True
+          and erg.get("stil_abdruck", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
