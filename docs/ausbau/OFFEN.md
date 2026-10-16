@@ -155,9 +155,8 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
-| A-17c | Cashu-Baustein (`@cashu/cashu-ts`: Mint wählen, Token senden und empfangen, NUT-11/12) | frei ([`E4B-ENTWURF.md`](../E4B-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
-| RM2a–c | Cashu-Pfand für Lightning-Sitzungen (RM2d Oberfläche, Spur C) | nach A-17c ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
+| RM2b3, RM2c | Cashu-Pfand für Lightning-Sitzungen: Knoten – Mint-Abrufe über Tor, Erlös an die eigene Lightning-Adresse (NUT-05); App (RM2d Oberfläche, Spur C); mit RM2c die Grenze „cashu-verwahrt“ im Bericht (E4b V5) | frei (A-17c ✓: `CashuTopf` in `app/src/cashu-topf.ts`; RM2a ✓: `pruefePfand()`, §38; RM2b1 ✓: `PfandKasse`; RM2b2 ✓: im Provider, `PFAND=1`) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |

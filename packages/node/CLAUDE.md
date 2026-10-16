@@ -302,3 +302,19 @@ Bereichs unten anhängen.
   --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
   Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
   außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.
+- **Cashu-Pfand im Knoten nur über `PfandKasse`** (seit RM2b1, `pfand-kasse.ts`, `docs/PROTOCOL.md` §38): angenommen nur
+  über `nimmAn()` – `pruefePfand()` gegen die gemerkten Schlüssel der Mints aus `ladeMints()` (nur Mints mit NUT-11, NUT-12
+  und Schlüsseln in sat), Deckung je Sitzungsschlüssel der Anfrage (signiert, nie ein Schlüssel aus den Tags) und netto:
+  Nennwert minus `input_fee_ppk` je Token (ppk sind msat). Ohne Deckung bleibt der Stand, wie er war; eine leere Liste legt
+  kein Konto an. Alles in einer Datei (`pfandSpeicher()`, 0600, über eine Zwischendatei; kaputt → kein Start, nie
+  ersetzen) – Pfand-Schlüssel, Seed, Token, gesehene Geheimnisse bis zur Frist, Konten, Erlös. Eingelöst nur über
+  `loeseFaelligeEin()`: eine zur Zeit, je Mint gesammelt, ohne Beweis (V5), spätestens `PFAND_LETZTER_VERSUCH_SEK` vor der
+  Frist – danach gehört das Token dem Rückweg des Kunden. Eigene Token nur aus dem Seed (NUT-13) mit Zählern in der Datei;
+  scheitert ein Tausch (auch ohne Antwort), holt der nächste Lauf genau dessen Zählerbereich zurück (NUT-09) und prüft die
+  eingesetzten Token – nie ab Zähler 0. Die Test-Mint verlangt 0,1 sat je Token: Beträge im Test aus den Token rechnen,
+  nie fest.
+  Im Provider (seit RM2b2) nur mit `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` wie im Angebot; ungültig → kein
+  Start, mit `TOR_SOCKS` bis RM2b3 auch – die Mint sähe sonst die IP am Tor vorbei): Pfand nur aus einem Umschlag, nie neben
+  einer Gutschrift, Deckung und Buchung nur als Anteil des Providers (`providerAnteilMsat()`), gebucht vor der Antwort.
+  Über den Provider geht nur eine Mint mit https oder .onion (`lesePfandTags()`) – die Test-Mint auf http://127.0.0.1 nur
+  in Tests der Kasse; Tests des Providers nehmen eine Attrappe mit `nimmAn`/`verbuche`.

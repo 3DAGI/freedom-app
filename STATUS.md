@@ -10208,3 +10208,134 @@ Tests: Die Unit-Tests sind unverändert grün. Grün sind auch die Smoke-Teile �
 
 **Prüfungen:** protocol 1332 grün, node 501 (ohne Netz), app 1128 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt A-17c – Cashu-Baustein
+
+Spur A, `docs/E4B-ENTWURF.md` (V2, V3 geändert mit RM2 W5 A, W4: 10.000 sat; A-17c freigegeben 14.10.). Neue
+Abhängigkeit `@cashu/cashu-ts` 4.11.0 (MIT oder Apache-2.0, freigegeben mit A-17c), nur in der App. Kein Event-Format.
+
+**Gebaut:**
+- `app/src/cashu-topf.ts` (neu, ohne DOM) – `CashuTopf`:
+  - **Mint wählen** (`waehleMint()`): Adresse nur über `pruefeMintAdresse()` (https, keine Zugangsdaten, nicht im
+    Heimnetz; `.onion` auch über http); nur Mints mit NUT-11, NUT-12 und Laden in sat; wechseln nur mit leerem Topf.
+  - **Laden** (NUT-04): `ladeAnfrage()` prüft die Rechnung der Mint auf genau den Betrag (`leseBolt11()`); bezahlt der
+    Aufrufer über die Zahlschienen, dann `abholen()`. Abgelaufene Ladungen zählen nicht mehr.
+  - **Senden** (`sende()`): Tausch bei der Mint, Wechselgeld bleibt; mit `an` gesperrt auf den Schlüssel des Empfängers
+    (NUT-11), die Gebühr fürs Einlösen trägt der Absender.
+  - **Empfangen** (`empfange()`): nur Token der eigenen Mint mit DLEQ (NUT-12), nicht auf einen fremden Schlüssel
+    gesperrt. Ohne Netz (`pruefeOhneNetz()`, `nimmOhneNetz()`): nur genau auf den eigenen Schlüssel gesperrt, ohne Frist
+    und ohne Rückgabe-Schlüssel, geprüft gegen die gemerkten Schlüssel der Mint; Doppeltes zählt einmal; eingelöst mit
+    `einloesen()`.
+  - Höchstens 10.000 sat: Guthaben, gesperrt Empfangenes und offene Ladungen zusammen.
+  - **Absturzsicher:** eigene Token aus einem Seed (NUT-13), Zähler im Tresor. Jeder Tausch merkt vorher Zähler und
+    Einsatz (`laufend`); `nachholen()` leitet nur den Zählerbereich dieses Tauschs neu ab (NUT-09) und prüft den
+    Einsatz – nie ab Zähler 0, sonst kämen früher gesendete Token zurück.
+  - Nur im Tresor (`freedom.cashu`, `GEHEIM_FEST`, `SICHERUNG_NIE`, nie im Export); ohne offenen Tresor schreibt er
+    nichts. Nach außen nur `CashuFehler.fall`.
+- `scripts/check-wiring.py` (Zahlwege): `@cashu/cashu-ts` nur in `cashu-topf.ts`.
+- `scripts/cashu-testmint.sh` + `cashu-testmint.txt`: Nutshell 0.21.0 mit FakeWallet auf 127.0.0.1, alle Versionen fest;
+  die CI startet sie vor den App-Tests (`CASHU_TEST_MINT`).
+- **Doku:** Fallstrick in `packages/app/CLAUDE.md`, Befehl in `CLAUDE.md`, FORTSCHRITT, OFFEN (A-17c gestrichen, RM2a–c
+  frei), Entwurf, Stand-Zeile.
+
+**Tests:** app +9 (`cashu-topf.test.ts`, 6 davon gegen die Mint – ohne `CASHU_TEST_MINT` übersprungen):
+- Adressen der Mint;
+- nie in Sicherung oder Export;
+- ohne Stand kein Empfangsschlüssel;
+- Laden mit Höchstbetrag und Tresor-Pflicht;
+- Senden und Empfangen: doppelt Ausgegebenes, fremde Mint, fehlende DLEQ;
+- gesperrt auf einen Schlüssel – nur er löst ein, ohne Netz einmal;
+- ohne Netz nie Ungesperrtes;
+- Absturz mitten im Senden und beim Abholen: genau dieser Stand kommt zurück, ein früher gesendetes Token nicht.
+
+Knoten-Stand: unverändert. Noch ohne Oberfläche und ohne Aufrufer – den bringt RM2c (mit der Grenze „cashu-verwahrt“ im
+Bericht).
+
+## Schritt RM2a – Cashu-Pfand im Protokoll
+
+Spur A, `docs/RM2-ENTWURF.md` (V1–V3, W1 A, entschieden 14.10.). Keine neue Abhängigkeit (`@noble/curves` und
+`@noble/hashes` sind schon im Protokoll). Neues Format, wie der Entwurf es verlangt (V7): Tags im Kern der Anfrage und im
+Angebot (§38).
+
+**Gebaut:**
+- `protocol/src/pfand.ts` (neu):
+  - `hashZuKurve()` (NUT-00), `hashE()` und `pruefeDleq()` (NUT-12, Prüfung des Empfängers) mit `@noble/curves`.
+  - `pfandTags()`/`lesePfandTags()`: genau ein `["pfand", Mint, Token als JSON]` im versiegelten Kern, streng gelesen
+    (höchstens 64 Token, Form je Feld, sonst `pfand-form`).
+  - `pruefePfand()` ohne Mint – Mint in der Liste, Schlüssel der Mint bekannt, Beweis, Sperre genau auf den
+    Pfand-Schlüssel, Frist mindestens 15 Minuten weg, Rückweg, nichts doppelt; gilt ein Teil nicht, gilt keiner.
+  - `cashuAngebotTags()`/`leseCashuAngebot()`: `cashu_mint` (höchstens 5) und `cashu_pfand` (Schlüssel, Fassung 1) im
+    Angebot; `buildCapabilities()`/`parseCapabilities()` tragen `cashu`.
+- Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+- `docs/PROTOCOL.md` §38, Fallstrick in `CLAUDE.md`, `wiring-ausnahmen.txt` (Aufrufer mit RM2b und RM2c).
+
+**Tests:** protocol +7 (`pfand.test.ts`):
+- hash_to_curve (NUT-00), hash_e und Beweis eines Tokens (NUT-12) gegen die Testvektoren der Spezifikation, jede
+  Abweichung fällt auf;
+- `pruefePfand()` mit echten gesperrten Token einer Mint im Test (blind signiert, mit Beweis) und jede Abweichung mit
+  ihrer Kennung;
+- Tags hin und zurück, Kaputtes wirft;
+- Angebot hin und zurück, fremde Angaben streng;
+- Leak-Regel: Pfand offen fällt auf, Angebot nicht.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; RM2b).
+
+## Schritt RM2b1 – Pfand-Kasse im Knoten
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V3, V5, V6; W1 A, entschieden 14.10.). RM2b aufgeteilt wie der Zahlkanal (4.3c1/4.3c2):
+RM2b1 die Kasse, RM2b2 das Verdrahten. Neue Abhängigkeit im Knoten wie im Entwurf freigegeben: `@cashu/cashu-ts` 4.11.0
+(MIT oder Apache-2.0, schon in der App seit A-17c – die Sperrdatei bekommt nur den Eintrag des Knotens).
+
+**Gebaut:**
+- `node/src/pfand-kasse.ts` (neu), `PfandKasse`:
+  - `ladeMints()`: Selbstprüfung je Mint (NUT-11, NUT-12, Schlüssel in sat), Schlüssel gemerkt fürs Prüfen ohne Mint;
+    unerreichbar → die gemerkten bleiben. Ein unbekanntes Keyset holt die Kasse höchstens einmal je Minute neu.
+  - `nimmAn(pfand, sitzung, bedarfMsat)`: `pruefePfand()`, dann Deckung wie die KanalKasse – übergeben mindestens
+    abgerechnet plus Bedarf, je Sitzungsschlüssel der Anfrage, netto (Nennwert minus Gebühr der Mint je Token, NUT-02).
+    Ohne Deckung bleibt alles, wie es war; ohne neue Token wird gegen das Übergebene gerechnet.
+  - `verbuche()`: höchstens bis zum Übergebenen.
+  - `loeseFaelligeEin()`: eine Einlösung zur Zeit, je Mint gesammelt (Frist im Vorlauf von 30 Minuten oder 1000 sat
+    offen), ohne Beweis (V5), spätestens zehn Minuten vor der Frist – was näher liegt, gehört dem Rückweg.
+  - Absturzsicher wie der Cashu-Topf (A-17c): eigene Token aus einem Seed (NUT-13), Zähler in der Datei, vor jedem Tausch
+    „laufend“ gemerkt; scheitert er, auch ohne Antwort der Mint, holt der nächste Lauf genau diesen Zählerbereich zurück
+    (NUT-09) und prüft die eingesetzten Token.
+  - `pfandSpeicher()`: eine Datei, 0600, über eine Zwischendatei; kaputt → kein Start.
+- Protokoll: eine leere Token-Liste heißt „gegen das schon Übergebene rechnen“ (`lesePfandTags()`, `pruefePfand()` ohne
+  Frist), §38.
+- CI: die Test-Mint startet vor den Knoten-Tests.
+
+**Tests:** node +6 (`pfand-kasse.test.ts`; 4 gegen die Mint), protocol unverändert 7 (`pfand.test.ts` um die leere Liste
+erweitert):
+- Datei 0600, Neustart behält den Schlüssel, kaputt → kein Start; Mint ohne Netz;
+- Deckung netto, je Sitzung, nie doppelt – auch nach einem Neustart, ohne Beweis gemerkt, fremde Sperre abgelehnt;
+- Einlösen gesammelt vor der Frist, eine Einlösung zur Zeit, zu spät nie;
+- Abbruch nach der Antwort der Mint: der nächste Lauf holt genau diesen Tausch, nichts doppelt;
+- die Mint hält die Frist ein (V3): vorher kein Rückweg, danach schon.
+
+Knoten-Stand: unverändert (noch nicht verdrahtet; RM2b2).
+
+## Schritt RM2b2 – Pfand im Provider verdrahtet
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V4; W1 A). Teil 2 von RM2b; Mint-Abrufe über Tor und die Auszahlung des Erlöses
+kommen mit RM2b3 (neu in V9).
+
+**Gebaut:**
+- `dvm-provider.ts`: `lesePfandTags()` im versiegelten Kern; Pfand nur aus einem Umschlag, nur mit Kasse, nicht in der
+  Bootstrap-Phase, nie neben einer Gutschrift, Gebot mindestens `minBidMsat`. Gedeckt sein muss der Anteil des Providers an
+  Gebot und Werkzeugen (`providerAnteilMsat()`, V4 – die übrigen Anteile zahlt die App nach der Antwort); abgerechnet wie ein
+  Gebot (höchstens das Gebot plus Werkzeuge), gebucht vor der Antwort der Anteil des Providers – auch im Schwarm-Modus.
+- `pfand-kasse.ts`: `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` – https oder .onion, höchstens fünf; ungültig oder mit
+  `TOR_SOCKS` → kein Start) und `pfandOrt()` (`~/.freedom/pfand.json`).
+- `main.ts`: Kasse aus der Umgebung, Selbstprüfung der Mints beim Start (ohne den Start aufzuhalten) und stündlich, Einlösen
+  alle fünf Minuten (ins Log nur Mint, Betrag, Fehlername), im Angebot `cashu` mit den geprüften Mints und dem Pfand-Schlüssel.
+- `docker-compose.yml`, Installer: `PFAND`, `PFAND_MINTS` (aus).
+- `check-wiring.py`: Namen nach dem Spread `...` zählen als Aufruf (bis jetzt galt `cashuAngebotTags()` als nicht verdrahtet,
+  obwohl `buildCapabilities()` es ruft); Selbsttest mit `nachSpread`. Die beiden letzten Knoten-Ausnahmen für `pfand.ts` sind raus.
+
+**Tests:** node +3 (`pfand-auftrag.test.ts` 2: gedeckt mit A+-Deklaration, ohne neue Token, nichts offen; ungedeckt, offen,
+ohne Kasse, neben einer Gutschrift, Gebot zu niedrig, kaputte Form; `pfand-kasse.test.ts` +1: Umgebung mit 9 ungültigen
+Fällen). Ein Weg mit echten Token über den Provider geht hier nicht: die Test-Mint läuft auf http://127.0.0.1, der Provider
+nimmt nur https/.onion – die echten Token prüft `pfand-kasse.test.ts`.
+
+Knoten-Stand: Wer `PFAND=1` setzen will, braucht diesen Stand; ohne `PFAND` ändert sich nichts.
+
