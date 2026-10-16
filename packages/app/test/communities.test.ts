@@ -22,7 +22,8 @@ test("C-10: keine neuen Communities – kein Knopf, keine Funktion, kein Text da
 
 test("C-10: bestehende Communities in der Raum-Leiste, nicht unter den Direktnachrichten", () => {
   const komm = quelle("../src/shell/tabs/kommunikation.ts");
-  assert.match(komm, /const dms = conversations\.filter\(\(c\) => c\.type === "dm"\);/);
+  // Seit C-52b je nach Filter (chat-liste.ts) – unter den Direktnachrichten weiter nur Direktnachrichten
+  assert.match(komm, /const dms = conversations\.filter\(\(c\) => c\.type === "dm" && zeigtDm\(c\)\);/);
   assert.match(komm, /list\.replaceChildren\(\.\.\.dms\s*\.sort/);
   assert.match(komm, /export function oeffneCommunity\(id: string\): void \{\s*setzeKommModus\("dm"\);\s*openConversation\(id\);/);
   const raeume = quelle("../src/shell/tabs/raeume.ts");
@@ -30,7 +31,11 @@ test("C-10: bestehende Communities in der Raum-Leiste, nicht unter den Direktnac
   assert.match(leiste, /conversations\.filter\(\(c\) => c\.type === "community"\)/);
   assert.match(leiste, /b\.title = t\("komm\.communityOffen", \{ name: c\.name \}\);/);
   assert.match(leiste, /oeffneCommunity\(c\.id\);/);
-  assert.match(leiste, /rail\.replaceChildren\(\.\.\.communities, \.\.\.ids\.map/, "auch ohne Räume");
+  assert.match(leiste, /rail\.replaceChildren\(\.\.\.communities, \.\.\.raeumeFuerListe\(\)\.map/, "auch ohne Räume");
+  // Seit C-52b auch in der Chat-Liste – im Abschnitt „Räume“, nicht als Unterhaltung (kein data-cid)
+  const liste = quelle("../src/shell/tabs/chat-liste.ts");
+  assert.match(liste, /zeile\.dataset\.community = c\.id;/);
+  assert.doesNotMatch(liste, /dataset\.cid/);
   assert.doesNotMatch(leiste, /innerHTML/, "der Name ist lokal, aber nur als Text");
   // Der Hinweis nennt die Community offen und verweist auf Räume
   setLang("de");

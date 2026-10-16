@@ -20,7 +20,8 @@ test("ein Baustein: Symbol, ein Satz als Text, höchstens ein Knopf – nie HTML
 });
 
 test("verdrahtet: Chat-Liste, Repos (drei Fälle), Tauschen – jeweils mit dem Weg weiter", () => {
-  const komm = quelle("../src/shell/tabs/kommunikation.ts");
+  // Seit C-52b in chat-liste.ts – je Filter ein eigener leerer Zustand
+  const komm = quelle("../src/shell/tabs/chat-liste.ts");
   assert.match(komm, /leererZustand\("chat", t\("komm\.keineUnterhaltungen"\), \{\s*text: t\("komm\.neueUnterhaltung"\), beiKlick: \(\) => document\.getElementById\("chat-new-dm"\)\?\.click\(\),/);
   const repos = quelle("../src/shell/tabs/repos.ts");
   assert.match(repos, /leererZustand\("git", t\("repo\.nichtsNeues"\), \{ text: t\("repo\.alleZeigen"\)/);

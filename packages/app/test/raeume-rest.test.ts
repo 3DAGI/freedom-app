@@ -29,7 +29,9 @@ test("C-13: Punkt bei Ungelesenem – nur Räume dieser Sitzung, nicht der, der 
   assert.match(raeume, /if \(spacesUi\.spaceId\) ungelesen\.set\(spacesUi\.spaceId, \[\.\.\.badges\.values\(\)\]\.some\(\(b\) => b\.unread > 0\)\);/);
   const oeffne = raeume.slice(raeume.indexOf("async function oeffneRaum("));
   assert.ok(oeffne.indexOf("await merkeUngelesen()") < oeffne.indexOf("spacesUi.messages = [];"), "erst merken, dann leeren");
-  assert.match(raeume, /const punkt = ungelesen\.get\(id\) === true && !vorAugen\(id\);/);
+  // Seit C-52b für Leiste und Chat-Liste an einer Stelle (`raeumeFuerListe()`)
+  assert.match(raeume, /privat: istPrivat\(id\), ungelesen: ungelesen\.get\(id\) === true && !vorAugen\(id\),/);
+  assert.match(raeume, /rail\.replaceChildren\(\.\.\.communities, \.\.\.raeumeFuerListe\(\)\.map\(\(\{ id, name, ungelesen: punkt, von \}\) => \{/);
   // Zurück bei den Direktnachrichten zeichnet die Leiste neu – der Raum steht nicht mehr vor Augen
   assert.match(quelle("../src/shell/tabs/kommunikation.ts"), /loadChatList\(\);\s*\/\/[^\n]*\n\s*void zeigeRaumLeiste\(\);/);
 });
