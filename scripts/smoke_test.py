@@ -764,6 +764,13 @@ def waehrung_pruefen(browser, url: str) -> dict:
         document.getElementById('sol-stand').textContent]""")
     if erg["konten"] != [True, True, 1, "—"]:
         erg["fehler"].append(f"Konten {erg['konten']}")
+    # Einrichtung (C-50c): ohne Konto drei Wege; „Lightning“ öffnet die Verbindung und setzt den Cursor ins Feld
+    erg["einrichten"] = ev("""() => [!document.getElementById('wallet-einrichten').hidden,
+        [...document.querySelectorAll('#wallet-einrichten .weg-zeile')].filter(b => !b.hidden).map(b => b.id)]""")
+    ev("() => { document.getElementById('ln-verwalten').open = false; document.getElementById('weg-lightning').click(); }")
+    erg["einrichten"].append(ev("() => [document.getElementById('ln-verwalten').open, document.activeElement?.id]"))
+    if erg["einrichten"] != [True, ["weg-eingebaut", "weg-lightning", "weg-solana"], [True, "nwc-uri"]]:
+        erg["fehler"].append(f"Einrichtung {erg['einrichten']}")
     s.wait_for_function("() => document.querySelectorAll('#lp-offers button').length === 3", timeout=30000)
     knoepfe = ev("() => [...document.querySelectorAll('#lp-offers .stat')].map(z => [z.querySelector('.k').textContent.split(' · ')[1],"
                  " z.querySelector('button').textContent, z.querySelector('button').disabled])")

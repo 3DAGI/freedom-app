@@ -373,6 +373,15 @@
               <button id="wallet-hinterlegen" class="wa-knopf" type="button" data-subtab-ziel="lp"><span class="wa-symbol"><span class="ic" data-icon="shield"></span></span><span data-i18n="waehr.tabHinterlegen">Hinterlegen</span></button>
             </div>
           </div>
+          <!-- Ohne Konto: die Einrichtung als Assistent (C-50c) – drei Wege, die eingebaute Wallet empfohlen -->
+          <div class="card wallet-einrichten" id="wallet-einrichten" hidden>
+            <h3 data-i18n="wallet.einrichten">Wallet einrichten</h3>
+            <p class="mono-sm muted" data-i18n="wallet.einrichtenText">KI geht auch ohne: bis zu 20 Antworten am Tag gratis. Zum Bezahlen und Empfangen eine dieser drei:</p>
+            <button type="button" class="weg-zeile weg-empfohlen" id="weg-eingebaut"><span class="konto-symbol konto-eingebaut"><span class="ic" data-icon="star"></span></span><span class="weg-text"><strong data-i18n="waehr.eingebaut">Eingebaute Wallet</strong> <span class="weg-marke" data-i18n="wallet.empfohlen">empfohlen</span><span class="weg-sub" data-i18n="wallet.wegEingebaut">SOL aus deinen 12 Wörtern, nur im Tresor. Nichts zu installieren.</span></span><span class="weg-pfeil" aria-hidden="true">›</span></button>
+            <button type="button" class="weg-zeile" id="weg-lightning"><span class="konto-symbol konto-ln"><span class="ic" data-icon="zap"></span></span><span class="weg-text"><strong data-i18n="wallet.wegLnTitel">Lightning-Wallet verbinden</strong><span class="weg-sub" data-i18n="wallet.wegLn">Alby, Phoenix, Zeus … per NWC-Link aus deiner Wallet-App</span></span><span class="weg-pfeil" aria-hidden="true">›</span></button>
+            <button type="button" class="weg-zeile" id="weg-solana"><span class="konto-symbol konto-sol"><span class="ic" data-icon="coins"></span></span><span class="weg-text"><strong data-i18n="wallet.wegSolTitel">Solana-Wallet verbinden</strong><span class="weg-sub" data-i18n="wallet.wegSol">Phantom, Solflare, Backpack …</span></span><span class="weg-pfeil" aria-hidden="true">›</span></button>
+            <p class="mono-sm muted wallet-verwahrt" data-i18n="wallet.verwahrtNie">FreedomStack verwahrt nie dein Geld.</p>
+          </div>
           <!-- Konten als Zeilen mit Stand (C-50b); Verbindung und Einstellungen dahinter, offen nur ohne Konto -->
           <div class="grid-2"><div class="card konto-karte">
           <div class="konto-kopf"><span class="konto-symbol konto-ln"><span class="ic" data-icon="zap"></span></span>
