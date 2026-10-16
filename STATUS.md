@@ -10857,5 +10857,5 @@ Tests:
   - dann das richtige: genau ein Chip gedrückt;
   - die Einrichtung geht weiter.
 
-**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1192 (+4), Leak 73 + 1 todo;
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1197 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
