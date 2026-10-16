@@ -12,7 +12,8 @@ const ui = quelle("../src/shell/ui.ts");
 
 test("Chip: Klasse mit aria-pressed, Helfer setzt Typ und Zustand, Text nur als Text", () => {
   assert.match(css, /\.chip \{[^}]*border-radius: 999px;/);
-  assert.match(css, /\.chip\[aria-pressed="true"\] \{ background: var\(--accent\); color: #000;/);
+  // Schrift auf Grün über das Token (seit C-57a – das helle Design setzt es neu)
+  assert.match(css, /\.chip\[aria-pressed="true"\] \{ background: var\(--accent\); color: var\(--auf-akzent\);/);
   const f = ui.slice(ui.indexOf("export function chip("), ui.indexOf("export function skelett("));
   assert.match(f, /const b = el\("button", text, klasse \? `chip \$\{klasse\}` : "chip"\);/);
   assert.match(f, /b\.type = "button";\s*b\.setAttribute\("aria-pressed", String\(gedrueckt\)\);/);
