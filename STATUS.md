@@ -10537,3 +10537,28 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1152 (+2), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-50a – Wallet: Kontostand oben und vier Aktionen
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-50. Bis jetzt stand oben auf der Wallet-Übersicht kein Kontostand. Es gab nur zwei grüne Knöpfe und darunter je Karte einen eigenen Stand.
+
+- **„Gesamt“** oben (`gesamtStand()`, `wallet-gesamt.ts`, ohne DOM):
+  - Lightning (msat) und Solana (Lamports: Browser-Wallet und eingebaute Wallet) werden zusammengezählt, in der Anzeigeeinheit (12.1), die andere Einheit darunter.
+  - Eine Summe gibt es nur mit Kurs (Regel aus 4.4). Ohne Kurs stehen beide Beträge getrennt da, mit „ohne Kurs keine Summe“.
+  - Ein Konto, dessen Stand gerade nicht abrufbar ist, macht die Summe „unvollständig“ und wird nie als 0 gezählt.
+  - Ohne Konto steht keine Null, sondern „Noch keine Wallet verbunden.“
+- **Woher die Stände kommen**: Von dort, wo die App sie ohnehin holt (`merkeStand()` in `connectNwc()`, `connectSolana()`, `zeigeEingebauteWallet()`). Es gibt keinen zusätzlichen Abruf, nichts wird gemerkt.
+- **Vier Aktionen**: Empfangen (die Hauptaktion, grün), Senden, Tauschen, Hinterlegen, als Symbol mit Beschriftung. Tauschen und Hinterlegen öffnen ihren Reiter.
+
+Tests:
+- Neu ist `wallet-gesamt.test.ts`:
+  - ohne Konto `null`;
+  - Summe in sats und in SOL mit Kurs;
+  - ohne Kurs getrennt (auch nur ein Konto);
+  - unbekannt ergibt „unvollständig“;
+  - die Verdrahtung, ohne Abruf und ohne Speicher.
+- `senden.test.ts` und `empfangen.test.ts` erwarten das neue Markup.
+- Der Smoke-Teil „waehrung“ prüft „—“, den Hinweis, die vier Knöpfe und dass „Tauschen“ den Reiter öffnet.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1157 (+5), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
