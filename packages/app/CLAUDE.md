@@ -783,3 +783,15 @@ Fallstricke dieses Bereichs unten anhängen.
   liegen, sonst fänden es die im Raum auch nicht), dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das
   Bundle, geht nichts hinaus. Vom Knoten nie „nur dieses Gerät“, privat nur `sendeInRaum()`. Nie in
   `mein-knoten.ts` – dort liegt der Kopplungscode.
+- **Cashu nur über `cashu-topf.ts`** (seit A-17c, E4b V2/V3, RM2 W5 A): `@cashu/cashu-ts` (4.11.0, exakt gepinnt) nur dort –
+  `check-wiring.py` (Zahlwege) findet jeden anderen Import. Cashu ist verwahrt: eine Mint, vom Nutzer gewählt, nur mit
+  NUT-11 und NUT-12 (`waehleMint()`), wechseln nur mit leerem Topf; höchstens `CASHU_HOECHST_SAT` (Guthaben, gesperrt
+  Empfangenes und offene Ladungen zusammen). Der Stand liegt nur in `freedom.cashu` (`geheim`, `SICHERUNG_NIE`, nie im
+  Export) und wird nur mit offenem Tresor geschrieben. Laden: `ladeAnfrage()` prüft die Rechnung der Mint auf den Betrag,
+  bezahlt wird nur über die Zahlschienen, dann `abholen()`. Angenommen werden nur Token der eigenen Mint mit DLEQ (NUT-12);
+  ohne Netz nur über `nimmOhneNetz()` – genau auf den eigenen Schlüssel gesperrt, ohne Frist, ohne Rückgabe-Schlüssel –,
+  eingelöst mit `einloesen()`. Jeder Tausch geht über `tausche()`: erst Zähler und eingesetzte Token als `laufend` merken,
+  dann die Mint, dann das Ergebnis; nach einem Abbruch holt `nachholen()` nur den Zählerbereich dieses Tauschs zurück
+  (NUT-09/13) – nie ab Zähler 0, sonst kämen gesendete Token zurück. Auf einen fremden Schlüssel gesperrte Token, die beim
+  Absturz noch nicht übergeben waren, sind weg. Tests gegen eine Mint auf dem Rechner (`scripts/cashu-testmint.sh`,
+  Nutshell 0.21.0 mit FakeWallet; `marshmallow` und `limits` neuer als in `cashu-testmint.txt` brechen sie).

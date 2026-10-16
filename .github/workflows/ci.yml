@@ -61,6 +61,11 @@ jobs:
       - name: Tests node
         run: npm test --workspace @freedomstack/node
 
+      - name: Cashu-Mint fuer die Topf-Tests (A-17c)
+        # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
+        # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
+        run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
+
       - name: Tests app
         run: npm test --workspace @freedomstack/app
 
