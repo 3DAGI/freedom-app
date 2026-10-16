@@ -53,6 +53,16 @@ dieses Bereichs unten anhängen.
   und hoffen. Nachstellen lässt sich Langsamkeit mit CDP `Emulation.setCPUThrottlingRate`.
   Ebenso nach dem Speichern der Repo-Einstellungen (C-40): erst veröffentlichen, dann `neuLaden()` –
   auf den neuen Link warten, nie eine feste Pause (800 ms reichten im CI-Runner zweimal nicht).
+  Ebenso nach „Patch senden“ im Raum (VKb): erst senden, dann neu laden – auf die Patch-Liste warten; 800 ms reichten
+  nicht, als der Rechner nebenher Knoten-Tests rechnete. Den Smoke-Test nie neben anderen schweren Läufen starten.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
+- **`check-wiring.py` ordnet Rümpfe nach Namen** (gefunden in B-35a): Deklarationen auf oberster Ebene zählen über alle
+  Protokolldateien unter ihrem Namen. Ein privater Helfer mit dem Namen eines verdrahteten in einer anderen Datei (`Leser`
+  gibt es in `ots.ts`, `meshtastic.ts`, `lnd-macaroon.ts`) macht alles „verdrahtet“, was er benutzt – die Ausnahme gilt dann
+  als veraltet. Private Helfer eindeutig benennen (`NegLeser`). Ebenso zählt jeder Bezeichner in `scripts/` als Aufruf:
+  Namen einer fremden Referenz dort über Zeichenketten ansprechen (`modul.exports["Negentropy"]`).
+- **`check-wiring.py` und der Spread** (seit RM2b2): `BEZEICHNER` überging Namen nach einem Punkt – auch nach `...`. Ein
+  Export, der nur als `...name(…)` aufgerufen wird (`tags.push(...cashuAngebotTags(c))`), galt als nicht verdrahtet. Der
+  Selbsttest (`test_check_wiring.py`, `nachSpread`) hält das fest; `konfig.eigenschaft` bleibt eine Eigenschaft.
