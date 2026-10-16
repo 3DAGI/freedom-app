@@ -264,6 +264,12 @@ export const einstieg: Texte = {
 
   // Relays, Versand, Suche (relay-satz.ts, shell/versand.ts, suche.ts, shell/suche-ui.ts)
   "ein.relayMindestens": { de: "Mindestens ein Relay – sonst findet dich niemand.", en: "At least one relay – otherwise nobody finds you." },
+  "ein.willkommenTitel": { de: "Willkommen bei FreedomStack", en: "Welcome to FreedomStack" },
+  "ein.willkommen1": { de: "KI fragen, schreiben und bezahlen – ohne Konto bei einer Firma, ohne Telefonnummer.", en: "Ask AI, write and pay – no account with a company, no phone number." },
+  "ein.willkommen2": { de: "Deine Identität ist ein Schlüssel auf diesem Gerät. Zwölf Wörter stellen ihn wieder her – die zeigt dir die App gleich.", en: "Your identity is a key on this device. Twelve words restore it – the app shows them to you next." },
+  "ein.willkommen3": { de: "Direktnachrichten und private Räume sind Ende-zu-Ende-verschlüsselt. FreedomStack verwahrt nie dein Geld.", en: "Direct messages and private rooms are end-to-end encrypted. FreedomStack never holds your money." },
+  "ein.loslegen": { de: "Loslegen", en: "Get started" },
+  "ein.habeSchon": { de: "Ich habe schon eine Identität", en: "I already have an identity" },
   "ein.relayAdresse": { de: "Adresse {n}: {grund}", en: "Address {n}: {grund}" },
   "ein.relayNurWss": { de: "Adresse {n}: nur wss:// (unverschlüsselt nur .onion) und kein lokales Netz", en: "Address {n}: only wss:// (unencrypted only .onion) and no local network" },
   "ein.relayHoechstens": { de: "Höchstens {n} Relays – jeder weitere kostet Kontakte eine Verbindung.", en: "At most {n} relays – each additional one costs contacts a connection." },

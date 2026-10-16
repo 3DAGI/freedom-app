@@ -26,6 +26,8 @@ export const einrichtungLaeuft = (): boolean => laeuft;
 export async function zeigeEinrichtung(p: {
   /** Merkphrase zeigen und abfragen – nur fuer eine neue Identitaet. */
   sichern?: () => Promise<void>;
+  /** „Ich habe schon eine Identität“ (C-55a): übernehmen statt der neuen – `true`, wenn übernommen. */
+  importieren?: () => Promise<boolean>;
   /** Nach der letzten Seite in diesen Reiter. */
   oeffne: (tab: string) => void;
   /** Werbebeziehung veroeffentlichen – nur nach Zustimmung. */
@@ -35,8 +37,10 @@ export async function zeigeEinrichtung(p: {
   laeuft = true;
   document.getElementById("onboarding-bar")?.classList.add("hidden");
   try {
-    const seiten = einrichtungsSeiten({ merkphraseOffen: !!p.sichern, tresorDa: tresorEingerichtet(), mitBunker: mitBunker() });
-    if (p.sichern) await p.sichern();
+    // Begrüßung (C-55a): erst sagen, was das ist – dann die Merkphrase, oder eine vorhandene Identität übernehmen
+    const weg = p.sichern ? await zeigeWillkommen(p.importieren) : "los";
+    const seiten = einrichtungsSeiten({ merkphraseOffen: !!p.sichern && weg === "los", tresorDa: tresorEingerichtet(), mitBunker: mitBunker() });
+    if (p.sichern && weg === "los") await p.sichern();
     // Gesehen – wer „spaeter“ waehlte und neu laedt, bekommt sie nicht gleich wieder
     localStorage.setItem(LS_EINRICHTUNG, "laeuft");
     const box = document.createElement("div");
@@ -54,6 +58,31 @@ export async function zeigeEinrichtung(p: {
   } finally {
     laeuft = false;
   }
+}
+
+/**
+ * Begrüßung (C-55a, Oberflächen-Review 15.10.2026): drei Sätze, „Loslegen“ und „Ich habe schon eine Identität“.
+ * Bis jetzt war der erste Bildschirm die Merkphrase – ehe man wusste, wozu.
+ */
+function zeigeWillkommen(importieren?: () => Promise<boolean>): Promise<"los" | "importiert"> {
+  const box = el("div", undefined, "onboarding-overlay");
+  box.id = "willkommen";
+  const karte = el("div", undefined, "onboarding-card willkommen-karte");
+  const saetze = el("ul", undefined, "willkommen-saetze");
+  saetze.append(...["ein.willkommen1", "ein.willkommen2", "ein.willkommen3"].map((k) => el("li", t(k))));
+  const los = knopf("ein-loslegen", t("ein.loslegen"), true);
+  const habe = knopf("ein-habe-schon", t("ein.habeSchon"));
+  karte.append(el("h2", t("ein.willkommenTitel")), saetze, knoepfe(los, ...(importieren ? [habe] : [])));
+  box.append(karte);
+  document.body.appendChild(box);
+  alsModal(box, karte);
+  return new Promise((fertig) => {
+    los.addEventListener("click", () => { box.remove(); fertig("los"); });
+    habe.addEventListener("click", () => {
+      // Abgebrochen oder ungültig: die Begrüßung bleibt
+      void importieren?.().then((ok) => { if (ok) { box.remove(); fertig("importiert"); } });
+    });
+  });
 }
 
 // Über `style` (CSSOM) statt HTML-Text (seit C-6e); die Knöpfe seit C-39b über `.ein-knoepfe`

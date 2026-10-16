@@ -97,6 +97,7 @@ def sprache_pruefen(browser, url: str) -> dict:
         s.goto(url, wait_until="load")
         s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
         # Frisches Profil: neue Identität, zuerst der Sicherungsdialog (8.16g1)
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         ist = s.evaluate("() => [document.documentElement.lang,"
                          # seit C-47 heißt „Chats“ in beiden Sprachen gleich – die Sprache zeigt „Verdienen“/„Earn“
@@ -132,7 +133,8 @@ def tresor_pruefen(browser, url: str) -> dict:
            " document.getElementById(k).click(); }", [werte, knopf])
 
     s.goto(url, wait_until="load")
-    s.wait_for_timeout(2500)
+    loslegen(s)
+    s.wait_for_selector("#bk-done", timeout=30000)
     woerter = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", woerter)
     ev("() => document.getElementById('bk-done').click()")
@@ -199,7 +201,8 @@ def tresor_pruefen(browser, url: str) -> dict:
     ev = s.evaluate
     s.goto(url, wait_until="load")
     s.wait_for_timeout(2500)
-    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    # Begrüßung (C-55a) und Merkphrase überspringen – wie bisher ohne Bestätigung
+    ev("() => { document.getElementById('willkommen')?.remove(); document.querySelector('.modal-backdrop')?.remove(); }")
     ev("() => document.querySelector('.app-nav button[data-tab=\"wallet\"]').click()")
     ev("(u) => { document.getElementById('nwc-uri').value = u; document.getElementById('nwc-connect').click(); }",
        PROBE_GEHEIM["freedom.nwc.uri"])
@@ -246,7 +249,8 @@ def sperre_pruefen(browser, url: str) -> dict:
 
     s.goto(url, wait_until="load")
     s.wait_for_timeout(2500)
-    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    # Begrüßung (C-55a) und Merkphrase überspringen – wie bisher ohne Bestätigung
+    ev("() => { document.getElementById('willkommen')?.remove(); document.querySelector('.modal-backdrop')?.remove(); }")
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
     ev("() => { document.getElementById('tr-neu1').value = 'smoke sperre 1';"
@@ -298,7 +302,8 @@ def loeschen_pruefen(browser, url: str) -> dict:
            " document.getElementById(k).click(); }", [werte, knopf])
 
     s.goto(url, wait_until="load")
-    s.wait_for_timeout(2500)
+    loslegen(s)
+    s.wait_for_selector("#bk-done", timeout=30000)
     woerter = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", woerter)
     ev("() => document.getElementById('bk-done').click()")
@@ -420,6 +425,7 @@ def mls_start_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -489,6 +495,7 @@ def rahmen_pruefen(browser, url: str) -> dict:
         sichtbar = lambda sel: ev(SICHTBAR, sel)
         klick = lambda sel: (ev("(sel) => document.querySelector(sel).click()", sel), s.wait_for_timeout(300))
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -588,6 +595,7 @@ def dialog_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -643,6 +651,12 @@ DIALOG_STAND = """() => { const d = document.querySelector('[role=dialog][aria-m
     meldung: d.querySelector('[role=alert]')?.textContent || null } : null; }"""
 
 
+def loslegen(s, timeout: int = 30000) -> None:
+    """Begrüßung (C-55a): Eine neue Identität beginnt mit drei Sätzen und „Loslegen“ – erst danach die Merkphrase."""
+    s.wait_for_selector("#ein-loslegen", timeout=timeout)
+    s.click("#ein-loslegen")
+
+
 class DialogSeite:
     """Frische App ohne Einrichtung hinter der Relay-Attrappe (seit C-1a, für C-1): zählt Browser-Dialoge
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
@@ -662,6 +676,7 @@ class DialogSeite:
         s.on("dialog", lambda d: (self.browser_dialoge.append(d.type), d.dismiss()))
         self.ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = self.ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         self.ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -2539,6 +2554,7 @@ def qr_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         s.clock.install()
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = s.evaluate("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         s.evaluate("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -2752,6 +2768,7 @@ def werben_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -2864,7 +2881,7 @@ def unsicher_pruefen(browser, url: str) -> dict:
     s.goto(url, wait_until="load")
     s.wait_for_function("() => typeof window.freedomApp === 'object'", timeout=30000)
     erg["nachgestellt"] = ev("() => window.isSecureContext === false && crypto.subtle === undefined")
-    ev("() => document.querySelector('.modal-backdrop')?.remove()")
+    ev("() => { document.getElementById('willkommen')?.remove(); document.querySelector('.modal-backdrop')?.remove(); }")
     ev("() => document.querySelector('.app-nav button[data-tab=\"settings\"]').click()")
     ev("() => document.querySelector('.sec-action[data-step=\"4\"]').click()")
     s.wait_for_function("() => [...document.querySelectorAll('[role=dialog]')]"
@@ -2903,6 +2920,20 @@ def einrichtung_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    # Begrüßung (C-55a): drei Sätze, „Loslegen“ und „Ich habe schon eine Identität“ – noch keine Merkphrase im Dokument.
+    # Übernehmen fragt nicht nach dem Ersetzen (die neue Identität ist unbenutzt); abgebrochen bleibt die Begrüßung.
+    s.wait_for_selector("#ein-loslegen", timeout=30000)
+    erg["willkommen"] = ev("""() => [document.querySelector('#willkommen h2')?.textContent, document.querySelectorAll('#willkommen li').length,
+        [...document.querySelectorAll('#willkommen button')].map(b => b.textContent), document.querySelectorAll('.mnemonic-list').length,
+        document.querySelector('#willkommen [role=dialog]')?.getAttribute('aria-modal') ?? null]""")
+    ev("() => document.getElementById('ein-habe-schon').click()")
+    s.wait_for_function("() => [...document.querySelectorAll('[role=dialog] h3')].some(h => h.textContent === 'Identität importieren')", timeout=10000)
+    s.keyboard.press("Escape")
+    s.wait_for_function("() => ![...document.querySelectorAll('[role=dialog] h3')].some(h => h.textContent === 'Identität importieren')", timeout=10000)
+    erg["willkommen"].append(ev("() => [!!document.getElementById('willkommen'), document.querySelectorAll('[role=dialog]').length]"))
+    if erg["willkommen"] != ["Willkommen bei FreedomStack", 3, ["Loslegen", "Ich habe schon eine Identität"], 0, "true", [True, 1]]:
+        erg["fehler"].append(f"Begrüßung {erg['willkommen']}")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     erg["logo"] = ev("""() => { const k = document.querySelector('#head-mark svg'), n = document.querySelector('#nav-mark svg');
         const f = decodeURIComponent(document.querySelector('link[rel=icon]')?.href ?? '');
@@ -2975,6 +3006,7 @@ def einrichtung_wahl_pruefen(browser, url: str) -> dict:
     ev = s.evaluate
     leiste = "() => { const b = document.getElementById('onboarding-bar'); return !!b && !b.classList.contains('hidden') && b.offsetParent !== null; }"
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     s.wait_for_timeout(1500)
     sichtbar = [["sichern", ev(leiste)]]
@@ -3039,6 +3071,7 @@ def overlay_dialog_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         stand = {"merkphrase": ev(lies, ".modal:has(#bk-done)")}
         stand["merkphrase_knoepfe"] = ev("""() => { const a = document.getElementById('bk-done').getBoundingClientRect(),
@@ -3256,6 +3289,7 @@ def gratis_auto_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -3304,6 +3338,7 @@ def agent_klein_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -3386,6 +3421,7 @@ def profil_klein_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -3418,6 +3454,7 @@ def profil_klein_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     ev("() => document.getElementById('bk-later')?.click()")
     s.wait_for_timeout(1500)
@@ -3476,6 +3513,7 @@ def geld_settings_klein_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -4001,6 +4039,7 @@ def lokal_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -4165,6 +4204,7 @@ def raum_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -5443,6 +5483,7 @@ def karte_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -5644,6 +5685,7 @@ def mobil_pruefen(browser, url: str) -> dict:
         s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
         ev = s.evaluate
         s.goto(url, wait_until="load")
+        loslegen(s)
         s.wait_for_selector("#bk-done", timeout=30000)
         w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
         ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
@@ -5739,6 +5781,7 @@ def mobil_pruefen(browser, url: str) -> dict:
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
     s.goto(url, wait_until="load")
+    loslegen(s)
     s.wait_for_selector("#bk-done", timeout=30000)
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
     ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
