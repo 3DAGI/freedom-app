@@ -12,7 +12,7 @@
   --amber: #CC8800;
   /* Seit C-57b/c jede Farbe als Token – hell nach dem Gerät (Block darunter) */
   --auf-akzent: #000; --nav-bg: rgba(5,5,5,0.92); --code-bg: #000;
-  --demo-bg: #0a0c0a; --demo-bar: #101210; --demo-punkt: #2a2a2a;
+  --schatten-bild: rgba(0,0,0,.55);
   --flaeche2: #101010; --linie2: #161616; --hover: #0d0d0d;
   color-scheme: dark;
   /* Schrift ohne Serifen für Text, Monospace nur für Code (C-48, wie die App seit C-42a) */
@@ -27,7 +27,7 @@
     --accent: #3B7600; --accent-dim: #2D5C00; --text: #16181A; --text-muted: #555B62;
     --red: #B3261E; --amber: #8F5400;
     --auf-akzent: #FFF; --nav-bg: rgba(246,247,245,0.92); --code-bg: #EFF1EC;
-    --demo-bg: #FFFFFF; --demo-bar: #EFF1EC; --demo-punkt: #CDD2C7;
+    --schatten-bild: rgba(22,24,26,.14);
     --flaeche2: #FFFFFF; --linie2: #E6E9E2; --hover: #EFF1EC;
     color-scheme: light;
   }
@@ -87,12 +87,14 @@ code, pre, kbd, .mono { font-family: var(--font-mono); }
 .lang-menu button.active { color: var(--accent); }
 
 /* ---------- Hero ---------- */
-.hero { position: relative; overflow: hidden; padding: 80px 0 60px; text-align: center; }
-.hero h1 { font-size: 40px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; }
+/* Links bündig (C-58a): Text, Knöpfe und Vertrauenszeile an einer Kante, rechts das Bild der App */
+.hero { position: relative; overflow: hidden; padding: 72px 0 60px; text-align: left; }
+.hero .wrap, .topnav .wrap { max-width: 1120px; }
+.hero h1 { font-size: 44px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 18px; }
 .hero h1 .g { color: var(--accent); }
-.hero p { color: var(--text-muted); font-size: 16px; max-width: 560px; margin: 0 auto 32px; }
-.hero .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.cta-sub { color: var(--text-muted); font-size: 13px; margin-top: 10px; text-align: center; }
+.hero p { color: var(--text-muted); font-size: 17px; max-width: 520px; margin: 0 0 28px; }
+.hero .cta { display: flex; gap: 12px; justify-content: flex-start; flex-wrap: wrap; }
+.hero .cta-sub { color: var(--text-muted); font-size: 13px; margin: 12px 0 0; text-align: left; }
 
 .btn {
   display: inline-block; background: var(--accent); color: var(--auf-akzent); border: none; border-radius: 10px;
@@ -154,50 +156,25 @@ pre.befehl { background: var(--code-bg); padding: 10px; border-radius: 2px; }
 }
 
 /* ---------- Hero: 2-spaltig mit Terminal-Demo ---------- */
-.hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 48px; align-items: center; }
 .hero-text .cta .btn.ghost {
   background: transparent; color: var(--accent); border: 1px solid var(--accent-dim);
 }
 .hero-text .cta .btn.ghost:hover { background: var(--hover); }
-.trust-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
-.trust-badges span {
-  font-size: 12px; color: var(--text-muted);
-  border: 1px solid var(--border); padding: 4px 10px; border-radius: 12px;
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.trust-badges span svg { color: var(--accent); opacity: .8; }
+/* Vertrauenszeile (C-58a): was man nachprüfen kann, je mit dem Beleg verlinkt */
+.vertrauen { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; padding: 0; }
+.vertrauen li { font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.vertrauen li::before { content: "✓" / ""; color: var(--accent); font-weight: 700; }
+.vertrauen a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.vertrauen a:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
-/* Terminal-Demo-Fenster */
-.demo-window {
-  background: var(--demo-bg); border: 1px solid var(--border); border-radius: 8px;
-  overflow: hidden; box-shadow: 0 24px 64px rgba(123,200,10,.07), 0 4px 24px rgba(0,0,0,.5);
-}
-.demo-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 9px 12px; background: var(--demo-bar); border-bottom: 1px solid var(--border);
-}
-.demo-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--demo-punkt); }
-.demo-bar i:nth-child(1) { background: #cc5544; }
-.demo-bar i:nth-child(2) { background: #ccaa33; }
-.demo-bar i:nth-child(3) { background: #66bb44; }
-.demo-bar span { margin-left: 8px; font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
-.demo-body {
-  padding: 16px; min-height: 240px; font-family: var(--font-mono);
-  font-size: 11.5px; line-height: 1.75; color: var(--text);
-}
-.demo-body .dl-user { color: var(--accent); }
-.demo-body .dl-provider { color: var(--text-muted); }
-.demo-body .dl-paid { color: var(--amber); }
-.demo-body .dl-answer { color: var(--text); white-space: pre-wrap; }
-.demo-caret {
-  display: inline-block; width: 7px; height: 13px; background: var(--accent);
-  vertical-align: -2px; animation: demo-blink 1s steps(2) infinite;
-}
-@keyframes demo-blink { 50% { opacity: 0; } }
+/* Bild der App (C-58a): echt, je Sprache und Design */
+.hero-bild img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 24px 64px var(--schatten-bild); background: var(--card); }
 
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; gap: 32px; }
-  .hero-demo { max-width: 480px; margin-inline: auto; width: 100%; }
+  .hero-bild { max-width: 640px; width: 100%; }
 }
 
 /* Icon-Text nebeneinander in feature/compute-karten */
@@ -205,7 +182,6 @@ pre.befehl { background: var(--code-bg); padding: 10px; border-radius: 2px; }
 .card .ico svg { display: block; }
 .card h3 { display: flex; align-items: center; gap: 8px; }
 .card h3 svg, .card h3 .logo-btc, .card h3 .logo-sol { flex-shrink: 0; }
-.trust-badges span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* Partikel als seitenweiter Hintergrund */
 #hero-particles { position: fixed; inset: 0; width: 100vw; height: 100vh; opacity: .5; pointer-events: none; z-index: 0; }

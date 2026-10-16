@@ -24,3 +24,8 @@ Bereichs unten anhängen.
   Jede Farbe nur als Token in `:root` UND im hellen Block von `css/style.css` – nie fest im übrigen CSS, im
   `<style>` einer Seite oder in `style="…"`. `check-website.py` (`farben_pruefen()`) meldet das samt Kontrast unter
   4,5:1 in beiden Designs; was beide teilen (Schatten, Fensterpunkte), steht in `FARBEN_BEIDE`.
+- **Bild der App nur echt** (seit C-58a): Die Startseite zeigt die Agent-Seite aus dem Build, je Sprache und Design
+  (`bilder/app-<de|en>-<dunkel|hell>.png`, 1200×760) – nie eine nachgestellte Szene oder ein Mock-up. Ändert sich die
+  Agent-Seite sichtbar, `python3 scripts/website-bilder.py packages/app/dist packages/website/bilder` und die Bilder
+  mitcommiten; `check-website.py` (`bilder_pruefen()`) prüft Größe, Alternativtext in beiden Sprachen und dass
+  `build-site.sh` den Ordner auslegt. Die Vertrauenszeile nennt nur, was belegt ist, je mit Verweis auf den Beleg.

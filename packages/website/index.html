@@ -44,19 +44,20 @@
         <a class="btn ghost" href="#features" data-i18n="ctaProtocol">Protokoll ansehen</a>
       </div>
       <p class="cta-sub" data-i18n="ctaSub">Kein Download · Kein Account · läuft sofort im Browser</p>
-      <div class="trust-badges">
-        <span style="--brand:#f7931a"><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Lightning</span>
-        <span><svg class="logo-sol" width="12" height="12" viewBox="0 0 397.7 311.7" aria-label="Solana"><defs><linearGradient id="solGrad" x1="360.9" y1="351.4" x2="141.4" y2="-69.3" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9945FF"/><stop offset="1" stop-color="#14F195"/></linearGradient></defs><g fill="url(#solGrad)"><path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/><path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/><path d="M332.3 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H5.7c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/></g></svg> Solana</span>
-        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg> Nostr</span>
-        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> Ohne Verwahrung</span>
-        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg> Open Source</span>
-      </div>
+      <ul class="vertrauen">
+        <li><a href="https://github.com/3DAGI/freedom-app/blob/main/LICENSE" data-i18n="vtLizenz">Freie Lizenz (EUPL-1.2)</a></li>
+        <li><a href="faq.html#technik" data-i18n="vtRepro">Reproduzierbarer Build</a></li>
+        <li><a href="#downloads" data-i18n="vtTor">Tor in den Apps</a></li>
+        <li><a href="faq.html#geld" data-i18n="vtVerwahrung">Niemand verwahrt dein Geld</a></li>
+      </ul>
     </div>
-    <div class="hero-demo" aria-hidden="true">
-      <div class="demo-window">
-        <div class="demo-bar"><i></i><i></i><i></i><span>freedom — agent</span></div>
-        <div class="demo-body" id="demo-body"></div>
-      </div>
+    <!-- Echtes Bild der App (C-58a, scripts/website-bilder.py) – je Sprache und Design -->
+    <div class="hero-bild">
+      <picture>
+        <source data-bild="hell" srcset="bilder/app-de-hell.png" media="(prefers-color-scheme: light)" />
+        <img data-bild="dunkel" src="bilder/app-de-dunkel.png" width="1200" height="760" data-i18n-alt="heroBildAlt"
+          alt="Die App: Agent-Seite mit Beispielfragen, Eingabe und 20 Antworten am Tag gratis" />
+      </picture>
     </div>
   </div>
 </header>
@@ -244,6 +245,11 @@ npm start</pre>
 const LANDING_I18N = {
   en: {
     navMenu: "Menu",
+    heroBildAlt: "The app: agent page with example questions, input and 20 free answers a day",
+    vtLizenz: "Free licence (EUPL-1.2)",
+    vtRepro: "Reproducible build",
+    vtTor: "Tor in the apps",
+    vtVerwahrung: "No one holds your money",
     heroA: "Communicate. Use AI.",
     heroB: "Pay — no operator.",
     heroSub: "A protocol for messaging, AI compute and payments. No account, no token, and no one holds your money.",
@@ -271,6 +277,11 @@ const LANDING_I18N = {
   },
   de: {
     navMenu: "Menü",
+    heroBildAlt: "Die App: Agent-Seite mit Beispielfragen, Eingabe und 20 Antworten am Tag gratis",
+    vtLizenz: "Freie Lizenz (EUPL-1.2)",
+    vtRepro: "Reproduzierbarer Build",
+    vtTor: "Tor in den Apps",
+    vtVerwahrung: "Niemand verwahrt dein Geld",
     heroA: "Kommunizieren. KI nutzen.",
     heroB: "Bezahlen — ohne Betreiber.",
     heroSub: "Ein Protokoll für Nachrichten, KI-Rechenzeit und Zahlungen. Kein Konto, kein Token, und niemand verwahrt dein Geld.",
@@ -394,6 +405,15 @@ function applyLandingI18n(lang) {
     const v = dict[k] ?? LANDING_I18N.en[k];
     if (v) el.textContent = v;
   });
+  // Bild der App (C-58a): Alternativtext und Bild in der Sprache der Seite
+  document.querySelectorAll("[data-i18n-alt]").forEach((el) => {
+    const v = dict[el.getAttribute("data-i18n-alt")];
+    if (v) el.setAttribute("alt", v);
+  });
+  const sprache = lang === "de" ? "de" : "en";
+  document.querySelectorAll("[data-bild]").forEach((el) => {
+    el.setAttribute(el.tagName === "SOURCE" ? "srcset" : "src", `bilder/app-${sprache}-${el.getAttribute("data-bild")}.png`);
+  });
 }
 </script>
 <script>
@@ -434,49 +454,6 @@ function applyLandingI18n(lang) {
   document.documentElement.lang = current;
 })();
 
-/* ---------- Hero-Terminal-Demo: getippte AI-Szene (loop) ---------- */
-(function demoLoop() {
-  const body = document.getElementById("demo-body");
-  if (!body) return;
-  const scene = [
-    { cls: "dl-user", text: "du: researche online und erklär mir, wie lightning netzwerke funktionieren" },
-    { cls: "dl-provider", text: "> suche im netz…" },
-    { cls: "dl-provider", text: "✓ Provider e18a… übernimmt die Anfrage" },
-    { cls: "dl-answer", text: "Lightning ist ein Zahlungsnetzwerk auf Bitcoin: Kanäle zwischen Nutzern halten Guthaben, Zahlungen laufen über Routen dieser Kanäle — sofort und für Bruchteile eines Cents." },
-    { cls: "dl-paid", text: "» 82 msat bezahlt, direkt an den Provider" },
-  ];
-  let idx = 0;
-  function next() {
-    if (idx >= scene.length) {
-      // kurze pause, dann neu
-      setTimeout(() => { body.innerHTML = ""; idx = 0; next(); }, 3500);
-      return;
-    }
-    const line = scene[idx];
-    const div = document.createElement("div");
-    div.className = line.cls;
-    body.appendChild(div);
-    if (line.cls === "dl-answer") {
-      // antwort tippt sich zeichenweise
-      let ci = 0;
-      const caret = document.createElement("span");
-      caret.className = "demo-caret";
-      div.appendChild(caret);
-      const tick = () => {
-        if (ci < line.text.length) {
-          caret.before(document.createTextNode(line.text[ci++]));
-          setTimeout(tick, 22);
-        } else { caret.remove(); idx++; setTimeout(next, 700); }
-      };
-      tick();
-    } else {
-      div.textContent = line.text;
-      idx++;
-      setTimeout(next, 850);
-    }
-  }
-  next();
-})();
 /* ---------- Partikel-Hintergrund (circuit-feel) ---------- */
 window.__particlesLoaded = true;
 (function () {

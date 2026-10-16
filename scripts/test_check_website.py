@@ -50,12 +50,34 @@ class Farben(unittest.TestCase):
         self.assertTrue(any("hell --text-muted auf --bg" in f for f in cw.farben_pruefen()))
 
     def test_token_ohne_hellen_wert(self) -> None:
-        self.aendere("css/style.css", "--demo-bg: #FFFFFF; ", "")
-        self.assertIn("css/style.css: --demo-bg ohne hellen Wert (C-57c)", cw.farben_pruefen())
+        self.aendere("css/style.css", " --code-bg: #EFF1EC;", "")
+        self.assertIn("css/style.css: --code-bg ohne hellen Wert (C-57c)", cw.farben_pruefen())
 
     def test_ohne_hellen_block(self) -> None:
         self.aendere("css/style.css", "@media (prefers-color-scheme: light) {", "@media (min-width: 1px) {")
         self.assertEqual(cw.farben_pruefen(), ["css/style.css: Tokens für Dunkel und Hell fehlen (C-57c)"])
+
+
+class Bilder(Farben):
+    """Echtes Bild der App (C-58a): Größe, Alternativtext, Auslieferung."""
+
+    def test_heute_ohne_befund(self) -> None:
+        self.assertEqual(cw.bilder_pruefen(), [])
+
+    def test_bild_fehlt(self) -> None:
+        (self.basis / "bilder" / "app-en-hell.png").unlink()
+        self.assertIn("bilder/app-en-hell.png fehlt (C-58a)", cw.bilder_pruefen())
+
+    def test_falsche_groesse(self) -> None:
+        p = self.basis / "bilder" / "app-de-dunkel.png"
+        b = bytearray(p.read_bytes())
+        b[16:20] = (640).to_bytes(4, "big")
+        p.write_bytes(bytes(b))
+        self.assertTrue(any("app-de-dunkel.png: kein PNG" in f for f in cw.bilder_pruefen()))
+
+    def test_ohne_alternativtext(self) -> None:
+        self.aendere("index.html", 'data-i18n-alt="heroBildAlt"', "")
+        self.assertIn("index.html: Bild der App ohne Größe oder Alternativtext (C-58a)", cw.bilder_pruefen())
 
 
 if __name__ == "__main__":
