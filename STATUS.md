@@ -10726,6 +10726,28 @@ Tests:
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1177 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
+## Schritt C-53b – Einstellungen › Datenschutz: gruppierte Zeilen mit Schaltern
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-53. Datenschutz war eine Textwand aus Häkchen und Absätzen.
+
+- **Drei Gruppen** wie in iOS: Netz, Daten und Kontakte, Nachrichten und KI.
+- **Jede Zeile** hat einen Titel und einen Satz, rechts einen Schalter (`role=switch`) oder eine Auswahl. Ein Klick auf die Zeile schaltet.
+- **Die ganze Erklärung steht wörtlich unter „Mehr dazu“.** Die kurzen Sätze nennen die Grenzen: Anrufe gehen nicht über Tor; die Verzögerung verbirgt die IP-Adresse nicht; was mitgeht, liest der Provider.
+- „Was sichtbar ist“ (der Bericht) steht als eigene Karte darunter.
+- Ids und Verdrahtung bleiben unverändert.
+
+Tests:
+- Neu: `einstellungen-zeilen.test.ts` mit 4 Tests: Gruppen, Schalter, Erklärungen wörtlich, Grenzen in den kurzen Sätzen.
+- Angepasst wurden `ki-platzhalter`, `netz-huelle`, `ruf-teilen` und der Leak-Test `kontakte` (weiter nicht vorab angehakt).
+- Neuer Smoke-Teil „einst_zeilen“ (Desktop und Handy):
+  - drei Gruppen, Schalter mit Namen aus der Zeile;
+  - Zeilen ab 48 px, „Mehr dazu“ zu;
+  - der Klick auf den Titel schaltet und wird gemerkt;
+  - am Handy läuft nichts seitlich über.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1181 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
 ## Schritt RM2b3 – Pfand über Tor, Erlös an die eigene Lightning-Adresse
 
 Spur A, `docs/RM2-ENTWURF.md` (V1.5, V5). Letzter Teil von RM2b im Knoten.
