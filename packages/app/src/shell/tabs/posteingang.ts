@@ -22,6 +22,7 @@ import { kontaktName, merkeEinladung, zeigeRaumLeiste } from "./raeume.js";
 import { alsAnruf } from "../anruf.js";
 import { activeConversation, conversations, loadChatList, loadChatMessages, markiereGelesen, saveConversations } from "./kommunikation.js";
 import { LivePost, postFilter } from "../../post-live.js";
+import { merkeVorschau } from "../../chat-zeile.js";
 import { aktualisiereSchluessel, ladeKontakte } from "./kontakte.js";
 
 /** Eine DM zur Anzeige: entschluesselt; legacy = altes Kind-4-Format. */
@@ -274,6 +275,9 @@ export async function syncDmInbox(): Promise<void> {
         c.lastTs = Math.max(c.lastTs ?? 0, Math.floor(Date.now() / 1000));
         // Eigene MLS-Nachrichten entschlüsselt MLS nicht zurück – was kommt, ist vom Gegenüber (C-30)
         c.eingang = c.lastTs;
+        // Vorschau in der Liste (C-52a) aus dem Verlauf auf diesem Gerät – die Engine läuft hier ohnehin
+        const letzte = (await mlsVerlauf(c.mls!).catch(() => [])).reduce<{ text: string; von: string; zeit: number } | undefined>((a, n) => (!a || n.zeit >= a.zeit ? n : a), undefined);
+        if (letzte) merkeVorschau(c.id, { inhalt: letzte.text, vonMir: [me.pk, sprichtFuer()].includes(letzte.von), zeit: letzte.zeit });
         neu++;
         if (activeConversation === c.id) void loadChatMessages(c.id);
       }
@@ -302,6 +306,8 @@ async function ordneEin(w: NostrEvent, me: string): Promise<{ neu: boolean; spae
   const frischVon = frisch ? { frischVon: e.partner } : {};
   // Ungelesen (C-30): nur, was das Gegenüber schrieb – eigene Kopien zeigen als „ich“ (ordneDmZu)
   const vomGegenueber = e.ev.pubkey !== (sprichtFuer() ?? me);
+  // Vorschau in der Liste (C-52a) – nur im Speicher; mit Ablauf nur bis dahin
+  merkeVorschau(e.partner, { inhalt: e.ev.content, vonMir: !vomGegenueber, zeit: e.ev.created_at, ...(e.dm.expiresAt !== undefined ? { ablauf: e.dm.expiresAt } : {}) });
   const vorhanden = conversations.find((x) => x.id === e.partner);
   if (!vorhanden) {
     conversations.push({ id: e.partner, type: "dm", name: pkShort(e.partner), anfrage: true, lastTs: e.ev.created_at,
