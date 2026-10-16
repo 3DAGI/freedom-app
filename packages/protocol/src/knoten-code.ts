@@ -18,6 +18,7 @@ import { buildJobRequest } from "./dvm.js";
 import { buildPrivateJobRequest } from "./private-job.js";
 import type { NostrEvent } from "./event.js";
 import type { Signer } from "./signer.js";
+import { type DateiSchluessel, istDateiSchluessel } from "./datei-krypto.js";
 
 /** Grenzen – was darüber liegt, baut und liest dieses Modul nicht. */
 export const CODE_GRENZEN = {
@@ -35,6 +36,8 @@ export const CODE_GRENZEN = {
   schritte: 200,
   /** Projekte in der Liste. */
   projekte: 100,
+  /** git-Bundle eines Projekts, in Byte (wie ein hochgeladenes Bundle in der App). */
+  bundle: 32 * 1024 * 1024,
 } as const;
 
 /** Name eines Projekts: zugleich Name seines Ordners auf dem Knoten – klein, ohne Punkt und Schrägstrich. */
@@ -53,9 +56,10 @@ export type CodeAktion =
   | { aktion: "neu"; projekt: string }
   | { aktion: "auftrag"; projekt: string; text: string; modus: CodeModus }
   | { aktion: "freigabe"; lauf: string; schritt: number; ja: boolean }
-  | { aktion: "stopp"; lauf: string };
+  | { aktion: "stopp"; lauf: string }
+  | { aktion: "bundle"; projekt: string };
 
-export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp"] as const;
+export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle"] as const;
 
 /** Je Aktion die erlaubten Parameter, jeder genau einmal. */
 const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
@@ -64,6 +68,7 @@ const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
   auftrag: ["projekt", "text", "modus"],
   freigabe: ["lauf", "schritt", "antwort"],
   stopp: ["lauf"],
+  bundle: ["projekt"],
 };
 
 const istSchrittNr = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= CODE_GRENZEN.schritte;
@@ -85,6 +90,8 @@ function gepruefteAktion(a: CodeAktion): CodeAktion | null {
       return { aktion: "freigabe", lauf: a.lauf, schritt: a.schritt, ja: a.ja };
     case "stopp":
       return HEX64.test(a.lauf) ? { aktion: "stopp", lauf: a.lauf } : null;
+    case "bundle":
+      return istProjektName(a.projekt) ? { aktion: "bundle", projekt: a.projekt } : null;
     default:
       return null;
   }
@@ -97,6 +104,7 @@ function parameterVon(a: CodeAktion): string[][] {
     case "auftrag": return [["projekt", a.projekt], ["text", a.text], ["modus", a.modus]];
     case "freigabe": return [["lauf", a.lauf], ["schritt", String(a.schritt)], ["antwort", a.ja ? "ja" : "nein"]];
     case "stopp": return [["lauf", a.lauf]];
+    case "bundle": return [["projekt", a.projekt]];
   }
 }
 
@@ -141,6 +149,7 @@ export function leseCodeAuftrag(request: Pick<NostrEvent, "kind" | "tags">): Cod
       if (!/^[1-9][0-9]{0,2}$/.test(w.schritt!) || (w.antwort !== "ja" && w.antwort !== "nein")) return null;
       return gepruefteAktion({ aktion: "freigabe", lauf: w.lauf!, schritt: Number(w.schritt), ja: w.antwort === "ja" });
     }
+    case "bundle": return gepruefteAktion({ aktion: "bundle", projekt: w.projekt! });
     default: return gepruefteAktion({ aktion: "stopp", lauf: w.lauf! });
   }
 }
@@ -209,7 +218,12 @@ export type CodeAntwort =
   | { aktion: "neu"; projekt: string }
   | { aktion: "auftrag"; ende: CodeEnde; schritte: number; abschluss: string }
   | { aktion: "freigabe"; ok: boolean }
-  | { aktion: "stopp"; ok: boolean };
+  | { aktion: "stopp"; ok: boolean }
+  /**
+   * Das Projekt als git-Bundle (VKl): verschlüsselt ins Blob-Netz gelegt (`blob`, Manifest-Event `manifest`),
+   * hier nur der Schlüssel dazu – versiegelt an den Besitzer. Klartext-Größe in `bytes`.
+   */
+  | { aktion: "bundle"; blob: string; manifest: string; schluessel: DateiSchluessel; bytes: number };
 
 const istSchrittZahl = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
 
@@ -240,6 +254,13 @@ function gepruefteAntwort(roh: unknown): CodeAntwort | null {
     case "freigabe":
     case "stopp":
       return felder === 2 && typeof a.ok === "boolean" ? { aktion: a.aktion, ok: a.ok } : null;
+    case "bundle": {
+      if (felder !== 5 || typeof a.blob !== "string" || !HEX64.test(a.blob) || typeof a.manifest !== "string" || !HEX64.test(a.manifest)) return null;
+      if (!istDateiSchluessel(a.schluessel) || Object.keys(a.schluessel as object).length !== 4) return null;
+      if (!Number.isSafeInteger(a.bytes) || (a.bytes as number) < 1 || (a.bytes as number) > CODE_GRENZEN.bundle) return null;
+      const k = a.schluessel as DateiSchluessel;
+      return { aktion: "bundle", blob: a.blob, manifest: a.manifest, schluessel: { alg: k.alg, key: k.key, nonce: k.nonce, ox: k.ox }, bytes: a.bytes as number };
+    }
     default:
       return null;
   }

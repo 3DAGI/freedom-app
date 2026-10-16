@@ -47,7 +47,8 @@ DEKLARATION = re.compile(
 OBERSTE_EBENE = re.compile(
     r"^(?:export|function|class|const|let|var|interface|type|enum|async|import|declare|abstract)\b", re.M)
 # Bezeichner, der als Wert benutzt wird: nicht nach '.', nicht als Schluessel 'name:'.
-BEZEICHNER = re.compile(r"(?<![\w.$])([A-Za-z_$][\w$]*)(?![\w$])(?!\s*\??:(?!:))")
+# Nach einem Punkt eine Eigenschaft – außer nach dem Spread `...name` (bis RM2b2 übersehen)
+BEZEICHNER = re.compile(r"(?<![\w$])(?:(?<=\.\.\.)|(?<!\.))([A-Za-z_$][\w$]*)(?![\w$])(?!\s*\??:(?!:))")
 
 
 def regex_moeglich(s: str, i: int) -> bool:
@@ -194,6 +195,8 @@ ZAHLWEGE = {
     # Eingebaute SOL-Wallet (4.2a): roh signiert nur sie selbst, zahlen nur ueber die Schiene.
     r"\.addSignature\(": {"sol-wallet.ts"},
     r"\bbenutzbareEingebauteWallet\b": {"shell/eingebaute-wallet.ts", "shell/zahlschienen.ts"},
+    # Cashu (A-17c): Token sind Bargeld – die Bibliothek nur im Topf, alles andere ruft ihn.
+    r"@cashu/cashu-ts": {"cashu-topf.ts"},
 }
 
 
