@@ -40,6 +40,11 @@ export function tresorEingerichtet(): boolean {
   return localStorage.getItem(LS_TRESOR) === "1";
 }
 
+/** Eingerichtet und gerade entsperrt – nur dann schreibt etwa der Cashu-Topf (A-17c, RM2c2). */
+export function tresorOffen(): boolean {
+  return tresorEingerichtet() && !!tresor && !tresor.locked;
+}
+
 /**
  * Speicher fuer alle Geheimnisse der App (Schritt 1.2c): mit Tresor
  * verschluesselt, ohne wie bisher localStorage.
@@ -354,7 +359,7 @@ export function starteAutoSperre(beschaeftigt: () => boolean): void {
       jetzt: Date.now(),
       letzteEingabe: letzte,
       minuten: sperrMinuten(localStorage.getItem(LS_SPERRE)),
-      offen: tresorEingerichtet() && !!tresor && !tresor.locked,
+      offen: tresorOffen(),
       beschaeftigt: beschaeftigt(),
     })) sperreJetzt();
   }, 20_000);

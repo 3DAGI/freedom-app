@@ -80,7 +80,7 @@ test("Verdrahtet: Auftrag gemerkt vor dem Senden, Abrechnung und Reklamation mit
   const agent = lies("shell/tabs/agent.ts");
   const bau = agent.slice(agent.indexOf("export async function buildJobEvent("), agent.indexOf("export let jobAbort"));
   assert.match(bau, /const sitzung = kiSitzungen\.fuer\(targetPubkey\);/);
-  assert.match(bau, /const useSession = !eigen && !kanal && sc\.activeFor\(targetPubkey, sitzung\.publicKey\(\)\);/);
+  assert.match(bau, /const useSession = !eigen && !kanal && !pfand && sc\.activeFor\(targetPubkey, sitzung\.publicKey\(\)\);/);
   assert.match(bau, /\.\.\.sc\.jobTags\(targetPubkey, bid \* 1000, sitzung\.publicKey\(\)\),/);
   assert.match(bau, /kiSitzungen\.merkeAuftrag\(auftrag\.requestId, sitzung\);[^\n]*\n  merkeErsetzt\(/);
   const antwort = agent.slice(agent.indexOf("export async function handleAnswer("), agent.indexOf("export function resetSendBtn("));

@@ -92,6 +92,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "werbe-name": ["ds.fWerbeName", "ds.gWerbeName"],
   "zeitanker": ["ds.fZeitanker", "ds.gZeitanker"],
   "wecken": ["ds.fWecken", "ds.gWecken"],
+  "cashu-pfand": ["ds.fCashuPfand", "ds.gCashuPfand"],
   "anruf-ip": ["ds.fAnrufIp"],
   "anruf-vermittler": ["ds.fAnrufVermittler", "ds.gAnrufVermittler"],
 };

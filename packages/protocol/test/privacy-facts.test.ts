@@ -24,6 +24,7 @@ import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
 import { buildBlob } from "../src/blob.js";
 import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
+import { pfandTags } from "../src/pfand.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
 import { MeshKind, fragment, pruefeMeshInhalt } from "../src/mesh-transport.js";
 import { regelBesitzerVersiegelt, regelMeshVerschluesselt } from "../src/leak-rules.js";
@@ -234,6 +235,17 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
   "ki-zahlung": async () => {
     const { wraps } = await privateKiRunde();
     return regelKeineZahlungsdaten(wraps).length;
+  },
+  "cashu-pfand": async () => {
+    // Wie die App seit RM2c2: gesperrte Token nur im versiegelten Kern der Anfrage – offen fiele der Pfand auf
+    const kp = generateKeypair();
+    const sitzung = new LocalSigner(kp.sk);
+    const h = (n: number) => "ab".repeat(n);
+    const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: "Frage", bidMsat: 1000, providerPubkey: b.pk });
+    request.tags.push(...pfandTags({ mint: "https://mint.example.org", token: [{ id: "00" + h(7), amount: 4, secret: h(32), C: "02" + h(32), dleq: { e: h(32), s: h(32), r: h(32) } }] }));
+    const { wrap } = await buildPrivateJobRequest({ sessionSigner: sitzung, providerPk: b.pk, request });
+    const offen = signEvent(request, kp.sk);
+    return regelKeineZahlungsdaten([wrap]).length + (regelKeineZahlungsdaten([offen]).length > 0 ? 0 : 1);
   },
   kontakte: async () => {
     // Wie die App seit 2.5b, wenn eingeschaltet: alle Eintraege verschluesselt an sich selbst.
@@ -648,6 +660,16 @@ test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist ve
   const offen = JSON.stringify(wrap);
   for (const geheim of [endpunkt, ich.pk, geraet.pk]) assert.ok(!offen.includes(geheim), "nichts davon offen");
   assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der Knoten als Empfänger");
+});
+
+test("RM2c2: der Cashu-Pfand steht als Grenze im Bericht – verwahrt von der Mint, Token nur versiegelt; das Szenario hält sie ein", async () => {
+  assert.equal(await SZENARIEN["cashu-pfand"]!(), 0, "versiegelt unauffällig, offen fiele der Pfand auf");
+  const f = PRIVACY_FACTS.find((x) => x.id === "cashu-pfand");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "keine-zahlungsdaten");
+  assert.match(f?.grund ?? "", /Entscheidung RM2 W1 A/);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Mit dem Cashu-Pfand zahlst du KI-Antworten aus einem Guthaben bei der Mint, die du gewählt hast – verwahrt von ihr, nicht von Freedom\..*es steht in keiner Sicherung\./);
 });
 
 test("P5c2: Prüfrunden stehen als Grenze im Bericht – mit Grund, Ausnahmen und Regel; das Szenario hält sie ein", async () => {

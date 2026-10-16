@@ -20,6 +20,7 @@ import { MAX_POW_APP, buildJobEvent, handleAnswer, jobAbort, keinPrivaterProvide
 import { gratisAnbieter, merkeGratisLeer, zaehleGratisAntwort } from "../gratis-start.js";
 import { merkeGratisAbgelehnt } from "../app.js";
 import { perKanal, zieleNachSchiene } from "../ki-zahlung.js";
+import { perPfand } from "../ki-pfand.js";
 import { addAiMessage, EigeneMeldung, hideTyping, showAiError } from "./agent-anzeige.js";
 import { selectedTools } from "./agent-eingabe.js";
 
@@ -101,8 +102,8 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
       }).catch(() => null);
     }
 
-    // Rückfall nach Stille (L2-2) nur, wenn es einen nächsten gibt, und nie mit Gutschrift im Zahlkanal
-    const stumm = !letztes && !perKanal(requestId);
+    // Rückfall nach Stille (L2-2) nur, wenn es einen nächsten gibt, und nie mit Gutschrift im Zahlkanal oder Pfand (RM2c2)
+    const stumm = !letztes && !perKanal(requestId) && !perPfand(requestId);
     const answer = await waitForAnswer(requestId, timeoutMs, target, {
       extraJobIds: activeJobIds,
       onFeedback: (msg) => { lastFeedbackError = msg; },

@@ -405,6 +405,11 @@ export class CashuTopf {
     return getEncodedToken({ mint: s.mint!, unit: "sat", proofs: senden });
   }
 
+  /** Läuft ein Tausch, den erst `nachholen()` klärt? */
+  laufend(): boolean {
+    return this.lies().laufend !== undefined;
+  }
+
   /** Im Pfand gesperrt und noch nicht übergeben (sat) – nach der Frist holt `holePfandZurueck()` es zurück. */
   imPfand(): number {
     return summe(deserializeProofs((this.lies().pfand ?? []).flatMap((f) => f.token)));

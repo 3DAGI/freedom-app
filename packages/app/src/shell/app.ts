@@ -914,6 +914,8 @@ function starte(): void {
   abrufTakt.melde("ruf", () => import("./ruf.js").then((r) => r.rufTakt()), 1);
   // Zeitanker (B-17b3a, K2 A): stempeln, nachreichen, Beweis zum Mandat – etwa alle zehn Minuten, ohne Anker kein Netz
   abrufTakt.melde("zeitanker", () => import("./zeitanker-takt.js").then((z) => z.zeitankerSchlag()), 20);
+  // Cashu-Pfand (RM2c2): abgebrochenen Tausch klären, nach der Frist zurückholen – etwa alle zehn Minuten, ohne Mint nichts
+  abrufTakt.melde("pfand", () => import("./ki-pfand.js").then((p) => p.pfandTakt()), 20);
   void zeigeOnboarding();
   const succSetup = $("#succ-setup");
   if (succSetup) succSetup.onclick = () => void richteNachfolgeEin();

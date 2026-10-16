@@ -21,6 +21,7 @@ import { quittungNachKanal, quittungNachZahlung } from "../quittungen.js";
 import { begleicheWennVerlassen } from "../ki-wechsel.js";
 import { deklaration, empfaengerFuer, kanalAntwort, kanalGutschrift, merkeAnfrage, perKanal, providerZahlung, pruefeKiZahlweg, rechneAntwortAb, zahleAnteile } from "../ki-zahlung.js";
 import { kopplungFuer, meineKopplung } from "../mein-knoten.js";
+import { perPfand, pfandAntwort, pfandFuerAnfrage } from "../ki-pfand.js";
 import { entmaskiere, ersetztFuer, maskiere, merkeErsetzt } from "../ki-platzhalter.js";
 import { type KnotenWeg, wegZumKnoten } from "../knoten-weg-ui.js";
 import { knotenModellAus } from "../../knoten-wahl.js";
@@ -331,6 +332,8 @@ export async function buildJobEvent(
   sc: SessionClient,
   zusatzTags: string[][] = [],
   modell?: string,
+  /** Ohne Cashu-Pfand (RM2c2) – Prüfrunden zahlen wie bisher. */
+  o: { ohnePfand?: boolean } = {},
 ): Promise<{ wrap: NostrEvent; requestId: string }> {
   if (!state.keypair) throw new Error("no keypair"); // kein UI-Text
   const sitzung = kiSitzungen.fuer(targetPubkey);
@@ -354,7 +357,11 @@ export async function buildJobEvent(
   // Zahlweg (12.4a, E3 A): mit SOL nur über den Kanal – ohne Kanal geht nichts hinaus, nie still Lightning
   if (!eigen && hoechst > 0) pruefeKiZahlweg(targetPubkey);
   const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);
-  extraTags.push(...(eigen ? [] : kanal ? kanal.tags : deklaration(empfaenger)));
+  // Cashu-Pfand (RM2c2): ohne Kanal, wenn das Angebot die Mint des Topfs nennt – statt Sitzung; nie im Max-Modus
+  // (jeder Provider bekäme Token), nie in Prüfrunden
+  const pfand = eigen || kanal || o.ohnePfand || zusatzTags.some((t) => t[0] === "race") ? undefined
+    : await pfandFuerAnfrage(targetPubkey, sitzung.publicKey(), empfaenger, hoechst);
+  extraTags.push(...(eigen ? [] : kanal ? kanal.tags : [...deklaration(empfaenger), ...(pfand?.tags ?? [])]));
   if (attachment) {
     extraTags.push(["attach", attachment.type, eigen ? attachment.name : maskiere(attachment.name).text, attachment.dataUrl.slice(0, 2000)]);
   }
@@ -367,7 +374,7 @@ export async function buildJobEvent(
     extraTags.push(["param", "model", gewaehltesModell]);
   }
   // Nur die Sitzung dieses Schlüssels (D1b) – eine andere nennte dem Provider beide
-  const useSession = !eigen && !kanal && sc.activeFor(targetPubkey, sitzung.publicKey());
+  const useSession = !eigen && !kanal && !pfand && sc.activeFor(targetPubkey, sitzung.publicKey());
   const request = useSession
     ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
         ["i", fullPrompt, "text"],
@@ -392,6 +399,7 @@ export async function buildJobEvent(
   });
   // Erst merken (letzte Gutschrift, offene Anfrage), dann senden
   if (kanal) await kanal.merke(auftrag.requestId);
+  if (pfand) await pfand.merke(auftrag.requestId);
   kiSitzungen.merkeAuftrag(auftrag.requestId, sitzung); // D1b: Abrechnung und Reklamation mit diesem Schlüssel
   merkeErsetzt(auftrag.requestId, maske.ersetzt);
   merkeAnfrage(auftrag.requestId, empfaenger, hoechst, !!kanal);
@@ -544,6 +552,15 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
     // Quittung (5.5b): angekündigt, bis die Kette die Auszahlung zeigt
     void quittungNachKanal(r.providerPubkey, r.requestId, r.amountLamports);
     if (r.amountLamports) toast(t("zahl.kanalBezahlt", { betrag: solText(r.amountLamports) }));
+    void refreshQuota();
+    resetSendBtn($("#ai-send") as HTMLButtonElement);
+    return;
+  }
+  // Cashu-Pfand (RM2c2): der Anteil des Providers liegt schon bei ihm – nur buchen, Lightning zahlt ihn nie
+  if (perPfand(r.requestId)) {
+    const gebucht = await pfandAntwort(r.requestId, abrechnung.providerMsat);
+    if (gebucht > 0) toast(t("zahl.pfandBezahlt", { sats: Math.ceil(gebucht / 1000) }));
+    void zahleAnteile().catch(() => { /* beim naechsten Mal */ });
     void refreshQuota();
     resetSendBtn($("#ai-send") as HTMLButtonElement);
     return;

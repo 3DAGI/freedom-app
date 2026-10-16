@@ -803,3 +803,10 @@ Fallstricke dieses Bereichs unten anhängen.
   netto reicht – je Provider und Sitzungsschlüssel, mit derselben Rechnung wie `PfandKasse` (Gebühr der Mint je Token,
   Konto bis zur frühesten Frist der neuen Token); `merke()` vor dem Senden, `pfandVerbucht()` nach der Antwort.
   Zurück nur über `holePfandZurueck()` nach der Frist (übergeben oder nicht, Eingelöstes fällt weg).
+  Im echten Pfad (seit RM2c2) nur über `shell/ki-pfand.ts`: den Topf gibt es einmal (`cashuTopf`, über `geheim`, schreibt
+  nur mit `tresorOffen()`); `buildJobEvent()` holt den Pfand über `pfandFuerAnfrage()` – nur ohne Kanal und eigenen Knoten,
+  nie mit `["race"]` (Max-Modus: jeder Provider bekäme Token), nie in Prüfrunden (`ohnePfand`), nur wenn das Angebot die
+  Mint des Topfs nennt; Bedarf `providerAnteilMsat(hoechst, zahlbareAnteile(…, "lightning"))` wie die Deklaration. Kein
+  Pfand → wie bisher, nie ein Fehler nur deshalb. Gemerkt vor dem Senden, mit Pfand keine Sitzung; `handleAnswer()` bucht
+  per `pfandAntwort()` vor der Sitzung und zahlt den Anteil des Providers nie über Lightning; kein Rückfall auf einen
+  zweiten Provider (`perPfand()` in `askWithFailover()`). Nachholen und Rückweg nur im Abruftakt (`pfandTakt()`).

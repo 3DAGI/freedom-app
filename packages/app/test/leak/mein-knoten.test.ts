@@ -45,8 +45,9 @@ test("Mein Knoten: Nachweis und Geheimnis nur versiegelt, kein Gebot, Identität
   assert.match(bau, /const eigen = kopplungFuer\(targetPubkey\);/);
   assert.match(bau, /const hoechst = eigen \? 0 : hoechstMsat\(bid, selectedTools\);/);
   assert.match(bau, /const kanal = eigen \? undefined : await kanalGutschrift\(targetPubkey, hoechst\);/);
-  assert.match(bau, /extraTags\.push\(\.\.\.\(eigen \? \[\] : kanal \? kanal\.tags : deklaration\(empfaenger\)\)\);/);
-  assert.match(bau, /const useSession = !eigen && !kanal && sc\.activeFor\(targetPubkey, sitzung\.publicKey\(\)\);/); // seit D1b1 die Sitzung dieses Schlüssels
+  assert.match(bau, /const pfand = eigen \|\| kanal \|\| [^\n]* \? undefined/, "an den eigenen Knoten nie ein Pfand (RM2c2)");
+  assert.match(bau, /extraTags\.push\(\.\.\.\(eigen \? \[\] : kanal \? kanal\.tags : \[\.\.\.deklaration\(empfaenger\), \.\.\.\(pfand\?\.tags \?\? \[\]\)\]\)\);/);
+  assert.match(bau, /const useSession = !eigen && !kanal && !pfand && sc\.activeFor\(targetPubkey, sitzung\.publicKey\(\)\);/); // seit D1b1 die Sitzung dieses Schlüssels
   assert.match(bau, /bidMsat: eigen \? 0 : bid \* 1000,/);
   assert.match(bau, /request: eigen \? mitBesitzerNachweis\(request, eigen\) : request, sessionSigner: sitzung,/, "vor dem Versiegeln, im Kern");
 });

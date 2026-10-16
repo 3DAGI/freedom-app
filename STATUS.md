@@ -10837,3 +10837,28 @@ nur bei Bedarf, eigene Fenster je Sitzung, frischer Rückweg; zu wenig im Topf; 
 Tausch ohne Antwort (Mint tauschte → Zählerbereich; Anfrage kam nie an → zurück ins Fenster).
 
 Knoten-Stand: unverändert. Noch ohne Aufrufer – den bringt RM2c2.
+
+## Schritt RM2c2 – Cashu-Pfand im echten Pfad
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V4, V5; W1 A). Die Sitzung auf Kredit fällt mit RM2c3 (neu in V9); RM2d (Spur C) bringt
+„Guthaben laden“ und die Wahl der Mint.
+
+**Gebaut:**
+- `app/src/shell/ki-pfand.ts` (neu): der Cashu-Topf der App (`cashuTopf`, über `geheim`, schreibt nur mit offenem Tresor);
+  `pfandFuerAnfrage()` – nennt das Angebot die Mint des Topfs und einen Pfand-Schlüssel, Token für den Anteil des Providers
+  am Gebot (`providerAnteilMsat()` mit den deklarierten Anteilen, wie der Knoten); sonst `undefined`, und die Anfrage geht wie
+  bisher. `perPfand()`, `pfandAntwort()` (buchen), `pfandTakt()` (nachholen, Rückweg).
+- `buildJobEvent()`: Pfand-Tags im Kern neben der Deklaration, statt Sitzung; gemerkt vor dem Senden. Nicht mit Kanal, nicht
+  beim eigenen Knoten, nicht im Max-Modus (`race`), nicht in Prüfrunden (`ohnePfand`).
+- `handleAnswer()`: per Pfand nur buchen – vor der Sitzung, Lightning zahlt den Anteil des Providers nie; übrige Anteile
+  wie bisher in die Kasse. Kein Rückfall auf einen zweiten Provider mit Pfand (`askWithFailover()`).
+- Abruftakt „pfand“ (etwa alle zehn Minuten): abgebrochenen Tausch klären, nach der Frist zurückholen.
+- `tresorOffen()` (`shell/tresor.ts`), `CashuTopf.laufend()`.
+- Datenschutz: Grenze „cashu-pfand“ (verwahrt von der Mint, Token nur versiegelt, was sie sieht, kein Rückweg ohne Gerät),
+  Regel `keine-zahlungsdaten`, Szenario; Texte in beiden Sprachen.
+- `wiring-ausnahmen.txt`: `pfandTags()` raus – die App ruft ihn jetzt.
+
+**Tests:** protocol +1 (Grenze mit Szenario: versiegelt unauffällig, offen fällt der Pfand auf), app +3 (`ki-pfand.test.ts`:
+Anfrage, Antwort, Baustein und Takt); `ki-zahlung.test.ts` an die erweiterte Zeile im Kern angepasst.
+
+Knoten-Stand: Provider mit `PFAND=1` (RM2b3). Ohne Topf (bis RM2d) ändert sich für Nutzer nichts.

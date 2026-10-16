@@ -77,7 +77,7 @@ test("P5c2 verdrahtet: nach dem ersten Senden, versiegelt über buildJobEvent, s
   assert.equal(lauf.match(/messeLauf\(runde, /g)?.length, 3, "Antwort, Abbruch, alle versagt – jede Runde wird abgeschlossen");
   assert.doesNotMatch(lauf.slice(lauf.indexOf("for (let i = 0;")), /askRace|askSwarm/, "nur der normale Weg");
   const r = lies("shell/pruefrunde-lauf.ts");
-  assert.match(r, /const auftrag = await buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, p\.sc\);\n    await p\.publish\(auftrag\.wrap\);/, "wie jede Anfrage versiegelt");
+  assert.match(r, /const auftrag = await buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, p\.sc, \[\], undefined, \{ ohnePfand: true \}\);\n    await p\.publish\(auftrag\.wrap\);/, "wie jede Anfrage versiegelt");
   assert.match(r, /still: true \}/);
   assert.match(r, /!ausser\.has\(k\.caps\.pubkey\) && !eigen\(k\.caps\.pubkey\) && !kanalDa\(k\.caps\.pubkey\)/);
   assert.match(r, /const eigen = \(pk: string\): boolean => !!kopplungFuer\(pk\) \|\| getAllowlist\(\)\.includes\(pk\);/);
