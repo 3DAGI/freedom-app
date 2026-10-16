@@ -10339,3 +10339,29 @@ nimmt nur https/.onion – die echten Token prüft `pfand-kasse.test.ts`.
 
 Knoten-Stand: Wer `PFAND=1` setzen will, braucht diesen Stand; ohne `PFAND` ändert sich nichts.
 
+## Schritt C-43 – Führung als Karte auf ihrer Seite
+
+Aus dem Oberflächen-Review (15.10.2026). Bis jetzt stand der nächste Schritt („Stell einfach eine Frage“, „Sichere deine Wörter“ …) als Leiste über jeder Seite: am Desktop 66 px, und der Text lief unter den Knopf. Am Handy kamen 50 px zum Kopf dazu. Auf dem Wallet stand „Zur KI“, in den Repos „Zu den Nachrichten“.
+
+- **Eine Seite je Schritt** (`hinweisSeite()`, `onboarding.ts`):
+  - „los“ steht beim Agenten.
+  - „los-chat“ steht in den Chats, oben in der Liste.
+  - Die Anleitung zum Knoten steht unter Verdienen.
+  - Sichern, Tresor und Wallet gelten für alle. Sie stehen auf der Seite, die man in der Einrichtung gewählt hat (Agent, Chats oder Verdienen): Dort arbeitet man, dort sieht man sie, bis der Schritt erledigt oder auf „später“ gestellt ist.
+  - Die Sicherungs-Erinnerung (8.1a) steht daneben.
+- **Als Karte**: Titel, der ganze Text und die Knöpfe untereinander. Die Hauptaktion ist grün (`.primaer`, C-42b), „Später“ ist ein Ghost-Knopf. „mehr/weniger“ fällt weg, weil die Karte nur noch auf einer Seite steht. Am Handy war der Text bis jetzt zugeklappt.
+- **Kein Knopf, der nur hinführt**: Bei „los“ und „los-chat“ fällt der Knopf weg („Zur KI“, „Zu den Nachrichten“), weil die Karte schon dort steht. Die Anleitung öffnet weiter den Reiter „Hosten“.
+- **Desktop-Raster**: Zwischen Leiste und Seite steht nur noch der Offline-Hinweis (zwei Zeilen statt vier).
+
+Den Gratis-Stand als Chip im Kopf des Agenten übernimmt C-49 (Agent-Eingabe). Dort wird die Zeile darunter ohnehin neu gebaut.
+
+Tests:
+- Ein neuer Unit-Test prüft `hinweisSeite()` für jeden Schritt und jede Wahl (mit Gegenfällen) und prüft, dass Schritte ohne eigenen Knopf auskommen.
+- Die Tests aus 8.1a, C.1a, C.5b und C-39a sind auf die Karte umgestellt.
+- Smoke-Teile:
+  - „rahmen“: Die Karte steht am Desktop in der Seite des Agenten und nicht in den Chats.
+  - „einrichtung_wahl“: Nach „Nachrichten schreiben“ steht die Karte in den Chats, ohne Knopf, und nicht beim Agenten.
+  - „mobil“: Hochkant und quer ist der Text ganz lesbar, die Karte hält den Rand und ist höchstens knapp halb so hoch wie der Bildschirm. In den Chats steht keine.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1138 (+1), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
