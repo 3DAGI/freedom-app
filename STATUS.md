@@ -10878,3 +10878,23 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1201 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-56b – Stil-Abdruck: die Bausteine bleiben gleich, über alle Spuren
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-56. Ob ein Knopf nach einer Änderung noch aussieht wie vorher, sah bisher niemand. Drei Spuren ändern dasselbe CSS.
+
+- **Neuer Smoke-Teil „stil_abdruck“.** Je Seite misst er eine feste Probe aller Bausteine (C-56a), dazu Seitentitel und Navigation:
+  - Seiten: Agent, Chats, Wallet, Verdienen, Einstellungen;
+  - jeweils auf Desktop und Handy;
+  - gemessen: Schrift, Größe, Gewicht, Schreibung, Radius, Farben, Mindesthöhe.
+- Verglichen wird mit `scripts/stil-soll.json`.
+- Gemessen wird nur, was das CSS festlegt: Übergänge aus, keine Bildschirmfotos. Die hingen von den Schriften des CI-Rechners ab.
+- Bei gewollter Änderung:
+  - `STIL_NEU=1` schreibt die Datei neu; sie wird mitcommittet und im Pull Request genannt.
+  - `BILDER=<ordner>` legt Bildschirmfotos zum Ansehen ab.
+
+Tests:
+- Neu: `stil-abdruck.test.ts` mit 3 Tests: Datei vollständig, gemerkte Werte gleich den Regeln der Bausteine, Smoke-Teil eingetragen.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1204 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
