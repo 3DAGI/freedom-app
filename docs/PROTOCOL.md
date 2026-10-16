@@ -1364,5 +1364,7 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   Gebot und Werkzeugen (A+, RM2 V4) – die übrigen Anteile zahlt die App nach der Antwort; gebucht wird vor der Antwort
   der Anteil des Providers am Preis. Ein Pfand neben einer Gutschrift (§ Zahlkanal) lehnt er ab. Das Angebot nennt nur
   Mints, deren Schlüssel die Kasse kennt.
-- **Noch nicht:** Mint-Abrufe über Tor und der Erlös an die eigene Lightning-Adresse (RM2b3) – bis dahin startet
-  `PFAND=1` nicht mit `TOR_SOCKS`; Sperren und Übergeben in der App (RM2c).
+- **Über Tor und Auszahlung (seit RM2b3):** Mit `TOR_SOCKS` gehen alle Anfragen an die Mints durch Tor. Der Erlös geht je Mint
+  ab 1000 sat an die eigene Lightning-Adresse (`NODE_LUD16`, NUT-05) – die Rechnung über genau den Betrag, der Rest nach
+  Gebühr und Vorbehalt fürs Routing bleibt als Wechselgeld.
+- **Noch nicht:** Sperren und Übergeben in der App (RM2c).

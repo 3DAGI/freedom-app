@@ -181,7 +181,7 @@ Spark-Wallet, dazu Cashu für kleine Beträge (NUT-11, NUT-12), immer mit der Mi
 | RM2a | Protokoll: Pfand-Tags, Prüfung `pruefePfand()` ohne Mint (DLEQ, Sperre, Frist), Angebot mit Mints und Fassung; Tests mit den Vektoren der Spezifikation | A | ~300 – **fertig** (16.10.: `protocol/src/pfand.ts`, `docs/PROTOCOL.md` §38) |
 | RM2b1 | Knoten: `PfandKasse` (annehmen, Datei 0600, einlösen vor der Frist, absturzsicher); Tests gegen eine Mint auf dem Rechner (Nutshell ohne echtes Lightning), wie beim Zahlkanal gegen den Validator | A | ~300 – **fertig** (16.10.: `node/src/pfand-kasse.ts`) |
 | RM2b2 | Knoten: verdrahten – Provider (Deckung, Buchung), `main.ts` (`PFAND=1`, `PFAND_MINTS`), Angebot, Selbstprüfung der Mints | A | ~200 – **fertig** (16.10.) |
-| RM2b3 | Knoten: Mint-Abrufe über Tor (`TOR_SOCKS`), Erlös an die eigene Lightning-Adresse (NUT-05, `NODE_LUD16`) | A | ~200 |
+| RM2b3 | Knoten: Mint-Abrufe über Tor (`TOR_SOCKS`), Erlös an die eigene Lightning-Adresse (NUT-05, `NODE_LUD16`) | A | ~200 – **fertig** (16.10.) |
 | RM2c | App: Fenster sperren, übergeben, Rest zurückholen über den Cashu-Topf aus A-17c; die Sitzung auf Kredit fällt weg | A | ~350 |
 | RM2d | Oberfläche: „Guthaben laden“ statt Budget-Sitzung, Mint und „verwahrt“ sichtbar | C | ~200 |
 

@@ -19,6 +19,8 @@ Bereichs unten anhängen.
   Schlüssel an die eigene Adresse `NODE_SOL_PAYOUT` (`SolAuszahlung`, über
   der Schwelle, einmal je Abstand, Rücklage für Miete bleibt) – nie an andere,
   nie neben LP oder Relayer mit demselben `SOLANA_KEYPAIR` (deren Liquidität).
+  Ebenso seit RM2b3 den eigenen Erlös des Cashu-Pfands an die eigene `NODE_LUD16` (`PfandKasse.zahleAus()`
+  mit `rechnungVon()`) – nie an eine andere Adresse.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`.)*
 - **Zahlkanal nur nach `docs/ZAHLKANAL.md`** – Kanäle nimmt der Knoten nur
   mit `ZAHLKANAL=1` und einem Schlüssel passend zu `NODE_SOL_ADDRESS`
@@ -314,7 +316,11 @@ Bereichs unten anhängen.
   eingesetzten Token – nie ab Zähler 0. Die Test-Mint verlangt 0,1 sat je Token: Beträge im Test aus den Token rechnen,
   nie fest.
   Im Provider (seit RM2b2) nur mit `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` wie im Angebot; ungültig → kein
-  Start, mit `TOR_SOCKS` bis RM2b3 auch – die Mint sähe sonst die IP am Tor vorbei): Pfand nur aus einem Umschlag, nie neben
-  einer Gutschrift, Deckung und Buchung nur als Anteil des Providers (`providerAnteilMsat()`), gebucht vor der Antwort.
-  Über den Provider geht nur eine Mint mit https oder .onion (`lesePfandTags()`) – die Test-Mint auf http://127.0.0.1 nur
-  in Tests der Kasse; Tests des Providers nehmen eine Attrappe mit `nimmAn`/`verbuche`.
+  Start): Pfand nur aus einem Umschlag, nie neben einer Gutschrift, Deckung und Buchung nur als Anteil des Providers
+  (`providerAnteilMsat()`), gebucht vor der Antwort. Mit `TOR_SOCKS` (seit RM2b3) jede Anfrage an eine Mint nur über
+  `cashuUeberTor()` (`torAnfrage()`, Option `anfrage` der Kasse) – nie cashu-ts mit `fetch` daneben, sonst sähe die Mint
+  die IP; ohne Proxy kein Start. Über den Provider geht nur eine Mint mit https oder .onion (`lesePfandTags()`) – im Test
+  heißt die Test-Mint `http://….onion:<port>`, und die SOCKS-Attrappe (`test/socks-attrappe.ts`) führt den Namen nach
+  127.0.0.1. Ausgezahlt wird nur über `zahleAus()` (NUT-05, ab `PFAND_AUSZAHLUNG_SCHWELLE_SAT`, Rechnung über genau den
+  Betrag, abgesichert wie ein Tausch: `laufend` mit `woher: "erloes"`, eine noch unterwegs befindliche Zahlung (`PENDING`)
+  hält `laufend` fest).
