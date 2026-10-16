@@ -58,12 +58,13 @@ export interface KnotenWeg {
 
 /**
  * Auf die versiegelte Antwort meines Knotens warten – Ergebnis (`ergebnisKind`)
- * oder Rückmeldung 7000; null nach der Frist. Nur nach dem Sitzungsschlüssel
- * des Auftrags fragen (siehe `KnotenWeg.sitzungPk`).
+ * oder Rückmeldung 7000 (seit VKl2 mit ihrer Kennung `fall`, falls der Knoten
+ * eine nennt); null nach der Frist. Nur nach dem Sitzungsschlüssel des Auftrags
+ * fragen (siehe `KnotenWeg.sitzungPk`).
  */
 export async function warteAufKnoten(
   weg: KnotenWeg, sitzung: Signer, requestId: string, ergebnisKind: number, zeitMs: number, taktMs: number,
-): Promise<{ ergebnis: string } | { abgelehnt: string } | null> {
+): Promise<{ ergebnis: string } | { abgelehnt: string; fall?: string } | null> {
   const seit = Math.floor(Date.now() / 1000) - 60;
   for (let t0 = Date.now(); Date.now() - t0 < zeitMs;) {
     await new Promise((ok) => setTimeout(ok, taktMs));
@@ -72,7 +73,7 @@ export async function warteAufKnoten(
       const a = await openPrivateJobResponse(w, sitzung);
       if (!a.ok || getTag(a.response, "e") !== requestId) continue;
       if (a.response.kind === ergebnisKind) return { ergebnis: a.response.content };
-      if (a.response.kind === 7000) return { abgelehnt: a.response.content };
+      if (a.response.kind === 7000) return { abgelehnt: a.response.content, fall: getTag(a.response, "fall") };
     }
   }
   return null;

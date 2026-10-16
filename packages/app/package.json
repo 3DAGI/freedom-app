@@ -17,6 +17,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@cashu/cashu-ts": "4.11.0",
     "@freedomstack/protocol": "*",
     "@freedomstack/mls": "*",
     "@solana/web3.js": "^1.98.4",

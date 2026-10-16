@@ -163,7 +163,7 @@ Andere Wege:
 
 | Schritt | Inhalt | Spur |
 |---|---|---|
-| E9-1 | `cluster.ts` aufräumen: eigene Kinds (B1), alte Gebühr und Bilanz raus (B2, B3), Angebot 38028, Absprache versiegelt | B (seit 09.10.) |
+| E9-1 | `cluster.ts` aufräumen: eigene Kinds (B1), alte Gebühr und Bilanz raus (B2, B3), Angebot 38028, Absprache versiegelt | B (seit 09.10.) – ✓ (38028, innen 25050, `docs/PROTOCOL.md` §36) |
 | E9-2 | Gratis im Angebot: Tag `gratis` (KI), vierter Wert im `storage`-Tag; `network-capacity.ts` raus; App zeigt und wählt danach | B (seit 09.10.) – ✓ (`STORAGE_GRATIS_MB`, Abruf nur bei passenden Knoten; den KI-Teil baute A-14) |
 | E9-3 | Modelle laden im Knoten: Manifest von vertrauten Schlüsseln, `verifyFile()`, `fitsOnDevice()`, `npm run modell`, Selbstprüfung | B |
 | E9-4 | Katalog 38080 mit Manifest-Verweis, App zeigt „geprüft“ je Modell | B (seit 09.10.) – ✓ 15.10. (`MODELL_KATALOGE`, in der App „✓ Prüfsummen“) |
