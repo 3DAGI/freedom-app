@@ -33,7 +33,7 @@ import {
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
-import { pfandKasseAusUmgebung, pfandOrt } from "./pfand-kasse.js";
+import { pfandKasseAusUmgebung, pfandOrt, rechnungVon } from "./pfand-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
@@ -41,7 +41,7 @@ import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
-import { torAusUmgebung, torWebSocket } from "./tor.js";
+import { torAnfrage, torAusUmgebung, torWebSocket } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
@@ -359,7 +359,8 @@ async function main(): Promise<void> {
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
   // Cashu-Pfand (RM2b2): nur mit PFAND=1 und PFAND_MINTS – ungültig heißt kein Start. Selbstprüfung der Mints ins Log.
-  const pfandKasse = pfandKasseAusUmgebung(process.env, pfandOrt());
+  // Mit TOR_SOCKS (RM2b3) gehen die Anfragen an die Mints durch Tor.
+  const pfandKasse = pfandKasseAusUmgebung(process.env, pfandOrt(), torProxy ? { tor: torProxy } : {});
   if (pfandKasse) {
     // Blockiert den Start nicht: Gemerkte Schlüssel gelten weiter, das nächste Angebot nennt neu Geprüftes
     void pfandKasse.ladeMints().then((befunde) => {
@@ -871,6 +872,11 @@ async function main(): Promise<void> {
       }
       for (const r of await pfandKasse.loeseFaelligeEin().catch(() => [])) {
         console.log(r.fehler ? `[pfand] ${r.mint}: ${r.fehler} (${r.betrag} sat)` : `[pfand] ${r.mint}: ${r.betrag} sat eingelöst`);
+      }
+      // Erlös an die eigene Lightning-Adresse (RM2b3) – die Rechnung von NODE_LUD16, mit Tor durch Tor
+      const holen = (u: string) => (torProxy ? torAnfrage(torProxy, u) : fetch(u, { redirect: "error", signal: AbortSignal.timeout(30_000) }));
+      for (const r of await pfandKasse.zahleAus((msat) => rechnungVon(lud16, msat, holen)).catch(() => [])) {
+        console.log(r.fehler ? `[pfand] Auszahlung ${r.mint}: ${r.fehler} (${r.betrag} sat)` : `[pfand] ${r.betrag} sat an ${lud16} ausgezahlt`);
       }
     };
     void pfandTakt();

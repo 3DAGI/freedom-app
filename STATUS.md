@@ -10811,3 +10811,28 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1192 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt RM2b3 – Pfand über Tor, Erlös an die eigene Lightning-Adresse
+
+Spur A, `docs/RM2-ENTWURF.md` (V1.5, V5). Letzter Teil von RM2b im Knoten.
+
+**Gebaut:**
+- `tor.ts`: `torAnfrage()` – wie `torGet()`, mit Methode und Inhalt, https und für .onion auch http.
+- `pfand-kasse.ts`:
+  - `cashuUeberTor()`: die Anfragen von cashu-ts (`RequestFn`) durch Tor, Fehler der Mint als `MintOperationError`; die
+    Kasse nimmt sie über die Option `anfrage` für jede Mint (`new Mint(url, { customRequest })`).
+  - `pfandKasseAusUmgebung(…, { tor })`: mit `TOR_SOCKS` nur mit dem Proxy (sonst kein Start) – bis RM2b2 ging Pfand mit Tor gar nicht.
+  - `zahleAus(rechnung, schwelle)`: der Erlös je Mint ab 1000 sat per NUT-05 – Betrag nach Gebühr der Mint und Vorbehalt fürs
+    Routing (nennt die Mint mehr, einmal mit weniger), abgesichert wie ein Tausch (`laufend` mit `woher: "erloes"`); eine noch
+    laufende Zahlung (`PENDING`) bleibt gemerkt, bis sie entschieden ist.
+  - `rechnungVon()`: Rechnung von der eigenen Lightning-Adresse (LUD-16) über genau den Betrag, https-Callback, Betrag im Bereich.
+- `main.ts`: Proxy an die Kasse, nach dem Einlösen die Auszahlung an `NODE_LUD16` (Rechnung mit Tor über `torAnfrage()`);
+  ins Log nur Betrag, Mint und Fehlername.
+- Tests: die SOCKS-Attrappe aus `tor.test.ts` in `test/socks-attrappe.ts`.
+
+**Tests:** node +5 – über Tor (alle Abrufe durch den Proxy, nur mit Namen, Mint als .onion), Auszahlung (angekommen, Wechselgeld,
+unter der Schwelle nichts; echte Rechnung nur mit genau dem Betrag), Abbruch nach der Zahlung (Wechselgeld zurück, nichts doppelt),
+`rechnungVon()` mit sechs kaputten Fällen, und der ganze Weg mit echten Token durch den Provider (Mint über Tor als .onion).
+
+Knoten-Stand: Wer `PFAND=1` setzt, braucht diesen Stand.
+

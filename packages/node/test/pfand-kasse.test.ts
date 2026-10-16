@@ -13,7 +13,8 @@ import { join } from "node:path";
 import { P2PKBuilder, Wallet, getPubKeyFromPrivKey, type Proof } from "@cashu/cashu-ts";
 import { randomBytes } from "node:crypto";
 import type { Pfand } from "@freedomstack/protocol";
-import { PfandKasse, pfandKasseAusUmgebung, pfandSpeicher, type PfandStand } from "../src/pfand-kasse.js";
+import { PfandKasse, cashuUeberTor, pfandKasseAusUmgebung, pfandSpeicher, rechnungVon, type PfandStand } from "../src/pfand-kasse.js";
+import { socksAttrappe } from "./socks-attrappe.js";
 
 const MINT = process.env["CASHU_TEST_MINT"];
 const ohneMint = !MINT && "CASHU_TEST_MINT fehlt (scripts/cashu-testmint.sh)";
@@ -200,4 +201,111 @@ test("Die Mint hält die Frist ein (V3): vorher löst nur der Knoten ein, danach
   await new Promise((r) => setTimeout(r, (frist - jetzt() + 2) * 1000));
   const zurueck = await w.ops.receive(token).privkey(rueckSk).run();
   assert.ok(zurueck.length > 0, "nach der Frist über den Rückweg");
+});
+
+// ---- RM2b3: Tor und Auszahlung ----
+
+/** Die Test-Mint unter einem .onion-Namen – die SOCKS-Attrappe führt jeden Namen nach 127.0.0.1. */
+const onion = () => `http://pfandmintabcdefghij.onion:${new URL(MINT!).port}`;
+
+test("Über Tor (RM2b3): Schlüssel holen, annehmen und einlösen – jeder Abruf durch den Proxy, nur mit Namen", { skip: ohneMint }, async () => {
+  const socks = await socksAttrappe();
+  try {
+    const mint = onion();
+    const k = new PfandKasse({ mints: [mint], speicher: speicher(), anfrage: cashuUeberTor(socks.proxy) });
+    assert.deepEqual(await k.ladeMints(), [{ mint }]);
+    assert.ok(socks.gesehen.length > 0 && socks.gesehen.every((g) => g.atyp === 3 && g.host === "pfandmintabcdefghij.onion"));
+    const { token } = await sperre(k.schluessel(), 8, jetzt() + 20 * 60);
+    assert.equal((await k.nimmAn({ ...alsPfand(token), mint }, SITZUNG, 0)).ok, true);
+    const vorher = socks.gesehen.length;
+    const r = await k.loeseFaelligeEin();
+    assert.equal(r[0]!.fehler, undefined);
+    assert.ok(socks.gesehen.length > vorher, "der Tausch ging durch den Proxy");
+    // Ohne Proxy kein Pfand mit TOR_SOCKS; mit Proxy schon
+    assert.ok(pfandKasseAusUmgebung({ PFAND: "1", PFAND_MINTS: "https://mint.example.org", TOR_SOCKS: "127.0.0.1:9050" }, join(ordner(), "p.json"), { tor: socks.proxy }));
+  } finally {
+    socks.server.close();
+  }
+});
+
+/** Erlös schaffen: Token sperren, annehmen, einlösen. */
+async function mitErloes(sp = speicher()) {
+  const k = await kasse({ sp });
+  const { token } = await sperre(k.schluessel(), 32, jetzt() + 20 * 60);
+  assert.equal((await k.nimmAn(alsPfand(token), SITZUNG, 0)).ok, true);
+  await k.loeseFaelligeEin();
+  return { k, erloes: k.summen().erloes };
+}
+
+/** Die „eigene Lightning-Adresse“ im Test: eine Ladung bei derselben Mint – bezahlt die Mint sie, liegt das Geld dort. */
+async function empfaenger() {
+  const w = new Wallet(MINT!, { unit: "sat" });
+  await w.loadMint();
+  const ladungen: Array<{ quote: string; betrag: number }> = [];
+  const rechnung = async (msat: number) => {
+    const q = await w.createMintQuoteBolt11(msat / 1000);
+    ladungen.push({ quote: q.quote, betrag: msat / 1000 });
+    return q.request;
+  };
+  const bezahlt = async () => {
+    let n = 0;
+    for (const l of ladungen) if ((await w.checkMintQuoteBolt11(l.quote)).state === "PAID") n += l.betrag;
+    return n;
+  };
+  return { rechnung, bezahlt };
+}
+
+test("Auszahlung (RM2b3): der Erlös geht an die eigene Adresse, das Wechselgeld bleibt; unter der Schwelle nichts", { skip: ohneMint }, async () => {
+  const { k, erloes } = await mitErloes();
+  const e = await empfaenger();
+  assert.deepEqual(await k.zahleAus(e.rechnung, erloes + 1), [], "unter der Schwelle");
+  const r = await k.zahleAus(e.rechnung, 1);
+  assert.equal(r.length, 1);
+  assert.equal(r[0]!.fehler, undefined);
+  assert.ok(r[0]!.betrag > 0 && r[0]!.betrag < erloes, `ausgezahlt ${r[0]!.betrag} von ${erloes}`);
+  assert.equal(await e.bezahlt(), r[0]!.betrag, "angekommen");
+  assert.ok(k.summen().erloes <= erloes - r[0]!.betrag, "Wechselgeld höchstens der Rest");
+  // Eine echte Rechnung: nur genau der Betrag gilt
+  const pr = await e.rechnung(1_000);
+  const lnurl = { tag: "payRequest", callback: "https://knoten.example.org/cb", minSendable: 1_000, maxSendable: 1_000_000 };
+  const holen = async (u: string) => new Response(JSON.stringify(u.includes("/.well-known/") ? lnurl : { pr }));
+  assert.equal(await rechnungVon("provider@knoten.example.org", 1_000, holen), pr);
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 2_000, holen), (x: unknown) => (x as Error).name === "RechnungFalsch");
+});
+
+test("Auszahlung bricht nach der Zahlung ab: der nächste Lauf holt das Wechselgeld, nichts doppelt", { skip: ohneMint }, async () => {
+  const sp = speicher();
+  const { erloes } = await mitErloes(sp);
+  const e = await empfaenger();
+  let lief = false;
+  sp.bricht = (s) => {
+    if (s.laufend?.woher === "erloes") lief = true;
+    return lief && s.laufend === undefined;
+  };
+  const kaputt = new PfandKasse({ mints: [MINT!], speicher: sp });
+  const r = await kaputt.zahleAus(e.rechnung, 1);
+  assert.ok(r[0]!.fehler, "Speichern nach der Zahlung scheitert");
+  sp.bricht = undefined;
+  const ausgezahlt = await e.bezahlt();
+  assert.ok(ausgezahlt > 0, "bezahlt ist bezahlt");
+  const neu = await kasse({ sp: speicher(sp.pfad) });
+  assert.deepEqual(neu.summen().erloes, 0, "laufend gemerkt, Erlös eingesetzt");
+  assert.deepEqual(await neu.zahleAus(e.rechnung, erloes + 1), [], "holt nach, zahlt nichts");
+  const rest = neu.summen().erloes;
+  assert.ok(rest > 0 && rest <= erloes - ausgezahlt, `Wechselgeld ${rest}`);
+  assert.equal(await e.bezahlt(), ausgezahlt, "nichts doppelt");
+});
+
+test("rechnungVon(): nur LNURL-pay mit https, Betrag im Bereich, die Rechnung genau über den Betrag", async () => {
+  const pr = "lnbc10n1pjqwerty"; // wird nie gelesen, wenn die Form schon scheitert
+  const antwort = (json: unknown, status = 200) => new Response(JSON.stringify(json), { status });
+  const lnurl = { tag: "payRequest", callback: "https://knoten.example.org/cb", minSendable: 1_000, maxSendable: 1_000_000 };
+  const holen = (cb: unknown, rechnung?: unknown) => async (u: string) => (u.includes("/.well-known/") ? antwort(cb) : antwort({ pr: rechnung }));
+  const fall = (n: string) => (e: unknown) => (e as Error).name === n;
+  await assert.rejects(rechnungVon("keine-adresse", 1_000, holen(lnurl, pr)), fall("AdresseUngueltig"));
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen({ ...lnurl, callback: "http://knoten.example.org/cb" }, pr)), fall("KeinPayRequest"));
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen({ ...lnurl, tag: "withdrawRequest" }, pr)), fall("KeinPayRequest"));
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 2_000_000, holen(lnurl, pr)), fall("BetragNichtErlaubt"));
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen(lnurl, "kaputt")), fall("RechnungFalsch"));
+  await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen(lnurl, undefined)), fall("RechnungFalsch"));
 });
