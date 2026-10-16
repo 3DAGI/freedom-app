@@ -17,12 +17,16 @@ import {
   estimateClusterPerf,
   recommendMode,
   findPairPartners,
-  computeReciprocity,
-  hoursNeededToRent,
-  buildPairedEvent,
+  baueClusterAbsprache,
+  oeffneClusterAbsprache,
+  KIND_CLUSTER_OFFER,
+  KIND_CLUSTER_ABSPRACHE,
   ClusterOffer,
   ModelSpec,
 } from "../src/cluster.js";
+import { KIND_PRICE_TICKER, KIND_PROVIDER_CAPABILITIES } from "../src/kinds.js";
+import { LocalSigner } from "../src/signer.js";
+import { giftUnwrapMitSigner } from "../src/gift-wrap.js";
 
 const SPARK = { memoryGb: 128, memBandwidthGbs: 273, uplinkMbit: 1000 };
 
@@ -182,57 +186,7 @@ test("Matching: kombinierter Speicher wird korrekt ausgewiesen", () => {
   assert.equal(m.combinedMemoryGb, 256);
 });
 
-test("Matching: Reziprozitaet bevorzugt, wer selbst beigetragen hat", () => {
-  const own = offer({ pubkey: "self" });
-  const recip = new Map([["gibt_viel", 100], ["nimmt_nur", -100]]);
-  const matches = findPairPartners(own, [
-    offer({ pubkey: "nimmt_nur" }),
-    offer({ pubkey: "gibt_viel" }),
-  ], { reciprocity: recip });
-  assert.equal(matches[0].partner.pubkey, "gibt_viel");
-});
-
-// ------------------------------------------------------- Reziprozitaet
-
-test("Reziprozitaet: Woche vermieten deckt Wochenende — aber nicht bei 8h/Tag", () => {
-  // Genau die Zahl, an der die Idee haengt: 48h mieten kostet bei 5% Fee
-  // gut 50h vermieten. 5 Arbeitstage x 8h reichen NICHT.
-  assert.ok(hoursNeededToRent(48) > 50);
-  assert.ok(hoursNeededToRent(48) < 51);
-
-  const kp = generateKeypair();
-  const knapp = computeReciprocity([
-    signEvent(buildPairedEvent(kp.pk, "andere", 40, 1000), kp.sk),
-    signEvent(buildPairedEvent("fremd", kp.pk, 48, 1000), kp.sk),
-  ]);
-  assert.equal(knapp.get(kp.pk)!.selfSustaining, false, "40h decken 48h nicht");
-
-  const reicht = computeReciprocity([
-    signEvent(buildPairedEvent(kp.pk, "andere", 60, 1000), kp.sk),
-    signEvent(buildPairedEvent("fremd", kp.pk, 48, 1000), kp.sk),
-  ]);
-  assert.equal(reicht.get(kp.pk)!.selfSustaining, true, "60h decken 48h");
-});
-
-test("Reziprozitaet: Bilanz zaehlt beide Seiten korrekt", () => {
-  const kp = generateKeypair();
-  const bilanz = computeReciprocity([
-    signEvent(buildPairedEvent("alice", "bob", 10, 1000), kp.sk),
-    signEvent(buildPairedEvent("bob", "alice", 4, 1000), kp.sk),
-  ]);
-  assert.equal(bilanz.get("alice")!.hoursContributed, 10);
-  assert.equal(bilanz.get("alice")!.hoursConsumed, 4);
-  assert.equal(bilanz.get("alice")!.balance, 6);
-  assert.equal(bilanz.get("bob")!.balance, -6);
-});
-
-test("Reziprozitaet: kaputte Ereignisse werden ignoriert statt zu vergiften", () => {
-  const kp = generateKeypair();
-  const ev = signEvent(buildPairedEvent("a", "b", 5, 100), kp.sk);
-  const kaputt = { ...ev, tags: ev.tags.filter((t) => t[0] !== "hours") };
-  const bilanz = computeReciprocity([kaputt as typeof ev, ev]);
-  assert.equal(bilanz.get("a")!.hoursContributed, 5, "nur das gueltige Ereignis zaehlt");
-});
+// Seit E9-1 gibt es keine Bilanz und keinen Vorrang aus ihr (B3) – und keine 5 % Protokollgebühr (B2).
 
 // ------------------------------------------------------------- Events
 
@@ -249,4 +203,41 @@ test("Angebot: falscher Kind wird abgelehnt", () => {
   const o = offer({ pubkey: "a".repeat(64) });
   const ev = { ...buildClusterOffer(o), kind: 1 };
   assert.throws(() => parseClusterOffer(ev), /kein Cluster-Angebot/);
+});
+
+test("E9-1: eigenes Kind 38028 – nicht mehr Kurs-Ticker (38026) oder Provider-Angebot (38027)", () => {
+  assert.equal(KIND_CLUSTER_OFFER, 38028);
+  assert.notEqual(KIND_CLUSTER_OFFER, KIND_PRICE_TICKER);
+  assert.notEqual(KIND_CLUSTER_OFFER, KIND_PROVIDER_CAPABILITIES);
+  assert.equal(buildClusterOffer(offer({ pubkey: "a".repeat(64) })).kind, 38028);
+});
+
+test("E9-1: fremde Angebote streng gelesen – kaputte Zahlen, Region oder Zeitfenster werfen", () => {
+  const ev = buildClusterOffer(offer({ pubkey: "a".repeat(64), availableFrom: 100, availableUntil: 200 }));
+  const mit = (name: string, ...werte: string[]) => ({ ...ev, tags: ev.tags.map((t) => (t[0] === name ? [name, ...werte] : t)) });
+  for (const [name, ...werte] of [["mem_gb", "-1"], ["mem_gb", "1e3"], ["rate", "NaN"], ["rate", ""], ["rtt", "0x10"], ["window", "200", "100"], ["window", "100"], ["region", "EU Central"], ["region", "x".repeat(33)]]) {
+    assert.throws(() => parseClusterOffer(mit(name!, ...werte)), /Cluster-Angebot/, `${name}=${werte.join(",")}`);
+  }
+  assert.equal(parseClusterOffer(mit("mem_gb", "127.5")).memoryGb, 127.5);
+});
+
+test("E9-1: die Absprache geht nur versiegelt an den Partner und wird streng gelesen", async () => {
+  const fuehrend = new LocalSigner(generateKeypair().sk), partner = new LocalSigner(generateKeypair().sk), fremd = new LocalSigner(generateKeypair().sk);
+  const absprache = { modell: "deepseek-v3:671b-q4", von: 1_800_000_000, bis: 1_800_172_800, satsJeStunde: 900 };
+  const { wrap, id } = await baueClusterAbsprache({ von: fuehrend, anPk: partner.publicKey(), absprache, nowSecs: 1_800_000_000 });
+  assert.equal(wrap.kind, 1059, "nur der Umschlag geht hinaus");
+  assert.deepEqual(wrap.tags, [["p", partner.publicKey()]], "offen steht nur der Empfänger – kein Modell, kein Preis, kein Absender");
+  const offen = await oeffneClusterAbsprache(wrap, partner);
+  assert.deepEqual(offen, { von: fuehrend.publicKey(), id, absprache });
+  assert.equal(await oeffneClusterAbsprache(wrap, fremd), null, "nur der Partner liest sie");
+  // Bestätigung mit Bezug
+  const zurueck = await baueClusterAbsprache({ von: partner, anPk: fuehrend.publicKey(), absprache, antwortAuf: id });
+  assert.equal((await oeffneClusterAbsprache(zurueck.wrap, fuehrend))!.antwortAuf, id);
+  // Unbrauchbares wird nie gebaut
+  for (const a of [{ ...absprache, bis: absprache.von }, { ...absprache, satsJeStunde: -1 }, { ...absprache, modell: "<b>" }]) {
+    await assert.rejects(baueClusterAbsprache({ von: fuehrend, anPk: partner.publicKey(), absprache: a }), /Absprache ungültig/);
+  }
+  await assert.rejects(baueClusterAbsprache({ von: fuehrend, anPk: "x", absprache }), /Partner ungültig/);
+  const innen = await giftUnwrapMitSigner(wrap, partner);
+  assert.equal(innen.ok && innen.inner!.kind, KIND_CLUSTER_ABSPRACHE);
 });
