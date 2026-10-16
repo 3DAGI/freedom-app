@@ -15,6 +15,12 @@
  *   die Mint nachweislich signiert hat (NUT-12) und die genau auf den eigenen Schlüssel gesperrt
  *   sind, ohne Frist – die kann niemand sonst ausgeben; eingelöst werden sie mit `einloesen()`.
  *
+ * - Pfand (RM2c, `docs/RM2-ENTWURF.md` V1/V6): `pfandFuer()` sperrt ein Fenster auf den Pfand-Schlüssel
+ *   eines Providers (NUT-11, mit Frist und eigenem Rückweg-Schlüssel) und gibt je Auftrag so viele
+ *   Token heraus, dass übergeben mindestens abgerechnet plus Bedarf ist – je Provider und
+ *   Sitzungsschlüssel, netto wie der Knoten (`PfandKasse`). Nach der Frist holt `holePfandZurueck()`
+ *   zurück, was der Provider nicht eingelöst hat.
+ *
  * Alles liegt nur im Tresor (`freedom.cashu`, V2): Token sind Bargeld. Ohne offenen Tresor schreibt
  * der Topf nichts. Neue Token entstehen aus einem eigenen Seed (NUT-13): Bricht ein Tausch nach der
  * Antwort der Mint und vor dem Speichern ab, holt `nachholen()` sie aus genau dem Zählerbereich
@@ -26,16 +32,21 @@ import {
   getPubKeyFromPrivKey, hasValidDleq, isMintOperationError, parseP2PKSecret, serializeProofs, sumProofs,
   type CounterSource, type GetInfoResponse, type KeyChainCache, type Proof, type Token,
 } from "@cashu/cashu-ts";
-import { isPrivateAddress, leseBolt11 } from "@freedomstack/protocol";
+import { PFAND_GRENZEN, isPrivateAddress, leseBolt11, type Pfand, type PfandToken } from "@freedomstack/protocol";
 
 export const LS_CASHU = "freedom.cashu";
 /** Höchstbetrag im Topf (E4b W4, MENSCH 11.10.2026). */
 export const CASHU_HOECHST_SAT = 10_000;
+/** Pfand (RM2c, V6): ein Fenster in sat und seine Frist – wie bisher die Sitzung (20 sats, eine Stunde). */
+export const PFAND_FENSTER_SAT = 20;
+export const PFAND_FRIST_SEK = 3600;
+/** Spielraum über der Mindestfrist des Providers (`PFAND_GRENZEN.restSek`) für Uhr und Weg. */
+export const PFAND_SPIELRAUM_SEK = 5 * 60;
 
 export type CashuFall =
   | "tresor" | "mint-adresse" | "mint-netz" | "mint-ohne-nut11" | "mint-ohne-nut12" | "mint-ohne-sat" | "mint-wechsel"
   | "keine-mint" | "betrag" | "zu-viel" | "zu-wenig" | "rechnung" | "unbezahlt" | "token" | "fremde-mint" | "ohne-dleq"
-  | "nicht-gesperrt" | "ausgegeben" | "laufend";
+  | "nicht-gesperrt" | "ausgegeben" | "laufend" | "pfand-schluessel";
 
 export class CashuFehler extends Error {
   constructor(readonly fall: CashuFall) {
@@ -65,8 +76,23 @@ interface Stand {
   gesperrt: string[];
   /** Ladungen (NUT-04), noch nicht abgeholt; `bis` aus der Mint (Unix-Sekunden), danach zählen sie nicht mehr. */
   offen: Array<{ quote: string; betrag: number; bis: number | null }>;
-  /** Ein Tausch läuft: Zähler davor und die eingesetzten Token – für `nachholen()`. */
-  laufend?: { zaehler: Record<string, number>; eingesetzt: string[] };
+  /** Ein Tausch läuft: Zähler davor und die eingesetzten Token – für `nachholen()`; beim Rückweg das Fenster. */
+  laufend?: { zaehler: Record<string, number>; eingesetzt: string[]; fenster?: Fenster };
+  /** Pfand (RM2c): gesperrte Fenster und je Provider und Sitzungsschlüssel das Konto (msat). */
+  pfand?: Fenster[];
+  konten?: Record<string, { uebergeben: number; abgerechnet: number; bis: number }>;
+}
+
+/** Ein Fenster: Token, gesperrt auf den Pfand-Schlüssel eines Providers bis `frist`, danach über `rueck` zurück. */
+interface Fenster {
+  provider: string;
+  sitzung: string;
+  an: string;
+  frist: number;
+  /** Rückweg-Schlüssel, 32 Byte hex – je Fenster frisch. */
+  rueck: string;
+  token: string[];
+  uebergeben: string[];
 }
 
 const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -147,7 +173,8 @@ export class CashuTopf {
 
   private belegt(s: Stand): number {
     const offen = s.offen.filter((x) => x.bis === null || x.bis > this.jetzt());
-    return summe(deserializeProofs(s.proofs)) + summe(deserializeProofs(s.gesperrt)) + offen.reduce((n, x) => n + x.betrag, 0);
+    return summe(deserializeProofs(s.proofs)) + summe(deserializeProofs(s.gesperrt)) + offen.reduce((n, x) => n + x.betrag, 0)
+      + summe(deserializeProofs((s.pfand ?? []).flatMap((f) => f.token)));
   }
 
   /** Zähler der eigenen Token im Tresor – jede Reservierung ist geschrieben, bevor die Mint sie sieht. */
@@ -244,24 +271,33 @@ export class CashuTopf {
    * Token aus dem Guthaben nehmen), dann die Mint, dann das Ergebnis – in einem Schreiben.
    */
   private async tausche(
-    s: Stand, eingesetzt: Proof[], woher: "proofs" | "gesperrt", lauf: () => Promise<Proof[]>, behalten?: (p: Proof[]) => Proof[],
+    s: Stand, eingesetzt: Proof[], woher: "proofs" | "gesperrt" | Fenster, lauf: () => Promise<Proof[]>, behalten?: (p: Proof[]) => Proof[],
+    dazu?: (t: Stand) => Partial<Stand>,
   ): Promise<Proof[]> {
     if (s.laufend) throw new CashuFehler("laufend");
     const weg = new Set(eingesetzt.map((p) => p.secret));
-    const rest = deserializeProofs(s[woher]).filter((p) => !weg.has(p.secret));
-    await this.schreibe({ ...s, [woher]: serializeProofs(rest), laufend: { zaehler: { ...s.zaehler }, eingesetzt: serializeProofs(eingesetzt) } });
+    const ohne = typeof woher === "string"
+      ? { [woher]: serializeProofs(deserializeProofs(s[woher]).filter((p) => !weg.has(p.secret))) }
+      : { pfand: (s.pfand ?? []).filter((f) => f !== woher) };
+    const laufend = { zaehler: { ...s.zaehler }, eingesetzt: serializeProofs(eingesetzt), ...(typeof woher === "string" ? {} : { fenster: woher }) };
+    await this.schreibe({ ...s, ...ohne, laufend });
     let neu: Proof[];
     try {
       neu = await lauf();
     } catch (e) {
+      // Ohne Antwort (Netz): ob die Mint getauscht hat, weiß nur sie – `laufend` bleibt, `nachholen()` klärt es (RM2c)
+      if (!(e instanceof CashuFehler) && !isMintOperationError(e)) throw new CashuFehler("mint-netz");
       // Die Mint hat abgelehnt: nichts verbraucht – die Token zurück, wo sie waren
       const t = this.lies();
-      await this.schreibe({ ...t, [woher]: serializeProofs([...deserializeProofs(t[woher]), ...eingesetzt]), laufend: undefined });
-      throw e instanceof CashuFehler ? e : isMintOperationError(e) ? new CashuFehler("ausgegeben") : new CashuFehler("mint-netz");
+      const zurueck = typeof woher === "string"
+        ? { [woher]: serializeProofs([...deserializeProofs(t[woher]), ...eingesetzt]) }
+        : { pfand: [...(t.pfand ?? []), woher] };
+      await this.schreibe({ ...t, ...zurueck, laufend: undefined });
+      throw e instanceof CashuFehler ? e : new CashuFehler("ausgegeben");
     }
     const t = this.lies();
     const bleibt = behalten ? behalten(neu) : neu;
-    await this.schreibe({ ...t, proofs: serializeProofs([...deserializeProofs(t.proofs), ...bleibt]), laufend: undefined });
+    await this.schreibe({ ...t, proofs: serializeProofs([...deserializeProofs(t.proofs), ...bleibt]), laufend: undefined, ...dazu?.(t) });
     return neu;
   }
 
@@ -369,6 +405,158 @@ export class CashuTopf {
     return getEncodedToken({ mint: s.mint!, unit: "sat", proofs: senden });
   }
 
+  /** Im Pfand gesperrt und noch nicht übergeben (sat) – nach der Frist holt `holePfandZurueck()` es zurück. */
+  imPfand(): number {
+    return summe(deserializeProofs((this.lies().pfand ?? []).flatMap((f) => f.token)));
+  }
+
+  /** Netto-Wert eines Tokens beim Provider (msat): Nennwert minus Gebühr der Mint je Token – wie `PfandKasse`. */
+  private netto(s: Stand, p: Proof): number {
+    const k = s.schluesselbund?.keysets.find((x) => x.id === p.id);
+    return p.amount.toNumber() * 1000 - Math.max(0, k?.input_fee_ppk ?? 0);
+  }
+
+  /** Konto beim Provider – nach der letzten Frist vergisst der Knoten es, die App ebenso. */
+  private konto(s: Stand, schluessel: string): { uebergeben: number; abgerechnet: number; bis: number } {
+    const k = s.konten?.[schluessel];
+    return k && k.bis > this.jetzt() ? k : { uebergeben: 0, abgerechnet: 0, bis: 0 };
+  }
+
+  /**
+   * Pfand für einen Auftrag (RM2c, V1/V6): Token aus den Fenstern dieses Providers und
+   * Sitzungsschlüssels, bis übergeben mindestens abgerechnet plus `bedarfMsat` ist – reicht kein
+   * Fenster, wird ein neues gesperrt (Tausch bei der Mint). Reicht das Übergebene schon, ist die
+   * Liste leer. `merke()` zählt die Token als übergeben – vor dem Senden aufrufen.
+   */
+  async pfandFuer(a: { provider: string; sitzung: string; an: string; bedarfMsat: number; fensterSat?: number }): Promise<{ pfand: Pfand; merke(): Promise<void> }> {
+    if (!/^0[23][0-9a-f]{64}$/.test(a.an)) throw new CashuFehler("pfand-schluessel");
+    if (!Number.isSafeInteger(a.bedarfMsat) || a.bedarfMsat < 0) throw new CashuFehler("betrag");
+    const id = `${a.provider}:${a.sitzung}`;
+    let s = this.lies();
+    const mint = s.mint;
+    if (!mint) throw new CashuFehler("keine-mint");
+    const fehlt = (t: Stand) => this.konto(t, id).abgerechnet + a.bedarfMsat - this.konto(t, id).uebergeben;
+    // Nur Token, deren Frist der Provider noch annimmt
+    const brauchbar = (t: Stand) => (t.pfand ?? []).filter((f) => f.provider === a.provider && f.sitzung === a.sitzung && f.an === a.an
+      && f.frist >= this.jetzt() + PFAND_GRENZEN.restSek + PFAND_SPIELRAUM_SEK);
+    const frei = (t: Stand) => brauchbar(t).flatMap((f) => deserializeProofs(f.token));
+    if (fehlt(s) > 0 && frei(s).reduce((n, p) => n + this.netto(s, p), 0) < fehlt(s)) {
+      await this.sperreFenster(a, fehlt(s) - frei(s).reduce((n, p) => n + this.netto(s, p), 0));
+      s = this.lies();
+    }
+    // Größte zuerst, solange sie nicht überschießen; dann das kleinste, das den Rest deckt
+    let rest = fehlt(s);
+    const wahl: Proof[] = [];
+    const vorrat = frei(s).sort((x, y) => this.netto(s, y) - this.netto(s, x));
+    for (const p of vorrat) {
+      if (rest <= 0 || wahl.length >= PFAND_GRENZEN.token) break;
+      if (this.netto(s, p) <= rest) {
+        wahl.push(p);
+        rest -= this.netto(s, p);
+      }
+    }
+    if (rest > 0) {
+      const p = vorrat.filter((x) => !wahl.includes(x) && this.netto(s, x) >= rest).pop();
+      if (!p || wahl.length >= PFAND_GRENZEN.token) throw new CashuFehler("zu-wenig");
+      wahl.push(p);
+    }
+    const token: PfandToken[] = wahl.map((p) => {
+      if (!p.dleq?.r) throw new CashuFehler("ohne-dleq");
+      return { id: p.id, amount: p.amount.toNumber(), secret: p.secret, C: p.C, dleq: { e: p.dleq.e, s: p.dleq.s, r: p.dleq.r } };
+    });
+    return {
+      pfand: { mint, token },
+      merke: async () => {
+        const t = this.lies();
+        const weg = new Set(wahl.map((p) => p.secret));
+        // Nur, was noch im Fenster liegt – zweimal merken zählt nicht doppelt
+        const raus: Proof[] = [];
+        const fristen: number[] = [];
+        const pfand = (t.pfand ?? []).map((f) => {
+          const hier = deserializeProofs(f.token).filter((p) => weg.has(p.secret));
+          if (hier.length === 0) return f;
+          raus.push(...hier);
+          fristen.push(f.frist);
+          return { ...f, token: serializeProofs(deserializeProofs(f.token).filter((p) => !weg.has(p.secret))), uebergeben: [...f.uebergeben, ...serializeProofs(hier)] };
+        });
+        if (raus.length === 0) return;
+        const k = this.konto(t, id);
+        const uebergeben = k.uebergeben + raus.reduce((n, p) => n + this.netto(t, p), 0);
+        // Wie der Knoten: das Konto gilt bis zur frühesten Frist der neuen Token, mindestens bis zur bisherigen
+        await this.schreibe({ ...t, pfand, konten: { ...this.offeneKonten(t), [id]: { ...k, uebergeben, bis: Math.max(k.bis, Math.min(...fristen)) } } });
+      },
+    };
+  }
+
+  /** Konten, deren letzte Frist noch nicht vorbei ist. */
+  private offeneKonten(t: Stand): NonNullable<Stand["konten"]> {
+    return Object.fromEntries(Object.entries(t.konten ?? {}).filter(([, k]) => k.bis > this.jetzt()));
+  }
+
+  /** Preis eines Auftrags buchen (Anteil des Providers) – höchstens bis zum Übergebenen, wie der Knoten. */
+  async pfandVerbucht(provider: string, sitzung: string, msat: number): Promise<number> {
+    const t = this.lies();
+    const id = `${provider}:${sitzung}`;
+    const k = this.konto(t, id);
+    const gebucht = Math.max(0, Math.min(Math.floor(msat), k.uebergeben - k.abgerechnet));
+    if (gebucht > 0) await this.schreibe({ ...t, konten: { ...this.offeneKonten(t), [id]: { ...k, abgerechnet: k.abgerechnet + gebucht } } });
+    return gebucht;
+  }
+
+  /** Ein Fenster sperren: mindestens `PFAND_FENSTER_SAT`, netto mindestens `fehltMsat`, klein gestückelt (V6). */
+  private async sperreFenster(a: { provider: string; sitzung: string; an: string; fensterSat?: number }, fehltMsat: number): Promise<void> {
+    const { w, s } = await this.wallet();
+    if (s.laufend) throw new CashuFehler("laufend");
+    const gebuehr = Math.max(0, s.schluesselbund?.keysets.find((k) => k.active && k.unit === "sat")?.input_fee_ppk ?? 0);
+    let betrag = Math.max(a.fensterSat ?? PFAND_FENSTER_SAT, Math.ceil(fehltMsat / 1000));
+    while (betrag * 1000 - gebuehr * stueckelung(betrag).length < fehltMsat) betrag++;
+    const proofs = deserializeProofs(s.proofs);
+    // Mit der Gebühr der Mint für alle eingesetzten Token – sonst scheiterte cashu-ts erst im Tausch
+    const ppk = proofs.reduce((n, p) => n + Math.max(0, s.schluesselbund?.keysets.find((k) => k.id === p.id)?.input_fee_ppk ?? 0), 0);
+    if (summe(proofs) < betrag + Math.ceil(ppk / 1000)) throw new CashuFehler("zu-wenig");
+    const rueck = zufall(32);
+    const frist = this.jetzt() + PFAND_FRIST_SEK;
+    const sperre = new P2PKBuilder().addLockPubkey(a.an).lockUntil(frist).addRefundPubkey(hex(getPubKeyFromPrivKey(vonHex(rueck)))).toOptions();
+    let gesperrt: Proof[] = [];
+    await this.tausche(s, proofs, "proofs", async () => {
+      const r = await w.ops.send(betrag, proofs).asP2PK(sperre, stueckelung(betrag)).run();
+      gesperrt = r.send;
+      return [...r.keep, ...r.send];
+    }, (alle) => alle.filter((p) => !gesperrt.includes(p)), (t) => ({
+      pfand: [...(t.pfand ?? []), { provider: a.provider, sitzung: a.sitzung, an: a.an, frist, rueck, token: serializeProofs(gesperrt), uebergeben: [] }],
+    }));
+  }
+
+  /**
+   * Nach der Frist (RM2c, V1.6): was der Provider nicht eingelöst hat, über den Rückweg zurück –
+   * übergeben oder nicht. Eingelöstes fällt weg. Liefert die zurückgeholten sat.
+   */
+  async holePfandZurueck(): Promise<number> {
+    const abgelaufen = (this.lies().pfand ?? []).filter((f) => f.frist < this.jetzt());
+    if (abgelaufen.length === 0) return 0;
+    const { w } = await this.wallet();
+    let zurueck = 0;
+    for (const f of abgelaufen) {
+      const alle = deserializeProofs([...f.token, ...f.uebergeben]);
+      const staende = await w.checkProofsStates(alle).catch(() => { throw new CashuFehler("mint-netz"); });
+      const offen = alle.filter((_, i) => staende[i]?.state === "UNSPENT");
+      const s = this.lies();
+      if (offen.length === 0) {
+        await this.schreibe({ ...s, pfand: (s.pfand ?? []).filter((x) => x.rueck !== f.rueck) });
+        continue;
+      }
+      const jetzt = (s.pfand ?? []).find((x) => x.rueck === f.rueck);
+      if (!jetzt) continue;
+      try {
+        zurueck += summe(await this.tausche(s, offen, jetzt, () => w.ops.receive(offen).privkey(f.rueck).run()));
+      } catch (e) {
+        // Die Mint lehnt ab (etwa ihre Uhr noch vor der Frist): das Fenster bleibt, der nächste Lauf versucht es wieder
+        if (!(e instanceof CashuFehler && e.fall === "ausgegeben")) throw e;
+      }
+    }
+    return zurueck;
+  }
+
   /**
    * Nach einem Abbruch mitten im Tausch: die Token aus dem Zählerbereich dieses Tauschs bei der
    * Mint neu ableiten (NUT-09) und die eingesetzten prüfen – nicht Ausgegebenes kommt zurück.
@@ -388,13 +576,18 @@ export class CashuTopf {
       const t = this.lies();
       const da = new Set([...deserializeProofs(t.proofs), ...deserializeProofs(t.gesperrt)].map((p) => p.secret));
       const zurueck = pruefen.filter((p, i) => staende[i]?.state === "UNSPENT" && !da.has(p.secret));
+      // Pfand auf dem Rückweg (RM2c): nicht Getauschtes bleibt im Fenster, bis der nächste Rückweg es holt
+      const f = s.laufend.fenster;
+      const imFenster = new Set(f ? deserializeProofs(s.laufend.eingesetzt).map((p) => p.secret) : []);
+      const fensterRest = zurueck.filter((p) => imFenster.has(p.secret));
       // Auf mich Gesperrtes (ohne Netz empfangen) bleibt gesperrt – einlösen geht nur mit Unterschrift
-      const gesperrt = zurueck.filter((p) => istP2pk(p));
-      const frei = zurueck.filter((p) => !istP2pk(p));
+      const gesperrt = zurueck.filter((p) => !imFenster.has(p.secret) && istP2pk(p));
+      const frei = zurueck.filter((p) => !imFenster.has(p.secret) && !istP2pk(p));
       await this.schreibe({
         ...t, laufend: undefined,
         proofs: serializeProofs([...deserializeProofs(t.proofs), ...frei]),
         gesperrt: serializeProofs([...deserializeProofs(t.gesperrt), ...gesperrt]),
+        ...(f && fensterRest.length > 0 ? { pfand: [...(t.pfand ?? []), { ...f, token: serializeProofs(fensterRest), uebergeben: [] }] } : {}),
       });
       return summe(zurueck);
     } catch (e) {
@@ -416,4 +609,21 @@ function fuerMich(p: Proof, ich: string): boolean {
   if (!istP2pk(p)) return true;
   const erwartet = getP2PKExpectedWitnessPubkeys(p.secret);
   return erwartet.length === 0 || erwartet.includes(ich);
+}
+
+/** Kleine Stückelung (V6): 1, 2, 4, … solange es reicht, der Rest in Zweierpotenzen – fein genug zum Übergeben. */
+export function stueckelung(betrag: number): number[] {
+  const teile: number[] = [];
+  let rest = betrag;
+  for (let p = 1; rest >= p; p *= 2) {
+    teile.push(p);
+    rest -= p;
+  }
+  for (let p = 1 << 30; p >= 1; p = Math.floor(p / 2)) {
+    if (rest >= p) {
+      teile.push(p);
+      rest -= p;
+    }
+  }
+  return teile.sort((x, y) => x - y);
 }
