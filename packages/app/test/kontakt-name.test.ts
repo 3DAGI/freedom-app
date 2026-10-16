@@ -68,7 +68,8 @@ test("Anzeige: eigener Name, sonst „~Profilname“, sonst Schlüssel – „An
 
 test("das runde Zeichen: erster Buchstabe des Namens – nie „~“, nie „A“ aus „Anfrage“, ganze Zeichen", () => {
   assert.equal(kontaktInitiale({ id: PK, name: pkShort(PK), anfrage: true, profil: "bea" }), "B");
-  assert.equal(kontaktInitiale({ id: PK, name: `Anfrage · ${pkShort(PK)}` }), "2");
+  // Seit C-44 ohne Namen „?“ statt eines Zeichens aus dem Schlüssel – die Farbe unterscheidet (avatar.test.ts)
+  assert.equal(kontaktInitiale({ id: PK, name: `Anfrage · ${pkShort(PK)}` }), "?");
   assert.equal(kontaktInitiale({ id: PK, name: "🦊 Fuchs" }), "🦊");
 });
 

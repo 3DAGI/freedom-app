@@ -16,7 +16,8 @@ import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
-import { $, toast } from "../ui.js";
+import { $, avatar, eigeneInitiale, toast } from "../ui.js";
+import { personInitiale } from "../../avatar.js";
 import { geheim, richteTresorEin, tresorEingerichtet } from "../tresor.js";
 import { LS_LESESTAND, leseLesestand, schreibeLesestand } from "../../lesestand.js";
 import { bestaetige, dialog, hinweis, type Option } from "../dialog.js";
@@ -812,7 +813,9 @@ function verlaufGruppen(liste: readonly ChannelMessage[], k: VerlaufKontext): HT
     name.title = g.autor;
     kopf.append(name, el("span", zeit(g.nachrichten[0]!.createdAt), "msg-time"));
     const gruppe = el("div", undefined, "msg-group");
-    gruppe.append(kopf, ...g.nachrichten.map((m) => nachrichtZeile(m, k)));
+    // Zeichen links neben der Gruppe (C-44): Buchstabe aus dem Namen, Farbe aus dem Schlüssel
+    const zeichen = avatar(g.autor, g.autor === ich ? eigeneInitiale() : personInitiale(nameVon(g.autor), g.autor), "msg-av");
+    gruppe.append(zeichen, kopf, ...g.nachrichten.map((m) => nachrichtZeile(m, k)));
     const linie = neu ? [el("div", t("raum.neu"), "msg-neu")] : [];
     return g.neuerTag ? [el("div", tag(g.nachrichten[0]!.createdAt), "msg-tag"), ...linie, gruppe] : [...linie, gruppe];
   });
@@ -995,7 +998,8 @@ async function zeigeMitglieder(): Promise<void> {
     const anzeige = karte?.name ?? nameVon(m.pk);
     const name = el("span", anzeige, "mitglied-name");
     name.title = m.pk;
-    z.append(name, ...(karte ? [agentKennzeichen(karte)] : []), ...m.rollen.map((r) => el("span", r, m.gruender ? "msg-role rolle-gruender" : "msg-role")));
+    const zeichen = avatar(m.pk, m.pk === state.keypair?.pk ? eigeneInitiale() : personInitiale(anzeige, m.pk));
+    z.append(zeichen, name, ...(karte ? [agentKennzeichen(karte)] : []), ...m.rollen.map((r) => el("span", r, m.gruender ? "msg-role rolle-gruender" : "msg-role")));
     // Eigene Agenten: Budget und herausnehmen; fremde: keine Direktnachricht (ein Agent liest keine), nur was ich darf
     const punkte = karte
       ? (ort && eigeneAgentAktionen(m.pk, ort, () => { if (spacesUi.spaceId) void oeffneRaum(spacesUi.spaceId); })) || (state.keypair && m.pk !== state.keypair.pk ? rechteAktionen(m.pk, !!m.gruender, can) : [])
