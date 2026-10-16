@@ -93,3 +93,26 @@ Fallstricke dieses Bereichs unten anhängen.
   Anweisung nur nach dem Format des Programms lesen: `claim` nimmt `[u8; 32]` ohne Längenpräfix – bis A-21c suchte
   `getRevealedPreimage()` vier Byte Länge und fand das Preimage nie. Im Test die Kette als JSON-RPC-Attrappe hinter einem
   echten Pool (`fetchImpl`), nicht als Objekt mit passenden Methoden – sonst prüft der Test kit und Pool nicht mit.
+- **Cluster-Pairing nur nach E9-1** (`cluster.ts`, `docs/PROTOCOL.md` §36): das Angebot auf Kind 38028 (nie wieder 38026
+  oder 38027 – Kurs-Ticker und Provider-Angebot), gelesen streng über `parseClusterOffer()`; die Absprache zweier Knoten nur
+  versiegelt über `baueClusterAbsprache()`/`oeffneClusterAbsprache()` (innen 25050). Kein öffentliches Paar-Event, keine
+  Bilanz, kein Vorrang daraus, keine Protokollgebühr – der Kunde zahlt nur den führenden Knoten nach A+.
+- **Arbeitskopie nur über `arbeitskopie()`** (seit 11.5a1, `arbeitskopie.ts`): der Baum am Kopf nur aus dem Bundle
+  (`kopfCommit()`, nie `head` aus dem Verweis), jeder Pfad nach `istRepoPfad()` (kein `..`, kein `.git` in keiner
+  Schreibweise, keine Steuerzeichen), jeder Name einmal je Ordner, Grenzen je Stelle im Baum (`ARBEITSKOPIE_GRENZEN` –
+  derselbe Ordner an vielen Stellen wären sonst Millionen Dateien aus wenigen Objekten). Fehlt ein Objekt, gibt es keine
+  Arbeitskopie (`BundleFehler("kaputt")`), nie eine halbe. Den Bundle-Leser hat seit 11.5a1 das Protokoll – die App
+  nimmt ihn von dort, die Probe-Bundles liegen in `protocol/test/fixtures/`.
+- **Patches von Agenten nur über `schreibePatch()`** (seit 11.5a2a, `patch-schreiber.ts`): der Knoten baut den Patch,
+  nie das Modell. Der Commit in der ersten Zeile wird wie bei git gerechnet (Bäume, Submodule unverändert, Autor =
+  Committer, Nachricht so, wie `git am` sie liest) – ein Test wendet jeden Fall mit `git am --committer-date-is-author-date`
+  an und vergleicht die Kennung; ändert sich die Form (Kopf, Betreff, Beschreibung), muss dieser Test grün bleiben.
+  Betreff ohne `[…]`/`Re:`-Vorspann, Beschreibung ohne Zeilen, die git als Trenner, Diff oder Mbox liest (eingerückt).
+  Binär, kein UTF-8 oder über `PATCH_MAX_BYTES` gibt es keinen Patch, nur den Fall. Text mit `TextDecoder` nur mit
+  `ignoreBOM: true` – sonst fällt ein BOM still weg und der Patch passt nicht mehr (`alsText()` aus `git-bundle.ts`
+  entfernt es, für die Anzeige richtig). Im Test heißt der Committer wie der Autor – `git am` nimmt ihn aus der Umgebung.
+- **Negentropy nur über `negentropy.ts`** (seit B-35a, NIP-77, NG1 B): eigene Umsetzung, Byte für Byte wie die Referenz
+  von hoytech – die Vektoren (`test/fixtures/negentropy-referenz.json`: Startwerte der Mengen, je Nachricht Länge und
+  SHA-256) nur mit `scripts/negentropy-referenz.mjs` neu erzeugen (Referenz auf Commit und Prüfsumme gepinnt, in einer VM nur
+  mit `crypto`). Der Port in nostr-tools (`nip77`) ist keine Referenz für die antwortende Seite – sie antwortet nie mit
+  einer Id-Liste. Nachrichten von außen nur in `NEG_GRENZEN`, Fehler nur als `NegFehler` mit Kennung.
