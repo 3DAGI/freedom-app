@@ -156,7 +156,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
-| RM2b3, RM2c | Cashu-Pfand für Lightning-Sitzungen: Knoten – Mint-Abrufe über Tor, Erlös an die eigene Lightning-Adresse (NUT-05); App (RM2d Oberfläche, Spur C); mit RM2c die Grenze „cashu-verwahrt“ im Bericht (E4b V5) | frei (A-17c ✓: `CashuTopf` in `app/src/cashu-topf.ts`; RM2a ✓: `pruefePfand()`, §38; RM2b1 ✓: `PfandKasse`; RM2b2 ✓: im Provider, `PFAND=1`) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
+| RM2c | Cashu-Pfand für Lightning-Sitzungen: App – Fenster sperren, übergeben, Rest zurückholen über den Cashu-Topf (RM2d Oberfläche, Spur C); mit RM2c die Grenze „cashu-verwahrt“ im Bericht (E4b V5) | frei (A-17c ✓: `CashuTopf`; RM2a ✓: `pruefePfand()`, §38; RM2b1–b3 ✓: Knoten nimmt an, löst ein, zahlt aus, über Tor) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |
@@ -185,7 +185,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
-| C-41 bis C-48 | Oberflächen-Review, sofort: Schlüssel per Klick, Schrift und Knöpfe, Führungsleiste, Avatare, leere Zustände, Agent-Kleinigkeiten, Namen, Website-Navigation ([`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md)) | frei, der Reihe nach (C-41 ✓ [#452](https://github.com/3DAGI/freedom-app/pull/452), C-47 ✓ [#453](https://github.com/3DAGI/freedom-app/pull/453)) |
 | C-49 bis C-55 | Oberflächen-Review, mittel: Agent-Eingabe, Wallet-Startseite, Tauschformular, Chat-Liste, Einstellungen, Verdienen, Onboarding | nach C-42 |
 | C-56 bis C-59 | Oberflächen-Review, größer: Bausteine und Bildvergleich, helles Design, Website-Auftritt, Rückmeldungen | nach C-42 |
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |

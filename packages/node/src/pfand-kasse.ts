@@ -21,10 +21,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  Wallet, deserializeProofs, getPubKeyFromPrivKey, serializeProofs, sumProofs,
-  type CounterSource, type GetInfoResponse, type KeyChainCache, type Proof,
+  HttpResponseError, Mint, MintOperationError, Wallet, deserializeProofs, getPubKeyFromPrivKey, serializeProofs, sumProofs,
+  type CounterSource, type GetInfoResponse, type KeyChainCache, type Proof, type RequestFn,
 } from "@cashu/cashu-ts";
-import { PFAND_GRENZEN, istMintAdresse, pruefePfand, type Pfand, type PfandFall } from "@freedomstack/protocol";
+import { PFAND_GRENZEN, istMintAdresse, leseBolt11, pruefePfand, type Pfand, type PfandFall } from "@freedomstack/protocol";
+import { torAnfrage, type SocksZiel } from "./tor.js";
 
 /** Ein angenommenes Token, noch nicht eingelöst (ohne Beweis). */
 interface Offen {
@@ -49,8 +50,8 @@ export interface PfandStand {
   gesehen: Record<string, number>;
   /** Eingelöst: eigene Token je Mint (`serializeProofs()`). */
   erloes: Record<string, string[]>;
-  /** Ein Tausch läuft: Zähler davor und die eingesetzten Token – für `nachholen()`. */
-  laufend?: { mint: string; zaehler: Record<string, number>; eingesetzt: Offen[] };
+  /** Ein Tausch oder eine Auszahlung läuft: Zähler davor und die eingesetzten Token (`woher`) – für `nachholen()`. */
+  laufend?: { mint: string; zaehler: Record<string, number>; eingesetzt: Offen[]; woher?: "offen" | "erloes" };
 }
 
 export type PfandAnnahme = { ok: true; guthabenMsat: number } | { ok: false; fall: PfandFall | "pfand-deckung" };
@@ -66,12 +67,16 @@ export interface PfandKasseOpts {
   einloesVorlaufSek?: number;
   /** Ab so viel Offenem je Mint wird sofort eingelöst (sat). */
   einloesSchwelleSat?: number;
+  /** Anfragen an die Mints (RM2b3: durch Tor, `cashuUeberTor()`); ohne: `fetch`. */
+  anfrage?: RequestFn;
 }
 
 export const PFAND_EINLOES_VORLAUF_SEK = 1_800;
 export const PFAND_EINLOES_SCHWELLE_SAT = 1_000;
 /** Näher an der Frist wird nicht mehr eingelöst (wie `claimAllowed()` bei Swaps): Danach gehört es dem Rückweg. */
 export const PFAND_LETZTER_VERSUCH_SEK = 600;
+/** Ab so viel Erlös je Mint zahlt die Kasse an die eigene Lightning-Adresse aus (sat). */
+export const PFAND_AUSZAHLUNG_SCHWELLE_SAT = 1_000;
 /** Schlüssel einer Mint höchstens so oft neu holen, wenn ein unbekanntes Keyset kommt. */
 const NEU_LADEN_SEK = 60;
 
@@ -113,7 +118,7 @@ export class PfandKasse {
 
   private async ladeMint(mint: string): Promise<{ fall?: MintBefund["fall"] }> {
     this.geladen.set(mint, this.jetzt());
-    const w = new Wallet(mint, { unit: "sat" });
+    const w = new Wallet(this.mint(mint), { unit: "sat" });
     try {
       await w.loadMint(true);
     } catch {
@@ -126,6 +131,10 @@ export class PfandKasse {
     else this.s.mints[mint] = { info: info.cache, schluesselbund: w.keyChain.cache };
     this.speichere();
     return fall ? { fall } : {};
+  }
+
+  private mint(url: string): Mint {
+    return new Mint(url, this.o.anfrage ? { customRequest: this.o.anfrage } : undefined);
   }
 
   private mintSchluessel(mint: string, keyset: string, betrag: number): string | undefined {
@@ -267,7 +276,7 @@ export class PfandKasse {
   }
 
   private async wallet(mint: string): Promise<Wallet> {
-    const w = new Wallet(mint, { unit: "sat", bip39seed: Buffer.from(this.s.seed, "hex"), counterSource: this.zaehlerQuelle(), requireSigDleq: true });
+    const w = new Wallet(this.mint(mint), { unit: "sat", bip39seed: Buffer.from(this.s.seed, "hex"), counterSource: this.zaehlerQuelle(), requireSigDleq: true });
     await w.loadMint(true);
     return w;
   }
@@ -293,6 +302,75 @@ export class PfandKasse {
   }
 
   /**
+   * Den Erlös an die eigene Lightning-Adresse (RM2b3, NUT-05, Entwurf V1.5): je Mint ab der Schwelle alles,
+   * was nach der Gebühr der Mint je Token und dem Vorbehalt fürs Routing bleibt. `rechnung` holt eine
+   * Rechnung über genau den Betrag (msat) – geprüft beim Aufrufer. Abgesichert wie ein Tausch.
+   */
+  async zahleAus(rechnung: (msat: number) => Promise<string>, schwelleSat = PFAND_AUSZAHLUNG_SCHWELLE_SAT): Promise<Array<{ mint: string; betrag: number; fehler?: string }>> {
+    if (this.laeuft) return [];
+    this.laeuft = true;
+    try {
+      if (this.s.laufend) {
+        const mint = this.s.laufend.mint;
+        try {
+          await this.nachholen();
+        } catch (e) {
+          return [{ mint, betrag: 0, fehler: (e as Error).name || "Fehler" }];
+        }
+      }
+      const ergebnisse: Array<{ mint: string; betrag: number; fehler?: string }> = [];
+      for (const [mint, liste] of Object.entries(this.s.erloes)) {
+        const proofs = deserializeProofs(liste);
+        if (proofs.length === 0 || summe(proofs) < schwelleSat) continue;
+        try {
+          ergebnisse.push({ mint, betrag: await this.schmelze(mint, proofs, rechnung) });
+        } catch (e) {
+          ergebnisse.push({ mint, betrag: summe(proofs), fehler: (e as Error).name || "Fehler" });
+        }
+      }
+      return ergebnisse;
+    } finally {
+      this.laeuft = false;
+    }
+  }
+
+  private async schmelze(mint: string, proofs: Proof[], rechnung: (msat: number) => Promise<string>): Promise<number> {
+    const w = await this.wallet(mint);
+    const vorhanden = summe(proofs);
+    const gebuehr = w.getFeesForProofs(proofs).toNumber();
+    // Vorbehalt fürs Routing schätzen; nennt die Mint mehr, einmal mit weniger
+    let betrag = vorhanden - gebuehr - Math.max(2, Math.ceil(vorhanden / 100));
+    let quote: Awaited<ReturnType<Wallet["createMeltQuoteBolt11"]>> | undefined;
+    for (let versuch = 0; versuch < 2 && !quote && betrag > 0; versuch++) {
+      const q = await w.createMeltQuoteBolt11(await rechnung(betrag * 1000));
+      const noetig = q.amount.toNumber() + q.fee_reserve.toNumber() + gebuehr;
+      if (q.amount.toNumber() === betrag && noetig <= vorhanden) quote = q;
+      else betrag -= Math.max(1, noetig - vorhanden);
+    }
+    if (!quote) throw fehler("ZuWenig");
+    const eingesetzt = proofs.map((p) => ({ mint, frist: 0, proof: serializeProofs([p])[0]! }));
+    this.s.erloes[mint] = [];
+    this.s.laufend = { mint, zaehler: { ...this.s.zaehler }, eingesetzt, woher: "erloes" };
+    this.speichere();
+    let r: Awaited<ReturnType<ReturnType<Wallet["ops"]["meltBolt11"]>["run"]>>;
+    try {
+      r = await w.ops.meltBolt11(quote, proofs).run();
+    } catch (e) {
+      // Bezahlt oder nicht – nachsehen statt raten
+      await this.nachholen().catch(() => undefined);
+      throw e;
+    }
+    if (r.quote.state !== "PAID") {
+      await this.nachholen().catch(() => undefined);
+      throw fehler("NichtBezahlt");
+    }
+    this.s.erloes[mint] = [...(this.s.erloes[mint] ?? []), ...serializeProofs(r.change)];
+    this.s.laufend = undefined;
+    this.speichere();
+    return betrag;
+  }
+
+  /**
    * Nach einem Abbruch mitten im Tausch: die eigenen Token aus dem Zählerbereich dieses Tauschs
    * neu ableiten (NUT-09) und die eingesetzten prüfen – nicht Ausgegebenes kommt zurück in `offen`.
    * Nie ab Zähler 0: frühere Bereiche gehören früheren Tauschen.
@@ -308,11 +386,15 @@ export class PfandKasse {
     }
     const eingesetzt = deserializeProofs(l.eingesetzt.map((x) => x.proof));
     const staende = await w.checkProofsStates([...wieder, ...eingesetzt]);
+    // Eine Zahlung ist noch unterwegs: später wieder nachsehen
+    if (staende.some((s) => s.state === "PENDING")) return 0;
     const frei = (i: number) => staende[i]?.state === "UNSPENT";
     const da = new Set(deserializeProofs(this.s.erloes[l.mint] ?? []).map((p) => p.secret));
     const neu = wieder.filter((p, i) => frei(i) && !da.has(p.secret));
     this.s.erloes[l.mint] = [...(this.s.erloes[l.mint] ?? []), ...serializeProofs(neu)];
-    this.s.offen.push(...l.eingesetzt.filter((_, i) => frei(wieder.length + i)));
+    const zurueck = l.eingesetzt.filter((_, i) => frei(wieder.length + i));
+    if (l.woher === "erloes") this.s.erloes[l.mint] = [...(this.s.erloes[l.mint] ?? []), ...zurueck.map((x) => x.proof)];
+    else this.s.offen.push(...zurueck);
     this.s.laufend = undefined;
     this.speichere();
     return summe(neu);
@@ -343,27 +425,81 @@ export function pfandSpeicher(pfad: string): { lade(): PfandStand | undefined; s
   };
 }
 
+const fehler = (name: string) => Object.assign(new Error(`Pfand: ${name}`), { name });
+
+/**
+ * Eine Rechnung über genau `msat` von der eigenen Lightning-Adresse (LUD-16) für die Auszahlung (RM2b3):
+ * https-Callback, Betrag im Bereich, und die Rechnung nennt genau den Betrag (`leseBolt11()`) – wie jede
+ * Rechnung eines LNURL-Servers vor dem Zahlen. Nach außen nur Fehlernamen.
+ */
+export async function rechnungVon(adresse: string, msat: number, holen: (url: string) => Promise<Response>): Promise<string> {
+  const m = /^([a-z0-9._+-]+)@([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})$/i.exec(adresse);
+  if (!m) throw fehler("AdresseUngueltig");
+  const r = await holen(`https://${m[2]}/.well-known/lnurlp/${encodeURIComponent(m[1]!)}`);
+  const d = (await r.json().catch(() => ({}))) as { tag?: unknown; callback?: unknown; minSendable?: unknown; maxSendable?: unknown };
+  if (!r.ok || d.tag !== "payRequest" || typeof d.callback !== "string" || !d.callback.startsWith("https://")) throw fehler("KeinPayRequest");
+  if (!(msat >= Number(d.minSendable) && msat <= Number(d.maxSendable))) throw fehler("BetragNichtErlaubt");
+  const cb = new URL(d.callback);
+  cb.searchParams.set("amount", String(msat));
+  const r2 = await holen(cb.toString());
+  const pr = ((await r2.json().catch(() => ({}))) as { pr?: unknown }).pr;
+  let betrag: number | null = null;
+  try {
+    betrag = typeof pr === "string" ? leseBolt11(pr).betragMsat : null;
+  } catch { /* unten */ }
+  if (!r2.ok || typeof pr !== "string" || betrag !== msat) throw fehler("RechnungFalsch");
+  return pr;
+}
+
 /** Wo der Knoten die Kasse ablegt. */
 export function pfandOrt(home = process.env.HOME ?? "."): string {
   return join(home, ".freedom", "pfand.json");
 }
 
 /**
+ * Anfragen an eine Mint durch Tor (RM2b3) – cashu-ts nähme sonst `fetch` am Proxy vorbei, und die Mint
+ * sähe die IP des Knotens. Fehler der Mint (`code`, `detail`) als `MintOperationError` wie bei cashu-ts.
+ */
+export function cashuUeberTor(proxy: SocksZiel): RequestFn {
+  return async <T>(o: Parameters<RequestFn>[0]): Promise<T> => {
+    const body = o.requestBody ? JSON.stringify(o.requestBody) : undefined;
+    const kopf: Record<string, string> = { accept: "application/json", ...(body ? { "content-type": "application/json" } : {}), ...o.headers };
+    const zeit = typeof o.requestTimeout === "number" && Number.isFinite(o.requestTimeout) ? o.requestTimeout : 60_000;
+    const r = await torAnfrage(proxy, o.endpoint, { method: o.method ?? (body ? "POST" : "GET"), body, headers: kopf }, zeit);
+    const text = await r.text();
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = undefined;
+    }
+    if (!r.ok) {
+      const d = json as { code?: unknown; detail?: unknown } | undefined;
+      if (typeof d?.code === "number") throw new MintOperationError(d.code, typeof d.detail === "string" ? d.detail : "");
+      throw new HttpResponseError(`HTTP ${r.status}`, r.status);
+    }
+    return json as T;
+  };
+}
+
+/**
  * Die Kasse aus der Umgebung des Knotens (RM2b2): nur mit `PFAND=1` und den Mints aus `PFAND_MINTS`
  * (mit Komma getrennt, wie im Angebot: https oder .onion, höchstens fünf). Ungültig heißt kein Start –
- * sonst nähme der Knoten still keinen Pfand an. Mit `TOR_SOCKS` noch nicht: Die Mint sähe die IP des
- * Knotens am Tor vorbei (RM2b3).
+ * sonst nähme der Knoten still keinen Pfand an. Mit `TOR_SOCKS` (seit RM2b3) gehen alle Anfragen an die
+ * Mints durch Tor – ohne den Proxy (`tor`) startet sie dann nicht.
  */
-export function pfandKasseAusUmgebung(env: { PFAND?: string; PFAND_MINTS?: string; TOR_SOCKS?: string }, datei: string): PfandKasse | undefined {
+export function pfandKasseAusUmgebung(
+  env: { PFAND?: string; PFAND_MINTS?: string; TOR_SOCKS?: string }, datei: string, o: { tor?: SocksZiel } = {},
+): PfandKasse | undefined {
   if (env.PFAND !== "1") {
     if (env.PFAND && env.PFAND !== "0") throw new Error("PFAND: nur 1 oder 0");
     return undefined;
   }
-  if (env.TOR_SOCKS?.trim()) throw new Error("PFAND=1 geht noch nicht mit TOR_SOCKS – die Mint sähe die IP des Knotens (kommt mit RM2b3)");
+  if (env.TOR_SOCKS?.trim() && !o.tor) throw new Error("PFAND=1 mit TOR_SOCKS braucht den Proxy – sonst sähe die Mint die IP des Knotens");
   const mints = [...new Set((env.PFAND_MINTS ?? "").split(",").map((m) => m.trim()).filter(Boolean))];
   if (mints.length === 0) throw new Error("PFAND=1 braucht PFAND_MINTS");
   if (mints.length > PFAND_GRENZEN.mints || !mints.every(istMintAdresse)) {
     throw new Error(`PFAND_MINTS: höchstens ${PFAND_GRENZEN.mints} Mints, je https (oder .onion), ohne / am Ende`);
   }
-  return new PfandKasse({ mints, speicher: pfandSpeicher(datei) });
+  return new PfandKasse({ mints, speicher: pfandSpeicher(datei), ...(o.tor ? { anfrage: cashuUeberTor(o.tor) } : {}) });
 }
