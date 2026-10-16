@@ -10472,3 +10472,28 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-49a – Agent-Eingabe als Pille, Werkzeuge im Menü „+“
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-49. Um die Eingabe des Agenten standen fünf Bedienreihen: Werkzeug-Chips mit Preisen über dem Feld, Anhang-Knopf, Textfeld mit „Senden“, darunter Stufe, Modell, Gebot, „privat“ und Stände. Am Handy belegte das 410 von 844 px.
+
+- **Eine Pille**: oben das Textfeld ohne eigenen Rahmen, darunter eine Leiste mit:
+  - „+“;
+  - den gewählten Werkzeugen als Chips;
+  - dem Modell (`#ai-model-btn`, jetzt in der Pille, das Popover öffnet nach rechts);
+  - „Senden“.
+- **„+“** öffnet „Anhängen“ (Bild, Datei, Audio, Video, Kamera) und „Werkzeuge“ (Web, Browser, Bild, Video, je mit Preis rechts) in einem Menü. Es hat `aria-expanded`/`aria-controls`, Escape schließt das Menü und gibt den Fokus zurück. Ein Klick im Menü schließt es nicht (mehrere Werkzeuge nacheinander), ein Anhang schon.
+- **Gewählte Werkzeuge** stehen als Chip „Web ×“ in der Pille (`zeigeWerkzeugAuswahl()`). Das „×“ klickt den Knopf im Menü, so bleibt `selectedTools` an einer Stelle.
+- „Auto (schnellste)“ beginnt groß. `::first-letter` griff nicht, weil ein Symbol vor dem Text steht.
+- Die Werkzeug-Reihe zum Wischen am Handy (C.5a) fällt weg, weil die Werkzeuge im Menü untereinander stehen.
+
+Stufe, Gebot und „privat“ wandern mit C-49b ins Popover, der Gratis-Stand mit C-49c in einen Chip.
+
+Tests:
+- Neu ist `agent-pille.test.ts`: die Reihenfolge in der Pille, die vier Werkzeuge im Menü, `aria-*`, und die Chips, deren „×“ den Menü-Knopf klickt, ohne `selectedTools` und ohne HTML.
+- Der Smoke-Teil „agent_klein“:
+  - liest die Preise jetzt `attached` statt sichtbar;
+  - prüft zusätzlich: „+“ öffnet das Menü (vier Werkzeuge, `aria-expanded`), „Web“ ergibt den Chip „Web×“ und das Menü bleibt offen, „×“ nimmt das Werkzeug zurück, Escape schließt.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1149 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
