@@ -10562,3 +10562,25 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1157 (+5), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-50b – Wallet: Konten als Zeilen mit Stand, Verbindung dahinter
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-50. Auf der Übersicht standen NWC-Feld, Häkchen, eigenes Relay, „Verbinden“, die eingebaute Wallet und das Nonce-Konto offen untereinander. „Wallet verbinden“ stand dreimal da.
+
+- **Konten als Zeilen**: Lightning und Solana zeigen je Symbol, Zustand und Stand. Bei Solana ist das die Summe aus Browser-Wallet und eingebauter Wallet (aus `merkeStand()`), ohne Stand „—“.
+- **„Verbindung“** (`<details>`) enthält NWC-Feld, Häkchen und eigenes Relay bzw. Kurs, Solana verbinden, die eingebaute Wallet und „Ohne Internet zahlen“. Offen ist sie nur ohne Konto: Verbunden oder eingerichtet geht sie zu, getrennt wieder auf.
+- **Kopf der Seite** ohne „KI-Budget“ und „Wallet verbinden“. Das KI-Budget ist eine eigene kleine Karte unter den Konten (dieselbe Anzeige, `#nb-sats`). „Wallet verbinden“ steht nur noch an der Lightning-Verbindung. Der Text „+ SOL hinterlegen“, den der Kopf-Knopf zeigte, entfällt mit ihm.
+
+Tests:
+- `wallet-gesamt.test.ts` hat einen neuen Test:
+  - Zeilen mit Stand, „Verbindung“ offen;
+  - die Felder darin;
+  - zu bei verbunden, offen bei getrennt;
+  - „Wallet verbinden“ genau einmal;
+  - die KI-Budget-Karte.
+- `i18n.test.ts` prüft, dass der Kopf-Knopf weg ist.
+- Der Smoke-Teil „waehrung“ prüft: ohne Wallet beide „Verbindung“ offen, „Wallet verbinden“ einmal sichtbar, Solana „—“.
+- „geld_settings_klein“ (KI-Budget, Häkchen, Abstände) ist unverändert grün.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1158 (+1), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

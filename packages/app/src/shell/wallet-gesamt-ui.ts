@@ -4,7 +4,7 @@
  * abgefragt, nichts gespeichert. Rechnen tut `gesamtStand()`.
  */
 import { gesamtStand } from "../wallet-gesamt.js";
-import { t } from "../i18n.js";
+import { gebietsschema, t } from "../i18n.js";
 import { aktuellerKurs } from "./marktkurs.js";
 
 type Konto = "ln" | "solBrowser" | "solEingebaut";
@@ -33,6 +33,9 @@ export function zeigeGesamt(): void {
   const sol = (["solBrowser", "solEingebaut"] as const).filter((k) => k in stand);
   const bekannt = sol.map((k) => stand[k]).filter((x): x is number => typeof x === "number");
   const kurs = aktuellerKurs();
+  // Stand der Solana-Zeile (C-50b): Browser-Wallet und eingebaute zusammen, ohne Stand „—“
+  const solStand = document.getElementById("sol-stand");
+  if (solStand) solStand.textContent = bekannt.length ? `${(bekannt.reduce((a, b) => a + b, 0) / 1e9).toLocaleString(gebietsschema(), { maximumFractionDigits: 4 })} SOL` : "—";
   const g = gesamtStand({
     lnMsat: "ln" in stand ? stand.ln : undefined,
     solLamports: sol.length === 0 ? undefined : bekannt.length ? bekannt.reduce((a, b) => a + b, 0) : null,
