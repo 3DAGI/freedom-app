@@ -29,3 +29,8 @@ Bereichs unten anhängen.
   Agent-Seite sichtbar, `python3 scripts/website-bilder.py packages/app/dist packages/website/bilder` und die Bilder
   mitcommiten; `check-website.py` (`bilder_pruefen()`) prüft Größe, Alternativtext in beiden Sprachen und dass
   `build-site.sh` den Ordner auslegt. Die Vertrauenszeile nennt nur, was belegt ist, je mit Verweis auf den Beleg.
+- **Lange Seiten mit Verzeichnis, Ausfälle ruhig** (seit C-58b): FAQ und Whitepaper führen ein Inhaltsverzeichnis
+  als `<nav class="doc-toc" aria-label="Inhalt">`, das jeden Abschnitt (`<h2 id>`) in der Reihenfolge der Seite nennt –
+  ein neuer Abschnitt braucht seinen Eintrag, sonst meldet `check-website.py` (`lesbarkeit_pruefen()`). Ab 1100 px
+  steht es als Spalte daneben. Das Dashboard zeigt einen Ausfall als ruhigen Kasten mit „Jetzt erneut versuchen“,
+  die Relays im Einzelnen eingeklappt mit einem Punkt je Stand – nie wieder rote Pillen oder roten Fehlertext.
