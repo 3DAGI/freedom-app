@@ -278,7 +278,7 @@ label:has(input[type="checkbox"]), label:has(input[type="radio"]) { text-transfo
 #kurs-info:not(:empty) { margin-bottom: 8px; }
 #sol-pubkey { margin-bottom: 8px; }
 /* Verdienen ohne Knoten unter dem Schlüssel (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und Umgebungsvariablen */
-#earn-ohne-knoten:not([hidden]) ~ .nur-mit-knoten { display: none; }
+#earn-ohne-knoten:not([hidden]) ~ .nur-mit-knoten, #earn-ohne-knoten:not([hidden]) ~ .card .nur-mit-knoten { display: none; }
 
 .row { display: flex; gap: 8px; }
 .row > * { flex: 1; }
@@ -2096,3 +2096,18 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 @media (prefers-reduced-motion: reduce) { input.schalter, input.schalter::before { transition: none; } }
 @media (max-width: 640px) { .einst-zeile { flex-wrap: wrap; } .einst-zeile select { max-width: 100%; width: 100%; } }
 
+/* Verdienen als Übersicht (C-54): Checkliste ohne Knoten, Kacheln mit Knoten, Ziel der Vertrauensstufe */
+.check-liste { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.check-schritt { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; border-top: 1px solid var(--line2); }
+.check-schritt:first-child { border-top: 0; }
+.check-schritt .einst-text { flex: 1 1 auto; }
+.check-schritt button { flex: none; }
+.check-nr { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surf2); border: 1px solid var(--line2); font-weight: 600; font-size: 14px; }
+.kachel-reihe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.kachel { display: flex; flex-direction: column; gap: 6px; padding: 14px; background: var(--card); border: 1px solid var(--line2); border-radius: var(--r-lg); min-width: 0; }
+.kachel-titel { font-size: 13px; color: var(--text-muted); }
+.kachel-wert { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kachel-hinweis { grid-column: 1 / -1; margin: 0; }
+.trust-ziel { margin: 8px 0 0; font-size: 14px; }
+@media (max-width: 760px) { .kachel-reihe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .check-schritt { flex-wrap: wrap; } }

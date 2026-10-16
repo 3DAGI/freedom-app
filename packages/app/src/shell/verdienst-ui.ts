@@ -20,19 +20,29 @@ import { pkShort } from "../shell-logic.js";
 import { fasseKanaeleZusammen, kanaeleDesKnotens, knotenAusEingabe } from "../verdienst.js";
 import { programmBereit } from "../zahlkanal.js";
 import { angebotVon, solRpc, state } from "./state.js";
+import { meineKopplung } from "./mein-knoten.js";
 import { $ } from "./ui.js";
 
 export const LS_EARN_KNOTEN = "freedom.earn.knoten";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
-/** Der Schlüssel des eigenen Knotens: gemerkt, sonst die eigene Identität. */
+/** Der Schlüssel des eigenen Knotens: gemerkt, sonst der gekoppelte Knoten (C-54), sonst die eigene Identität. */
 export function knotenSchluessel(): string | undefined {
   try {
     const k = localStorage.getItem(LS_EARN_KNOTEN);
     if (k && HEX64.test(k)) return k;
   } catch { /* kein Speicher */ }
-  return state.keypair?.pk;
+  return meineKopplung()?.knoten ?? state.keypair?.pk;
+}
+
+/** Schritt 2 der Checkliste (C-54): gekoppelt oder nicht – nur aus dem Gemerkten, kein Netz. */
+function zeigeKopplungSchritt(): void {
+  const gekoppelt = !!meineKopplung();
+  const text = $("#earn-check-kopplung");
+  if (text) text.textContent = gekoppelt ? t("earn.check2Fertig") : t("earn.check2Text");
+  const knopf = $("#earn-check-koppeln");
+  if (knopf) knopf.hidden = gekoppelt;
 }
 
 /** npub oder Hex merken; leer heißt wieder die eigene Identität. Wirft bei Ungültigem. */
@@ -48,13 +58,17 @@ export async function zeigeSolEinnahmen(): Promise<void> {
   const liste = $("#earn-kanaele");
   if (!statusEl || !liste) return;
   liste.replaceChildren();
+  zeigeKopplungSchritt();
   const knoten = knotenSchluessel();
   if (!knoten) return;
   const melde = (text: string): void => { statusEl.textContent = text; };
   melde(t("earn.lade"));
   try {
     const angebot = await angebotVon(knoten).catch(() => undefined);
-    // Ohne Angebot kein Knoten (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und ZAHLKANAL=1
+    const stand = $("#kachel-stand");
+    if (stand) stand.textContent = angebot ? t("earn.standAktiv") : t("earn.standKeins");
+    // Ohne Angebot kein Knoten (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und ZAHLKANAL=1 –
+    // seit C-54 als Checkliste, mit Angebot die Kacheln
     const ohne = $("#earn-ohne-knoten");
     if (ohne) ohne.hidden = !!angebot;
     if (!angebot) return melde(t("earn.solKeinKnoten"));
@@ -107,4 +121,6 @@ export function wireVerdienst(neuLaden: () => void): void {
   $("#earn-refresh")?.addEventListener("click", () => void zeigeSolEinnahmen());
   // Zum Einrichten eines Knotens: Verdienen › Hosten
   $("#earn-zum-hosten")?.addEventListener("click", () => $<HTMLElement>('[data-subtab-group="earn"] [data-subtab="host"]')?.click());
+  // Koppeln (C-54): derselbe Dialog wie in Settings › Geräte
+  $("#earn-check-koppeln")?.addEventListener("click", () => document.getElementById("knoten-koppeln")?.click());
 }
