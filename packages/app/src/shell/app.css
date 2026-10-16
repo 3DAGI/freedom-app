@@ -2111,3 +2111,10 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .kachel-hinweis { grid-column: 1 / -1; margin: 0; }
 .trust-ziel { margin: 8px 0 0; font-size: 14px; }
 @media (max-width: 760px) { .kachel-reihe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .check-schritt { flex-wrap: wrap; } }
+
+/* Begrüßung (C-55a): drei Sätze vor der Merkphrase */
+.willkommen-karte h2 { margin-bottom: 6px; }
+.willkommen-saetze { list-style: none; margin: 12px 0 20px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.willkommen-saetze li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.5; color: var(--text); }
+.willkommen-saetze li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+
