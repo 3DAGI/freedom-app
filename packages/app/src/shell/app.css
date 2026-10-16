@@ -78,6 +78,24 @@
   background: rgba(123,200,10,.10); border: 1px solid var(--accent-dim); color: var(--accent); }
 .werkzeug-weg { opacity: .8; }
 .pille-leiste .model-popover { left: auto; right: 0; }
+/* „Stufe und Bezahlung“ (C-49b): Popover an der Eingabe, am Handy ein Blatt von unten */
+.optionen-wrap { position: relative; }
+.ai-optionen { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 70; width: 300px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--card); border: 1px solid var(--line2); border-radius: var(--r-lg); padding: 10px 14px 14px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.ai-optionen .menue-gruppe { padding: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.ai-optionen .tier-select { width: 100%; font-size: 14px; padding: 8px 10px; }
+.ai-optionen .bid-wrap { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+.ai-optionen .bid-wrap input { width: 96px; font-size: 14px; padding: 8px 10px; }
+.ai-optionen .bid-wrap .tier-select { width: auto; }
+.ai-optionen label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--text); }
+.privat-marke, .funk-marke { display: none; align-items: center; padding: 5px 10px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  border: 1px solid var(--accent-dim); color: var(--accent); }
+.eingabe-pille:has(#ai-privat:checked) .privat-marke, .eingabe-pille:has(#ai-funk:checked) .funk-marke { display: inline-flex; }
+.eingabe-pille:has(#ai-privat:checked) #ai-optionen-btn { border-color: var(--accent-dim); color: var(--accent); }
+@media (max-width: 760px) {
+  .ai-optionen { position: fixed; left: 0; right: 0; bottom: 0; width: auto; z-index: 300; border-radius: 18px 18px 0 0;
+    padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); }
+}
 .pille-leiste .model-btn { border-radius: 999px; min-width: 0; }
 .pille-leiste .send-btn { border-radius: 999px; }
 

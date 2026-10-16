@@ -10497,3 +10497,26 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1149 (+2), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-49b – Stufe und Bezahlung als Popover, am Handy als Blatt
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-49. Stufe, Gebot mit Einheit, „privat“ und „über Funk“ standen als eigene Reihe unter der Eingabe.
+
+- **Popover „Stufe und Bezahlung“**: Ein Knopf (Zahnrad) in der Pille neben dem Modell öffnet die vier Felder untereinander (`aria-expanded`/`aria-controls`). Escape und ein Klick daneben schließen es. Die Felder selbst (`#ai-tier`, `#bid-wrap`, `#ai-privat`, `#ai-funk`) und ihre Logik bleiben, wie sie waren.
+- **Am Handy ein Blatt von unten**, mit runden Ecken oben.
+- **Unter der Eingabe** steht nur noch der Stand: Vorschau der Kosten und Budget der Sitzung.
+- **„Privat“ und „Über Funk“ bleiben sichtbar**: Ist der Haken gesetzt, steht eine Marke in der Pille und der Knopf wird grün. Das ist nur CSS (`:has`) und folgt deshalb auch dem Haken, den eine geöffnete Unterhaltung setzt (D2).
+- Die Eingabe am Handy ist jetzt 260 px hoch statt 410 px; der Smoke-Test hält sie unter 300 px (quer unter 240 px).
+
+Tests:
+- `agent-pille.test.ts`:
+  - alle Felder im Popover, unter der Eingabe nur der Stand;
+  - die Marken-Regel und das Blatt am Handy;
+  - `setupOptionen()` verdrahtet.
+- Smoke-Teile:
+  - „agent_klein“: Das Popover öffnet sich (Stufe und „privat“ sichtbar, `aria-expanded`), „privat“ zeigt die Marke, Escape schließt.
+  - „mobil“: Die Höhe der Eingabe hochkant und quer.
+  - „ki_schiene“, „lokal“ und „gratis_auto“: unverändert grün (sie bedienen die Felder im Popover).
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1150 (+1), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

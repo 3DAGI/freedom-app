@@ -44,7 +44,7 @@ import { askAi, setupFunkAntworten } from "./tabs/agent.js";
 import { neueAufgabe, wirePrivat, zeigeVerlaeufe } from "./tabs/agent-verlauf.js";
 import { refreshModelDropdown, setupModelPicker } from "./tabs/modellwahl.js";
 import { zeigeGratisStand } from "./gratis-start.js";
-import { setupAttach, setupEmptyState, setupToolChips } from "./tabs/agent-eingabe.js";
+import { setupAttach, setupEmptyState, setupOptionen, setupToolChips } from "./tabs/agent-eingabe.js";
 import { updateBudgetBar, updateFeePreview, updateTokenEstimate } from "./tabs/agent-anzeige.js";
 import { wireGebot } from "./tabs/agent-gebot.js";
 import { wireFunkGateway } from "./funk-gateway-ui.js";
@@ -970,6 +970,7 @@ function starte(): void {
   $("#kanal-start").onclick = () => void oeffneZahlkanal();
   $("#chat-new-dm").onclick = () => void newDm();
   setupAttach();
+  setupOptionen();
   setupToolChips();
   setupModelPicker();
   setupEmptyState();
