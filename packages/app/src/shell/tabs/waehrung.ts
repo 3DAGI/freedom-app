@@ -211,6 +211,7 @@ export async function connectSolana(silent = false): Promise<void> {
     btn.dataset.i18n = "waehr.knopfVerbunden";
     btn.textContent = t("waehr.knopfVerbunden");
     btn.disabled = true;
+    document.getElementById("sol-verwalten")?.removeAttribute("open"); // verbunden: die Einstellungen zu (C-50b)
 
     try {
       const rpcUrl = await solRpcUrl();
@@ -288,6 +289,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
 
     $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString(gebietsschema())} <small>sats</small>`;
     merkeStand("ln", balance); // Kontostand oben (C-50a), msat
+    document.getElementById("ln-verwalten")?.removeAttribute("open"); // verbunden: die Einstellungen zu (C-50b)
     // BOLT12 nur erkennen (6.3): NIP-47 legt die Methoden noch nicht fest – Rechnungen gehen versiegelt (6.3b1)
     const bolt12 = bolt12Methoden(info.methods);
     statusEl.textContent = [
@@ -335,6 +337,7 @@ export function disconnectNwc(): void {
   if (input) input.value = "";
   $("#ln-balance").innerHTML = `— <small>sats</small>`;
   merkeStand("ln", undefined);
+  document.getElementById("ln-verwalten")?.setAttribute("open", "");
   $("#nwc-status").textContent = t("waehr.getrennt");
   $("#nwc-status").className = "mono-sm";
   $("#nwc-disconnect").classList.add("hidden");

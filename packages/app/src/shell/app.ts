@@ -753,16 +753,6 @@ function starte(): void {
   }
   $("#nb-export")?.addEventListener("click", () => void zeigePrivatenSchluessel());
   if (nbImport) nbImport.onclick = importIdentity;
-  // Wallet-Button in der Sidebar: springt zum Wallet-Tab (verbinden/deposit)
-  const nbWallet = $("#nb-wallet");
-  if (nbWallet) {
-    nbWallet.onclick = () => switchTab("wallet");
-    // Bereits verbunden? → Button zeigt "deposit" und öffnet trotzdem wallet-tab
-    if (localStorage.getItem("freedom.sol.pubkey") || localStorage.getItem("freedom.sol.balance")) {
-      nbWallet.dataset.i18n = "waehr.solDeposit";
-      nbWallet.textContent = t("waehr.solDeposit");
-    }
-  }
   $("#chat-send").onclick = sendChatMessage;
   // Media-Anhaenge im Chat (frueher Feed): kleine Dateien inline, grosse ueber
   // das Chunk-/Blob-Netz mit Blossom als Fallback.

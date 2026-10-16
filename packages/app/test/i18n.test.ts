@@ -238,7 +238,8 @@ test("8.16e: Agent-Rest, Währung, Zahlwege und Swaps – über Schlüssel; Text
   assert.doesNotMatch(["agent", "modellwahl", "agent-verlauf", "agent-wege", "agent-anzeige", "agent-eingabe"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /eigener Provider| je Aufruf/);
   // Knöpfe, deren Text der Code ändert, tragen den neuen Schlüssel – ein Sprachwechsel setzt nicht zurück
   assert.match(lies("shell/tabs/waehrung.ts"), /btn\.dataset\.i18n = "waehr\.knopfVerbunden";\s*btn\.textContent = t\("waehr\.knopfVerbunden"\);/);
-  assert.match(lies("shell/app.ts"), /nbWallet\.dataset\.i18n = "waehr\.solDeposit";/);
+  // Der Knopf „Wallet verbinden“ im Kopf der Wallet-Seite (mit „+ SOL hinterlegen“) fiel mit C-50b weg – einmal reicht
+  assert.doesNotMatch(lies("shell/app.ts"), /nbWallet|waehr\.solDeposit/);
 
   const { modellNotiz } = await import("../src/shell/tabs/agent-netz.js");
   const { reklamationText, prueferAusNetz, PRUEFER_ART } = await import("../src/streitfall.js");

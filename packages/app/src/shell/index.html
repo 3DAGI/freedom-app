@@ -357,11 +357,7 @@
 
       <!-- WAEHRUNG -->
       <section id="page-wallet" class="tab-page">
-        <header class="page-head"><div><h1 class="page-title" data-i18n="nav.wallet">Wallet</h1><p class="page-sub" data-i18n="waehr.untertitel">Lightning, Solana, Tausch, Hinterlegen und Zahlen.</p></div>
-          <div class="nav-balances head-balances" id="nav-balances">
-            <div class="nb-row"><span class="nb-label" data-i18n="waehr.kopfBudget">KI-Budget</span><span class="nb-val" id="nb-sats">—</span></div>
-            <button id="nb-wallet" class="ghost" type="button" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
-          </div></header>
+        <header class="page-head"><div><h1 class="page-title" data-i18n="nav.wallet">Wallet</h1><p class="page-sub" data-i18n="waehr.untertitel">Lightning, Solana, Tausch, Hinterlegen und Zahlen.</p></div></header>
         <div class="seg" role="tablist" data-subtab-group="wallet"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="swap" data-i18n="waehr.tabTauschen">Tauschen</button><button role="tab" data-subtab="lp" data-i18n="waehr.tabHinterlegen">Hinterlegen</button><button role="tab" data-subtab="pay" data-i18n="waehr.tabZahlen">Zahlen</button></div>
         <div class="page-body">
           <div class="subpane active" data-subpane="wallet:overview">
@@ -376,13 +372,16 @@
               <button id="wallet-tauschen" class="wa-knopf" type="button" data-subtab-ziel="swap"><span class="wa-symbol"><span class="ic" data-icon="refresh"></span></span><span data-i18n="waehr.tabTauschen">Tauschen</span></button>
               <button id="wallet-hinterlegen" class="wa-knopf" type="button" data-subtab-ziel="lp"><span class="wa-symbol"><span class="ic" data-icon="shield"></span></span><span data-i18n="waehr.tabHinterlegen">Hinterlegen</span></button>
             </div>
-          </div><div class="grid-2"><div class="card">
-          <h3>Lightning</h3>
-          <div id="ln-balance" class="bal">—</div>
-          <div id="ln-hint" class="mono-sm"></div>
+          </div>
+          <!-- Konten als Zeilen mit Stand (C-50b); Verbindung und Einstellungen dahinter, offen nur ohne Konto -->
+          <div class="grid-2"><div class="card konto-karte">
+          <div class="konto-kopf"><span class="konto-symbol konto-ln"><span class="ic" data-icon="zap"></span></span>
+            <div class="konto-name"><h3>Lightning</h3><div id="ln-hint" class="mono-sm"></div></div>
+            <div id="ln-balance" class="konto-stand">—</div></div>
+          <details id="ln-verwalten" class="konto-verwalten" open><summary data-i18n="wallet.verbindung">Verbindung</summary>
           <!-- NWC statt nur WebLN: funktioniert auf Handy wie Desktop, weil es
                ueber die Nostr-Relays laeuft und keine Browser-Extension braucht. -->
-          <div id="nwc-box" style="margin-top:10px">
+          <div id="nwc-box">
             <input id="nwc-uri" data-i18n-aria="waehr.nwcPh" class="mono-sm" placeholder="nostr+walletconnect://… (aus deiner Wallet)" data-i18n-ph="waehr.nwcPh" style="width:100%" />
             <div style="display:flex;gap:6px;margin-top:6px">
               <button id="nwc-connect" class="ghost" style="width:auto;padding:6px 10px" data-i18n="waehr.walletVerbinden">Wallet verbinden</button>
@@ -392,10 +391,13 @@
             <label class="mono-sm" style="display:block;margin-top:6px"><input type="checkbox" id="nwc-privat" /> <span data-i18n="waehr.nwcNurPrivat">NWC nur über mein eigenes oder ein .onion-Relay – sonst sieht ein fremdes Relay, wann du zahlst</span></label>
             <input id="nwc-eigenes-relay" data-i18n-aria="waehr.nwcEigenesRelayPh" class="mono-sm" placeholder="wss://… (dein eigenes Relay, optional)" data-i18n-ph="waehr.nwcEigenesRelayPh" style="width:100%" />
           </div>
-        </div><div class="card">
-          <h3>Solana</h3>
+          </details>
+        </div><div class="card konto-karte">
+          <div class="konto-kopf"><span class="konto-symbol konto-sol"><span class="ic" data-icon="coins"></span></span>
+            <div class="konto-name"><h3>Solana</h3><div id="sol-pubkey" class="mono-sm" data-i18n="waehr.nichtVerbunden">Nicht verbunden</div></div>
+            <div id="sol-stand" class="konto-stand">—</div></div>
+          <details id="sol-verwalten" class="konto-verwalten" open><summary data-i18n="wallet.verbindung">Verbindung</summary>
           <div id="kurs-info" class="mono-sm"></div>
-          <div id="sol-pubkey" class="mono-sm" data-i18n="waehr.nichtVerbunden">Nicht verbunden</div>
           <div id="sol-status" class="mono-sm"></div>
           <input id="sol-addr" data-i18n-aria="waehr.solAdressePh" class="mono-sm hidden" placeholder="SOL-Adresse" data-i18n-ph="waehr.solAdressePh" />
           <button id="sol-connect" class="ghost" data-i18n="waehr.verbinden">Verbinden</button>
@@ -435,7 +437,12 @@
             </div>
             <div id="solw-status" class="mono-sm"></div>
           </div>
+          </details>
         </div></div>
+          <!-- KI-Budget (C-50b): vorher im Kopf der Seite; eine Obergrenze der Sitzung, kein Guthaben -->
+          <div class="card ki-budget-karte nav-balances" id="nav-balances">
+            <div class="nb-row"><span class="nb-label" data-i18n="waehr.kopfBudget">KI-Budget</span><span class="nb-val" id="nb-sats">—</span></div>
+          </div>
           <div class="card" id="verlauf-karte">
             <h3 data-i18n="verlauf.titel">Verlauf</h3>
             <p class="mono-sm muted" data-i18n="verlauf.text">Was diese App über deine Wallets gezahlt hat – die neuesten 500, nur auf diesem Gerät, verschlüsselt, sobald der Tresor eingerichtet ist. Tausch, Zahlkanäle und Hinterlegung stehen in ihren Bereichen.</p>

@@ -758,6 +758,12 @@ def waehrung_pruefen(browser, url: str) -> dict:
     ev("() => document.querySelector('[data-subtab-group=\"wallet\"] [data-subtab=\"overview\"]').click()")
     if erg["gesamt"] != ["—", "Noch keine Wallet verbunden.", ["Empfangen", "Senden", "Tauschen", "Hinterlegen"], True]:
         erg["fehler"].append(f"Kontostand oben {erg['gesamt']}")
+    # Konten als Zeilen (C-50b): ohne Wallet steht die Verbindung offen, „Wallet verbinden“ gibt es sichtbar genau einmal
+    erg["konten"] = ev("""() => [document.getElementById('ln-verwalten').open, document.getElementById('sol-verwalten').open,
+        [...document.querySelectorAll('#page-wallet button')].filter(b => b.offsetParent && b.textContent.trim() === 'Wallet verbinden').length,
+        document.getElementById('sol-stand').textContent]""")
+    if erg["konten"] != [True, True, 1, "—"]:
+        erg["fehler"].append(f"Konten {erg['konten']}")
     s.wait_for_function("() => document.querySelectorAll('#lp-offers button').length === 3", timeout=30000)
     knoepfe = ev("() => [...document.querySelectorAll('#lp-offers .stat')].map(z => [z.querySelector('.k').textContent.split(' · ')[1],"
                  " z.querySelector('button').textContent, z.querySelector('button').disabled])")

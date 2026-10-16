@@ -130,7 +130,6 @@ export async function refreshQuota(): Promise<void> {
   const quotaBox = document.getElementById("nb-quota");
   if (quotaBox) quotaBox.style.display = "none";
   quotaExhausted = false;
-  ($("#nb-wallet") as HTMLButtonElement | null)?.classList.remove("cta-pulse");
 }
 
 export function updateSidebarBalances(): void {
