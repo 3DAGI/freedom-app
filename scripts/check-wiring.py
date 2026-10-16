@@ -194,6 +194,8 @@ ZAHLWEGE = {
     # Eingebaute SOL-Wallet (4.2a): roh signiert nur sie selbst, zahlen nur ueber die Schiene.
     r"\.addSignature\(": {"sol-wallet.ts"},
     r"\bbenutzbareEingebauteWallet\b": {"shell/eingebaute-wallet.ts", "shell/zahlschienen.ts"},
+    # Cashu (A-17c): Token sind Bargeld – die Bibliothek nur im Topf, alles andere ruft ihn.
+    r"@cashu/cashu-ts": {"cashu-topf.ts"},
 }
 
 

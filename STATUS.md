@@ -10208,3 +10208,45 @@ Tests: Die Unit-Tests sind unverändert grün. Grün sind auch die Smoke-Teile �
 
 **Prüfungen:** protocol 1332 grün, node 501 (ohne Netz), app 1128 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt A-17c – Cashu-Baustein
+
+Spur A, `docs/E4B-ENTWURF.md` (V2, V3 geändert mit RM2 W5 A, W4: 10.000 sat; A-17c freigegeben 14.10.). Neue
+Abhängigkeit `@cashu/cashu-ts` 4.11.0 (MIT oder Apache-2.0, freigegeben mit A-17c), nur in der App. Kein Event-Format.
+
+**Gebaut:**
+- `app/src/cashu-topf.ts` (neu, ohne DOM) – `CashuTopf`:
+  - **Mint wählen** (`waehleMint()`): Adresse nur über `pruefeMintAdresse()` (https, keine Zugangsdaten, nicht im
+    Heimnetz; `.onion` auch über http); nur Mints mit NUT-11, NUT-12 und Laden in sat; wechseln nur mit leerem Topf.
+  - **Laden** (NUT-04): `ladeAnfrage()` prüft die Rechnung der Mint auf genau den Betrag (`leseBolt11()`); bezahlt der
+    Aufrufer über die Zahlschienen, dann `abholen()`. Abgelaufene Ladungen zählen nicht mehr.
+  - **Senden** (`sende()`): Tausch bei der Mint, Wechselgeld bleibt; mit `an` gesperrt auf den Schlüssel des Empfängers
+    (NUT-11), die Gebühr fürs Einlösen trägt der Absender.
+  - **Empfangen** (`empfange()`): nur Token der eigenen Mint mit DLEQ (NUT-12), nicht auf einen fremden Schlüssel
+    gesperrt. Ohne Netz (`pruefeOhneNetz()`, `nimmOhneNetz()`): nur genau auf den eigenen Schlüssel gesperrt, ohne Frist
+    und ohne Rückgabe-Schlüssel, geprüft gegen die gemerkten Schlüssel der Mint; Doppeltes zählt einmal; eingelöst mit
+    `einloesen()`.
+  - Höchstens 10.000 sat: Guthaben, gesperrt Empfangenes und offene Ladungen zusammen.
+  - **Absturzsicher:** eigene Token aus einem Seed (NUT-13), Zähler im Tresor. Jeder Tausch merkt vorher Zähler und
+    Einsatz (`laufend`); `nachholen()` leitet nur den Zählerbereich dieses Tauschs neu ab (NUT-09) und prüft den
+    Einsatz – nie ab Zähler 0, sonst kämen früher gesendete Token zurück.
+  - Nur im Tresor (`freedom.cashu`, `GEHEIM_FEST`, `SICHERUNG_NIE`, nie im Export); ohne offenen Tresor schreibt er
+    nichts. Nach außen nur `CashuFehler.fall`.
+- `scripts/check-wiring.py` (Zahlwege): `@cashu/cashu-ts` nur in `cashu-topf.ts`.
+- `scripts/cashu-testmint.sh` + `cashu-testmint.txt`: Nutshell 0.21.0 mit FakeWallet auf 127.0.0.1, alle Versionen fest;
+  die CI startet sie vor den App-Tests (`CASHU_TEST_MINT`).
+- **Doku:** Fallstrick in `packages/app/CLAUDE.md`, Befehl in `CLAUDE.md`, FORTSCHRITT, OFFEN (A-17c gestrichen, RM2a–c
+  frei), Entwurf, Stand-Zeile.
+
+**Tests:** app +9 (`cashu-topf.test.ts`, 6 davon gegen die Mint – ohne `CASHU_TEST_MINT` übersprungen):
+- Adressen der Mint;
+- nie in Sicherung oder Export;
+- ohne Stand kein Empfangsschlüssel;
+- Laden mit Höchstbetrag und Tresor-Pflicht;
+- Senden und Empfangen: doppelt Ausgegebenes, fremde Mint, fehlende DLEQ;
+- gesperrt auf einen Schlüssel – nur er löst ein, ohne Netz einmal;
+- ohne Netz nie Ungesperrtes;
+- Absturz mitten im Senden und beim Abholen: genau dieser Stand kommt zurück, ein früher gesendetes Token nicht.
+
+Knoten-Stand: unverändert. Noch ohne Oberfläche und ohne Aufrufer – den bringt RM2c (mit der Grenze „cashu-verwahrt“ im
+Bericht).
