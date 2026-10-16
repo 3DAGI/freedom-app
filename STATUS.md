@@ -10399,3 +10399,33 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1142 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-45 – Leere Zustände mit Symbol, Satz und nächstem Schritt
+
+Aus dem Oberflächen-Review (15.10.2026). Leere Listen zeigten bis jetzt einen grauen Satz ohne Weg weiter, oft mit Fachwort:
+- „Noch keine Unterhaltungen. Mit + beginnst du eine.“
+- „Noch keine Repos nach NIP-34 …“
+- „keine LP-Angebote gefunden“
+
+- **`leererZustand()`** (`shell/ui.ts`) zeigt ein Symbol im Kreis, einen Satz als Text und höchstens einen Knopf, die Hauptaktion (`.primaer`, C-42b). Kein HTML.
+- **Chat-Liste**: „Noch keine Unterhaltungen. Schreib jemandem – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer.“ Dazu „Neue Unterhaltung“; der Knopf öffnet denselben Dialog wie „＋“.
+- **Repos**, drei Fälle:
+  - Ohne Repos: „Repo ankündigen“.
+  - Wenn die Suche nichts findet: „Suche leeren“ (leert das Feld und zeigt die Liste wieder).
+  - Unter „Neu“ ohne Neuigkeiten: „Alle zeigen“.
+  Der Text nennt statt „NIP-34“ die Clients, die die Repos auch sehen.
+- **Tauschen**: „Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.“ Dazu „Noch einmal suchen“, das das Wallet neu lädt. Die Angebote liest die App weiter nur von den eigenen Relays; der Satz sagt genau das.
+
+Verdienen („Noch keine Einnahmen“) baut C-54 ohnehin um. Dort kommt der leere Zustand mit der Übersicht.
+
+Tests:
+- Neu ist `leer-zustand.test.ts`:
+  - der Baustein (nur Text, höchstens ein Knopf);
+  - die Verdrahtung an allen fünf Stellen samt Gegenprobe;
+  - Klartext ohne „NIP-34“, „LP“ und „mit +“ in beiden Sprachen.
+- Smoke-Teile:
+  - „einrichtung_wahl“: Die leere Chat-Liste zeigt Symbol, Satz und Knopf, und der Knopf öffnet den Dialog.
+  - „repos“: Die leere Suche zeigt Satz und „Suche leeren“, und der Knopf bringt die Liste zurück.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1145 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
