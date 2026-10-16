@@ -10,7 +10,7 @@ import { fehlerText } from "../../protokoll-texte.js";
 import { DEFAULT_MAX_MODE, ScoredProvider, matchRaceProviders } from "../../matchmaking.js";
 import { type AntwortCache, oeffneAntworten } from "../../ki-antworten.js";
 import { pkShort } from "../../shell-logic.js";
-import { ensurePool, ensureSessionClient, findProviders, kiSitzungen, powJeProvider, state } from "../state.js";
+import { ensurePool, ensureSessionClient, findProviders, kiSitzungen } from "../state.js";
 import { type KnotenWeg } from "../knoten-weg-ui.js";
 import { ergebnisDesLaufs } from "../../messbuch.js";
 import { hoechstMsat } from "../../anteile-kasse.js";
@@ -37,12 +37,8 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     return askRace(prompt, bid, tier, candidates);
   }
 
+  // Die Reihenfolge kommt aus der Auswahl (P2a) – seit RM2c3 ohne Sitzung, die einen Provider vorzöge
   const pubkeyList = candidates.map((c) => c.caps.pubkey);
-  // Bekannten Session-Provider zuerst (Kontinuitaet), dann beste Matches
-  if (state.lastProvider && sc.activeFor(state.lastProvider) && powJeProvider.has(state.lastProvider)
-    && !pubkeyList.includes(state.lastProvider)) {
-    pubkeyList.unshift(state.lastProvider);
-  }
   // Private Anfragen brauchen einen Empfaenger – einen offenen Bid-Job an
   // alle gibt es seit 3.1 nicht mehr (er stand im Klartext auf den Relays).
   if (pubkeyList.length === 0) {
@@ -90,7 +86,7 @@ export async function askWithFailover(prompt: string, bid: number, tier: "free" 
     const frist = i === 0 ? HEDGE_AFTER_MS + Math.min(280_000, 300_000 - HEDGE_AFTER_MS) : 120_000;
     const letztes = i === targets.length - 1;
     const timeoutMs = letztes ? Math.max(frist, ersteFrist - Date.now()) : frist;
-    const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc);
+    const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target);
     await pool.publish(wrap);
     if (i === 0) ersteFrist = Date.now() + frist;
     activeJobIds.add(requestId);
@@ -234,7 +230,6 @@ export async function generateVideo(prompt: string): Promise<void> {
 /** MAX MODE: Race — Job an N Provider, schnellster gewinnt. Opt-in (Aufpreis). */
 async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "pro", candidates: ScoredProvider[]): Promise<void> {
   const pool = await ensurePool();
-  const sc = ensureSessionClient();
   // Zahlweg (12.4a): mit SOL nur Provider mit Zahlkanal – keiner, dann Fehler, nichts gesendet
   const erlaubt = new Set(zieleNachSchiene(candidates.map((c) => c.caps.pubkey), bid > 0));
   const racers = matchRaceProviders(candidates.filter((c) => erlaubt.has(c.caps.pubkey)), tier, DEFAULT_MAX_MODE);
@@ -246,7 +241,7 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
   toast(t("agent.maxStart", { n: racers.length }));
 
   // Job an ALLE racer gleichzeitig (race-tag im versiegelten Kern, je ein Umschlag)
-  const jobs = await Promise.all(racers.map((r) => buildJobEvent(prompt, bid, tier, r.caps.pubkey, sc, [["race", "1"]])));
+  const jobs = await Promise.all(racers.map((r) => buildJobEvent(prompt, bid, tier, r.caps.pubkey, [["race", "1"]])));
   for (const j of jobs) await pool.publish(j.wrap);
 
   // Erste Antwort gewinnt
@@ -278,7 +273,6 @@ async function askRace(prompt: string, bid: number, tier: "free" | "classic" | "
 /** SWARM: N Responder antworten, Judge waehlt/synthetisiert die beste. */
 export async function askSwarm(prompt: string, bid: number, tier: "free" | "classic" | "pro"): Promise<void> {
   const pool = await ensurePool();
-  const sc = ensureSessionClient();
   // Swarm = lokaler Provider mit beiden Modellen (nemotron + qwen3.8:27b)
   // Wir senden einen Job mit ["swarm", "1"] tag — der Provider erkennt das und nutzt beide Modelle
   const candidates = privatFaehig(await findProviders(tier));
@@ -292,7 +286,7 @@ export async function askSwarm(prompt: string, bid: number, tier: "free" | "clas
   toast(t("agent.swarmStart"));
   // Tag fuer swarm-modus im provider – im versiegelten Kern. Frueher kam er nach
   // der Signatur dazu, die Anfrage war dadurch ungueltig signiert.
-  const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, sc, [["swarm", "1"]]);
+  const { wrap, requestId } = await buildJobEvent(prompt, bid, tier, target, [["swarm", "1"]]);
   await pool.publish(wrap);
   const answer = await waitForAnswer(requestId, 120_000, target);
   if (answer) {

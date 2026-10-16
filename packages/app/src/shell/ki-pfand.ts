@@ -2,7 +2,7 @@
  * Cashu-Pfand für KI-Aufträge (RM2c2, `docs/RM2-ENTWURF.md` V1, V4, V6).
  *
  * Nennt das Angebot eines Providers die Mint des eigenen Cashu-Topfs und seinen Pfand-Schlüssel,
- * trägt die Anfrage statt einer Sitzung gesperrte Token im versiegelten Kern (`pfandTags()`):
+ * trägt die Anfrage gesperrte Token im versiegelten Kern (`pfandTags()`):
  * so viele, dass übergeben mindestens abgerechnet plus der Anteil des Providers am Gebot ist
  * (`providerAnteilMsat()`, wie der Knoten). Nach der Antwort bucht die App den Anteil des Providers
  * im Topf, Lightning zahlt ihn nicht; die übrigen Anteile gehen wie bisher in die Kasse. Gemerkt wird

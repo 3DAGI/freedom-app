@@ -128,7 +128,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38010 | Performance-Beleg (Worker, Season) |
 | 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
-| 38020–38022 | Sessions (Open/Payment/Close) |
+| 38020–38022 | Sessions (Open/Payment/Close) – die App eröffnet seit RM2c3 keine mehr (§38) |
 | 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
 | 38028 | Cluster-Angebot: Gerät als Hälfte eines Paars verfügbar (§36, seit E9-1 – vorher lag es auf 38026, dem Kurs-Ticker) |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
@@ -1372,4 +1372,9 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   der Knoten. Nur ohne Zahlkanal, nicht an den eigenen Knoten, nicht im Max-Modus, nicht in Prüfrunden; nennt das Angebot die
   Mint des Topfs nicht oder reicht der Topf nicht, geht die Anfrage wie bisher. Nach der Antwort bucht die App den Anteil des
   Providers, Lightning zahlt ihn nicht. Nach der Frist holt sie zurück, was der Provider nicht einlöste.
-- **Noch nicht:** Die Sitzung auf Kredit fällt erst mit RM2c3; „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).
+- **Ohne Sitzung auf Kredit (seit RM2c3):** Die App eröffnet keine Sitzung (38021) mehr und schickt keine Belege (38022).
+  Ohne Pfand und Zahlkanal trägt jede Anfrage ihr Gebot, und die App zahlt den Anteil des Providers nach jeder Antwort, sobald
+  ganze sats fällig sind – Kredit höchstens eine Antwort; der Rest unter einem sat wartet auf die nächste Antwort desselben
+  Sitzungsschlüssels oder auf das Begleichen beim Wechsel der Unterhaltung. Sitzungen älterer Apps nimmt der Knoten bis RM2c4
+  noch an.
+- **Noch nicht:** „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).

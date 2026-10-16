@@ -77,13 +77,13 @@ test("P5c2 verdrahtet: nach dem ersten Senden, versiegelt über buildJobEvent, s
   assert.equal(lauf.match(/messeLauf\(runde, /g)?.length, 3, "Antwort, Abbruch, alle versagt – jede Runde wird abgeschlossen");
   assert.doesNotMatch(lauf.slice(lauf.indexOf("for (let i = 0;")), /askRace|askSwarm/, "nur der normale Weg");
   const r = lies("shell/pruefrunde-lauf.ts");
-  assert.match(r, /const auftrag = await buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, p\.sc, \[\], undefined, \{ ohnePfand: true \}\);\n    await p\.publish\(auftrag\.wrap\);/, "wie jede Anfrage versiegelt");
+  assert.match(r, /const auftrag = await buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, \[\], undefined, \{ ohnePfand: true \}\);\n    await p\.publish\(auftrag\.wrap\);/, "wie jede Anfrage versiegelt");
   assert.match(r, /still: true \}/);
   assert.match(r, /!ausser\.has\(k\.caps\.pubkey\) && !eigen\(k\.caps\.pubkey\) && !kanalDa\(k\.caps\.pubkey\)/);
   assert.match(r, /const eigen = \(pk: string\): boolean => !!kopplungFuer\(pk\) \|\| getAllowlist\(\)\.includes\(pk\);/);
   assert.match(r, /if \(eigen\(p\.ausser\[0\] \?\? ""\) \|\| !pruefBudget\.faellig\(bedarf\)\) return null;/);
   assert.match(r, /if \(antwort && !eigen\(antwort\.pk\)\) void pruefBudget\.zaehleAntwort\(\)/, "gezählt nur Antworten aus dem Netz");
-  // Bezahlt wie jede Antwort – über ki-zahlung.ts, erst Abrechnung, dann die Sitzung
+  // Bezahlt wie jede Antwort – über ki-zahlung.ts, erst Abrechnung, dann der Provider (seit RM2c3 ohne Sitzung)
   assert.match(r, /const abrechnung = await rechneAntwortAb\(r\.requestId, r\.amountMsat\);[\s\S]*await providerZahlung\(r\.providerPubkey\);[\s\S]*sc\.chargeForResult\(/);
   assert.match(r, /pruefBudget\.verbuche\(rueckgabeMsat\(hoechstMsat, /);
   const code = r.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");

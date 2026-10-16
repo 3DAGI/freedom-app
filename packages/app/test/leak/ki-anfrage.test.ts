@@ -1,16 +1,16 @@
 /**
- * Leak-Szenario „KI-Anfrage“ (Schritt 1.5, seit 3.1 privat): Sitzung eroeffnen
- * mit dem echten `SessionClient` und dem Sitzungsschluessel aus `KiSitzungen`,
- * dann die Anfrage so gebaut wie `buildJobEvent()` in `tabs/agent.ts` – einmal
- * mit Sitzung, einmal mit Gebot – und im Umschlag an den Provider. Seit 3.2e
- * gehen auch Sitzung und Belege nur versiegelt an ihn; seit 5.1.3 auch die
- * Deklaration der Anteile und die Belege bezahlter Rechnungen.
+ * Leak-Szenario „KI-Anfrage“ (Schritt 1.5, seit 3.1 privat): die Anfrage vom
+ * Sitzungsschluessel aus `KiSitzungen`, so gebaut wie `buildJobEvent()` in
+ * `tabs/agent.ts` – mit Gebot – und im Umschlag an den Provider; seit 5.1.3 mit
+ * der Deklaration der Anteile im Kern. Sitzung (38021) und Belege (38022), seit
+ * 3.2e versiegelt, gibt es seit RM2c3 nicht mehr: bezahlt wird mit dem echten
+ * `SessionClient` nur über die Lightning-Rechnung des Providers.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  KIND_DVM_TEXT_GENERATION, LocalSigner, aufteilungTag, buildEvent, buildJobRequest, buildPrivateJobRequest, generateKeypair,
+  LocalSigner, aufteilungTag, buildJobRequest, buildPrivateJobRequest, generateKeypair,
   regelKeinBolt11, regelKeinKind4, regelKeinKlartextPrompt, regelKeineZahlungsdaten, regelKundeVerborgen,
 } from "@freedomstack/protocol";
 import { Keypair } from "@solana/web3.js";
@@ -28,28 +28,22 @@ async function frage() {
   const identitaet = new LocalSigner(generateKeypair().sk);
   const sitzungen = new KiSitzungen();
   const provider = generateKeypair().pk;
-  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
-  await sc.openSession(provider);
   const sitzung = sitzungen.fuer(provider);
-  // Mit Sitzung – wie buildJobEvent(), wenn sc.activeFor(provider) gilt
-  const mitSitzung = buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
-    ["i", PROMPT, "text"], ...sc.jobTags(provider, 21_000), ["tier", "standard"], ["p", provider], aufteilungTag(["werber-provider"]),
-  ], "");
-  // Ohne Sitzung – mit Gebot
-  const mitGebot = buildJobRequest({
-    customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat: 21_000, providerPubkey: provider, params: [["tier", "standard"]],
+  // Mit Gebot – seit RM2c3 jede Anfrage, auch die zweite an denselben Provider
+  const [erste, zweite] = [21_000, 34_000].map((bidMsat) => buildJobRequest({
+    customerPubkey: sitzung.publicKey(), input: PROMPT, bidMsat, providerPubkey: provider, params: [["tier", "standard"]],
     extraTags: [aufteilungTag(["werber-provider"])],
-  });
-  for (const request of [mitSitzung, mitGebot]) {
+  }));
+  for (const request of [erste, zweite]) {
     const { wrap } = await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: provider, powBits: 8 });
     await pool.publish(wrap);
   }
   return { gesendet: relay.gesendet, identitaet: identitaet.publicKey(), sitzung: sitzung.publicKey() };
 }
 
-test("KI-Anfrage: Sitzung und zwei Anfragen gehen nur als Umschlaege ueber den Pool", async () => {
+test("KI-Anfrage: zwei Anfragen gehen nur als Umschlaege ueber den Pool – keine Sitzung davor (RM2c3)", async () => {
   const { gesendet } = await frage();
-  assert.deepEqual(gesendet.map((e) => e.kind), [1059, 1059, 1059]);
+  assert.deepEqual(gesendet.map((e) => e.kind), [1059, 1059]);
   assert.equal(gesendet.filter((e) => e.kind >= 5000 && e.kind < 6000).length, 0);
   assert.deepEqual(regelKeinKind4(gesendet), []);
   assert.deepEqual(regelKeinBolt11(gesendet), []);
@@ -65,18 +59,14 @@ test("KI-Anfrage: kein Klartext-Prompt", async () => {
 test("KI-Anfrage: Kunden-Schluessel in keinem Job-Event", async () => {
   const { gesendet, identitaet, sitzung } = await frage();
   assert.deepEqual(regelKundeVerborgen(gesendet, identitaet), []);
-  // Auch der Sitzungsschluessel zeigt sich nirgends – weder an Anfrage noch Sitzung (3.2e).
+  // Auch der Sitzungsschluessel zeigt sich nirgends (3.2e).
   assert.deepEqual(regelKundeVerborgen(gesendet, sitzung), []);
 });
 
-test("KI-Anfrage: keine Zahlungsdaten offen (Sitzung, Beleg)", async () => {
-  const { pool, relay } = aufzeichnung();
-  const sitzungen = new KiSitzungen();
-  const provider = generateKeypair().pk;
-  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
-  await sc.openSession(provider);
-  await sc.chargeForResult(provider, 7000, "e".repeat(64));
-  assert.deepEqual(regelKeineZahlungsdaten(relay.gesendet), []);
+test("KI-Anfrage: keine Zahlungsdaten offen (Gebot, Deklaration)", async () => {
+  const { gesendet } = await frage();
+  assert.deepEqual(regelKeineZahlungsdaten(gesendet), []);
+  assert.ok(gesendet.every((e) => !JSON.stringify(e).includes("21000") && !JSON.stringify(e).includes("34000")), "kein Gebot offen");
 });
 
 test("KI-Anfrage: die Deklaration der Anteile (5.1.3) steht nur im versiegelten Kern", async () => {
@@ -84,16 +74,23 @@ test("KI-Anfrage: die Deklaration der Anteile (5.1.3) steht nur im versiegelten 
   assert.ok(gesendet.every((e) => !JSON.stringify(e).includes("aufteilung") && !JSON.stringify(e).includes("werber-provider")));
 });
 
-test("KI-Anfrage: bezahlte Belege (5.1.3) zeigen offen weder Preimage noch Rechnung", async () => {
+test("KI-Anfrage: bezahlen (5.1.3) schickt nichts über den Pool – seit RM2c3 keine Belege, Preimage und Rechnung nie offen", async () => {
   const { pool, relay } = aufzeichnung();
   const sitzungen = new KiSitzungen();
   const provider = generateKeypair().pk;
-  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk), pool, defaultBudgetSats: 100, settleEverySats: 20, ttlSecs: 3600 });
+  const sc = new SessionClient({ signerFuer: (pk) => sitzungen.fuer(pk) });
   const preimage = "ab".repeat(32);
-  const r = await sc.chargeForResult(provider, 25_000, "e".repeat(64), {
+  const r = await sc.chargeForResult(provider, 25_000, {
     rechnung: async () => `lnbc250n1${WERBER}`, zahle: async () => preimage,
   });
   assert.equal(r.settled, true);
+  // Die Anfrage davor ging über denselben Pool – danach kommt nichts dazu
+  const { wrap } = await buildPrivateJobRequest({
+    request: buildJobRequest({ customerPubkey: sitzungen.fuer(provider).publicKey(), input: PROMPT, bidMsat: 25_000, providerPubkey: provider }),
+    sessionSigner: sitzungen.fuer(provider), providerPk: provider, powBits: 8,
+  });
+  await pool.publish(wrap);
+  assert.deepEqual(relay.gesendet.map((e) => e.kind), [1059], "nur die Anfrage");
   assert.deepEqual(regelKeineZahlungsdaten(relay.gesendet), []);
   assert.ok(relay.gesendet.every((e) => !JSON.stringify(e).includes(preimage) && !JSON.stringify(e).includes("lnbc")));
 });
@@ -134,7 +131,8 @@ test("Verdrahtung: buildJobEvent() baut die Anfrage wie das Szenario", () => {
   const agent = readFileSync(new URL("../../src/shell/tabs/agent.ts", import.meta.url), "utf8");
   const f = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("/** Abbruch-Signal für den laufenden AI-Job"));
   assert.match(f, /const sitzung = kiSitzungen\.fuer\(targetPubkey\);/);
-  assert.match(f, /buildEvent\(sitzung\.publicKey\(\), KIND_DVM_TEXT_GENERATION, \[\s*\["i", fullPrompt, "text"\],\s*\.\.\.sc\.jobTags\(targetPubkey/);
+  // Seit RM2c3 kein zweiter Weg mehr über eine Sitzung
+  assert.doesNotMatch(f, /buildEvent\(|jobTags|activeFor/);
   assert.match(f, /buildJobRequest\(\{\s*customerPubkey: sitzung\.publicKey\(\),\s*input: fullPrompt,/);
   // Seit B-8c: an den eigenen Knoten mit dem Nachweis im Kern (Szenario in leak/mein-knoten.test.ts)
   assert.match(f, /const auftrag = await buildPrivateJobRequest\(\{\s*request: eigen \? mitBesitzerNachweis\(request, eigen\) : request, sessionSigner: sitzung, providerPk: targetPubkey,/);

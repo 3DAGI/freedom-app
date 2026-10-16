@@ -223,9 +223,8 @@ export const einstieg: Texte = {
   "ein.nurMitSchluessel": { de: "{wofuer} geht nur mit dem Schlüssel auf diesem Gerät, nicht über einen Bunker", en: "{wofuer} only works with the key on this device, not via a bunker" },
   "ein.endpunkteGespeichert": { de: "Endpunkte gespeichert", en: "Endpoints saved" },
   "ein.keineAntwortRpc": { de: "keine Antwort", en: "no answer" },
-  "ein.poolFehlt": { de: "Pool fehlt", en: "Pool missing" },
   "ein.keineIdentitaetKurz": { de: "nicht verbunden", en: "not connected" },
-  "ein.budgetRest": { de: "Rest des Budgets der laufenden KI-Sitzung – eine Obergrenze, kein Guthaben; gezahlt wird aus deiner Wallet", en: "Remaining budget of the current AI session – a cap, not a balance; payments come from your wallet" },
+  "ein.budgetRest": { de: "Kein Budget auf Kredit mehr: Die App zahlt jede Antwort aus deiner Wallet, sobald ein ganzer sat fällig ist", en: "No budget on credit any more: the app pays each answer from your wallet once a whole sat is due" },
   "ein.kopiert": { de: "kopiert", en: "copied" },
   // Bunker (shell/bunker.ts)
   "ein.bunkerAngemeldet": { de: "Angemeldet über den Bunker {signer} ({relays}). Jede Unterschrift fragt die App dort an.", en: "Signed in via the bunker {signer} ({relays}). The app requests every signature there." },

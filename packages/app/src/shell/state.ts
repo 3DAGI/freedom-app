@@ -502,20 +502,13 @@ async function entdeckeRelays(): Promise<void> {
 /** Sitzungsschluessel je Provider fuer KI-Auftraege (Schritt 3.1) – nur im Speicher. */
 export const kiSitzungen = new KiSitzungen();
 
-/** Rechenarbeit laut Angebot je Provider (Schritt 3.1) – fuer Anfragen, Sitzung und Belege. */
+/** Rechenarbeit laut Angebot je Provider (Schritt 3.1) – fuer Anfragen. */
 export const powJeProvider = new Map<string, number>();
 
+/** Abrechnung mit den Providern (seit RM2c3 ohne Sitzung auf Kredit) – je Provider und Sitzungsschlüssel. */
 export function ensureSessionClient(): SessionClient {
   if (state.sessionClient) return state.sessionClient;
-  if (!state.pool) throw new Error(t("ein.poolFehlt"));
-  state.sessionClient = new SessionClient({
-    signerFuer: (providerPk) => kiSitzungen.fuer(providerPk),
-    powFuer: (providerPk) => powJeProvider.get(providerPk) ?? 0,
-    pool: state.pool,
-    defaultBudgetSats: 100,
-    settleEverySats: 20,
-    ttlSecs: 3600,
-  });
+  state.sessionClient = new SessionClient({ signerFuer: (providerPk) => kiSitzungen.fuer(providerPk) });
   return state.sessionClient;
 }
 

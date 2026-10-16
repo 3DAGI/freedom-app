@@ -628,8 +628,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Wie viel Verlauf mitgeht (seit D1c), bestimmt nur `VERLAUF_UMFANG`
   (`ki-kontext.ts`: aus · kurz · lang, Standard kurz) über `leseUmfang()` aus
   `freedom.verlauf` – nie mehr als „lang“; Grenze „ki-verlauf“ im Bericht.
-  Zahlsitzungen gehören seit D1b1 zum Sitzungsschlüssel
-  (`activeFor(provider, kundePk)`, `jobTags(…, kundePk)`): Abrechnung
+  Konten beim Provider gehören seit D1b1 zum Sitzungsschlüssel (seit RM2c3 ohne
+  Sitzung auf Kredit, nur noch das Konto im `SessionClient`): Abrechnung
   (`chargeForResult(…, kiSitzungen.fuerAuftrag(r.requestId))`) und Reklamation
   nehmen den Schlüssel des Auftrags, gemerkt in `buildJobEvent()` vor dem
   Senden (`merkeAuftrag()`) – nie den `p`-Tag des Ergebnisses, den setzt der
@@ -807,8 +807,8 @@ Fallstricke dieses Bereichs unten anhängen.
   nur mit `tresorOffen()`); `buildJobEvent()` holt den Pfand über `pfandFuerAnfrage()` – nur ohne Kanal und eigenen Knoten,
   nie mit `["race"]` (Max-Modus: jeder Provider bekäme Token), nie in Prüfrunden (`ohnePfand`), nur wenn das Angebot die
   Mint des Topfs nennt; Bedarf `providerAnteilMsat(hoechst, zahlbareAnteile(…, "lightning"))` wie die Deklaration. Kein
-  Pfand → wie bisher, nie ein Fehler nur deshalb. Gemerkt vor dem Senden, mit Pfand keine Sitzung; `handleAnswer()` bucht
-  per `pfandAntwort()` vor der Sitzung und zahlt den Anteil des Providers nie über Lightning; kein Rückfall auf einen
+  Pfand → wie bisher, nie ein Fehler nur deshalb. Gemerkt vor dem Senden; `handleAnswer()` bucht
+  per `pfandAntwort()` vor der Lightning-Abrechnung und zahlt den Anteil des Providers nie über Lightning; kein Rückfall auf einen
   zweiten Provider (`perPfand()` in `askWithFailover()`). Nachholen und Rückweg nur im Abruftakt (`pfandTakt()`).
 - **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
   Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
@@ -818,4 +818,9 @@ Fallstricke dieses Bereichs unten anhängen.
   (`farben-tokens.test.ts` vergleicht sie und misst den Kontrast jeder Schrift auf jeder Fläche). Ein neues Token
   braucht beide Werte; Schrift auf Grün nur über `--auf-akzent` (dunkel Schwarz, hell Weiß). Was Code malt
   (Canvas), liest die Tokens (`getPropertyValue("--accent")`), nie ein festes Grün.
-
+- **Keine Sitzung auf Kredit** (seit RM2c3, `docs/RM2-ENTWURF.md` V7, RM2 B): Die App eröffnet keine Sitzung (38021)
+  und schickt keine Belege (38022) – jede Anfrage trägt ihr Gebot (dazu Pfand oder Gutschrift), und
+  `SessionClient.chargeForResult()` zahlt den Anteil des Providers nach jeder Antwort, sobald ganze sats fällig sind
+  (ab 1 sat); Kredit höchstens eine Antwort, der Rest unter einem sat wartet auf die nächste oder auf
+  `begleiche()`. Kein Budget, keine Fenster, kein Vorziehen eines Providers wegen offener Sitzung – nicht wieder
+  einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.
