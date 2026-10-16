@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.8.0",
+    "@cashu/cashu-ts": "4.11.0",
     "@freedomstack/mls": "*",
     "@freedomstack/protocol": "*",
     "@types/ws": "^8.18.1",

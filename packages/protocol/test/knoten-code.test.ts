@@ -12,6 +12,7 @@ import {
 } from "../src/index.js";
 
 const LAUF = "ab".repeat(32);
+const SCHLUESSEL = { alg: "aes-gcm", key: "11".repeat(32), nonce: "22".repeat(12), ox: "33".repeat(32) } as const;
 
 /** Kern mit genau diesen Parametern – so prüft der Knoten fremd Gebautes. */
 const kern = (params: string[][], kind = KIND_DVM_KNOTEN_CODE) =>
@@ -48,6 +49,7 @@ test("A-31: jede Aktion übersteht Bauen und Lesen unverändert", async () => {
     { aktion: "freigabe", lauf: LAUF, schritt: 1, ja: true },
     { aktion: "freigabe", lauf: LAUF, schritt: CODE_GRENZEN.schritte, ja: false },
     { aktion: "stopp", lauf: LAUF },
+    { aktion: "bundle", projekt: "meine-app" },
   ];
   for (const aktion of aktionen) {
     const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: k, aktion });
@@ -121,6 +123,7 @@ test("A-31: Antworten – je Aktion feste Form, gelesen nur zur erwarteten Aktio
     { aktion: "auftrag", ende: "grenze", schritte: CODE_GRENZEN.schritte, abschluss: "" },
     { aktion: "freigabe", ok: true },
     { aktion: "stopp", ok: false },
+    { aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: SCHLUESSEL, bytes: 1234 },
   ];
   for (const a of antworten) assert.deepEqual(leseCodeAntwort(codeAntwortText(a), a.aktion), a, a.aktion);
   assert.equal(leseCodeAntwort(codeAntwortText({ aktion: "freigabe", ok: true }), "stopp"), null, "Antwort zu einer anderen Aktion");
@@ -137,6 +140,13 @@ test("A-31: Antworten – je Aktion feste Form, gelesen nur zur erwarteten Aktio
     [JSON.stringify({ aktion: "auftrag", ende: "fertig", schritte: -1, abschluss: "" }), "auftrag"],
     [JSON.stringify({ aktion: "auftrag", ende: "fertig", schritte: 1, abschluss: "x".repeat(CODE_GRENZEN.abschluss + 1) }), "auftrag"],
     [JSON.stringify({ aktion: "freigabe", ok: "ja" }), "freigabe"],
+    // VKl: Bundle nur mit Blob, Manifest, gültigem Schlüssel und Größe in den Grenzen – nichts dazu
+    [JSON.stringify({ aktion: "bundle", blob: "zz".repeat(32), manifest: "cd".repeat(32), schluessel: SCHLUESSEL, bytes: 1 }), "bundle"],
+    [JSON.stringify({ aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: { ...SCHLUESSEL, key: "kurz" }, bytes: 1 }), "bundle"],
+    [JSON.stringify({ aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: { ...SCHLUESSEL, mehr: 1 }, bytes: 1 }), "bundle"],
+    [JSON.stringify({ aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: SCHLUESSEL, bytes: 0 }), "bundle"],
+    [JSON.stringify({ aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: SCHLUESSEL, bytes: CODE_GRENZEN.bundle + 1 }), "bundle"],
+    [JSON.stringify({ aktion: "bundle", blob: "ab".repeat(32), manifest: "cd".repeat(32), schluessel: SCHLUESSEL, bytes: 1, pfad: "/x" }), "bundle"],
   ] as const) assert.equal(leseCodeAntwort(kaputt, erwartet), null, kaputt.slice(0, 120));
   assert.throws(() => codeAntwortText({ aktion: "neu", projekt: "Groß" }), /ungültig/);
 });

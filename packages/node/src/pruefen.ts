@@ -11,6 +11,7 @@ import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-laden.js";
 import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
+import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
 const kanal = await kanalKasseAusUmgebung(process.env, { rpcUrl, ...kanalOrte() });
@@ -26,4 +27,9 @@ const modelle = antrieb ? pruefeModelle({
   ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
 }) : [];
 if (modelle.length) console.log(modellBefundeText(modelle));
+// Sandbox (VKb): nur mit Vibecoden – ohne sie kein Ausführen, verdienen kann der Knoten trotzdem
+if (process.env.VIBECODEN?.trim() === "1") {
+  const sandbox = await pruefeSandbox();
+  console.log(`${sandbox.ok ? "✓" : "✗"} Code: ${sandboxText(sandbox)}`);
+}
 process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);
