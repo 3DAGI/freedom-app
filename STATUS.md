@@ -10584,3 +10584,26 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1158 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-50c – Wallet: Einrichtung als Assistent ohne Konto
+
+Aus dem Oberflächen-Review (15.10.2026), letzter Teil von C-50. Ohne Konto stand auf der Übersicht nur das NWC-Feld. Wer neu war, fand nicht, dass es eine eingebaute Wallet gibt.
+
+- **„Wallet einrichten“** erscheint nur ohne Konto (`gesamtStand()` ist `null`) und bietet drei Wege als Zeilen:
+  - **Eingebaute Wallet** (empfohlen): SOL aus den 12 Wörtern, nur im Tresor. Der Weg klickt „Einrichten“; mit Bunker gibt es ihn nicht.
+  - **Lightning-Wallet verbinden**: öffnet die Verbindung und setzt den Cursor ins NWC-Feld.
+  - **Solana-Wallet verbinden**: verbindet die Browser-Wallet wie „Verbinden“.
+- Jeder Weg führt zu dem, was es schon gibt; dahinter ist nichts Neues.
+- Darüber steht, dass KI auch ohne Wallet geht (20 Antworten am Tag gratis), darunter „FreedomStack verwahrt nie dein Geld.“
+
+Tests:
+- `wallet-gesamt.test.ts` hat einen neuen Test:
+  - drei Wege, der eingebaute hervorgehoben;
+  - jeder führt zum bestehenden Knopf;
+  - nur ohne Konto;
+  - der eingebaute nicht mit Bunker;
+  - die eingebaute Wallet verspricht keine sats.
+- Der Smoke-Teil „waehrung“ prüft drei sichtbare Wege; „Lightning“ öffnet die Verbindung, der Fokus steht im Feld.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1159 (+1), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
