@@ -84,3 +84,20 @@ test("C-50b: Konten als Zeilen mit Stand – die Verbindung dahinter, offen nur 
   assert.equal((html.match(/data-i18n="waehr\.walletVerbinden"/g) ?? []).length, 1, "nur noch an der Lightning-Verbindung");
   assert.match(html, /<div class="card ki-budget-karte nav-balances" id="nav-balances">\s*<div class="nb-row">/);
 });
+
+test("C-50c: ohne Konto die Einrichtung als Assistent – drei Wege zu dem, was es schon gibt; die eingebaute nur ohne Bunker", async () => {
+  const html = quelle("../src/shell/index.html");
+  const karte = html.slice(html.indexOf('<div class="card wallet-einrichten" id="wallet-einrichten" hidden>'), html.indexOf("<!-- Konten als Zeilen mit Stand (C-50b)"));
+  assert.deepEqual([...karte.matchAll(/<button type="button" class="weg-zeile[^"]*" id="([^"]+)"/g)].map((m) => m[1]), ["weg-eingebaut", "weg-lightning", "weg-solana"]);
+  assert.match(karte, /class="weg-zeile weg-empfohlen" id="weg-eingebaut"/, "die eingebaute empfohlen");
+  const ui = quelle("../src/shell/wallet-gesamt-ui.ts");
+  assert.match(ui, /getElementById\("weg-eingebaut"\)\?\.addEventListener\("click", \(\) => document\.getElementById\("solw-einrichten"\)\?\.click\(\)\);/);
+  assert.match(ui, /getElementById\("weg-solana"\)\?\.addEventListener\("click", \(\) => document\.getElementById\("sol-connect"\)\?\.click\(\)\);/);
+  assert.match(ui, /if \(einrichten\) einrichten\.hidden = !!g;/, "nur ohne Konto");
+  assert.match(ui, /eingebaut\.hidden = !!document\.getElementById\("solw-einrichten"\)\?\.classList\.contains\("hidden"\);/);
+  // Ehrlich: die eingebaute Wallet ist SOL (nicht sats), und niemand verwahrt das Geld
+  setLang("de");
+  const { t } = await import("../src/i18n.js").then((m) => ({ t: m.t }));
+  assert.doesNotMatch(t("wallet.wegEingebaut"), /sats/);
+  assert.match(t("wallet.einrichtenText"), /20 Antworten am Tag gratis/);
+});

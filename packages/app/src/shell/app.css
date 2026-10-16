@@ -433,6 +433,21 @@ nav button.active { color: var(--accent); }
 .konto-verwalten { margin-top: 12px; border-top: 1px solid var(--line2); padding-top: 10px; }
 .konto-verwalten > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); min-height: 32px; display: flex; align-items: center; }
 .konto-verwalten[open] > summary { margin-bottom: 8px; }
+/* Einrichtung als Assistent (C-50c): drei Wege als Zeilen, die eingebaute Wallet hervorgehoben */
+.wallet-einrichten[hidden] { display: none; }
+.wallet-einrichten { display: flex; flex-direction: column; gap: 10px; }
+.weg-zeile { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: var(--r-lg);
+  background: var(--surf2); border: 1px solid var(--line2); font-weight: 400; }
+.weg-zeile[hidden] { display: none; }
+.weg-zeile:hover { border-color: var(--accent-dim); }
+.weg-empfohlen { border-color: var(--accent-dim); background: linear-gradient(rgba(123,200,10,.05), rgba(123,200,10,.05)), var(--surf2); }
+.weg-text { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.weg-text strong { font-size: 15px; font-weight: 600; color: var(--text); }
+.weg-marke { font-size: 12px; font-weight: 600; color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 999px; padding: 1px 8px; }
+.weg-sub { flex-basis: 100%; font-size: 13px; color: var(--text-muted); }
+.weg-pfeil { flex: none; font-size: 20px; color: var(--text-muted); }
+.konto-eingebaut { color: var(--accent); }
+.wallet-verwahrt { text-align: center; margin: 4px 0 0; }
 .ki-budget-karte .nb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .ki-budget-karte .nb-label { font-size: 14px; font-weight: 600; }
 .ki-budget-karte .nb-val { font: 600 15px var(--font-mono); color: var(--text); }
