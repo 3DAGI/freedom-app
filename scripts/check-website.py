@@ -127,6 +127,61 @@ def navigation_pruefen() -> list[str]:
     return fehler
 
 
+# In beiden Designs gleich (C-57c): Schatten und die drei Fensterpunkte der Terminal-Demo
+FARBEN_BEIDE = {"rgba(0,0,0,.6)", "rgba(0,0,0,.5)", "rgba(123,200,10,.07)", "#cc5544", "#ccaa33", "#66bb44"}
+
+
+def _leuchte(farbe: str) -> float:
+    x = farbe.lstrip("#")
+    if len(x) == 3:
+        x = "".join(c * 2 for c in x)
+    kanaele = [int(x[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in kanaele]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def kontrast(a: str, b: str) -> float:
+    hell, dunkel = sorted([_leuchte(a), _leuchte(b)], reverse=True)
+    return (hell + 0.05) / (dunkel + 0.05)
+
+
+def farben_pruefen() -> list[str]:
+    """Zwei Designs (C-57c): Die Website folgt dem Gerät. Jede Farbe steht als Token in `:root` (dunkel) und im
+    Block `prefers-color-scheme: light`; Schrift erreicht auf Grund und Karte in beiden mindestens 4,5:1. Feste
+    Farben nur in den Tokens – nicht im übrigen CSS, nicht im `<style>` des Dashboards, nicht in `style="…"`."""
+    fehler: list[str] = []
+    css = open(os.path.join(BASIS, "css", "style.css"), encoding="utf-8").read()
+    ohne = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    dunkel_m = re.search(r"^:root \{(.*?)\}", ohne, re.S | re.M)
+    hell_m = re.search(r"@media \(prefers-color-scheme: light\) \{\s*:root \{(.*?)\}", ohne, re.S)
+    if not dunkel_m or not hell_m:
+        return ["css/style.css: Tokens für Dunkel und Hell fehlen (C-57c)"]
+    tokens = lambda t: dict(re.findall(r"(--[a-z0-9-]+):\s*([^;]+);", t))
+    dunkel, hell = tokens(dunkel_m.group(1)), tokens(hell_m.group(1))
+    for name, wert in dunkel.items():
+        if re.fullmatch(r"#[0-9a-fA-F]{3,8}|rgba?\(.*\)", wert.strip()) and name not in hell:
+            fehler.append(f"css/style.css: {name} ohne hellen Wert (C-57c)")
+    for design, t in (("dunkel", dunkel), ("hell", hell)):
+        for flaeche in ("--bg", "--card"):
+            for schrift in ("--text", "--text-muted", "--accent", "--amber", "--red"):
+                k = kontrast(t[schrift], t[flaeche])
+                if k < 4.5:
+                    fehler.append(f"css/style.css: {design} {schrift} auf {flaeche} nur {k:.2f}:1 (C-57c)")
+        if kontrast(t["--auf-akzent"], t["--accent"]) < 4.5:
+            fehler.append(f"css/style.css: {design} Schrift auf Grün zu schwach (C-57c)")
+    rest = ohne.replace(dunkel_m.group(0), "").replace(hell_m.group(0), "")
+    for farbe in re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", rest):
+        if farbe.lower() not in FARBEN_BEIDE:
+            fehler.append(f"css/style.css: feste Farbe {farbe} außerhalb der Tokens (C-57c)")
+    for datei in SEITEN:
+        inhalt = open(os.path.join(BASIS, datei), encoding="utf-8").read()
+        for stil in re.findall(r"<style>(.*?)</style>", inhalt, re.S) + re.findall(r'style="([^"]*)"', inhalt):
+            for farbe in re.findall(r"(?<![-\w])#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", stil):
+                if not re.search(r"--brand:\s*" + re.escape(farbe), stil):
+                    fehler.append(f"{datei}: feste Farbe {farbe} im Stil statt eines Tokens (C-57c)")
+    return fehler
+
+
 def main() -> int:
     fehler: list[str] = []
     im_release = release_dateien()
@@ -177,6 +232,7 @@ def main() -> int:
             fehler.append(f"{datei}: keine Beschreibung")
 
     fehler += navigation_pruefen()
+    fehler += farben_pruefen()
 
     for datei in EINSTIEG:
         inhalt = open(datei, encoding="utf-8").read()

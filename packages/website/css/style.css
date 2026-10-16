@@ -7,11 +7,30 @@
   --accent-dim: #5A9400;
   --text: #E0E0E0;
   --text-muted: #A1A1AA;
-  --red: #CC3333;
+  /* Rot als Schrift (C-57c): #CC3333 hatte auf Schwarz nur 4:1 – wie in der App (C-4) heller */
+  --red: #E35D5D;
   --amber: #CC8800;
+  /* Seit C-57b/c jede Farbe als Token – hell nach dem Gerät (Block darunter) */
+  --auf-akzent: #000; --nav-bg: rgba(5,5,5,0.92); --code-bg: #000;
+  --demo-bg: #0a0c0a; --demo-bar: #101210; --demo-punkt: #2a2a2a;
+  --flaeche2: #101010; --linie2: #161616; --hover: #0d0d0d;
+  color-scheme: dark;
   /* Schrift ohne Serifen für Text, Monospace nur für Code (C-48, wie die App seit C-42a) */
   --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+/* Helles Design (C-57c): die Website folgt dem Gerät, dieselben Werte wie die App (C-57b) – Text mindestens 4,5:1 */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #F6F7F5; --card: #FFFFFF; --border: #DADDD6;
+    --accent: #3B7600; --accent-dim: #2D5C00; --text: #16181A; --text-muted: #555B62;
+    --red: #B3261E; --amber: #8F5400;
+    --auf-akzent: #FFF; --nav-bg: rgba(246,247,245,0.92); --code-bg: #EFF1EC;
+    --demo-bg: #FFFFFF; --demo-bar: #EFF1EC; --demo-punkt: #CDD2C7;
+    --flaeche2: #FFFFFF; --linie2: #E6E9E2; --hover: #EFF1EC;
+    color-scheme: light;
+  }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,7 +53,7 @@ code, pre, kbd, .mono { font-family: var(--font-mono); }
 /* ---------- Top Nav ---------- */
 .topnav {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(5,5,5,0.92); backdrop-filter: blur(8px);
+  background: var(--nav-bg); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
 .topnav { position: relative; z-index: 20; }
@@ -76,10 +95,10 @@ code, pre, kbd, .mono { font-family: var(--font-mono); }
 .cta-sub { color: var(--text-muted); font-size: 13px; margin-top: 10px; text-align: center; }
 
 .btn {
-  display: inline-block; background: var(--accent); color: #000; border: none; border-radius: 10px;
+  display: inline-block; background: var(--accent); color: var(--auf-akzent); border: none; border-radius: 10px;
   padding: 13px 22px; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
 }
-.btn:hover { background: var(--accent-dim); color: #000; }
+.btn:hover { background: var(--accent-dim); color: var(--auf-akzent); }
 .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -125,6 +144,8 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 .mono { font-size: 12px; color: var(--text-muted); word-break: break-all; }
 /* Befehle zum Kopieren bleiben eine Zeile und scrollen im Kasten (C-26) */
 pre.mono { overflow-x: auto; }
+/* Befehl zum Kopieren (C-57c: Farbe als Token statt fest im HTML) */
+pre.befehl { background: var(--code-bg); padding: 10px; border-radius: 2px; }
 
 @media (max-width: 640px) {
   .hero h1 { font-size: 28px; }
@@ -137,7 +158,7 @@ pre.mono { overflow-x: auto; }
 .hero-text .cta .btn.ghost {
   background: transparent; color: var(--accent); border: 1px solid var(--accent-dim);
 }
-.hero-text .cta .btn.ghost:hover { background: rgba(123,200,10,.08); }
+.hero-text .cta .btn.ghost:hover { background: var(--hover); }
 .trust-badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
 .trust-badges span {
   font-size: 12px; color: var(--text-muted);
@@ -148,14 +169,14 @@ pre.mono { overflow-x: auto; }
 
 /* Terminal-Demo-Fenster */
 .demo-window {
-  background: #0a0c0a; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--demo-bg); border: 1px solid var(--border); border-radius: 8px;
   overflow: hidden; box-shadow: 0 24px 64px rgba(123,200,10,.07), 0 4px 24px rgba(0,0,0,.5);
 }
 .demo-bar {
   display: flex; align-items: center; gap: 6px;
-  padding: 9px 12px; background: #101210; border-bottom: 1px solid var(--border);
+  padding: 9px 12px; background: var(--demo-bar); border-bottom: 1px solid var(--border);
 }
-.demo-bar i { width: 10px; height: 10px; border-radius: 50%; background: #2a2a2a; }
+.demo-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--demo-punkt); }
 .demo-bar i:nth-child(1) { background: #cc5544; }
 .demo-bar i:nth-child(2) { background: #ccaa33; }
 .demo-bar i:nth-child(3) { background: #66bb44; }

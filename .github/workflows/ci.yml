@@ -97,7 +97,10 @@ jobs:
           "
 
       - name: Website-Seiten pruefen
-        run: python3 scripts/check-website.py
+        # Seit C-57c zuerst der Selbsttest der Farbprüfung (beide Designs, Kontrast)
+        run: |
+          python3 scripts/test_check_website.py
+          python3 scripts/check-website.py
 
       - name: Verdrahtung pruefen
         # Dreimal im Projekt war eine Protokollschicht gebaut, getestet und
