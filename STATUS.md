@@ -10837,3 +10837,44 @@ nur bei Bedarf, eigene Fenster je Sitzung, frischer Rückweg; zu wenig im Topf; 
 Tausch ohne Antwort (Mint tauschte → Zählerbereich; Anfrage kam nie an → zurück ins Fenster).
 
 Knoten-Stand: unverändert. Noch ohne Aufrufer – den bringt RM2c2.
+
+## Schritt C-55b – Onboarding: Merkphrase per Wort-Chips bestätigen
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-55. Zur Bestätigung tippte man drei Wörter ab. Am Handy scheiterte das oft an Autokorrektur und Großschreibung.
+
+- **Je Stelle vier Wörter der eigenen Merkphrase** als Chips (`wort-chips.ts`):
+  - das richtige und drei andere, ohne Doppelte;
+  - gemischt mit `crypto.getRandomValues`;
+  - wer nicht aufgeschrieben hat, trifft bei drei Stellen nur mit 1 : 64.
+- Die Wahl steht in einem verborgenen Feld je Stelle. Geprüft wird weiter mit `verifyMnemonicChallenge()`; ein falsches Wort meldet die Stelle.
+- Chips mit `aria-pressed`, je Stelle eine Gruppe mit Namen („Wort 4“).
+- Die Regel „Merkphrase nur bis zur Bestätigung und nur über `geheim`“ bleibt unverändert.
+
+Tests:
+- Neu: `wort-chips.test.ts` mit 4 Tests: vier Wörter mit dem richtigen, Mischen, Wiederholungen, Verdrahtung.
+- Der Smoke-Teil „einrichtung“ klickt:
+  - erst ein falsches Wort: die Meldung nennt die Stelle;
+  - dann das richtige: genau ein Chip gedrückt;
+  - die Einrichtung geht weiter.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1197 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-56a – Bausteine: Chip und Skelett, eine Übersicht für alle Spuren
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-56. Gleiche Dinge sahen je Seite anders aus: Filter, Wort-Auswahl, Ladeanzeigen. Jede Spur baute sie neu.
+
+- **Zwei neue Bausteine** als gemeinsame Klassen und Helfer in `shell/ui.ts`:
+  - Chip: `chip(text, gedrueckt, klasse)`, ein Knopf mit `aria-pressed`;
+  - Skelett: `skelett(zeilen, beschriftung)`, mit `role="status"` und ohne Bewegung bei „weniger Bewegung“.
+- Genutzt werden sie hier:
+  - Die Filter der Chat-Liste und die Wort-Chips der Einrichtung sind Chips.
+  - „Einnahmen“ lädt mit Skelett statt mit einem Satz.
+- `docs/ausbau/BAUSTEINE.md` nennt alle Bausteine mit Klasse und Regel: Knopf, primär, ghost, Chip, Karte, Feld, Schalter, Skelett, Gruppe und Zeile.
+- Fallstrick in `packages/app/CLAUDE.md`: neue Oberfläche nur aus diesen Bausteinen.
+
+Tests:
+- Neu: `bausteine.test.ts` mit 4 Tests: Helfer, Klassen im CSS, Übersicht vollständig, Verdrahtung.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1201 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
