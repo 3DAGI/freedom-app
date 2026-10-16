@@ -11003,3 +11003,33 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+5), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-58a – Startseite: echtes Bild der App, links bündig, Vertrauenszeile
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-58. Bisher:
+- Die Startseite zeigte kein Bild der App, sondern ein fast leeres Terminal mit einer nachgestellten Szene („82 msat bezahlt“).
+- Der Hero war gemischt ausgerichtet.
+- Lizenz, reproduzierbarer Build und Tor standen tief im Text.
+
+- **Ein echtes Bild der App** statt der Szene: die Agent-Seite aus dem Build.
+  - Vier Bilder, je Sprache (de, en) und Design (dunkel, hell).
+  - Die Seite zeigt das passende: Design über `<picture>` und `prefers-color-scheme`, Sprache beim Umschalten.
+  - Aufgenommen mit `scripts/website-bilder.py`, wie der Smoke-Test: frisches Profil, nichts nach außen.
+  - Der Alternativtext steht in beiden Sprachen.
+- **Hero links bündig:** Text, Knöpfe und Vertrauenszeile an einer Kante, rechts das Bild; am Handy darunter.
+- **Vertrauenszeile** statt der Abzeichen. Jeder Punkt ist mit seinem Beleg verlinkt:
+  - Freie Lizenz (EUPL-1.2), Beleg: `LICENSE`;
+  - Reproduzierbarer Build, Beleg: FAQ Technik;
+  - Tor in den Apps, Beleg: Downloads;
+  - Niemand verwahrt dein Geld, Beleg: FAQ Geld.
+- `build-site.sh` legt `bilder/` mit aus.
+
+Tests:
+- `check-website.py` prüft neu mit `bilder_pruefen()`:
+  - jedes Bild ist ein PNG in 1200×760;
+  - Größe und Alternativtext stehen im HTML, der Alternativtext in beiden Sprachen;
+  - jede Quelle existiert, und `build-site.sh` legt den Ordner aus.
+- `test_check_website.py` hat 4 Fälle mehr: heute ohne Befund, Bild fehlt, falsche Größe, ohne Alternativtext.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
