@@ -56,3 +56,9 @@ dieses Bereichs unten anhängen.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
+- **Stil-Abdruck** (seit C-56b, Smoke-Teil „stil_abdruck“): je Seite und Größe die Stile der Bausteine aus
+  `docs/ausbau/BAUSTEINE.md`, verglichen mit `scripts/stil-soll.json`. Ändert sich das Design gewollt,
+  `STIL_NEU=1 python3 scripts/smoke_test.py packages/app/dist` und die Datei mitcommiten, im Pull Request nennen;
+  `BILDER=<ordner>` legt Bildschirmfotos zum Ansehen ab. Gemessen wird nur, was das CSS festlegt – Bildschirmfotos
+  hingen von den Schriften des Rechners ab und wären in der CI rot, ohne dass sich etwas änderte.
+
