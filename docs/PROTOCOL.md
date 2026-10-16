@@ -1330,3 +1330,30 @@ ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfa
   60 000 Byte, offene Abgleiche zählen wie Abos, jede Nachricht wie eine Abfrage. `NEG-ERR` nur mit festen Texten
   (`blocked:`, `closed:`, `error:`); NIP-11 nennt 77.
 - **Noch nicht:** der Abgleich nach Funkstille (B-35c: eigenes Relay mit anderen, Gateway).
+
+## 38. Cashu-Pfand für Lightning-Sitzungen (seit RM2a)
+
+Der Zahlkanal für Lightning (`docs/RM2-ENTWURF.md`, entschieden 14.10.2026): Die App sperrt kleine
+Cashu-Token auf den Pfand-Schlüssel des Providers und übergibt je Anfrage die nächsten. Der Provider prüft
+sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://cashubtc.github.io/nuts/00/)
+(hash_to_curve), [NUT-11](https://cashubtc.github.io/nuts/11/) (P2PK) und
+[NUT-12](https://cashubtc.github.io/nuts/12/) (DLEQ), geprüft gegen deren Testvektoren (`pfand.ts`).
+
+- **Im Angebot (38027):** `["cashu_mint", <url>]` je Mint, die der Provider annimmt (höchstens 5; https,
+  `.onion` auch über http, ohne Zugangsdaten und ohne `/` am Ende), dazu `["cashu_pfand", <Schlüssel>, <Fassung>]`
+  – der Pfand-Schlüssel komprimiert (33 Byte hex), nicht der Schlüssel des Knotens; Fassung 1. Ohne beides gibt es
+  kein Pfand; die App fragt dann mit Gebot je Auftrag. Unbrauchbare Angaben gelten als keine.
+- **Im versiegelten Kern der Anfrage:** genau ein `["pfand", <Mint>, <Token als JSON>]`. Ein Token ist ein Proof
+  nach NUT-00 (`id`, `amount`, `secret`, `C`) mit Beweis nach NUT-12 (`dleq`: `e`, `s`, `r`); höchstens 64 je
+  Anfrage, das Geheimnis höchstens 1024 Zeichen. Nie offen – die Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+- **Prüfung beim Provider (`pruefePfand()`), ohne Mint:**
+  - die Mint steht in seiner Liste (`pfand-mint`);
+  - Keyset und Betrag kennt er aus den Schlüsseln der Mint, nur in sat (`pfand-mint-schluessel`);
+  - der Beweis stimmt gegen diesen Schlüssel (`pfand-dleq`);
+  - das Geheimnis ist eine P2PK-Sperre genau auf seinen Pfand-Schlüssel – keine weiteren Schlüssel (`pubkeys`),
+    eine Unterschrift, `SIG_INPUTS` (`pfand-sperre`);
+  - `locktime` mindestens 15 Minuten weg – eingelöst wird bis zehn Minuten davor (`pfand-frist`);
+  - ein Rückweg (`refund`) für die App (`pfand-rueckweg`);
+  - kein Token doppelt, auch nicht schon angenommen (`pfand-doppelt`).
+  Gilt ein Teil nicht, gilt keiner. Zurück der Betrag und die früheste Frist.
+- **Noch nicht:** Annehmen, Merken und Einlösen im Knoten (RM2b), Sperren und Übergeben in der App (RM2c).

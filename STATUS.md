@@ -10250,3 +10250,32 @@ Abhängigkeit `@cashu/cashu-ts` 4.11.0 (MIT oder Apache-2.0, freigegeben mit A-1
 
 Knoten-Stand: unverändert. Noch ohne Oberfläche und ohne Aufrufer – den bringt RM2c (mit der Grenze „cashu-verwahrt“ im
 Bericht).
+
+## Schritt RM2a – Cashu-Pfand im Protokoll
+
+Spur A, `docs/RM2-ENTWURF.md` (V1–V3, W1 A, entschieden 14.10.). Keine neue Abhängigkeit (`@noble/curves` und
+`@noble/hashes` sind schon im Protokoll). Neues Format, wie der Entwurf es verlangt (V7): Tags im Kern der Anfrage und im
+Angebot (§38).
+
+**Gebaut:**
+- `protocol/src/pfand.ts` (neu):
+  - `hashZuKurve()` (NUT-00), `hashE()` und `pruefeDleq()` (NUT-12, Prüfung des Empfängers) mit `@noble/curves`.
+  - `pfandTags()`/`lesePfandTags()`: genau ein `["pfand", Mint, Token als JSON]` im versiegelten Kern, streng gelesen
+    (höchstens 64 Token, Form je Feld, sonst `pfand-form`).
+  - `pruefePfand()` ohne Mint – Mint in der Liste, Schlüssel der Mint bekannt, Beweis, Sperre genau auf den
+    Pfand-Schlüssel, Frist mindestens 15 Minuten weg, Rückweg, nichts doppelt; gilt ein Teil nicht, gilt keiner.
+  - `cashuAngebotTags()`/`leseCashuAngebot()`: `cashu_mint` (höchstens 5) und `cashu_pfand` (Schlüssel, Fassung 1) im
+    Angebot; `buildCapabilities()`/`parseCapabilities()` tragen `cashu`.
+- Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+- `docs/PROTOCOL.md` §38, Fallstrick in `CLAUDE.md`, `wiring-ausnahmen.txt` (Aufrufer mit RM2b und RM2c).
+
+**Tests:** protocol +7 (`pfand.test.ts`):
+- hash_to_curve (NUT-00), hash_e und Beweis eines Tokens (NUT-12) gegen die Testvektoren der Spezifikation, jede
+  Abweichung fällt auf;
+- `pruefePfand()` mit echten gesperrten Token einer Mint im Test (blind signiert, mit Beweis) und jede Abweichung mit
+  ihrer Kennung;
+- Tags hin und zurück, Kaputtes wirft;
+- Angebot hin und zurück, fremde Angaben streng;
+- Leak-Regel: Pfand offen fällt auf, Angebot nicht.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; RM2b).
