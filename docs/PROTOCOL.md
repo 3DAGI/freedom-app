@@ -130,6 +130,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
 | 38020–38022 | Sessions (Open/Payment/Close) |
 | 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
+| 38028 | Cluster-Angebot: Gerät als Hälfte eines Paars verfügbar (§36, seit E9-1 – vorher lag es auf 38026, dem Kurs-Ticker) |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
 | 38040 / 38041 | Blob-Manifest / Blob-Chunk |
 | 38042 | Git-Repo-Referenz |
@@ -1182,6 +1183,7 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `neu` | `projekt` | `projekt` |
 | `auftrag` | `projekt`, `text` (1–8000 Zeichen), `modus` (`fragen` oder `frei`) | `ende`, `schritte`, `abschluss` (höchstens 4000 Zeichen) – erst am Ende des Laufs |
 | `freigabe` | `lauf` (Id des Auftrags, 64 Hex), `schritt` (1–200), `antwort` (`ja` oder `nein`) | `ok` |
+| `bundle` (seit VKl) | `projekt` | `blob`, `manifest` (Id des Manifest-Events, 64 Hex), `schluessel` (`alg`, `key`, `nonce`, `ox` wie bei Anhängen, §2.4), `bytes` (1 bis 32 MiB) |
 | `stopp` | `lauf` | `ok` |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
@@ -1233,11 +1235,20 @@ Tag, nie am Text:
 | `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat keinen Motor – er startet ihn nur in der Sandbox (VKb, VKc3) |
 | `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei |
 | `code-zu-viele` | `neu`: schon 100 Projekte |
-| `code-git` | `neu`: git konnte das Projekt nicht anlegen |
+| `code-git` | `neu`: git konnte das Projekt nicht anlegen; `bundle`: git konnte das Bundle nicht bauen |
 | `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |
+| `code-leer` | `bundle`: das Projekt hat noch keinen Commit |
+| `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
+
+**Bundle** (seit VKl): Der Knoten erzeugt `git bundle create … --all`, verschlüsselt es wie einen
+Anhang (AES-GCM, `verschluesseleDatei()`) und legt Manifest (38040) und Stücke (38041, `verschluesselt`)
+ins Blob-Netz – signiert von einem **Wegwerfschlüssel**, nie vom Schlüssel des Knotens: Sonst verbände
+ein Repo im Raum den Besitzer mit seinem Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst
+(ohne Verdrängung, wie §B-9b). Den Schlüssel zum Blob bekommt nur der Besitzer, versiegelt in der Antwort;
+die App stellt das Repo damit in einen Raum (VKl2).
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 
@@ -1268,3 +1279,90 @@ Event (NIP-09: `e`, `a` = `38076:<knoten>:<Suchkennung>`, `k`) samt Datei – eb
 den Code, nicht das Geheimnis, nicht wer koppelt. Wer das Event mitliest, muss für jeden der 2^60
 Codes 600 000 Runden rechnen – auch, um es überhaupt einem Code zuzuordnen.
 
+## 36. Cluster-Pairing: Angebot offen, Absprache versiegelt (Kind 38028, innen 25050, seit E9-1)
+
+Zwei Geräte rechnen ein großes Modell gemeinsam (K = 2). Nach V1 A aus
+`docs/E9-ENTWURF.md` (freigegeben 08.10.2026) sieht der Kunde nur den
+**führenden Knoten**: Er zahlt nur ihn (A+ wie jede KI-Antwort), und der
+haftet für die Antwort. Den Partner mietet der führende Knoten selbst und
+bezahlt ihn direkt, außerhalb des Protokolls.
+
+**Angebot (Kind 38028, ersetzbar je `d`):** `["d", "cluster:<region>"]`,
+`["mem_gb", …]`, `["mem_bw", …]` (GB/s), `["uplink", …]` (Mbit/s),
+`["region", …]` (`[a-z0-9-]`, höchstens 32), `["rtt", …]` (ms),
+`["rate", …]` (sats je Stunde), `["window", <von>, <bis>]`, optional
+`["direct_link", "1"]`. Gelesen nur über `parseClusterOffer()` – Zahlen nicht
+negativ, Zeitfenster nicht leer, sonst ungültig.
+
+**Absprache (innen Kind 25050, nur im Umschlag nach NIP-59 an den Partner):**
+`["p", <partner>]`, `["model", <name>]`, `["window", <von>, <bis>]`,
+`["rate", <sats je Stunde>]`, optional `["e", <Id der Absprache>]` als
+Bestätigung. Gebaut und gelesen nur über `baueClusterAbsprache()` und
+`oeffneClusterAbsprache()`.
+
+- Kein öffentliches Paar-Ereignis und keine Bilanz daraus: Wer bei wem
+  mietet, verrät Geschäftsbeziehungen, und eine Bilanz mit Vorrang wäre eine
+  öffentliche Rangliste. Das alte Paar-Event (bis E9-1 auf 38027, dem Kind des
+  Provider-Angebots) und die „Reziprozität“ mit 5 % Protokollgebühr fielen weg.
+- Betrieben wird ein Paar erst mit zwei Geräten (E9-5); bis dahin sind es
+  Bausteine.
+
+## 37. Abgleich mit Negentropy (NIP-77, seit B-35a)
+
+Zwei Seiten finden heraus, welche Events der anderen fehlen, ohne alle Ids zu schicken – nach einer Zeit
+ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfahren und Nachrichten wie
+[NIP-77](https://github.com/nostr-protocol/nips/blob/master/77.md) und die Referenz von Doug Hoyte, Fassung 1
+(`0x61`); eigene Umsetzung in `negentropy.ts` (Entscheidung NG1 B), Byte für Byte gleich der Referenz
+(Vektoren aus `scripts/negentropy-referenz.mjs`, Referenz gepinnt auf Commit und Prüfsumme).
+
+- **Einträge:** je Event Zeit (`created_at`) und Id, sortiert nach Zeit, dann Id; keine doppelten.
+- **Nachricht:** Fassung, dann Bereiche bis zu einer oberen Grenze (Zeit als Abstand + 1, `0` = unendlich;
+  kürzester Id-Präfix, der zwei Nachbarn trennt) mit Überspringen (0), Fingerabdruck (1: SHA-256 über die
+  Summe der Ids mod 2^256, little-endian, und die Anzahl als Varint – 16 Byte) oder Id-Liste (2). Ab 32
+  Einträgen teilt eine Seite einen Bereich in 16. Zahlen sind Varints mit der höchsten Stelle zuerst.
+- **Rollen:** Wer beginnt (`beginne()`), sammelt `habe` und `brauche`; die andere Seite antwortet nur. Mit
+  Rahmengröße (ab 4096 Byte) bricht eine Antwort vorher ab und nennt für den Rest einen Fingerabdruck.
+- **Grenzen** (`NEG_GRENZEN`): Nachricht höchstens 512 KB, Id-Liste höchstens 100 000 Ids, Varints bis 2^53;
+  Unpassendes ergibt `NegFehler` mit Kennung (`neg.format`, `neg.gross`, `neg.fassung`), nie Text aus der Nachricht.
+- **Relay-Rolle (seit B-35b):** `NEG-OPEN` (Kennung, ein Filter, erste Nachricht) legt den Stand fest – nur Events,
+  die `darfAusliefern()` der Verbindung auch per `REQ` zeigen würde (Umschläge nur an den angemeldeten Empfänger; ein
+  Filter auf Umschläge ohne Anmeldung ergibt `blocked: … auth-required`). Höchstens 50 000 Events je Abgleich, Rahmen
+  60 000 Byte, offene Abgleiche zählen wie Abos, jede Nachricht wie eine Abfrage. `NEG-ERR` nur mit festen Texten
+  (`blocked:`, `closed:`, `error:`); NIP-11 nennt 77.
+- **Noch nicht:** der Abgleich nach Funkstille (B-35c: eigenes Relay mit anderen, Gateway).
+
+## 38. Cashu-Pfand für Lightning-Sitzungen (seit RM2a)
+
+Der Zahlkanal für Lightning (`docs/RM2-ENTWURF.md`, entschieden 14.10.2026): Die App sperrt kleine
+Cashu-Token auf den Pfand-Schlüssel des Providers und übergibt je Anfrage die nächsten. Der Provider prüft
+sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://cashubtc.github.io/nuts/00/)
+(hash_to_curve), [NUT-11](https://cashubtc.github.io/nuts/11/) (P2PK) und
+[NUT-12](https://cashubtc.github.io/nuts/12/) (DLEQ), geprüft gegen deren Testvektoren (`pfand.ts`).
+
+- **Im Angebot (38027):** `["cashu_mint", <url>]` je Mint, die der Provider annimmt (höchstens 5; https,
+  `.onion` auch über http, ohne Zugangsdaten und ohne `/` am Ende), dazu `["cashu_pfand", <Schlüssel>, <Fassung>]`
+  – der Pfand-Schlüssel komprimiert (33 Byte hex), nicht der Schlüssel des Knotens; Fassung 1. Ohne beides gibt es
+  kein Pfand; die App fragt dann mit Gebot je Auftrag. Unbrauchbare Angaben gelten als keine.
+- **Im versiegelten Kern der Anfrage:** genau ein `["pfand", <Mint>, <Token als JSON>]`. Ein Token ist ein Proof
+  nach NUT-00 (`id`, `amount`, `secret`, `C`) mit Beweis nach NUT-12 (`dleq`: `e`, `s`, `r`); höchstens 64 je
+  Anfrage, das Geheimnis höchstens 1024 Zeichen. Eine leere Liste `[]` (seit RM2b1) heißt: keine neuen Token, gerechnet
+  wird gegen das schon Übergebene. Nie offen – die Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+- **Prüfung beim Provider (`pruefePfand()`), ohne Mint:**
+  - die Mint steht in seiner Liste (`pfand-mint`);
+  - Keyset und Betrag kennt er aus den Schlüsseln der Mint, nur in sat (`pfand-mint-schluessel`);
+  - der Beweis stimmt gegen diesen Schlüssel (`pfand-dleq`);
+  - das Geheimnis ist eine P2PK-Sperre genau auf seinen Pfand-Schlüssel – keine weiteren Schlüssel (`pubkeys`),
+    eine Unterschrift, `SIG_INPUTS` (`pfand-sperre`);
+  - `locktime` mindestens 15 Minuten weg – eingelöst wird bis zehn Minuten davor (`pfand-frist`);
+  - ein Rückweg (`refund`) für die App (`pfand-rueckweg`);
+  - kein Token doppelt, auch nicht schon angenommen (`pfand-doppelt`).
+  Gilt ein Teil nicht, gilt keiner. Zurück der Betrag und die früheste Frist.
+- **Im Knoten (seit RM2b1):** `PfandKasse` (`node/src/pfand-kasse.ts`) – Deckung je Sitzungsschlüssel der Anfrage, netto
+  (Nennwert minus Gebühr der Mint je Token, NUT-02), gesehene Geheimnisse und angenommene Token in einer Datei (0600),
+  eingelöst gesammelt je Mint ohne Beweis, spätestens zehn Minuten vor der Frist.
+- **Im Provider (seit RM2b2):** nur mit `PFAND=1` und `PFAND_MINTS`. Gedeckt sein muss der Anteil des Providers an
+  Gebot und Werkzeugen (A+, RM2 V4) – die übrigen Anteile zahlt die App nach der Antwort; gebucht wird vor der Antwort
+  der Anteil des Providers am Preis. Ein Pfand neben einer Gutschrift (§ Zahlkanal) lehnt er ab. Das Angebot nennt nur
+  Mints, deren Schlüssel die Kasse kennt.
+- **Noch nicht:** Mint-Abrufe über Tor und der Erlös an die eigene Lightning-Adresse (RM2b3) – bis dahin startet
+  `PFAND=1` nicht mit `TOR_SOCKS`; Sperren und Übergeben in der App (RM2c).

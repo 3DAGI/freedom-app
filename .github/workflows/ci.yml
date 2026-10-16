@@ -50,6 +50,19 @@ jobs:
       - name: aria2c fuer die Schwarm-Tests
         run: sudo apt-get install -y --no-install-recommends aria2 && aria2c --version | head -1
 
+      # VKb: die Sandbox läuft gegen echtes bubblewrap – ohne es übersprängen sich die Tests.
+      # Ubuntu 24.04 sperrt Nutzer-Namensräume per AppArmor; nur hier, im Wegwerf-Runner, freigeben
+      - name: bubblewrap fuer die Sandbox-Tests
+        run: |
+          sudo apt-get install -y --no-install-recommends bubblewrap && bwrap --version
+          bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --unshare-all --ro-bind / / true
+
+      - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
+        # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
+        # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
+        run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
+
       - name: Tests node
         run: npm test --workspace @freedomstack/node
 
