@@ -53,7 +53,8 @@ test("C-41: Importieren ersetzt eine vorhandene Identität nur nach Rückfrage",
   const frage = imp.indexOf('await bestaetige({ titel: t("ein.ersetzenTitel")');
   const setzen = imp.indexOf("setzeIdentitaet(fromHex(hex)");
   assert.ok(frage > 0 && setzen > frage, "erst fragen, dann ersetzen");
-  assert.match(imp, /if \(state\.keypair && !\(await bestaetige\(\{[^}]*gefahr: true \}\)\)\) return;/);
+  // Ausgenommen nur der Import im Willkommen (C-55a, `frisch`): Die Identität dort legte die App gerade selbst an
+  assert.match(imp, /if \(state\.keypair && !frisch && !\(await bestaetige\(\{[^}]*gefahr: true \}\)\)\) return false;/);
 });
 
 test("C-41: die Texte sagen, was der Klick tut – in beiden Sprachen", () => {
