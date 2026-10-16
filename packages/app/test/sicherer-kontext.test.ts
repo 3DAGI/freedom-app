@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { verschluesselungMoeglich } from "../src/sicherer-kontext.js";
-import { BundleFehler, leseBundle } from "../src/git-bundle.js";
+import { BundleFehler, leseBundle } from "@freedomstack/protocol";
 import { repos } from "../src/texte/repos.js";
 import { einstieg } from "../src/texte/einstieg.js";
 
@@ -39,7 +39,7 @@ test("B-10b: Tresor – ohne sicheren Kontext ein Hinweis statt des Dialogs, nic
 });
 
 test("B-10b: Bundles – ohne crypto.subtle eine eigene Kennung mit Text, nie eine fremde Meldung", async () => {
-  const bundle = new Uint8Array(readFileSync(new URL("fixtures/probe-v2.bundle", import.meta.url)));
+  const bundle = new Uint8Array(readFileSync(new URL("../../protocol/test/fixtures/probe-v2.bundle", import.meta.url)));
   const echt = Object.getOwnPropertyDescriptor(globalThis, "crypto")!;
   Object.defineProperty(globalThis, "crypto", { value: {}, configurable: true });
   try {

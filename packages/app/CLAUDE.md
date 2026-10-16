@@ -311,7 +311,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `alsRufZusammenfassung()` am Ende der Kette in `oeffneUmschlag()`, gemerkt in
   `freedom.ruf.kontakte` (Tresor, `SICHERUNG_NIE`).
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/website/CLAUDE.md`.)*
-- **Git-Bundles nur über `leseBundle()`** (seit C.3c1, `git-bundle.ts`): ohne
+- **Git-Bundles nur über `leseBundle()`** (seit C.3c1, `git-bundle.ts` – seit 11.5a1 im Protokoll): ohne
   neue Abhängigkeit (`DecompressionStream`, `crypto.subtle`), Grenzen aus
   `BUNDLE_GRENZEN`, Prüfsumme des Packs und jede Kennung nachgerechnet, Fehler
   nur als `BundleFehler`-Kennung (nie Text aus dem Bundle). Geladen nur auf
@@ -775,6 +775,26 @@ Fallstricke dieses Bereichs unten anhängen.
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
   App über http im Heimnetz fehlt. Die Bytes jeder Nachricht halten die Vektoren (`test/sol-vektoren-faelle.ts`).
+- **Projekte meines Knotens nur über `shell/knoten-code-ui.ts`** (seit VKl2): Code-Aufträge an den eigenen
+  Knoten nur über `frageKnotenCode()` – frischer Sitzungsschlüssel, `wegZumKnoten()`, gelesen nur über
+  `leseCodeAntwort()`; Ablehnungen nur über `codeAblehnungText(fall)` (`knoten-projekte.ts`, Kennung aus
+  `warteAufKnoten()`), nie Text vom Knoten. „Als Repo in einen Raum stellen“ nur über `stelleKnotenProjektEin()` →
+  `kuendigeAn(…, ausKnoten)`: erst das Bundle (`holeBundleVomKnoten()` – das Manifest muss an den eigenen Relays
+  liegen, sonst fänden es die im Raum auch nicht), dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das
+  Bundle, geht nichts hinaus. Vom Knoten nie „nur dieses Gerät“, privat nur `sendeInRaum()`. Nie in
+  `mein-knoten.ts` – dort liegt der Kopplungscode.
+- **Cashu nur über `cashu-topf.ts`** (seit A-17c, E4b V2/V3, RM2 W5 A): `@cashu/cashu-ts` (4.11.0, exakt gepinnt) nur dort –
+  `check-wiring.py` (Zahlwege) findet jeden anderen Import. Cashu ist verwahrt: eine Mint, vom Nutzer gewählt, nur mit
+  NUT-11 und NUT-12 (`waehleMint()`), wechseln nur mit leerem Topf; höchstens `CASHU_HOECHST_SAT` (Guthaben, gesperrt
+  Empfangenes und offene Ladungen zusammen). Der Stand liegt nur in `freedom.cashu` (`geheim`, `SICHERUNG_NIE`, nie im
+  Export) und wird nur mit offenem Tresor geschrieben. Laden: `ladeAnfrage()` prüft die Rechnung der Mint auf den Betrag,
+  bezahlt wird nur über die Zahlschienen, dann `abholen()`. Angenommen werden nur Token der eigenen Mint mit DLEQ (NUT-12);
+  ohne Netz nur über `nimmOhneNetz()` – genau auf den eigenen Schlüssel gesperrt, ohne Frist, ohne Rückgabe-Schlüssel –,
+  eingelöst mit `einloesen()`. Jeder Tausch geht über `tausche()`: erst Zähler und eingesetzte Token als `laufend` merken,
+  dann die Mint, dann das Ergebnis; nach einem Abbruch holt `nachholen()` nur den Zählerbereich dieses Tauschs zurück
+  (NUT-09/13) – nie ab Zähler 0, sonst kämen gesendete Token zurück. Auf einen fremden Schlüssel gesperrte Token, die beim
+  Absturz noch nicht übergeben waren, sind weg. Tests gegen eine Mint auf dem Rechner (`scripts/cashu-testmint.sh`,
+  Nutshell 0.21.0 mit FakeWallet; `marshmallow` und `limits` neuer als in `cashu-testmint.txt` brechen sie).
 - **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
   Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
   Variante nur mit Grund im Pull Request. Farben, Radien und Abstände nur über die Tokens in `app.css`.
