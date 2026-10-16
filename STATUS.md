@@ -10429,3 +10429,21 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1145 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-46 – Agent-Kleinigkeiten: Kopieren je Antwort, ehrlicher Untertitel
+
+Aus dem Oberflächen-Review (15.10.2026), vier Kleinigkeiten auf der Agent-Seite:
+- **Kopieren**: Unter der Eingabe stand eine eigene Knopfreihe „Letzte kopieren · Alle kopieren“. Jetzt steht „Kopieren“ (Symbol und Wort) leise unter jeder Antwort, nicht unter den eigenen Fragen. Kopiert wird nur der Text der Antwort. Wenn der Browser die Zwischenablage nicht freigibt, sagt die Meldung das, statt „keine Antwort“. „Alle kopieren“ steht im Arbeitsbereich unter „Unterhaltung“. Eine Reihe weniger um die Eingabe; C-49 baut sie ganz um.
+- **Untertitel**: Bis jetzt stand dort „Stell eine Frage. Du zahlst pro Anfrage.“, über einer Karte, die „kostet kein Geld“ sagte. Jetzt: „Stell eine Frage. Bis zu 20 Antworten am Tag sind gratis, solange Provider es anbieten – danach zahlst du je Anfrage.“ Ein Test hält die Zahl gleich mit `GERAET_GRATIS`.
+- **Beispiele** stehen ohne Anführungszeichen und „…“, in Satzschreibung.
+- **„Modell wählen · Werkzeuge anhängen“** fällt weg. Das war Text, der wie ein Knopf aussah, die Knöpfe stehen direkt darunter.
+- **„Auto (schnellste)“** ist seit C-42b kein zweiter grüner Knopf neben „Senden“ mehr, sondern die Grundform. Ein Test hält fest, dass er keine grüne Klasse trägt.
+
+Tests:
+- `agent-kleinigkeiten.test.ts` hat zwei neue Tests:
+  - Kopieren nur unter Antworten und nur Text, „Alle kopieren“ im Arbeitsbereich, keine Reihe mehr;
+  - der Untertitel nennt die Zahl aus dem Kontingent in beiden Sprachen, Beispiele ohne Anführungszeichen, kein Schein-Knopf.
+- Der Smoke-Teil „agent_folgen“ prüft zusätzlich: sechs Antworten mit „Kopieren“, keine Frage mit; der Klick kopiert die letzte Antwort (Attrappe der Zwischenablage); „Alle kopieren“ steht im Arbeitsbereich.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
