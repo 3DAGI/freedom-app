@@ -24,6 +24,7 @@ import { zeigeZahlungen } from "../verlauf-ui.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
 import { $, leererZustand, toast, updateSidebarBalances } from "../ui.js";
+import { merkeStand } from "../wallet-gesamt-ui.js";
 import { startRueckSwap, startSwap, starteRueckholWaechter } from "./tausch.js";
 
 // ------------------------------------------------------------- Wallet-Tab
@@ -216,7 +217,10 @@ export async function connectSolana(silent = false): Promise<void> {
       const bal = await fetchSolBalance(conn.pubkey, rpcUrl);
       localStorage.setItem("freedom.sol.balance", bal.sol.toFixed(4));
       localStorage.setItem("freedom.sol.pubkey", conn.pubkey);
-    } catch { /* RPC nicht erreichbar — Sidebar bleibt bei "—" */ }
+      merkeStand("solBrowser", bal.lamports); // Kontostand oben (C-50a)
+    } catch {
+      merkeStand("solBrowser", null); // RPC nicht erreichbar — Sidebar bleibt bei "—", die Summe sagt „unvollständig“
+    }
     updateSidebarBalances();
   } catch (e) {
     if (silent) return;
@@ -283,6 +287,7 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     if (input) input.value = redactNwcUri(raw);
 
     $("#ln-balance").innerHTML = `${Math.floor(balance / 1000).toLocaleString(gebietsschema())} <small>sats</small>`;
+    merkeStand("ln", balance); // Kontostand oben (C-50a), msat
     // BOLT12 nur erkennen (6.3): NIP-47 legt die Methoden noch nicht fest – Rechnungen gehen versiegelt (6.3b1)
     const bolt12 = bolt12Methoden(info.methods);
     statusEl.textContent = [
@@ -329,6 +334,7 @@ export function disconnectNwc(): void {
   const input = $("#nwc-uri") as HTMLInputElement | null;
   if (input) input.value = "";
   $("#ln-balance").innerHTML = `— <small>sats</small>`;
+  merkeStand("ln", undefined);
   $("#nwc-status").textContent = t("waehr.getrennt");
   $("#nwc-status").className = "mono-sm";
   $("#nwc-disconnect").classList.add("hidden");

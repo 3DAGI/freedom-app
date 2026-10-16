@@ -78,5 +78,6 @@ test("12.7a: Verdrahtung – Knopf, erst bestätigen, dann über die Zahlschiene
   assert.doesNotMatch(ui, /nwc|webln|signTransaction|localStorage/, "keine Wallet am Schienen vorbei, nichts gemerkt");
   assert.match(ui, /scannen: true/, "Ziel auch per QR-Code");
   assert.match(src("../src/shell/app.ts"), /\n  wireSenden\(\);\n/);
-  assert.match(src("../src/shell/index.html"), /<button id="wallet-senden" class="send-btn" type="button" data-i18n="senden.knopf">/);
+  // Seit C-50a eine der vier Aktionen unter dem Kontostand
+  assert.match(src("../src/shell/index.html"), /<button id="wallet-senden" class="wa-knopf" type="button">.*<span data-i18n="senden\.knopf">Senden<\/span><\/button>/);
 });
