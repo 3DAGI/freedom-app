@@ -117,6 +117,7 @@ export function zeigeEingebauteWallet(): void {
   ($("#solw-frisch") as HTMLButtonElement).disabled = frei === 0;
   $("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: "…" });
   const adressen = eingebauteWallet.eigeneAdressen();
+  merkeStand("solEingebaut", "laedt"); // unterwegs ein Skelett (C-59)
   void (async () => {
     try {
       const { fetchSolBalance } = await import("../solana-connect.js");

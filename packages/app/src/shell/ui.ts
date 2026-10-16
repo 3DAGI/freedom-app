@@ -58,12 +58,42 @@ export function skelett(zeilen = 3, beschriftung = ""): HTMLElement {
   return box;
 }
 
+/** Wie lange eine Meldung steht (C-59): Fehler länger, damit man sie zu Ende lesen kann. */
+export const TOAST_MS = 4000;
+export const TOAST_FEHLER_MS = 7000;
+let toastUhr: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Meldung (Baustein Toast, C-59): oben, mit Zeichen (✓ oder !), Fehler mit rotem Rand und länger; ein Klick schließt.
+ * Eine neue Meldung ersetzt die alte samt Uhr – bis C-59 schloss die Uhr der alten die neue vorzeitig. Vorleser hören
+ * sie über eine eigene Ansage (`#toast-ansage`, Fehler `#toast-alarm`), die immer da ist; die sichtbare Meldung
+ * selbst ist für sie verborgen, sonst käme sie doppelt.
+ */
 export function toast(msg: string, isErr = false): void {
   const box = $("#toast");
+  clearTimeout(toastUhr);
   box.textContent = msg;
   box.className = isErr ? "err" : "";
-  box.style.display = "block";
-  setTimeout(() => (box.style.display = "none"), 4000);
+  box.hidden = false;
+  box.onclick = () => { clearTimeout(toastUhr); box.hidden = true; };
+  toastUhr = setTimeout(() => { box.hidden = true; }, isErr ? TOAST_FEHLER_MS : TOAST_MS);
+  const ansage = document.getElementById(isErr ? "toast-alarm" : "toast-ansage");
+  if (ansage) {
+    // Erst leeren: dieselbe Meldung zweimal hintereinander wird sonst nicht noch einmal vorgelesen
+    ansage.textContent = "";
+    requestAnimationFrame(() => { ansage.textContent = msg; });
+  }
+}
+
+/**
+ * Ein Wert lädt (Baustein Skelett, C-59): eine kurze graue Zeile statt „—“. „—“ heißt seitdem nur noch „kein Wert“
+ * (kein Konto, nicht erreichbar) – vorher stand es auch, solange ein Stand unterwegs war.
+ */
+export function ladend(ziel: HTMLElement, beschriftung = t("bau.laedt")): void {
+  const zeile = el("span", undefined, "skelett-zeile skelett-wert");
+  zeile.setAttribute("role", "status");
+  zeile.setAttribute("aria-label", beschriftung);
+  ziel.replaceChildren(zeile);
 }
 
 

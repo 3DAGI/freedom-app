@@ -5812,6 +5812,56 @@ def thema_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def rueckmeldung_pruefen(browser, url: str) -> dict:
+    """Rückmeldungen (C-59): Die Meldung (Toast) ist für Vorleser verborgen, gesagt wird sie über eine Ansage, die
+    immer da ist; eine zweite Meldung bleibt ihre volle Zeit (bis C-59 schloss sie die Uhr der ersten), ein Klick
+    schließt. Dialoge und Meldungen blenden ein – bei „weniger Bewegung“ nicht."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema="dark")
+    s, ev = seite.s, seite.ev
+    g = erg["gang"] = {}
+    g["regionen"] = ev("() => [document.getElementById('toast').getAttribute('aria-hidden'),"
+                       " document.getElementById('toast-ansage').getAttribute('role'), document.getElementById('toast-alarm').getAttribute('role')]")
+    ev("() => { location.hash = '#/verdienen'; }")
+    s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
+    ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
+    stand = """() => { const t = document.getElementById('toast'); return { zu: t.hidden, art: t.className, text: t.textContent,
+      zeichen: getComputedStyle(t, '::before').content, bewegung: getComputedStyle(t).animationName,
+      ansage: document.getElementById('toast-ansage').textContent }; }"""
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_function("() => document.getElementById('toast-ansage').textContent === 'Befehl kopiert'", timeout=5000)
+    g["erste"] = ev(stand)
+    # Die zweite drei Sekunden später – zwei Sekunden danach steht sie noch (die Uhr der ersten liefe nach vier ab)
+    s.wait_for_timeout(3000)
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_timeout(2000)
+    g["zweite"] = ev("() => !document.getElementById('toast').hidden")
+    ev("() => document.getElementById('toast').click()")
+    g["klick"] = ev("() => document.getElementById('toast').hidden")
+    ev("() => document.getElementById('models-seed').click()")
+    s.wait_for_selector(".modal-backdrop .modal", timeout=10000)
+    g["dialog"] = ev("() => [getComputedStyle(document.querySelector('.modal-backdrop')).animationName, getComputedStyle(document.querySelector('.modal-backdrop .modal')).animationName]")
+    s.keyboard.press("Escape")
+    s.wait_for_function("() => !document.querySelector('.modal-backdrop')", timeout=10000)
+    s.emulate_media(reduced_motion="reduce")
+    ev("() => document.getElementById('models-seed').click()")
+    s.wait_for_selector(".modal-backdrop .modal", timeout=10000)
+    g["dialog_ruhig"] = ev("() => [getComputedStyle(document.querySelector('.modal-backdrop')).animationName, getComputedStyle(document.querySelector('.modal-backdrop .modal')).animationName]")
+    s.keyboard.press("Escape")
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_function("() => !document.getElementById('toast').hidden", timeout=5000)
+    g["toast_ruhig"] = ev("() => getComputedStyle(document.getElementById('toast')).animationName")
+    seite.ctx.close()
+    soll = {"regionen": ["true", "status", "alert"],
+            "erste": {"zu": False, "art": "", "text": "Befehl kopiert", "zeichen": '"✓" / ""', "bewegung": "fs-pop", "ansage": "Befehl kopiert"},
+            "zweite": True, "klick": True, "dialog": ["fs-blende", "fs-pop"], "dialog_ruhig": ["none", "none"], "toast_ruhig": "none"}
+    for k, v in soll.items():
+        if g.get(k) != v:
+            erg["fehler"].append(f"{k}: soll {v}, ist {g.get(k)}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def mobil_pruefen(browser, url: str) -> dict:
     """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
     40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
@@ -6078,6 +6128,10 @@ def main() -> int:
             except Exception as e:
                 erg["thema"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["rueckmeldung"] = rueckmeldung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rueckmeldung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6228,6 +6282,7 @@ def main() -> int:
           and erg.get("einst_zeilen", {}).get("bestanden") is True
           and erg.get("stil_abdruck", {}).get("bestanden") is True
           and erg.get("thema", {}).get("bestanden") is True
+          and erg.get("rueckmeldung", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True

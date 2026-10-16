@@ -11,9 +11,9 @@ Stand 16.10.2026 (Schritt C-56a, Oberflächen-Review). Drei Spuren bauen an ders
 | Schalter | `input.schalter` mit `role="switch"` | statt Häkchen in Einstellungen; nie vorab an, wo Zustimmung nötig ist |
 | Blatt | `.ai-optionen` (am Handy unten) | Optionen zu einer Eingabe |
 | Popover | `oeffneMenueAn()` in `shell/menue.ts` (`.menue-schwebend`) | Menüs zu einem Knopf, Tasten und Esc wie in `menue.ts` |
-| Toast | `toast(text, fehler)` in `shell/ui.ts` | kurze Rückmeldung; Fehler zusätzlich dort, wo sie entstanden |
+| Toast | `toast(text, fehler)` in `shell/ui.ts` | kurze Rückmeldung; Fehler zusätzlich dort, wo sie entstanden; Vorleser hören sie über `#toast-ansage`/`#toast-alarm` (C-59) – nie ein eigenes Element mit eigener Uhr |
 | Leerer Zustand | `leererZustand(symbol, satz, aktion)` | ein Satz und der nächste Schritt (C-45) |
-| Skelett | `.skelett`, `skelett(zeilen, beschriftung)` | statt „lädt …“; ohne Bewegung bei „weniger Bewegung“ |
+| Skelett | `.skelett`, `skelett(zeilen, beschriftung)`; für einen einzelnen Wert `ladend(ziel)` (C-59) | statt „lädt …“ und statt „—“, solange ein Wert unterwegs ist – „—“ heißt nur „kein Wert“; ohne Bewegung bei „weniger Bewegung“ |
 | Avatar | `avatar(pk, zeichen)` | Farbe aus dem Schlüssel (C-44) |
 
-Abstände, Radien und Farben kommen nur aus den Tokens in `app.css` (`--r-sm`, `--r`, `--r-lg`, `--surf2`, `--line2`, `--accent` …).
+Abstände, Radien und Farben kommen nur aus den Tokens in `app.css` (`--r-sm`, `--r`, `--r-lg`, `--surf2`, `--line2`, `--accent` …), je mit einem hellen Wert (C-57b). Übergänge nur über die Keyframes `fs-pop`, `fs-blatt`, `fs-blende` (C-59), kürzer als 0,2 s und bei „weniger Bewegung“ aus.

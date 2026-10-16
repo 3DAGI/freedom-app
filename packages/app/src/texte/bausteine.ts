@@ -2,6 +2,8 @@
 import type { Texte } from "../i18n.js";
 
 export const bausteine: Texte = {
+  // Skelett für einen Wert, der lädt (C-59, ladend())
+  "bau.laedt": { de: "wird geladen", en: "loading" },
   // Lokale Werkzeuge (local-tools.ts)
   "bau.urlUngueltig": { de: "keine gültige URL", en: "not a valid URL" },
   "bau.nurHttp": { de: "nur http und https", en: "only http and https" },
