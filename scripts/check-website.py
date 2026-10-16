@@ -127,8 +127,10 @@ def navigation_pruefen() -> list[str]:
     return fehler
 
 
-# In beiden Designs gleich (C-57c): Schatten und die drei Fensterpunkte der Terminal-Demo
-FARBEN_BEIDE = {"rgba(0,0,0,.6)", "rgba(0,0,0,.5)", "rgba(123,200,10,.07)", "#cc5544", "#ccaa33", "#66bb44"}
+# In beiden Designs gleich (C-57c): der Schatten des Sprachmenüs
+FARBEN_BEIDE = {"rgba(0,0,0,.6)"}
+# Bilder der App auf der Startseite (C-58a): je Sprache und Design, Größe wie scripts/website-bilder.py
+BILD_SPRACHEN, BILD_DESIGNS, BILD_GROESSE = ("de", "en"), ("dunkel", "hell"), (1200, 760)
 
 
 def _leuchte(farbe: str) -> float:
@@ -179,6 +181,36 @@ def farben_pruefen() -> list[str]:
             for farbe in re.findall(r"(?<![-\w])#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", stil):
                 if not re.search(r"--brand:\s*" + re.escape(farbe), stil):
                     fehler.append(f"{datei}: feste Farbe {farbe} im Stil statt eines Tokens (C-57c)")
+    return fehler
+
+
+def bilder_pruefen() -> list[str]:
+    """Echtes Bild der App (C-58a): Jede Sprache und jedes Design hat ein PNG in der Größe, die
+    `website-bilder.py` aufnimmt; die Startseite nennt Breite, Höhe und einen Alternativtext in beiden Sprachen, und
+    `build-site.sh` legt den Ordner mit aus – sonst zeigte die Seite ein kaputtes Bild."""
+    fehler: list[str] = []
+    for sprache in BILD_SPRACHEN:
+        for design in BILD_DESIGNS:
+            datei = os.path.join(BASIS, "bilder", f"app-{sprache}-{design}.png")
+            if not os.path.isfile(datei):
+                fehler.append(f"bilder/app-{sprache}-{design}.png fehlt (C-58a)")
+                continue
+            kopf = open(datei, "rb").read(24)
+            if kopf[:8] != b"\x89PNG\r\n\x1a\n" or (int.from_bytes(kopf[16:20], "big"), int.from_bytes(kopf[20:24], "big")) != BILD_GROESSE:
+                fehler.append(f"bilder/app-{sprache}-{design}.png: kein PNG in {BILD_GROESSE[0]}×{BILD_GROESSE[1]} (C-58a)")
+    inhalt = open(os.path.join(BASIS, "index.html"), encoding="utf-8").read()
+    img = re.search(r"<img data-bild=\"dunkel\"[^>]*>", inhalt, re.S)
+    if not img or f'width="{BILD_GROESSE[0]}"' not in img.group(0) or f'height="{BILD_GROESSE[1]}"' not in img.group(0) \
+            or 'data-i18n-alt="heroBildAlt"' not in img.group(0) or not re.search(r'alt="[^"]{20,}"', img.group(0)):
+        fehler.append("index.html: Bild der App ohne Größe oder Alternativtext (C-58a)")
+    if len(re.findall(r"heroBildAlt: \"[^\"]{20,}\"", inhalt)) < 2:
+        fehler.append("index.html: Alternativtext des Bildes nicht in beiden Sprachen (C-58a)")
+    for quelle in re.findall(r'(?:src|srcset)="(bilder/[^"]+)"', inhalt):
+        if not os.path.isfile(os.path.join(BASIS, quelle)):
+            fehler.append(f"index.html: {quelle} fehlt (C-58a)")
+    bau = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "build-site.sh"), encoding="utf-8").read()
+    if 'cp -r "$W"/bilder "$OUT"/' not in bau:
+        fehler.append("scripts/build-site.sh: legt bilder/ nicht aus (C-58a)")
     return fehler
 
 
@@ -233,6 +265,7 @@ def main() -> int:
 
     fehler += navigation_pruefen()
     fehler += farben_pruefen()
+    fehler += bilder_pruefen()
 
     for datei in EINSTIEG:
         inhalt = open(datei, encoding="utf-8").read()
