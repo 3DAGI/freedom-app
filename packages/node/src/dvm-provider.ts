@@ -52,10 +52,11 @@ import {
 } from "@freedomstack/protocol";
 import {
   verifyDepositOnChain, DepositVerificationCache, poolRpc, RpcPool, type SolRpc, providerAnteilMsat, pruefeAufteilung, type Anteil,
-  leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer,
+  leseGutschriftTags, teileKanalZahlung, type KanalEmpfaenger, BESITZER_TAG, istBesitzer, lesePfandTags,
   kuerzeAntwort, leseKurzWunsch,
   KIND_BLOB_CHUNK, KIND_BLOB_MANIFEST, KIND_DVM_BLOB_HALTEN, halteAntwortText, halteManifest,
   KIND_DVM_KNOTEN_STATUS, KURZCODE_TAG, knotenStatusText, type KnotenStatus,
+  buildBlob, generateKeypair, verschluesseleDatei,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
@@ -68,6 +69,7 @@ import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-ag
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
 import type { KanalKasse } from "./kanal-kasse.js";
+import type { PfandKasse } from "./pfand-kasse.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
 import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
 
@@ -130,6 +132,8 @@ export interface ProviderConfig {
    * als Provider des Kanals einlösen kann (eigener Solana-Schlüssel = Adresse).
    */
   kanalKasse?: KanalKasse;
+  /** Cashu-Pfand (RM2b2): Kasse für gesperrte Token – der Zahlkanal für Lightning. */
+  pfandKasse?: Pick<PfandKasse, "nimmAn" | "verbuche">;
   /**
    * Kopplung mit dem Besitzer (B-8b, L1 A): die Geheimnisse, gegen die ein
    * Nachweis in einer versiegelten Anfrage geprüft wird (`istBesitzer()`).
@@ -945,7 +949,8 @@ export class DvmProvider {
     else if (a.aktion === "neu") {
       await this.cfg.projekte.neu(a.projekt);
       antwort = { aktion: "neu", projekt: a.projekt };
-    } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
+    } else if (a.aktion === "bundle") antwort = await this.bundleInsBlobNetz(this.cfg.projekte, a.projekt);
+    else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
       ? { aktion: "freigabe", ok: this.cfg.code.freigabe(a.lauf, a.schritt, a.ja) }
@@ -970,9 +975,32 @@ export class DvmProvider {
       providerMsat: 0,
       aufteilung: [],
       outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer`
-        : antwort.aktion === "neu" ? "Code: Projekt angelegt" : `Code: ${antwort.aktion}`,
+        : antwort.aktion === "neu" ? "Code: Projekt angelegt"
+        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz` : `Code: ${antwort.aktion}`,
       durationMs: Date.now() - start,
     };
+  }
+
+  /**
+   * Projekt als git-Bundle ins Blob-Netz (VKl): verschlüsselt wie ein Anhang (`verschluesseleDatei()`), Manifest
+   * und Stücke unter einem Wegwerfschlüssel – nicht unter dem des Knotens, sonst verbände das Repo im Raum
+   * Besitzer und Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst (`nimmAuf(…, { halten })`).
+   * Den Schlüssel bekommt nur der Besitzer, versiegelt in der Antwort.
+   */
+  private async bundleInsBlobNetz(projekte: ProjektAblage, projekt: string): Promise<CodeAntwort> {
+    const bytes = await projekte.bundle(projekt);
+    const { chiffrat, schluessel } = verschluesseleDatei(bytes);
+    const wegwerf = generateKeypair();
+    try {
+      const b = await buildBlob({ name: "", mime: "application/octet-stream", bytes: chiffrat }, wegwerf.pk, { verschluesselt: true });
+      const manifest = signEvent(b.manifestEvent, wegwerf.sk);
+      const stuecke = b.chunkEvents.map((c) => signEvent(c, wegwerf.sk));
+      for (const s of stuecke) await this.storage?.nimmAuf(s, { halten: true });
+      for (const ev of [manifest, ...stuecke]) await this.pool.publish(ev);
+      return { aktion: "bundle", blob: b.manifest.blobId, manifest: manifest.id, schluessel, bytes: bytes.length };
+    } finally {
+      wegwerf.sk.fill(0);
+    }
   }
 
   /**
@@ -1179,6 +1207,9 @@ export class DvmProvider {
     // Zahlkanal (4.3c): Gutschrift im versiegelten Kern – Vorauszahlung bis zum Gebot
     const gutschrift = leseGutschriftTags(request.tags);
     let kanalEmpfaenger: KanalEmpfaenger[] | undefined;
+    // Cashu-Pfand (RM2b2): gesperrte Token im versiegelten Kern – Vorauszahlung bis zum Gebot wie im Zahlkanal
+    const pfand = lesePfandTags(request.tags);
+    let perPfand = false;
 
     // Session-Modus (Streaming-Sats, Stufe B): Job referenziert eine offene
     // Session statt eines Einzel-Gebots. Der Provider prueft Budget + Belege
@@ -1208,6 +1239,7 @@ export class DvmProvider {
     } else if (gutschrift) {
       // Nie offen: Eine Gutschrift verrät Kanal und Betrag.
       if (!privat) throw new Error("Zahlkanal: Gutschrift nur im versiegelten Auftrag");
+      if (pfand) throw new Error("Zahlkanal: Gutschrift und Pfand zugleich");
       if (!this.cfg.kanalKasse) throw new Error("Zahlkanal: dieser Knoten nimmt keine Kanäle an");
       if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
       if (!this.kurs()) throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
@@ -1219,6 +1251,17 @@ export class DvmProvider {
       const annahme = await this.cfg.kanalKasse.nimmAn(gutschrift, bedarf);
       if (!annahme.ok) throw new Error(`Zahlkanal: ${annahme.grund}`);
       kanalEmpfaenger = annahme.empfaenger;
+    } else if (pfand) {
+      // Nie offen: Token sind Geld. Nie neben einer Gutschrift – zwei Vorauszahlungen für einen Auftrag.
+      if (!privat) throw new Error("Pfand: nur im versiegelten Auftrag");
+      if (!this.cfg.pfandKasse) throw new Error("Pfand: dieser Knoten nimmt keinen Cashu-Pfand an");
+      if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
+      if (!(bidMsat >= this.cfg.minBidMsat)) throw new Error(`Bid zu niedrig: ${bidMsat}`);
+      // Gesperrt ist nur der Anteil des Providers (RM2 V4) – die übrigen zahlt die App nach der Antwort
+      const bedarf = providerAnteilMsat(bidMsat + (await this.werkzeugKostenMsat(request)), aufteilung);
+      const annahme = await this.cfg.pfandKasse.nimmAn(pfand, request.pubkey, bedarf);
+      if (!annahme.ok) throw new Error(`Pfand: ${annahme.fall}`);
+      perPfand = true;
     } else if (sessionId) {
       if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
       session = await this.validateSession(sessionId, request.pubkey);
@@ -1318,8 +1361,9 @@ export class DvmProvider {
       });
       // Swarm-Result direkt zurueckgeben (keine Tool-Logik noetig)
       const roh = Math.ceil((result.completionTokens / 1000) * this.cfg.pricePerKTokenMsat);
-      const amountMsat = kanalEmpfaenger ? Math.min(bidMsat, roh) : roh;
+      const amountMsat = kanalEmpfaenger || perPfand ? Math.min(bidMsat, roh) : roh;
       if (gutschrift && kanalEmpfaenger) this.cfg.kanalKasse!.verbuche(gutschrift.kanal, BigInt(this.msatToLamports(amountMsat)));
+      if (perPfand) this.cfg.pfandKasse!.verbuche(request.pubkey, providerAnteilMsat(amountMsat, aufteilung));
       const resultEvent = signEvent(
         buildJobResult({
           providerPubkey: this.cfg.keypair.pk,
@@ -1449,6 +1493,8 @@ export class DvmProvider {
     if (gutschrift && kanalEmpfaenger && usedLamports !== undefined) {
       this.cfg.kanalKasse!.verbuche(gutschrift.kanal, BigInt(usedLamports));
     }
+    // Pfand: ebenso – gebucht wird der Anteil des Providers, die übrigen zahlt die App
+    if (perPfand) this.cfg.pfandKasse!.verbuche(request.pubkey, providerMsat);
     const resultEvent = signEvent(
       buildJobResult({
         providerPubkey: this.cfg.keypair.pk,

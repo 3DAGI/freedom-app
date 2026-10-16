@@ -20,6 +20,7 @@ import { KIND_PROVIDER_CAPABILITIES } from "./kinds.js";
 import { MAX_POW_BITS } from "./private-job.js";
 import { adresseFuer } from "./aufteilung.js";
 import { gratisTag, leseGratisTag, type GratisAngebot } from "./gratis.js";
+import { cashuAngebotTags, leseCashuAngebot, type CashuAngebot } from "./pfand.js";
 
 export type ProviderTier = "free" | "classic" | "pro";
 
@@ -95,6 +96,8 @@ export interface ProviderCapabilities {
    * verschenkt er nichts nach dieser Regel.
    */
   gratis?: GratisAngebot;
+  /** Cashu-Pfand (RM2a): Mints und Pfand-Schlüssel – ohne Angabe kein Pfand, die App fragt mit Gebot je Auftrag. */
+  cashu?: CashuAngebot;
   /** Gueltig ab (ersetzbar via d-Tag = pubkey). */
   updatedAt: number;
 }
@@ -143,6 +146,7 @@ export function buildCapabilities(
   if (c.funkGateway) tags.push(["funk", "gateway"]);
   const gratis = c.gratis && gratisTag(c.gratis);
   if (gratis) tags.push(gratis);
+  if (c.cashu) tags.push(...cashuAngebotTags(c.cashu));
   return buildEvent(c.pubkey, KIND_PROVIDER_CAPABILITIES, tags, "", createdAt);
 }
 
@@ -201,6 +205,8 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
   const kanal = kanalAdr && kanalProg ? { adresse: kanalAdr, programm: kanalProg } : undefined;
   // Gratis-Start (A-14): fremde Angabe – drei ganze Zahlen im Bereich, sonst keine
   const gratis = leseGratisTag(ev.tags);
+  // Cashu-Pfand (RM2a): fremde Angabe – nur gültige Mints, Schlüssel und Fassung
+  const cashu = leseCashuAngebot(ev.tags);
 
   return {
     pubkey: ev.pubkey,
@@ -221,6 +227,7 @@ export function parseCapabilities(ev: UnsignedEvent): ProviderCapabilities {
     ...(kanal ? { kanal } : {}),
     ...(ev.tags.some((t) => t[0] === "funk" && t[1] === "gateway") ? { funkGateway: true } : {}),
     ...(gratis ? { gratis } : {}),
+    ...(cashu ? { cashu } : {}),
     updatedAt: ev.created_at,
   };
 }
