@@ -28,6 +28,7 @@ export function totAnfang(): number { return totEnde(); }
 export function totEnde(): number { return 7; }
 export class Werkzeug { lauf(): number { return 8; } }
 export function nachRegex(): number { return 10; }
+export function nachSpread(): number[] { return [11]; }
 export const keineFunktion = 9;
 """
 
@@ -39,6 +40,7 @@ console.log("nurImString", direkt(), await perKette(), new Werkzeug());
 // Backticks in einem Regex-Literal sind kein Template-String:
 const muster = /`([^`\\n]+)`/g; // wie in renderMarkdown: drei Backticks
 nachRegex();
+const liste = [...nachSpread(), ...konfig.nurEigenschaft];
 """
 
 TEST = 'import { nurTest } from "../src/modul.js"; nurTest();\n'
@@ -70,7 +72,7 @@ class Verdrahtung(unittest.TestCase):
 
     def test_verdrahtet_direkt_und_ueber_kette(self):
         offen = self.offen()
-        for name in ("direkt", "perKette", "tief", "Werkzeug", "nachRegex"):
+        for name in ("direkt", "perKette", "tief", "Werkzeug", "nachRegex", "nachSpread"):
             self.assertNotIn(name, offen)
 
     def test_nicht_verdrahtet(self):
