@@ -63,8 +63,11 @@ test("C.1a: Desktop-Raster – Leiste links über die volle Höhe, Hinweise und 
   const raster = css.slice(css.indexOf("Rahmen (Schritt C.1a)"));
   assert.match(raster, /#app \{ display: grid;/);
   assert.match(raster, /#app > nav \{ grid-column: 1; grid-row: 1 \/ -1; \}/);
-  assert.match(raster, /#app > #offline-hinweis, #app > #onboarding-bar, #app > #backup-warn \{ grid-column: 2; \}/);
-  assert.match(raster, /#app > main \{ grid-column: 2;/);
+  // Seit C-43 stehen Führung und Sicherungs-Erinnerung als Karte in der Seite, nicht mehr darüber
+  assert.match(raster, /grid-template-rows: auto minmax\(0, 1fr\);/);
+  assert.match(raster, /#app > #offline-hinweis \{ grid-column: 2; \}/);
+  assert.match(raster, /#app > main \{ grid-column: 2; grid-row: 2;/);
+  assert.doesNotMatch(raster, /#onboarding-bar|#backup-warn/);
 });
 
 test("C-16: Relay-Stand ehrlich – „verbunden“ nur aus dem Getter, nie die Zahl im Pool dafür ausgeben (B5, E8)", () => {

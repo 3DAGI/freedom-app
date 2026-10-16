@@ -41,9 +41,6 @@
       </span>
     </header>
     <div id="offline-hinweis" class="offline-hinweis" role="status" hidden></div>
-    <!-- Seit 8.1a da: Bis dahin fehlten beide, Fuehrung und Sicherungs-Erinnerung erschienen nie -->
-    <div id="onboarding-bar" class="mono-sm hidden" role="status"></div>
-    <div id="backup-warn" class="mono-sm hidden" role="alert"></div>
 
     <main>
       <!-- AGENT -->
@@ -93,6 +90,11 @@
           <button id="agent-zu-verlauf" class="ghost" type="button"><span class="ic" data-icon="scroll"></span> <span data-i18n="nav.verlauf">Verlauf</span></button>
           <button id="agent-zu-modelle" class="ghost" type="button"><span class="ic" data-icon="server"></span> <span data-i18n="nav.modelle">Modelle</span></button>
           <button id="agent-zu-details" class="ghost" type="button"><span class="ic" data-icon="wrench"></span> <span data-i18n="agent.arbeitsbereich">Arbeitsbereich</span></button>
+        </div>
+        <!-- Führung und Sicherungs-Erinnerung (seit 8.1a) als Karte auf der Seite, zu der sie gehören (C-43) -->
+        <div class="seiten-hinweis" data-hinweis="ai">
+          <div id="onboarding-bar" class="hinweis-karte hidden" role="status"></div>
+          <div id="backup-warn" class="hinweis-karte urgency-warnung hidden" role="alert"></div>
         </div>
         <div id="ai-thread" class="ai-thread">
           <div id="ai-empty" class="ai-empty">
@@ -217,6 +219,7 @@
                 <input type="file" id="chat-mesh-file" accept=".json" style="display:none" />
               </span>
             </div>
+            <div class="seiten-hinweis" data-hinweis="comm"></div>
             <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" data-i18n-ph="komm.suchePh" data-i18n-aria="komm.sucheAria" autocomplete="off" />
             <div id="chat-suche-treffer" class="chat-list chat-suche-treffer hidden"></div>
             <div id="chat-list" class="chat-list"></div>
@@ -491,6 +494,7 @@
         <header class="page-head"><div><h1 class="page-title" data-i18n="navEarn">Earn</h1><p class="page-sub" data-i18n="earn.untertitel">Rechenzeit, Speicher und Relays gegen Sats oder SOL.</p></div></header>
         <div class="seg" role="tablist" data-subtab-group="earn"><button role="tab" data-subtab="overview" class="active" data-i18n="waehr.tabUebersicht">Übersicht</button><button role="tab" data-subtab="host" data-i18n="earn.tabHosten">Hosten</button><button role="tab" data-subtab="refer" data-i18n="referral">Werben</button></div>
         <div class="page-body">
+          <div class="seiten-hinweis" data-hinweis="earn"></div>
           <div class="subpane active" data-subpane="earn:overview"><div class="card"><h3 data-i18n="earn.einnahmen">Einnahmen</h3><input id="earn-knoten" data-i18n-aria="earn.knotenPh" class="mono-sm" placeholder="Dein Knoten: npub oder Hex – leer: deine Identität" data-i18n-ph="earn.knotenPh" /><p id="earn-ohne-knoten" class="mono-sm" hidden><span data-i18n="earn.ohneKnoten">Unter diesem Schlüssel ist kein Knoten zu finden – sein Angebot steht auf keinem Relay. Einnahmen gibt es, sobald ein Knoten mit diesem Schlüssel Aufträge erledigt. Läuft deiner unter einem anderen Schlüssel, trag ihn oben ein.</span> <button id="earn-zum-hosten" class="ghost mini" type="button" data-i18n="earn.zumHosten">Knoten einrichten</button></p><div id="earn-status" class="mono-sm">—</div><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.lightning">Lightning – wie dein Knoten es meldet</h4><div id="earn-events" class="mono-sm"></div><div class="nur-mit-knoten"><h4 class="mono-sm" style="margin-top:12px" data-i18n="earn.sol">SOL – Zahlkanäle, von der Kette gelesen</h4><div id="earn-sol-status" class="mono-sm">—</div><div id="earn-kanaele" class="mono-sm"></div><p class="muted" data-i18n="earn.solHinweis">Dein Knoten hat eine SOL-Adresse: Alle Kanäle an ihn und seine Auszahlungen an deine Auszahlungsadresse sind auf der Kette verbunden. Was er angenommen, aber noch nicht eingelöst hat, weiß nur er – er löst vor der Frist ein; was bis dahin nicht eingelöst ist, bekommt der Kunde zurück. Kanäle, die der Kunde nach dem Ablauf geschlossen hat, zählen hier nicht mehr. Die Abfrage nennt dem RPC-Anbieter die Adresse deines Knotens.</p></div><button id="earn-refresh" class="ghost" data-i18n="waehr.aktualisieren">Aktualisieren</button></div><div class="card">
           <h3><span class="ic" data-icon="star"></span> <span data-i18n="trustLevel">Vertrauensstufe</span></h3>
           <div class="trust-bar-wrap">

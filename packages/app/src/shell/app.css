@@ -65,7 +65,8 @@
 .composer-row textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; font-family: var(--font-body); }
 
 /* ---------- Empty State (Agent) ---------- */
-.ai-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+/* min-height statt height (C-43): Steht die Führung als Karte darüber, wächst der leere Zustand und rollt, statt oben abgeschnitten zu werden */
+.ai-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; box-sizing: border-box; text-align: center; padding: 20px; }
 .ai-empty-logo { color: var(--accent); font-size: 42px; font-weight: 800; letter-spacing: 4px; margin-bottom: 12px; text-shadow: 0 0 24px rgba(123,200,10,0.3); }
 .ai-empty-sub { color: var(--text); font-size: 15px; font-family: var(--font-body); margin-bottom: 24px; }
 .ai-empty-examples { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; margin-bottom: 20px; }
@@ -810,21 +811,23 @@ h3 .ic-svg, h3 .logo-btc, h3 .logo-sol { vertical-align: -2px; margin-right: 6px
   border-left: 3px solid var(--amber); font-size: 12px;
 }
 
-/* Onboarding-Leiste. Immer genau EIN naechster Schritt — eine Liste offener
-   Punkte schreckt ab, obwohl man die meisten nie braucht. */
-#onboarding-bar {
-  padding: 10px 12px; border-bottom: 1px solid var(--line, #1E1E1E);
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px;
+/* Führung als Karte (C-43). Immer genau EIN nächster Schritt — eine Liste offener
+   Punkte schreckt ab, obwohl man die meisten nie braucht. Sie steht auf der Seite, zu der
+   der Schritt gehört (`hinweisSeite()`), nicht mehr als Leiste über jeder Seite. Daneben die
+   Sicherungs-Erinnerung (8.1a): Sie bleibt, wenn man die Karte auf „später“ stellt. */
+.seiten-hinweis { display: flex; flex-direction: column; gap: 8px; }
+.seiten-hinweis:not(:has(> :not(.hidden))) { display: none; }
+.agent-main > .seiten-hinweis { width: min(760px, calc(100% - 32px)); margin: 16px auto 0; }
+.chat-sidebar > .seiten-hinweis { margin: 8px; }
+.hinweis-karte {
+  display: flex; flex-direction: column; gap: 4px; padding: 14px 16px;
+  background: var(--surf2); border: 1px solid var(--line2); border-radius: var(--r-lg);
 }
-#onboarding-bar.urgency-warnung { border-left: 3px solid #d9534f; }
-#onboarding-bar.urgency-hinweis { border-left: 3px solid #d9a441; }
-#onboarding-bar .ob-title { font-weight: 600; }
-#onboarding-bar .ob-body { color: #999; flex: 1 1 260px; }
-/* Sicherungs-Erinnerung (8.1a): bleibt, wenn man die Leiste wegklickt */
-#backup-warn {
-  padding: 8px 12px; border-bottom: 1px solid var(--line, #1E1E1E); border-left: 3px solid #d9534f;
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px;
-}
+.hinweis-karte.urgency-warnung { border-color: rgba(217, 83, 79, .55); background: linear-gradient(rgba(217, 83, 79, .07), rgba(217, 83, 79, .07)), var(--surf2); }
+.hinweis-karte.urgency-hinweis { border-color: rgba(217, 164, 65, .5); }
+.hinweis-karte .ob-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.hinweis-karte .ob-body { margin: 0; font-size: 14px; color: var(--text-muted); }
+.hinweis-karte .ob-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 
 /* Ausgeblendete Nachricht: sichtbar als Luecke, nicht spurlos entfernt.
    Eine Luecke, die man sieht, ist Moderation. Eine, die man nicht sieht,
@@ -1385,10 +1388,10 @@ main { min-width: 0; }
    Höhe, Hinweisleisten über der Seite – nie neben ihr (B1: vorher nahm die
    Onboarding-Leiste die ganze Breite, main hatte die Breite 0). */
 @media (min-width: 1024px) {
-  #app { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
+  #app { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   #app > nav { grid-column: 1; grid-row: 1 / -1; }
-  #app > #offline-hinweis, #app > #onboarding-bar, #app > #backup-warn { grid-column: 2; }
-  #app > main { grid-column: 2; grid-row: 4; min-height: 0; }
+  #app > #offline-hinweis { grid-column: 2; }
+  #app > main { grid-column: 2; grid-row: 2; min-height: 0; }
   /* Oben die Arbeitsseiten, unten Profil, Settings und der Relay-Stand */
   .app-nav button[data-tab="profile"] { margin-top: auto; }
   .app-nav .nav-status { margin-top: 10px; }
@@ -1799,18 +1802,7 @@ header .ident[data-initial=""]::before { display: none; }
   .app-nav button { flex-direction: row; justify-content: center; gap: 6px; padding-top: 4px; padding-bottom: 4px; }
 }
 
-/* ---------- Mobil (C.5b): Hinweisleiste, Seitenkopf ---------- */
-#onboarding-bar button { width: auto; padding: 6px 10px; }
-#onboarding-bar #ob-skip { padding: 4px 8px; font-size: 12px; }
-#ob-mehr { display: none; }
-@media (max-width: 1023px) {
-  /* Eine Zeile: Titel, „mehr“, Knöpfe; der Text erst auf Wunsch (vorher rund 140 px auf jeder Seite) */
-  #onboarding-bar { flex-wrap: wrap; padding: 4px 12px; row-gap: 4px; }
-  #onboarding-bar .ob-title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #onboarding-bar .ob-body { display: none; order: 5; flex-basis: 100%; }
-  #onboarding-bar.ob-offen .ob-body { display: block; padding-bottom: 6px; }
-  #ob-mehr { display: inline-flex; align-items: center; }
-}
+/* ---------- Mobil (C.5b): Seitenkopf (die Hinweisleiste ist seit C-43 eine Karte) ---------- */
 @media (max-width: 760px) {
   /* Der Kopf bricht um, statt den Untertitel neben Guthaben und Knöpfen auf drei Zeilen zu quetschen */
   .page-head { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
