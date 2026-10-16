@@ -10699,6 +10699,33 @@ Tests:
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1177 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
+## Schritt C-53a – Einstellungen › Verbindung: Relays als Liste mit Stand
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-53. Der eigene Relay-Satz war ein leeres Textfeld (eine Adresse je Zeile). Ob ein Relay verbunden ist, sah man nicht.
+
+- **Je Relay eine Zeile:**
+  - Punkt und Stand aus dem Pool: verbunden, nicht verbunden, noch nicht benutzt;
+  - „Entfernen“;
+  - darunter ein Feld „Hinzufügen“, das die Adresse wie bisher über `pruefeRelayEingabe()` prüft.
+- **Geändert wird ein Entwurf.** „Veröffentlichen“ ist erst dann an und geht weiter nur über `setzeEigeneRelays()`: erst beide Listen, dann merken, dann in den Pool. Als Gerät nur sichtbar.
+- Den Satz liest die Seite beim Öffnen neu, solange nichts geändert ist. Die App legt ihn beim ersten Verbinden an.
+- Die ganze Erklärung steht unter „Mehr dazu“.
+- **Solana-Endpunkte und Relay-Zugang** stehen unter „Erweitert“. Die Erinnerung an einen ablaufenden Zugang klappt es auf.
+- Neues Modul `shell/relay-liste-ui.ts`. `knoten-weg-ui.ts` zeigt einen übernommenen Satz über `zeigeRelaySatz()`.
+
+Tests:
+- `relay-satz.test.ts` (5.4b2) liest das neue Modul, mit denselben Zusicherungen.
+- Neuer Smoke-Teil „relay_liste“:
+  - Liste gleich dem Satz;
+  - Stand je Zeile;
+  - eine falsche Adresse wird abgewiesen;
+  - Hinzufügen schaltet „Veröffentlichen“ frei, Entfernen stellt den Satz wieder her;
+  - „Erweitert“ ist zu;
+  - Veröffentlichen sendet 10002/10050 und merkt den Satz.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1177 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
 ## Schritt RM2b3 – Pfand über Tor, Erlös an die eigene Lightning-Adresse
 
 Spur A, `docs/RM2-ENTWURF.md` (V1.5, V5). Letzter Teil von RM2b im Knoten.

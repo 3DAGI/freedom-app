@@ -17,7 +17,8 @@ import { bestaetige } from "../dialog.js";
 import { ladeAbdeckung, nutzeStandort, trageAbdeckungEin, vergissStandort, widerrufeAbdeckung } from "./earn.js";
 import { LS_KONTAKTE_SICHERN, kontakteEinschalten, kontakteSichernAn, sichereKontakte } from "./kontakte.js";
 import { LS_ANZEIGE_EINHEIT, LS_STANDARD_SCHIENE, standardSchiene } from "../../standard-schiene.js";
-import { wireRelayKarte, wireRelayZugang } from "./settings.js";
+import { wireRelayZugang } from "./settings.js";
+import { wireRelayKarte } from "../relay-liste-ui.js";
 import { platzhalterAn, setzePlatzhalter } from "../ki-platzhalter.js";
 import { LS_VERLAUF, leseUmfang } from "../../ki-kontext.js";
 

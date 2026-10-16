@@ -73,7 +73,7 @@ test("Gemerkt wird die Schiene – auch, wenn erst „erneut prüfen“ bestäti
 
 test("Verdrahtet: Erinnerung beim Start nur aus dem Gemerkten, „Verlängern“ kauft über denselben Weg mit Rückfrage", () => {
   const settings = readFileSync(new URL("../src/shell/tabs/settings.ts", import.meta.url), "utf8");
-  const zugang = settings.slice(settings.indexOf("export function wireRelayZugang("), settings.indexOf("export function wireRelayKarte("));
+  const zugang = settings.slice(settings.indexOf("export function wireRelayZugang("));
   assert.match(zugang, /const erinnern = zuErinnern\(localStorage, Math\.floor\(Date\.now\(\) \/ 1000\)\);/);
   const verl = zugang.slice(zugang.indexOf("verlK.onclick"), zugang.indexOf("pruefK.onclick"));
   assert.match(verl, /await kaufe\(schiene\);/, "derselbe Kauf – mit bestaetige() vorher");
