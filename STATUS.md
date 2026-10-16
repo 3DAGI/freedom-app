@@ -11033,3 +11033,30 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-58b – Dashboard mit Kacheln und ruhigem Ausfall, Inhaltsverzeichnis an der Seite
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-58. Bisher:
+- Das Dashboard nutzte rund 40 % der Breite.
+- Ohne Verbindung zeigte es acht rote Pillen und einen roten Satz.
+- Die Inhaltsverzeichnisse von FAQ und Whitepaper waren unvollständig und rollten mit weg.
+
+- **Kacheln von Anfang an:** vier Kacheln mit Platzhalter, ohne Verbindung „—“.
+- **Die Breite genutzt:** Angebote über beide Spalten, darunter je zwei Abschnitte nebeneinander (ab 900 px).
+- **Ruhiger Ausfall:**
+  - ein Kasten mit einem Satz, was los ist, und „Jetzt erneut versuchen“;
+  - die Relays im Einzelnen eingeklappt („0 von 8 erreichbar“), der Stand als Punkt statt roter Schrift;
+  - die Abschnitte sagen „Ohne Verbindung keine Zahlen.“
+- **Inhaltsverzeichnis** von FAQ und Whitepaper:
+  - als Navigation mit Titel;
+  - ab 1100 px als eigene Spalte, die beim Lesen stehen bleibt;
+  - jetzt mit allen Abschnitten. Es fehlten „Noch eine Frage offen?“ in der FAQ und fünf Abschnitte im Whitepaper.
+
+Tests:
+- `check-website.py` prüft neu mit `lesbarkeit_pruefen()`:
+  - jedes Verzeichnis nennt jeden Abschnitt in der Reihenfolge der Seite;
+  - das Dashboard hat einen ruhigen Ausfall und keine roten Pillen.
+- `test_check_website.py` hat 3 Fälle mehr.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
