@@ -69,3 +69,28 @@ test("Modellwahl: „Mein Knoten“ oben, dann „Dieses Gerät“, dann das Net
   assert.match(lokal, /const knoten = pop\.querySelector\("\.knoten-bereich"\);\n\s*if \(knoten\) knoten\.after\(bereich\); else pop\.prepend\(bereich\);/);
   assert.doesNotMatch(lokal, /pop\.append\(bereich\)/);
 });
+
+test("C-46: „Kopieren“ unter jeder Antwort, „Alle kopieren“ im Arbeitsbereich – keine Knopfreihe unter der Eingabe", () => {
+  const html = quelle("../src/shell/index.html");
+  assert.doesNotMatch(html, /id="copy-last"|class="composer-actions"/);
+  assert.match(html, /<h2 class="panel-title" data-i18n="agent\.unterhaltung">Unterhaltung<\/h2>\s*<button id="copy-all"/);
+  const geruest = anzeige.slice(anzeige.indexOf("function blasenGeruest("), anzeige.indexOf("\n}\n", anzeige.indexOf("function blasenGeruest(")));
+  assert.match(geruest, /if \(role === "ai"\) \{/, "nur unter Antworten, nicht unter den eigenen Fragen");
+  assert.match(geruest, /navigator\.clipboard\.writeText\(koerper\.textContent\?\.trim\(\) \?\? ""\)/, "nur der Text, kein HTML");
+  assert.match(geruest, /kopieren\.setAttribute\("aria-label", t\("agent\.kopierenAntwort"\)\);/);
+});
+
+test("C-46: der Untertitel sagt dasselbe wie das Kontingent; Beispiele ohne Anführungszeichen; kein Text, der wie ein Knopf aussieht", async () => {
+  const { GERAET_GRATIS } = await import("../src/gratis-kontingent.js");
+  for (const sprache of ["de", "en"] as const) {
+    setLang(sprache);
+    assert.match(t("emptySub"), new RegExp(`\\b${GERAET_GRATIS.antworten}\\b`), sprache);
+    assert.doesNotMatch(t("emptySub"), /^(Stell eine Frage\. Du zahlst pro Anfrage\.|Ask a question\. You pay per request\.)$/);
+    for (const k of ["agent.beispiel1", "agent.beispiel2", "agent.beispiel3"]) assert.doesNotMatch(t(k), /[„“”"…]/, `${sprache} ${k}`);
+  }
+  setLang("de");
+  const html = quelle("../src/shell/index.html");
+  assert.doesNotMatch(html, /ai-empty-hint|data-i18n="emptyHint"/);
+  // „Auto“ ist ein Zustand, keine Hauptaktion: der Modellknopf trägt keine grüne Klasse (Grundform aus C-42b)
+  assert.match(html, /<button type="button" id="ai-model-btn" class="tier-select model-btn"/);
+});

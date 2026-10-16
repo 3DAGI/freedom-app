@@ -89,8 +89,8 @@ export const einstieg: Texte = {
   "ein.pubkey": { de: "Öffentlicher Schlüssel", en: "Public key" },
   "ein.pubkeyTitel": { de: "Dein öffentlicher Schlüssel", en: "Your public key" },
   "ein.lebenszeichenGesendet": { de: "Lebenszeichen gesendet — laufende Vorgänge sind abgebrochen", en: "Sign of life sent — running processes are cancelled" },
-  "ein.keineAntwort": { de: "keine Antwort zum Kopieren", en: "no answer to copy" },
-  "ein.antwortKopiert": { de: "letzte Antwort kopiert", en: "last answer copied" },
+  "ein.antwortKopiert": { de: "Antwort kopiert", en: "Answer copied" },
+  "ein.nichtKopiert": { de: "Kopieren ging nicht – der Browser gibt die Zwischenablage nicht frei.", en: "Copying failed – the browser does not grant access to the clipboard." },
   "ein.keineKonversation": { de: "keine Unterhaltung", en: "no conversation" },
   "ein.konversationKopiert": { de: "Unterhaltung kopiert", en: "Conversation copied" },
 
