@@ -3090,12 +3090,31 @@ def agent_klein_pruefen(browser, url: str) -> dict:
     s.wait_for_timeout(1500)
     ev("() => document.getElementById('ein-abbrechen')?.click()")
     ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
-    s.wait_for_selector(".tool-chip .tool-preis", timeout=10000)
+    # Seit C-49a stehen die Werkzeuge mit Preis im Menü „+“ der Eingabe – daher „attached“, nicht sichtbar
+    s.wait_for_selector(".tool-chip .tool-preis", state="attached", timeout=10000)
     knoepfe = ev("() => [...document.querySelectorAll('.tool-chip')].map(c => [c.querySelector('.tool-preis')?.textContent ?? '', c.title])")
     erg["knoepfe"] = knoepfe[:2]
     if not knoepfe or any("kein Kurs" in k[0] or not k[0].endswith(" sats") for k in knoepfe) \
             or not all("kein Kurs" in k[1] for k in knoepfe):
         erg["fehler"].append(f"Werkzeug-Knöpfe {knoepfe}")
+    # „+“ öffnet Anhänge und Werkzeuge; ein gewähltes Werkzeug steht als Chip in der Eingabe, „×“ nimmt es zurück
+    plus = """() => { const m = document.getElementById('attach-menu'); return { offen: !m.classList.contains('hidden'),
+        aria: document.getElementById('attach-btn').getAttribute('aria-expanded'), werkzeuge: m.querySelectorAll('.tool-chip').length,
+        gewaehlt: [...document.querySelectorAll('#werkzeug-auswahl .werkzeug-gewaehlt')].map(b => b.textContent),
+        web: document.querySelector('.tool-chip[data-name=web_search]').classList.contains('active') }; }"""
+    ev("() => document.getElementById('attach-btn').click()")
+    auf = ev(plus)
+    ev("() => document.querySelector('.tool-chip[data-name=web_search]').click()")
+    gewaehlt = ev(plus)
+    ev("() => document.querySelector('#werkzeug-auswahl .werkzeug-gewaehlt').click()")
+    zurueck = ev(plus)
+    s.keyboard.press("Escape")
+    zu = ev(plus)
+    erg["plus"] = [auf, gewaehlt, zurueck, zu]
+    if auf != {"offen": True, "aria": "true", "werkzeuge": 4, "gewaehlt": [], "web": False} \
+            or gewaehlt["gewaehlt"] != ["Web×"] or not gewaehlt["web"] or not gewaehlt["offen"] \
+            or zurueck["gewaehlt"] != [] or zurueck["web"] or zu["offen"] or zu["aria"] != "false":
+        erg["fehler"].append(f"Menü „+“ {erg['plus']}")
     # „erneut“: Tarif Free ohne Provider – Fehlerblase mit Knopf; danach dieselbe Frage genau einmal
     frage = "Erneut gefragt 5150"
     ev("(f) => { document.getElementById('ai-tier').value = 'free'; document.getElementById('ai-prompt').value = f;"

@@ -110,41 +110,51 @@
 
         <div class="composer">
           <div class="composer-inner">
-            <div class="attach-row">
-              <div class="attach-dropdown">
-                <button type="button" id="attach-btn" data-i18n-aria="agent.anhaengenAria" class="ghost attach-toggle"><span class="ic" data-icon="paperclip"></span></button>
-                <div id="attach-menu" class="attach-menu hidden">
-                  <button type="button" data-attach="image"><span class="ic ic-inline" data-icon="image"></span><span data-i18n="agent.anhangBild">Bild</span></button>
-                  <button type="button" data-attach="file"><span class="ic ic-inline" data-icon="file"></span><span data-i18n="agent.anhangDatei">Datei</span></button>
-                  <button type="button" data-attach="audio"><span class="ic ic-inline" data-icon="mic"></span><span data-i18n="agent.anhangAudio">Audio</span></button>
-                  <button type="button" data-attach="video"><span class="ic ic-inline" data-icon="video"></span><span data-i18n="agent.anhangVideo">Video</span></button>
-                  <button type="button" data-attach="camera"><span class="ic ic-inline" data-icon="camera"></span><span data-i18n="agent.anhangKamera">Kamera</span></button>
-                </div>
-              </div>
-              <div class="tool-row">
-                <button type="button" class="tool-chip" data-tool="5060" data-name="web_search"><span class="ic" data-icon="search"></span><span data-i18n="agent.werkzeugWeb">Web</span></button>
-                <button type="button" class="tool-chip" data-tool="5062" data-name="browser_use"><span class="ic" data-icon="browser"></span><span data-i18n="agent.werkzeugBrowser">Browser</span></button>
-                <button type="button" class="tool-chip" data-tool="5070" data-name="image_gen"><span class="ic" data-icon="image"></span><span data-i18n="agent.werkzeugBild">Bild</span></button>
-                <button type="button" class="tool-chip" data-tool="5071" data-name="video_gen"><span class="ic" data-icon="video"></span><span data-i18n="agent.werkzeugVideo">Video</span></button>
-              </div>
-              <div id="video-opts" class="video-opts hidden">
-                <select id="video-duration" data-i18n-aria="agent.laenge" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
-                  <option value="2">~2s</option>
-                  <option value="3" selected>~3s</option>
-                  <option value="5">~5s</option>
-                </select>
-                <select id="video-quality" data-i18n-aria="agent.qualitaet" class="video-sel" title="Qualität" data-i18n-title="agent.qualitaet">
-                  <option value="low">480p</option>
-                  <option value="std" selected>768p</option>
-                  <option value="hd">720p hd</option>
-                </select>
-              </div>
-              <span id="attach-status" class="mono-sm"></span>
-              <input type="file" id="attach-input" class="hidden" />
-            </div>
-            <div class="composer-row">
+            <!-- Eingabe als Pille (C-49a): oben der Text, unten „+“ (Anhänge und Werkzeuge mit Preis), gewählte Werkzeuge, Modell, Senden -->
+            <div class="eingabe-pille">
               <textarea id="ai-prompt" data-i18n-aria="aiPlaceholder" rows="1" data-i18n-ph="aiPlaceholder" placeholder="Nachricht an den Agenten"></textarea>
-              <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
+              <div class="pille-leiste">
+                <div class="attach-dropdown">
+                  <button type="button" id="attach-btn" data-i18n-aria="agent.plusAria" aria-label="Anhängen und Werkzeuge" aria-haspopup="true" aria-expanded="false" aria-controls="attach-menu" class="ghost attach-toggle plus-knopf"><span class="ic" data-icon="plus"></span></button>
+                  <div id="attach-menu" class="attach-menu hidden">
+                    <div class="menue-gruppe" data-i18n="agent.anhaengen">Anhängen</div>
+                    <button type="button" data-attach="image"><span class="ic ic-inline" data-icon="image"></span><span data-i18n="agent.anhangBild">Bild</span></button>
+                    <button type="button" data-attach="file"><span class="ic ic-inline" data-icon="file"></span><span data-i18n="agent.anhangDatei">Datei</span></button>
+                    <button type="button" data-attach="audio"><span class="ic ic-inline" data-icon="mic"></span><span data-i18n="agent.anhangAudio">Audio</span></button>
+                    <button type="button" data-attach="video"><span class="ic ic-inline" data-icon="video"></span><span data-i18n="agent.anhangVideo">Video</span></button>
+                    <button type="button" data-attach="camera"><span class="ic ic-inline" data-icon="camera"></span><span data-i18n="agent.anhangKamera">Kamera</span></button>
+                    <div class="menue-gruppe" data-i18n="agent.werkzeuge">Werkzeuge</div>
+                    <div class="tool-row">
+                      <button type="button" class="tool-chip" data-tool="5060" data-name="web_search"><span class="ic" data-icon="search"></span><span data-i18n="agent.werkzeugWeb">Web</span></button>
+                      <button type="button" class="tool-chip" data-tool="5062" data-name="browser_use"><span class="ic" data-icon="browser"></span><span data-i18n="agent.werkzeugBrowser">Browser</span></button>
+                      <button type="button" class="tool-chip" data-tool="5070" data-name="image_gen"><span class="ic" data-icon="image"></span><span data-i18n="agent.werkzeugBild">Bild</span></button>
+                      <button type="button" class="tool-chip" data-tool="5071" data-name="video_gen"><span class="ic" data-icon="video"></span><span data-i18n="agent.werkzeugVideo">Video</span></button>
+                    </div>
+                  </div>
+                </div>
+                <div id="werkzeug-auswahl" class="werkzeug-auswahl"></div>
+                <div id="video-opts" class="video-opts hidden">
+                  <select id="video-duration" data-i18n-aria="agent.laenge" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
+                    <option value="2">~2s</option>
+                    <option value="3" selected>~3s</option>
+                    <option value="5">~5s</option>
+                  </select>
+                  <select id="video-quality" data-i18n-aria="agent.qualitaet" class="video-sel" title="Qualität" data-i18n-title="agent.qualitaet">
+                    <option value="low">480p</option>
+                    <option value="std" selected>768p</option>
+                    <option value="hd">720p hd</option>
+                  </select>
+                </div>
+                <span id="attach-status" class="mono-sm"></span>
+                <input type="file" id="attach-input" class="hidden" />
+                <span class="pille-luecke"></span>
+                <div class="model-picker-wrap">
+                  <button type="button" id="ai-model-btn" class="tier-select model-btn" title="Modell wählen" data-i18n-title="agent.modellWaehlen"><span data-i18n="agent.autoSchnellste">Auto (schnellste)</span></button>
+                  <input type="hidden" id="ai-model" value="" />
+                  <div id="model-popover" class="model-popover hidden"></div>
+                </div>
+                <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
+              </div>
             </div>
             <div class="composer-meta">
               <select id="ai-tier" data-i18n-aria="agent.stufeAria" class="tier-select">
@@ -155,11 +165,6 @@
                 <option value="max" data-i18n="tierMax">max — race, fastest wins</option>
                 <option value="swarm" data-i18n="tierSwarm">swarm — judge picks best of N</option>
               </select>
-              <div class="model-picker-wrap">
-                <button type="button" id="ai-model-btn" class="tier-select model-btn" title="Modell wählen" data-i18n-title="agent.modellWaehlen"><span data-i18n="agent.autoSchnellste">auto (schnellste)</span></button>
-                <input type="hidden" id="ai-model" value="" />
-                <div id="model-popover" class="model-popover hidden"></div>
-              </div>
               <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Gebot</span> <input id="ai-bid" data-i18n-aria="bid" type="number" value="100" min="1" /> <select id="ai-schiene" class="tier-select" data-i18n-aria="agent.schieneAria" aria-label="KI bezahlen mit"><option value="lightning">sats</option><option value="solana">SOL</option></select></span>
               <label id="ai-privat-wahl" class="mono-sm" title="Nur dieses Gerät oder dein eigener Knoten – nie fremde Provider, nie Funk, keine Prüfrunde" data-i18n-title="agent.privatTitel"><input type="checkbox" id="ai-privat" data-i18n-aria="agent.privatAria" aria-label="Diese Unterhaltung privat" /> <span data-i18n="agent.privat">privat</span></label>
               <label id="ai-funk-wahl" class="mono-sm" style="display:none" title="Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen" data-i18n-title="agent.ueberFunkTitel"><input type="checkbox" id="ai-funk" /> <span data-i18n="agent.ueberFunk">über Funk</span></label>
