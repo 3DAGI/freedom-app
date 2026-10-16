@@ -10761,3 +10761,31 @@ Tests: neu `verdienst-kacheln.test.ts` (4: heute/30 Tage je Kette, Fremddaten nu
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1185 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-55a – Onboarding: Begrüßung vor der Merkphrase
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-55. Der erste Bildschirm einer neuen Identität war die Merkphrase – noch ehe man wusste, wozu die App da ist.
+
+- **Begrüßung** mit drei Sätzen:
+  - was die App ist;
+  - die Identität ist ein Schlüssel, zwölf Wörter stellen ihn wieder her;
+  - Direktnachrichten und private Räume sind Ende-zu-Ende-verschlüsselt, niemand verwahrt Geld.
+- Zwei Knöpfe: „Loslegen“ und „Ich habe schon eine Identität“.
+- **„Loslegen“** führt zur Merkphrase wie bisher.
+- **„Ich habe schon eine Identität“** öffnet den Import-Dialog:
+  - ohne die Rückfrage aus C-41, denn die eben angelegte Identität ist unbenutzt;
+  - übernommen, überspringt die Einrichtung die Merkphrase der neuen;
+  - abgebrochen, bleibt die Begrüßung.
+- Der Knopf „Importieren“ in der Leiste übergibt kein Klick-Ereignis mehr als „frisch“. Dort fragt die App weiter.
+- Der Smoke-Test klickt „Loslegen“ über `loslegen()`, bevor er die Merkphrase liest.
+
+Tests:
+- Neu: `willkommen.test.ts` mit 3 Tests: Reihenfolge, Übernehmen ohne Rückfrage nur von hier, ehrliche Sätze.
+- Der Smoke-Teil „einrichtung“ prüft die Begrüßung:
+  - drei Sätze, zwei Knöpfe, noch keine Merkphrase im Dokument, Dialog modal;
+  - „Ich habe schon eine Identität“ öffnet den Import, abgebrochen bleibt die Begrüßung.
+- Der ganze Smoke-Test ist mit `loslegen()` grün.
+- `identitaet-ui.test.ts` (C-41) kennt die Ausnahme: Ohne Rückfrage übernimmt nur der Import aus der Begrüßung (`frisch`), denn die Identität dort legte die App eben selbst an.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1188 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
