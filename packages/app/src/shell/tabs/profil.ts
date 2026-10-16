@@ -311,7 +311,7 @@ export async function zeigeAbzeichen(): Promise<void> {
           const name = el("span", b.definition.name);
           name.style.cssText = "font-weight:600;font-size:12px";
           const herkunft = el("span", abzeichenHerkunft(b), "muted");
-          herkunft.style.fontSize = "11px";
+          herkunft.style.fontSize = "12px";
           rechts.append(name, document.createElement("br"), herkunft);
           zeile.append(el("span", abzeichenQuelle(b.source), `badge-chip ${b.source}`), rechts);
           return zeile;

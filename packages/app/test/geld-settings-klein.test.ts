@@ -25,7 +25,9 @@ test("Kopf der Seite Währung: „KI-Budget“ mit Einheit – eine Obergrenze, 
 });
 
 test("Häkchen-Sätze wie geschrieben; Kurs-Hinweis und Verbindungsstand mit Abstand", () => {
-  assert.match(css, /label \{ font-size: 10px;[^}]*text-transform: uppercase;/, "kurze Etiketten bleiben, wie sie sind");
+  // Seit C-42a stehen alle Etiketten in normaler Schreibung, 13 px – nie wieder Großbuchstaben
+  assert.match(css, /label \{ font-size: 13px; font-weight: 500; color: var\(--text-muted\); display: block; margin-bottom: 4px; \}/);
+  assert.doesNotMatch(css, /\nlabel \{[^}]*text-transform: uppercase/);
   assert.match(css, /label:has\(input\[type="checkbox"\]\), label:has\(input\[type="radio"\]\) \{ text-transform: none; letter-spacing: normal; \}/);
   assert.match(css, /#kurs-info:not\(:empty\) \{ margin-bottom: 8px; \}\n#sol-pubkey \{ margin-bottom: 8px; \}/);
 });
