@@ -9722,6 +9722,30 @@ App `speicher-abruf.test.ts` (+1).
 
 Knoten-Stand: für die Grenze neu nötig; ohne `STORAGE_GRATIS_MB` wie bisher.
 
+## Schritt E9-1 – Cluster-Pairing aufgeräumt
+
+Spur B, aus `docs/E9-ENTWURF.md` (V1 A, freigegeben 08.10.2026; übergeben 09.10.). Betrieben wird
+ein Paar erst mit zwei Geräten (E9-5, MENSCH); hier nur, was vor jeder Anbindung stimmen muss.
+
+- **B1 Kinds:** Das Angebot lag auf 38026 (Kurs-Ticker), das Paar-Event auf 38027 (Provider-Angebot) –
+  jede App hätte ein Paar-Event als kaputtes Provider-Angebot gelesen. Jetzt Angebot 38028
+  (`KIND_CLUSTER_OFFER`), gelesen streng über `parseClusterOffer()` (Zahlen nicht negativ, Region
+  `[a-z0-9-]`, Zeitfenster nicht leer).
+- **B2/B3 Gebühr und Bilanz:** `computeReciprocity()`, `hoursNeededToRent()` (5 % „Protokollfee“, die es
+  seit A+ nicht gibt), `buildPairedEvent()` und der Vorrang aus der Bilanz im Matching sind weg –
+  eine öffentliche Bilanz wäre eine Rangliste und verriete Geschäftsbeziehungen. Gewichtung im
+  Matching: Verbindung 0,35, Laufzeit 0,25, Vertrauen 0,25, Preis 0,15.
+- **Absprache versiegelt:** `baueClusterAbsprache()`/`oeffneClusterAbsprache()` – innen Kind 25050 (Modell,
+  Zeitfenster, sats je Stunde, optional Bezug als Bestätigung), nur im Umschlag (NIP-59) an den Partner;
+  offen steht nur der Empfänger.
+- **Doku:** PROTOCOL (38028 in der Tabelle, §36), E9-Entwurf, Fallstrick in `packages/protocol/CLAUDE.md`;
+  Wiring-Ausnahmen mit neuem Grund (Betrieb erst E9-5).
+
+**Tests:** `cluster.test.ts` – vier zur Bilanz und Gebühr entfernt (der Baustein fiel weg), drei neu
+(Kind, strenges Lesen, versiegelte Absprache). Protokoll 1309 → 1308.
+
+Knoten-Stand: unverändert (nur Protokoll).
+
 ## Schritt C-Review – Oberflächen-Review: Karten C-41 bis C-59
 
 Auf Wunsch des MENSCHEN hat Spur C die ganze Oberfläche (alle Seiten und Unterreiter, Desktop
@@ -9775,6 +9799,44 @@ Tests:
 **Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
+## Schritt VKb – Sandbox mit bubblewrap (= 11.5s)
+
+Spur B, aus `docs/VIBECODEN-ENTWURF.md` (VK4, VKb) und `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3:
+Regeln fürs Ausführen“, Vorbild Codex unter Linux). Code führt der Knoten nur in bubblewrap aus – je
+Befehl (11.5c) oder als ganzer Motor eines Code-Laufs (VKc3).
+
+- **`node/src/sandbox.ts`:** `sandboxArgumente()` – eigene Namensräume (`--unshare-all`,
+  `--unshare-user`), endet mit dem Knoten, eigene Sitzung, keine Fähigkeiten, leere Umgebung bis auf
+  `PATH`, `HOME`, `LANG`; nur lesbar `/usr` (Verweise wie `/bin` → `usr/bin` als Verweis), aus `/etc`
+  nur ein eigenes `passwd`, `group`, `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (sonst startet
+  `python3` nicht – unter Debian ein Verweis dorthin); schreibbar nur `/arbeit` (darin `.git` nur lesbar),
+  `/tmp` als tmpfs mit 512 MB, Home ein tmpfs oder ein eigener Ordner; danach die Wurzel selbst nur
+  lesbar (`--remount-ro /`). Kein Netz; GPU nur auf Wunsch.
+- **Ausführen:** `fuehreAus()` mit `ulimit` (Rechenzeit, Dateigröße, offene Dateien – je Grenze ein
+  Aufruf, dash nimmt nur eine), 60 s je Befehl, danach endet die ganze Prozessgruppe; Ausgabe gekürzt
+  wie im Code-Lauf (`kuerzeAusgabe()`). `sandboxMotor()` ist die `MotorStart` für VKc3 (stderr
+  verworfen). Ohne bubblewrap oder ohne Nutzer-Namensräume läuft nichts – `pruefeSandbox()` sagt
+  `sandbox.fehlt` bzw. `sandbox.namensraum`, feste Sätze in `SANDBOX_TEXT`.
+- **Verdrahtet:** `main.ts` prüft die Sandbox beim Start, sobald Vibecoden an ist (`[code] Sandbox …`),
+  `npm run pruefen` mit `VIBECODEN=1` ebenso. Den Motor startet erst VKc3 darin – die Sandbox hat
+  kein Netz, das Modell erreicht er nur über eine Brücke, die VKc3 baut.
+- **Bild und CI:** bubblewrap im Docker-Bild (unter Docker sperrt das Standard-Seccomp meist
+  Nutzer-Namensräume – Frage in `OFFEN.md` 1.1); die CI installiert bubblewrap und gibt im
+  Wegwerf-Runner Nutzer-Namensräume frei, damit die Tests laufen statt sich zu überspringen.
+- **Noch nicht:** Arbeitsspeicher je Befehl und seccomp (Netz-Aufrufe, `io_uring`) – 11.5s2.
+- **Smoke-Test „raum“:** Nach „Patch senden“ wartete er 800 ms fest und las dann die Liste – unter Last war sie noch
+  leer (lokal rot, während nebenher Knoten-Tests liefen). Jetzt wartet er auf die Liste (Frist 10 s), wie die anderen
+  Stellen dort; Fallstrick in `scripts/CLAUDE.md`. Klein in einer Datei aller Spuren.
+- **Doku:** PROVIDER („Sandbox“), Entwürfe, OFFEN (VKb raus, 11.5s2 neu, VKc3 und 11.5c frei bzw.
+  nach 11.5a), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (7, neu): Argumente, feste Sätze, ohne bubblewrap kein Ausführen;
+mit echtem bubblewrap leere Umgebung, Nutzer 1000, nur `lo`, Grenzen, `NoNewPrivs`, schreibbar nur der
+Arbeitsordner, `.git`, `/usr`, `/etc` und die Wurzel nur lesbar, Dateien des Knotens unsichtbar,
+Exit-Code, Kürzung, Zeitgrenze samt Kind im Hintergrund, Motor über stdin/stdout mit eigenem Home.
+
+Knoten-Stand: für die Selbstprüfung neu; ohne `VIBECODEN=1` ändert sich nichts.
+
 ## Schritt C-42a – Schrift ohne Serifen, Satzschreibung
 
 Aus dem Oberflächen-Review (15.10.2026): Fast alles stand in Monospace, und 64 % der Schriftgrößen in `app.css` waren höchstens 12 px. Hinweise standen in 10 px, Etiketten und Kartentitel in Großbuchstaben. Zur Schrift gehört auch C-42b (Knöpfe).
@@ -9790,4 +9852,516 @@ Tests:
 - Smoke „zugang“ (Kontrast), „mobil“ (Laufleisten, Flächen ab 40 px, Text in Knöpfen), „rahmen“ und „composer“ sind grün. Alle 74 Seiten wurden neu aufgenommen und durchgesehen.
 
 **Prüfungen:** protocol 1309 grün, node 466 (ohne Netz), app 1133 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt 11.5a1 – Bundle-Leser im Protokoll, Arbeitskopie
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (V3, V4, W1 B, W3a A). Der Knoten braucht für Repo-Aufträge (11.5c)
+denselben Leser wie die App und daraus einen Arbeitsordner, in dem der Agent in der Sandbox (VKb) arbeitet.
+
+- **Leser ins Protokoll:** `git-bundle.ts` von `packages/app/src/` nach `packages/protocol/src/` (unverändert bis auf
+  den Kopfkommentar), aus `index.ts` exportiert; die App (`code-reiter.ts`, `repos.ts`) nimmt ihn aus
+  `@freedomstack/protocol` – ohne Änderung im Verhalten. Die Tests des Lesers und die Probe-Bundles ziehen mit
+  (`protocol/test/git-bundle.test.ts`, `protocol/test/fixtures/probe-*.bundle`); die vier Tests der Verdrahtung im
+  Reiter „Code“ bleiben in der App (`app/test/code-reiter.test.ts`). Der Smoke-Test liest die Bundles vom neuen Ort.
+- **Arbeitskopie (`protocol/src/arbeitskopie.ts`):** `arbeitskopie(bundle, commit?)` – der Baum am Kopf als Dateien
+  (`datei`, `ausfuehrbar`, `verweis` mit dem Ziel als Inhalt) samt Kennung aus dem Baum, Submodule nur als Pfad
+  und Commit (für den Patch, 11.5a2). `istRepoPfad()` nach V4; jeder
+  Name einmal je Ordner; `ARBEITSKOPIE_GRENZEN` (20 000 Dateien, 256 MB, Tiefe 32, Verweis 1 KB) je Stelle im Baum.
+- **Arbeitsordner (`node/src/arbeitskopie.ts`):** `neuerArbeitsordner()` in `/dev/shm` (sonst Temp), 0700, `weg()`;
+  `schreibeArbeitskopie()` nur in einen leeren, echten Ordner, `O_EXCL | O_NOFOLLOW`, Verweise zuletzt.
+- **Verdrahtet:** der Leser im Reiter „Code“ der App wie bisher (`code-reiter.ts`); `arbeitskopie()` ruft erst 11.5c
+  (Spur A) – Ausnahme in `scripts/wiring-ausnahmen.txt` mit diesem Grund.
+- **Doku:** Entwurf (11.5a1 fertig), OFFEN (11.5a2 offen, 11.5c nur noch danach), Fallstricke in
+  `packages/protocol/CLAUDE.md` und `packages/node/CLAUDE.md`, Verweis in `packages/app/CLAUDE.md`.
+
+**Tests:** Protokoll `arbeitskopie.test.ts` (5, neu): Pfad-Regeln, echtes Bundle von git (Modi, Verweis, Submodul
+gleich `git ls-tree`), Probe-Bundle, feindliche Bäume (`.git` in jeder Schreibweise, doppelte Namen, fehlende
+Objekte, kaputte Verweise), Grenzen (Fächer aus demselben Ordner, Bytes, Tiefe); `git-bundle.test.ts` (9, aus der App
+verschoben). Knoten `arbeitskopie.test.ts` (4, neu, einer mit echtem bubblewrap). App: neun Tests des Lesers ins
+Protokoll verschoben (vier bleiben), sonst unverändert – zusammen steigt die Zahl um 9.
+
+Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).
+
+## Schritt 11.5a2a – Patch-Schreiber im Protokoll
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (V5, W1 B). 11.5a2 ist geteilt: a2a der Patch-Schreiber im Protokoll,
+a2b das Lesen des Arbeitsordners im Knoten (`lstat`, `.gitignore`) – zusammen wären es deutlich über 400 Zeilen.
+
+- **`protocol/src/patch-schreiber.ts`:** `schreibePatch(alt, neu, angaben)` – die Dateien nach dem Auftrag gegen die
+  Arbeitskopie am Kopf (11.5a1). Myers-Diff je Datei (`zeilenDiff()`, höchstens 4000 Schritte), Abschnitte mit drei
+  Zeilen Kontext wie git, `\ No newline at end of file`, volle Kennungen in `index`, Pfade gequotet wie git
+  (`core.quotePath`); Datei ↔ Verweis als Löschen und Anlegen, Modus allein als `old mode`/`new mode`.
+- **Commit wie git:** Bäume aus allen Dateien (Submodule aus der Arbeitskopie unverändert), Eltern = Kopf, Autor =
+  Committer, Nachricht so, wie `git am` sie aus der Mail liest; Kopf mit RFC 2047 und `8bit`, wo Nicht-ASCII steht.
+- **Kein Patch, nur ein Fall:** `patch.keine-aenderung`, `patch.binaer` (Nullbyte oder kein UTF-8), `patch.gross`
+  (über `PATCH_MAX_BYTES` oder zu viele Schritte), `patch.angaben` (Name, Mail, Betreff, Zeit, Pfade). Was
+  herauskommt, nimmt `lesePatchText()` an.
+- **Verdrahtet:** erst in 11.5c (Spur A) nach 11.5a2b – Ausnahmen in `scripts/wiring-ausnahmen.txt` mit Grund.
+- **Doku:** Entwurf (11.5a2 geteilt), OFFEN (11.5a2b), FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`.
+
+**Tests:** Protokoll `patch-schreiber.test.ts` (5, neu): Diff minimal und vollständig; ein Repo mit Ordnern, Umlauten
+im Pfad, BOM, Datei ohne Zeilenende, ausführbar, Verweis, Submodul, leerer Datei – `git apply --check` nimmt den Patch,
+`git am` ergibt dieselbe Kennung und dieselbe Nachricht; böse Betreffe und Beschreibungen; Artwechsel und nur Modus;
+alle Fälle ohne Patch. Dazu vorab 3000 Zufallsfälle gegen eine LCS-Rechnung (beide Seiten zurückgewonnen, minimal).
+
+Knoten-Stand: unverändert (Baustein im Protokoll).
+
+## Schritt 11.5a2b – Arbeitsordner lesen, .gitignore wie git
+
+Spur B, zweiter Teil von 11.5a2 (`docs/REPO-AGENTEN-ENTWURF.md` V5). Nach dem Auftrag liest der Knoten, was der Agent
+in der Sandbox hinterlassen hat – ohne git (W1 B: kein fremdes Programm auf fremden Daten, `.git/config` stammt dann
+vom Agenten) und ohne Verweisen zu folgen.
+
+- **`leseArbeitsordner(ordner, alt)`** (`node/src/arbeitskopie.ts`): nur `lstat`, Dateien mit `O_NOFOLLOW`,
+  ausführbar aus dem Modus, Verweise als ihr Text (auch einer auf `/etc/passwd` oder `~/.freedom` bleibt Text),
+  Sonderdateien fallen weg; `.git` in jeder Schreibweise und Submodule betritt er nie. Grenzen wie die Arbeitskopie,
+  sonst `patch.gross`; Unlesbares oder ein Ordner, der ein Verweis ist: `patch.ordner` (neuer Fall) – nie ein halber Stand.
+- **`.gitignore` (`protocol/src/gitignore.ts`):** `leseIgnore()` und `istIgnoriert()` nach gitignore(5) – Kommentar,
+  `!`, nur Ordner, verankert, `*`, `?`, `[…]`, `**`, Escapes; tiefere Dateien gelten unter ihrem Ordner und gehen vor;
+  begrenzt (1000 Regeln, 1000 Zeichen). Ein ignorierter Ordner wird nicht betreten (`node_modules`, `dist`), außer git
+  kennt Dateien darin – bekannte Dateien bleiben wie bei git immer drin.
+- **Verdrahtet:** erst in 11.5c (Spur A): Arbeitsordner → `leseArbeitsordner()` → `schreibePatch()`. Damit sind die
+  Bausteine von Spur B für 11.5c fertig (Sandbox, Arbeitskopie, Patch).
+- **Doku:** Entwurf, OFFEN (11.5c frei), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `arbeitskopie.test.ts` (+4): `.gitignore` gegen `git add -A`/`git ls-files` auf einem Ordner mit
+allen Regelarten; bekannte Dateien bleiben, `.git`, Submodule, FIFO nie, Verweise als Text; Grenzen und Unlesbares;
+Ende zu Ende – Bundle, Arbeitsordner, Änderungen wie von einem Agenten (bauen, `git init` mit fsmonitor, Verweis nach
+draußen), Patch, `git am` ergibt denselben Commit, nichts Ignoriertes und kein Inhalt hinter dem Verweis im Patch.
+Protokoll `gitignore.test.ts` (2, neu).
+
+Knoten-Stand: unverändert (Bausteine, noch kein Aufruf im Knoten).
+
+## Schritt B-35a – Negentropy im Protokoll (NIP-77)
+
+Spur B, Sammlung B-35 (Anhang E, NG1 B, 09.10.: eigene Umsetzung mit Vektoren aus der Referenz). Mit wenig Daten
+herausfinden, welche Events der anderen Seite fehlen – Grundlage für den Abgleich zwischen eigenem Relay und anderen,
+nach Funkstille und über Gateways. B-35 ist geteilt: a Kern im Protokoll, b Relay-Rolle (`NEG-OPEN`), c Abgleich.
+
+- **`protocol/src/negentropy.ts`:** `NegSpeicher` (Einträge Zeit + Id, sortiert, keine doppelten, Fingerabdruck
+  als SHA-256 über die Summe der Ids mod 2^256 und die Anzahl), `Negentropy` (`beginne()`, `abgleich()`): Bereiche mit
+  kürzesten Grenzen, Überspringen, Fingerabdruck, Id-Liste, 16 Teile ab 32 Einträgen, Rahmengröße ab 4096 Byte; die
+  beginnende Seite sammelt `habe` und `brauche`, die andere antwortet. Nachrichten von außen begrenzt (`NEG_GRENZEN`),
+  Fehler nur als `NegFehler` mit Kennung.
+- **Vektoren aus der Referenz:** `scripts/negentropy-referenz.mjs` lädt die JS-Referenz von Doug Hoyte (MIT) an einem
+  festen Commit, prüft die Prüfsumme, führt sie in einer VM nur mit `crypto` aus und spielt sieben Abgleiche durch (leer,
+  gleich, klein, einseitig, groß über mehrere Runden, gleiche Zeiten, Rahmen 4096 mit 20 Nachrichten); die Datei hält nur
+  Startwerte, Längen und SHA-256 (10 KB).
+- **Verdrahtet:** mit B-35b (Relay-Rolle) – Ausnahmen in `scripts/wiring-ausnahmen.txt` mit Grund.
+- **Doku:** `PROTOCOL.md` §37, Sammlung, OFFEN, FORTSCHRITT, Fallstricke in `packages/protocol/CLAUDE.md` und
+  `scripts/CLAUDE.md` (Namen in `check-wiring.py`).
+
+**Tests:** Protokoll `negentropy.test.ts` (3, neu): alle Nachrichten und Ergebnisse wie die Referenz; 40 Zufallsabgleiche
+gegen die Mengenlehre, mit und ohne Rahmen; feindliche Nachrichten (Hex, Längen, Varints, Modus, Fassung, Id-Listen).
+
+Knoten-Stand: unverändert (Baustein im Protokoll).
+
+## Schritt B-35b – Abgleich (NIP-77) in der Relay-Rolle
+
+Spur B, Sammlung B-35 (NG1 B). Der Relay des Knotens beantwortet `NEG-OPEN`, `NEG-MSG` und `NEG-CLOSE` mit dem Kern aus
+B-35a – andere Relays und Clients können mit ihm abgleichen, statt alles neu zu laden.
+
+- **`relay-role.ts`:** je Verbindung offene Abgleiche (`abgleiche`); `NEG-OPEN` legt den Stand fest – nur Events, die
+  `darfAusliefern()` dieser Verbindung auch per `REQ` zeigen würde, abgelaufene (NIP-40) nicht; ein Filter auf Umschläge
+  ohne Anmeldung ergibt `blocked: … auth-required`. Grenzen: `NEG_RELAY` (50 000 Events, Rahmen 60 000 Byte), offene
+  Abgleiche zählen wie Abos (`abosJeVerbindung`), jede Nachricht wie eine Abfrage. Fehler nur als `NEG-ERR` mit festen
+  Texten (`blocked:`, `closed:`, `error:` samt Kennung aus `NegFehler`).
+- **NIP-11:** `supported_nips` nennt 77 (`baueRelayInfo()`, Test angepasst).
+- **Verdrahtet:** `relay-role.ts` `handleMessage()` → `abgleich()` – die Ausnahmen für `negentropy.ts` sind raus.
+- **Doku:** `PROTOCOL.md` §37, Sammlung, OFFEN (offen nur c), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `relay-negentropy.test.ts` (3, neu, echter WebSocket): Abgleich in beide Richtungen über mehrere Runden
+mit Rahmen, Filter wirkt; Umschläge nur für den angemeldeten Empfänger (fremd `blocked`, ohne Kind still weg, als Bob nur
+seine); Fehler und Grenzen (unbekannte Kennung, kaputte Nachricht, kein Filter, zu lange Kennung, geschlossen, zu viele
+offene). Protokoll `relay-zugang.test.ts`: NIP-11 mit 77.
+
+Knoten-Stand: neu nötig für den Abgleich; ältere Knoten antworten auf `NEG-OPEN` mit `NOTICE` (unbekannter Typ).
+
+## Schritt 11.5s2 – seccomp in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` („Vorschlag zu W3“: seccomp wie bei Codex als zweite Stufe, ohne neue
+Abhängigkeit). Die Sandbox (VKb) hat schon kein Netz und keine Fähigkeiten; der Filter nimmt dazu, was den Kern
+angreifbar macht und kein Werkzeug braucht.
+
+- **`node/src/seccomp.ts`:** `seccompFilter(arch)` baut einen cBPF-Filter mit einem kleinen eigenen Assembler (Marken,
+  Sprungweiten geprüft): Architektur prüfen (sonst töten), x32 auf x86_64 sperren, `EPERM` für `io_uring_*`, `keyctl`,
+  `add_key`, `request_key`, `bpf`, `perf_event_open`, `userfaultfd`, `kexec_*`, Module, `open_by_handle_at`, `unshare`,
+  `setns`, Einhängen (`mount`, `umount2`, `pivot_root`, neue Mount-API), `swapon`/`swapoff`, `reboot`; `clone` mit
+  `CLONE_NEW*` gesperrt, `clone3` mit `ENOSYS`. Nur x86_64 und arm64, sonst kein Filter.
+- **`sandbox.ts`:** der Filter als Datei im eigenen `/etc`-Ordner, offen als `stdio[3]`, `--seccomp 3` – für Befehle und
+  den Motor; `pruefeSandbox()` meldet `seccomp` und unterscheidet `sandbox.seccomp` (geht nur ohne Filter).
+- **Noch nicht:** Speicher je Befehl → 11.5s3 (`ulimit -v` bricht Node und WASM).
+- **Doku:** Entwurf, OFFEN (11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `seccomp.test.ts` (3, neu): Aufbau je Architektur (Architektur zuerst, töten am Ende, Sprünge im
+Programm, x32 nur auf x86_64); mit echtem bubblewrap und Python: `io_uring_setup`, `keyctl`, `bpf`, `perf_event_open`,
+`userfaultfd` ergeben `EPERM`, Threads und Kindprozesse laufen; `unshare -U` scheitert in der Sandbox.
+`sandbox.test.ts` angepasst (Selbstprüfung mit `seccomp`).
+
+Knoten-Stand: neu für den Filter; ohne `VIBECODEN=1` ändert sich nichts.
+
+## Schritt 11.5s3 – Speicher je Befehl in der Sandbox
+
+Spur B, aus `docs/REPO-AGENTEN-ENTWURF.md` (11.5s3). Bisher begrenzte die Sandbox Zeit, Dateigröße und offene
+Dateien, aber nicht den Arbeitsspeicher – ein Befehl konnte den Rechner des Providers in den Speichermangel treiben.
+
+- **`ulimit -d` statt cgroups:** `RLIMIT_DATA` zählt seit Linux 4.7 privaten, beschreibbaren Speicher (Heap und
+  `mmap`), nicht reservierten Adressraum – Node und WASM reservieren viel und belegen wenig, `ulimit -v` bräche sie.
+  cgroups v2 brauchen ein Nutzer-systemd oder Rechte, die unter Docker meist fehlen; die Grenze je Prozess geht überall.
+- **`sandbox.ts`:** `SANDBOX_GRENZEN.speicherKiB` (4 GiB) in `mitGrenzen()`; der Motor (`sandboxMotor()`) läuft jetzt
+  auch über `mitGrenzen(…, false)` – Dateigröße, offene Dateien, Speicher, aber keine Rechenzeit (er läuft so lange wie
+  der Auftrag). Seine Befehle erben die Grenzen.
+- **Noch nicht:** alle Prozesse eines Befehls zusammen → 11.5s4 (cgroups v2, wo es sie gibt; später, nachrangig).
+- **Doku:** Entwurf, OFFEN (11.5s4 statt 11.5s3), FORTSCHRITT, PROVIDER, Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** Knoten `sandbox.test.ts` (1 neu, 1 erweitert): Grenzen samt `ulimit -d`; mit echtem bubblewrap und Python
+scheitert ein Puffer über der Grenze mit `MemoryError`, 64 MB gehen; der Motor sieht Speichergrenze, aber keine
+Rechenzeitgrenze.
+
+## Schritt VKl1 – Projekt als verschlüsseltes Bundle ins Blob-Netz
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl „Als Repo in einen Raum stellen“, Teil 1: Knoten). Keine neue
+Abhängigkeit, kein neues Event-Format: Code-Auftrag 5080 (VKa) mit einer Aktion mehr, Blobs wie 8.9a,
+Datei-Verschlüsselung wie Anhänge.
+
+**Gebaut:**
+- Protokoll `knoten-code.ts`: Aktion `bundle` (Parameter `projekt`), Antwort mit `blob`, `manifest`, `schluessel`
+  (`DateiSchluessel`, genau vier Felder) und `bytes` (1 bis `CODE_GRENZEN.bundle` = 32 MB); jede andere Form
+  liest `leseCodeAntwort()` nicht.
+- Knoten:
+  - `ProjektAblage.bundle()`: `git bundle create --all` über `git()` in eine Datei mit Punkt neben den Projekten,
+    danach immer gelöscht; ohne Commit `code-leer`, über 32 MB `code-zu-gross`.
+  - `bundleInsBlobNetz()` im Provider: verschlüsselt (`verschluesseleDatei()`), `buildBlob(…, { verschluesselt: true })`,
+    signiert mit einem **Wegwerfschlüssel** (nie dem des Knotens – der Blob verriete sonst, wessen Knoten das Repo
+    baute), die Stücke hält der Knoten selbst (`nimmAuf(…, { halten: true })`), veröffentlicht über den Pool. Den
+    Schlüssel bekommt nur der Besitzer in der versiegelten Antwort.
+- Doku: `PROTOCOL.md` §34 (Aktion, Fälle, Absatz Bundle), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:**
+- protocol ±0: `knoten-code.test.ts` – Bundle hin und zurück, sechs kaputte Antworten (in bestehenden Fällen);
+- node +2: `projekt-bundle.test.ts` – `code-leer`, Bundle mit `main`, keine Datei bleibt liegen; der ganze Weg mit
+  Wegwerfschlüssel ≠ Knotenschlüssel, Stücke gehalten, Schlüssel nicht öffentlich, zusammengesetzt und entschlüsselt
+  das Bundle, Projektname nie im Log.
+
+**Offen:** VKl2 (App: Projekt und Raum wählen, Ankündigung und Bundle-Verweis in den Raum).
+
+## Schritt B-32-Entwurf – Reticulum als zweiter Funkweg
+
+Spur B, Sammlung B-32 (RN1: im Entwurf prüfen, RN2 A). Nur Doku, kein Code.
+
+- **`docs/RETICULUM-ENTWURF.md`:** Befunde zu reticulum-js – `@reticulum/core` 0.9.8 unter EUPL-1.2 (wie Freedom), ohne
+  Abhängigkeiten, im Browser lauffähig, RNode über WebSerial, LXMF als eigenes Paket, Releases fast täglich, noch ohne
+  Routing für andere; die Python-Referenz steht seit April 2025 unter einer eigenen Lizenz mit Schadens- und KI-Klausel –
+  Freedom bindet sie nicht ein. Ergebnis RN1: Bibliothek. Vorschläge V1–V6 (nur Umschläge, Identität je Gerät im Tresor,
+  Sendezeit, Adresse nur für Kontakte, Zustellen über den eigenen Knoten, Gateway nach der App), Fragen W1–W5,
+  Aufteilung B-32a–d.
+- **B-31:** Größe der MCP-Abhängigkeit vor dem Einbau genannt (MC1): `@modelcontextprotocol/sdk` 1.32.1 = 95 Pakete,
+  29 MB, ohne Copyleft; Vorschlag eigener schlanker Client – Frage in `OFFEN.md` 1.0b.
+- **Doku:** OFFEN (1.0b mit beiden Fragen, B-31 und B-32 wartend), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-30-Entwurf – Atomic Agent als Agent-Harness
+
+Spur B, Sammlung B-30 (AG1 A, 09.10.). Nur Doku, kein Code – der Befund passt nicht zur Annahme der Sammlung.
+
+- **`docs/ATOMIC-AGENT-ENTWURF.md`:** Atomic Agent (MIT) braucht Node ≥ 25.7 (der Knoten läuft auf 22), spricht kein ACP
+  (nur OpenAI-kompatibles `serve` und ein eigenes NDJSON-Sidecar), bringt viele Netzwege mit (Composio, Postfach,
+  Telegram, Skills aus ClawHub) und hat **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**. Seit VK-W1n C
+  ist Hermes über ACP der Motor des Knotens. Vorschlag: nicht als Motor im Knoten, sondern als lokaler OpenAI-Server unter
+  „Dieses Gerät“, mit ehrlichem Hinweis; Fragen W1–W4, Aufteilung B-30a.
+- **Doku:** OFFEN (1.0b, B-30 wartet), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-33-Entwurf – Tor mit Brücken in der Hülle
+
+Spur B, Sammlung B-33 (PT1 A: Snowflake und WebTunnel, Größe und Lizenz vor dem Einbau nennen). Nur Doku:
+`docs/TOR-BRUECKEN-ENTWURF.md`.
+
+- **Gemessen:** aus den Quellen gebaut (Go 1.24.7, ohne cgo, `-trimpath -s -w`): `snowflake-client` 2.14.1
+  16,8 MB (gepackt 6,2 MB), WebTunnel-Client 0.0.7 5,0 MB, lyrebird 17,8 MB (6,6 MB). Android arm64 geht für
+  Snowflake nur mit `-checklinkname=0`.
+- **Lizenzen:** Snowflake BSD-3-Clause (alle 56 Abhängigkeiten frei), WebTunnel MIT, goptlib CC0. **lyrebird:**
+  `LICENSE` sagt BSD-2-Clause, aber `internal/x25519ell2` (obfs4) und `transports/meeklite` stehen unter
+  GPL-3.0-or-later – das Programm als Ganzes ist GPL-3. Nach der STOPP-Regel (starkes Copyleft) eine Frage.
+- **Vorschläge V1–V5:** aus den Quellen in der CI bauen, Desktop als Beigabe der Hülle und Android als
+  `lib<name>.so` (W^X), Brücken nur auf Wunsch, eingefügte Zeilen nur geprüft, ehrliche Texte.
+- **Fragen:** PT2 (welche Programme – Empfehlung A: Snowflake und WebTunnel, kein lyrebird), PT3 (woher Brücken –
+  Empfehlung A: eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen). Aufteilung B-33a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-34-Entwurf – Gruppenanrufe über LiveKit
+
+Spur B, Sammlung B-34 (LK1 A: nur in privaten Räumen, Schlüssel aus MLS). Nur Doku: `docs/GRUPPENANRUF-ENTWURF.md`.
+
+- **Gemessen:** `livekit-server` 1.13.10 (Apache-2.0, Docker 43,7 MB amd64 / 41,5 MB arm64); `livekit-client`
+  2.22.4 (Apache-2.0, 15 Pakete ohne Copyleft) bringt 561 KB minifiziert und einen E2EE-Worker von 294 KB –
+  `freedom.html` wüchse von 8,7 MB um etwa 8 bis 10 %.
+- **Befunde:** Zugang nur mit JWT des Servers (das Geheimnis bleibt beim Knoten); E2EE über einen Schlüssel der
+  App, der SFU sieht Metadaten und IPs; `packages/mls` gibt kein Exporter-Geheimnis heraus; die CSP erlaubt den
+  Worker schon (`worker-src blob:`).
+- **Vorschläge V1–V5:** Dienst wie coturn, Zugänge nur versiegelt und je Teilnehmer, Schlüssel je Epoche, IP nur
+  bewusst zeigen (eigener TURN oder Warnung), ehrliche Texte.
+- **Fragen:** LK2 (Client ins Bundle), LK3 (Schlüssel aus dem MLS-Exporter oder vom Gastgeber), LK4 (IP der
+  Teilnehmer) – Empfehlung jeweils A. Aufteilung B-34a–d nach Freigabe.
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt B-37-Entwurf – MeshCore als zweites LoRa-Format
+
+Spur B, Sammlung B-37 (nachrangig). Nur Doku: `docs/MESHCORE-ENTWURF.md`.
+
+- **Befunde:** Companion-Schnittstelle (Fassung 3) über USB (1 Byte Richtung, 2 Byte Länge LE), Bluetooth
+  (Nordic UART) oder TCP; Gruppen-Datagramme über `SendChannelData` (62) mit 16-Bit-Datentyp, Empfang
+  `ChannelDataRecv` (27); Versuchsbereich `FF00`–`FFFF`, feste Bereiche nur über einen Pull Request beim
+  Projekt; höchstens 184 Byte je Paket – unsere Rahmen (200 Byte) passen nicht. Firmware und `meshcore.js`
+  stehen unter MIT; Freedom bräuchte nur das Format.
+- **Vorschläge V1–V4:** Format ohne Abhängigkeit mit Vektoren aus `meshcore.js`, Rahmengröße je Strecke
+  (`fragment()` mit Größe, nie mischen), nur Gruppen-Datagramme auf „freedom“, Sendezeitkonto.
+- **Fragen:** MCO-W1 (Datentyp beantragen – MENSCH), MCO-W2 (jetzt oder erst mit Gerät vor Ort – Empfehlung B).
+- **Doku:** OFFEN (1.0b, Spur B), Sammlung, FORTSCHRITT.
+
+**Tests:** keine (nur Doku).
+
+## Schritt VKl2 – „Als Repo in einen Raum stellen“ aus „Mein Knoten“
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKl, Teil 2: App). Keine neue Abhängigkeit, kein neues Event-Format: Code-Aufträge
+(5080) wie VKa, Ankündigung und Bundle-Verweis wie jedes Repo (11.4). Damit ist VKl fertig.
+
+**Gebaut:**
+- `shell/knoten-code-ui.ts` (neu):
+  - „Projekte“ in der Karte „Mein Knoten“ (nur gekoppelt, nur auf Klick) fragt den Knoten versiegelt nach der Liste
+    (`frageKnotenCode()`: frischer Sitzungsschlüssel, `wegZumKnoten()`, gelesen nur über `leseCodeAntwort()`).
+  - Je Projekt eine Zeile (Name, Schritte, letzte Änderung) und „Als Repo in einen Raum stellen“.
+  - `holeBundleVomKnoten()`: Aktion `bundle`, danach muss das Manifest an den eigenen Relays liegen – sonst fänden es
+    die im Raum auch nicht, und nichts wird angekündigt.
+- `tabs/repos.ts`: `stelleKnotenProjektEin()` → `kuendigeAn(…, ausKnoten)`: derselbe Dialog (Kennung vorbelegt, Wo:
+  öffentlich, offener oder privater Raum – nie „nur dieses Gerät“), private Räume frisch aus MLS. Erst das Bundle,
+  dann Ankündigung und Verweis (`bundleVerweis()`); scheitert das Bundle, geht nichts hinaus. Privat nur `sendeInRaum()`.
+- `knoten-projekte.ts` (neu, ohne DOM): Zeilen, Bundle-Verweis, Ablehnungen nur über die Kennung des Knotens
+  (`CODE_FALL_TEXT`, ein Test vergleicht mit `CodeAbgelehnt` im Knoten) – nie Text vom Knoten.
+- `warteAufKnoten()` gibt bei einer Ablehnung zusätzlich die Kennung `fall` zurück.
+- Texte in beiden Sprachen, `wiring-ausnahmen.txt`: `baueCodeAuftrag` und `leseCodeAntwort` sind verdrahtet,
+  Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:** app +4 (`knoten-projekte.test.ts`): Kennungen gleich denen des Knotens, Ablehnung nur über die Kennung
+(auch `toString` nicht), Zeile und Verweis, Verdrahtung (versiegelt über den Weg, Manifest geprüft, erst Bundle, dann
+Ankündigung, privat nur in die Gruppe, nie „nur dieses Gerät“). Bestehende Quelltext-Tests bleiben unverändert bis auf
+die Zeile mit dem Hinweis (`raum-repos-ui.test.ts`).
+
+Knoten-Stand: mit VKl1 (Code-Aktion `bundle`).
+
+## Schritt 11.5n – Pakete holen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W6 B, W6a „So“, entschieden 14.10.). Keine neue Abhängigkeit, kein neues
+Event-Format. Bausteine für den Ablauf aus 11.5c – dort ruft der Knoten sie auf.
+
+**Gebaut:**
+- `node/src/pakete.ts` (neu):
+  - `leseNpmSperre()`: `package-lock.json` Fassung 2/3, jedes installierte Paket mit `resolved` von der Liste und
+    `integrity` sha512. Verweise, Bündel, Arbeitsbereiche und Pakete anderer Plattformen (`os`, `cpu`, `libc` wie bei
+    npm) bleiben weg. Fremde Quelle oder fehlende Prüfsumme → die ganze Datei abgelehnt.
+  - `lesePipAnforderungen()`: `requirements.txt` wie pip – `name==version`, danach nur `--hash=sha256:…`; andere
+    Optionen (`--index-url`, `-e`, `-r`) und Bereiche lehnen die Datei ab.
+  - `passendeDateien()`: von einer PyPI-Version nur, was die Sandbox braucht – ein reines Rad, sonst Linux/glibc mit
+    Prozessor und Python-Fassung (auch `abi3`), sonst das Quellarchiv. Sonst hätte etwa numpy dutzende Räder geholt.
+  - `holeAusSperre()` und `paketHolen()` (neues Paket mit fester Version, höchstens 20 je Auftrag): nur GET von
+    `PAKET_QUELLEN`, ohne Weiterleitung, über `safeFetch()`; mit Tor (`tor` muss der Aufrufer nennen) nur über
+    `torGet()`. Prüfsumme vor dem Ablegen; npm nach Inhalt wie im Cache von npm, PyPI unter dem Dateinamen;
+    `O_EXCL`, `O_NOFOLLOW`, 0600. Grenzen: 500 Pakete, 200 MiB zusammen, 50 MiB je Archiv, zehn Minuten.
+  - Nach außen nur `PaketAbgelehnt.fall`.
+- `node/src/tor.ts`: `torGet()` – ein GET über https durch den SOCKS5-Proxy, Name beim Proxy, ohne Weiterleitung.
+- **Befund:** `npm install --package-lock-only --offline` (Entwurf) braucht die Metadaten im Cache, nicht nur die
+  Archive. `paketHolen()` gibt deshalb Adresse und Prüfsumme in der Form der Sperrdatei zurück; die Zeilen schreibt der
+  Agent selbst (Entwurf ergänzt).
+- **Doku:** Fallstrick in `packages/node/CLAUDE.md`, FORTSCHRITT, OFFEN (11.5n gestrichen), Entwurf, Stand-Zeile.
+
+**Tests:** node +11 (`pakete.test.ts`):
+- beide Sperrdateien mit Negativfällen;
+- Wahl der Räder;
+- Ablage nach Inhalt (auch bei zwei sha512), 0600, nichts doppelt;
+- falsche Prüfsumme, Netz, Weiterleitung, Größe, Zeit, Verweis an der Zielstelle – nichts abgelegt, nur die Kennung;
+- PyPI-Name nach PEP 503, Dateien fremder Hosts übergangen;
+- `paketHolen()` mit Namen und Versionen;
+- mit Tor nur über den Proxy (Adresstyp 3);
+- `npm ci --offline --ignore-scripts` und `pip install --no-index --require-hashes` installieren aus dem Zwischenspeicher.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; 11.5c).
+
+## Schritt C-42b – Drei Knopf-Arten in Satzschreibung
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-42. Bis jetzt war jeder Knopf ohne eigene Klasse grün, stand in Großbuchstaben und nahm die volle Breite ein. So wirkte jeder Knopf wie die Hauptaktion, und auf einer Seite standen oft drei bis sechs davon.
+
+- **Grundform** (`button`): sekundär, also Fläche (`--surf2`) mit Rand (`--line2`). 14 px, Gewicht 600, in Satzschreibung, Breite nach Inhalt, Radius `--r`.
+- **Primär** (grün): nur `.send-btn`, `.btn-primary`, die neue Klasse `.primaer` und „OK“ im Dialog, je Ansicht höchstens einmal. Gefährliche Aktionen bleiben rot (`.dlg-gefahr`).
+- **Ghost:** nur mit Rand.
+- Beschriftungen, die klein beginnen („mehr“, „kopieren“, „später“), bekommen einen großen ersten Buchstaben über `button::first-letter`. Bis jetzt standen sie in Großbuchstaben.
+- **Radien als Tokens:** `--r-sm` 8 (Felder), `--r` 10 (Knöpfe), `--r-lg` 14 (Karten). Bis jetzt waren es 2–4 px.
+- Felder in 14 px statt 13 px.
+
+Tests: Die Unit-Tests sind unverändert grün. Grün sind auch die Smoke-Teile „zugang“ (Kontrast und Namen), „mobil“ (Flächen ab 40 px, Text in Knöpfen), „rahmen“, „composer“ und „dialog“. Alle Seiten wurden neu aufgenommen und durchgesehen.
+
+**Prüfungen:** protocol 1332 grün, node 501 (ohne Netz), app 1128 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt A-17c – Cashu-Baustein
+
+Spur A, `docs/E4B-ENTWURF.md` (V2, V3 geändert mit RM2 W5 A, W4: 10.000 sat; A-17c freigegeben 14.10.). Neue
+Abhängigkeit `@cashu/cashu-ts` 4.11.0 (MIT oder Apache-2.0, freigegeben mit A-17c), nur in der App. Kein Event-Format.
+
+**Gebaut:**
+- `app/src/cashu-topf.ts` (neu, ohne DOM) – `CashuTopf`:
+  - **Mint wählen** (`waehleMint()`): Adresse nur über `pruefeMintAdresse()` (https, keine Zugangsdaten, nicht im
+    Heimnetz; `.onion` auch über http); nur Mints mit NUT-11, NUT-12 und Laden in sat; wechseln nur mit leerem Topf.
+  - **Laden** (NUT-04): `ladeAnfrage()` prüft die Rechnung der Mint auf genau den Betrag (`leseBolt11()`); bezahlt der
+    Aufrufer über die Zahlschienen, dann `abholen()`. Abgelaufene Ladungen zählen nicht mehr.
+  - **Senden** (`sende()`): Tausch bei der Mint, Wechselgeld bleibt; mit `an` gesperrt auf den Schlüssel des Empfängers
+    (NUT-11), die Gebühr fürs Einlösen trägt der Absender.
+  - **Empfangen** (`empfange()`): nur Token der eigenen Mint mit DLEQ (NUT-12), nicht auf einen fremden Schlüssel
+    gesperrt. Ohne Netz (`pruefeOhneNetz()`, `nimmOhneNetz()`): nur genau auf den eigenen Schlüssel gesperrt, ohne Frist
+    und ohne Rückgabe-Schlüssel, geprüft gegen die gemerkten Schlüssel der Mint; Doppeltes zählt einmal; eingelöst mit
+    `einloesen()`.
+  - Höchstens 10.000 sat: Guthaben, gesperrt Empfangenes und offene Ladungen zusammen.
+  - **Absturzsicher:** eigene Token aus einem Seed (NUT-13), Zähler im Tresor. Jeder Tausch merkt vorher Zähler und
+    Einsatz (`laufend`); `nachholen()` leitet nur den Zählerbereich dieses Tauschs neu ab (NUT-09) und prüft den
+    Einsatz – nie ab Zähler 0, sonst kämen früher gesendete Token zurück.
+  - Nur im Tresor (`freedom.cashu`, `GEHEIM_FEST`, `SICHERUNG_NIE`, nie im Export); ohne offenen Tresor schreibt er
+    nichts. Nach außen nur `CashuFehler.fall`.
+- `scripts/check-wiring.py` (Zahlwege): `@cashu/cashu-ts` nur in `cashu-topf.ts`.
+- `scripts/cashu-testmint.sh` + `cashu-testmint.txt`: Nutshell 0.21.0 mit FakeWallet auf 127.0.0.1, alle Versionen fest;
+  die CI startet sie vor den App-Tests (`CASHU_TEST_MINT`).
+- **Doku:** Fallstrick in `packages/app/CLAUDE.md`, Befehl in `CLAUDE.md`, FORTSCHRITT, OFFEN (A-17c gestrichen, RM2a–c
+  frei), Entwurf, Stand-Zeile.
+
+**Tests:** app +9 (`cashu-topf.test.ts`, 6 davon gegen die Mint – ohne `CASHU_TEST_MINT` übersprungen):
+- Adressen der Mint;
+- nie in Sicherung oder Export;
+- ohne Stand kein Empfangsschlüssel;
+- Laden mit Höchstbetrag und Tresor-Pflicht;
+- Senden und Empfangen: doppelt Ausgegebenes, fremde Mint, fehlende DLEQ;
+- gesperrt auf einen Schlüssel – nur er löst ein, ohne Netz einmal;
+- ohne Netz nie Ungesperrtes;
+- Absturz mitten im Senden und beim Abholen: genau dieser Stand kommt zurück, ein früher gesendetes Token nicht.
+
+Knoten-Stand: unverändert. Noch ohne Oberfläche und ohne Aufrufer – den bringt RM2c (mit der Grenze „cashu-verwahrt“ im
+Bericht).
+
+## Schritt RM2a – Cashu-Pfand im Protokoll
+
+Spur A, `docs/RM2-ENTWURF.md` (V1–V3, W1 A, entschieden 14.10.). Keine neue Abhängigkeit (`@noble/curves` und
+`@noble/hashes` sind schon im Protokoll). Neues Format, wie der Entwurf es verlangt (V7): Tags im Kern der Anfrage und im
+Angebot (§38).
+
+**Gebaut:**
+- `protocol/src/pfand.ts` (neu):
+  - `hashZuKurve()` (NUT-00), `hashE()` und `pruefeDleq()` (NUT-12, Prüfung des Empfängers) mit `@noble/curves`.
+  - `pfandTags()`/`lesePfandTags()`: genau ein `["pfand", Mint, Token als JSON]` im versiegelten Kern, streng gelesen
+    (höchstens 64 Token, Form je Feld, sonst `pfand-form`).
+  - `pruefePfand()` ohne Mint – Mint in der Liste, Schlüssel der Mint bekannt, Beweis, Sperre genau auf den
+    Pfand-Schlüssel, Frist mindestens 15 Minuten weg, Rückweg, nichts doppelt; gilt ein Teil nicht, gilt keiner.
+  - `cashuAngebotTags()`/`leseCashuAngebot()`: `cashu_mint` (höchstens 5) und `cashu_pfand` (Schlüssel, Fassung 1) im
+    Angebot; `buildCapabilities()`/`parseCapabilities()` tragen `cashu`.
+- Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+- `docs/PROTOCOL.md` §38, Fallstrick in `CLAUDE.md`, `wiring-ausnahmen.txt` (Aufrufer mit RM2b und RM2c).
+
+**Tests:** protocol +7 (`pfand.test.ts`):
+- hash_to_curve (NUT-00), hash_e und Beweis eines Tokens (NUT-12) gegen die Testvektoren der Spezifikation, jede
+  Abweichung fällt auf;
+- `pruefePfand()` mit echten gesperrten Token einer Mint im Test (blind signiert, mit Beweis) und jede Abweichung mit
+  ihrer Kennung;
+- Tags hin und zurück, Kaputtes wirft;
+- Angebot hin und zurück, fremde Angaben streng;
+- Leak-Regel: Pfand offen fällt auf, Angebot nicht.
+
+Knoten-Stand: unverändert (noch nicht aufgerufen; RM2b).
+
+## Schritt RM2b1 – Pfand-Kasse im Knoten
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V3, V5, V6; W1 A, entschieden 14.10.). RM2b aufgeteilt wie der Zahlkanal (4.3c1/4.3c2):
+RM2b1 die Kasse, RM2b2 das Verdrahten. Neue Abhängigkeit im Knoten wie im Entwurf freigegeben: `@cashu/cashu-ts` 4.11.0
+(MIT oder Apache-2.0, schon in der App seit A-17c – die Sperrdatei bekommt nur den Eintrag des Knotens).
+
+**Gebaut:**
+- `node/src/pfand-kasse.ts` (neu), `PfandKasse`:
+  - `ladeMints()`: Selbstprüfung je Mint (NUT-11, NUT-12, Schlüssel in sat), Schlüssel gemerkt fürs Prüfen ohne Mint;
+    unerreichbar → die gemerkten bleiben. Ein unbekanntes Keyset holt die Kasse höchstens einmal je Minute neu.
+  - `nimmAn(pfand, sitzung, bedarfMsat)`: `pruefePfand()`, dann Deckung wie die KanalKasse – übergeben mindestens
+    abgerechnet plus Bedarf, je Sitzungsschlüssel der Anfrage, netto (Nennwert minus Gebühr der Mint je Token, NUT-02).
+    Ohne Deckung bleibt alles, wie es war; ohne neue Token wird gegen das Übergebene gerechnet.
+  - `verbuche()`: höchstens bis zum Übergebenen.
+  - `loeseFaelligeEin()`: eine Einlösung zur Zeit, je Mint gesammelt (Frist im Vorlauf von 30 Minuten oder 1000 sat
+    offen), ohne Beweis (V5), spätestens zehn Minuten vor der Frist – was näher liegt, gehört dem Rückweg.
+  - Absturzsicher wie der Cashu-Topf (A-17c): eigene Token aus einem Seed (NUT-13), Zähler in der Datei, vor jedem Tausch
+    „laufend“ gemerkt; scheitert er, auch ohne Antwort der Mint, holt der nächste Lauf genau diesen Zählerbereich zurück
+    (NUT-09) und prüft die eingesetzten Token.
+  - `pfandSpeicher()`: eine Datei, 0600, über eine Zwischendatei; kaputt → kein Start.
+- Protokoll: eine leere Token-Liste heißt „gegen das schon Übergebene rechnen“ (`lesePfandTags()`, `pruefePfand()` ohne
+  Frist), §38.
+- CI: die Test-Mint startet vor den Knoten-Tests.
+
+**Tests:** node +6 (`pfand-kasse.test.ts`; 4 gegen die Mint), protocol unverändert 7 (`pfand.test.ts` um die leere Liste
+erweitert):
+- Datei 0600, Neustart behält den Schlüssel, kaputt → kein Start; Mint ohne Netz;
+- Deckung netto, je Sitzung, nie doppelt – auch nach einem Neustart, ohne Beweis gemerkt, fremde Sperre abgelehnt;
+- Einlösen gesammelt vor der Frist, eine Einlösung zur Zeit, zu spät nie;
+- Abbruch nach der Antwort der Mint: der nächste Lauf holt genau diesen Tausch, nichts doppelt;
+- die Mint hält die Frist ein (V3): vorher kein Rückweg, danach schon.
+
+Knoten-Stand: unverändert (noch nicht verdrahtet; RM2b2).
+
+## Schritt RM2b2 – Pfand im Provider verdrahtet
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V4; W1 A). Teil 2 von RM2b; Mint-Abrufe über Tor und die Auszahlung des Erlöses
+kommen mit RM2b3 (neu in V9).
+
+**Gebaut:**
+- `dvm-provider.ts`: `lesePfandTags()` im versiegelten Kern; Pfand nur aus einem Umschlag, nur mit Kasse, nicht in der
+  Bootstrap-Phase, nie neben einer Gutschrift, Gebot mindestens `minBidMsat`. Gedeckt sein muss der Anteil des Providers an
+  Gebot und Werkzeugen (`providerAnteilMsat()`, V4 – die übrigen Anteile zahlt die App nach der Antwort); abgerechnet wie ein
+  Gebot (höchstens das Gebot plus Werkzeuge), gebucht vor der Antwort der Anteil des Providers – auch im Schwarm-Modus.
+- `pfand-kasse.ts`: `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` – https oder .onion, höchstens fünf; ungültig oder mit
+  `TOR_SOCKS` → kein Start) und `pfandOrt()` (`~/.freedom/pfand.json`).
+- `main.ts`: Kasse aus der Umgebung, Selbstprüfung der Mints beim Start (ohne den Start aufzuhalten) und stündlich, Einlösen
+  alle fünf Minuten (ins Log nur Mint, Betrag, Fehlername), im Angebot `cashu` mit den geprüften Mints und dem Pfand-Schlüssel.
+- `docker-compose.yml`, Installer: `PFAND`, `PFAND_MINTS` (aus).
+- `check-wiring.py`: Namen nach dem Spread `...` zählen als Aufruf (bis jetzt galt `cashuAngebotTags()` als nicht verdrahtet,
+  obwohl `buildCapabilities()` es ruft); Selbsttest mit `nachSpread`. Die beiden letzten Knoten-Ausnahmen für `pfand.ts` sind raus.
+
+**Tests:** node +3 (`pfand-auftrag.test.ts` 2: gedeckt mit A+-Deklaration, ohne neue Token, nichts offen; ungedeckt, offen,
+ohne Kasse, neben einer Gutschrift, Gebot zu niedrig, kaputte Form; `pfand-kasse.test.ts` +1: Umgebung mit 9 ungültigen
+Fällen). Ein Weg mit echten Token über den Provider geht hier nicht: die Test-Mint läuft auf http://127.0.0.1, der Provider
+nimmt nur https/.onion – die echten Token prüft `pfand-kasse.test.ts`.
+
+Knoten-Stand: Wer `PFAND=1` setzen will, braucht diesen Stand; ohne `PFAND` ändert sich nichts.
+
+## Schritt C-43 – Führung als Karte auf ihrer Seite
+
+Aus dem Oberflächen-Review (15.10.2026). Bis jetzt stand der nächste Schritt („Stell einfach eine Frage“, „Sichere deine Wörter“ …) als Leiste über jeder Seite: am Desktop 66 px, und der Text lief unter den Knopf. Am Handy kamen 50 px zum Kopf dazu. Auf dem Wallet stand „Zur KI“, in den Repos „Zu den Nachrichten“.
+
+- **Eine Seite je Schritt** (`hinweisSeite()`, `onboarding.ts`):
+  - „los“ steht beim Agenten.
+  - „los-chat“ steht in den Chats, oben in der Liste.
+  - Die Anleitung zum Knoten steht unter Verdienen.
+  - Sichern, Tresor und Wallet gelten für alle. Sie stehen auf der Seite, die man in der Einrichtung gewählt hat (Agent, Chats oder Verdienen): Dort arbeitet man, dort sieht man sie, bis der Schritt erledigt oder auf „später“ gestellt ist.
+  - Die Sicherungs-Erinnerung (8.1a) steht daneben.
+- **Als Karte**: Titel, der ganze Text und die Knöpfe untereinander. Die Hauptaktion ist grün (`.primaer`, C-42b), „Später“ ist ein Ghost-Knopf. „mehr/weniger“ fällt weg, weil die Karte nur noch auf einer Seite steht. Am Handy war der Text bis jetzt zugeklappt.
+- **Kein Knopf, der nur hinführt**: Bei „los“ und „los-chat“ fällt der Knopf weg („Zur KI“, „Zu den Nachrichten“), weil die Karte schon dort steht. Die Anleitung öffnet weiter den Reiter „Hosten“.
+- **Desktop-Raster**: Zwischen Leiste und Seite steht nur noch der Offline-Hinweis (zwei Zeilen statt vier).
+
+Den Gratis-Stand als Chip im Kopf des Agenten übernimmt C-49 (Agent-Eingabe). Dort wird die Zeile darunter ohnehin neu gebaut.
+
+Tests:
+- Ein neuer Unit-Test prüft `hinweisSeite()` für jeden Schritt und jede Wahl (mit Gegenfällen) und prüft, dass Schritte ohne eigenen Knopf auskommen.
+- Die Tests aus 8.1a, C.1a, C.5b und C-39a sind auf die Karte umgestellt.
+- Smoke-Teile:
+  - „rahmen“: Die Karte steht am Desktop in der Seite des Agenten und nicht in den Chats.
+  - „einrichtung_wahl“: Nach „Nachrichten schreiben“ steht die Karte in den Chats, ohne Knopf, und nicht beim Agenten.
+  - „mobil“: Hochkant und quer ist der Text ganz lesbar, die Karte hält den Rand und ist höchstens knapp halb so hoch wie der Bildschirm. In den Chats steht keine.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1138 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
