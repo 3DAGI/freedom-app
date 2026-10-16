@@ -10,6 +10,7 @@
  */
 import { inspectName } from "@freedomstack/protocol";
 import { pkShort } from "./shell-logic.js";
+import { personInitiale } from "./avatar.js";
 import { t } from "./i18n.js";
 import { kommunikation } from "./texte/kommunikation.js";
 
@@ -80,8 +81,7 @@ export function kontaktAnzeige(c: KontaktNamen): string {
   return istAnfrage(c) ? t("komm.anfrage", { pk: kurz }) : kurz;
 }
 
-/** Der Anfangsbuchstabe für das runde Zeichen – nie das „~“ und nie „A“ von „Anfrage“. */
+/** Der Anfangsbuchstabe für das runde Zeichen – nie das „~“, nie „A“ von „Anfrage“ und seit C-44 nie ein Zeichen des Schlüssels. */
 export function kontaktInitiale(c: KontaktNamen): string {
-  // Nach Zeichen, nicht nach UTF-16-Einheiten – sonst zerfällt ein Emoji zur Hälfte
-  return (Array.from(kontaktKurzName(c).replace(/^~/, ""))[0] ?? "?").toUpperCase();
+  return personInitiale(kontaktKurzName(c), c.id);
 }

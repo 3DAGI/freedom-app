@@ -9,6 +9,7 @@ import { t } from "../i18n.js";
 import { escapeHtml, pkShort } from "../shell-logic.js";
 import { ensurePool, state } from "./state.js";
 import { offlineHinweis } from "../protokoll-texte.js";
+import { avatarFarbe, personInitiale } from "../avatar.js";
 
 // ------------------------------------------------------------- Helpers
 
@@ -58,19 +59,38 @@ export function escrowIdent(): string {
 }
 
 /**
+ * Rundes Zeichen für eine Person (C-44): der Buchstabe aus dem Namen, die Farbe aus dem
+ * Schlüssel (`avatar.ts`) – in Chat-Liste, Unterhaltung, Raum-Verlauf und Mitgliedern.
+ * Nur Text, nie ein Bild aus dem Netz; für Vorleser zählt der Name daneben.
+ */
+export function avatar(pk: string, zeichen: string, klasse = "av"): HTMLElement {
+  const a = el("span", zeichen, `avatar ${klasse}`);
+  a.dataset.farbe = String(avatarFarbe(pk));
+  a.setAttribute("aria-hidden", "true");
+  return a;
+}
+
+/** Der eigene Anfangsbuchstabe – aus dem eigenen Profilnamen, ohne Namen „?“. */
+export function eigeneInitiale(): string {
+  let name = "";
+  try {
+    name = String((JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { name?: unknown }).name ?? "");
+  } catch { /* kaputt: ohne Namen */ }
+  return personInitiale(name, state.keypair?.pk ?? "");
+}
+
+/**
  * Kopfzeile (seit C.5a): der gekürzte Schlüssel, davor das eigene Bild – wie
- * die Profil-Vorschau ohne Bild der Anfangsbuchstabe des Namens. Ein Bild aus
- * dem Netz lädt die Kopfzeile nie (das nennte dem Server bei jedem Start die IP).
+ * die Profil-Vorschau ohne Bild der Anfangsbuchstabe des Namens, seit C-44 in der
+ * Farbe des eigenen Schlüssels. Ein Bild aus dem Netz lädt die Kopfzeile nie (das
+ * nennte dem Server bei jedem Start die IP).
  */
 export function zeigeIdent(): void {
   const e = $("#ident");
   if (!e) return;
   e.textContent = escrowIdent();
-  let name = "";
-  try {
-    name = String((JSON.parse(localStorage.getItem("freedom.profile") ?? "{}") as { name?: unknown }).name ?? "");
-  } catch { /* kaputt: ohne Namen */ }
-  e.dataset.initial = state.keypair ? ([...name.trim()][0] ?? "?").toUpperCase() : "";
+  e.dataset.initial = state.keypair ? eigeneInitiale() : "";
+  e.dataset.farbe = String(avatarFarbe(state.keypair?.pk ?? ""));
 }
 
 /**

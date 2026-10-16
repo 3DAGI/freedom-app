@@ -8,6 +8,7 @@ import { abzeichenHerkunft, abzeichenQuelle, aufgabeStand, aufgabeText, aufgabeT
 import { lnOeffentlich, setzeLnOeffentlich } from "../../profil-lightning.js";
 import { setzeSolOeffentlich, solOeffentlich } from "../../profil-sol.js";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
+import { avatarFarbe, personInitiale } from "../../avatar.js";
 import { bestaetige, dialog, type Option } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { $, el, toast, zeigeIdent } from "../ui.js";
@@ -87,9 +88,13 @@ export async function zeigeProfilVorschau(): Promise<void> {
     img.alt = "";
     avatar = img;
   } else {
-    avatar = el("div", (gespeichert.name ?? "?").slice(0, 1).toUpperCase(), "profile-avatar-fallback");
+    // Ohne Bild wie überall (C-44): Buchstabe aus dem Namen, Fläche in der Farbe des Schlüssels, der Rand im Akzent
+    avatar = el("div", personInitiale(gespeichert.name ?? "", state.keypair.pk), "profile-avatar-fallback");
+    avatar.dataset.farbe = String(avatarFarbe(state.keypair.pk));
   }
-  avatar.style.color = farbe;
+  // Der Rand im Akzent; ohne Bild bleibt der Buchstabe weiß auf der Farbe des Schlüssels (C-44)
+  if (avatar instanceof HTMLImageElement) avatar.style.color = farbe;
+  else avatar.style.borderColor = farbe;
   const kopf = el("div", undefined, "profile-head");
   kopf.classList.add(`layout-${stil.layout}`);
   kopf.style.color = farbe;
