@@ -10672,3 +10672,29 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1173 (+5), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-52b – Chat-Liste: Filter, Räume in der Liste, „Neu“ am Handy
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-52. Bisher standen Räume nur in der Leiste. Am Handy kostete die Leiste 60 px, und Filter gab es keine.
+
+- **Filter** Alle · Direkt · Räume · Ungelesen (Knöpfe mit `aria-pressed`), je mit eigenem leeren Zustand:
+  - Räume: „Raum anlegen“;
+  - Ungelesen: „Alles gelesen.“
+- **Räume und Communities stehen unter den Direktnachrichten.**
+  - Sie kommen aus derselben Quelle wie die Leiste (`raeumeFuerListe()`).
+  - Namen stehen nur als Text da, mit Art bzw. Einladung und „neu“.
+  - Ein Raum öffnet sich wie aus der Leiste.
+- **Am Handy** steht die Leiste nur noch im Raum, zum Wechseln und zurück. In der Liste ersetzen sie die Zeilen.
+- **„Neu“** schwebt unten rechts. Es bietet Neue Unterhaltung, Raum anlegen und Raum beitreten – dieselben Knöpfe wie bisher.
+- Filter und Räume stehen in `tabs/chat-liste.ts`; `kommunikation.ts` bleibt unter 700 Zeilen.
+
+Tests:
+- Neu: `chat-filter.test.ts` mit 4 Tests.
+- Angepasst wurden `communities`, `raeume-rest`, `leer-zustand`, `raum-anlegen` und `dateigroesse`.
+- Neuer Smoke-Teil „chat_liste“ (Desktop und Handy):
+  - alle vier Filter;
+  - ein Raum öffnet sich und markiert seine Pille;
+  - am Handy keine Leiste in der Liste, „Neu“ im Bild mit drei Wegen, im Raum die Leiste.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1177 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

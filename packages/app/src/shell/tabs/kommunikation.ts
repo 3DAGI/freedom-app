@@ -20,6 +20,7 @@ import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
 import { versendeVerzoegert } from "../versand.js";
 import { zeigeRaumLeiste } from "./raeume.js";
+import { wireChatListe, zeigeRaeumeInListe, zeigtDm } from "./chat-liste.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { leseAnforderung } from "../../zahlungs-anforderung.js";
 import { ergaenzeGelesen, istUngelesen, zaehlerText, zahlUngelesen } from "../../ungelesen.js";
@@ -69,8 +70,11 @@ export function wireKommunikation(): void {
   // Mobil: eine Ebene zur Zeit, wie Discord — Liste, oder nach dem Antippen der Chat.
   const layout = document.querySelector<HTMLElement>(".comm-layout");
   document.getElementById("chat-list")?.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest(".chat-item")) layout?.classList.add("thread-open");
+    // Räume in der Liste (C-52b) öffnen ihren Modus, nicht den Verlauf einer Unterhaltung
+    if ((e.target as HTMLElement).closest(".chat-item[data-cid]")) layout?.classList.add("thread-open");
   });
+  // Filter und „Neu“ am Handy (C-52b, chat-liste.ts)
+  wireChatListe(loadChatList);
   document.getElementById("chat-back")?.addEventListener("click", () =>
     layout?.classList.remove("thread-open"));
   // Lokale Suche (8.13): ein Treffer oeffnet seine Unterhaltung
@@ -93,7 +97,7 @@ export function wireKommunikation(): void {
 // Stattdessen: 1:1-DMs (verschluesselt, NIP-04-artig) + Communities (opt-in Gruppen,
 // Discord-Stil). Beides adressierbar, kein globaler oeffentlicher Stream.
 
-interface ChatConversation {
+export interface ChatConversation {
   id: string;             // dm: pubkey des Partners; community: community-id
   type: "dm" | "community";
   name: string;
@@ -167,16 +171,10 @@ export function loadChatList(): void {
   document.querySelector(".comm-dm .chat-main")?.classList.toggle("ohne-unterhaltung", !conversations.some((c) => c.id === activeConversation));
   zeigePartner(conversations.find((c) => c.id === activeConversation));
   const list = $("#chat-list");
-  // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
-  const dms = conversations.filter((c) => c.type === "dm");
-  if (dms.length === 0) {
-    // Mit dem nächsten Schritt statt nur eines Satzes (C-45)
-    list.replaceChildren(leererZustand("chat", t("komm.keineUnterhaltungen"), {
-      text: t("komm.neueUnterhaltung"), beiKlick: () => document.getElementById("chat-new-dm")?.click(),
-    }));
-    zeigeUngelesen();
-    return;
-  }
+  // Direktnachrichten oben; Räume und Communities (seit C-10 in der Leiste) seit C-52b darunter, je nach Filter
+  const dms = conversations.filter((c) => c.type === "dm" && zeigtDm(c));
+  const raeume = el("div", undefined, "chat-raeume");
+  raeume.id = "chat-raeume";
   // Namen kommen aus Profilen und Petnames – nur als Text (C-6c)
   list.replaceChildren(...dms
     .sort((a, b) => b.lastTs - a.lastTs)
@@ -200,10 +198,11 @@ export function loadChatList(): void {
         unten.append(el("span", t("komm.ungelesen"), "chat-ungelesen"));
       }
       return zeile;
-    }));
+    }), raeume);
+  zeigeRaeumeInListe();
   markiereSchluessel(list);
   zeigeUngelesen();
-  list.querySelectorAll(".chat-item").forEach((el) => {
+  list.querySelectorAll(".chat-item[data-cid]").forEach((el) => {
     el.addEventListener("click", () => openConversation((el as HTMLElement).dataset.cid!));
     // Rechtsklick vergibt einen eigenen Namen. Er gilt nur lokal und kann
     // niemandem genommen werden — das ist die einzige Namensform, die ohne

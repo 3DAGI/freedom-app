@@ -166,6 +166,14 @@
 .chat-vorschau { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
 .chat-vorschau:empty::before { content: "\00a0"; }
 .chat-item.ungelesen .chat-vorschau { color: var(--text); }
+/* Filter und Räume in der Liste (C-52b) */
+.chat-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 0; }
+.chat-filter button { width: auto; min-height: 32px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  background: transparent; color: var(--text-muted); border: 1px solid var(--line2); }
+.chat-filter button[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+.chat-abschnitt { padding: 12px 10px 4px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.chat-sidebar { position: relative; }
+.chat-fab { display: none; }
 .chat-ungelesen { margin-left: auto; padding: 1px 6px; border-radius: 8px; background: var(--accent); color: #000; font-size: 12px; font-weight: 700; flex-shrink: 0; }
 .app-nav button:has(> .nav-zahl), #comm-dm-btn { position: relative; }
 .nav-zahl {
@@ -1470,6 +1478,13 @@ main { min-width: 0; }
   .comm-dm .chat-item .label { display: block; }
   .comm-dm .chat-side-head span:first-child { display: inline; }
   .comm-layout.thread-open .comm-rail, .comm-layout.thread-open .comm-dm .chat-sidebar { display: none; }
+  /* Am Handy stehen Räume in der Liste (C-52b) – die Leiste kostete 60 px; im Raum bleibt sie zum Wechseln */
+  .comm-layout[data-comm-mode="dm"] .comm-rail { display: none; }
+  .comm-dm .chat-fab {
+    display: inline-flex; align-items: center; gap: 6px; position: absolute; right: 16px; bottom: 16px; width: auto;
+    min-height: 48px; padding: 0 18px; border-radius: 24px; box-shadow: 0 6px 20px rgba(0,0,0,.45); z-index: 5;
+  }
+  .comm-dm .chat-list { padding-bottom: 80px; }
   .comm-layout.thread-open .comm-dm .chat-main { display: flex; flex: 1; }
   .chat-back {
     display: block; width: auto; align-self: flex-start; margin: 8px 10px 0;
