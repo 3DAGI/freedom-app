@@ -8,11 +8,10 @@
  * Speichernetz; gelesen wird nur im Speicher. Nur DOM und `textContent`:
  * Namen, Nachrichten und die README kommen von Fremden.
  */
-import type { NostrEvent } from "@freedomstack/protocol";
 import {
-  BundleFehler, type BundleFehlerArt, type CodeTreffer, type DateiAenderung, type GelesenesBundle, SUCHE_GRENZEN, alsText, commitsAb, dateiVerlauf,
-  kopfCommit, leseBundle, sucheImCode, unterPfad, zweigeUndTags,
-} from "../../git-bundle.js";
+  BundleFehler, type BundleFehlerArt, type CodeTreffer, type DateiAenderung, type GelesenesBundle, type NostrEvent, SUCHE_GRENZEN, alsText, commitsAb,
+  dateiVerlauf, kopfCommit, leseBundle, sucheImCode, unterPfad, zweigeUndTags,
+} from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { loesePfad } from "../../markdown.js";

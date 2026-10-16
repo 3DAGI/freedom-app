@@ -42,7 +42,7 @@ import { appKopfzeilen, istAppPfad, type App } from "./app-auslieferung.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
-  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, RateLimiter, type NostrEvent, type Relay, type RelayFilter,
+  istNeuer, pruefeRelayAuth, relayHost, verifyEvent, NegFehler, NegSpeicher, Negentropy, RateLimiter, type NostrEvent, type Relay, type RelayFilter,
 } from "@freedomstack/protocol";
 
 export interface RelayConfig {
@@ -74,6 +74,12 @@ export interface RelayConfig {
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const MAX_ANTWORT = 5000;
+
+/**
+ * Abgleich nach NIP-77 (B-35b): höchstens so viele Events je Abgleich (sonst
+ * `blocked`), Rahmen je Antwort, offene Abgleiche zählen wie Abos.
+ */
+export const NEG_RELAY = { events: 50_000, rahmen: 60_000 } as const;
 
 /**
  * Grenzen des Flutschutzes (B-3), je Minute. Grosszuegig fuer echte Nutzung –
@@ -148,6 +154,8 @@ interface Verbindung {
   hosts: string[];
   angemeldet: Set<string>;
   abos: Map<string, Record<string, unknown>[]>;
+  /** Offene Abgleiche (NIP-77) – je Kennung der Stand vom `NEG-OPEN`. */
+  abgleiche: Map<string, Negentropy>;
 }
 
 interface InternesAbo {
@@ -209,6 +217,7 @@ export class RelayRole {
         hosts: [relayHost(this.cfg.oeffentlicheUrl ?? "") ?? relayHost(`ws://${req.headers.host ?? ""}`)].filter((h): h is string => !!h),
         angemeldet: new Set(),
         abos: new Map(),
+        abgleiche: new Map(),
       };
       this.verbindungen.set(ws, v);
       this.reply(ws, ["AUTH", v.challenge]);
@@ -410,7 +419,59 @@ export class RelayRole {
       return;
     }
 
+    if (type === "NEG-OPEN" || type === "NEG-MSG") return this.abgleich(ws, v, type, msg);
+
+    if (type === "NEG-CLOSE") {
+      v.abgleiche.delete(String(msg[1]));
+      return;
+    }
+
     this.notice(ws, `unknown type: ${String(type)}`);
+  }
+
+  /**
+   * Abgleich nach NIP-77 (B-35b): `NEG-OPEN` legt den Stand fest – nur Events, die
+   * `darfAusliefern()` dieser Verbindung auch per `REQ` zeigen würde, Umschläge also
+   * nur an den angemeldeten Empfänger –, jede Nachricht zählt wie eine Abfrage. Nach
+   * außen nur feste Texte (`blocked:`, `closed:`, `error:`), nie Text aus der Nachricht.
+   */
+  private abgleich(ws: WebSocket, v: Verbindung, type: "NEG-OPEN" | "NEG-MSG", msg: unknown[]): void {
+    const subId = msg[1];
+    if (typeof subId !== "string" || subId.length === 0 || subId.length > 64) return this.notice(ws, "invalid: subscription id");
+    const nachricht = msg[type === "NEG-OPEN" ? 3 : 2];
+    const fehler = (text: string) => {
+      v.abgleiche.delete(subId);
+      this.reply(ws, ["NEG-ERR", subId, text]);
+    };
+    if (!this.darf(this.abfragenJeVerbindung, v.id)) return fehler("blocked: zu viele Abfragen – später erneut versuchen");
+    if (typeof nachricht !== "string") return fehler("error: Nachricht fehlt");
+    let neg = v.abgleiche.get(subId);
+    if (type === "NEG-OPEN") {
+      const f = msg[2];
+      if (typeof f !== "object" || f === null || Array.isArray(f)) return fehler("error: Filter fehlt");
+      if (!v.abgleiche.has(subId) && v.abos.size + v.abgleiche.size >= this.flut.abosJeVerbindung) {
+        this.gedrosselt++;
+        return fehler("blocked: zu viele offene Abos – erst eines schließen");
+      }
+      if (brauchtAnmeldung(f as Record<string, unknown>, v.angemeldet, this.schuetzen)) return fehler("blocked: Umschläge nur an den angemeldeten Empfänger (auth-required)");
+      const jetzt = this.jetzt();
+      const speicher = new NegSpeicher();
+      let n = 0;
+      for (const { ev } of this.events.values()) {
+        const ablauf = ablaufVon(ev);
+        if ((ablauf !== null && ablauf <= jetzt) || !darfAusliefern(ev, v.angemeldet, this.schuetzen) || !this.matches(f as Record<string, unknown>, ev)) continue;
+        if (++n > NEG_RELAY.events) return fehler("blocked: zu viele Events für einen Abgleich – Filter enger fassen");
+        speicher.einfuegen(ev.created_at, ev.id);
+      }
+      neg = new Negentropy(speicher.versiegeln(), NEG_RELAY.rahmen);
+      v.abgleiche.set(subId, neg);
+    }
+    if (!neg) return fehler("closed: kein offener Abgleich unter dieser Kennung");
+    try {
+      this.reply(ws, ["NEG-MSG", subId, neg.abgleich(nachricht).antwort]);
+    } catch (e) {
+      fehler(e instanceof NegFehler ? `error: Nachricht ungültig (${e.fall})` : "error: Abgleich gescheitert");
+    }
   }
 
   /** Innerhalb der Grenze? Sonst gezaehlt (fuer `stats()`). */
