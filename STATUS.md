@@ -10193,6 +10193,22 @@ Event-Format. Bausteine für den Ablauf aus 11.5c – dort ruft der Knoten sie a
 
 Knoten-Stand: unverändert (noch nicht aufgerufen; 11.5c).
 
+## Schritt C-42b – Drei Knopf-Arten in Satzschreibung
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-42. Bis jetzt war jeder Knopf ohne eigene Klasse grün, stand in Großbuchstaben und nahm die volle Breite ein. So wirkte jeder Knopf wie die Hauptaktion, und auf einer Seite standen oft drei bis sechs davon.
+
+- **Grundform** (`button`): sekundär, also Fläche (`--surf2`) mit Rand (`--line2`). 14 px, Gewicht 600, in Satzschreibung, Breite nach Inhalt, Radius `--r`.
+- **Primär** (grün): nur `.send-btn`, `.btn-primary`, die neue Klasse `.primaer` und „OK“ im Dialog, je Ansicht höchstens einmal. Gefährliche Aktionen bleiben rot (`.dlg-gefahr`).
+- **Ghost:** nur mit Rand.
+- Beschriftungen, die klein beginnen („mehr“, „kopieren“, „später“), bekommen einen großen ersten Buchstaben über `button::first-letter`. Bis jetzt standen sie in Großbuchstaben.
+- **Radien als Tokens:** `--r-sm` 8 (Felder), `--r` 10 (Knöpfe), `--r-lg` 14 (Karten). Bis jetzt waren es 2–4 px.
+- Felder in 14 px statt 13 px.
+
+Tests: Die Unit-Tests sind unverändert grün. Grün sind auch die Smoke-Teile „zugang“ (Kontrast und Namen), „mobil“ (Flächen ab 40 px, Text in Knöpfen), „rahmen“, „composer“ und „dialog“. Alle Seiten wurden neu aufgenommen und durchgesehen.
+
+**Prüfungen:** protocol 1332 grün, node 501 (ohne Netz), app 1128 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
 ## Schritt A-17c – Cashu-Baustein
 
 Spur A, `docs/E4B-ENTWURF.md` (V2, V3 geändert mit RM2 W5 A, W4: 10.000 sat; A-17c freigegeben 14.10.). Neue
