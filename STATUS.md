@@ -10641,3 +10641,34 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1168 (+9), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-52a – Chat-Liste: Zeile mit Vorschau und Zeit
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-52. In der Liste stand je Unterhaltung nur der Name. Was zuletzt kam und wann, sah man erst nach dem Öffnen.
+
+- **Zwei Zeilen je Unterhaltung:**
+  - oben Name und Zeit (heute die Uhrzeit, gestern „gestern“, bis sechs Tage zurück der Wochentag, sonst das Datum);
+  - darunter die neueste Nachricht und „neu“;
+  - eigene Nachrichten mit „Du:“.
+- **Anhänge ohne Text** stehen als ihre Art da („Sprachnachricht“, „Bild“, „Anhang (2)“), nie mit Adresse.
+- **Die Vorschau lebt nur im Speicher dieser Sitzung** (`chat-zeile.ts`). Sie entsteht aus dem, was die App ohnehin öffnet:
+  - Abgleich des Posteingangs;
+  - MLS-Verlauf auf dem Gerät;
+  - Senden;
+  - geöffneter Verlauf.
+- Gespeichert wird sie nie, auch nicht im Tresor. Mit dem Neuladen (Sperren, Identität wechseln) ist sie weg. Mit Ablauf (NIP-40) gilt sie nur bis dahin.
+- Ungelesen bleibt eine Marke („neu“) und kein Zähler: Der Lesestand aus C-30 kennt nur einen Zeitpunkt.
+
+Tests:
+- Neu: `chat-zeile.test.ts` mit 5 Tests:
+  - Text, Kürzen und Anhänge;
+  - die neueste gewinnt;
+  - Ablauf;
+  - Zeitformen;
+  - Verdrahtung, und dass nichts gespeichert wird.
+- Die Smoke-Teile prüfen:
+  - „fremdtext“: die Vorschau als Text, nie als HTML, mit Uhrzeit;
+  - „kontaktname“: „Du: …“ nach dem Senden, und der Text steht nirgends in localStorage.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1173 (+5), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
