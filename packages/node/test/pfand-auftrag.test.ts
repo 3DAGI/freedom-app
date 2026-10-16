@@ -3,22 +3,30 @@
  * nimmt sie nur über seine `PfandKasse` an (Deckung: Anteil des Providers an Gebot und Werkzeugen,
  * je Sitzungsschlüssel), rechnet höchstens das Gebot ab und bucht den Anteil des Providers, bevor
  * die Antwort hinausgeht. Offen, ohne Kasse, neben einer Gutschrift, ungedeckt oder kaputt: keine Arbeit.
- * Die Kasse selbst (gegen eine Mint) prüft `pfand-kasse.test.ts`; über den Provider geht nur eine Mint mit
- * https oder .onion (`lesePfandTags()`), die Test-Mint läuft auf http://127.0.0.1 – hier schreibt eine Attrappe mit.
+ * Mit einer Mint auf diesem Rechner (`CASHU_TEST_MINT`) seit RM2b3 auch der ganze Weg mit echten Token: Der
+ * Provider nimmt nur https oder .onion (`lesePfandTags()`) – die Test-Mint heißt hier .onion, und die
+ * SOCKS-Attrappe führt den Namen nach 127.0.0.1, wie Tor.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { P2PKBuilder, Wallet, getPubKeyFromPrivKey } from "@cashu/cashu-ts";
 import {
   LocalSigner, MemoryRelay, OutboxPool, aufteilungTag, buildJobRequest, buildPrivateJobRequest, generateKeypair,
   gutschriftTags, openPrivateJobResponse, parseJobResult, pfandTags, providerAnteilMsat, regelKeineZahlungsdaten,
   signEvent, type Pfand,
 } from "@freedomstack/protocol";
 import { DvmProvider, type ProviderConfig } from "../src/dvm-provider.js";
-import type { PfandAnnahme } from "../src/pfand-kasse.js";
+import { PfandKasse, cashuUeberTor, pfandSpeicher, type PfandAnnahme } from "../src/pfand-kasse.js";
+import { socksAttrappe } from "./socks-attrappe.js";
 import type { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
 
 const hex = (n: number) => randomBytes(n).toString("hex");
+const MINT = process.env["CASHU_TEST_MINT"];
+const ohneMint = !MINT && "CASHU_TEST_MINT fehlt (scripts/cashu-testmint.sh)";
 
 class ZaehlBackend implements InferenceBackend {
   aufrufe = 0;
@@ -123,3 +131,40 @@ test("Pfand-Auftrag: ungedeckt, offen, ohne Kasse, neben einer Gutschrift, Gebot
   assert.equal((await a.provider.pollOnce()).length, 0);
   assert.deepEqual(kasse.angenommen, []);
 });
+
+test("Pfand-Auftrag mit echten gesperrten Token (Mint über Tor): angenommen, gerechnet, gebucht – nie zweimal", { skip: ohneMint }, async () => {
+  const socks = await socksAttrappe();
+  try {
+    const mint = `http://pfandmintabcdefghij.onion:${new URL(MINT!).port}`;
+    const kasse = new PfandKasse({
+      mints: [mint], speicher: pfandSpeicher(join(mkdtempSync(join(tmpdir(), "pfand-")), "pfand.json")), anfrage: cashuUeberTor(socks.proxy),
+    });
+    assert.deepEqual(await kasse.ladeMints(), [{ mint }]);
+    const w = new Wallet(MINT!, { unit: "sat" });
+    await w.loadMint();
+    const q = await w.createMintQuoteBolt11(16);
+    const geld = await w.mintProofsBolt11(16, q.quote);
+    const rueck = Buffer.from(getPubKeyFromPrivKey(randomBytes(32))).toString("hex");
+    const { send } = await w.ops.send(4, geld)
+      .asP2PK(new P2PKBuilder().addLockPubkey(kasse.schluessel()).lockUntil(Math.floor(Date.now() / 1000) + 3600).addRefundPubkey(rueck).toOptions())
+      .includeFees(true).run();
+    const pfand: Pfand = {
+      mint,
+      token: send.map((p) => ({ id: p.id, amount: p.amount.toNumber(), secret: p.secret, C: p.C, dleq: { e: p.dleq!.e, s: p.dleq!.s, r: p.dleq!.r! } })),
+    };
+    const a = aufbau(kasse);
+    const { wrap, kunde } = await anfrage(a, pfand);
+    await a.pool.publish(wrap);
+    const jobs = await a.provider.pollOnce();
+    assert.equal(jobs.length, 1, "4 sat netto decken ein Gebot von 1 sat");
+    assert.equal(kasse.konto(kunde.publicKey())!.abgerechnet, jobs[0]!.providerMsat);
+    assert.deepEqual(regelKeineZahlungsdaten(await a.relay.query({})), [], "nichts offen");
+    // Dasselbe Token in einer neuen Unterhaltung: abgelehnt
+    await a.pool.publish((await anfrage(a, pfand)).wrap);
+    assert.equal((await a.provider.pollOnce()).length, 0);
+    assert.equal(a.backend.aufrufe, 1);
+  } finally {
+    socks.server.close();
+  }
+});
+
