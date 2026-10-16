@@ -10,7 +10,8 @@
  * Projektnamen sind Inhalt.
  */
 import { execFile } from "node:child_process";
-import { lstat, mkdir, readdir, rm } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { lstat, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { CODE_GRENZEN, istProjektName, type CodeProjekt } from "@freedomstack/protocol";
 
@@ -22,7 +23,7 @@ export const projekteOrdner = (home = process.env.HOME ?? "."): string => join(h
  * Projektnamen – sie gehen nur als `code-ablage` hinaus und ins Log.
  */
 export class CodeAbgelehnt extends Error {
-  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage") {
+  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage" | "code-leer" | "code-zu-gross") {
     super(`Code: ${fall}`);
     this.name = "CodeAbgelehnt";
   }
@@ -46,7 +47,7 @@ export class ProjektAblage {
   }
 
   /** git ohne Shell, mit leerer Umgebung bis auf PATH; das Repository immer ausdrücklich (`--git-dir`). */
-  private git(args: string[], projekt?: string): Promise<string> {
+  private git(args: string[], projekt?: string, timeout = 10_000): Promise<string> {
     const ort = projekt ? ["--git-dir", join(this.ordner, projekt, ".git"), "--work-tree", join(this.ordner, projekt)] : [];
     return new Promise((ok, fehler) => {
       execFile(this.gitProgramm, [...GIT_FEST, ...ort, ...args], {
@@ -55,7 +56,7 @@ export class ProjektAblage {
           PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: this.ordner, LC_ALL: "C",
           GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_CEILING_DIRECTORIES: this.ordner,
         },
-        timeout: 10_000, maxBuffer: 1 << 20, windowsHide: true,
+        timeout, maxBuffer: 1 << 20, windowsHide: true,
       }, (e, stdout) => (e ? fehler(e) : ok(String(stdout))));
     });
   }
@@ -121,6 +122,23 @@ export class ProjektAblage {
     await this.git(["add", "-A"], name);
     await this.git(["-c", "user.name=Freedom-Agent", "-c", "user.email=agent@knoten.invalid", "commit", "-q", "--no-verify", "-m", `Schritt ${nr}`], name);
     return true;
+  }
+
+  /**
+   * Das Projekt als git-Bundle (VKl), alle Zweige: erst in eine Datei neben den Projekten (Name mit Punkt –
+   * nie ein Projekt), dann gelesen und gelöscht. Ohne Commit `code-leer`, über `CODE_GRENZEN.bundle` `code-zu-gross`.
+   */
+  async bundle(name: string): Promise<Uint8Array> {
+    if (!istProjektName(name)) throw new Error("Projektname ungültig");
+    const datei = join(this.ordner, `.bundle-${randomBytes(8).toString("hex")}`);
+    try {
+      if (!(await this.git(["rev-list", "-n", "1", "--all"], name).catch(() => "")).trim()) throw new CodeAbgelehnt("code-leer");
+      await this.git(["bundle", "create", datei, "--all"], name, 60_000).catch(() => { throw new CodeAbgelehnt("code-git"); });
+      if ((await stat(datei)).size > CODE_GRENZEN.bundle) throw new CodeAbgelehnt("code-zu-gross");
+      return new Uint8Array(await readFile(datei));
+    } finally {
+      await rm(datei, { force: true });
+    }
   }
 
   /** Projekt anlegen: Ordner (0700) und git mit Zweig `main`. Vorhandene bleiben, wie sie sind (ohne git bekommen sie eines). */

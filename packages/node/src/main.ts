@@ -33,10 +33,12 @@ import {
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
+import { pfandKasseAusUmgebung, pfandOrt } from "./pfand-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
 import { projekteAusUmgebung } from "./projekte.js";
+import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
 import { torAusUmgebung, torWebSocket } from "./tor.js";
@@ -356,6 +358,14 @@ async function main(): Promise<void> {
   });
   console.log(kanalKasse ? `[kanal] Zahlkanal an (Provider ${process.env.NODE_SOL_ADDRESS})` : `[kanal] Zahlkanal ${kanalGrund}`);
   if (kanalKasse) console.log(auszahlung ? `[kanal] Auszahlung an ${process.env.NODE_SOL_PAYOUT}` : `[kanal] Auszahlung ${auszahlungGrund}`);
+  // Cashu-Pfand (RM2b2): nur mit PFAND=1 und PFAND_MINTS – ungültig heißt kein Start. Selbstprüfung der Mints ins Log.
+  const pfandKasse = pfandKasseAusUmgebung(process.env, pfandOrt());
+  if (pfandKasse) {
+    // Blockiert den Start nicht: Gemerkte Schlüssel gelten weiter, das nächste Angebot nennt neu Geprüftes
+    void pfandKasse.ladeMints().then((befunde) => {
+      for (const b of befunde) console.log(`[pfand] ${b.mint}: ${b.fall ?? "bereit"}`);
+    });
+  } else console.log("[pfand] aus (PFAND=1 und PFAND_MINTS setzen)");
   // Selbstprüfung (8.2a): verdient der Knoten in beiden Schienen? Ins Log, blockiert den Start nicht.
   // Die Befunde gehen seit B-11c auch in den Status an den Besitzer – nur Kennungen und Zahlen.
   let einrichtung: Befund[] | undefined;
@@ -397,6 +407,8 @@ async function main(): Promise<void> {
   }
   if (projekte) statusRollen.add("code");
   console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
+  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log; den Motor startet erst VKc3 darin
+  if (projekte) console.log(`[code] ${sandboxText(await pruefeSandbox())}`);
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
   const agentWahl = agentAusUmgebung(process.env);
   if (agentWahl?.grund) {
@@ -490,6 +502,7 @@ async function main(): Promise<void> {
       solPriceSats: process.env.SOL_PRICE_SATS ? Number(process.env.SOL_PRICE_SATS) : undefined,
       solanaAddress: process.env.NODE_SOL_ADDRESS || undefined,
       kanalKasse,
+      pfandKasse,
     },
     pool,
     backend,
@@ -710,7 +723,7 @@ async function main(): Promise<void> {
   // Speicherangabe und (seit 3.1) die Rechenarbeit fuer private Anfragen.
   let letzteModellMeldung = "";
   const baueAngebot = async () => {
-    const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
+    const { AUFTEILUNG_FASSUNG, buildCapabilities, defaultPriceFor, DEFAULT_TOOL_PRICES, signEvent, KANAL_PROGRAMM_ID, PFAND_FASSUNG } = await import("@freedomstack/protocol");
     gepruefteModelle = await modellDienst.imAngebot();
     ollamaNamen = await antriebModelle(antrieb).then((t) => (ollamaStand = t).map((m) => m.name), () => (ollamaStand = null));
     const models = angebotModelle();
@@ -754,6 +767,9 @@ async function main(): Promise<void> {
       werberSol,
       // Zahlkanal (4.3c): nur, wenn der Knoten Gutschriften auch einlösen kann
       kanal: kanalKasse && process.env.NODE_SOL_ADDRESS ? { adresse: process.env.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID } : undefined,
+      // Cashu-Pfand (RM2b2): nur Mints, deren Schlüssel die Kasse kennt – mit dem Pfand-Schlüssel, nie dem des Knotens
+      cashu: pfandKasse && pfandKasse.bereit().length > 0
+        ? { mints: pfandKasse.bereit(), schluessel: pfandKasse.schluessel(), fassung: PFAND_FASSUNG } : undefined,
       // Funk-Gateway (7.4b2): die App wählt es, solange sie Netz hat
       funkGateway: funkGateway !== undefined,
       // Gratis-Start (A-14): Budget am Tag, Grenze je Antwort, Rechenarbeit – die App zeigt es vor der Frage
@@ -843,6 +859,22 @@ async function main(): Promise<void> {
     };
     void einloesen();
     setInterval(() => void einloesen(), 5 * 60 * 1000);
+  }
+
+  // Cashu-Pfand: fällige Token einlösen (gesammelt, vor der Frist) – nur Mint, Betrag und Fehlername ins Log.
+  // Stündlich die Schlüssel der Mints neu (Selbstprüfung); eine Mint, die erst später antwortet, kommt so ins Angebot.
+  if (pfandKasse) {
+    let takte = 0;
+    const pfandTakt = async () => {
+      if (++takte % 12 === 0) {
+        for (const b of await pfandKasse.ladeMints()) if (b.fall) console.log(`[pfand] ${b.mint}: ${b.fall}`);
+      }
+      for (const r of await pfandKasse.loeseFaelligeEin().catch(() => [])) {
+        console.log(r.fehler ? `[pfand] ${r.mint}: ${r.fehler} (${r.betrag} sat)` : `[pfand] ${r.mint}: ${r.betrag} sat eingelöst`);
+      }
+    };
+    void pfandTakt();
+    setInterval(() => void pfandTakt(), 5 * 60 * 1000);
   }
 
   const pollMs = Number(process.env.POLL_INTERVAL_MS ?? 15_000);

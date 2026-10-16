@@ -92,7 +92,7 @@ test("Verdrahtung (11.4c): Raum → Liste → Repo-Seite → „Zum Raum“; Anl
   assert.match(repos, /\.\.\.\(!imRaum \? \[\{ art: "wahl" as const, name: "wo", label: t\("repo\.wo"\), wert: ""/);
   assert.match(repos, /const angaben = \{ id, name: id, klon, \.\.\.\(beschreibung \? \{ beschreibung \} : \{\}\), \.\.\.\(raum \? \{ raum \} : \{\}\) \};/);
   // Seit C-36 steht im Dialog, was geschieht – aus dem Raum mit seinem Namen (privat: nur Mitglieder, verschlüsselt)
-  assert.match(repos, /const hinweis = !imRaum \? t\("repo\.ankuendigenHinweis"\) : t\(imPrivaten \? "repo\.hinweisPrivat" : "repo\.hinweisOeffentlich", \{ raum: imRaum\.name \}\);/);
+  assert.match(repos, /const hinweis = !imRaum \? t\(ausKnoten \? "repo\.knotenHinweis" : "repo\.ankuendigenHinweis"\) : t\(imPrivaten \? "repo\.hinweisPrivat" : "repo\.hinweisOeffentlich", \{ raum: imRaum\.name \}\);/);
   // Menüpunkt und Abschnitt sind zu Beginn verborgen
   assert.match(html, /<button id="space-repo-neu" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="raum\.repoAnlegen">/);
   assert.match(html, /<section id="raum-repos" class="raum-repos hidden" aria-labelledby="raum-repos-titel">/);

@@ -227,6 +227,10 @@ Bereichs unten anhängen.
   `projekte.test.ts`). Neue git-Befehle nur über `git()` und mit Blick darauf, was sie aus der Konfiguration
   ausführen. Projektnamen sind Inhalt: Fehler des Dateisystems (tragen den Pfad) nur als `code-ablage`
   hinaus und ins Log, `outputPreview` nur mit Zahlen.
+  Ein Projekt verlässt den Knoten (seit VKl) nur als Bundle über `ProjektAblage.bundle()` (git über `git()`, Datei
+  mit Punkt neben den Projekten, danach gelöscht) und nur verschlüsselt ins Blob-Netz unter einem
+  **Wegwerfschlüssel** (`bundleInsBlobNetz()`) – nie unter dem Schlüssel des Knotens, der Blob läge sonst neben
+  seinem Angebot und verriete, wessen Knoten das Repo baute. Den Schlüssel bekommt nur der Besitzer versiegelt.
 - **Mini-App für Telegram nur über `tmaAusUmgebung()`** (seit TMA-2, `tma-server.ts`, `docs/MINI-APP-TMA.md`): nur mit
   `FREEDOM_TMA=1` und gültigem Bot-Token (ungültig → kein Start), Host `127.0.0.1`, TON nur mit eigener
   `TON_DEPOT_ADDRESS` – nie eine Adresse einer anderen Kette als Rückfall (bis TMA-2 `NODE_SOL_ADDRESS`).
@@ -258,3 +262,59 @@ Bereichs unten anhängen.
   Angebot (vierter Wert im `storage`-Tag, `leseSpeicherGratis()`). `nimmAuf()` lehnt Stücke größerer Dateien ab
   (Größe aus `pruefeSpeicherStueck()`), nie die des Besitzers (`halten`). Eine netzweite Schwelle gibt es nicht mehr –
   `network-capacity.ts` nicht wieder einführen.
+- **Code nur in der Sandbox** (seit VKb = 11.5s, `sandbox.ts`): Befehle nur über `fuehreAus()`, ein Motor nur über
+  `sandboxMotor()` – nie `spawn` eines fremden oder vom Modell gewählten Befehls daneben, nie `prozessMotor()` allein.
+  bubblewrap mit allen Namensräumen (`--unshare-all` und `--unshare-user`, kein Netz), leere Umgebung, nur lesbar
+  `/usr` und die Wurzel (`--remount-ro /` zuletzt – sonst ist die tmpfs-Wurzel samt `/etc` schreibbar), aus `/etc`
+  nur die drei eigenen Dateien und nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (ohne sie startet etwa
+  `python3` nicht – unter Debian ein Verweis dorthin), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
+  dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
+  Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
+- **Arbeitsordner nur über `arbeitskopie.ts`** (seit 11.5a1): je Repo-Auftrag `neuerArbeitsordner()` (0700, in
+  `/dev/shm`, wo es ihn gibt), geschrieben nur mit `schreibeArbeitskopie()` – nur in einen leeren, echten Ordner, jede
+  Datei neu (`O_EXCL`, `O_NOFOLLOW`), Verweise zuletzt. Nach dem Auftrag `weg()`, auch wenn er scheitert. Liest der
+  Knoten den Ordner danach (Patch, 11.5a2), nur mit `lstat` und Verweise als Text – der Agent legt in der Sandbox
+  Verweise auf alles an, auch auf `~/.freedom`; wer ihnen folgt, packt den Schlüssel des Knotens in den Patch.
+  Gelesen wird der Ordner nach dem Auftrag nur über `leseArbeitsordner()` (seit 11.5a2b): `lstat`, Dateien mit
+  `O_NOFOLLOW`, Verweise als Text, `.git` und Submodule nie betreten, Ignoriertes nach `.gitignore` wie git
+  (`istIgnoriert()` – ein ignorierter Ordner wird nicht betreten, außer git kennt Dateien darin). Ein Test vergleicht
+  mit `git ls-files`; neue Regeln für `.gitignore` nur mit diesem Vergleich.
+- **Abgleich (NIP-77) nur wie ein REQ** (seit B-35b, `relay-role.ts`): `NEG-OPEN` nimmt nur Events, die
+  `darfAusliefern()` der Verbindung zeigen würde, und lehnt Filter auf Umschläge ohne Anmeldung ab
+  (`brauchtAnmeldung()`) – ein Fingerabdruck verriete sonst, welche Umschläge an wen dort liegen. Offene Abgleiche zählen
+  wie Abos, jede Nachricht wie eine Abfrage, höchstens `NEG_RELAY.events`; `NEG-ERR` nur mit festen Texten.
+- **seccomp nur über `seccompFilter()`** (seit 11.5s2, `seccomp.ts`): cBPF ohne libseccomp, über `--seccomp 3` (Datei als
+  `stdio[3]`, nach dem Lauf geschlossen). Zuerst die Architektur prüfen (sonst töten), auf x86_64 die x32-Aufrufe sperren;
+  gesperrte Aufrufe ergeben `EPERM`, `clone3` `ENOSYS` (die C-Bibliothek nimmt dann `clone`, dessen Flags der Filter sieht).
+  Nummern je Architektur aus den Kernel-Headern – nie von x86_64 auf arm64 übertragen. Netz-Aufrufe bleiben erlaubt:
+  ohne Netz-Namensraum erreichen sie nur `lo`, und die Brücke zum Modell (VKc3) braucht sie. Speicher je Befehl nie mit
+  `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
+  (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
+  Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
+- **Pakete nur über `pakete.ts`** (seit 11.5n, W6a „So“): Die Sandbox bleibt ohne Netz, Pakete holt der Knoten vorher –
+  nur aus `package-lock.json` (Fassung 2/3, `integrity` sha512) und `requirements.txt` mit `--hash=sha256` (`holeAusSperre()`)
+  oder mit Namen und fester Version (`paketHolen()`, höchstens 20 je Auftrag, nur offene Räume – das prüft der Aufrufer).
+  Nur GET von `PAKET_QUELLEN` (genau diese Hosts, https, ohne Port), ohne Weiterleitung; fehlt einem Paket die Prüfsumme
+  oder kommt es von woanders, ist die ganze Sperrdatei abgelehnt. `tor` muss der Aufrufer nennen (`torAusUmgebung()`,
+  sonst `null`) – mit Tor geht jeder Abruf über `torGet()`, nie direkt. Abgelegt erst nach der Prüfung (`O_EXCL`,
+  `O_NOFOLLOW`, 0600): npm nach Inhalt (`npm/_cacache/content-v2/sha512/…`, wie der Cache von npm – so installiert
+  `npm ci --offline --ignore-scripts --cache <ziel>/npm`), PyPI unter dem Dateinamen für `pip install --no-index
+  --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
+  Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
+  außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.
+- **Cashu-Pfand im Knoten nur über `PfandKasse`** (seit RM2b1, `pfand-kasse.ts`, `docs/PROTOCOL.md` §38): angenommen nur
+  über `nimmAn()` – `pruefePfand()` gegen die gemerkten Schlüssel der Mints aus `ladeMints()` (nur Mints mit NUT-11, NUT-12
+  und Schlüsseln in sat), Deckung je Sitzungsschlüssel der Anfrage (signiert, nie ein Schlüssel aus den Tags) und netto:
+  Nennwert minus `input_fee_ppk` je Token (ppk sind msat). Ohne Deckung bleibt der Stand, wie er war; eine leere Liste legt
+  kein Konto an. Alles in einer Datei (`pfandSpeicher()`, 0600, über eine Zwischendatei; kaputt → kein Start, nie
+  ersetzen) – Pfand-Schlüssel, Seed, Token, gesehene Geheimnisse bis zur Frist, Konten, Erlös. Eingelöst nur über
+  `loeseFaelligeEin()`: eine zur Zeit, je Mint gesammelt, ohne Beweis (V5), spätestens `PFAND_LETZTER_VERSUCH_SEK` vor der
+  Frist – danach gehört das Token dem Rückweg des Kunden. Eigene Token nur aus dem Seed (NUT-13) mit Zählern in der Datei;
+  scheitert ein Tausch (auch ohne Antwort), holt der nächste Lauf genau dessen Zählerbereich zurück (NUT-09) und prüft die
+  eingesetzten Token – nie ab Zähler 0. Die Test-Mint verlangt 0,1 sat je Token: Beträge im Test aus den Token rechnen,
+  nie fest.
+  Im Provider (seit RM2b2) nur mit `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` wie im Angebot; ungültig → kein
+  Start, mit `TOR_SOCKS` bis RM2b3 auch – die Mint sähe sonst die IP am Tor vorbei): Pfand nur aus einem Umschlag, nie neben
+  einer Gutschrift, Deckung und Buchung nur als Anteil des Providers (`providerAnteilMsat()`), gebucht vor der Antwort.
+  Über den Provider geht nur eine Mint mit https oder .onion (`lesePfandTags()`) – die Test-Mint auf http://127.0.0.1 nur
+  in Tests der Kasse; Tests des Providers nehmen eine Attrappe mit `nimmAn`/`verbuche`.

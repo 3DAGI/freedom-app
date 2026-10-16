@@ -16,7 +16,7 @@
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
-import type { Duplex } from "node:stream";
+import { Readable, type Duplex } from "node:stream";
 import tls from "node:tls";
 import { WebSocket } from "ws";
 
@@ -103,6 +103,30 @@ class TorHttpsAgent extends https.Agent {
 export function torWebSocket(proxy: SocksZiel): (url: string) => globalThis.WebSocket {
   const agenten = { ws: new TorHttpAgent(proxy), wss: new TorHttpsAgent(proxy) };
   return (url) => new WebSocket(url, { agent: url.startsWith("wss:") ? agenten.wss : agenten.ws }) as unknown as globalThis.WebSocket;
+}
+
+/**
+ * Ein GET über https durch Tor (seit 11.5n, Pakete holen): Den Namen löst der Proxy auf, das
+ * Zertifikat wird gegen ihn geprüft; Weiterleitungen folgt die Funktion nie. `zeitMs` gilt für
+ * Stille auf der Verbindung.
+ */
+export function torGet(proxy: SocksZiel, url: string, zeitMs = 60_000): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return reject(new SocksFehler("nur https"));
+    const req = https.get(u, { agent: new TorHttpsAgent(proxy), headers: { "user-agent": "freedomstack-node/1.0" }, timeout: zeitMs }, (res) => {
+      const kopf = new Headers();
+      for (const [k, v] of Object.entries(res.headers)) if (typeof v === "string") kopf.set(k, v);
+      try {
+        resolve(new Response(Readable.toWeb(res) as ReadableStream<Uint8Array>, { status: res.statusCode ?? 0, headers: kopf }));
+      } catch (e) {
+        res.destroy();
+        reject(e);
+      }
+    });
+    req.on("timeout", () => req.destroy(new SocksFehler("Zeit abgelaufen")));
+    req.on("error", reject);
+  });
 }
 
 /** `TOR_SOCKS=host:port` – ohne: kein Tor; ungültig: ein Grund (der Knoten startet dann nicht). */
