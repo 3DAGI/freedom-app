@@ -109,6 +109,11 @@
 .avatar[data-farbe="5"], header .ident[data-farbe="5"]::before, .profile-avatar-fallback[data-farbe="5"] { background: #2E7A78; }
 .avatar[data-farbe="6"], header .ident[data-farbe="6"]::before, .profile-avatar-fallback[data-farbe="6"] { background: #5A5FA8; }
 .avatar[data-farbe="7"], header .ident[data-farbe="7"]::before, .profile-avatar-fallback[data-farbe="7"] { background: #8C4A2E; }
+/* Leerer Zustand (C-45): Symbol, ein Satz, der nächste Schritt */
+.leer-zustand { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 16px; text-align: center; }
+.leer-symbol { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--surf2); border: 1px solid var(--line2); color: var(--accent); }
+.leer-satz { margin: 0; max-width: 36ch; font-size: 14px; line-height: 1.5; color: var(--text-muted); }
 .chat-partner { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 12px 0; font-weight: 600; }
 /* Der Kopf schrumpft mit dem Namen, nie über die Breite hinaus (C-44: am Handy lief die Spalte sonst 7 px über –
    der volle Name zählte zur Mindestbreite der Spalte, daher min-width: 0 auch an .chat-main) */

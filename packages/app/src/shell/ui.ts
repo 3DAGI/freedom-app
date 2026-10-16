@@ -10,6 +10,7 @@ import { escapeHtml, pkShort } from "../shell-logic.js";
 import { ensurePool, state } from "./state.js";
 import { offlineHinweis } from "../protokoll-texte.js";
 import { avatarFarbe, personInitiale } from "../avatar.js";
+import { iconEl } from "../icons.js";
 
 // ------------------------------------------------------------- Helpers
 
@@ -56,6 +57,25 @@ export function timeAgo(ts: number): string {
 
 export function escrowIdent(): string {
   return state.keypair ? pkShort(state.keypair.pk) : t("ein.keineIdentitaetKurz");
+}
+
+/**
+ * Leerer Zustand (C-45, Oberflächen-Review 15.10.2026): ein Symbol, ein Satz in Klartext und der
+ * nächste Schritt als Knopf. Bis dahin standen dort graue Sätze ohne Weg weiter („keine
+ * LP-Angebote gefunden“, „Noch keine Repos nach NIP-34 …“).
+ */
+export function leererZustand(symbol: string, satz: string, aktion?: { text: string; beiKlick: () => void }): HTMLElement {
+  const box = el("div", undefined, "leer-zustand");
+  const zeichen = el("span", undefined, "leer-symbol");
+  zeichen.append(iconEl(symbol, 22));
+  box.append(zeichen, el("p", satz, "leer-satz"));
+  if (aktion) {
+    const knopf = el("button", aktion.text, "primaer");
+    knopf.type = "button";
+    knopf.addEventListener("click", aktion.beiKlick);
+    box.append(knopf);
+  }
+  return box;
 }
 
 /**

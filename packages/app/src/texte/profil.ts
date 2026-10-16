@@ -109,7 +109,7 @@ export const profil: Texte = {
   "repo.annehmen": { de: "annehmen", en: "accept" },
   "repo.schliessen": { de: "schließen", en: "close" },
   "repo.zurueckziehen": { de: "zurückziehen", en: "withdraw" },
-  "repo.keineRepos": { de: "Noch keine Repos nach NIP-34 – kündige das erste an.", en: "No NIP-34 repos yet – announce the first one." },
+  "repo.keineRepos": { de: "Noch keine Repos. Kündige eines an – andere Nostr-Clients wie ngit und gitworkshop sehen es auch.", en: "No repos yet. Announce one – other Nostr clients such as ngit and gitworkshop see it too." },
   "repo.relaysWeg": { de: "Relays nicht erreichbar", en: "Relays not reachable" },
   "repo.patchSenden": { de: "Patch senden", en: "Send patch" },
   "repo.keinePatches": { de: "Keine Patches.", en: "No patches." },
