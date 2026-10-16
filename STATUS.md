@@ -10279,3 +10279,37 @@ Angebot (§38).
 - Leak-Regel: Pfand offen fällt auf, Angebot nicht.
 
 Knoten-Stand: unverändert (noch nicht aufgerufen; RM2b).
+
+## Schritt RM2b1 – Pfand-Kasse im Knoten
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V3, V5, V6; W1 A, entschieden 14.10.). RM2b aufgeteilt wie der Zahlkanal (4.3c1/4.3c2):
+RM2b1 die Kasse, RM2b2 das Verdrahten. Neue Abhängigkeit im Knoten wie im Entwurf freigegeben: `@cashu/cashu-ts` 4.11.0
+(MIT oder Apache-2.0, schon in der App seit A-17c – die Sperrdatei bekommt nur den Eintrag des Knotens).
+
+**Gebaut:**
+- `node/src/pfand-kasse.ts` (neu), `PfandKasse`:
+  - `ladeMints()`: Selbstprüfung je Mint (NUT-11, NUT-12, Schlüssel in sat), Schlüssel gemerkt fürs Prüfen ohne Mint;
+    unerreichbar → die gemerkten bleiben. Ein unbekanntes Keyset holt die Kasse höchstens einmal je Minute neu.
+  - `nimmAn(pfand, sitzung, bedarfMsat)`: `pruefePfand()`, dann Deckung wie die KanalKasse – übergeben mindestens
+    abgerechnet plus Bedarf, je Sitzungsschlüssel der Anfrage, netto (Nennwert minus Gebühr der Mint je Token, NUT-02).
+    Ohne Deckung bleibt alles, wie es war; ohne neue Token wird gegen das Übergebene gerechnet.
+  - `verbuche()`: höchstens bis zum Übergebenen.
+  - `loeseFaelligeEin()`: eine Einlösung zur Zeit, je Mint gesammelt (Frist im Vorlauf von 30 Minuten oder 1000 sat
+    offen), ohne Beweis (V5), spätestens zehn Minuten vor der Frist – was näher liegt, gehört dem Rückweg.
+  - Absturzsicher wie der Cashu-Topf (A-17c): eigene Token aus einem Seed (NUT-13), Zähler in der Datei, vor jedem Tausch
+    „laufend“ gemerkt; scheitert er, auch ohne Antwort der Mint, holt der nächste Lauf genau diesen Zählerbereich zurück
+    (NUT-09) und prüft die eingesetzten Token.
+  - `pfandSpeicher()`: eine Datei, 0600, über eine Zwischendatei; kaputt → kein Start.
+- Protokoll: eine leere Token-Liste heißt „gegen das schon Übergebene rechnen“ (`lesePfandTags()`, `pruefePfand()` ohne
+  Frist), §38.
+- CI: die Test-Mint startet vor den Knoten-Tests.
+
+**Tests:** node +6 (`pfand-kasse.test.ts`; 4 gegen die Mint), protocol unverändert 7 (`pfand.test.ts` um die leere Liste
+erweitert):
+- Datei 0600, Neustart behält den Schlüssel, kaputt → kein Start; Mint ohne Netz;
+- Deckung netto, je Sitzung, nie doppelt – auch nach einem Neustart, ohne Beweis gemerkt, fremde Sperre abgelehnt;
+- Einlösen gesammelt vor der Frist, eine Einlösung zur Zeit, zu spät nie;
+- Abbruch nach der Antwort der Mint: der nächste Lauf holt genau diesen Tausch, nichts doppelt;
+- die Mint hält die Frist ein (V3): vorher kein Rückweg, danach schon.
+
+Knoten-Stand: unverändert (noch nicht verdrahtet; RM2b2).

@@ -58,13 +58,13 @@ jobs:
           bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --unshare-all --ro-bind / / true
 
-      - name: Tests node
-        run: npm test --workspace @freedomstack/node
-
-      - name: Cashu-Mint fuer die Topf-Tests (A-17c)
+      - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
         run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
+
+      - name: Tests node
+        run: npm test --workspace @freedomstack/node
 
       - name: Tests app
         run: npm test --workspace @freedomstack/app

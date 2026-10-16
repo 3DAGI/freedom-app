@@ -104,6 +104,9 @@ test("pruefePfand: echte gesperrte Token gelten ohne Mint – Betrag und frühes
   // Ausdrücklich ein Unterschreiber und SIG_INPUTS sind dasselbe
   const ausdruecklich = m.signiere(sperre([...normal(), ["n_sigs", "1"], ["sigflag", "SIG_INPUTS"]]), 2);
   assert.equal(pruefePfand({ mint: MINT, token: [ausdruecklich] }, o).ok, true);
+  // Ohne Token: nichts übergeben, keine Frist – aber nur bei einer Mint aus der Liste
+  assert.deepEqual(pruefePfand({ mint: MINT, token: [] }, o), { ok: true, betrag: 0 });
+  assert.deepEqual(pruefePfand({ mint: "https://andere-mint.example.org", token: [] }, o), { ok: false, fall: "pfand-mint" });
 });
 
 test("pruefePfand: jede Abweichung hat ihre Kennung, und dann gilt keiner der Teile", () => {
@@ -140,6 +143,8 @@ test("Tags im Kern: hin und zurück; Kaputtes wirft pfand-form", () => {
   assert.equal(tags.length, 1);
   assert.deepEqual(lesePfandTags([["p", "x"], ...tags]), { mint: MINT, token });
   assert.equal(lesePfandTags([["p", "x"]]), undefined);
+  // Ohne neue Token (seit RM2b1): gerechnet wird gegen das schon Übergebene
+  assert.deepEqual(lesePfandTags(pfandTags({ mint: MINT, token: [] })), { mint: MINT, token: [] });
   const json = tags[0]![2]!;
   const t0 = JSON.parse(json)[0];
   const kaputt: string[][][] = [
@@ -147,7 +152,7 @@ test("Tags im Kern: hin und zurück; Kaputtes wirft pfand-form", () => {
     [["pfand", "http://mint.example.org", json]],
     [["pfand", MINT + "/", json]],
     [["pfand", MINT, "kein json"]],
-    [["pfand", MINT, "[]"]],
+    [["pfand", MINT, "{}"]],
     [["pfand", MINT, JSON.stringify(Array(PFAND_GRENZEN.token + 1).fill(t0))]],
     [["pfand", MINT, JSON.stringify([{ ...t0, amount: 0 }])]],
     [["pfand", MINT, JSON.stringify([{ ...t0, amount: 1.5 }])]],
