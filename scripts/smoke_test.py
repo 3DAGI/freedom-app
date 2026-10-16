@@ -662,11 +662,12 @@ class DialogSeite:
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
 
     def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None,
-                 viewport: dict | None = None, mobil: bool = False) -> None:
+                 viewport: dict | None = None, mobil: bool = False, farbschema: str | None = None) -> None:
         basis = url.rsplit("/", 1)[0]
         self.browser_dialoge: list[str] = []
+        # Farbschema des Geräts (C-57b): ohne Angabe das von Playwright – hell
         self.ctx = browser.new_context(locale="de-DE", viewport=viewport or {"width": 1280, "height": 800},
-                                       is_mobile=mobil, has_touch=mobil)
+                                       is_mobile=mobil, has_touch=mobil, color_scheme=farbschema)
         if init:
             self.ctx.add_init_script(init)
         self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -2342,10 +2343,12 @@ ZUGANG_SEITEN = ["#/agent", "#/chat", "#/repos", "#/waehrung", "#/verdienen", "#
 def zugang_pruefen(browser, url: str) -> dict:
     """Barrierefreiheit (C-4): auf jeder Seite und in jedem Unterreiter, Desktop und Handy – jedes Bedienelement
     hat einen Namen für Vorleser, nichts ist nur mit der Maus erreichbar, keine Tab-Reihenfolge von Hand
-    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1)."""
+    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1). Seit C-57b in beiden Designs (das Gerät
+    hell, das Gerät dunkel)."""
     erg = {"fehler": []}
-    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
-        seite = DialogSeite(browser, url, ProbeRelay(), erg)
+    for schema, groesse, vp in [(sch, g, v) for sch in ("dark", "light")
+                                for g, v in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]]:
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema=schema)
         if groesse == "mobil":
             seite.s.set_viewport_size(vp)
         funde: dict = {}
@@ -2365,10 +2368,11 @@ def zugang_pruefen(browser, url: str) -> dict:
                 for art, liste in seite.ev(ZUGANG_PRUEFUNG).items():
                     for x in liste:
                         funde.setdefault(art, {}).setdefault(x, f"{a}{':' + reiter[1] if reiter else ''}")
-        erg[groesse] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
-        for art, v in erg[groesse].items():
+        name = groesse if schema == "dark" else f"hell/{groesse}"
+        erg[name] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
+        for art, v in erg[name].items():
             if v:
-                erg["fehler"].append(f"{groesse} {art}: {v[:6]}")
+                erg["fehler"].append(f"{name} {art}: {v[:6]}")
         seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
@@ -5724,20 +5728,22 @@ def stil_abdruck_pruefen(browser, url: str) -> dict:
     Schrift, Größe, Gewicht, Schreibung, Radius, Farben, Mindesthöhe; verglichen mit `scripts/stil-soll.json`. Gemessen wird nur, was das CSS
     festlegt, nicht die Schrift des Rechners – Bildschirmfotos hingen von den Schriften des CI-Rechners ab. Gewollt
     geändert: `STIL_NEU=1` schreibt die Datei neu (mitcommiten, im Pull Request nennen); `BILDER=<ordner>` legt dazu
-    Bildschirmfotos ab, zum Ansehen."""
+    Bildschirmfotos ab, zum Ansehen. Seit C-57b je Design: dunkel ohne Vorsilbe, hell mit „hell/“."""
     erg = {"fehler": []}
     ist = {}
     bilder = os.environ.get("BILDER")
-    for groesse, vp, mobil in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True)):
-        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil)
+    for schema, groesse, vp, mobil in [(sch, *g) for sch in ("dark", "light")
+                                       for g in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True))]:
+        vorsilbe = "" if schema == "dark" else "hell/"
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil, farbschema=schema)
         ev, s = seite.ev, seite.s
         for name, hash_ in (("agent", "#/agent"), ("chats", "#/chat"), ("wallet", "#/waehrung"), ("verdienen", "#/verdienen"), ("einstellungen", "#/settings")):
             ev("(h) => { location.hash = h; }", hash_)
             s.wait_for_function("() => !!document.querySelector('.tab-page.active')", timeout=10000)
-            ist[f"{groesse}/{name}"] = ev(STIL_ABDRUCK)
+            ist[f"{vorsilbe}{groesse}/{name}"] = ev(STIL_ABDRUCK)
             if bilder:
                 Path(bilder).mkdir(parents=True, exist_ok=True)
-                s.screenshot(path=str(Path(bilder) / f"{groesse}-{name}.png"))
+                s.screenshot(path=str(Path(bilder) / f"{vorsilbe.rstrip('/') or 'dunkel'}-{groesse}-{name}.png"))
         seite.ctx.close()
     erg["ist"] = ist
     if os.environ.get("STIL_NEU") == "1":
@@ -5749,6 +5755,47 @@ def stil_abdruck_pruefen(browser, url: str) -> dict:
             a, b = soll.get(k, {}).get(teil), ist.get(k, {}).get(teil)
             if a != b:
                 erg["fehler"].append(f"{k} {teil}: soll {a}, ist {b}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+THEMA_STAND = """() => ({ attr: document.documentElement.dataset.theme ?? null, grund: getComputedStyle(document.body).backgroundColor,
+  wahl: [...document.querySelectorAll('select[data-thema-wahl]')].map((w) => w.value), gespeichert: localStorage.getItem('freedom.thema') })"""
+HELL_GRUND, DUNKEL_GRUND = "rgb(246, 247, 245)", "rgb(5, 5, 5)"
+
+
+def thema_pruefen(browser, url: str) -> dict:
+    """Helles Design (C-57b): ohne Wahl folgt die App dem Gerät (hell, nach dem Umschalten dunkel); „Dunkel“ in den
+    Settings gilt sofort, für beide Auswahlen und nach dem Neuladen; „Wie das Gerät“ auf „Mehr“ (Handy) nimmt sie zurück."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema="light")
+    s, ev = seite.s, seite.ev
+    g = erg["gang"] = {}
+    g["start"] = ev(THEMA_STAND)
+    s.emulate_media(color_scheme="dark")
+    g["geraet_dunkel"] = ev(THEMA_STAND)
+    s.emulate_media(color_scheme="light")
+    ev("() => { location.hash = '#/settings'; }")
+    s.wait_for_selector(".thema-wahl select", state="visible", timeout=10000)
+    s.select_option(".thema-wahl select", "dunkel")
+    g["dunkel"] = ev(THEMA_STAND)
+    s.reload(wait_until="load")
+    s.wait_for_function("() => !!document.querySelector('.tab-page.active')", timeout=30000)
+    g["neu_geladen"] = ev(THEMA_STAND)
+    s.set_viewport_size({"width": 390, "height": 844})
+    ev("() => { location.hash = '#/mehr'; }")
+    s.wait_for_selector(".mehr-thema select", state="visible", timeout=10000)
+    s.select_option(".mehr-thema select", "system")
+    g["system"] = ev(THEMA_STAND)
+    seite.ctx.close()
+    soll = {"start": {"attr": None, "grund": HELL_GRUND, "wahl": ["system", "system"], "gespeichert": None},
+            "geraet_dunkel": {"attr": None, "grund": DUNKEL_GRUND, "wahl": ["system", "system"], "gespeichert": None},
+            "dunkel": {"attr": "dunkel", "grund": DUNKEL_GRUND, "wahl": ["dunkel", "dunkel"], "gespeichert": "dunkel"},
+            "neu_geladen": {"attr": "dunkel", "grund": DUNKEL_GRUND, "wahl": ["dunkel", "dunkel"], "gespeichert": "dunkel"},
+            "system": {"attr": None, "grund": HELL_GRUND, "wahl": ["system", "system"], "gespeichert": None}}
+    for k, v in soll.items():
+        if g.get(k) != v:
+            erg["fehler"].append(f"{k}: soll {v}, ist {g.get(k)}")
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -6015,6 +6062,10 @@ def main() -> int:
             except Exception as e:
                 erg["stil_abdruck"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["thema"] = thema_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["thema"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6164,6 +6215,7 @@ def main() -> int:
           and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("einst_zeilen", {}).get("bestanden") is True
           and erg.get("stil_abdruck", {}).get("bestanden") is True
+          and erg.get("thema", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True

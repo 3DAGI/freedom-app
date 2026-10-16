@@ -71,4 +71,8 @@ dieses Bereichs unten anhängen.
   `STIL_NEU=1 python3 scripts/smoke_test.py packages/app/dist` und die Datei mitcommiten, im Pull Request nennen;
   `BILDER=<ordner>` legt Bildschirmfotos zum Ansehen ab. Gemessen wird nur, was das CSS festlegt – Bildschirmfotos
   hingen von den Schriften des Rechners ab und wären in der CI rot, ohne dass sich etwas änderte.
+  Seit C-57b je Design: dunkel ohne Vorsilbe, hell mit „hell/“.
+- **Playwright meldet „hell“** (seit C-57b): Ohne `color_scheme` sieht die App im Smoke-Test das helle Design –
+  wie jedes helle Gerät. Was ein Design braucht, setzt es ausdrücklich (`DialogSeite(…, farbschema="dark")`);
+  „zugang“ und „stil_abdruck“ laufen in beiden.
 

@@ -839,6 +839,12 @@
             <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> <span data-i18n="set.tabDatenschutz">Datenschutz</span></button>
             <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> <span data-i18n="set.tabWeitergeben">Weitergeben</span></button>
             <div class="nav-lang settings-lang">
+              <label class="thema-wahl"><span data-i18n="set.design">Design</span>
+              <select data-thema-wahl>
+                <option value="system" data-i18n="set.designSystem">Wie das Gerät</option>
+                <option value="hell" data-i18n="set.designHell">Hell</option>
+                <option value="dunkel" data-i18n="set.designDunkel">Dunkel</option>
+              </select></label>
               <div class="lang-dropdown">
                 <button id="lang-btn-app" class="ghost lang-toggle" type="button" aria-label="Sprache" data-i18n-aria="set.sprache">🌐 ▾</button>
                 <div id="lang-menu-app" class="lang-menu hidden"></div>
@@ -1031,6 +1037,12 @@
               <div id="lang-menu-mehr" class="lang-menu hidden"></div>
             </div>
           </div>
+          <label class="mehr-zeile mehr-thema"><span class="ic" data-icon="sun"></span><span data-i18n="set.design">Design</span>
+              <select data-thema-wahl>
+                <option value="system" data-i18n="set.designSystem">Wie das Gerät</option>
+                <option value="hell" data-i18n="set.designHell">Hell</option>
+                <option value="dunkel" data-i18n="set.designDunkel">Dunkel</option>
+              </select></label>
           <p id="mehr-relays" class="mono-sm muted" role="status"></p>
         </div>
       </section>

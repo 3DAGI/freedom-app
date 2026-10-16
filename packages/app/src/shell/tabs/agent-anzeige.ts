@@ -528,7 +528,8 @@ export function folgeWieder(): void {
 function startOrb(canvas: HTMLCanvasElement): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  const accent = "#7BC80A";
+  // Grün aus dem Token (C-57b) – im hellen Design dunkler
+  const accent = getComputedStyle(canvas).getPropertyValue("--accent").trim() || "#7BC80A";
   let raf = 0;
   const start = performance.now();
   const draw = () => {
