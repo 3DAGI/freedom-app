@@ -109,4 +109,4 @@ Wie vorgeschlagen:
 | Nr. | Entscheidung |
 |---|---|
 | V3 | **geändert (RM2 W5 A):** Cashu ist der Weg für Lightning-Sitzungen – jede Ladung bestätigt der Nutzer, die Mint steht immer dabei; sonst bleibt Cashu für kleine Beträge und ohne Netz |
-| A-17c | **frei** – Cashu-Baustein mit `@cashu/cashu-ts` (Mint wählen, Token senden und empfangen, NUT-11/12); Größe und Lizenz im Pull Request |
+| A-17c | **frei** – Cashu-Baustein mit `@cashu/cashu-ts` (Mint wählen, Token senden und empfangen, NUT-11/12); Größe und Lizenz im Pull Request – **fertig** (15.10.: `app/src/cashu-topf.ts`, Tests gegen Nutshell mit FakeWallet, `scripts/cashu-testmint.sh`; ohne Oberfläche, aufgerufen ab RM2c) |
