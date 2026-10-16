@@ -133,6 +133,9 @@
                   </div>
                 </div>
                 <div id="werkzeug-auswahl" class="werkzeug-auswahl"></div>
+                <!-- „privat“ bleibt sichtbar, auch wenn der Haken im Popover steht (C-49b, nur CSS: :has) -->
+                <span class="privat-marke" data-i18n="agent.privatMarke">Privat</span>
+                <span class="funk-marke" data-i18n="agent.funkMarke">Über Funk</span>
                 <div id="video-opts" class="video-opts hidden">
                   <select id="video-duration" data-i18n-aria="agent.laenge" class="video-sel" title="Länge" data-i18n-title="agent.laenge">
                     <option value="2">~2s</option>
@@ -148,6 +151,23 @@
                 <span id="attach-status" class="mono-sm"></span>
                 <input type="file" id="attach-input" class="hidden" />
                 <span class="pille-luecke"></span>
+                <div class="optionen-wrap">
+                  <button type="button" id="ai-optionen-btn" class="ghost plus-knopf" aria-haspopup="true" aria-expanded="false" aria-controls="ai-optionen" aria-label="Stufe und Bezahlung" title="Stufe und Bezahlung" data-i18n-aria="agent.optionen" data-i18n-title="agent.optionen"><span class="ic" data-icon="settings"></span></button>
+                  <div id="ai-optionen" class="ai-optionen hidden" role="group" aria-label="Stufe und Bezahlung" data-i18n-aria="agent.optionen">
+                    <div class="menue-gruppe" data-i18n="agent.stufe">Stufe</div>
+                    <select id="ai-tier" data-i18n-aria="agent.stufeAria" class="tier-select">
+                      <option value="auto" selected data-i18n="tierAuto">auto — free first, then ask</option>
+                      <option value="free" data-i18n="tierFree">free — small, gratis</option>
+                      <option value="classic" data-i18n="tierClassic">classic — mid, cheap</option>
+                      <option value="pro" data-i18n="tierPro">pro — best, top-trust</option>
+                      <option value="max" data-i18n="tierMax">max — race, fastest wins</option>
+                      <option value="swarm" data-i18n="tierSwarm">swarm — judge picks best of N</option>
+                    </select>
+                    <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Gebot</span> <input id="ai-bid" data-i18n-aria="bid" type="number" value="100" min="1" /> <select id="ai-schiene" class="tier-select" data-i18n-aria="agent.schieneAria" aria-label="KI bezahlen mit"><option value="lightning">sats</option><option value="solana">SOL</option></select></span>
+                    <label id="ai-privat-wahl" class="mono-sm" title="Nur dieses Gerät oder dein eigener Knoten – nie fremde Provider, nie Funk, keine Prüfrunde" data-i18n-title="agent.privatTitel"><input type="checkbox" id="ai-privat" data-i18n-aria="agent.privatAria" aria-label="Diese Unterhaltung privat" /> <span data-i18n="agent.privat">privat</span></label>
+                    <label id="ai-funk-wahl" class="mono-sm" style="display:none" title="Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen" data-i18n-title="agent.ueberFunkTitel"><input type="checkbox" id="ai-funk" /> <span data-i18n="agent.ueberFunk">über Funk</span></label>
+                  </div>
+                </div>
                 <div class="model-picker-wrap">
                   <button type="button" id="ai-model-btn" class="tier-select model-btn" title="Modell wählen" data-i18n-title="agent.modellWaehlen"><span data-i18n="agent.autoSchnellste">Auto (schnellste)</span></button>
                   <input type="hidden" id="ai-model" value="" />
@@ -156,18 +176,8 @@
                 <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
               </div>
             </div>
+            <!-- Unter der Eingabe nur noch der Stand (C-49b); Stufe, Gebot, „privat“ stehen im Popover „Stufe und Bezahlung“ -->
             <div class="composer-meta">
-              <select id="ai-tier" data-i18n-aria="agent.stufeAria" class="tier-select">
-                <option value="auto" selected data-i18n="tierAuto">auto — free first, then ask</option>
-                <option value="free" data-i18n="tierFree">free — small, gratis</option>
-                <option value="classic" data-i18n="tierClassic">classic — mid, cheap</option>
-                <option value="pro" data-i18n="tierPro">pro — best, top-trust</option>
-                <option value="max" data-i18n="tierMax">max — race, fastest wins</option>
-                <option value="swarm" data-i18n="tierSwarm">swarm — judge picks best of N</option>
-              </select>
-              <span class="bid-wrap" id="bid-wrap" style="display:none"><span data-i18n="bid">Gebot</span> <input id="ai-bid" data-i18n-aria="bid" type="number" value="100" min="1" /> <select id="ai-schiene" class="tier-select" data-i18n-aria="agent.schieneAria" aria-label="KI bezahlen mit"><option value="lightning">sats</option><option value="solana">SOL</option></select></span>
-              <label id="ai-privat-wahl" class="mono-sm" title="Nur dieses Gerät oder dein eigener Knoten – nie fremde Provider, nie Funk, keine Prüfrunde" data-i18n-title="agent.privatTitel"><input type="checkbox" id="ai-privat" data-i18n-aria="agent.privatAria" aria-label="Diese Unterhaltung privat" /> <span data-i18n="agent.privat">privat</span></label>
-              <label id="ai-funk-wahl" class="mono-sm" style="display:none" title="Frage über dein Funkgerät an das gemerkte Gateway – kurze Antwort, höchstens 500 Zeichen" data-i18n-title="agent.ueberFunkTitel"><input type="checkbox" id="ai-funk" /> <span data-i18n="agent.ueberFunk">über Funk</span></label>
               <span id="ai-fee-preview" class="mono-sm" style="display:none"></span>
               <span id="ai-budget" class="mono-sm"></span>
               <span id="ai-gratis" class="mono-sm" hidden></span>
