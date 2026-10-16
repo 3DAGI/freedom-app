@@ -2612,17 +2612,29 @@ def qr_pruefen(browser, url: str) -> dict:
         pass
     code_dlg = ev(dlg) or {}
     code = code_dlg.get("wert") or ""
-    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    # Uhr anhalten, dann klicken – die Zeit des Klicks in derselben Aufgabe gemessen, in der die Uhr des QR beginnt
+    jetzt_ms = ev("() => Date.now()")
+    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
+    klick_ms = ev("() => { const t = Date.now(); document.querySelector('[role=dialog] .qr-zeigen').click(); return t; }")
     gezeigt = ev(dlg) or {}
     qr_pfad = ev("""() => { const b = document.querySelector('[role=dialog] .qr-bild');
       return b ? { d: b.querySelector('path').getAttribute('d'), g: +b.getAttribute('viewBox').split(' ')[2] } : null; }""")
-    jetzt_ms = ev("() => Date.now()")
-    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
-    s.clock.fast_forward("00:58")
-    s.wait_for_timeout(200)
+
+    def uhr_bis(ziel_ms: int) -> None:
+        """Die Uhr der Seite bis `ziel_ms` vorstellen. Playwrights Uhr kann nach `pause_at` zurückspringen: Ein
+        Durchlauf der Echtzeit, der vor der Pause begann, setzt an seinem Ende seine alte Zeit (`_advanceNow()` ohne
+        Sperre) – so lief der QR in der CI einmal nicht ab (C-57c). Darum die Zeit der Seite lesen und nachlegen."""
+        for _ in range(6):
+            rest = ziel_ms - ev("() => Date.now()")
+            if rest <= 0:
+                return
+            s.clock.fast_forward(int(rest))
+            s.wait_for_timeout(200)
+        erg["fehler"].append(f"Uhr der Seite erreicht {ziel_ms} nicht")
+
+    uhr_bis(klick_ms + 58_000)
     nach58 = (ev(dlg) or {}).get("bilder")
-    s.clock.fast_forward("00:03")
-    s.wait_for_timeout(200)
+    uhr_bis(klick_ms + 61_000)
     nach61 = ev(dlg) or {}
     sk = code.rsplit(":", 1)[-1] if code.count(":") == 2 else "?"
     gespeichert = ev("(sk) => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(v => String(v).includes(sk))", sk)
