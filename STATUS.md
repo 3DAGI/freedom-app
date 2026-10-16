@@ -10365,3 +10365,37 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1138 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-44 – Avatare: Buchstabe im Kreis, Farbe aus dem Schlüssel
+
+Aus dem Oberflächen-Review (15.10.2026). Personen ohne Bild sahen alle gleich aus:
+- In der Chat-Liste stand ein grüner Kreis mit dem ersten Zeichen des Namens oder, ohne Namen, des Schlüssels.
+- Im Raum-Verlauf und bei den Mitgliedern stand gar kein Zeichen.
+- Im Kopf der Unterhaltung stand nicht einmal der Name.
+
+- **`avatar.ts`**:
+  - `avatarFarbe()` wählt eine von acht Farben aus den ersten zwei Hex-Zeichen des Schlüssels. Ohne gültigen Schlüssel ist es die erste.
+  - `personInitiale()` liefert den ersten Buchstaben des Namens, nach Zeichen gezählt (Emoji bleiben ganz), ohne „~“. Ohne eigenen Namen steht „?“ statt eines Zeichens aus dem Schlüssel; die Farbe unterscheidet die Personen trotzdem.
+  - `kontaktInitiale()` nutzt sie mit.
+- **`avatar()`** (`shell/ui.ts`) baut einen Kreis nur aus Text, mit `data-farbe` und `aria-hidden` (für Vorleser zählt der Name daneben). Er erscheint in:
+  - der Chat-Liste (32 px);
+  - dem neuen Kopf der Unterhaltung (`#chat-partner`: Zeichen und Name; er wird mit der Liste neu gezeichnet und folgt so Umbenennen und Profilnamen);
+  - dem Raum-Verlauf (36 px links neben jeder Gruppe);
+  - den Mitgliedern.
+  Das eigene Zeichen kommt aus dem eigenen Profilnamen (`eigeneInitiale()`, wie in der Kopfzeile).
+- **Kopfzeile und Profil** nutzen dieselben Farben: `header .ident[data-farbe]::before` und `.profile-avatar-fallback[data-farbe]`. Der Rand der Profil-Vorschau bleibt im gewählten Akzent.
+- Nie ein Bild aus dem Netz (Regel aus C.5a).
+
+Die acht Farben stehen nur in `app.css`. Ein Test liest sie dort und rechnet den Kontrast zu Weiß nach WCAG: Jede liegt bei mindestens 4,5:1 (die niedrigste bei etwa 5:1).
+
+Tests:
+- Neu ist `avatar.test.ts`:
+  - Farbe gleich für denselben Schlüssel, alle acht verteilt, kaputte Schlüssel ergeben 0;
+  - Buchstabe nur aus dem Namen, Gegenfälle ergeben „?“;
+  - Kontrast jeder Farbe;
+  - die Verdrahtung.
+- `kontakt-name.test.ts` erwartet ohne Namen jetzt „?“ statt einer Ziffer aus dem Schlüssel; das ist eine gewollte Änderung.
+- Der Smoke-Teil „kontaktname“ prüft zusätzlich die Farbe aus dem Schlüssel und Zeichen und Namen im Kopf der Unterhaltung.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1142 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
