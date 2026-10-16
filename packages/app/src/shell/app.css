@@ -2053,3 +2053,24 @@ header .ident[data-farbe]::before { color: #fff; border-color: transparent; }
   .chat-anruf-knoepfe button { width: 40px; }
   .zap-msg-btn { min-width: 40px; }
 }
+
+/* Einstellungen › Verbindung (C-53a): Relays als Liste mit Stand, „Erweitert“ zum Aufklappen */
+.einst-satz { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-muted); }
+.relay-liste { list-style: none; margin: 0 0 10px; padding: 0; border: 1px solid var(--line2); border-radius: var(--r); }
+.relay-liste:empty { display: none; }
+.relay-zeile { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; border-top: 1px solid var(--line2); }
+.relay-zeile:first-child { border-top: 0; }
+.relay-punkt { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); opacity: .5; }
+.relay-punkt.an { background: var(--accent); opacity: 1; }
+.relay-url { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.relay-stand { flex: none; font-size: 12px; color: var(--text-muted); }
+.relay-dazu { display: flex; gap: 8px; align-items: center; }
+.relay-dazu input { margin: 0; flex: 1 1 auto; min-width: 0; }
+.einst-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+.einst-mehr { margin-top: 8px; }
+.einst-mehr > summary, .einst-erweitert > summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.einst-erweitert { margin-top: 14px; }
+.einst-erweitert > summary { min-height: 44px; padding: 0 4px; }
+.einst-erweitert-was { font-weight: 400; font-size: 13px; }
+/* Am Handy nur für Vorleser – der Punkt zeigt den Stand */
+@media (max-width: 640px) { .relay-stand { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }

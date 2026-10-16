@@ -9,8 +9,8 @@ import { zahle } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fliesstext, schluesselAusEingabe } from "../../shell-logic.js";
 import { zeigeVertraute } from "../nachfolge-ui.js";
-import { alsGeraet, ensurePool, mitRohemSchluessel, nimmInPool, signiere, state, veroeffentlicheWeit } from "../state.js";
-import { ladeEigeneRelays, pruefeRelayEingabe, setzeEigeneRelays } from "../../relay-satz.js";
+import { alsGeraet, ensurePool, mitRohemSchluessel, signiere, state } from "../state.js";
+import { ladeEigeneRelays } from "../../relay-satz.js";
 import {
   faelligeVerlaengerungen, kaufeRelayZugang, leseRelayPreise, merkeZugang, pruefeBeimRelay, schieneZumVerlaengern, zuErinnern, zugaenge,
   type RelayPreise, type Schiene,
@@ -514,49 +514,11 @@ export function wireRelayZugang(): void {
   // Erinnerung beim Start (E11 B): einmal am Tag, nur aus dem Gemerkten – kein Netz
   const erinnern = zuErinnern(localStorage, Math.floor(Date.now() / 1000));
   if (erinnern.length > 0) {
+    // Die Karte steht seit C-53a unter „Erweitert“ – zur Erinnerung aufgeklappt
+    document.getElementById("verbindung-erweitert")?.setAttribute("open", "");
     feld.value = erinnern[0].relay;
     toast(t("set.erinnerung"));
   }
   zeigeStand();
 }
 
-/**
- * Eigener Relay-Satz (5.4b2): sichtbar und änderbar. Veröffentlicht NIP-65-Liste
- * und Posteingang neu (weit), erst dann gilt er; neue Relays kommen gleich in
- * den Pool. Als Gerät nur sichtbar – der Satz gehört der Person (8.6c).
- */
-export function wireRelayKarte(): void {
-  const feld = document.getElementById("eigene-relays") as HTMLTextAreaElement | null;
-  const knopf = document.getElementById("eigene-relays-save") as HTMLButtonElement | null;
-  const status = document.getElementById("eigene-relays-status");
-  if (!feld || !knopf || !status) return;
-  feld.value = ladeEigeneRelays(localStorage).join("\n");
-  if (alsGeraet()) {
-    feld.readOnly = true;
-    knopf.disabled = true;
-    status.textContent = t("set.geraetSatz");
-    return;
-  }
-  if (!feld.value) status.textContent = t("set.keinSatz");
-  knopf.onclick = async () => {
-    const r = pruefeRelayEingabe(feld.value);
-    if ("fehler" in r) { status.textContent = r.fehler; return; }
-    if (!state.keypair) { status.textContent = t("set.keineIdentitaet"); return; }
-    knopf.disabled = true;
-    status.textContent = t("set.veroeffentliche");
-    try {
-      const ok = await setzeEigeneRelays({ relays: r.relays, pk: state.keypair.pk, signiere, weit: veroeffentlicheWeit, speicher: localStorage });
-      if (ok) {
-        await nimmInPool(r.relays);
-        feld.value = r.relays.join("\n");
-        status.textContent = t("set.veroeffentlicht", { n: r.relays.length });
-      } else {
-        status.textContent = t("set.nichtVeroeffentlichtKeiner");
-      }
-    } catch (e) {
-      status.textContent = t("set.nichtVeroeffentlicht", { fehler: fehlerText(e) });
-    } finally {
-      knopf.disabled = false;
-    }
-  };
-}
