@@ -160,7 +160,8 @@ services:
       KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS: "${KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS:-10000000}"
       # RM2b2: Cashu-Pfand (Lightning-Sitzungen) – nur mit PFAND=1 und PFAND_MINTS (https,
       # mit Komma; nur Mints mit NUT-11/12, die die Frist richtig umsetzen – vorher pruefen).
-      # Die Kasse liegt in ~/.freedom/pfand.json (Volume). Mit TOR_SOCKS noch nicht (RM2b3).
+      # Die Kasse liegt in ~/.freedom/pfand.json (Volume). Mit TOR_SOCKS gehen die Anfragen an die
+      # Mints durch Tor (RM2b3); der Erloes geht ab 1000 sat an NODE_LUD16.
       PFAND: "${PFAND:-0}"
       PFAND_MINTS: "${PFAND_MINTS:-}"
       KANAL_AUSZAHLUNG_ABSTAND_SEK: "${KANAL_AUSZAHLUNG_ABSTAND_SEK:-86400}"
