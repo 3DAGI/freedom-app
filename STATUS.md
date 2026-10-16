@@ -10814,6 +10814,30 @@ unter der Schwelle nichts; echte Rechnung nur mit genau dem Betrag), Abbruch nac
 
 Knoten-Stand: Wer `PFAND=1` setzt, braucht diesen Stand.
 
+## Schritt RM2c1 – Pfand-Fenster im Cashu-Topf
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V6; W1 A). RM2c ist geteilt: RM2c1 der Baustein in der App, RM2c2 das Verdrahten.
+
+**Gebaut** (`app/src/cashu-topf.ts`, ohne DOM):
+- `pfandFuer({ provider, sitzung, an, bedarfMsat })`: Token für einen Auftrag, bis übergeben mindestens abgerechnet plus Bedarf ist –
+  je Provider und Sitzungsschlüssel, netto wie die `PfandKasse` des Knotens (Gebühr der Mint je Token). Reicht kein Fenster, wird
+  ein neues gesperrt: mindestens 20 sat, Frist eine Stunde, klein gestückelt (`stueckelung()`), auf den Pfand-Schlüssel aus dem
+  Angebot, mit frischem Rückweg-Schlüssel je Fenster. Übergeben nur Token, deren Frist der Provider noch annimmt; reicht das
+  Übergebene schon, ist die Liste leer. `merke()` zählt sie als übergeben – vor dem Senden.
+- `pfandVerbucht()`: Preis buchen, höchstens bis zum Übergebenen (wie der Knoten).
+- `holePfandZurueck()`: nach der Frist über den Rückweg zurück, was der Provider nicht einlöste – übergeben oder nicht.
+- `imPfand()`: gesperrt und noch nicht übergeben; zählt zum Höchstbetrag des Topfs.
+- **Ohne Antwort der Mint** (der Fehler aus A-17c, gefunden in RM2b): Ein Tausch legte die Token zurück, auch wenn die Mint schon
+  getauscht hatte – die neuen waren dann verloren. Jetzt bleibt `laufend` stehen, `nachholen()` klärt es; nur eine Ablehnung
+  der Mint legt zurück. Beim Rückweg eines Fensters kommt Ungetauschtes ins Fenster zurück.
+
+**Tests:** app +5 (`cashu-pfand.test.ts`, 4 gegen die Test-Mint): Stückelung; Fenster und Übergabe – geprüft mit
+`pruefePfand()` wie der Knoten, nur sein Schlüssel, netto knapp über dem Bedarf, leere Liste bei Deckung, Buchung, neues Fenster
+nur bei Bedarf, eigene Fenster je Sitzung, frischer Rückweg; zu wenig im Topf; Rückweg nach der Frist ohne das eingelöste Token;
+Tausch ohne Antwort (Mint tauschte → Zählerbereich; Anfrage kam nie an → zurück ins Fenster).
+
+Knoten-Stand: unverändert. Noch ohne Aufrufer – den bringt RM2c2.
+
 ## Schritt C-55b – Onboarding: Merkphrase per Wort-Chips bestätigen
 
 Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-55. Zur Bestätigung tippte man drei Wörter ab. Am Handy scheiterte das oft an Autokorrektur und Großschreibung.
