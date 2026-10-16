@@ -10447,3 +10447,28 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+2), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-48 – Website: eine Navigation, Menü-Knopf am Handy, Text ohne Serifen
+
+Aus dem Oberflächen-Review (15.10.2026). Die Startseite hatte eine andere Navigation als die Unterseiten: Dort fehlten Downloads, dafür stand „Start“. Am Handy brach die Navigation zweizeilig um, in 10 px Großbuchstaben. Der ganze Text stand in Monospace.
+
+- **Eine Navigation** auf allen fünf Seiten: App, Downloads, Status, Whitepaper, Roadmap, FAQ, Code. Das Logo führt überall zur Startseite. Die eigene Seite ist als `aria-current="page"` markiert und grün. Die Sprachauswahl bleibt auf der Startseite, weil nur sie übersetzt ist. Die Unterseiten gibt es nur auf Deutsch, und eine Auswahl dort verspräche etwas anderes.
+- **Menü-Knopf am Handy** (bis 760 px): „Menü“ klappt die Links als Liste mit etwa 50 px hohen Zeilen auf (`js/nav.js`, `aria-expanded`, Escape schließt, ein Link schließt). Ohne Skript bleibt die Navigation offen sichtbar; versteckt wird sie erst, wenn das Skript läuft (`mit-skript`).
+- **Schrift**:
+  - Text ohne Serifen (`--font-body`, Systemschrift wie die App seit C-42a; Inter einzubetten bleibt Entscheidung OR1);
+  - Monospace nur für Code, Befehle und das Terminal-Fenster (`--font-mono`);
+  - Fließtext 16 px, kleinste Schrift 12 px (vorher 10–11 px), Karten-Text 14 px;
+  - Knöpfe in Satzschreibung mit Radius 10 px wie in der App.
+- Das Aussehen der Startseite und des Dashboards (Hero, Bild der App, Kacheln) bleibt C-58.
+
+Tests:
+- `check-website.py` prüft neu (`navigation_pruefen()`):
+  - dieselben Ziele auf allen Seiten;
+  - Menü-Knopf mit `aria-controls` und `js/nav.js`;
+  - die eigene Seite als `aria-current`;
+  - Fließtext ohne Monospace.
+- Gegenprobe: Eine FAQ-Seite ohne „Roadmap“ und ohne `aria-current` ergibt zwei Fehler, Ende mit 1.
+- Bildschirmfotos (1280 und 390 px, Menü offen): keine waagrechte Laufleiste, Schrift ohne Serifen.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1147 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
