@@ -120,7 +120,10 @@ export function pfandTags(p: Pfand): string[][] {
   return [["pfand", p.mint, JSON.stringify(p.token.map((t) => ({ id: t.id, amount: t.amount, secret: t.secret, C: t.C, dleq: t.dleq })))]];
 }
 
-/** Pfand aus den Tags einer Anfrage; undefined ohne Pfand, wirft (`pfand-form`) bei kaputter Form. */
+/**
+ * Pfand aus den Tags einer Anfrage; undefined ohne Pfand, wirft (`pfand-form`) bei kaputter Form. Eine leere
+ * Liste (seit RM2b1) heißt: keine neuen Token – gerechnet wird gegen das schon Übergebene.
+ */
 export function lesePfandTags(tags: readonly (readonly string[])[]): Pfand | undefined {
   const roh = tags.filter((t) => t[0] === "pfand");
   if (roh.length === 0) return undefined;
@@ -132,7 +135,7 @@ export function lesePfandTags(tags: readonly (readonly string[])[]): Pfand | und
   } catch {
     throw kaputt();
   }
-  if (!Array.isArray(liste) || liste.length === 0 || liste.length > PFAND_GRENZEN.token) throw kaputt();
+  if (!Array.isArray(liste) || liste.length > PFAND_GRENZEN.token) throw kaputt();
   const token = liste.map((x): PfandToken => {
     const t = (typeof x === "object" && x !== null ? x : {}) as Record<string, unknown>;
     const d = (typeof t["dleq"] === "object" && t["dleq"] !== null ? t["dleq"] : {}) as Record<string, unknown>;
@@ -176,9 +179,9 @@ export interface PfandPruefung {
 
 /**
  * Pfand prüfen, ohne die Mint zu fragen. Jeder Teil muss gelten, sonst gilt keiner. Zurück der
- * Betrag (sat) und die früheste Frist – bis zehn Minuten davor löst der Provider ein.
+ * Betrag (sat) und die früheste Frist – bis zehn Minuten davor löst der Provider ein; ohne Token keine.
  */
-export function pruefePfand(p: Pfand, o: PfandPruefung): { ok: true; betrag: number; frist: number } | { ok: false; fall: PfandFall } {
+export function pruefePfand(p: Pfand, o: PfandPruefung): { ok: true; betrag: number; frist?: number } | { ok: false; fall: PfandFall } {
   if (!o.mints.includes(p.mint)) return { ok: false, fall: "pfand-mint" };
   const geheimnisse = new Set<string>();
   let betrag = 0;
@@ -200,7 +203,7 @@ export function pruefePfand(p: Pfand, o: PfandPruefung): { ok: true; betrag: num
     betrag += t.amount;
     frist = Math.min(frist, Number(lt));
   }
-  return { ok: true, betrag, frist };
+  return p.token.length > 0 ? { ok: true, betrag, frist } : { ok: true, betrag };
 }
 
 export interface CashuAngebot {

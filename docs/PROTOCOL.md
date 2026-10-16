@@ -1345,7 +1345,8 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   kein Pfand; die App fragt dann mit Gebot je Auftrag. Unbrauchbare Angaben gelten als keine.
 - **Im versiegelten Kern der Anfrage:** genau ein `["pfand", <Mint>, <Token als JSON>]`. Ein Token ist ein Proof
   nach NUT-00 (`id`, `amount`, `secret`, `C`) mit Beweis nach NUT-12 (`dleq`: `e`, `s`, `r`); höchstens 64 je
-  Anfrage, das Geheimnis höchstens 1024 Zeichen. Nie offen – die Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
+  Anfrage, das Geheimnis höchstens 1024 Zeichen. Eine leere Liste `[]` (seit RM2b1) heißt: keine neuen Token, gerechnet
+  wird gegen das schon Übergebene. Nie offen – die Leak-Regel `keine-zahlungsdaten` kennt `pfand`.
 - **Prüfung beim Provider (`pruefePfand()`), ohne Mint:**
   - die Mint steht in seiner Liste (`pfand-mint`);
   - Keyset und Betrag kennt er aus den Schlüsseln der Mint, nur in sat (`pfand-mint-schluessel`);
@@ -1356,4 +1357,7 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   - ein Rückweg (`refund`) für die App (`pfand-rueckweg`);
   - kein Token doppelt, auch nicht schon angenommen (`pfand-doppelt`).
   Gilt ein Teil nicht, gilt keiner. Zurück der Betrag und die früheste Frist.
-- **Noch nicht:** Annehmen, Merken und Einlösen im Knoten (RM2b), Sperren und Übergeben in der App (RM2c).
+- **Im Knoten (seit RM2b1):** `PfandKasse` (`node/src/pfand-kasse.ts`) – Deckung je Sitzungsschlüssel der Anfrage, netto
+  (Nennwert minus Gebühr der Mint je Token, NUT-02), gesehene Geheimnisse und angenommene Token in einer Datei (0600),
+  eingelöst gesammelt je Mint ohne Beweis, spätestens zehn Minuten vor der Frist.
+- **Noch nicht:** verdrahtet im Provider (RM2b2), Sperren und Übergeben in der App (RM2c).
