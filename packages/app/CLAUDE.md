@@ -795,6 +795,14 @@ Fallstricke dieses Bereichs unten anhängen.
   (NUT-09/13) – nie ab Zähler 0, sonst kämen gesendete Token zurück. Auf einen fremden Schlüssel gesperrte Token, die beim
   Absturz noch nicht übergeben waren, sind weg. Tests gegen eine Mint auf dem Rechner (`scripts/cashu-testmint.sh`,
   Nutshell 0.21.0 mit FakeWallet; `marshmallow` und `limits` neuer als in `cashu-testmint.txt` brechen sie).
+  Eine Mint ohne Antwort hat vielleicht getauscht (seit RM2c1): Dann bleibt `laufend` stehen, und erst `nachholen()`
+  klärt es – nur eine Ablehnung der Mint (`isMintOperationError`) legt die Token zurück. Pfand für Provider (seit
+  RM2c1, `docs/RM2-ENTWURF.md` V1/V6) nur über `pfandFuer()`: Fenster klein gestückelt (`stueckelung()`) auf den
+  Pfand-Schlüssel aus dem Angebot gesperrt, Frist `PFAND_FRIST_SEK`, je Fenster ein frischer Rückweg-Schlüssel (nur
+  im Stand); übergeben nur Token mit Frist ab `PFAND_GRENZEN.restSek` plus `PFAND_SPIELRAUM_SEK`, bis die Deckung
+  netto reicht – je Provider und Sitzungsschlüssel, mit derselben Rechnung wie `PfandKasse` (Gebühr der Mint je Token,
+  Konto bis zur frühesten Frist der neuen Token); `merke()` vor dem Senden, `pfandVerbucht()` nach der Antwort.
+  Zurück nur über `holePfandZurueck()` nach der Frist (übergeben oder nicht, Eingelöstes fällt weg).
 - **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
   Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
   Variante nur mit Grund im Pull Request. Farben, Radien und Abstände nur über die Tokens in `app.css`.
