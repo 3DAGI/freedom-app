@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { MD_GRENZEN, type MdBlock, type MdInline, leseMarkdown, loesePfad, sicheresZiel } from "../src/markdown.js";
-import { alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "../src/git-bundle.js";
+import { alsText, commitsAb, kopfCommit, leseBundle, unterPfad } from "@freedomstack/protocol";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 /** Code ohne Kommentare – ein Wort im Kommentar ist kein Aufruf. */
@@ -133,8 +133,8 @@ test("C-20b: Verweise ins Repo – relativ ja, Anker/Schema/„//“ nein; loese
 });
 
 test("C-20b: Probe-Bundle – README mit Tabelle, jeder Verweis führt zu einer Datei im Bundle, „hinaus“ nicht", async () => {
-  // test/fixtures/probe-md.bundle: git bundle create … HEAD main aus drei Dateien (README.md, src/liste.txt, docs/ANLEITUNG.md)
-  const b = await leseBundle(new Uint8Array(readFileSync(new URL("fixtures/probe-md.bundle", import.meta.url))));
+  // protocol/test/fixtures/probe-md.bundle: git bundle create … HEAD main aus drei Dateien (README.md, src/liste.txt, docs/ANLEITUNG.md)
+  const b = await leseBundle(new Uint8Array(readFileSync(new URL("../../protocol/test/fixtures/probe-md.bundle", import.meta.url))));
   const [c] = commitsAb(b, kopfCommit(b)!, 1);
   const lies = (pfad: string[]) => {
     const d = unterPfad(b, c!.baum, pfad);
