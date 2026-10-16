@@ -46,5 +46,6 @@ test("Verdrahtung: Standard aus, nur bei Aenderung gesichert, beim Ausschalten g
   assert.ok(e.indexOf("await ladeKontakte()") < e.indexOf("await sichereKontakte()"), "erst holen, dann sichern");
   assert.match(e, /localStorage\.removeItem\(LS_KONTAKTE_SICHERN\);\s*throw e;/, "scheitert das Laden, bleibt es aus");
   const html = readFileSync(new URL("../../src/shell/index.html", import.meta.url), "utf8");
-  assert.match(html, /<input type="checkbox" id="kontakte-sichern" \/>/, "nicht vorab angehakt");
+  // Seit C-53b ein Schalter – weiter ohne „checked“
+  assert.match(html, /<input type="checkbox" id="kontakte-sichern" class="schalter" role="switch" \/>/, "nicht vorab angehakt");
 });

@@ -68,7 +68,8 @@ test("6.1b2b: die Rückfrage sagt je Hülle, was passiert – Android schließt 
 test("Verdrahtung (6.1b1b/6.1b2b): Schalter nur in der Hülle, umgeschaltet nur nach Rückfrage", () => {
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /<div id="huelle-tor-block" class="hidden">/, "verborgen, bis die Hülle ihn zeigt");
-  assert.match(html, /<input type="checkbox" id="huelle-tor" \/> <span data-i18n="set\.torHaken">/);
+  // Seit C-53b eine Zeile mit Schalter; die Grenze (Anrufe nicht über Tor) steht auch im kurzen Satz
+  assert.match(html, /<span class="einst-titel" data-i18n="set\.torHaken">[^<]*<\/span><span class="einst-satz" data-i18n="set\.torKurz">[^<]*Anrufe schon[^<]*<\/span><\/span>\s*<input type="checkbox" id="huelle-tor" class="schalter" role="switch" \/>/);
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
   assert.match(app, /void wireHuellenTor\(\);/);
   const m = readFileSync(new URL("../src/shell/netz-huelle.ts", import.meta.url), "utf8");

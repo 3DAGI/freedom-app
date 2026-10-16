@@ -167,7 +167,7 @@ test("5.5c: verdrahtet – Empfang am Ende der Kette, Versand im Abruftakt, Zust
   assert.doesNotMatch(ruf + lies("ruf-teilen.ts"), /publish\(|signiere|veroeffentlicheWeit|setInterval/);
   assert.match(lies("shell/quittungen.ts"), /aktuellerRuf\(vonKontakten: readonly RufVonKontakt\[\] = rufVonKontakten\.alle\(new Set\(kontakteJetzt\(\)\)\)\)/);
   assert.match(["settings", "sicherung", "mesh"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /setzeRufTeilen\(ruf\.checked\)/);
-  assert.match(lies("shell/index.html"), /<input type="checkbox" id="ruf-teilen" \/>/);
+  assert.match(lies("shell/index.html"), /<input type="checkbox" id="ruf-teilen" class="schalter" role="switch" \/>/);
 });
 
 test("5.5c: Zusammenfassungen und Versandstand nur im Tresor und nie in der Sicherung – die Zustimmung schon", () => {

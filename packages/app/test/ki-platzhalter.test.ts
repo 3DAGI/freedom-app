@@ -43,7 +43,9 @@ test("Über Funk ebenso; je Unterhaltung eine neue Zuordnung; die Zuordnung nie 
 });
 
 test("Schalter in Settings › Datenschutz, Standard an", () => {
-  assert.match(lies("shell/index.html"), /<input type="checkbox" id="ki-platzhalter" \/> <span data-i18n="set\.platzhalter">/);
+  // Seit C-53b eine Zeile mit Schalter: Titel und ein Satz, die ganze Erklärung unter „Mehr dazu“
+  assert.match(lies("shell/index.html"), /<span class="einst-titel" data-i18n="set\.platzhalter">[^<]*<\/span><span class="einst-satz" data-i18n="set\.platzhalterKurz">[^<]*<\/span><\/span>\s*<input type="checkbox" id="ki-platzhalter" class="schalter" role="switch" \/>/);
+  assert.match(lies("shell/index.html"), /<details class="einst-mehr"><summary data-i18n="set\.mehrDazu">Mehr dazu<\/summary><p class="mono-sm muted" data-i18n="set\.platzhalterText">/);
   const mesh = lies("shell/tabs/mesh.ts");
   assert.match(mesh, /platzhalter\.checked = platzhalterAn\(\);\n    platzhalter\.onchange = \(\) => \{\n      setzePlatzhalter\(platzhalter\.checked\);/);
   assert.match(lies("shell/ki-platzhalter.ts"), /localStorage\.getItem\(LS_PLATZHALTER\) !== "aus"/, "an, solange nicht ausgeschaltet");
