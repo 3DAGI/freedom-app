@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { P2PKBuilder, Wallet, getPubKeyFromPrivKey, type Proof } from "@cashu/cashu-ts";
 import { randomBytes } from "node:crypto";
 import type { Pfand } from "@freedomstack/protocol";
-import { PfandKasse, pfandSpeicher, type PfandStand } from "../src/pfand-kasse.js";
+import { PfandKasse, pfandKasseAusUmgebung, pfandSpeicher, type PfandStand } from "../src/pfand-kasse.js";
 
 const MINT = process.env["CASHU_TEST_MINT"];
 const ohneMint = !MINT && "CASHU_TEST_MINT fehlt (scripts/cashu-testmint.sh)";
@@ -82,6 +82,28 @@ test("Datei: 0600, ein Neustart behält den Schlüssel; kaputt heißt kein Start
   assert.throws(() => new PfandKasse({ mints: [], speicher: speicher(sp.pfad) }));
   writeFileSync(sp.pfad, JSON.stringify({ fassung: 1, sk: "zz" }));
   assert.throws(() => new PfandKasse({ mints: [], speicher: speicher(sp.pfad) }), /kein Stand/);
+});
+
+test("Umgebung (RM2b2): nur mit PFAND=1 und gültigen Mints; Ungültiges und Tor heißen kein Start", () => {
+  const datei = join(ordner(), "pfand.json");
+  assert.equal(pfandKasseAusUmgebung({}, datei), undefined);
+  assert.equal(pfandKasseAusUmgebung({ PFAND: "0", PFAND_MINTS: "https://mint.example.org" }, datei), undefined);
+  const kasse = pfandKasseAusUmgebung({ PFAND: "1", PFAND_MINTS: " https://mint.example.org, http://abcdefghijklmnop.onion ,https://mint.example.org" }, datei);
+  assert.ok(kasse instanceof PfandKasse);
+  assert.deepEqual(kasse.bereit(), [], "erst nach ladeMints() im Angebot");
+  assert.equal(statSync(datei).mode & 0o777, 0o600);
+  const kaputt: Array<Record<string, string>> = [
+    { PFAND: "ja", PFAND_MINTS: "https://mint.example.org" },
+    { PFAND: "1" },
+    { PFAND: "1", PFAND_MINTS: " , " },
+    { PFAND: "1", PFAND_MINTS: "http://mint.example.org" },
+    { PFAND: "1", PFAND_MINTS: "https://mint.example.org/" },
+    { PFAND: "1", PFAND_MINTS: "https://nutzer:pw@mint.example.org" },
+    { PFAND: "1", PFAND_MINTS: "http://127.0.0.1:3338" },
+    { PFAND: "1", PFAND_MINTS: Array.from({ length: 6 }, (_, i) => `https://m${i}.example.org`).join(",") },
+    { PFAND: "1", PFAND_MINTS: "https://mint.example.org", TOR_SOCKS: "127.0.0.1:9050" },
+  ];
+  for (const env of kaputt) assert.throws(() => pfandKasseAusUmgebung(env, join(ordner(), "pfand.json")), JSON.stringify(env));
 });
 
 test("Ohne bereite Mint kein Pfand; eine Mint ohne Netz meldet sich", async () => {

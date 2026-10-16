@@ -313,3 +313,8 @@ Bereichs unten anhängen.
   scheitert ein Tausch (auch ohne Antwort), holt der nächste Lauf genau dessen Zählerbereich zurück (NUT-09) und prüft die
   eingesetzten Token – nie ab Zähler 0. Die Test-Mint verlangt 0,1 sat je Token: Beträge im Test aus den Token rechnen,
   nie fest.
+  Im Provider (seit RM2b2) nur mit `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` wie im Angebot; ungültig → kein
+  Start, mit `TOR_SOCKS` bis RM2b3 auch – die Mint sähe sonst die IP am Tor vorbei): Pfand nur aus einem Umschlag, nie neben
+  einer Gutschrift, Deckung und Buchung nur als Anteil des Providers (`providerAnteilMsat()`), gebucht vor der Antwort.
+  Über den Provider geht nur eine Mint mit https oder .onion (`lesePfandTags()`) – die Test-Mint auf http://127.0.0.1 nur
+  in Tests der Kasse; Tests des Providers nehmen eine Attrappe mit `nimmAn`/`verbuche`.

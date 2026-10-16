@@ -10313,3 +10313,29 @@ erweitert):
 - die Mint hält die Frist ein (V3): vorher kein Rückweg, danach schon.
 
 Knoten-Stand: unverändert (noch nicht verdrahtet; RM2b2).
+
+## Schritt RM2b2 – Pfand im Provider verdrahtet
+
+Spur A, `docs/RM2-ENTWURF.md` (V1, V4; W1 A). Teil 2 von RM2b; Mint-Abrufe über Tor und die Auszahlung des Erlöses
+kommen mit RM2b3 (neu in V9).
+
+**Gebaut:**
+- `dvm-provider.ts`: `lesePfandTags()` im versiegelten Kern; Pfand nur aus einem Umschlag, nur mit Kasse, nicht in der
+  Bootstrap-Phase, nie neben einer Gutschrift, Gebot mindestens `minBidMsat`. Gedeckt sein muss der Anteil des Providers an
+  Gebot und Werkzeugen (`providerAnteilMsat()`, V4 – die übrigen Anteile zahlt die App nach der Antwort); abgerechnet wie ein
+  Gebot (höchstens das Gebot plus Werkzeuge), gebucht vor der Antwort der Anteil des Providers – auch im Schwarm-Modus.
+- `pfand-kasse.ts`: `pfandKasseAusUmgebung()` (`PFAND=1`, `PFAND_MINTS` – https oder .onion, höchstens fünf; ungültig oder mit
+  `TOR_SOCKS` → kein Start) und `pfandOrt()` (`~/.freedom/pfand.json`).
+- `main.ts`: Kasse aus der Umgebung, Selbstprüfung der Mints beim Start (ohne den Start aufzuhalten) und stündlich, Einlösen
+  alle fünf Minuten (ins Log nur Mint, Betrag, Fehlername), im Angebot `cashu` mit den geprüften Mints und dem Pfand-Schlüssel.
+- `docker-compose.yml`, Installer: `PFAND`, `PFAND_MINTS` (aus).
+- `check-wiring.py`: Namen nach dem Spread `...` zählen als Aufruf (bis jetzt galt `cashuAngebotTags()` als nicht verdrahtet,
+  obwohl `buildCapabilities()` es ruft); Selbsttest mit `nachSpread`. Die beiden letzten Knoten-Ausnahmen für `pfand.ts` sind raus.
+
+**Tests:** node +3 (`pfand-auftrag.test.ts` 2: gedeckt mit A+-Deklaration, ohne neue Token, nichts offen; ungedeckt, offen,
+ohne Kasse, neben einer Gutschrift, Gebot zu niedrig, kaputte Form; `pfand-kasse.test.ts` +1: Umgebung mit 9 ungültigen
+Fällen). Ein Weg mit echten Token über den Provider geht hier nicht: die Test-Mint läuft auf http://127.0.0.1, der Provider
+nimmt nur https/.onion – die echten Token prüft `pfand-kasse.test.ts`.
+
+Knoten-Stand: Wer `PFAND=1` setzen will, braucht diesen Stand; ohne `PFAND` ändert sich nichts.
+

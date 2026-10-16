@@ -63,3 +63,6 @@ dieses Bereichs unten anhängen.
   gibt es in `ots.ts`, `meshtastic.ts`, `lnd-macaroon.ts`) macht alles „verdrahtet“, was er benutzt – die Ausnahme gilt dann
   als veraltet. Private Helfer eindeutig benennen (`NegLeser`). Ebenso zählt jeder Bezeichner in `scripts/` als Aufruf:
   Namen einer fremden Referenz dort über Zeichenketten ansprechen (`modul.exports["Negentropy"]`).
+- **`check-wiring.py` und der Spread** (seit RM2b2): `BEZEICHNER` überging Namen nach einem Punkt – auch nach `...`. Ein
+  Export, der nur als `...name(…)` aufgerufen wird (`tags.push(...cashuAngebotTags(c))`), galt als nicht verdrahtet. Der
+  Selbsttest (`test_check_wiring.py`, `nachSpread`) hält das fest; `konfig.eigenschaft` bleibt eine Eigenschaft.
