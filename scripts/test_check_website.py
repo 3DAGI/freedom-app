@@ -80,5 +80,20 @@ class Bilder(Farben):
         self.assertIn("index.html: Bild der App ohne Größe oder Alternativtext (C-58a)", cw.bilder_pruefen())
 
 
+class Lesbarkeit(Farben):
+    """Inhaltsverzeichnis und ruhiger Ausfall (C-58b)."""
+
+    def test_heute_ohne_befund(self) -> None:
+        self.assertEqual(cw.lesbarkeit_pruefen(), [])
+
+    def test_abschnitt_fehlt_im_verzeichnis(self) -> None:
+        self.aendere("faq.html", '<li><a href="#grenzen">Grenzen und Risiken</a></li>', "")
+        self.assertTrue(any(f.startswith("faq.html: Inhaltsverzeichnis") for f in cw.lesbarkeit_pruefen()))
+
+    def test_rote_pillen(self) -> None:
+        self.aendere("dashboard.html", '<span><i class="punkt', '<span class="err"><i class="punkt')
+        self.assertIn("dashboard.html: rote Pillen oder Fehlertext in Rot (C-58b)", cw.lesbarkeit_pruefen())
+
+
 if __name__ == "__main__":
     unittest.main()

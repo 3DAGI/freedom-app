@@ -214,6 +214,29 @@ def bilder_pruefen() -> list[str]:
     return fehler
 
 
+def lesbarkeit_pruefen() -> list[str]:
+    """Inhaltsverzeichnis und Dashboard (C-58b): FAQ und Whitepaper führen ein Verzeichnis als Navigation, das jeden
+    Abschnitt (h2 mit id) nennt und nur auf vorhandene zeigt; das Dashboard zeigt einen Ausfall ruhig – ein Kasten
+    mit Weg weiter, die Relays im Einzelnen eingeklappt und ohne rote Pillen."""
+    fehler: list[str] = []
+    for datei in ("faq.html", "whitepaper.html"):
+        inhalt = open(os.path.join(BASIS, datei), encoding="utf-8").read()
+        toc = re.search(r'<nav class="doc-toc" aria-label="Inhalt">(.*?)</nav>', inhalt, re.S)
+        if not toc:
+            fehler.append(f"{datei}: kein Inhaltsverzeichnis als Navigation (C-58b)")
+            continue
+        ziele = re.findall(r'href="#([^"]+)"', toc.group(1))
+        abschnitte = re.findall(r'<h2 id="([^"]+)"', inhalt)
+        if ziele != abschnitte:
+            fehler.append(f"{datei}: Inhaltsverzeichnis {ziele} passt nicht zu den Abschnitten {abschnitte} (C-58b)")
+    dash = open(os.path.join(BASIS, "dashboard.html"), encoding="utf-8").read()
+    if '<details id="relay-details">' not in dash or 'class="ruhig"' not in dash or 'id="neu-laden"' not in dash:
+        fehler.append("dashboard.html: kein ruhiger Ausfall (Kasten, Weg weiter, Relays eingeklappt) (C-58b)")
+    if re.search(r'<span class="\$\{cls\}">|class="err"', dash):
+        fehler.append("dashboard.html: rote Pillen oder Fehlertext in Rot (C-58b)")
+    return fehler
+
+
 def main() -> int:
     fehler: list[str] = []
     im_release = release_dateien()
@@ -266,6 +289,7 @@ def main() -> int:
     fehler += navigation_pruefen()
     fehler += farben_pruefen()
     fehler += bilder_pruefen()
+    fehler += lesbarkeit_pruefen()
 
     for datei in EINSTIEG:
         inhalt = open(datei, encoding="utf-8").read()

@@ -28,8 +28,24 @@
   .ok { color: var(--accent); } .warn { color: var(--amber); } .err { color: var(--red); }
   .bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 6px; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
-  .relaystat { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 11px; }
-  .relaystat span { border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; }
+  /* Relays im Einzelnen (C-58b): neutral, der Stand als Punkt – ein Netz ohne WebSockets ist kein Alarm */
+  .relaystat { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 12px; }
+  .relaystat span { border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
+  .relaystat .punkt { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+  .relaystat .punkt.ok { background: var(--accent); } .relaystat .punkt.warn { background: var(--amber); }
+  #relay-details { margin-top: 8px; font-size: 13px; color: var(--text-muted); }
+  #relay-details summary { cursor: pointer; }
+  /* Ohne Verbindung (C-58b): ein ruhiger Kasten mit Weg weiter statt acht roter Pillen */
+  .ruhig { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; border: 1px solid var(--border); border-left: 3px solid var(--amber);
+    background: var(--card); border-radius: 10px; padding: 14px 16px; margin-top: 12px; color: var(--text); font-size: 14px; }
+  .ruhig p { flex: 1 1 320px; margin: 0; }
+  .ruhig button { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font: 600 14px var(--font-body); cursor: pointer; }
+  .ruhig button:hover { border-color: var(--accent); color: var(--accent); }
+  /* Zwei Spalten ab 900 px (C-58b): die Seite nutzt die Breite, Angebote über beide */
+  .dash-raster { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 40px; }
+  @media (min-width: 900px) { .dash-raster { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .dash-raster .breit { grid-column: 1 / -1; } }
+  .dash-teil [id] > p.muted { font-size: 13px; }
+  .kpi .num .laedt { display: inline-block; width: 3ch; height: .8em; border-radius: 6px; background: var(--border); }
   .note { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-top: 28px; border-top: 1px solid var(--border); padding-top: 16px; }
   #status { font-size: 12px; color: var(--text-muted); }
   h2 { margin-top: 36px; font-size: 16px; }
@@ -63,9 +79,17 @@
     mit jedem Nostr-Client selbst stellen und das Ergebnis vergleichen.
   </p>
   <div id="status">verbinde …</div>
-  <div class="relaystat" id="relays"></div>
+  <details id="relay-details"><summary id="relay-summe">Relays im Einzelnen</summary><div class="relaystat" id="relays"></div></details>
 
-  <div class="kpis" id="kpis"></div>
+  <div class="kpis" id="kpis">
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Provider mit frischem Angebot</div></div>
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">verschiedene Modelle</div></div>
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Modellkataloge</div></div>
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Zellen mit Abdeckung</div></div>
+  </div>
+
+  <div class="dash-raster">
+  <div class="dash-teil breit">
 
   <h2>Angebote</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
@@ -76,17 +100,23 @@
     was jemand über sich selbst veröffentlicht.
   </p>
   <div id="providers"><p class="muted">lade …</p></div>
+  </div>
 
+  <div class="dash-teil">
   <h2>Angebotene Modelle</h2>
   <div id="models"><p class="muted">lade …</p></div>
+  </div>
 
+  <div class="dash-teil">
   <h2>Modellkataloge</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
     Kuratoren empfehlen Modelle; welche Kataloge du abonnierst, entscheidest du
     in der App. Das Projekt gibt keinen vor. Sortiert nach Titel.
   </p>
   <div id="catalogs"><p class="muted">lade …</p></div>
+  </div>
 
+  <div class="dash-teil">
   <h2>Abdeckung</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
     Freiwillige Einträge mit Wegwerfschlüssel, grob auf Zellen gerundet. Funk-
@@ -96,7 +126,9 @@
     nicht (gesponserte Pools sind geplant, nicht gebaut).
   </p>
   <div id="coverage"><p class="muted">lade …</p></div>
+  </div>
 
+  <div class="dash-teil">
   <h2>Werbe-Nennungen</h2>
   <p class="muted" style="font-size:13px;max-width:60ch">
     Wie oft Geworbene öffentlich einen Werber nennen – nur, wer dem zugestimmt
@@ -105,6 +137,8 @@
     (0,5 % je Seite).
   </p>
   <div id="referrers"><p class="muted">lade …</p></div>
+  </div>
+  </div>
 
   <div class="note" id="note"></div>
 </div>
@@ -251,17 +285,22 @@ async function load() {
   const results = await Promise.all(RELAYS.map((r) => queryRelay(r, filter(jetzt))));
 
   el("relays").innerHTML = results.map((r) => {
-    const cls = r.state === "ok" ? "ok" : r.state === "timeout" ? "warn" : "err";
-    return `<span class="${cls}">${esc(r.url.replace("wss://", ""))} · ${esc(r.state)} · ${r.events.length}</span>`;
+    const cls = r.state === "ok" ? "ok" : r.state === "timeout" ? "warn" : "";
+    return `<span><i class="punkt ${cls}" aria-hidden="true"></i>${esc(r.url.replace("wss://", ""))} · ${esc(r.state)} · ${r.events.length}</span>`;
   }).join("");
 
   const d = werteAus(results.flatMap((r) => r.events), jetzt);
   const reachable = results.filter((r) => r.state === "ok").length;
+  el("relay-summe").textContent = `Relays im Einzelnen: ${reachable} von ${RELAYS.length} erreichbar`;
   if (d.ereignisse === 0) {
-    el("status").innerHTML = reachable === 0
-      ? `<span class="err">Kein Relay erreichbar.</span> Möglicherweise blockiert dein Netz WebSocket-Verbindungen.`
-      : `<span class="warn">Relays antworten, aber es liegen keine Ereignisse vor.</span> Das Netz ist noch leer oder die Provider veröffentlichen auf anderen Relays.`;
-    for (const id of ["kpis", "providers", "models", "catalogs", "coverage", "referrers"]) el(id).innerHTML = "";
+    // Ruhig (C-58b): ein Satz, was los ist, und ein Weg weiter – die Kacheln zeigen „—“, nichts blinkt rot
+    el("status").innerHTML = `<div class="ruhig" role="status"><p>${reachable === 0
+      ? "Gerade keine Verbindung zu den Relays. Vielleicht blockiert dein Netz WebSocket-Verbindungen – die Seite versucht es jede Minute neu."
+      : "Die Relays antworten, aber es liegen keine Ereignisse vor. Das Netz ist noch leer, oder die Provider veröffentlichen auf anderen Relays."}</p>
+      <button type="button" id="neu-laden">Jetzt erneut versuchen</button></div>`;
+    el("neu-laden").addEventListener("click", () => { el("status").textContent = "verbinde …"; load().catch(() => {}); });
+    el("kpis").querySelectorAll(".num").forEach((n) => { n.textContent = "—"; });
+    for (const id of ["providers", "models", "catalogs", "coverage", "referrers"]) el(id).innerHTML = `<p class="muted">Ohne Verbindung keine Zahlen.</p>`;
     return;
   }
 
@@ -292,7 +331,7 @@ async function load() {
 }
 
 load().catch((e) => {
-  el("status").innerHTML = `<span class="err">Fehler: ${esc(e.message)}</span>`;
+  el("status").innerHTML = `<div class="ruhig" role="status"><p>Die Abfrage brach ab: ${esc(e.message)}. Die Seite versucht es jede Minute neu.</p></div>`;
 });
 setInterval(() => load().catch(() => {}), 60_000);
 </script>
