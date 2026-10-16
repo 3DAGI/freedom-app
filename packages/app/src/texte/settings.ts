@@ -327,6 +327,11 @@ export const settings: Texte = {
   "set.appExportieren": { de: "App exportieren", en: "Export app" },
   "set.echtheitPruefen": { de: "eigene Echtheit prüfen", en: "check own authenticity" },
   "set.sprache": { de: "Sprache", en: "Language" },
+  // Helles Design (C-57b)
+  "set.design": { de: "Design", en: "Appearance" },
+  "set.designSystem": { de: "Wie das Gerät", en: "Same as device" },
+  "set.designHell": { de: "Hell", en: "Light" },
+  "set.designDunkel": { de: "Dunkel", en: "Dark" },
   // tabs/settings.ts
   "set.nurHaupt": { de: "{was} geht nur mit der Hauptidentität, nicht auf einem Gerät", en: "{was} only works with the main identity, not on a device" },
   "set.wasNachfolge": { de: "Nachfolge einrichten", en: "Setting up succession" },

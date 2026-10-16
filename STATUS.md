@@ -10921,3 +10921,32 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1207 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57b – Helles Design, Wahl Wie das Gerät · Hell · Dunkel
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-57. Die App war nur dunkel. Auf hellen Geräten und draußen in der Sonne war sie schwer zu lesen.
+
+- **Dieselben Tokens (C-57a) mit hellen Werten.** Text erreicht auf jeder Fläche mindestens 4,5:1.
+  - Grün wird dunkler (`#3B7600`); Schrift darauf ist weiß (5,6:1).
+  - Rot, Bernstein, Gold und die Farben für Lightning, SOL, Rollen und Code wurden je für Hell nachgezogen.
+- **Gewählt wird in den Settings**, neben der Sprache; am Handy auf „Mehr“. Standard ist „Wie das Gerät“.
+  - Eine feste Wahl steht als `data-theme` an `<html>`, gesetzt als Erstes in `boot()`, vor dem Entsperren.
+  - Sie wird in `freedom.thema` gespeichert, nur auf diesem Gerät und nicht in der Sicherung.
+  - Ohne feste Wahl entscheidet das CSS allein über `prefers-color-scheme`.
+- Was mit Code gemalt wird, nimmt die Tokens: Hintergrund der Startseite und der Lade-Orb des Agenten.
+- „Teilen“ sitzt als dunkles Glas auf dem Bild des Profils und hat in beiden Designs weiße Schrift. Im hellen Design war sie dunkel (1,14:1), das fand der Smoke-Teil „zugang“.
+
+Tests:
+- Neu: `thema.test.ts` mit 4 Tests: Lesen der Wahl, Attribut, nicht in der Sicherung, Verdrahtung.
+- `farben-tokens.test.ts` hat 3 Tests mehr:
+  - jede Farbe hat einen hellen Wert, gewählt und nach dem Gerät gleich;
+  - Kontrast jeder Schriftfarbe auf jeder Fläche, auch auf Grün und Rot;
+  - Bilder aus Code nehmen die Tokens.
+- Smoke-Test:
+  - „zugang“ misst Namen, Tastatur und Kontrast jetzt in beiden Designs.
+  - „stil_abdruck“ hat zehn helle Ansichten mehr; `scripts/stil-soll.json` wurde neu geschrieben.
+  - Neuer Teil „thema“: folgt dem Gerät (hell, nach dem Umschalten dunkel), „Dunkel“ gilt sofort und nach dem Neuladen, „Wie das Gerät“ auf „Mehr“ nimmt die Wahl zurück.
+- Ohne eigene Angabe läuft der Smoke-Test im hellen Design, denn Playwright meldet „hell“. So sieht ihn jedes helle Gerät.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1214 (+7), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
