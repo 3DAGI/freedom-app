@@ -10898,3 +10898,26 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1204 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57a – Jede Farbe als Token: Vorbereitung für das helle Design
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-57. Rund 70 Farben standen fest im CSS. Ein helles Design hätte jede einzeln gebraucht.
+
+- **Alle Farben als Token in `:root`:**
+  - Flächen und Ränder;
+  - Text in drei Stufen;
+  - Schrift auf Grün (`--auf-akzent`);
+  - Farben für Lightning, SOL, Rollen und Code.
+- Drei Variablen ohne Definition (`--acc`, `--line`, `--danger`) fielen still auf ihren Ersatz zurück. Sie zeigen jetzt auf ihre Tokens.
+- Fest bleiben nur Farben, die in beiden Designs gleich sind: Weiß auf farbigem Grund und Schwarz unter Videos.
+- Das dunkle Design bleibt gleich; der Stil-Abdruck (C-56b) ist unverändert grün.
+
+Tests:
+- Neu: `farben-tokens.test.ts` mit 3 Tests:
+  - keine Farbe außerhalb der Tokens;
+  - jede benutzte Variable ist definiert, ohne Ersatzfarben;
+  - Schrift auf Grün über `--auf-akzent`.
+- `bausteine.test.ts` (C-56a) liest die Schrift auf dem gedrückten Chip jetzt als Token (`--auf-akzent`) statt `#000`.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1207 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

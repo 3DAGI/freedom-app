@@ -100,7 +100,7 @@ export async function zeigeProfilVorschau(): Promise<void> {
   kopf.style.color = farbe;
   const text = el("div", undefined, "profile-text");
   const name = el("h3", gespeichert.name || pkShort(state.keypair.pk));
-  name.style.color = "#E8E8E8";
+  name.style.color = "var(--text)"; // Token (C-57a) – hell und dunkel
   text.append(name, el("p", gespeichert.about || t("profil.keineBeschreibung")));
   if (gespeichert.lud16 && lnOeffentlich(localStorage)) {
     const ln = el("p", `⚡ ${gespeichert.lud16}`);
