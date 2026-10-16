@@ -3,6 +3,8 @@
  * samt Packfile – Commits, Bäume, Dateien, auch Deltas – ohne neue
  * Abhängigkeit: entpackt wird mit `DecompressionStream`, gehasht mit
  * `crypto.subtle`. Ohne DOM, damit testbar; die Ansicht folgt in C.3c2.
+ * Seit 11.5a1 im Protokoll: Die App liest damit Repos im Reiter „Code“, der
+ * Knoten legt daraus die Arbeitskopie eines Repo-Auftrags an (`arbeitskopie()`).
  *
  * Bundles kommen von Fremden: alles ist begrenzt (`BUNDLE_GRENZEN`), jede
  * Zahl geprüft, die Prüfsumme des Packs und jedes Objekt-Hash nachgerechnet.

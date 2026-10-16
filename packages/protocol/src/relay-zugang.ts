@@ -138,7 +138,7 @@ export function baueRelayInfo(e: RelayInfoEingabe): Record<string, unknown> {
     description: e.beschreibung,
     pubkey: e.pubkey,
     software: "https://github.com/3DAGI/freedom-app",
-    supported_nips: [1, 11, 40, 42],
+    supported_nips: [1, 11, 40, 42, 77],
     limitation: {
       max_message_length: e.maxNachricht,
       auth_required: false,

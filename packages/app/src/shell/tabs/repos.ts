@@ -9,12 +9,13 @@
  * Die Liste wird mit DOM-Aufrufen und textContent gebaut, nie per innerHTML:
  * Namen, Betreffe und Adressen kommen von Fremden.
  */
-import type { GelesenesRepo, NostrEvent } from "@freedomstack/protocol";
+import { BUNDLE_GRENZEN, type CodeAntwort, type GelesenesRepo, type NostrEvent } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { type RaumZiel, type RepoKarte, filtereKarten, mitForks, mitIssues, mitSternen, privateRaumKarten, raumAuswahl, reposImRaum, repoKarten } from "../../repo-ansicht.js";
 import { ladeBeobachtet } from "./repo-sterne-ui.js";
 import { type PrivateRepos, privateRaumRepos, sendeInRaum } from "../raum-repos.js";
+import { bundleVerweis } from "../../knoten-projekte.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { ensurePool, signiere, state } from "../state.js";
 import { leererZustand, toast } from "../ui.js";
@@ -25,7 +26,6 @@ import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js"
 import { geheim } from "../tresor.js";
 import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbgleichen, leseGesehen, neuGesamt, neuigkeiten } from "../../repo-neuigkeiten.js";
 import { LOKAL_MAX, LokalVoll } from "../../lokale-repos.js";
-import { BUNDLE_GRENZEN } from "../../git-bundle.js";
 import { lokaleRepos } from "../lokale-repos-ablage.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 
@@ -406,23 +406,32 @@ async function sendePatch(r: GelesenesRepo, text: string, gruppe?: string): Prom
   }
 }
 
+/** Ein Projekt meines Knotens (VKl2): Name und wie das Bundle kommt – erst nach dem Dialog, vor der Ankündigung. */
+interface AusKnoten {
+  projekt: string;
+  hole: () => Promise<Extract<CodeAntwort, { aktion: "bundle" }> | null>;
+}
+
 /**
  * Repo ankündigen: Kennung, Beschreibung und Klon-Adressen (auch ein Radicle-Spiegel rad:…).
  * Aus einem Raum (11.4c) steht „Wo“ fest: öffentlich mit Verweis auf den Raum, privat nur in die Gruppe.
+ * Vom eigenen Knoten (VKl2, `ausKnoten`) kommt der Code als Bundle mit – erst das Bundle, dann die Ankündigung.
  */
-async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
+async function kuendigeAn(imRaum?: RaumZiel & { name: string }, ausKnoten?: AusKnoten): Promise<void> {
   if (!state.keypair) return;
   // Wo (11.4b2): öffentlich, nur auf diesem Gerät (B-2) oder in einem Raum, in dem ich Repos pflegen darf –
-  // privat aus dem MLS-Verlauf, seit C-15 auch beigetretene öffentliche (Rechte aus ihrem Zustand)
+  // privat aus dem MLS-Verlauf, seit C-15 auch beigetretene öffentliche (Rechte aus ihrem Zustand).
+  // Vom Knoten aus „Mein Knoten“ (VKl2): private Räume frisch – die Seite Repos war vielleicht nie offen
+  if (ausKnoten) privat = await privateRaumRepos().catch(() => privat);
   const raeume = privat.filter((p) => p.darfPflegen);
   const oeffentlich = imRaum ? [] : await meineRepoRaeume().catch(() => []);
   // Eine Rückfrage statt zwei (C-36, Nutzertest G-2): was geschieht, steht gleich im Dialog
   const imPrivaten = imRaum && "gruppe" in imRaum;
-  const hinweis = !imRaum ? t("repo.ankuendigenHinweis") : t(imPrivaten ? "repo.hinweisPrivat" : "repo.hinweisOeffentlich", { raum: imRaum.name });
+  const hinweis = !imRaum ? t(ausKnoten ? "repo.knotenHinweis" : "repo.ankuendigenHinweis") : t(imPrivaten ? "repo.hinweisPrivat" : "repo.hinweisOeffentlich", { raum: imRaum.name });
   const w = await dialog({
     titel: t("agent.repoAnkuendigen"), ok: t("agent.repoAnkuendigen"), text: hinweis,
     felder: [
-      { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true },
+      { art: "text", name: "id", label: t("agent.repoKennungPh"), pflicht: true, mono: true, ...(ausKnoten ? { wert: ausKnoten.projekt } : {}) },
       { art: "textarea", name: "beschreibung", label: t("repo.beschreibung") },
       { art: "text", name: "klon", label: t("agent.klonPh"), mono: true },
       ...(!imRaum ? [{ art: "wahl" as const, name: "wo", label: t("repo.wo"), wert: "", optionen: [
@@ -430,7 +439,8 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
         // Als privater Raum erkennbar (C-36, Nutzertest G-5) – wie öffentliche Räume ihren Zusatz tragen
         ...raeume.map((p) => ({ wert: p.gruppe, text: p.name ? t("repo.privaterRaumName", { name: p.name }) : t("repo.privaterRaum") })),
         ...oeffentlich.map((r) => ({ wert: OEFFENTLICH + r.adresse, text: t("repo.oeffentlicherRaum", { name: r.name }) })),
-      ] }] : []),
+        // Vom Knoten (VKl2) nie „nur dieses Gerät“: das Bundle liegt schon verschlüsselt im Netz
+      ].filter((o) => !ausKnoten || o.wert !== LOKAL) }] : []),
     ],
   });
   const id = String(w?.id ?? "").trim();
@@ -441,19 +451,29 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
   const gewaehlt = imRaum ? undefined : oeffentlich.find((r) => OEFFENTLICH + r.adresse === w.wo);
   const raum = imRaum && "adresse" in imRaum ? imRaum.adresse : gewaehlt?.adresse;
   try {
-    const { baueRepoAnkuendigung, raumRepoAnkuendigung } = await import("@freedomstack/protocol");
+    const { baueRepoAnkuendigung, buildGitRepoRef, raumRepoAnkuendigung, raumRepoBundle } = await import("@freedomstack/protocol");
     const angaben = { id, name: id, klon, ...(beschreibung ? { beschreibung } : {}), ...(raum ? { raum } : {}) };
     // Nur auf diesem Gerät (B-2): gemerkt, nichts geht hinaus – keine Rückfrage nötig
-    if (!imRaum && w.wo === LOKAL) {
+    if (!imRaum && !ausKnoten && w.wo === LOKAL) {
       await lokaleRepos.merke(state.keypair.pk, angaben);
       toast(t("repo.lokalAngelegt", { id }));
       await ladeNip34Repos();
       return;
     }
+    // Vom Knoten (VKl2): erst das Bundle – scheitert es, geht auch keine Ankündigung hinaus
+    const bundle = ausKnoten ? await ausKnoten.hole() : null;
+    if (ausKnoten && !bundle) return;
+    const pool = await ensurePool();
     const ev = baueRepoAnkuendigung(angaben, state.keypair.pk);
     if (gruppe) await sendeInRaum(gruppe, raumRepoAnkuendigung(gruppe, angaben));
-    else await (await ensurePool()).publish(await signiere(ev));
-    toast(t("repo.angekuendigt", { id }));
+    else await pool.publish(await signiere(ev));
+    if (bundle) {
+      // Der Verweis trägt den Schlüssel – im privaten Raum nur in die Gruppe (11.4b2), wie nach einem Upload
+      const verweis = bundleVerweis(id, bundle, Math.floor(Date.now() / 1000));
+      if (gruppe) await sendeInRaum(gruppe, raumRepoBundle(gruppe, verweis));
+      else await pool.publish(await signiere(buildGitRepoRef(verweis, state.keypair.pk)));
+    }
+    toast(t(bundle ? "repo.knotenEingestellt" : "repo.angekuendigt", { id }));
     await ladeNip34Repos();
   } catch (e) {
     toast(e instanceof LokalVoll ? t("repo.lokalVoll", { n: LOKAL_MAX }) : fehlerText(e), true);
@@ -462,6 +482,9 @@ async function kuendigeAn(imRaum?: RaumZiel & { name: string }): Promise<void> {
 
 /** „Repo anlegen“ im Raum-Menü (11.4c) – nur, wo ich Repos pflegen darf (das prüft der Raum). */
 export const legeRepoImRaumAn = (ziel: RaumZiel, name: string): Promise<void> => kuendigeAn({ ...ziel, name });
+
+/** Ein Projekt meines Knotens als Repo einstellen (VKl2, aus „Mein Knoten“ – `knoten-code-ui.ts`). */
+export const stelleKnotenProjektEin = (projekt: string, hole: AusKnoten["hole"]): Promise<void> => kuendigeAn(undefined, { projekt, hole });
 
 /** Knoepfe verdrahten und die Liste laden (einmal beim Start). */
 export function wireNip34(): void {

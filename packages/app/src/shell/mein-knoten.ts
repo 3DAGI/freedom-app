@@ -52,6 +52,9 @@ function zeigeStatus(): void {
   // Status (B-11b, `knoten-status-ui.ts`): nur gekoppelt; entkoppelt bleibt keine alte Anzeige stehen
   document.getElementById("knoten-status-holen")?.toggleAttribute("hidden", !k);
   if (!k) document.getElementById("knoten-status-anzeige")?.replaceChildren();
+  // Projekte (VKl2, `knoten-code-ui.ts`): ebenso nur gekoppelt
+  document.getElementById("knoten-projekte")?.toggleAttribute("hidden", !k);
+  if (!k) document.getElementById("knoten-projekte-liste")?.replaceChildren();
 }
 
 async function koppeln(): Promise<void> {
