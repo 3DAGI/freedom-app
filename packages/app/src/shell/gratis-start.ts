@@ -32,10 +32,15 @@ export function zeigeGratisStand(): void {
   if (ziel.hidden) return;
   const rest = kontingentRest(geraeteKontingent.stand());
   const zahl = (n: number): string => n.toLocaleString(gebietsschema());
-  ziel.textContent = rest.antworten === 0 || rest.tokens === 0
+  const leer = rest.antworten === 0 || rest.tokens === 0;
+  // Als Chip (C-49c): kurz im Text, der ganze Satz samt Regel im Tooltip und für Vorleser
+  const satz = leer
     ? t("agent.gratisHeuteLeer")
     : t("agent.gratisHeute", { antworten: rest.antworten, max: GERAET_GRATIS.antworten, tokens: zahl(rest.tokens), maxTokens: zahl(GERAET_GRATIS.tokens) });
-  ziel.title = t("agent.gratisRegel");
+  ziel.textContent = leer ? t("agent.gratisChipLeer") : t("agent.gratisChip", { antworten: rest.antworten, max: GERAET_GRATIS.antworten });
+  ziel.title = `${satz}. ${t("agent.gratisRegel")}`;
+  ziel.setAttribute("aria-label", satz);
+  ziel.classList.toggle("leer", leer);
 }
 
 /**

@@ -29,6 +29,19 @@ test("nur in „Automatisch“ und „Free“; die Fairness-Regel steht dabei", 
   assert.doesNotMatch(t("agent.gratisRegel") + t("agent.gratisHeute"), /garantiert|immer gratis|unbegrenzt/);
   setLang("en");
   assert.match(t("agent.gratisRegel"), /^A fairness rule per device, not a lock/);
+  setLang("de");
+});
+
+test("C-49c: als Chip kurz, der ganze Satz samt Regel im Tooltip und für Vorleser", () => {
+  setLang("de");
+  assert.equal(t("agent.gratisChip", { antworten: 14, max: 20 }), "14/20 gratis");
+  assert.equal(t("agent.gratisChipLeer"), "Gratis aufgebraucht");
+  const zeige = start.slice(start.indexOf("export function zeigeGratisStand"), start.indexOf("\n}\n", start.indexOf("export function zeigeGratisStand")));
+  assert.match(zeige, /ziel\.title = `\$\{satz\}\. \$\{t\("agent\.gratisRegel"\)\}`;/);
+  assert.match(zeige, /ziel\.setAttribute\("aria-label", satz\);/);
+  const html = quelle("../src/shell/index.html");
+  const pille = html.slice(html.indexOf('<div class="pille-leiste">'), html.indexOf('<div class="composer-meta">'));
+  assert.match(pille, /id="ai-gratis"/, "in der Eingabe, nicht mehr darunter");
 });
 
 test("„gratis“ in der Modellwahl nur, wo gratisAnbieter() den Provider nennt", () => {
@@ -36,5 +49,6 @@ test("„gratis“ in der Modellwahl nur, wo gratisAnbieter() den Provider nennt
   assert.match(wahl, /const gratis = new Set\(gratisAnbieter\(providers, MAX_POW_APP\)\.map\(\(p\) => p\.caps\.pubkey\)\);/);
   assert.match(wahl, /if \(gratis\.has\(p\.caps\.pubkey\)\) cur\.gratis \+= 1;/);
   assert.match(wahl, /if \(info\.gratis\) \{\n\s+const marke = el\("span", t\("agent\.mcGratis"\), "mc-gratis"\);/);
-  assert.match(quelle("../src/shell/index.html"), /<span id="ai-gratis" class="mono-sm" hidden><\/span>/);
+  // Seit C-49c ein Chip in der Eingabe statt einer Zeile darunter
+  assert.match(quelle("../src/shell/index.html"), /<span id="ai-gratis" class="gratis-chip" hidden><\/span>/);
 });

@@ -105,6 +105,31 @@ function zurueck(oeffne: (seite: Seite) => void): void {
   oeffne(z?.seite ?? "ai");
 }
 
+/** Ob die rechte Spalte des Agenten am Desktop offen ist – nur eine Bequemlichkeit dieses Browsers (C-49c). */
+export const LS_AGENT_PANEL = "freedom.agent.panel";
+
+/**
+ * Rechte Spalte des Agenten (Arbeitsbereich, Werkzeuge, Kosten) am Desktop nur auf Klick (C-49c, Oberflächen-
+ * Review: meist leer, kostete 300 px). Unter 1200 px bleibt sie eine eigene Ebene hinter „Arbeitsbereich“ (C.6b).
+ */
+function wireAgentPanel(): void {
+  const knopf = document.getElementById("agent-panel-umschalten");
+  const layout = document.querySelector<HTMLElement>(".agent-layout");
+  if (!knopf || !layout) return;
+  const zeige = (auf: boolean) => {
+    layout.classList.toggle("panel-offen", auf);
+    knopf.setAttribute("aria-expanded", String(auf));
+  };
+  let gemerkt = false;
+  try { gemerkt = localStorage.getItem(LS_AGENT_PANEL) === "1"; } catch { /* ohne Speicher: zu */ }
+  zeige(gemerkt);
+  knopf.addEventListener("click", () => {
+    const auf = !layout.classList.contains("panel-offen");
+    zeige(auf);
+    try { localStorage.setItem(LS_AGENT_PANEL, auf ? "1" : "0"); } catch { /* nur Bequemlichkeit */ }
+  });
+}
+
 /** Einmal beim Start: Zurück/Vor, „Mehr“, Kopfzeile mobil und die Unterseiten des Agenten. */
 export function wireNavigation(oeffne: (seite: Seite) => void): void {
   // Zurück, Vor und eine von Hand geänderte Adresse – jede löst popstate aus
@@ -129,6 +154,7 @@ export function wireNavigation(oeffne: (seite: Seite) => void): void {
   document.getElementById("agent-seite-zurueck")?.addEventListener("click", () => zurueck(oeffne));
   document.getElementById("agent-zu-details")?.addEventListener("click", () => gehe({ seite: "ai", unterseite: "details" }, oeffne));
   document.getElementById("agent-panel-zurueck")?.addEventListener("click", () => zurueck(oeffne));
+  wireAgentPanel();
   // Eine Aufgabe gewählt oder neu begonnen: mobil zurück zum Gespräch
   document.querySelector(".agent-side")?.addEventListener("click", (e) => {
     const layout = document.querySelector<HTMLElement>(".agent-layout");

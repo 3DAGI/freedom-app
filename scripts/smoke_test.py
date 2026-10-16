@@ -1252,6 +1252,16 @@ def agent_folgen_pruefen(browser, url: str) -> dict:
         alle: !!document.querySelector('.agent-panel #copy-all') })""")
     if erg["kopieren"] != {"ki": 6, "fragen": 0, "kopiert": "11: Ein langer Absat", "reihe": False, "alle": True}:
         erg["fehler"].append(f"Kopieren je Antwort {erg['kopieren']}")
+    # Seit C-49c: die rechte Spalte am Desktop nur auf Klick – der Knopf öffnet und schließt sie, der Browser merkt es
+    spalte = """() => [document.getElementById('agent-panel').getBoundingClientRect().width > 0,
+        document.getElementById('agent-panel-umschalten').getAttribute('aria-expanded'), localStorage.getItem('freedom.agent.panel')]"""
+    zu = ev(spalte)
+    ev("() => document.getElementById('agent-panel-umschalten').click()")
+    auf = ev(spalte)
+    ev("() => document.getElementById('agent-panel-umschalten').click()")
+    erg["spalte"] = [zu, auf, ev(spalte)]
+    if erg["spalte"] != [[False, "false", None], [True, "true", "1"], [False, "false", "0"]]:
+        erg["fehler"].append(f"rechte Spalte {erg['spalte']}")
     seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
@@ -3349,7 +3359,8 @@ def gratis_anzeige_pruefen(browser, url: str) -> dict:
     s, ev = seite.s, seite.ev
     ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
     s.wait_for_function("() => !document.getElementById('ai-gratis').hidden && document.getElementById('ai-gratis').textContent", timeout=15000)
-    stand = lambda: ev("() => { const g = document.getElementById('ai-gratis'); return [g.hidden, g.textContent, g.title]; }")  # noqa: E731
+    # Seit C-49c ein Chip in der Eingabe: kurz im Text, der ganze Satz im Tooltip (mit der Regel) und für Vorleser
+    stand = lambda: ev("() => { const g = document.getElementById('ai-gratis'); return [g.hidden, g.textContent, g.title, g.getAttribute('aria-label')]; }")  # noqa: E731
     erg["frisch"] = stand()
     # Fünf Antworten und 1 234 Tokens verbraucht – ohne Tresor liegt der Stand in localStorage (`geheim`)
     ev("() => { localStorage.setItem('freedom.gratis.kontingent', JSON.stringify({ tag: new Date().toISOString().slice(0, 10), antworten: 5, tokens: 1234 }));"
@@ -3367,9 +3378,10 @@ def gratis_anzeige_pruefen(browser, url: str) -> dict:
         return [m, k ? (g ? [g.textContent, g.title] : null) : 'fehlt']; }))""")
     seite.ctx.close()
     regel = "Eine Fairness-Regel je Gerät, keine Sperre: gezählt nur auf diesem Gerät, nichts davon geht ins Netz. Jeder Provider hat dazu sein eigenes Gratis-Budget."
-    if erg["frisch"] != [False, "Gratis heute: noch 20 von 20 Antworten, 20.000 von 20.000 Tokens", regel]:
+    satz = "Gratis heute: noch 20 von 20 Antworten, 20.000 von 20.000 Tokens"
+    if erg["frisch"] != [False, "20/20 gratis", f"{satz}. {regel}", satz]:
         erg["fehler"].append(f"frisch {erg['frisch']}")
-    if erg["verbraucht"][1] != "Gratis heute: noch 15 von 20 Antworten, 18.766 von 20.000 Tokens":
+    if erg["verbraucht"][1:4:2] != ["15/20 gratis", "Gratis heute: noch 15 von 20 Antworten, 18.766 von 20.000 Tokens"]:
         erg["fehler"].append(f"verbraucht {erg['verbraucht']}")
     if erg["classic"] is not True:
         erg["fehler"].append("im Tarif Classic sichtbar")

@@ -10520,3 +10520,20 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1150 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-49c – Gratis-Stand als Chip, rechte Spalte nur auf Klick
+
+Aus dem Oberflächen-Review (15.10.2026), letzter Teil von C-49 (mit dem Punkt aus C-43).
+
+- **Gratis-Stand als Chip** in der Pille: „20/20 gratis“, aufgebraucht „Gratis aufgebraucht“. Der ganze Satz („Gratis heute: noch 20 von 20 Antworten, 20.000 von 20.000 Tokens“) steht samt Fairness-Regel im Tooltip und als `aria-label` für Vorleser. Bis jetzt war es eine eigene Zeile unter der Eingabe. Der Stand kommt weiter nur aus dem Kontingent dieses Geräts (`zeigeGratisStand()`, C-27).
+- **Rechte Spalte am Desktop nur auf Klick**: Arbeitsbereich, Werkzeuge, Kosten und „Alle kopieren“ waren meist leer und kosteten 300 px. Jetzt öffnet „Arbeitsbereich“ oben rechts über dem Gespräch die Spalte (`aria-expanded`). Der Browser merkt die Wahl in `freedom.agent.panel`, nur als Bequemlichkeit; ohne Speicher bleibt sie zu. Unter 1200 px bleibt sie die eigene Ebene aus C.6b.
+
+Tests:
+- `gratis-anzeige.test.ts` hat einen neuen Test: Chip kurz, Satz im Tooltip und als `aria-label`, in der Pille.
+- `agent-pille.test.ts` hat einen neuen Test: Spalte nur auf Klick, gemerkt mit Ausweg ohne Speicher.
+- Smoke-Teile:
+  - „gratis_anzeige“: Chip, Tooltip und `aria-label`, frisch und verbraucht.
+  - „agent_folgen“: Die Spalte ist zu, öffnet und schließt per Knopf, gemerkt als 1/0.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1152 (+2), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.

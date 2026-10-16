@@ -86,6 +86,8 @@
             </div>
           </aside>
           <div class="agent-main">
+        <!-- Rechte Spalte am Desktop nur auf Klick (C-49c); unter 1200 px führt „Arbeitsbereich“ auf eine eigene Ebene -->
+        <button id="agent-panel-umschalten" class="ghost agent-panel-umschalten" type="button" aria-expanded="false" aria-controls="agent-panel"><span class="ic" data-icon="wrench"></span> <span data-i18n="agent.arbeitsbereich">Arbeitsbereich</span></button>
         <div class="agent-mobil-leiste agent-nur-mobil">
           <button id="agent-zu-verlauf" class="ghost" type="button"><span class="ic" data-icon="scroll"></span> <span data-i18n="nav.verlauf">Verlauf</span></button>
           <button id="agent-zu-modelle" class="ghost" type="button"><span class="ic" data-icon="server"></span> <span data-i18n="nav.modelle">Modelle</span></button>
@@ -151,6 +153,8 @@
                 <span id="attach-status" class="mono-sm"></span>
                 <input type="file" id="attach-input" class="hidden" />
                 <span class="pille-luecke"></span>
+                <!-- Was heute gratis noch geht, als Chip (C-49c) – der ganze Satz im Tooltip und für Vorleser -->
+                <span id="ai-gratis" class="gratis-chip" hidden></span>
                 <div class="optionen-wrap">
                   <button type="button" id="ai-optionen-btn" class="ghost plus-knopf" aria-haspopup="true" aria-expanded="false" aria-controls="ai-optionen" aria-label="Stufe und Bezahlung" title="Stufe und Bezahlung" data-i18n-aria="agent.optionen" data-i18n-title="agent.optionen"><span class="ic" data-icon="settings"></span></button>
                   <div id="ai-optionen" class="ai-optionen hidden" role="group" aria-label="Stufe und Bezahlung" data-i18n-aria="agent.optionen">
@@ -180,12 +184,11 @@
             <div class="composer-meta">
               <span id="ai-fee-preview" class="mono-sm" style="display:none"></span>
               <span id="ai-budget" class="mono-sm"></span>
-              <span id="ai-gratis" class="mono-sm" hidden></span>
             </div>
           </div>
         </div>
       </div>
-          <aside class="agent-panel" aria-label="Arbeitsbereich" data-i18n-aria="agent.arbeitsbereich">
+          <aside class="agent-panel" id="agent-panel" aria-label="Arbeitsbereich" data-i18n-aria="agent.arbeitsbereich">
             <button id="agent-panel-zurueck" class="ghost agent-panel-zurueck" type="button" aria-label="Zurück zum Gespräch" data-i18n-aria="nav.zurueckAria" data-i18n="nav.zurueck">‹ Zurück</button>
             <div class="panel-block">
               <h2 class="panel-title" data-i18n="agent.arbeitsbereich">Arbeitsbereich</h2>
