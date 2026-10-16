@@ -76,3 +76,8 @@ dieses Bereichs unten anhängen.
   wie jedes helle Gerät. Was ein Design braucht, setzt es ausdrücklich (`DialogSeite(…, farbschema="dark")`);
   „zugang“ und „stil_abdruck“ laufen in beiden.
 
+- **Playwrights Uhr springt zurück** (gefunden in C-57c): Läuft die Uhr nach `clock.install()` in Echtzeit, kann ein
+  Durchlauf der Timer, der vor `pause_at()` begann, nach einem `fast_forward()` enden und die Uhr auf seine alte Zeit
+  zurücksetzen (`_advanceNow()` ohne Sperre) – der Timer, auf den man wartet, läuft dann nicht. Uhr vor der Handlung
+  anhalten, die Startzeit in derselben Aufgabe messen (`() => { const t = Date.now(); …click(); return t; }`) und bis zu
+  einer festen Zeit der Seite vorstellen, mit Nachsehen (`uhr_bis()` im Smoke-Teil „qr“) – nie nur Dauern addieren.
