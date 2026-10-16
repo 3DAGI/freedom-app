@@ -10365,3 +10365,67 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1138 (+1), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-44 – Avatare: Buchstabe im Kreis, Farbe aus dem Schlüssel
+
+Aus dem Oberflächen-Review (15.10.2026). Personen ohne Bild sahen alle gleich aus:
+- In der Chat-Liste stand ein grüner Kreis mit dem ersten Zeichen des Namens oder, ohne Namen, des Schlüssels.
+- Im Raum-Verlauf und bei den Mitgliedern stand gar kein Zeichen.
+- Im Kopf der Unterhaltung stand nicht einmal der Name.
+
+- **`avatar.ts`**:
+  - `avatarFarbe()` wählt eine von acht Farben aus den ersten zwei Hex-Zeichen des Schlüssels. Ohne gültigen Schlüssel ist es die erste.
+  - `personInitiale()` liefert den ersten Buchstaben des Namens, nach Zeichen gezählt (Emoji bleiben ganz), ohne „~“. Ohne eigenen Namen steht „?“ statt eines Zeichens aus dem Schlüssel; die Farbe unterscheidet die Personen trotzdem.
+  - `kontaktInitiale()` nutzt sie mit.
+- **`avatar()`** (`shell/ui.ts`) baut einen Kreis nur aus Text, mit `data-farbe` und `aria-hidden` (für Vorleser zählt der Name daneben). Er erscheint in:
+  - der Chat-Liste (32 px);
+  - dem neuen Kopf der Unterhaltung (`#chat-partner`: Zeichen und Name; er wird mit der Liste neu gezeichnet und folgt so Umbenennen und Profilnamen);
+  - dem Raum-Verlauf (36 px links neben jeder Gruppe);
+  - den Mitgliedern.
+  Das eigene Zeichen kommt aus dem eigenen Profilnamen (`eigeneInitiale()`, wie in der Kopfzeile).
+- **Kopfzeile und Profil** nutzen dieselben Farben: `header .ident[data-farbe]::before` und `.profile-avatar-fallback[data-farbe]`. Der Rand der Profil-Vorschau bleibt im gewählten Akzent.
+- Nie ein Bild aus dem Netz (Regel aus C.5a).
+
+Die acht Farben stehen nur in `app.css`. Ein Test liest sie dort und rechnet den Kontrast zu Weiß nach WCAG: Jede liegt bei mindestens 4,5:1 (die niedrigste bei etwa 5:1).
+
+Tests:
+- Neu ist `avatar.test.ts`:
+  - Farbe gleich für denselben Schlüssel, alle acht verteilt, kaputte Schlüssel ergeben 0;
+  - Buchstabe nur aus dem Namen, Gegenfälle ergeben „?“;
+  - Kontrast jeder Farbe;
+  - die Verdrahtung.
+- `kontakt-name.test.ts` erwartet ohne Namen jetzt „?“ statt einer Ziffer aus dem Schlüssel; das ist eine gewollte Änderung.
+- Der Smoke-Teil „kontaktname“ prüft zusätzlich die Farbe aus dem Schlüssel und Zeichen und Namen im Kopf der Unterhaltung.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1142 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-45 – Leere Zustände mit Symbol, Satz und nächstem Schritt
+
+Aus dem Oberflächen-Review (15.10.2026). Leere Listen zeigten bis jetzt einen grauen Satz ohne Weg weiter, oft mit Fachwort:
+- „Noch keine Unterhaltungen. Mit + beginnst du eine.“
+- „Noch keine Repos nach NIP-34 …“
+- „keine LP-Angebote gefunden“
+
+- **`leererZustand()`** (`shell/ui.ts`) zeigt ein Symbol im Kreis, einen Satz als Text und höchstens einen Knopf, die Hauptaktion (`.primaer`, C-42b). Kein HTML.
+- **Chat-Liste**: „Noch keine Unterhaltungen. Schreib jemandem – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer.“ Dazu „Neue Unterhaltung“; der Knopf öffnet denselben Dialog wie „＋“.
+- **Repos**, drei Fälle:
+  - Ohne Repos: „Repo ankündigen“.
+  - Wenn die Suche nichts findet: „Suche leeren“ (leert das Feld und zeigt die Liste wieder).
+  - Unter „Neu“ ohne Neuigkeiten: „Alle zeigen“.
+  Der Text nennt statt „NIP-34“ die Clients, die die Repos auch sehen.
+- **Tauschen**: „Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.“ Dazu „Noch einmal suchen“, das das Wallet neu lädt. Die Angebote liest die App weiter nur von den eigenen Relays; der Satz sagt genau das.
+
+Verdienen („Noch keine Einnahmen“) baut C-54 ohnehin um. Dort kommt der leere Zustand mit der Übersicht.
+
+Tests:
+- Neu ist `leer-zustand.test.ts`:
+  - der Baustein (nur Text, höchstens ein Knopf);
+  - die Verdrahtung an allen fünf Stellen samt Gegenprobe;
+  - Klartext ohne „NIP-34“, „LP“ und „mit +“ in beiden Sprachen.
+- Smoke-Teile:
+  - „einrichtung_wahl“: Die leere Chat-Liste zeigt Symbol, Satz und Knopf, und der Knopf öffnet den Dialog.
+  - „repos“: Die leere Suche zeigt Satz und „Suche leeren“, und der Knopf bringt die Liste zurück.
+
+**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1145 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
