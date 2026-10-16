@@ -23,7 +23,7 @@ import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { zeigeZahlungen } from "../verlauf-ui.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
-import { $, leererZustand, toast, updateSidebarBalances } from "../ui.js";
+import { $, el, ladend, leererZustand, toast, updateSidebarBalances } from "../ui.js";
 import { merkeStand } from "../wallet-gesamt-ui.js";
 import { zeigeTauschformular } from "../tauschformular-ui.js";
 import { startRueckSwap, startSwap, starteRueckholWaechter } from "./tausch.js";
@@ -216,6 +216,7 @@ export async function connectSolana(silent = false): Promise<void> {
     document.getElementById("sol-verwalten")?.removeAttribute("open"); // verbunden: die Einstellungen zu (C-50b)
 
     try {
+      merkeStand("solBrowser", "laedt"); // unterwegs ein Skelett (C-59)
       const rpcUrl = await solRpcUrl();
       const bal = await fetchSolBalance(conn.pubkey, rpcUrl);
       localStorage.setItem("freedom.sol.balance", bal.sol.toFixed(4));
@@ -280,6 +281,9 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
 
     statusEl.textContent = t("waehr.verbinde");
     statusEl.className = "mono-sm";
+    // Unterwegs ein Skelett statt „—“ (C-59)
+    merkeStand("ln", "laedt");
+    ladend($("#ln-balance"));
     const info = await client.init();
     const balance = await client.getBalance();
 
@@ -303,6 +307,11 @@ export async function connectNwc(uri?: string, silent = false): Promise<void> {
     $("#nwc-disconnect").classList.remove("hidden");
     updateSidebarBalances();
   } catch (e) {
+    // Gescheitert: kein Stand, kein Skelett mehr (C-59)
+    if (!nwc) {
+      merkeStand("ln", undefined);
+      $("#ln-balance").replaceChildren("— ", el("small", "sats"));
+    }
     if (silent) return;
     statusEl.textContent = fehlerText(e);
     statusEl.className = "mono-sm err";

@@ -6,12 +6,14 @@
 import { gesamtStand } from "../wallet-gesamt.js";
 import { gebietsschema, t } from "../i18n.js";
 import { aktuellerKurs } from "./marktkurs.js";
+import { ladend } from "./ui.js";
 
 type Konto = "ln" | "solBrowser" | "solEingebaut";
-/** `undefined`: kein solches Konto, `null`: Konto da, Stand gerade nicht abrufbar. */
-const stand: Partial<Record<Konto, number | null>> = {};
+/** `undefined`: kein solches Konto, `null`: Konto da, Stand gerade nicht abrufbar, `"laedt"`: unterwegs (C-59). */
+type Stand = number | null | "laedt";
+const stand: Partial<Record<Konto, Stand>> = {};
 
-export function merkeStand(konto: Konto, wert: number | null | undefined): void {
+export function merkeStand(konto: Konto, wert: Stand | undefined): void {
   if (wert === undefined) delete stand[konto];
   else stand[konto] = wert;
   zeigeGesamt();
@@ -42,11 +44,13 @@ export function zeigeGesamt(): void {
   const sol = (["solBrowser", "solEingebaut"] as const).filter((k) => k in stand);
   const bekannt = sol.map((k) => stand[k]).filter((x): x is number => typeof x === "number");
   const kurs = aktuellerKurs();
-  // Stand der Solana-Zeile (C-50b): Browser-Wallet und eingebaute zusammen, ohne Stand „—“
+  // Stand der Solana-Zeile (C-50b): Browser-Wallet und eingebaute zusammen, ohne Stand „—“, unterwegs ein Skelett (C-59)
+  const laedt = (Object.keys(stand) as Konto[]).filter((k) => stand[k] === "laedt");
   const solStand = document.getElementById("sol-stand");
-  if (solStand) solStand.textContent = bekannt.length ? `${(bekannt.reduce((a, b) => a + b, 0) / 1e9).toLocaleString(gebietsschema(), { maximumFractionDigits: 4 })} SOL` : "—";
+  if (solStand && !bekannt.length && sol.some((k) => laedt.includes(k))) ladend(solStand);
+  else if (solStand) solStand.textContent = bekannt.length ? `${(bekannt.reduce((a, b) => a + b, 0) / 1e9).toLocaleString(gebietsschema(), { maximumFractionDigits: 4 })} SOL` : "—";
   const g = gesamtStand({
-    lnMsat: "ln" in stand ? stand.ln : undefined,
+    lnMsat: typeof stand.ln === "number" ? stand.ln : undefined,
     solLamports: sol.length === 0 ? undefined : bekannt.length ? bekannt.reduce((a, b) => a + b, 0) : null,
     fehlt: bekannt.length < sol.length && bekannt.length > 0,
   }, kurs);
@@ -55,6 +59,14 @@ export function zeigeGesamt(): void {
   if (einrichten) einrichten.hidden = !!g;
   const eingebaut = document.getElementById("weg-eingebaut");
   if (eingebaut) eingebaut.hidden = !!document.getElementById("solw-einrichten")?.classList.contains("hidden");
+  // Ein Stand ist unterwegs (C-59): kein „—“ und keine Einrichtung, bis er da ist oder scheitert
+  if (laedt.length) {
+    if (einrichten) einrichten.hidden = true;
+    ladend(zahl);
+    einheit.textContent = "";
+    zusatz.textContent = "";
+    return;
+  }
   if (!g) {
     zahl.textContent = "—";
     einheit.textContent = "";
