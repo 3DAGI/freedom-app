@@ -1216,7 +1216,8 @@ def chat_klein_pruefen(browser, url: str) -> dict:
 def agent_folgen_pruefen(browser, url: str) -> dict:
     """Der Agent-Verlauf folgt dem Ende (C-31, Nutzertest A-4): Bis C-31 maß die App erst nach dem Anhängen, ob
     man unten war – jede Blase über 80 px galt als „hochgescrollt“, und die Ansicht blieb stehen. Ein langer
-    Verlauf öffnet jetzt am Ende; wer hochscrollt, bleibt oben, bis er selbst wieder nach unten geht."""
+    Verlauf öffnet jetzt am Ende; wer hochscrollt, bleibt oben, bis er selbst wieder nach unten geht. Seit C-46
+    steht „Kopieren“ unter jeder Antwort."""
     erg = {"fehler": []}
     lang = "Ein langer Absatz. " * 60
     verlauf = [{"id": "lang", "title": "Lang", "at": 1790000000, "messages": [
@@ -1240,6 +1241,17 @@ def agent_folgen_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"langer Verlauf öffnet nicht am Ende: {erg['geoeffnet']} px darüber")
     if erg["hochgescrollt"] != 0 or erg["hoehe"] < 3000:
         erg["fehler"].append(f"hochgescrollt {erg['hochgescrollt']}, Höhe {erg['hoehe']}")
+    # Seit C-46: „Kopieren“ unter jeder Antwort (nicht unter Fragen), „Alle kopieren“ im Arbeitsbereich, keine Knopfreihe
+    # unter der Eingabe mehr; die Zwischenablage ersetzt eine Attrappe
+    ev("() => { window.__kopiert = null; navigator.clipboard.writeText = (t) => { window.__kopiert = t; return Promise.resolve(); }; }")
+    ev("() => [...document.querySelectorAll('#ai-thread .bubble.ai .antwort-kopieren')].at(-1).click()")
+    s.wait_for_function("() => window.__kopiert !== null", timeout=5000)
+    erg["kopieren"] = ev("""() => ({ ki: [...document.querySelectorAll('#ai-thread .bubble.ai')].filter(b => b.querySelector('.antwort-kopieren')).length,
+        fragen: document.querySelectorAll('#ai-thread .bubble.user .antwort-kopieren').length,
+        kopiert: window.__kopiert.slice(0, 20), reihe: !!document.querySelector('.composer-actions, #copy-last'),
+        alle: !!document.querySelector('.agent-panel #copy-all') })""")
+    if erg["kopieren"] != {"ki": 6, "fragen": 0, "kopiert": "11: Ein langer Absat", "reihe": False, "alle": True}:
+        erg["fehler"].append(f"Kopieren je Antwort {erg['kopieren']}")
     seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg

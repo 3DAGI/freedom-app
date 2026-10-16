@@ -2,8 +2,7 @@
 import type { Texte } from "../i18n.js";
 
 export const agent: Texte = {
-  emptySub: { de: "Stell eine Frage. Du zahlst pro Anfrage.", en: "Ask a question. You pay per request." },
-  emptyHint: { de: "Modell wählen · Werkzeuge anhängen", en: "Choose a model · attach tools" },
+  emptySub: { de: "Stell eine Frage. Bis zu 20 Antworten am Tag sind gratis, solange Provider es anbieten – danach zahlst du je Anfrage.", en: "Ask a question. Up to 20 answers a day are free while providers offer it – after that you pay per request." },
   aiPlaceholder: { de: "Nachricht an den Agenten", en: "Message the agent" },
   send: { de: "Senden", en: "Send" },
   // Stand eines Auftrags (setTypingStatus/showTyping)
@@ -11,7 +10,6 @@ export const agent: Texte = {
   connecting: { de: "verbindet…", en: "connecting…" },
   researching: { de: "recherchiert…", en: "researching…" },
   creating: { de: "erstellt…", en: "creating…" },
-  copyLast: { de: "Letzte kopieren", en: "Copy last" },
   copyAll: { de: "Alle kopieren", en: "Copy all" },
   bid: { de: "Gebot", en: "Bid" },
   tierAuto: { de: "Automatisch — erst gratis, dann fragen", en: "Automatic — free first, then ask" },
@@ -48,11 +46,11 @@ export const agent: Texte = {
   "agent.repoAnkuendigen": { de: "Repo ankündigen", en: "Announce repo" },
   "agent.quotaTitel": { de: "Gratis-Kontingent heute", en: "Free quota today" },
   "agent.quota": { de: "Gratis-Kontingent", en: "Free quota" },
-  "agent.beispiel1": { de: "„Erkläre mir das Nostr-Protokoll…“", en: "“Explain the Nostr protocol…”" },
+  "agent.beispiel1": { de: "Erkläre mir das Nostr-Protokoll", en: "Explain the Nostr protocol" },
   "agent.beispiel1Prompt": { de: "Erkläre mir das Nostr-Protokoll in einem Satz.", en: "Explain the Nostr protocol in one sentence." },
-  "agent.beispiel2": { de: "„Vorteile von Lightning…“", en: "“Benefits of Lightning…”" },
+  "agent.beispiel2": { de: "Vorteile von Lightning", en: "Benefits of Lightning" },
   "agent.beispiel2Prompt": { de: "Schreibe eine kurze Zusammenfassung der wichtigsten Vorteile von Lightning.", en: "Write a short summary of the main benefits of Lightning." },
-  "agent.beispiel3": { de: "„Bild: Leuchtturm bei Nacht…“", en: "“Image: lighthouse at night…”" },
+  "agent.beispiel3": { de: "Bild: Leuchtturm bei Nacht", en: "Image: lighthouse at night" },
   "agent.beispiel3Prompt": { de: "Erstelle ein Bild: ein Leuchtturm bei Nacht.", en: "Create an image: a lighthouse at night." },
   "agent.anhangBild": { de: "Bild", en: "image" },
   "agent.anhangDatei": { de: "Datei", en: "file" },
@@ -68,7 +66,9 @@ export const agent: Texte = {
   "agent.werkzeugVideo": { de: "Video", en: "video" },
   "agent.laenge": { de: "Länge", en: "Length" },
   "agent.qualitaet": { de: "Qualität", en: "Quality" },
-  "agent.kopierenLetzte": { de: "Letzte Antwort kopieren", en: "Copy last answer" },
+  "agent.kopierenAntwort": { de: "Antwort kopieren", en: "Copy answer" },
+  "agent.kopieren": { de: "Kopieren", en: "Copy" },
+  "agent.unterhaltung": { de: "Unterhaltung", en: "Conversation" },
   "agent.kopierenAlle": { de: "Ganze Unterhaltung kopieren", en: "Copy whole conversation" },
   "agent.modellWaehlen": { de: "Modell wählen", en: "Choose model" },
   "agent.autoSchnellste": { de: "auto (schnellste)", en: "auto (fastest)" },
