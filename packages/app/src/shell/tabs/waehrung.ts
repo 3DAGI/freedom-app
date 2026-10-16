@@ -23,7 +23,7 @@ import { zeigeEingebauteWallet } from "../eingebaute-wallet.js";
 import { zeigeZahlungen } from "../verlauf-ui.js";
 import { aktualisiereKurs, zeigeKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
-import { $, toast, updateSidebarBalances } from "../ui.js";
+import { $, leererZustand, toast, updateSidebarBalances } from "../ui.js";
 import { startRueckSwap, startSwap, starteRueckholWaechter } from "./tausch.js";
 
 // ------------------------------------------------------------- Wallet-Tab
@@ -76,12 +76,8 @@ export async function loadWallet(): Promise<void> {
     // boesartiger LP konnte damit beliebiges JS im App-Kontext ausfuehren.
     // Seit 4.6c: Zeilen per DOM und textContent, das Angebot bleibt ein Objekt.
     box.replaceChildren();
-    if (!valid.length) {
-      const leer = document.createElement("div");
-      leer.className = "mono-sm";
-      leer.textContent = t("waehr.keineAngebote");
-      box.appendChild(leer);
-    }
+    // Leer mit Erklärung und „noch einmal suchen“ (C-45) – Angebote kommen und gehen
+    if (!valid.length) box.appendChild(leererZustand("coins", t("waehr.keineAngebote"), { text: t("waehr.nochmalSuchen"), beiKlick: () => void loadWallet() }));
     for (const { ev, offer } of valid) {
       const rueck = offer.direction === "buy-sol";
       const zeile = document.createElement("div");

@@ -7,6 +7,7 @@ export const repos: Texte = {
   "repo.alle": { de: "Alle", en: "All" },
   "repo.meine": { de: "Meine", en: "Mine" },
   "repo.nichtsGefunden": { de: "Kein Repo passt zur Suche.", en: "No repo matches the search." },
+  "repo.sucheLeeren": { de: "Suche leeren", en: "Clear search" },
   "repo.markeBundle": { de: "Bundle", en: "Bundle" },
   "repo.karteFuss": { de: "Offene Patches: {n} · zuletzt {datum}", en: "Open patches: {n} · last {datum}" },
   "repo.beschreibung": { de: "Beschreibung (optional)", en: "Description (optional)" },
@@ -255,6 +256,7 @@ export const repos: Texte = {
   "repo.markeNeu": { de: "{n} neu", en: "{n} new" },
   "repo.neuDetails": { de: "Seit deinem letzten Blick: Issues {issues}, Patches {patches}, Kommentare {kommentare}", en: "Since you last looked: issues {issues}, patches {patches}, comments {kommentare}" },
   "repo.nichtsNeues": { de: "Nichts Neues in Repos, an denen du beteiligt bist.", en: "Nothing new in repos you take part in." },
+  "repo.alleZeigen": { de: "Alle zeigen", en: "Show all" },
   // B-2: Repos nur auf diesem Gerät
   "repo.woLokal": { de: "nur dieses Gerät – privat, nichts geht hinaus", en: "this device only – private, nothing leaves it" },
   "repo.markeLokal": { de: "nur dieses Gerät", en: "this device only" },

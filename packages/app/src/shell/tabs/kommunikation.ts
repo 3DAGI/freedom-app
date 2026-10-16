@@ -14,7 +14,7 @@ import { sucheAufnehmen, wireSuche } from "../suche-ui.js";
 import { mlsBeiNeuem, mlsErreichbar, mlsGesperrt, mlsSendeAn } from "../mls-konto.js";
 import { geheim } from "../tresor.js";
 import { dialog, hinweis } from "../dialog.js";
-import { $, avatar, el, toast } from "../ui.js";
+import { $, avatar, el, leererZustand, toast } from "../ui.js";
 import { oeffneMenueAn } from "../menue.js";
 import { pruefStand } from "../kontakt-pruefen-ui.js";
 import { t } from "../../i18n.js";
@@ -169,9 +169,10 @@ export function loadChatList(): void {
   // Nur Direktnachrichten – Communities stehen seit C-10 in der Raum-Leiste
   const dms = conversations.filter((c) => c.type === "dm");
   if (dms.length === 0) {
-    const leer = el("div", t("komm.keineUnterhaltungen"), "mono-sm");
-    leer.style.cssText = "padding:10px;color:var(--text-muted)";
-    list.replaceChildren(leer);
+    // Mit dem nächsten Schritt statt nur eines Satzes (C-45)
+    list.replaceChildren(leererZustand("chat", t("komm.keineUnterhaltungen"), {
+      text: t("komm.neueUnterhaltung"), beiKlick: () => document.getElementById("chat-new-dm")?.click(),
+    }));
     zeigeUngelesen();
     return;
   }
