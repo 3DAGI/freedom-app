@@ -69,7 +69,7 @@ export function hashZuKurve(nachricht: Uint8Array): Punkt {
       return P.fromHex("02" + bytesToHex(sha256(new Uint8Array([...h, ...z]))));
     } catch { /* kein Punkt – weiter */ }
   }
-  throw new ProtokollFehler("pfand-form", "kein Punkt gefunden");
+  throw new ProtokollFehler("pfand-form", "Pfand hat nicht die Form");
 }
 
 /** NUT-12: e = SHA-256 über die Punkte, unkomprimiert als Hex hintereinander. */
@@ -79,7 +79,7 @@ export function hashE(punkte: readonly Punkt[]): Uint8Array {
 
 const skalar = (h: string): bigint => {
   const n = BigInt("0x" + h);
-  if (n <= 0n || n >= N) throw new ProtokollFehler("pfand-form", "Skalar außerhalb");
+  if (n <= 0n || n >= N) throw new ProtokollFehler("pfand-form", "Pfand hat nicht die Form");
   return n;
 };
 
