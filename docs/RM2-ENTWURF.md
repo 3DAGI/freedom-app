@@ -182,14 +182,15 @@ Spark-Wallet, dazu Cashu für kleine Beträge (NUT-11, NUT-12), immer mit der Mi
 | RM2b1 | Knoten: `PfandKasse` (annehmen, Datei 0600, einlösen vor der Frist, absturzsicher); Tests gegen eine Mint auf dem Rechner (Nutshell ohne echtes Lightning), wie beim Zahlkanal gegen den Validator | A | ~300 – **fertig** (16.10.: `node/src/pfand-kasse.ts`) |
 | RM2b2 | Knoten: verdrahten – Provider (Deckung, Buchung), `main.ts` (`PFAND=1`, `PFAND_MINTS`), Angebot, Selbstprüfung der Mints | A | ~200 – **fertig** (16.10.) |
 | RM2b3 | Knoten: Mint-Abrufe über Tor (`TOR_SOCKS`), Erlös an die eigene Lightning-Adresse (NUT-05, `NODE_LUD16`) | A | ~200 – **fertig** (16.10.) |
-| RM2c | App: Fenster sperren, übergeben, Rest zurückholen über den Cashu-Topf aus A-17c; die Sitzung auf Kredit fällt weg | A | ~350 |
+| RM2c1 | App: Pfand-Fenster im Cashu-Topf aus A-17c – sperren, übergeben bis zur Deckung, nach der Frist zurückholen; ein Tausch ohne Antwort der Mint bleibt gemerkt | A | ~250 – **fertig** (16.10.: `app/src/cashu-topf.ts`) |
+| RM2c2 | App: verdrahten – Pfand im Kern der Anfrage statt Sitzung, Buchung nach der Antwort, Rückweg im Abruftakt; die Sitzung auf Kredit fällt weg; Grenze „cashu-verwahrt“ im Bericht | A | ~300 |
 | RM2d | Oberfläche: „Guthaben laden“ statt Budget-Sitzung, Mint und „verwahrt“ sichtbar | C | ~200 |
 
 - **Reihenfolge:** nach A-17c (Cashu-Baustein).
 - **Neue Abhängigkeit im Knoten:** `@cashu/cashu-ts` 4.11.0, MIT oder Apache-2.0, rund 2 MB
   entpackt, Abhängigkeiten `@noble`/`@scure`. Für die App ist sie schon mit E4b freigegeben.
 - **Die Prüfung ohne Mint (RM2a)** geht mit `@noble/curves`, das schon im Protokoll ist.
-- **Bis RM2c** bleibt die heutige Sitzung, wie sie ist.
+- **Bis RM2c2** bleibt die heutige Sitzung, wie sie ist.
 
 ## Fragen an den MENSCHEN
 
