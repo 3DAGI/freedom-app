@@ -600,8 +600,14 @@ def dialog_pruefen(browser, url: str) -> dict:
           const a = document.activeElement; return { offen: !!d, titel: d ? document.getElementById(d.getAttribute('aria-labelledby'))?.textContent : null,
             fokus_drin: !!(d && d.contains(a)), fokus: a?.id || a?.tagName, inert: document.getElementById('app').inert,
             meldung: d?.querySelector('[role=alert]')?.textContent ?? null }; }"""
-        ev("() => document.getElementById('rail-join').focus()")
+        # Am Handy steht die Leiste seit C-52b nur im Raum – dort führt „Neu“ zu „Raum beitreten“ (Menü per Tastatur)
+        ausloeser = "chat-neu" if groesse == "mobil" else "rail-join"
+        ev("(id) => document.getElementById(id).focus()", ausloeser)
         s.keyboard.press("Enter")
+        if groesse == "mobil":
+            s.wait_for_selector(".menue-schwebend [role=menuitem]", timeout=5000)
+            s.keyboard.press("End")
+            s.keyboard.press("Enter")
         s.wait_for_timeout(300)
         auf = ev(stand)
         s.keyboard.press("Enter")  # leer bestätigen: Pflichtfeld meldet sich, Dialog bleibt
@@ -620,7 +626,7 @@ def dialog_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{groesse}: Pflichtfeld {leer}")
         if not tab["fokus_drin"]:
             erg["fehler"].append(f"{groesse}: Tab verlässt den Dialog {tab}")
-        if zu["offen"] or zu["inert"] or zu["fokus"] != "rail-join":
+        if zu["offen"] or zu["inert"] or zu["fokus"] != ausloeser:
             erg["fehler"].append(f"{groesse}: Esc {zu}")
         ctx.close()
     erg["bestanden"] = not erg["fehler"]
