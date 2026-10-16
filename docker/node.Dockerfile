@@ -14,7 +14,9 @@ RUN useradd -m -u 1001 -s /bin/bash freedom || true
 # GPL-2.0+, als getrennter Prozess ohne Folge für die Lizenz des Knotens (EUPL-1.2).
 # git für Projekte zum Vibecoden (A-31 VKc1, VK-W2 A, nur mit VIBECODEN=1) – ebenso
 # eigenes Programm (GPL-2.0), als getrennter Prozess aufgerufen.
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 git \
+# bubblewrap für die Sandbox (VKb, LGPL-2.0+, getrennter Prozess) – unter Docker sperrt
+# das Standard-Seccomp meist Nutzer-Namensräume: dann meldet es die Selbstprüfung, Code läuft nicht.
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewrap git \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
