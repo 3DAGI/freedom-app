@@ -803,3 +803,7 @@ Fallstricke dieses Bereichs unten anhängen.
   netto reicht – je Provider und Sitzungsschlüssel, mit derselben Rechnung wie `PfandKasse` (Gebühr der Mint je Token,
   Konto bis zur frühesten Frist der neuen Token); `merke()` vor dem Senden, `pfandVerbucht()` nach der Antwort.
   Zurück nur über `holePfandZurueck()` nach der Frist (übergeben oder nicht, Eingelöstes fällt weg).
+- **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
+  Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
+  Variante nur mit Grund im Pull Request. Farben, Radien und Abstände nur über die Tokens in `app.css`.
+
