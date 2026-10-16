@@ -193,12 +193,12 @@
       <div class="card">
         <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg> <span data-i18n="provDesktop">Linux (ein Befehl)</span></h3>
         <p style="margin-bottom:8px">Ein Befehl richtet Ollama, ein Modell, den Dienst und deine Lightning-Adresse ein (Prüfsumme daneben: install.sh.sha256). Die App zeigt ihn unter Verdienen › Hosten.</p>
-        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">bash &lt;(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)</pre>
+        <pre class="mono befehl">bash &lt;(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)</pre>
       </div>
       <div class="card">
         <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> <span data-i18n="provHeadless">Headless (Server)</span></h3>
         <p style="margin-bottom:8px">Überall wo Node läuft:</p>
-        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">git clone https://github.com/3DAGI/freedom-app
+        <pre class="mono befehl">git clone https://github.com/3DAGI/freedom-app
 cd freedom-app &amp;&amp; npm ci
 cd packages/node
 NODE_LUD16=provider@knoten.example.org npm start</pre>
@@ -207,7 +207,7 @@ NODE_LUD16=provider@knoten.example.org npm start</pre>
       <div class="card">
         <h3><svg class="logo-btc" width="13" height="13" viewBox="10.5 0.8 12.6 22.4" fill="#f7931a" aria-label="Bitcoin"><path d="M16.15 12.03c1.44-.36 2.42-1.32 2.24-3.02-.23-2.13-1.98-2.85-4.23-3.05l-.01-2.44h-1.51l-.01 2.38c-.4 0-.81.01-1.21.01l.01-2.39H9.92l-.01 2.44c-.33.01-.65.01-.97.01v-.01H6.88l.01 1.62s1.11-.02 1.09-.01c.61 0 .81.36.87.67v2.77c.04 0 .1.01.16.03h-.16v3.88c-.03.19-.13.49-.54.49.02.01-1.09 0-1.09 0l-.3 1.81h2.55c.34 0 .68.01 1.01.01l.01 2.47h1.51l.01-2.44c.41.01.81.01 1.21.02l-.01 2.43h1.51l.01-2.46c2.58-.15 4.37-.8 4.59-3.18.18-1.93-.73-2.79-2.17-3.14zm-4.7-4.71c.86 0 3.57-.17 3.57 1.53 0 1.63-2.71 1.45-3.57 1.45zm0 7.63v-3.19c1.04 0 4.28-.19 4.28 1.6 0 1.71-3.24 1.59-4.28 1.59z"/></svg> Mit LP-Modus</h3>
         <p style="margin-bottom:8px">Zusätzlich Swap-Liquidität anbieten (braucht LND und eine eingeschränkte Macaroon – mit der vollen Admin-Macaroon startet der Knoten nicht):</p>
-        <pre class="mono" style="background:#000;padding:10px;border-radius:2px">lncli bakemacaroon --save_to=freedom-lp.macaroon \
+        <pre class="mono befehl">lncli bakemacaroon --save_to=freedom-lp.macaroon \
   info:read invoices:read invoices:write \
   offchain:read offchain:write
 LP_ENABLED=1 LND_MACAROON=freedom-lp.macaroon \
@@ -504,9 +504,13 @@ window.__particlesLoaded = true;
     vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
     base: 0.5+Math.random()*0.5,
   }));
+  // Grün aus dem Token (C-57c) – im hellen Design dunkler
+  const gruen = () => getComputedStyle(canvas).getPropertyValue("--accent").trim() || "#7BC80A";
   const frame = () => {
     if (!document.body.contains(canvas)) return;
     ctx2d.clearRect(0,0,w,h);
+    const farbe = gruen();
+    ctx2d.fillStyle = farbe;
     for (const pt of pts) {
       if (mouse.active) {
         const dx=mouse.x-pt.x, dy=mouse.y-pt.y, d=Math.hypot(dx,dy)||1;
@@ -515,14 +519,15 @@ window.__particlesLoaded = true;
       pt.vx*=0.92; pt.vy*=0.92; pt.x+=pt.vx; pt.y+=pt.vy;
       if(pt.x<0)pt.x=w; if(pt.x>w)pt.x=0; if(pt.y<0)pt.y=h; if(pt.y>h)pt.y=0;
       const speed=Math.min(1,Math.hypot(pt.vx,pt.vy)/4);
-      ctx2d.fillStyle="rgba(123,200,10,"+Math.min(1,pt.base*(0.7+speed*0.5))+")";
+      ctx2d.globalAlpha=Math.min(1,pt.base*(0.7+speed*0.5));
       ctx2d.fillRect(pt.x,pt.y,2+speed*2.5,2+speed*2.5);
     }
-    ctx2d.strokeStyle="rgba(123,200,10,0.22)"; ctx2d.lineWidth=1;
+    ctx2d.strokeStyle=farbe; ctx2d.globalAlpha=0.22; ctx2d.lineWidth=1;
     for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
       const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
       if(dx*dx+dy*dy<3600){ctx2d.beginPath();ctx2d.moveTo(pts[i].x,pts[i].y);ctx2d.lineTo(pts[j].x,pts[j].y);ctx2d.stroke();}
     }
+    ctx2d.globalAlpha=1;
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

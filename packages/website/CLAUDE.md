@@ -20,3 +20,7 @@ Bereichs unten anhängen.
   wie der Code; `check-website.py` weist „steht aber hinten“ und Aussagen über
   Prüfer (Messbericht, `PRUEFER=1`, Prüfern folgen) ab.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`.)*
+- **Zwei Designs** (seit C-57c): Die Website folgt dem Gerät (`prefers-color-scheme`), dieselben Werte wie die App.
+  Jede Farbe nur als Token in `:root` UND im hellen Block von `css/style.css` – nie fest im übrigen CSS, im
+  `<style>` einer Seite oder in `style="…"`. `check-website.py` (`farben_pruefen()`) meldet das samt Kontrast unter
+  4,5:1 in beiden Designs; was beide teilen (Schatten, Fensterpunkte), steht in `FARBEN_BEIDE`.
