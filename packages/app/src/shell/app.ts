@@ -120,7 +120,7 @@ import {
   starteAutoSperre,
   tresorEingerichtet,
 } from "./tresor.js";
-import {
+import { chip as baueChip,
   $,
   aktualisiereNavStatus,
   el,
@@ -222,9 +222,8 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
     titel.id = `bk-nr-${p}`;
     gruppe.setAttribute("aria-labelledby", titel.id);
     const chips = wortAuswahl(woerter, p).map((w) => {
-      const chip = el("button", w, "wort-chip");
-      chip.type = "button";
-      chip.setAttribute("aria-pressed", "false");
+      // Baustein Chip (C-56a)
+      const chip = baueChip(w, false, "wort-chip");
       chip.addEventListener("click", () => {
         feld.value = w;
         for (const c of chips) c.setAttribute("aria-pressed", String(c === chip));
