@@ -10950,3 +10950,25 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1214 (+7), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57c – Website hell nach dem Gerät
+
+Aus dem Oberflächen-Review (15.10.2026), dritter Teil von C-57. Die Website war nur dunkel.
+
+- **Die Website folgt dem Gerät** über `prefers-color-scheme`. Sie nutzt dieselben hellen Werte wie die App (C-57b). Eine Wahl gibt es auf den statischen Seiten nicht.
+- Feste Farben stehen jetzt als Token, in drei Arten von Stellen:
+  - im CSS: Navigation, Knöpfe, Terminal-Demo;
+  - im `<style>` des Dashboards;
+  - in `style="…"` der Befehle zum Kopieren, jetzt Klasse `befehl`.
+- Die Partikel im Hintergrund malen mit `--accent`.
+- Rot als Schrift ist im dunklen Design heller (`#E35D5D`). Vorher erreichte es auf Schwarz nur 4:1, wie in der App vor C-4.
+
+Tests:
+- `check-website.py` prüft neu mit `farben_pruefen()`:
+  - jede Farbe hat einen hellen Wert;
+  - keine feste Farbe außerhalb der Tokens;
+  - Kontrast von Text, Grün, Bernstein und Rot auf Grund und Karte mindestens 4,5:1, in beiden Designs.
+- Neu: `scripts/test_check_website.py` mit 7 Fällen, je ein Verstoß in einer Kopie der Website. Die CI führt den Selbsttest vor der Prüfung aus.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1214 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
