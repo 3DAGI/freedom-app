@@ -19,12 +19,12 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import {
   Wallet, deserializeProofs, getPubKeyFromPrivKey, serializeProofs, sumProofs,
   type CounterSource, type GetInfoResponse, type KeyChainCache, type Proof,
 } from "@cashu/cashu-ts";
-import { pruefePfand, type Pfand, type PfandFall } from "@freedomstack/protocol";
+import { PFAND_GRENZEN, istMintAdresse, pruefePfand, type Pfand, type PfandFall } from "@freedomstack/protocol";
 
 /** Ein angenommenes Token, noch nicht eingelöst (ohne Beweis). */
 interface Offen {
@@ -341,4 +341,29 @@ export function pfandSpeicher(pfad: string): { lade(): PfandStand | undefined; s
       renameSync(tmp, pfad);
     },
   };
+}
+
+/** Wo der Knoten die Kasse ablegt. */
+export function pfandOrt(home = process.env.HOME ?? "."): string {
+  return join(home, ".freedom", "pfand.json");
+}
+
+/**
+ * Die Kasse aus der Umgebung des Knotens (RM2b2): nur mit `PFAND=1` und den Mints aus `PFAND_MINTS`
+ * (mit Komma getrennt, wie im Angebot: https oder .onion, höchstens fünf). Ungültig heißt kein Start –
+ * sonst nähme der Knoten still keinen Pfand an. Mit `TOR_SOCKS` noch nicht: Die Mint sähe die IP des
+ * Knotens am Tor vorbei (RM2b3).
+ */
+export function pfandKasseAusUmgebung(env: { PFAND?: string; PFAND_MINTS?: string; TOR_SOCKS?: string }, datei: string): PfandKasse | undefined {
+  if (env.PFAND !== "1") {
+    if (env.PFAND && env.PFAND !== "0") throw new Error("PFAND: nur 1 oder 0");
+    return undefined;
+  }
+  if (env.TOR_SOCKS?.trim()) throw new Error("PFAND=1 geht noch nicht mit TOR_SOCKS – die Mint sähe die IP des Knotens (kommt mit RM2b3)");
+  const mints = [...new Set((env.PFAND_MINTS ?? "").split(",").map((m) => m.trim()).filter(Boolean))];
+  if (mints.length === 0) throw new Error("PFAND=1 braucht PFAND_MINTS");
+  if (mints.length > PFAND_GRENZEN.mints || !mints.every(istMintAdresse)) {
+    throw new Error(`PFAND_MINTS: höchstens ${PFAND_GRENZEN.mints} Mints, je https (oder .onion), ohne / am Ende`);
+  }
+  return new PfandKasse({ mints, speicher: pfandSpeicher(datei) });
 }

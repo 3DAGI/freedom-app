@@ -212,6 +212,4 @@ repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag
 repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
-pfand.ts|cashuAngebotTags|Cashu-Pfand im Angebot – der Knoten nennt Mints und Pfand-Schlüssel erst mit dem Verdrahten der PfandKasse (RM2b2)
 pfand.ts|pfandTags|Cashu-Pfand im versiegelten Kern – die App übergibt gesperrte Token erst mit RM2c
-pfand.ts|lesePfandTags|Cashu-Pfand aus der Anfrage – der Knoten liest ihn erst mit dem Verdrahten der PfandKasse (RM2b2)

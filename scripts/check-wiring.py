@@ -47,7 +47,8 @@ DEKLARATION = re.compile(
 OBERSTE_EBENE = re.compile(
     r"^(?:export|function|class|const|let|var|interface|type|enum|async|import|declare|abstract)\b", re.M)
 # Bezeichner, der als Wert benutzt wird: nicht nach '.', nicht als Schluessel 'name:'.
-BEZEICHNER = re.compile(r"(?<![\w.$])([A-Za-z_$][\w$]*)(?![\w$])(?!\s*\??:(?!:))")
+# Nach einem Punkt eine Eigenschaft – außer nach dem Spread `...name` (bis RM2b2 übersehen)
+BEZEICHNER = re.compile(r"(?<![\w$])(?:(?<=\.\.\.)|(?<!\.))([A-Za-z_$][\w$]*)(?![\w$])(?!\s*\??:(?!:))")
 
 
 def regex_moeglich(s: str, i: int) -> bool:

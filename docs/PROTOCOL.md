@@ -1360,4 +1360,9 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
 - **Im Knoten (seit RM2b1):** `PfandKasse` (`node/src/pfand-kasse.ts`) – Deckung je Sitzungsschlüssel der Anfrage, netto
   (Nennwert minus Gebühr der Mint je Token, NUT-02), gesehene Geheimnisse und angenommene Token in einer Datei (0600),
   eingelöst gesammelt je Mint ohne Beweis, spätestens zehn Minuten vor der Frist.
-- **Noch nicht:** verdrahtet im Provider (RM2b2), Sperren und Übergeben in der App (RM2c).
+- **Im Provider (seit RM2b2):** nur mit `PFAND=1` und `PFAND_MINTS`. Gedeckt sein muss der Anteil des Providers an
+  Gebot und Werkzeugen (A+, RM2 V4) – die übrigen Anteile zahlt die App nach der Antwort; gebucht wird vor der Antwort
+  der Anteil des Providers am Preis. Ein Pfand neben einer Gutschrift (§ Zahlkanal) lehnt er ab. Das Angebot nennt nur
+  Mints, deren Schlüssel die Kasse kennt.
+- **Noch nicht:** Mint-Abrufe über Tor und der Erlös an die eigene Lightning-Adresse (RM2b3) – bis dahin startet
+  `PFAND=1` nicht mit `TOR_SOCKS`; Sperren und Übergeben in der App (RM2c).
