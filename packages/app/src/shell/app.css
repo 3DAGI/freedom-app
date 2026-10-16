@@ -2118,3 +2118,10 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .willkommen-saetze li { position: relative; padding-left: 26px; font-size: 15px; line-height: 1.5; color: var(--text); }
 .willkommen-saetze li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 
+/* Bestätigung per Wort-Chips (C-55b): je Stelle eine Reihe, die Wahl grün */
+.wort-abfrage { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+.wort-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wort-nr { flex: none; min-width: 64px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.wort-chip { min-height: 40px; padding: 6px 14px; border-radius: 999px; font-family: var(--font-mono); font-size: 14px; font-weight: 500; }
+.wort-chip[aria-pressed="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+

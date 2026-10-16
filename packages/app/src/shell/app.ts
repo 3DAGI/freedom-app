@@ -208,17 +208,31 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
   const ablage = el("div");
   ablage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"; // kein UI-Text
   ablage.append(knopf("bk-copy", t("ein.kopieren"), "ghost", KLEIN), knopf("bk-file", t("ein.alsDatei"), "ghost", KLEIN));
-  const abfrage = el("div");
+  const abfrage = el("div", undefined, "wort-abfrage");
   abfrage.id = "bk-challenge";
-  abfrage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap"; // kein UI-Text
+  // Wort-Chips (C-55b) statt Abtippen: je Stelle vier Wörter der eigenen Merkphrase, die Wahl im verborgenen Feld
+  const { wortAuswahl } = await import("../wort-chips.js");
   abfrage.append(...positionen.map((p) => {
-    const feld = el("input", undefined, "mono-sm");
+    const feld = el("input");
+    feld.type = "hidden";
     feld.dataset.pos = String(p);
-    feld.style.width = "110px";
-    feld.autocomplete = "off";
-    const label = el("label", undefined, "mono-sm");
-    label.append(`${t("ein.nummer", { n: p + 1 })} `, feld);
-    return label;
+    const gruppe = el("div", undefined, "wort-chips");
+    gruppe.setAttribute("role", "group");
+    const titel = el("span", t("ein.nummer", { n: p + 1 }), "wort-nr");
+    titel.id = `bk-nr-${p}`;
+    gruppe.setAttribute("aria-labelledby", titel.id);
+    const chips = wortAuswahl(woerter, p).map((w) => {
+      const chip = el("button", w, "wort-chip");
+      chip.type = "button";
+      chip.setAttribute("aria-pressed", "false");
+      chip.addEventListener("click", () => {
+        feld.value = w;
+        for (const c of chips) c.setAttribute("aria-pressed", String(c === chip));
+      });
+      return chip;
+    });
+    gruppe.append(titel, ...chips, feld);
+    return gruppe;
   }));
   const fehler = el("div", undefined, "mono-sm");
   fehler.id = "bk-error";

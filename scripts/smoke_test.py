@@ -2942,7 +2942,23 @@ def einrichtung_pruefen(browser, url: str) -> dict:
     erg["sicherung"] = ev("() => [document.querySelectorAll('.modal .mnemonic-list li').length, document.querySelectorAll('#bk-challenge input').length,"
                           " ['bk-copy', 'bk-file', 'bk-done', 'bk-later'].map((i) => document.getElementById(i)?.textContent ?? null)]")
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
-    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    # Wort-Chips (C-55b): je Stelle vier Wörter der eigenen Merkphrase, eines davon richtig; die Wahl per Klick, ein
+    # falsches meldet die Stelle – hier wird geklickt statt in die verborgenen Felder geschrieben
+    chips = "() => [...document.querySelectorAll('#bk-challenge .wort-chips')].map(g => [+g.querySelector('input').dataset.pos, [...g.querySelectorAll('.wort-chip')].map(c => c.textContent)])"
+    gruppen = ev(chips)
+    def waehle(nr: int, wort: str) -> None:
+        ev("([n, w]) => [...document.querySelectorAll('#bk-challenge .wort-chips')[n].querySelectorAll('.wort-chip')].find(c => c.textContent === w).click()", [nr, wort])
+    falsch = next(x for x in gruppen[0][1] if x != w[gruppen[0][0]])
+    waehle(0, falsch)
+    for nr, (pos, _) in enumerate(gruppen[1:], start=1):
+        waehle(nr, w[pos])
+    ev("() => document.getElementById('bk-done').click()")
+    erg["chips"] = [[len(g[1]), w[g[0]] in g[1], len(set(g[1])) == len(g[1]), all(x in w for x in g[1])] for g in gruppen]
+    erg["chips"].append(ev("() => document.getElementById('bk-error').textContent"))
+    waehle(0, w[gruppen[0][0]])
+    erg["chips"].append(ev("() => [...document.querySelectorAll('#bk-challenge .wort-chips')[0].querySelectorAll('.wort-chip')].map(c => c.getAttribute('aria-pressed')).filter(a => a === 'true').length"))
+    if erg["chips"] != [[4, True, True, True]] * 3 + [f"Falsch: Wort {gruppen[0][0] + 1}. Nochmal vergleichen.", 1]:
+        erg["fehler"].append(f"Wort-Chips {erg['chips']}")
     ev("() => document.getElementById('bk-done').click()")
     lies = """() => { const k = document.querySelector('#einrichtung .onboarding-card');
         return k ? [k.dataset.seite, k.querySelector('h2')?.textContent ?? null, [...k.querySelectorAll('button')].map((b) => b.id),
