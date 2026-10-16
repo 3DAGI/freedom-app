@@ -10790,28 +10790,6 @@ Tests:
 **Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1188 (+3), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
 
-## Schritt C-55b – Onboarding: Merkphrase per Wort-Chips bestätigen
-
-Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-55. Zur Bestätigung tippte man drei Wörter ab. Am Handy scheiterte das oft an Autokorrektur und Großschreibung.
-
-- **Je Stelle vier Wörter der eigenen Merkphrase** als Chips (`wort-chips.ts`):
-  - das richtige und drei andere, ohne Doppelte;
-  - gemischt mit `crypto.getRandomValues`;
-  - wer nicht aufgeschrieben hat, trifft bei drei Stellen nur mit 1 : 64.
-- Die Wahl steht in einem verborgenen Feld je Stelle. Geprüft wird weiter mit `verifyMnemonicChallenge()`; ein falsches Wort meldet die Stelle.
-- Chips mit `aria-pressed`, je Stelle eine Gruppe mit Namen („Wort 4“).
-- Die Regel „Merkphrase nur bis zur Bestätigung und nur über `geheim`“ bleibt unverändert.
-
-Tests:
-- Neu: `wort-chips.test.ts` mit 4 Tests: vier Wörter mit dem richtigen, Mischen, Wiederholungen, Verdrahtung.
-- Der Smoke-Teil „einrichtung“ klickt:
-  - erst ein falsches Wort: die Meldung nennt die Stelle;
-  - dann das richtige: genau ein Chip gedrückt;
-  - die Einrichtung geht weiter.
-
-**Prüfungen:** protocol 1339 grün, node 506 (ohne Netz), app 1192 (+4), Leak 73 + 1 todo;
-tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
-
 ## Schritt RM2b3 – Pfand über Tor, Erlös an die eigene Lightning-Adresse
 
 Spur A, `docs/RM2-ENTWURF.md` (V1.5, V5). Letzter Teil von RM2b im Knoten.
@@ -10836,3 +10814,24 @@ unter der Schwelle nichts; echte Rechnung nur mit genau dem Betrag), Abbruch nac
 
 Knoten-Stand: Wer `PFAND=1` setzt, braucht diesen Stand.
 
+## Schritt C-55b – Onboarding: Merkphrase per Wort-Chips bestätigen
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-55. Zur Bestätigung tippte man drei Wörter ab. Am Handy scheiterte das oft an Autokorrektur und Großschreibung.
+
+- **Je Stelle vier Wörter der eigenen Merkphrase** als Chips (`wort-chips.ts`):
+  - das richtige und drei andere, ohne Doppelte;
+  - gemischt mit `crypto.getRandomValues`;
+  - wer nicht aufgeschrieben hat, trifft bei drei Stellen nur mit 1 : 64.
+- Die Wahl steht in einem verborgenen Feld je Stelle. Geprüft wird weiter mit `verifyMnemonicChallenge()`; ein falsches Wort meldet die Stelle.
+- Chips mit `aria-pressed`, je Stelle eine Gruppe mit Namen („Wort 4“).
+- Die Regel „Merkphrase nur bis zur Bestätigung und nur über `geheim`“ bleibt unverändert.
+
+Tests:
+- Neu: `wort-chips.test.ts` mit 4 Tests: vier Wörter mit dem richtigen, Mischen, Wiederholungen, Verdrahtung.
+- Der Smoke-Teil „einrichtung“ klickt:
+  - erst ein falsches Wort: die Meldung nennt die Stelle;
+  - dann das richtige: genau ein Chip gedrückt;
+  - die Einrichtung geht weiter.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1192 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
