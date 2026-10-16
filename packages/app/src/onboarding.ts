@@ -80,14 +80,14 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
   //    gewählt hat (C-39, Nutzertest E-7): Schreiben oder einen Knoten einrichten, sonst die KI.
   if (!r.hasUsedOnce) {
     if (intent === "kommunizieren") {
-      return { id: "los-chat", title: t("ein.losChatTitel"), body: t("ein.losChatText"), action: t("ein.losChatAktion"), skippable: false, urgency: "info" };
+      // Ohne Knopf: Die Karte steht schon in den Chats (C-43)
+      return { id: "los-chat", title: t("ein.losChatTitel"), body: t("ein.losChatText"), skippable: false, urgency: "info" };
     }
     if (intent === "verdienen") return providerAnleitung();
     return {
       id: "los",
       title: t("ein.losTitel"),
       body: t(!r.gratisErschoepft ? "ein.losGratis" : "ein.losProbier"),
-      action: t("ein.losAktion"),
       skippable: false,
       urgency: "info",
     };
@@ -154,6 +154,23 @@ export function nextStep(r: Readiness, intent: Intent = "unbekannt"): NextStep {
     skippable: true,
     urgency: "info",
   };
+}
+
+/** Die Seite, auf der der nächste Schritt als Karte steht (C-43). */
+export type HinweisSeite = "ai" | "comm" | "earn";
+
+/**
+ * Wo der Schritt hingehört (C-43, Oberflächen-Review 15.10.2026). Bis dahin stand er als Leiste
+ * über jeder Seite. Jetzt als Karte auf genau einer: „los“ beim Agenten, „los-chat“ in den Chats,
+ * die Anleitung unter Verdienen – dort, wo man es tut, deshalb ohne Knopf, der nur hinführt. Was
+ * für alle gilt (sichern, Tresor, Wallet), steht auf der Seite, die man in der Einrichtung gewählt
+ * hat – dort arbeitet man, dort sieht man es, bis es erledigt oder auf „später“ gestellt ist.
+ */
+export function hinweisSeite(id: StepId, intent: Intent = "unbekannt"): HinweisSeite {
+  if (id === "los") return "ai";
+  if (id === "los-chat") return "comm";
+  if (id === "provider-anleitung") return "earn";
+  return intent === "kommunizieren" ? "comm" : intent === "verdienen" ? "earn" : "ai";
 }
 
 /** Verdienen: die Anleitung zum eigenen Knoten (Earn › Hosten). */

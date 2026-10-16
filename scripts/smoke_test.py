@@ -499,15 +499,20 @@ def rahmen_pruefen(browser, url: str) -> dict:
         tabs = ev("() => [...document.querySelectorAll('.app-nav button[data-tab]')].map(b => b.dataset.tab)")
         sichtbare = [t for t in tabs if sichtbar(f'.app-nav button[data-tab="{t}"]')]
         if groesse == "desktop":
+            # Seit C-43 steht die Führung als Karte beim Agenten, nicht mehr als Leiste über jeder Seite
             m = ev("""() => { const r = (s) => document.querySelector(s).getBoundingClientRect();
-              const b = r('#onboarding-bar'); return { main: r('main'), nav: r('#app > nav'), leiste: b.height > 0 ? b : null }; }""")
-            erg["desktop"] = {"main_breite": m["main"]["width"], "nav_x": m["nav"]["x"], "leiste_sichtbar": m["leiste"] is not None}
-            if m["leiste"] is None or m["main"]["width"] < 800 or m["nav"]["x"] != 0 or m["main"]["x"] < m["nav"]["width"] \
-                    or m["leiste"]["bottom"] > m["main"]["y"] + 1:
-                erg["fehler"].append(f"desktop: Leiste links, Seite daneben, Onboarding darüber – {m}")
+              const k = document.getElementById('onboarding-bar'); const b = k.getBoundingClientRect();
+              return { main: r('main'), nav: r('#app > nav'), leiste: b.height > 0 ? b : null, beim_agenten: document.getElementById('page-ai').contains(k) }; }""")
+            erg["desktop"] = {"main_breite": m["main"]["width"], "nav_x": m["nav"]["x"], "leiste_sichtbar": m["leiste"] is not None,
+                              "beim_agenten": m["beim_agenten"]}
+            if m["leiste"] is None or not m["beim_agenten"] or m["main"]["width"] < 800 or m["nav"]["x"] != 0 \
+                    or m["main"]["x"] < m["nav"]["width"] or m["leiste"]["y"] < m["main"]["y"]:
+                erg["fehler"].append(f"desktop: Leiste links, Seite daneben, Führung als Karte in der Seite – {m}")
             if sichtbare != ["ai", "comm", "repos", "wallet", "earn", "netz", "profile", "settings"]:
                 erg["fehler"].append(f"desktop: Leiste {sichtbare}")
             klick('.app-nav button[data-tab="comm"]')
+            if ev("() => document.getElementById('onboarding-bar').offsetParent !== null"):
+                erg["fehler"].append("desktop: die Karte „los“ steht auch in den Chats")
             klick('.app-nav button[data-tab="wallet"]')
             adresse = ev("() => location.hash")
             ev("() => history.back()")
@@ -2746,19 +2751,19 @@ def einrichtung_wahl_pruefen(browser, url: str) -> dict:
     s.wait_for_function(leiste, timeout=10000)
     erg["waehrend"] = sichtbar
     erg["danach"] = ev("""() => ({ hash: location.hash, seite: document.querySelector('.tab-page.active')?.id,
-        titel: document.querySelector('#onboarding-bar .ob-title')?.textContent, knopf: document.getElementById('ob-action')?.textContent })""")
-    # Der Knopf der Leiste führt in die Nachrichten – auch von einer anderen Seite aus
+        titel: document.querySelector('#onboarding-bar .ob-title')?.textContent, knopf: document.getElementById('ob-action')?.textContent ?? null,
+        in_chats: !!document.querySelector('#page-comm .seiten-hinweis[data-hinweis="comm"] > #onboarding-bar') })""")
+    # Seit C-43 steht die Karte in den Chats (ohne Knopf dorthin) – beim Agenten nicht
     ev("() => document.querySelector('.app-nav button[data-tab=\"ai\"]').click()")
-    ev("() => document.getElementById('ob-action').click()")
-    s.wait_for_timeout(500)
-    erg["knopf"] = ev("() => location.hash")
+    s.wait_for_timeout(300)
+    erg["beim_agenten"] = ev(leiste)
     ctx.close()
     if any(an for _, an in sichtbar):
         erg["fehler"].append(f"Leiste während der Einrichtung {sichtbar}")
-    if erg["danach"] != {"hash": "#/chat", "seite": "page-comm", "titel": "Schreib jemandem", "knopf": "Zu den Nachrichten"}:
+    if erg["danach"] != {"hash": "#/chat", "seite": "page-comm", "titel": "Schreib jemandem", "knopf": None, "in_chats": True}:
         erg["fehler"].append(f"danach {erg['danach']}")
-    if erg["knopf"] != "#/chat":
-        erg["fehler"].append(f"Knopf der Leiste {erg['knopf']}")
+    if erg["beim_agenten"]:
+        erg["fehler"].append("die Karte „Schreib jemandem“ steht auch beim Agenten")
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -5328,7 +5333,7 @@ MOBIL_MESSEN = """() => {
 def mobil_pruefen(browser, url: str) -> dict:
     """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
     40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
-    auf allen Seiten, die Hinweisleiste flach, ihr Text klappt mit „mehr“ auf."""
+    auf allen Seiten; seit C-43 die Führung als Karte nur beim Agenten, ihr Text ganz."""
     erg = {"fehler": []}
     basis = url.rsplit("/", 1)[0]
     for lage, vp in [("hoch", {"width": 390, "height": 844}), ("quer", {"width": 844, "height": 390})]:
@@ -5363,20 +5368,24 @@ def mobil_pruefen(browser, url: str) -> dict:
             erg["fehler"].append(f"{lage}: {seiten}")
         if len(raender) != 1:
             erg["fehler"].append(f"{lage}: verschiedene Ränder {sorted(raender)}")
-        # Hinweisleiste (C.5b): eine Zeile mit Titel und Knöpfen; „mehr“ klappt den Text auf und wieder zu
-        leiste_ob = """() => { const b = document.getElementById('onboarding-bar'); const m = document.getElementById('ob-mehr');
-          const t = document.getElementById('ob-body') ?? b.querySelector('.ob-body');
-          return { hoehe: Math.round(b.getBoundingClientRect().height), text: !!t && getComputedStyle(t).display !== 'none',
-            mehr: m?.getAttribute('aria-expanded'), knopf: m?.textContent }; }"""
-        zu = ev(leiste_ob)
-        ev("() => document.getElementById('ob-mehr')?.click()")
-        auf = ev(leiste_ob)
-        ev("() => document.getElementById('ob-mehr')?.click()")
-        wieder = ev(leiste_ob)
-        erg[lage]["hinweisleiste"] = [zu, auf, wieder]
-        if zu["hoehe"] > 56 or zu["text"] or zu["mehr"] != "false" or zu["knopf"] != "mehr" \
-                or not auf["text"] or auf["mehr"] != "true" or auf["knopf"] != "weniger" or auf["hoehe"] <= zu["hoehe"] or wieder != zu:
-            erg["fehler"].append(f"{lage}: Hinweisleiste {erg[lage]['hinweisleiste']}")
+        # Führung (seit C-43 eine Karte beim Agenten statt einer Leiste über jeder Seite): ganz lesbar, im Rand der
+        # Seite, höchstens knapp die halbe Höhe des Bildschirms – und in den Chats keine
+        ev("() => { location.hash = '#/agent'; }")
+        s.wait_for_function("() => document.getElementById('page-ai').classList.contains('active')", timeout=5000)
+        karte = """() => { const b = document.getElementById('onboarding-bar'); const r = b.getBoundingClientRect();
+          const t = b.querySelector('.ob-body');
+          return { sichtbar: b.offsetParent !== null, beim_agenten: document.getElementById('page-ai').contains(b), hoehe: Math.round(r.height),
+            links: Math.round(r.left), rechts: Math.round(innerWidth - r.right), text: !!t && getComputedStyle(t).display !== 'none' && t.scrollWidth <= t.clientWidth + 1,
+            leer_oben: Math.round(document.getElementById('ai-empty').getBoundingClientRect().top - document.getElementById('ai-thread').getBoundingClientRect().top) }; }"""
+        beim_agenten = ev(karte)
+        ev("() => { location.hash = '#/chat'; }")
+        s.wait_for_function("() => document.getElementById('page-comm').classList.contains('active')", timeout=5000)
+        in_chats = ev(karte)["sichtbar"]
+        erg[lage]["hinweiskarte"] = [beim_agenten, in_chats]
+        if not beim_agenten["sichtbar"] or not beim_agenten["beim_agenten"] or not beim_agenten["text"] or beim_agenten["links"] < 8 \
+                or beim_agenten["rechts"] < 8 or beim_agenten["hoehe"] > vp["height"] * 0.45 or in_chats \
+                or beim_agenten["leer_oben"] < 0:  # der leere Zustand darunter beginnt im Verlauf, nicht darüber abgeschnitten
+            erg["fehler"].append(f"{lage}: Hinweiskarte {erg[lage]['hinweiskarte']}")
         # Kopfzeile: vor dem Schlüssel das eigene Bild (ohne Namen „?“), die Fläche zum Profil mindestens 40 px hoch
         kopf = ev("""() => { const i = document.getElementById('ident'); const vor = getComputedStyle(i, '::before');
           return { initial: i.dataset.initial, bild: vor.content, breite: vor.width, hoehe: Math.round(i.getBoundingClientRect().height),

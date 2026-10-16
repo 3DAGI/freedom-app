@@ -23,9 +23,9 @@ function funktion(kopf: string): string {
   return app.slice(start, app.indexOf("\n}\n", start));
 }
 
-test("8.1a: Leiste und Sicherungs-Erinnerung stehen im HTML (bis dahin fehlten beide)", () => {
-  assert.match(html, /<div id="onboarding-bar" class="mono-sm hidden"/);
-  assert.match(html, /<div id="backup-warn" class="mono-sm hidden"/);
+test("8.1a: Leiste und Sicherungs-Erinnerung stehen im HTML (bis dahin fehlten beide) – seit C-43 als Karten beim Agenten", () => {
+  assert.match(html, /<div class="seiten-hinweis" data-hinweis="ai">\s*<div id="onboarding-bar" class="hinweis-karte hidden" role="status"><\/div>\s*<div id="backup-warn" class="hinweis-karte urgency-warnung hidden" role="alert"><\/div>/);
+  for (const seite of ["comm", "earn"]) assert.match(html, new RegExp(`<div class="seiten-hinweis" data-hinweis="${seite}"></div>`));
 });
 
 test("8.1a: Merkphrase bis zur Bestaetigung im Geheimspeicher, danach geloescht; „spaeter“ moeglich", () => {

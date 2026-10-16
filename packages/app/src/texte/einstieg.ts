@@ -6,7 +6,6 @@ export const einstieg: Texte = {
   "ein.losTitel": { de: "Stell einfach eine Frage", en: "Just ask a question" },
   "ein.losGratis": { de: "Im Gratis-Tarif kostet eine Anfrage kein Geld, solange Provider ihn anbieten — dein Gerät rechnet dafür kurz, je Gerät bis zu 20 Antworten am Tag. Du brauchst nichts einzurichten; danach entscheidest du, ob du eine Wallet verbindest.", en: "In the free tier a request costs nothing as long as providers offer it — your device computes briefly for it, up to 20 answers a day per device. You don't need to set anything up; afterwards you decide whether to connect a wallet." },
   "ein.losProbier": { de: "Probier es aus. Falls gerade kein Provider gratis antwortet, findest du unter „Wallet“ heraus, wie du bezahlst.", en: "Try it. If no provider answers for free right now, you'll find out how to pay under “Wallet”." },
-  "ein.losAktion": { de: "Zur KI", en: "To the AI" },
   "ein.sichernTitel": { de: "Sichere deinen Zugang", en: "Secure your access" },
   "ein.sichernText": { de: "Du hast jetzt eine Identität mit Verlauf und Reputation. Wenn du deine Browserdaten löschst, ist beides weg — es gibt niemanden, der das zurücksetzen kann.", en: "You now have an identity with history and reputation. If you delete your browser data, both are gone — there is nobody who can reset that." },
   "ein.sichernWoerter": { de: "Zwölf Wörter aufschreiben genügt.", en: "Writing down twelve words is enough." },
@@ -76,8 +75,6 @@ export const einstieg: Texte = {
   "ein.importOk": { de: "Importieren", en: "Import" },
   "ein.spaeter": { de: "später", en: "later" },
   // Seit C.5b: Hinweisleiste auf dem Handy – der Text klappt auf
-  "ein.obMehr": { de: "mehr", en: "more" },
-  "ein.obWeniger": { de: "weniger", en: "less" },
   "ein.eigenerProvider": { de: "Eigener Provider aktiv: {pk}", en: "Own provider active: {pk}" },
   "ein.erstChat": { de: "Wähle erst einen Chat", en: "Choose a chat first" },
   "ein.zapsNur11": { de: "Zaps nur in 1:1-Chats", en: "Zaps only in 1:1 chats" },
@@ -219,7 +216,6 @@ export const einstieg: Texte = {
   "ein.kiFragen": { de: "KI fragen", en: "Ask the AI" },
   "ein.losChatTitel": { de: "Schreib jemandem", en: "Write to someone" },
   "ein.losChatText": { de: "Mit + beginnst du eine Unterhaltung – Ende-zu-Ende-verschlüsselt, ohne Telefonnummer. Damit andere dich finden, teil deinen Schlüssel: Profil › Teilen.", en: "Start a conversation with + – end-to-end encrypted, no phone number. So others can find you, share your key: Profile › Share." },
-  "ein.losChatAktion": { de: "Zu den Nachrichten", en: "Go to messages" },
   "ein.nachrichtenSchreiben": { de: "Nachrichten schreiben", en: "Write messages" },
 
   // Zustand und Hilfen (shell/state.ts, shell/ui.ts)

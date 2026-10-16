@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { INSTALLER_URL, nextStep, pitchFor, providerBefehl, Readiness } from "../src/onboarding.js";
+import { INSTALLER_URL, hinweisSeite, nextStep, pitchFor, providerBefehl, Readiness } from "../src/onboarding.js";
 import { setLang, t } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
@@ -148,6 +148,24 @@ test("Es gibt IMMER genau einen naechsten Schritt", () => {
   }
 });
 
+test("C-43: Jeder Schritt steht als Karte auf genau einer Seite – dort, wo man ihn tut", () => {
+  assert.equal(hinweisSeite("los"), "ai");
+  assert.equal(hinweisSeite("los", "kommunizieren"), "ai", "„los“ ist die KI, gleich was gewählt war");
+  assert.equal(hinweisSeite("los-chat", "nutzen"), "comm");
+  assert.equal(hinweisSeite("provider-anleitung"), "earn");
+  // Was für alle gilt, steht dort, wo man arbeitet – nicht auf einer Seite, die man nie öffnet
+  for (const id of ["sichern", "tresor", "wallet"] as const) {
+    assert.equal(hinweisSeite(id), "ai");
+    assert.equal(hinweisSeite(id, "nutzen"), "ai");
+    assert.equal(hinweisSeite(id, "kommunizieren"), "comm");
+    assert.equal(hinweisSeite(id, "verdienen"), "earn");
+  }
+  // Ohne Knopf, der nur auf die eigene Seite führt
+  assert.equal(nextStep(neu).action, undefined);
+  assert.equal(nextStep(neu, "kommunizieren").action, undefined);
+  assert.ok(nextStep(neu, "verdienen").action, "die Anleitung öffnet den Reiter „Hosten“");
+});
+
 // ------------------------------------------------------------- Erklaerung
 
 test("Erklaerung passt zum Vorhaben", () => {
@@ -220,8 +238,9 @@ test("Provider: der Einstieg „Rechner vermieten“ führt zu Earn › Hosten",
   const app = quelle("../src/shell/app.ts");
   const ab = app.indexOf('schritt.id === "provider-anleitung"');
   assert.ok(ab > 0);
-  const zweig = app.slice(ab, app.indexOf("else document", ab));
-  assert.match(zweig, /\[data-tab="earn"\]/);
+  const zweig = app.slice(ab, app.indexOf("});", ab));
+  // Seit C-43 steht die Karte schon unter Verdienen (`hinweisSeite()`) – der Knopf öffnet nur noch den Reiter
+  assert.equal(hinweisSeite("provider-anleitung", "verdienen"), "earn");
   assert.match(zweig, /\[data-subtab-group="earn"\] \[data-subtab="host"\]/);
 });
 

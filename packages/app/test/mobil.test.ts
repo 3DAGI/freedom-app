@@ -55,17 +55,18 @@ test("C.5a: die untere Leiste weicht nur beim Tippen – Felder, die eine Tastat
   for (const art of ["checkbox", "radio", "range", "file", "button", "submit", "color"]) assert.match(sel, new RegExp(`:not\\(\\[type='${art}'\\]\\)`), art);
 });
 
-test("C.5b: Hinweisleiste als DOM – auf dem Handy nur Titel und Knöpfe, der Text klappt mit „mehr“ auf", () => {
+test("C-43: Führung als Karte auf ihrer Seite – als DOM, der Text immer ganz, kein „mehr“ mehr", () => {
   const app = lies("shell/app.ts");
   const ob = app.slice(app.indexOf("export async function zeigeOnboarding"), app.indexOf("\n}\n", app.indexOf("export async function zeigeOnboarding")));
   assert.doesNotMatch(ob, /innerHTML|insertAdjacentHTML/);
   assert.match(ob, /text\.textContent = schritt\.body;/);
-  assert.match(ob, /mehr\.setAttribute\("aria-controls", "ob-body"\);/);
-  assert.match(ob, /mehr\.setAttribute\("aria-expanded", String\(auf\)\);/);
-  const b = css.slice(css.indexOf("/* ---------- Mobil (C.5b)"));
-  assert.match(b, /#ob-mehr \{ display: none; \}/, "am Desktop steht der Text immer da");
-  assert.match(b, /#onboarding-bar \.ob-body \{ display: none;/);
-  assert.match(b, /#onboarding-bar\.ob-offen \.ob-body \{ display: block;/);
+  assert.match(ob, /document\.querySelector\(`\.seiten-hinweis\[data-hinweis="\$\{hinweisSeite\(schritt\.id, absicht\)\}"\]`\)\?\.prepend\(bar\);/);
+  assert.match(ob, /bar\.className = `hinweis-karte urgency-\$\{schritt\.urgency\}`;/);
+  assert.doesNotMatch(ob, /ob-mehr|ob-offen/, "die Karte steht nur auf einer Seite – nichts mehr zum Aufklappen");
+  assert.doesNotMatch(css, /#ob-mehr|#onboarding-bar/);
+  assert.match(css, /\.seiten-hinweis:not\(:has\(> :not\(\.hidden\)\)\) \{ display: none; \}/, "ohne sichtbare Karte kein Abstand");
+  const b = css.slice(css.indexOf("/* Führung als Karte (C-43)"));
+  assert.match(b, /\.hinweis-karte \{\n\s+display: flex; flex-direction: column;/);
 });
 
 test("C.5b: Währung und Verdienen ohne eigenen Rand – Kopf und Inhalt setzen ihn wie auf allen Seiten", () => {
