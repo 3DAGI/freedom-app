@@ -10859,3 +10859,22 @@ Tests:
 
 **Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1197 (+4), Leak 73 + 1 todo;
 tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-56a – Bausteine: Chip und Skelett, eine Übersicht für alle Spuren
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-56. Gleiche Dinge sahen je Seite anders aus: Filter, Wort-Auswahl, Ladeanzeigen. Jede Spur baute sie neu.
+
+- **Zwei neue Bausteine** als gemeinsame Klassen und Helfer in `shell/ui.ts`:
+  - Chip: `chip(text, gedrueckt, klasse)`, ein Knopf mit `aria-pressed`;
+  - Skelett: `skelett(zeilen, beschriftung)`, mit `role="status"` und ohne Bewegung bei „weniger Bewegung“.
+- Genutzt werden sie hier:
+  - Die Filter der Chat-Liste und die Wort-Chips der Einrichtung sind Chips.
+  - „Einnahmen“ lädt mit Skelett statt mit einem Satz.
+- `docs/ausbau/BAUSTEINE.md` nennt alle Bausteine mit Klasse und Regel: Knopf, primär, ghost, Chip, Karte, Feld, Schalter, Skelett, Gruppe und Zeile.
+- Fallstrick in `packages/app/CLAUDE.md`: neue Oberfläche nur aus diesen Bausteinen.
+
+Tests:
+- Neu: `bausteine.test.ts` mit 4 Tests: Helfer, Klassen im CSS, Übersicht vollständig, Verdrahtung.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1201 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
