@@ -778,4 +778,9 @@ Fallstricke dieses Bereichs unten anhängen.
 - **Oberfläche nur aus Bausteinen** (seit C-56a, `docs/ausbau/BAUSTEINE.md`): Knopf, Chip (`chip()`), Karte, Zeile,
   Schalter, Blatt, Popover (`oeffneMenueAn()`), Toast, leerer Zustand, Skelett (`skelett()`), Avatar – eine eigene
   Variante nur mit Grund im Pull Request. Farben, Radien und Abstände nur über die Tokens in `app.css`.
+- **Zwei Designs** (seit C-57b): Jede Farbe ist ein Token mit einem dunklen Wert in `:root` und einem hellen in
+  `:root[data-theme="hell"]` UND im Block `@media (prefers-color-scheme: light)` – beide hellen Blöcke gleich
+  (`farben-tokens.test.ts` vergleicht sie und misst den Kontrast jeder Schrift auf jeder Fläche). Ein neues Token
+  braucht beide Werte; Schrift auf Grün nur über `--auf-akzent` (dunkel Schwarz, hell Weiß). Was Code malt
+  (Canvas), liest die Tokens (`getPropertyValue("--accent")`), nie ein festes Grün.
 

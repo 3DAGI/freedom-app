@@ -41,12 +41,16 @@ export function startHero(canvas: HTMLCanvasElement): void {
     base: 0.5 + Math.random() * 0.5,
   }));
 
-  const accent = { r: 123, g: 200, b: 10 }; // #7BC80A
+  // Farben aus den Tokens (C-57b): im hellen Design heller Grund, dunkleres Grün
+  const token = (name: string, sonst: string) => getComputedStyle(canvas).getPropertyValue(name).trim() || sonst;
 
   const frame = () => {
     if (!document.body.contains(canvas)) return;
-    ctx.fillStyle = "#050505";
+    const accent = token("--accent", "#7BC80A");
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = token("--bg", "#050505");
     ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = accent;
     for (const p of pts) {
       if (mouse.active) {
         const dx = mouse.x - p.x;
@@ -69,12 +73,13 @@ export function startHero(canvas: HTMLCanvasElement): void {
       if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
       const speed = Math.min(1, Math.hypot(p.vx, p.vy) / 4);
       const alpha = Math.min(1, p.base * (0.7 + speed * 0.5));
-      ctx.fillStyle = `rgba(${accent.r},${accent.g},${accent.b},${alpha})`;
+      ctx.globalAlpha = alpha;
       const sz = 2 + speed * 2.5;
       ctx.fillRect(p.x, p.y, sz, sz);
     }
     // verbindungslinien naher punkte (circuit-feel)
-    ctx.strokeStyle = `rgba(${accent.r},${accent.g},${accent.b},0.22)`;
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = 0.22;
     ctx.lineWidth = 1;
     for (let i = 0; i < pts.length; i++) {
       for (let j = i + 1; j < pts.length; j++) {
@@ -88,6 +93,7 @@ export function startHero(canvas: HTMLCanvasElement): void {
         }
       }
     }
+    ctx.globalAlpha = 1;
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
