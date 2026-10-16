@@ -433,6 +433,15 @@ nav button.active { color: var(--accent); }
 .konto-verwalten { margin-top: 12px; border-top: 1px solid var(--line2); padding-top: 10px; }
 .konto-verwalten > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); min-height: 32px; display: flex; align-items: center; }
 .konto-verwalten[open] > summary { margin-bottom: 8px; }
+/* Tauschformular (C-51) */
+.tausch-formular[hidden] { display: none; }
+.tausch-formular { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.tausch-formular input { font-size: 18px; font-weight: 600; }
+.tausch-zeilen { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surf2); border: 1px solid var(--line2); }
+.tausch-zeile { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; color: var(--text-muted); }
+.tausch-zeile strong { font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+.tausch-zeile.klein { font-size: 13px; }
+.lp-alle > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-muted); min-height: 32px; display: flex; align-items: center; gap: 6px; }
 /* Einrichtung als Assistent (C-50c): drei Wege als Zeilen, die eingebaute Wallet hervorgehoben */
 .wallet-einrichten[hidden] { display: none; }
 .wallet-einrichten { display: flex; flex-direction: column; gap: 10px; }
