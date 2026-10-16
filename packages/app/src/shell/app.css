@@ -1507,6 +1507,8 @@ main { min-width: 0; }
   position: absolute; top: 12px; right: 12px; width: auto; padding: 6px 11px; font-size: 12px;
   display: inline-flex; flex-direction: row; align-items: center; gap: 6px;
   background: rgba(5,5,5,.72); backdrop-filter: blur(4px);
+  /* Dunkles Glas auf dem Bild des Profils – in beiden Designs gleich, also weiße Schrift (C-57b) */
+  color: #fff; border-color: rgba(255,255,255,.25);
 }
 .profile-hero > details { padding: 12px 18px 16px; }
 .ident-row { margin-top: 2px; }
