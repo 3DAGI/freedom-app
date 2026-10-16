@@ -2139,7 +2139,7 @@ def zugang_pruefen(browser, url: str) -> dict:
 
 
 # Echtes Git-Bundle (v2, mit Deltas) für den Reiter „Code“ (seit C.3c1) – dasselbe wie im Test von git-bundle.ts
-PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-v2.bundle").read_bytes()
+PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/protocol/test/fixtures/probe-v2.bundle").read_bytes()
 # Seit C-20b: README mit Tabelle und Verweisen (src/liste.txt, docs/ANLEITUNG.md, einer hinaus)
 # Seit C-20f: Karten der Repo-Liste nach dem zurückgedrehten Blick auf „werkzeug“ – [Name, Marke „neu“, Einzelheiten].
 # Neu sind nur Beiträge anderer: das Issue von Bo, der Patch und der Kommentar von Ada; „meins“ und „raumrepo“ (nur Desktop)
@@ -2147,7 +2147,7 @@ PROBE_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixt
 _WERKZEUG_NEU = ["werkzeug", "3 neu", "Seit deinem letzten Blick: Issues 1, Patches 1, Kommentare 1"]
 NEUIGKEITEN_KARTEN = {"desktop": [["raumrepo", None, None], ["meins", None, None], _WERKZEUG_NEU],
                       "mobil": [["meins", None, None], _WERKZEUG_NEU]}
-PROBE_MD_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/app/test/fixtures/probe-md.bundle").read_bytes()
+PROBE_MD_BUNDLE = (Path(__file__).resolve().parent.parent / "packages/protocol/test/fixtures/probe-md.bundle").read_bytes()
 
 
 def post_live_pruefen(browser, url: str) -> dict:
@@ -4645,7 +4645,11 @@ def raum_pruefen(browser, url: str) -> dict:
               art: document.querySelector('#repo-seite .diff-datei-kopf .msg-role')?.textContent, fokus: document.activeElement?.classList.contains('patch-senden') })""")
             vorher = len([e for e in relay.gesendet if e.get("kind") == 1617])
             ev("() => document.querySelector('#repo-seite .patch-senden').click()")
-            s.wait_for_timeout(800)
+            # Gesendet, dann neu geladen – auf die Liste warten statt einer festen Pause (VKb: unter Last reichten 800 ms nicht)
+            try:
+                s.wait_for_function("() => document.querySelectorAll('#repo-seite .repo-patch-betreff').length > 0", timeout=10000)
+            except Exception:
+                pass
             gesendet_patch = [e for e in relay.gesendet if e.get("kind") == 1617][vorher:]
             vorschau["gesendet"] = [t[1] for t in (gesendet_patch[-1]["tags"] if gesendet_patch else []) if t[0] == "a"]
             vorschau["liste"] = ev("() => [...document.querySelectorAll('#repo-seite .repo-patch-betreff')].map(b => b.textContent)")

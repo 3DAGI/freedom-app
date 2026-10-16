@@ -158,6 +158,11 @@ services:
       NODE_SOL_PAYOUT: "${NODE_SOL_PAYOUT:-}"
       KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS: "${KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS:-100000000}"
       KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS: "${KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS:-10000000}"
+      # RM2b2: Cashu-Pfand (Lightning-Sitzungen) – nur mit PFAND=1 und PFAND_MINTS (https,
+      # mit Komma; nur Mints mit NUT-11/12, die die Frist richtig umsetzen – vorher pruefen).
+      # Die Kasse liegt in ~/.freedom/pfand.json (Volume). Mit TOR_SOCKS noch nicht (RM2b3).
+      PFAND: "${PFAND:-0}"
+      PFAND_MINTS: "${PFAND_MINTS:-}"
       KANAL_AUSZAHLUNG_ABSTAND_SEK: "${KANAL_AUSZAHLUNG_ABSTAND_SEK:-86400}"
       # 8.2b: Lightning-Adresse beim eigenen LND statt bei einem verwahrenden Dienst
       # (docs/PROVIDER.md) – Macaroon nur mit invoices:read/write, Reverse-Proxy mit TLS.

@@ -11,7 +11,8 @@
  * Jeder Schritt mit Änderungen wird ein Commit (`ProjektAblage.sichere()`).
  *
  * Der Motor läuft nur in der Sandbox (VK4): gestartet nur über eine `MotorStart`,
- * die `main.ts` erst mit der Sandbox baut (VKb, VKc3) – bis dahin `code-ohne-motor`.
+ * die `main.ts` erst mit der Sandbox baut (`sandboxMotor()` aus `sandbox.ts`, VKb; gebaut in
+ * VKc3) – bis dahin `code-ohne-motor`.
  * Die Sandbox muss `.git` nur lesbar einbinden: Die Commits laufen im Knoten, und
  * ein Filter in `.git/config` liefe dort. Ins Log nur Kennung, Zahlen und
  * Fehlernamen – Befehle, Ausgaben und Gedanken sind Inhalt.
