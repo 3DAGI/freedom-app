@@ -749,6 +749,15 @@ def waehrung_pruefen(browser, url: str) -> dict:
     s, ev, stand, warte_dialog, tippe = seite.s, seite.ev, DIALOG_STAND, seite.warte_dialog, seite.tippe
     browser_dialoge = seite.browser_dialoge
     ev("() => { location.hash = '#/waehrung'; }")
+    # Kontostand oben (C-50a): ohne Wallet keine Null, sondern der Hinweis; „Tauschen“ öffnet seinen Reiter
+    s.wait_for_function("() => document.getElementById('wg-zusatz').textContent !== ''", timeout=10000)
+    erg["gesamt"] = ev("""() => [document.getElementById('wg-zahl').textContent, document.getElementById('wg-zusatz').textContent,
+        [...document.querySelectorAll('#wallet-gesamt .wa-knopf')].map(b => b.textContent.trim())]""")
+    ev("() => document.getElementById('wallet-tauschen').click()")
+    erg["gesamt"].append(ev("() => document.querySelector('[data-subtab-group=\"wallet\"] [data-subtab=\"swap\"]').classList.contains('active')"))
+    ev("() => document.querySelector('[data-subtab-group=\"wallet\"] [data-subtab=\"overview\"]').click()")
+    if erg["gesamt"] != ["—", "Noch keine Wallet verbunden.", ["Empfangen", "Senden", "Tauschen", "Hinterlegen"], True]:
+        erg["fehler"].append(f"Kontostand oben {erg['gesamt']}")
     s.wait_for_function("() => document.querySelectorAll('#lp-offers button').length === 3", timeout=30000)
     knoepfe = ev("() => [...document.querySelectorAll('#lp-offers .stat')].map(z => [z.querySelector('.k').textContent.split(' · ')[1],"
                  " z.querySelector('button').textContent, z.querySelector('button').disabled])")

@@ -53,6 +53,7 @@ import { kopiereKennung, zeigePrivatenSchluessel } from "./identitaet-ui.js";
 import { wireEigeneAdresse, wireWerbeName } from "./werben-ui.js";
 import { wireBelege } from "./belege-ui.js";
 import { wireSenden } from "./senden-ui.js";
+import { wireWalletAktionen } from "./wallet-gesamt-ui.js";
 import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
@@ -998,6 +999,7 @@ function starte(): void {
   wireWerbeName();
   wireBelege();
   wireSenden();
+  wireWalletAktionen(); // Kontostand oben, Tauschen und Hinterlegen (C-50a)
   wireEmpfangen();
   wireVerlauf();
   setupCopyButtons();

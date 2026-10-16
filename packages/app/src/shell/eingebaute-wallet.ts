@@ -17,6 +17,7 @@ import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
 import { wireOfflineZahlung, zeigeOfflineZahlung } from "./offline-zahlung.js";
+import { merkeStand } from "./wallet-gesamt-ui.js";
 import { mitBunker, rpcStichprobe, solRpcUrl, state } from "./state.js";
 import { geheim, verlangeTresor } from "./tresor.js";
 import { bestaetige } from "./dialog.js";
@@ -98,10 +99,12 @@ export function zeigeEingebauteWallet(): void {
   status.className = "mono-sm";
   if (mitBunker()) {
     status.textContent = t("waehr.mitBunker");
+    merkeStand("solEingebaut", undefined);
     return;
   }
   if (!adresse) {
     status.textContent = "";
+    merkeStand("solEingebaut", undefined);
     return;
   }
   $("#solw-adresse").textContent = adresse;
@@ -122,8 +125,10 @@ export function zeigeEingebauteWallet(): void {
       const mit = je.filter((x) => x > 0).length;
       $("#solw-guthaben").textContent = t("waehr.guthaben", { betrag: ausLamports(summe, aktuellerKurs()) }) + (mit > 1 ? t("waehr.verteilt", { n: mit }) : "");
       void guthabenStichprobe(adressen);
+      merkeStand("solEingebaut", summe); // Kontostand oben (C-50a)
     } catch {
       $("#solw-guthaben").textContent = t("waehr.guthabenRpc");
+      merkeStand("solEingebaut", null);
     }
   })();
 }

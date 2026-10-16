@@ -71,6 +71,10 @@ export const waehrung: Texte = {
   "waehr.knopfVerbunden": { de: "Verbunden", en: "Connected" },
   // Tausch sats → SOL
   "waehr.keineAngebote": { de: "Auf deinen Relays bietet gerade niemand einen Tausch an. Angebote kommen und gehen – such später noch einmal.", en: "Nobody on your relays offers a swap right now. Offers come and go – search again later." },
+  "wallet.gesamt": { de: "Gesamt", en: "Total" },
+  "wallet.keinKonto": { de: "Noch keine Wallet verbunden.", en: "No wallet connected yet." },
+  "wallet.ohneKursSumme": { de: "ohne Kurs keine Summe", en: "no sum without a rate" },
+  "wallet.unvollstaendig": { de: "nicht jeder Stand ist gerade abrufbar", en: "not every balance can be fetched right now" },
   "waehr.nochmalSuchen": { de: "Noch einmal suchen", en: "Search again" },
   "waehr.tauschen": { de: "tauschen", en: "swap" },
   "waehr.veraltet": { de: "veraltet", en: "outdated" },
