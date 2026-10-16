@@ -129,6 +129,37 @@ export function torGet(proxy: SocksZiel, url: string, zeitMs = 60_000): Promise<
   });
 }
 
+/**
+ * Eine Anfrage durch Tor mit Methode und Inhalt (seit RM2b3, Mints): https, für .onion auch http. Wie
+ * `torGet()`: Den Namen löst der Proxy auf, das Zertifikat wird gegen ihn geprüft, Weiterleitungen folgt
+ * die Funktion nie.
+ */
+export function torAnfrage(
+  proxy: SocksZiel, url: string, o: { method?: string; body?: string; headers?: Record<string, string> } = {}, zeitMs = 60_000,
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const sicher = u.protocol === "https:";
+    if (!sicher && !(u.protocol === "http:" && u.hostname.endsWith(".onion"))) return reject(new SocksFehler("nur https oder .onion"));
+    const kopf = { "user-agent": "freedomstack-node/1.0", ...o.headers, ...(o.body !== undefined ? { "content-length": String(Buffer.byteLength(o.body)) } : {}) };
+    const req = (sicher ? https : http).request(u, {
+      method: o.method ?? "GET", agent: sicher ? new TorHttpsAgent(proxy) : new TorHttpAgent(proxy), headers: kopf, timeout: zeitMs,
+    }, (res) => {
+      const antwort = new Headers();
+      for (const [k, v] of Object.entries(res.headers)) if (typeof v === "string") antwort.set(k, v);
+      try {
+        resolve(new Response(Readable.toWeb(res) as ReadableStream<Uint8Array>, { status: res.statusCode ?? 0, headers: antwort }));
+      } catch (e) {
+        res.destroy();
+        reject(e);
+      }
+    });
+    req.on("timeout", () => req.destroy(new SocksFehler("Zeit abgelaufen")));
+    req.on("error", reject);
+    req.end(o.body);
+  });
+}
+
 /** `TOR_SOCKS=host:port` – ohne: kein Tor; ungültig: ein Grund (der Knoten startet dann nicht). */
 export function torAusUmgebung(env: { TOR_SOCKS?: string }): { proxy?: SocksZiel; grund?: string } {
   const w = env.TOR_SOCKS?.trim();
