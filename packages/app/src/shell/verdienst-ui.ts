@@ -21,7 +21,7 @@ import { fasseKanaeleZusammen, kanaeleDesKnotens, knotenAusEingabe } from "../ve
 import { programmBereit } from "../zahlkanal.js";
 import { angebotVon, solRpc, state } from "./state.js";
 import { meineKopplung } from "./mein-knoten.js";
-import { $ } from "./ui.js";
+import { $, ladend } from "./ui.js";
 
 export const LS_EARN_KNOTEN = "freedom.earn.knoten";
 
@@ -63,9 +63,10 @@ export async function zeigeSolEinnahmen(): Promise<void> {
   if (!knoten) return;
   const melde = (text: string): void => { statusEl.textContent = text; };
   melde(t("earn.lade"));
+  const stand = $("#kachel-stand");
+  if (stand) ladend(stand); // unterwegs ein Skelett statt „—“ (C-59)
   try {
     const angebot = await angebotVon(knoten).catch(() => undefined);
-    const stand = $("#kachel-stand");
     if (stand) stand.textContent = angebot ? t("earn.standAktiv") : t("earn.standKeins");
     // Ohne Angebot kein Knoten (C-38b, Nutzertest V-1): ein Hinweis statt „Dein Knoten …“ und ZAHLKANAL=1 –
     // seit C-54 als Checkliste, mit Angebot die Kacheln
@@ -96,6 +97,7 @@ export async function zeigeSolEinnahmen(): Promise<void> {
       liste.appendChild(zeile);
     }
   } catch (e) {
+    if (stand?.querySelector(".skelett-wert")) stand.textContent = "—";
     melde(t("waehr.fehler", { fehler: fehlerText(e) }));
   }
 }

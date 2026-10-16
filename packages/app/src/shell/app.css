@@ -522,12 +522,19 @@ nav button.active { color: var(--accent); }
 .stat .k { color: var(--text-muted); }
 
 /* ---------- Toast ---------- */
+/* Einheitlich (C-59): Zeichen davor, Rand links in der Farbe der Art, ein Klick schließt; am Handy über die ganze Breite */
 #toast {
-  position: fixed; top: 12px; right: 12px; background: var(--card);
-  border: 1px solid var(--accent); border-radius: 2px; padding: 10px 14px;
-  font-size: 12px; display: none; z-index: 99; max-width: 80%;
+  position: fixed; top: 12px; right: 12px; z-index: 1100; max-width: min(420px, calc(100% - 24px));
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--r); padding: 10px 14px; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  animation: fs-pop .16s ease-out both;
 }
-#toast.err { border-color: var(--red); }
+#toast[hidden] { display: none; }
+#toast::before { content: "✓" / ""; color: var(--accent); font-weight: 700; }
+#toast.err { color: var(--text); border-left-color: var(--red); }
+#toast.err::before { content: "!" / ""; color: var(--red-text); }
+@media (max-width: 760px) { #toast { left: 12px; right: 12px; margin: 0 auto; top: calc(8px + env(safe-area-inset-top)); } }
 
 .mono-sm { font-size: 13px; line-height: 1.5; color: var(--text-muted); }
 .ok { color: var(--accent); }
@@ -2180,3 +2187,18 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 @keyframes skelett { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .skelett-zeile { animation: none; } }
 
+
+/* ---------- Übergänge (C-59) ----------
+   Blatt von unten, Popover und Dialoge blenden ein, Meldungen gleiten herein – kurz, und bei „weniger Bewegung“ gar nicht. */
+@keyframes fs-pop { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes fs-blatt { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fs-blende { from { opacity: 0; } to { opacity: 1; } }
+.ai-optionen, .menue-schwebend { animation: fs-pop .14s ease-out both; }
+.modal-backdrop { animation: fs-blende .16s ease-out both; }
+.modal-backdrop .modal { animation: fs-pop .18s ease-out both; }
+@media (max-width: 760px) { .ai-optionen { animation: fs-blatt .2s ease-out both; } }
+@media (max-width: 600px) { .dlg-huelle .modal { animation: fs-blatt .2s ease-out both; } }
+.skelett-wert { display: inline-block; width: 6em; height: 1em; vertical-align: middle; }
+@media (prefers-reduced-motion: reduce) {
+  #toast, .ai-optionen, .menue-schwebend, .modal-backdrop, .modal-backdrop .modal { animation: none; }
+}
