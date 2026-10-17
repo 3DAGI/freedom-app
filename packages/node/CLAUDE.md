@@ -341,3 +341,12 @@ Bereichs unten anhängen.
   riskanten Befehlen, mit eigener Kennung (`perm-check-N`, `edit-approval-N`) und nach 60 s abgelehnt – nie „jeder
   Befehl wartet“ versprechen. Hermes selbst läuft in dieser Umgebung nicht (Fremdcode); Tests ersetzen ihn hinter
   demselben Startskript, den Echttest macht der MENSCH.
+- **Vibecoden unter Docker nur über `docker-compose.vibecoden.yml`** (seit VKc3b): Hermes kommt nur mit `VIBECODEN=1`
+  ins Bild (`ARG`), nur aus `docker/hermes-requirements.txt` (`--require-hashes --only-binary :all: --no-deps`; neu
+  erzeugen nur mit dem Befehl in `docker/hermes.in`). Die Sandbox braucht im Container das Profil
+  `docker/seccomp-vibecoden.json` (Standard von Docker plus eine Regel am Ende: `clone`, `unshare`, `mount`, `umount2`,
+  `pivot_root`, `setns`, `sethostname` – ohne `sethostname` scheitert bubblewrap an `--hostname`), dazu
+  `systempaths=unconfined` (sonst „Can't mount proc“) und `apparmor=unconfined` (docker-default verbietet `mount`). Nie in
+  `docker-compose.yml` selbst – der Standard bleibt bei den Regeln von Docker (`docker-vibecoden.test.ts`). In dieser
+  Umgebung baut ein Bild nur mit dem Zertifikat des Proxys (`--build-context`, nicht im Repo) und dem Basisbild von
+  `mirror.gcr.io` (Docker Hub antwortet mit 429).

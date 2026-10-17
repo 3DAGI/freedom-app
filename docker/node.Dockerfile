@@ -18,6 +18,20 @@ RUN useradd -m -u 1001 -s /bin/bash freedom || true
 # das Standard-Seccomp meist Nutzer-Namensräume: dann meldet es die Selbstprüfung, Code läuft nicht.
 RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewrap git \
     && rm -rf /var/lib/apt/lists/*
+
+# Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
+# (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes
+# Paket mit Hash aus docker/hermes-requirements.txt, nur fertige Wheels, nichts nachgeladen. Hermes
+# (MIT) läuft nur in der Sandbox (hermes-motor.ts); python3 und ripgrep sind eigene Programme.
+ARG VIBECODEN=0
+COPY docker/hermes-requirements.txt /tmp/hermes-requirements.txt
+RUN if [ "$VIBECODEN" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep \
+      && rm -rf /var/lib/apt/lists/* \
+      && python3 -m venv /opt/hermes \
+      && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \
+           --only-binary :all: --no-deps -r /tmp/hermes-requirements.txt; \
+    fi && rm /tmp/hermes-requirements.txt
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

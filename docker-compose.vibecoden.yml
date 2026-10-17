@@ -1,0 +1,21 @@
+# Vibecoden auf dem eigenen Knoten unter Docker (VKc3b, docs/PROVIDER.md „Vibecoden“):
+#   docker compose -f docker-compose.yml -f docker-compose.vibecoden.yml up -d --build
+# Baut Hermes ins Bild (VIBECODEN=1) und erlaubt dem Container, was bubblewrap für die Sandbox braucht:
+# - seccomp: das Standardprofil von Docker plus Namensräume (clone, unshare, mount, umount2, pivot_root,
+#   setns, sethostname) – die Sandbox legt darin ihren eigenen, engeren Filter an;
+# - systempaths=unconfined: ein frisches /proc in der Sandbox geht nur, wenn Docker /proc nicht verdeckt;
+# - apparmor=unconfined: das Profil docker-default (Ubuntu, DGX OS) verbietet mount.
+# Der Knoten läuft weiter als Nutzer ohne Fähigkeiten; ohne diese Datei bleibt alles wie bisher.
+services:
+  node:
+    build:
+      args:
+        VIBECODEN: "1"
+    environment:
+      VIBECODEN: "1"
+      # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot
+      CODE_MODELL: "${CODE_MODELL:-}"
+    security_opt:
+      - seccomp=docker/seccomp-vibecoden.json
+      - systempaths=unconfined
+      - apparmor=unconfined
