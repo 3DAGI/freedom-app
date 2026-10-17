@@ -7,16 +7,17 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { ChildProcess } from "node:child_process";
 import { createServer, request, type IncomingHttpHeaders } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CodeLaeufe } from "../src/code-motor.js";
+import { CodeLaeufe, lebt, prozessMotor } from "../src/code-motor.js";
 import { HERMES_ORDNER, STARTSKRIPT, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, brueckenZiel, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { ProjektAblage } from "../src/projekte.js";
-import { fuehreAus, pruefeSandbox, sandboxArgumente } from "../src/sandbox.js";
+import { fuehreAus, pruefeSandbox, sandboxArgumente, sandboxMotor } from "../src/sandbox.js";
 
 const pruefung = await pruefeSandbox();
 const ohne = !pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`;
@@ -38,6 +39,21 @@ async function antriebAttrappe() {
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   return { gesehen, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, zu: () => server.close() };
+}
+
+/**
+ * `kill()` ohne pid zählen statt senden: Nach einem gescheiterten `spawn` schickte Node ihn an eine nie gesetzte Nummer –
+ * in der CI war das 0 oder -1 und beendete den Runner (VKc3b). So scheitert ein Rückfall als Test, nie als Runner.
+ */
+function killOhnePid(f: () => void): number {
+  const echt = ChildProcess.prototype.kill;
+  let ohne = 0;
+  ChildProcess.prototype.kill = function (this: ChildProcess, ...a: Parameters<ChildProcess["kill"]>) {
+    if (this.pid === undefined) return (ohne++, false);
+    return echt.apply(this, a);
+  };
+  try { f(); } finally { ChildProcess.prototype.kill = echt; }
+  return ohne;
 }
 
 /** Anfrage über den Socket der Brücke. */
@@ -118,12 +134,24 @@ test("VKc3: Konfiguration – Modell nur über die Brücke, Freigaben manual, ke
   assert.equal(hermesHeim(ablage, ablage.ort("app")), "/home/n/.freedom/hermes/app", "nie im Repo – sonst landeten Gedächtnis und Skills im Commit");
 });
 
+test("VKc3b: ein Motor, der nicht startet, bekommt kein kill() – ohne pid ginge es an die Prozessgruppe", () => {
+  const ordner = tmp("ohne-pid");
+  assert.equal(killOhnePid(() => {
+    sandboxMotor(["/bin/true"], { bwrap: "/gibt/es/nicht" })(ordner).beende();
+    prozessMotor(["/gibt/es/nicht"])(ordner).beende();
+  }), 0);
+  assert.equal(lebt({ pid: undefined, exitCode: null, signalCode: null } as unknown as ChildProcess), false);
+  assert.equal(lebt({ pid: 4242, exitCode: null, signalCode: null } as unknown as ChildProcess), true);
+  assert.equal(lebt({ pid: 4242, exitCode: 0, signalCode: null } as unknown as ChildProcess), false);
+  assert.match(readFileSync(new URL("../src/sandbox.ts", import.meta.url), "utf8"), /if \(kind\.pid !== undefined\) try \{ process\.kill\(-kind\.pid, "SIGKILL"\)/);
+});
+
 test("VKc3: Motor – Konfiguration vor jedem Start, nie durch einen Verweis; ohne Modell kein Start", () => {
   const ablage = new ProjektAblage(join(tmp("ablage"), "projekte"));
   mkdirSync(ablage.ort("app"), { recursive: true });
   const motor = (modell?: string) => hermesMotor({ hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: tmp("b") }, modell: () => modell, bwrap: "/gibt/es/nicht" });
   assert.throws(() => motor()(ablage.ort("app")), { name: "KeinModell" });
-  motor("coder:7b")(ablage.ort("app")).beende();
+  assert.equal(killOhnePid(() => motor("coder:7b")(ablage.ort("app")).beende()), 0);
   const datei = join(hermesHeim(ablage, ablage.ort("app")), ".hermes", "config.yaml");
   assert.equal(JSON.parse(readFileSync(datei, "utf8")).model.default, "coder:7b");
   assert.equal((statSync(datei).mode & 0o777).toString(8), "600");
@@ -132,7 +160,7 @@ test("VKc3: Motor – Konfiguration vor jedem Start, nie durch einen Verweis; oh
   writeFileSync(ziel, "schluessel");
   rmSync(datei);
   symlinkSync(ziel, datei);
-  motor("coder:7b")(ablage.ort("app")).beende();
+  assert.equal(killOhnePid(() => motor("coder:7b")(ablage.ort("app")).beende()), 0);
   assert.equal(readFileSync(ziel, "utf8"), "schluessel");
   assert.equal(JSON.parse(readFileSync(datei, "utf8")).model.default, "coder:7b");
   // ein Verweis statt des Ordners: kein Start

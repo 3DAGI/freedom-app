@@ -17,7 +17,7 @@
  * ein Filter in `.git/config` liefe dort. Ins Log nur Kennung, Zahlen und
  * Fehlernamen – Befehle, Ausgaben und Gedanken sind Inhalt.
  */
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   client, ndJsonStream, PROTOCOL_VERSION, type AgentApp, type PermissionOptionKind, type RequestPermissionRequest,
@@ -48,6 +48,13 @@ export interface MotorVerbindung {
 export type MotorStart = (ordner: string) => MotorVerbindung;
 
 /**
+ * Läuft der Prozess noch? Nur dann `kill()`. Scheitert `spawn` (Programm fehlt), hat er keine pid – bis zum Ereignis
+ * „error“ hält Node aber noch den Griff und schickt `kill()` an eine nie gesetzte Nummer. Steht dort 0 oder -1, trifft
+ * SIGTERM die ganze Prozessgruppe oder jeden Prozess des Nutzers: In der CI beendete das den Runner (VKc3b).
+ */
+export const lebt = (kind: ChildProcess): boolean => kind.pid !== undefined && kind.exitCode === null && kind.signalCode === null;
+
+/**
  * Motor als eigener Prozess: ACP als JSON-Zeilen über stdin/stdout, ohne Shell,
  * die Umgebung leer bis auf PATH, HOME (der Projektordner) und LANG. stderr wird
  * verworfen – es kann Inhalt tragen. Nur mit dem Befehl der Sandbox davor (VKc3).
@@ -62,7 +69,7 @@ export function prozessMotor(befehl: readonly string[]): MotorStart {
     kind.on("error", () => { /* ein fehlender Motor beendet den Strom – der Lauf endet mit „fehler“ */ });
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
-      beende: () => { if (kind.exitCode === null && kind.signalCode === null) kind.kill("SIGTERM"); },
+      beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
     };
   };
 }

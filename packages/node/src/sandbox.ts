@@ -26,7 +26,7 @@ import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { ndJsonStream } from "@agentclientprotocol/sdk";
 import { CODE_GRENZEN } from "@freedomstack/protocol";
-import { kuerzeAusgabe, type MotorStart } from "./code-motor.js";
+import { kuerzeAusgabe, lebt, type MotorStart } from "./code-motor.js";
 import { seccompFilter } from "./seccomp.js";
 
 /** Grenzen je Befehl (Vorgabe; der Betreiber kann sie senken). */
@@ -191,7 +191,7 @@ export function fuehreAus(befehl: readonly string[], o: SandboxOrt & { ohneSecco
     let zeitUm = false;
     const uhr = setTimeout(() => {
       zeitUm = true;
-      try { process.kill(-kind.pid!, "SIGKILL"); } catch { /* schon weg */ }
+      if (kind.pid !== undefined) try { process.kill(-kind.pid, "SIGKILL"); } catch { /* schon weg */ }
     }, zeitMs);
     kind.on("error", (e) => { clearTimeout(uhr); etc.weg(); scheitern(Object.assign(new Error("Sandbox startet nicht"), { name: "SandboxFehlt", cause: e })); });
     kind.on("close", (code) => {
@@ -246,7 +246,7 @@ export function sandboxMotor(befehl: readonly string[], o: {
     kind.on("close", () => etc.weg());
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
-      beende: () => { if (kind.exitCode === null && kind.signalCode === null) kind.kill("SIGTERM"); },
+      beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
       ort: "/arbeit",
     };
   };

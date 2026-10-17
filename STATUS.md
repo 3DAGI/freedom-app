@@ -11249,3 +11249,40 @@ nicht beschreibbar; `session/new` mit `/arbeit`).
 Knoten-Stand: neu für den Motor; ohne `VIBECODEN=1` ändert sich nichts. MENSCH: auf dem GX10 Hermes 0.19.0 als venv in
 `/opt/hermes` (oder mit VKc3b das Docker-Bild), ein Coding-Modell mit Tool-Calling (`CODE_MODELL`,
 `OLLAMA_CONTEXT_LENGTH=65536`), dann vom Handy einen Auftrag geben.
+
+## Schritt VKc3b – Hermes im Docker-Bild, Sandbox unter Docker
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C), dazu die Frage „Sandbox unter Docker“ aus `OFFEN.md` 1.1 nach der
+Empfehlung dort. Ebenfalls von Spur C übernommen (17.10., Spur A im Nutzungslimit).
+
+**Neu:**
+- `docker/node.Dockerfile`: mit `VIBECODEN=1` (Build-Argument) ein venv `/opt/hermes` mit Hermes 0.19.0 –
+  `docker/hermes-requirements.txt` (67 Pakete, jedes mit sha256, erzeugt mit `uv pip compile` aus `docker/hermes.in`),
+  installiert mit `--require-hashes --only-binary :all: --no-deps`; dazu python3, python3-venv und ripgrep. Ohne das
+  Argument bleibt das Bild wie bisher. Lizenzen der Pakete: MIT, BSD, Apache-2.0, ISC, PSF; MPL-2.0 bei certifi,
+  pathspec, tqdm – kein GPL. Hermes ist ein eigener Prozess in der Sandbox.
+- `docker/seccomp-vibecoden.json`: das Standardprofil von Docker (moby/profiles, Apache-2.0, Herkunft im Feld
+  `_herkunft`) plus eine Regel: `clone`, `unshare`, `mount`, `umount2`, `pivot_root`, `setns`, `sethostname`.
+- `docker-compose.vibecoden.yml`: Ergänzung zu `docker-compose.yml` – Build-Argument und `VIBECODEN=1`,
+  `CODE_MODELL`, `security_opt` mit dem Profil, `systempaths=unconfined`, `apparmor=unconfined`.
+
+**Gemessen** (Docker 29.3.1 hier, Bild gebaut mit `VIBECODEN=1`): Ohne Ergänzung meldet `npm run pruefen` im Container
+`sandbox.namensraum`. Nur mit dem Profil scheitert bubblewrap an `/proc` (`systempaths` nötig). Zuerst fehlte
+`sethostname` („Can't set hostname“), jetzt im Profil. Mit allen dreien laufen `sandbox.test.ts` und
+`hermes-motor.test.ts` im Container grün (16 von 16, keiner übersprungen), und `npm run pruefen` nennt „Motor Hermes in
+/opt/hermes“. `apparmor=unconfined` ließ sich hier nicht messen (kein AppArmor); es steht für Ubuntu und DGX OS drin.
+
+**Runner beendet (CI zweimal abgebrochen):** Im Schritt „Tests node“ kam nach 13 s „The runner has received a shutdown
+signal“, beide Male direkt nach dem ersten Test in `hermes-motor.test.ts`. Ursache: Der Test startet einen Motor mit
+fehlendem bubblewrap und ruft sofort `beende()`. Node hält bis zum Ereignis „error“ noch den Griff des Prozesses und
+schickt `kill()` an eine nie gesetzte pid. Hier stand dort 858994020 (strace, ESRCH). Steht dort 0 oder -1, trifft SIGTERM
+die ganze Prozessgruppe oder jeden Prozess des Nutzers, in der CI also den Runner. `lebt()` (`code-motor.ts`) prüft jetzt die
+pid vor jedem `kill()` (beide Motoren), `fuehreAus()` ebenso. Die Tests zählen `kill()` ohne pid, statt ihn zu senden.
+
+**Tests:** node +4:
+- `docker-vibecoden.test.ts`, 3 Tests: Hermes nur mit `VIBECODEN=1`, Hash je Paket, nur Wheels, in `HERMES_ORDNER`; Profil =
+  Standard plus genau die eine Regel; Freigaben nur in der Ergänzung, nie im Standard.
+- 1 Test: kein `kill()` ohne pid. Ohne die Prüfung sind 2 Tests rot.
+
+Knoten-Stand: Bild neu nur mit `VIBECODEN=1`. MENSCH: auf dem GX10 `docker compose -f docker-compose.yml -f
+docker-compose.vibecoden.yml up -d --build`, dann im Log `[code] Sandbox geht …` und `[code] Motor Hermes …`.

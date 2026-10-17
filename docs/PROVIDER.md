@@ -522,19 +522,32 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Ob sie geht, steht beim Start im Log (`[code] Sandbox …`) und in
   `npm run pruefen`. Ohne bubblewrap oder ohne Nutzer-Namensräume läuft kein
   Code – nie direkt auf dem Rechner. **Unter Docker** sperrt das
-  Standard-Seccomp meist Nutzer-Namensräume; dann meldet die Prüfung das. Ubuntu ab 24.04
+  Standard-Seccomp Nutzer-Namensräume; dann meldet die Prüfung das (Abhilfe unten). Ubuntu ab 24.04
   kann sie per AppArmor sperren (`kernel.apparmor_restrict_unprivileged_userns`).
 - **Agent (seit VKc3a):** Hermes Agent (Nous Research, MIT) über ACP, nur in der
   Sandbox. Der Knoten sucht ihn als venv in `HERMES_ORDNER` (Vorgabe `/opt/hermes`,
-  mit `bin/python` und `bin/hermes-acp`, etwa `python3 -m venv /opt/hermes &&
-  /opt/hermes/bin/pip install 'hermes-agent[acp]==0.19.0'`; das Python dazu muss
-  unter `/usr` liegen). Das Docker-Bild bringt ihn mit VKc3b. Das Modell erreicht
+  mit `bin/python` und `bin/hermes-acp`). Ohne Docker: `python3 -m venv /opt/hermes &&
+  /opt/hermes/bin/pip install --require-hashes --only-binary :all: --no-deps -r
+  docker/hermes-requirements.txt` (Hermes 0.19.0, jedes Paket mit Prüfsumme; das Python
+  dazu muss unter `/usr` liegen). Das Modell erreicht
   Hermes nur über eine Brücke des Knotens zum eigenen Antrieb (Ollama oder `KI_URL`) –
   kein Nous Portal, kein Dienst im Internet. Welches Modell: `CODE_MODELL`, sonst das
   erste im Angebot; es muss Werkzeuge aufrufen können (Tool-Calling), und Ollama
   braucht langen Kontext (`OLLAMA_CONTEXT_LENGTH=65536`). Gedächtnis und Skills von
   Hermes liegen je Projekt in `~/.freedom/hermes/<projekt>`, nie im Repo. Fehlt
   Hermes, steht es im Log, und Aufträge werden mit `code-ohne-motor` abgelehnt.
+- **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
+  docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
+  (rund 40 MB Pakete, venv etwa 135 MB, dazu python3 und ripgrep) und gibt dem
+  Container, was bubblewrap braucht: das Seccomp-Profil `docker/seccomp-vibecoden.json`
+  (das Standardprofil von Docker plus Namensräume: `clone`, `unshare`, `mount`,
+  `umount2`, `pivot_root`, `setns`, `sethostname`), `systempaths=unconfined` (sonst
+  verdeckt Docker Teile von `/proc`, und die Sandbox bekommt kein eigenes) und
+  `apparmor=unconfined` (das Profil `docker-default` auf Ubuntu und DGX OS verbietet
+  `mount`). Der Knoten läuft weiter als Nutzer ohne Fähigkeiten; die Sandbox legt
+  darin ihren eigenen, engeren Filter an. Ohne die Ergänzung bleibt das Bild schlank,
+  und die Selbstprüfung meldet, dass keine Sandbox geht. Gemessen mit Docker 29: ohne
+  Ergänzung keine Sandbox, mit ihr laufen die Sandbox-Tests im Container grün.
 
 ## Gratis-Start (A-14)
 

@@ -77,7 +77,6 @@ Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 | Punkt | Offen | Quelle |
 |---|---|---|
 | Phase 9, Teil der Agenten | Keiner Spur zugeteilt: `docs/BEDROHUNGSMODELL.md` (9.1), `SECURITY.md` (9.2), Deploy-Skripte und Rücknahmeplan (9.3), KI-Hinweis nach Art. 50 AI Act und C2PA (9.4). Wer, und wann? | [`phase-9.md`](phase-9.md) |
-| Sandbox unter Docker (VKb) | Das Standard-Seccomp von Docker sperrt meist Nutzer-Namensräume – im Docker-Bild führt der Knoten dann keinen Code aus (die Selbstprüfung sagt das; ungeprüft, hier läuft kein Docker). Empfehlung: ein eigenes Seccomp-Profil mitliefern (Standard plus `unshare`/`clone` für Namensräume) und in `docker-compose.yml` nur bei `VIBECODEN=1` setzen; sonst Vibecoden nur mit dem Installer. Wie läuft der GX10-Knoten? | [`PROVIDER.md`](../PROVIDER.md), „Vibecoden“ |
 | Phase 9, Teil des MENSCHEN | Auditoren; Beträge der Bug-Bounty (Sats und SOL); Zeitpunkt Mainnet; CASP-Einordnung nach AMLR (Frist 10.07.2027), Steuer, Impressum und Firmenname (0.F) | [`phase-9.md`](phase-9.md), FORTSCHRITT 0.F |
 
 ### 1.2 Zurückgestellt – ohne Termin
@@ -156,7 +155,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc3b | Hermes 0.19.0 gepinnt ins Docker-Bild (venv `/opt/hermes`, nur mit `VIBECODEN=1` gebaut, Hash je Paket); Echttest mit Hermes und einem Coding-Modell mit Tool-Calling (MENSCH, GX10) | frei (VKc3a ✓: Brücke, Motor, `main.ts`) |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |

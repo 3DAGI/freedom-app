@@ -341,3 +341,17 @@ Bereichs unten anhängen.
   riskanten Befehlen, mit eigener Kennung (`perm-check-N`, `edit-approval-N`) und nach 60 s abgelehnt – nie „jeder
   Befehl wartet“ versprechen. Hermes selbst läuft in dieser Umgebung nicht (Fremdcode); Tests ersetzen ihn hinter
   demselben Startskript, den Echttest macht der MENSCH.
+- **Vibecoden unter Docker nur über `docker-compose.vibecoden.yml`** (seit VKc3b): Hermes kommt nur mit `VIBECODEN=1`
+  ins Bild (`ARG`), nur aus `docker/hermes-requirements.txt` (`--require-hashes --only-binary :all: --no-deps`; neu
+  erzeugen nur mit dem Befehl in `docker/hermes.in`). Die Sandbox braucht im Container das Profil
+  `docker/seccomp-vibecoden.json` (Standard von Docker plus eine Regel am Ende: `clone`, `unshare`, `mount`, `umount2`,
+  `pivot_root`, `setns`, `sethostname` – ohne `sethostname` scheitert bubblewrap an `--hostname`), dazu
+  `systempaths=unconfined` (sonst „Can't mount proc“) und `apparmor=unconfined` (docker-default verbietet `mount`). Nie in
+  `docker-compose.yml` selbst – der Standard bleibt bei den Regeln von Docker (`docker-vibecoden.test.ts`). In dieser
+  Umgebung baut ein Bild nur mit dem Zertifikat des Proxys (`--build-context`, nicht im Repo) und dem Basisbild von
+  `mirror.gcr.io` (Docker Hub antwortet mit 429).
+- **`kill()` nur mit pid** (seit VKc3b): Scheitert `spawn` (Programm fehlt), hält Node bis zum Ereignis „error“ noch
+  den Griff, und `kind.kill()` schickt `kill()` an eine nie gesetzte pid. Steht dort 0 oder -1, geht SIGTERM an die
+  ganze Gruppe bzw. jeden Prozess des Nutzers – so endete in der CI zweimal der Runner („received a shutdown signal“),
+  ohne einen roten Test. Vor jedem `kill()` `lebt(kind)` (`code-motor.ts`) bzw. `kind.pid !== undefined`. Tests, die einen fehlenden
+  Motor beenden, zählen `kill()` ohne pid (`killOhnePid()` in `hermes-motor.test.ts`), statt ihn zu senden.
