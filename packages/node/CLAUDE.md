@@ -355,3 +355,11 @@ Bereichs unten anhängen.
   ganze Gruppe bzw. jeden Prozess des Nutzers – so endete in der CI zweimal der Runner („received a shutdown signal“),
   ohne einen roten Test. Vor jedem `kill()` `lebt(kind)` (`code-motor.ts`) bzw. `kind.pid !== undefined`. Tests, die einen fehlenden
   Motor beenden, zählen `kill()` ohne pid (`killOhnePid()` in `hermes-motor.test.ts`), statt ihn zu senden.
+- **Freedom-MCP nur über die Brücke** (seit VKd1, `freedom-mcp.ts`): Werkzeuge des Knotens bekommt der Motor nur als
+  MCP-Server hinter `oeffneModellBruecke(…, { mcp })` – genau `POST /mcp`, eine JSON-RPC-Nachricht, Antwort als JSON
+  (Benachrichtigungen 202, GET und DELETE 405, ohne `Mcp-Session-Id` – sonst öffnete der Client von Hermes einen
+  GET-Strom), höchstens `BRUECKE_GRENZEN.mcpBytes`. Ausgeführt nur über `ToolRegistry.run` (Grenzen, `safeFetch`);
+  Fehler eines Werkzeugs nur mit dem Fehlernamen ins Ergebnis, nie ins Log – Suchanfragen und Adressen sind Inhalt des
+  Projekts. Hermes findet den Server über `mcp_servers` in `config.yaml`, nicht über `session/new` (Hermes 0.19 kündigt
+  `mcpCapabilities.http` nicht an). Die Sandbox bleibt ohne Netz; neue Werkzeuge mit Netz nur mit Blick auf VKd-W1 –
+  Hermes fragt vor MCP-Aufrufen nicht.

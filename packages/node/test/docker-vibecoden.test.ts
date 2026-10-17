@@ -24,7 +24,8 @@ test("VKc3b: Hermes im Bild nur mit VIBECODEN=1, gepinnt mit Hash je Paket, nur 
   for (const p of pakete) assert.match(p, /--hash=sha256:[0-9a-f]{64}/, p.split(" ")[0]);
   assert.ok(pakete.some((p) => p.startsWith("hermes-agent==0.19.0 ")));
   assert.ok(pakete.some((p) => p.startsWith("agent-client-protocol==")), "ACP für hermes-acp");
-  assert.match(lies("docker/hermes.in"), /^hermes-agent\[acp\]==0\.19\.0$/m);
+  assert.ok(pakete.some((p) => p.startsWith("mcp==")), "MCP für Freedom-MCP (VKd)");
+  assert.match(lies("docker/hermes.in"), /^hermes-agent\[acp,mcp\]==0\.19\.0$/m);
 });
 
 test("VKc3b: Seccomp – das Standardprofil plus genau eine Regel für Namensräume, sonst gesperrt", () => {

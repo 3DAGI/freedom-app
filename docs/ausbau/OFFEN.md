@@ -44,6 +44,14 @@ und TON bleiben unverdrahtet, bis diese Fragen beantwortet sind:
 
 Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
+### 1.5 Vibecoden: Netz-Werkzeuge im Modus „fragen“ (Spur A, 17.10.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| VKd-W1 | Seit VKd1 kann Hermes über den Knoten im Netz suchen und Seiten lesen (Freedom-MCP). Hermes fragt vorher nicht – er fragt nur vor Änderungen an Dateien und riskanten Befehlen. In der App erscheint der Aufruf als Schritt. Eine gelesene Seite könnte den Agenten anstiften, Inhalt des Projekts in eine Suchanfrage oder Adresse zu packen. A so lassen (sichtbar als Schritt, im Modus „frei“ sowieso ohne Frage) · B im Modus „fragen“ wartet jeder Netz-Aufruf auf Ja: Der Knoten schreibt je Lauf ein eigenes Zeichen in `config.yaml` (`headers`), die Brücke ordnet den Aufruf damit dem Lauf zu und stellt ihn als Schritt mit `wartet` – ohne neues Format | **B** – wer „fragen“ wählt, erwartet, dass nichts das Projekt verlässt, ohne dass er Ja sagt |
+
+Quelle: [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Aufteilung VKd.
+
 ### 1.4 Solana über kit (Spur A, 17.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -155,7 +163,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
+| VKd2 | Freedom-MCP: Bilder (ComfyUI oder Provider), Sprache (mit B-38), Kiwix (mit B-31), Browser mit Seiten-Bedienung (Playwright-MCP) – VKd1 ✓: Websuche und Seite lesen | frei; Freigabe der Netz-Werkzeuge nach VKd-W1 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |

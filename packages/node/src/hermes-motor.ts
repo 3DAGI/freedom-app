@@ -52,13 +52,16 @@ export function hermesAusUmgebung(env: { HERMES_ORDNER?: string; CODE_MODELL?: s
 
 /**
  * `config.yaml` für Hermes – als JSON, das YAML liest. Nur Schlüssel, die Hermes 0.19 kennt: das Modell über die
- * Brücke (`custom`, Adresse in der Sandbox), Freigaben `manual` (nie `smart`, das ein zweites Modell fragte),
- * keine Nachinstallation aus PyPI (die Sandbox hat ohnehin kein Netz).
+ * Brücke (`custom`, Adresse in der Sandbox), Freedom-MCP über dieselbe Brücke (VKd – in der Konfiguration statt über ACP,
+ * weil Hermes 0.19 MCP über HTTP in `initialize` nicht ankündigt), Freigaben `manual` (nie `smart`, das ein zweites Modell
+ * fragte), keine Nachinstallation aus PyPI (die Sandbox hat ohnehin kein Netz).
  */
 export function hermesKonfiguration(modell: string): string {
   if (!MODELL.test(modell)) throw new Error("Modellname ungültig");
+  const bruecke = `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`;
   return JSON.stringify({
-    model: { provider: "custom", base_url: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/v1`, default: modell, api_key: "bruecke" },
+    model: { provider: "custom", base_url: `${bruecke}/v1`, default: modell, api_key: "bruecke" },
+    mcp_servers: { freedom: { url: `${bruecke}/mcp` } },
     approvals: { mode: "manual", cron_mode: "deny" },
     security: { allow_lazy_installs: false, redact_secrets: true },
   }, null, 2) + "\n";
