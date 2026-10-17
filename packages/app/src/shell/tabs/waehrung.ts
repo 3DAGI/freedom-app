@@ -117,10 +117,8 @@ export async function loadWallet(): Promise<void> {
 interface SolanaWalletState {
   connected: boolean;
   pubkey: string | null;
-  /** Sign-Funktion des Wallets (MWA oder Browser-Extension). */
-  signTransaction?: (tx: unknown) => Promise<unknown>;
-  /** Der Provider selbst — noetig, um Transaktionen signieren zu lassen. */
-  provider?: { publicKey: { toBase58(): string }; signTransaction?: (tx: unknown) => Promise<unknown> };
+  /** Der Anbieter – signiert Transaktionen aus kit (seit A-21d2; Wallet Standard oder Brücke). */
+  provider?: import("../../solana-connect.js").SolAnbieter;
 }
 export const solWallet: SolanaWalletState = { connected: false, pubkey: null };
 
@@ -138,8 +136,8 @@ export function verbundeneSolanaWallet(): { adresse: string; provider: SolanaWal
 export function htlcSigner(): import("../../sol-htlc.js").WalletSigner | undefined {
   const provider = solWallet.provider;
   const adresse = solWallet.pubkey;
-  if (!solWallet.connected || !adresse || !provider?.signTransaction) return undefined;
-  return { publicKey: { toBase58: () => adresse }, signTransaction: (tx) => provider.signTransaction!(tx) };
+  if (!solWallet.connected || !adresse || !provider?.signiereTransaktion) return undefined;
+  return { publicKey: { toBase58: () => adresse }, signiereTransaktion: (tx) => provider.signiereTransaktion!(tx) };
 }
 
 /** Name der zuletzt verbundenen Wallet (Wallet Standard) – kein Geheimnis. */
@@ -198,8 +196,7 @@ export async function connectSolana(silent = false): Promise<void> {
     if (conn.name) localStorage.setItem(LS_SOL_WALLET_NAME, conn.name);
     solWallet.connected = true;
     solWallet.pubkey = conn.pubkey;
-    solWallet.signTransaction = conn.provider?.signTransaction?.bind(conn.provider);
-    solWallet.provider = conn.provider as SolanaWalletState["provider"];
+    solWallet.provider = conn.provider;
 
     statusEl.textContent = t("waehr.verbunden");
     statusEl.className = "mono-sm ok";

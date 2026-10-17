@@ -185,8 +185,12 @@ def wurzel_setzen(wurzel: Path) -> None:
 ZAHLWEGE = {
     r"\.payInvoice\(": {"rails.ts"},
     r"\.sendPayment\(": {"rails.ts"},
-    # wallet-standard.ts baut den Anbieter (4.2c) – aufgerufen wird er nur von der Schiene.
-    r"signAndSendTransaction": {"shell/zahlschienen.ts", "wallet-standard.ts"},
+    # wallet-standard.ts baut den Anbieter (4.2c), solana-connect.ts die Brücke für `window.solana`
+    # (A-21d2) – aufgerufen wird er nur von der Schiene.
+    r"signAndSendTransaction": {"shell/zahlschienen.ts", "wallet-standard.ts", "solana-connect.ts"},
+    r"\bsigniereUndSendeTransaktion\b": {"shell/zahlschienen.ts", "wallet-standard.ts", "solana-connect.ts"},
+    # Roh signieren (kit, A-21d1/d2): nur die eingebaute Wallet und das neue Nonce-Konto in der Schiene.
+    r"\bsigniereMit\(": {"sol-wallet.ts", "shell/zahlschienen.ts"},
     r"\bbuildSolTransfer\b": {"sol-transfer.ts", "shell/zahlschienen.ts"},
     # Treuhand-Programme (HTLC-Deposit, Swap, Zahlkanal 4.3d) senden eigene Anweisungen, keine Ueberweisung.
     r"sendRawTransaction": {"shell/zahlschienen.ts", "sol-htlc.ts", "swap-client.ts", "zahlkanal.ts"},

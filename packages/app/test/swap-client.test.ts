@@ -180,11 +180,11 @@ test("Claim-Instruktion: Empfaenger signiert, Initiator bekommt die Miete", asyn
   assert.equal(k[2]!.role, AccountRole.WRITABLE);
 });
 
+/** Seit A-21d2 bekommt die Wallet eine Transaktion aus kit – die Attrappe gibt sie unverändert zurück. */
 function fakeWallet(): WalletSigner {
   return {
     publicKey: new PublicKey(KUNDE),
-    async signTransaction(tx: unknown) {
-      (tx as { serialize: () => Uint8Array }).serialize = () => new Uint8Array([1]);
+    async signiereTransaktion(tx) {
       return tx;
     },
   };
@@ -193,7 +193,7 @@ function fakeWallet(): WalletSigner {
 function fakeConnection(err: unknown = null) {
   return {
     async getLatestBlockhash() {
-      return { blockhash: "Fake11111111111111111111111111111111111111", lastValidBlockHeight: 1 };
+      return { blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 1 };
     },
     async sendRawTransaction() { return "sigAAA"; },
     async confirmTransaction() { return { value: { err } }; },

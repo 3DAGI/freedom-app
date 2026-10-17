@@ -4,9 +4,9 @@
  * Genutzt von der Solana-Schiene (shell/zahlschienen.ts). Laedt web3.js nur,
  * wenn tatsaechlich SOL ueberwiesen wird — haelt das Bundle klein. Die Anweisung
  * selbst seit A-21b2 aus `@solana/kit` (`ueberweisungAnweisung()`), die Transaktion
- * bis A-21d noch mit web3.js.
+ * seit A-21d2 ebenfalls (`baueTransaktion()`); den Blockhash fragt bis A-21d3 web3.js.
  */
-import { alsWeb3, ueberweisungAnweisung } from "@freedomstack/protocol";
+import { baueTransaktion, type SolTransaktion, ueberweisungAnweisung } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
 /**
@@ -16,21 +16,16 @@ import { t } from "./i18n.js";
 export async function buildSolTransfer(
   fromPubkey: string, toPubkey: string, lamports: number, referenz?: string,
   verbindung?: Pick<import("@solana/web3.js").Connection, "getLatestBlockhash">,
-): Promise<unknown> {
-  const web3 = await import("@solana/web3.js");
+): Promise<SolTransaktion> {
   if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error(t("zahl.ungueltigerBetrag"));
 
-  const connection = verbindung ?? new web3.Connection(await solRpcUrl(), "confirmed");
+  const connection = verbindung ?? new (await import("@solana/web3.js")).Connection(await solRpcUrl(), "confirmed");
 
   // Referenz nach Solana Pay (8.4c): nur lesend, nicht signierend – der Empfaenger findet so sein Angebot
   const ueberweisung = ueberweisungAnweisung({ von: fromPubkey, an: toPubkey, lamports: BigInt(lamports), referenz });
-  const tx = new web3.Transaction().add(alsWeb3(ueberweisung));
   // blockhash holen (wallet signiert + sendet)
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.lastValidBlockHeight = lastValidBlockHeight;
-  tx.feePayer = new web3.PublicKey(fromPubkey);
-  return tx;
+  return baueTransaktion({ zahler: fromPubkey, anweisungen: [ueberweisung], lebensdauer: { blockhash, letzteHoehe: BigInt(lastValidBlockHeight) } });
 }
 
 /**

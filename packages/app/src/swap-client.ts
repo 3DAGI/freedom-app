@@ -31,9 +31,9 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import { anchorSighash, swapAddress, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
+import { anchorSighash, signiertVonWallet, swapAddress, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
 import {
-  AccountRole, type AddressUsage, alsWeb3, anweisung, checkAmount, checkReuse, checkTiming, type Instruction, leseBolt11,
+  AccountRole, type AddressUsage, anweisung, checkAmount, checkReuse, checkTiming, type Instruction, leseBolt11,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
@@ -271,19 +271,13 @@ export interface ClaimParams {
 export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> {
   const vorher = claimAllowed(p.timelockUnix);
   if (!vorher.ok) throw new Error(vorher.reason);
-  const { Transaction, PublicKey } = await import("@solana/web3.js");
   const recipient = p.wallet.publicKey.toBase58();
 
   p.onProgress?.(t("zahl.einloesungVorbereiten"));
   const ix = await buildClaimInstruction(p.swapId, p.preimage, recipient, p.initiator);
-  const tx = new Transaction().add(alsWeb3(ix));
-
-  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(recipient);
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
+  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, [ix]);
 
   p.onProgress?.(t("zahl.wirdGesendet"));
   // Zweite Pruefung: Die Bestaetigung in der Wallet kann Minuten dauern.
@@ -294,7 +288,7 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
   // in einen Block gelangen, weil sie das Preimage offenlegen wuerde.
   let signature: string;
   try {
-    signature = await p.connection.sendRawTransaction(signed.serialize(), {
+    signature = await p.connection.sendRawTransaction(roh, {
       skipPreflight: false,
       preflightCommitment: "confirmed",
     });

@@ -88,14 +88,10 @@ test("Signieren fuer eine vergebene frische Adresse, nicht fuer eine noch unverg
     t.feePayer = new PublicKey(von);
     return t;
   };
-  const t1 = tx(frisch);
-  w.signiere(t1 as never);
-  assert.equal(t1.verifySignatures(), true);
-  assert.throws(() => w.signiere(tx(phantom(2)) as never), /keine Signatur dieser Wallet/, "Adresse 2 ist noch nicht vergeben");
-  // Über kit (A-21d1) ebenso: die vergebene ja, die unvergebene nein
+  // Seit A-21d2 nur über kit: die vergebene ja, die unvergebene nein
   const kit = (von: string) => ausDraht(Uint8Array.from(tx(von).serialize({ requireAllSignatures: false })));
   assert.ok(Transaction.from(alsDraht(w.signiereTransaktion(kit(frisch)))).verifySignatures());
-  assert.throws(() => w.signiereTransaktion(kit(phantom(2))), /keine Signatur dieser Wallet/);
+  assert.throws(() => w.signiereTransaktion(kit(phantom(2))), /keine Signatur dieser Wallet/, "Adresse 2 ist noch nicht vergeben");
 });
 
 test("Absender: kleinste Adresse, die allein reicht und danach leer oder mietfrei ist – sonst ehrlich ablehnen", () => {

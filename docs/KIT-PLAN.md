@@ -107,14 +107,20 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
     (`sol-offline.ts`); die eingebaute Wallet signiert sie mit `signiereTransaktion()`.
     Gesendet wird bis A-21d2 noch über `Connection.sendRawTransaction()` – die Bytes kommen
     aus `alsDraht()`. Alle 17 Vektoren unverändert, Signaturen gleich denen von web3.js;
-  - **A-21d2** Zahlungen und Zahlkanal der App: Die Wallets bekommen kit-Transaktionen – die
-    eingebaute über `signiereTransaktion()`, Wallet Standard als Bytes, die injizierte
-    (`window.solana`) über eine Brücke zu web3.js bis W4; `buildSolTransfer()`,
-    `sendeMitWallet()` und die Zahlschienen bauen über kit; senden und bestätigen über
-    `solRpc()` (den Pool) statt einer eigenen `Connection`;
-  - **A-21d3** HTLC, Tausch und Einlösung über einen Relayer (App: `sol-htlc.ts`,
-    `swap-client.ts`, `relay-einloesung.ts`, Rückhol-Wächter) und `pruefeRelayAuftrag()`
-    (Protokoll) über kit; danach signiert in der App nichts mehr über web3.js.
+  - **A-21d2** Wallet-Schnittstelle und alle Bauer der App – **fertig** (17.10.2026; neu
+    geschnitten: die Schnittstelle müssen alle Wallets und alle Aufrufer zugleich wechseln, und
+    die HTLC-Bauer umzustellen kostete nicht mehr als eine Übergangshilfe): `WalletSigner`
+    hat nur noch `signiereTransaktion()` mit kit-Transaktionen – die eingebaute Wallet direkt
+    (ihr `signiere()` für web3.js fiel), Wallet Standard als Bytes (`alsAnbieter()`), Wallets
+    nur mit `window.solana` über `ueberWeb3()` (baut das `Transaction`-Objekt aus den Bytes,
+    bis W4). Über kit bauen jetzt HTLC sperren, einlösen und zurückholen, die Einlösung über
+    einen Relayer, der Zahlkanal und die Überweisung (`signiertVonWallet()`,
+    `buildSolTransfer()`). Gesendet wird noch über `Connection.sendRawTransaction()` mit den
+    Bytes aus `alsDraht()`. Alle 17 Vektoren unverändert;
+  - **A-21d3** Senden und Bestätigen über den Pool (`solRpc()`) statt einer eigenen
+    `Connection`, die übrigen Lesestellen der App (Blockhash, Guthaben, Miete, Kanal) und
+    `pruefeRelayAuftrag()` (Protokoll) über kit; danach braucht die App web3.js nur noch für
+    die Brücke (W4).
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
   `relayer-dienst.ts`, `sol-auszahlung.ts`.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle

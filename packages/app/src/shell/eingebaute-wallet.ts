@@ -13,7 +13,7 @@ import { t } from "../i18n.js";
 import { alsModal } from "./dialog.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { escapeHtml } from "../shell-logic.js";
-import { EingebauteSolWallet, type Nachfrage, type SignierbareTx, VORRAT_GROESSE } from "../sol-wallet.js";
+import { EingebauteSolWallet, type Nachfrage, VORRAT_GROESSE } from "../sol-wallet.js";
 import { ausLamports, solText } from "../preis-anzeige.js";
 import { aktuellerKurs } from "./marktkurs.js";
 import { wireOfflineZahlung, zeigeOfflineZahlung } from "./offline-zahlung.js";
@@ -44,16 +44,10 @@ export async function frischeEmpfangsadresse(): Promise<string | undefined> {
  * (Hauptadresse oder vergebene frische). Keine Zahlung – das Geld kommt herein;
  * die Erstattung an einen Relayer bestaetigt der Nutzer vorher im Dialog.
  */
-export function eingebauterHtlcSigner(adresse: string): { publicKey: { toBase58(): string }; signTransaction(tx: unknown): Promise<unknown> } | undefined {
+export function eingebauterHtlcSigner(adresse: string): import("../sol-htlc.js").WalletSigner | undefined {
   const e = benutzbareEingebauteWallet();
   if (!e || !e.eigeneAdressen().includes(adresse)) return undefined;
-  return {
-    publicKey: { toBase58: () => adresse },
-    signTransaction: async (tx) => {
-      e.signiere(tx as SignierbareTx);
-      return tx;
-    },
-  };
+  return { publicKey: { toBase58: () => adresse }, signiereTransaktion: async (tx) => e.signiereTransaktion(tx) };
 }
 
 /**

@@ -12,7 +12,7 @@
  * `AnchorSolanaHtlc` in packages/protocol erwartet ein lokales `Keypair` und
  * signiert selbst. Im Browser gibt es kein Keypair — dort liegt der Schlüssel
  * in der Wallet des Nutzers, und die App bekommt ausschließlich eine
- * `signTransaction`-Funktion. Genau so soll es auch sein: eine Web-App, die
+ * Signier-Funktion (seit A-21d2 `signiereTransaktion()`). Genau so soll es auch sein: eine Web-App, die
  * einen Solana-Secret-Key hält, wäre ein Verwahrer. Deshalb baut dieses Modul
  * dieselbe Instruktion, überlässt das Signieren aber der Wallet.
  *
@@ -25,7 +25,9 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import { AccountRole, alsWeb3, anweisung, SYSTEM_PROGRAMM, type Instruction } from "@freedomstack/protocol";
+import {
+  AccountRole, alsDraht, anweisung, baueTransaktion, SYSTEM_PROGRAMM, type Instruction, type SolTransaktion,
+} from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
@@ -44,9 +46,20 @@ export function swapIdBytes(swapId: string): Uint8Array {
 
 export interface WalletSigner {
   publicKey: { toBase58(): string };
-  signTransaction(tx: unknown): Promise<unknown>;
-  /** Manche Wallets können mehrere Transaktionen in einem Dialog bestätigen. */
-  signAllTransactions?(txs: unknown[]): Promise<unknown[]>;
+  /**
+   * Seit A-21d2: eine Transaktion aus kit hinein, signiert zurück – die eingebaute Wallet
+   * über `@noble/curves`, Wallet Standard als Bytes, eine injizierte über die Brücke zu web3.js.
+   */
+  signiereTransaktion(tx: SolTransaktion): Promise<SolTransaktion>;
+}
+
+/** Bauen und signieren lassen – der Zahler ist die Wallet (A-21d2, kit statt web3.js). */
+export async function signiertVonWallet(
+  connection: Pick<import("@solana/web3.js").Connection, "getLatestBlockhash">, wallet: WalletSigner, anweisungen: Instruction[],
+): Promise<{ roh: Uint8Array; blockhash: string; lastValidBlockHeight: number }> {
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  const tx = baueTransaktion({ zahler: wallet.publicKey.toBase58(), anweisungen, lebensdauer: { blockhash, letzteHoehe: BigInt(lastValidBlockHeight) } });
+  return { roh: alsDraht(await wallet.signiereTransaktion(tx)), blockhash, lastValidBlockHeight };
 }
 
 export interface LockParams {
@@ -60,8 +73,8 @@ export interface LockParams {
 }
 
 /**
- * Baut die `initialize`-Instruktion – als kit-`Instruction` (A-21b2), web3.js
- * bekommt sie über `alsWeb3()`.
+ * Baut die `initialize`-Instruktion – als kit-`Instruction` (A-21b2); die Transaktion
+ * baut seit A-21d2 ebenfalls kit (`signiertVonWallet()`).
  *
  * Bewusst getrennt vom Senden: so lässt sich die Kodierung testen, ohne eine
  * Kette oder Wallet zu brauchen — und genau die Byte-Reihenfolge ist der Teil,
@@ -148,8 +161,6 @@ export interface DepositLockParams {
  * einem sauberen Zustand und einem, den der Nutzer nicht mehr versteht.
  */
 export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResult> {
-  const { Transaction, PublicKey } = await import("@solana/web3.js");
-
   if (p.spendLamports <= 0 || p.refundLamports < 0) {
     throw new Error(t("zahl.aufteilungUngueltig"));
   }
@@ -169,7 +180,7 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
     { swapId: p.spendSwapId, hashlock, amountLamports: p.spendLamports, timelockUnix: p.timelockUnix, recipient: p.providerSolAddress },
     initiator,
   );
-  const tx = new Transaction().add(alsWeb3(ixSpend));
+  const anweisungen = [ixSpend];
 
   if (p.refundLamports > 0) {
     // Rest-HTLC an den Kunden selbst: sofort nach Ablauf zurückholbar.
@@ -177,18 +188,14 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
       { swapId: p.refundSwapId, hashlock, amountLamports: p.refundLamports, timelockUnix: p.timelockUnix, recipient: initiator },
       initiator,
     );
-    tx.add(alsWeb3(ixRefund));
+    anweisungen.push(ixRefund);
   }
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(initiator);
-
-  const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
+  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, anweisungen);
 
   p.onProgress?.(t("zahl.wirdGesendet"));
-  const signature = await p.connection.sendRawTransaction(signed.serialize());
+  const signature = await p.connection.sendRawTransaction(roh);
 
   p.onProgress?.(t("zahl.warteKette"));
   const conf = await p.connection.confirmTransaction(
@@ -224,7 +231,6 @@ export async function lockRueckSwap(p: {
   lpSol: string;
   onProgress?: (step: string) => void;
 }): Promise<{ signature: string }> {
-  const { Transaction, PublicKey } = await import("@solana/web3.js");
   if (!/^[0-9a-f]{64}$/.test(p.paymentHashHex)) throw new Error(t("zahl.rechnungsHashUngueltig"));
   if (p.timelockUnix <= Math.floor(Date.now() / 1000) + 3600) throw new Error(t("zahl.fristEineStunde"));
   const initiator = p.wallet.publicKey.toBase58();
@@ -232,14 +238,10 @@ export async function lockRueckSwap(p: {
     { swapId: p.swapId, hashlock: hexToBytes(p.paymentHashHex), amountLamports: p.lamports, timelockUnix: p.timelockUnix, recipient: p.lpSol },
     initiator,
   );
-  const tx = new Transaction().add(alsWeb3(ix));
   p.onProgress?.(t("zahl.warteWallet"));
-  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(initiator);
-  const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
+  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, [ix]);
   p.onProgress?.(t("zahl.wirdGesendet"));
-  const signature = await p.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+  const signature = await p.connection.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" });
   p.onProgress?.(t("zahl.warteKette"));
   const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
   if (conf.value.err) throw new Error(t("zahl.sperreAbgelehnt", { fehler: JSON.stringify(conf.value.err) }));
@@ -268,18 +270,17 @@ export async function refundDepositOnChain(p: {
   swapIds: string[];
   onProgress?: (step: string) => void;
 }): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }> {
-  const { Transaction, PublicKey } = await import("@solana/web3.js");
   const initiator = p.wallet.publicKey.toBase58();
   const now = Math.floor(Date.now() / 1000);
   void now;
 
-  const tx = new Transaction();
+  const anweisungen: Instruction[] = [];
   const included: string[] = [];
   const failed: { swapId: string; reason: string }[] = [];
 
   for (const swapId of p.swapIds) {
     try {
-      tx.add(alsWeb3(await buildRefundInstruction(swapId, initiator)));
+      anweisungen.push(await buildRefundInstruction(swapId, initiator));
       included.push(swapId);
     } catch (e) {
       failed.push({ swapId, reason: fehlerText(e) });
@@ -290,12 +291,8 @@ export async function refundDepositOnChain(p: {
   }
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(initiator);
-
-  const signed = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
-  const signature = await p.connection.sendRawTransaction(signed.serialize());
+  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, anweisungen);
+  const signature = await p.connection.sendRawTransaction(roh);
   const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
   if (conf.value.err) {
     // Eine atomare Transaktion scheitert ganz: ein bereits eingelöstes HTLC

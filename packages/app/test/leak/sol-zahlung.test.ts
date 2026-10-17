@@ -8,9 +8,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { Keypair, type Transaction } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import {
-  LocalSigner, buildSolDepositOpen, generateKeypair, regelKeineSolAdresse, regelSolAdresseFrisch,
+  LocalSigner, buildSolDepositOpen, generateKeypair, regelKeineSolAdresse, regelSolAdresseFrisch, signiereMit, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { lockDeposit } from "../../src/sol-htlc.js";
 import { aufzeichnung, aufzeichnungsRpc } from "./aufzeichnung.js";
@@ -21,7 +21,8 @@ async function zweiDeposits() {
   const walletKp = Keypair.generate();
   const wallet = {
     publicKey: walletKp.publicKey,
-    async signTransaction(tx: unknown) { (tx as Transaction).partialSign(walletKp); return tx; },
+    // Seit A-21d2 bekommt die Wallet eine Transaktion aus kit
+    async signiereTransaktion(tx: SolTransaktion) { return signiereMit(tx, walletKp.secretKey.slice(0, 32))!; },
   };
   const signer = new LocalSigner(generateKeypair().sk);
   const provider = generateKeypair().pk;

@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { PublicKey } from "@solana/web3.js";
-import { AccountRole } from "@freedomstack/protocol";
+import { AccountRole, leseNachricht, type GeleseneNachricht } from "@freedomstack/protocol";
 import {
   anchorSighash,
   swapIdBytes,
@@ -118,15 +118,16 @@ test("Refund-Instruktion: nur Diskriminator, zwei Konten", async () => {
 
 // ------------------------------------------------------- Wallet-Ablauf
 
-function fakeWallet(onSign?: (tx: unknown) => void): WalletSigner & { signed: unknown[] } {
-  const signed: unknown[] = [];
+/** Seit A-21d2 bekommt die Wallet eine Transaktion aus kit – die Attrappe liest sie mit `leseNachricht()`. */
+function fakeWallet(onSign?: (g: GeleseneNachricht) => void): WalletSigner & { signed: GeleseneNachricht[] } {
+  const signed: GeleseneNachricht[] = [];
   return {
     signed,
     publicKey: new PublicKey(KUNDE),
-    async signTransaction(tx: unknown) {
-      onSign?.(tx);
-      signed.push(tx);
-      (tx as { serialize: () => Uint8Array }).serialize = () => new Uint8Array([1, 2, 3]);
+    async signiereTransaktion(tx) {
+      const g = leseNachricht(tx);
+      onSign?.(g);
+      signed.push(g);
       return tx;
     },
   };
@@ -136,7 +137,7 @@ function fakeConnection(err: unknown = null) {
   return {
     calls: [] as string[],
     async getLatestBlockhash() {
-      return { blockhash: "Fake11111111111111111111111111111111111111", lastValidBlockHeight: 100 };
+      return { blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 100 };
     },
     async sendRawTransaction() {
       return "sig1111111111111111111111111111111111111111";
@@ -148,8 +149,8 @@ function fakeConnection(err: unknown = null) {
 }
 
 test("Deposit-Lock: beide HTLCs in EINER Transaktion", async () => {
-  let gesehen: { instructions: unknown[] } | undefined;
-  const wallet = fakeWallet((tx) => { gesehen = tx as { instructions: unknown[] }; });
+  let gesehen: GeleseneNachricht | undefined;
+  const wallet = fakeWallet((g) => { gesehen = g; });
 
   const r = await lockDeposit({
     connection: fakeConnection(),
@@ -165,7 +166,7 @@ test("Deposit-Lock: beide HTLCs in EINER Transaktion", async () => {
   // Zwei getrennte Dialoge waeren der Fehler: wer den zweiten abbricht, haette
   // Geld beim Provider gesperrt und den Rest ungeschuetzt.
   assert.equal(wallet.signed.length, 1, "genau eine Signatur");
-  assert.equal(gesehen!.instructions.length, 2, "spend und refund zusammen");
+  assert.equal(gesehen!.anweisungen.length, 2, "spend und refund zusammen");
   assert.match(r.signature, /^sig/);
   assert.match(r.preimageHex, /^[0-9a-f]{64}$/);
   assert.match(r.hashlockHex, /^[0-9a-f]{64}$/);
@@ -189,10 +190,10 @@ test("Deposit-Lock: Hashlock ist der SHA-256 des Preimage", async () => {
 });
 
 test("Deposit-Lock: ohne Restanteil nur eine Instruktion", async () => {
-  let gesehen: { instructions: unknown[] } | undefined;
+  let gesehen: GeleseneNachricht | undefined;
   await lockDeposit({
     connection: fakeConnection(),
-    wallet: fakeWallet((tx) => { gesehen = tx as { instructions: unknown[] }; }),
+    wallet: fakeWallet((g) => { gesehen = g; }),
     providerSolAddress: PROVIDER,
     spendSwapId: "d3-spend",
     refundSwapId: "d3-refund",
@@ -200,7 +201,7 @@ test("Deposit-Lock: ohne Restanteil nur eine Instruktion", async () => {
     refundLamports: 0,
     timelockUnix: Math.floor(Date.now() / 1000) + 7200,
   });
-  assert.equal(gesehen!.instructions.length, 1, "kein leeres Rest-HTLC anlegen");
+  assert.equal(gesehen!.anweisungen.length, 1, "kein leeres Rest-HTLC anlegen");
 });
 
 test("Deposit-Lock: zu kurzer Timelock wird vorher abgefangen", async () => {
@@ -240,7 +241,7 @@ test("Deposit-Lock: abgelehnte Transaktion meldet den Fehler", async () => {
 test("Deposit-Lock: abgebrochene Wallet-Signatur reicht durch", async () => {
   const wallet: WalletSigner = {
     publicKey: new PublicKey(KUNDE),
-    async signTransaction() { throw new Error("User rejected the request"); },
+    async signiereTransaktion() { throw new Error("User rejected the request"); },
   };
   await assert.rejects(
     () => lockDeposit({
@@ -290,24 +291,24 @@ test("Refund: leere Liste fuehrt zu keiner Transaktion", async () => {
 // ------------------------------------------------ Gegenrichtung (4.6c)
 
 test("Rueck-Swap-Sperre: Hashlock = Hash der Rechnung, Empfaenger = LP, Vorabsimulation an", async () => {
-  let gesehen: { instructions: { data: Uint8Array; keys: { pubkey: PublicKey }[] }[] } | undefined;
+  let gesehen: GeleseneNachricht | undefined;
   let optionen: unknown;
   const conn = fakeConnection() as unknown as { sendRawTransaction: (raw: unknown, o: unknown) => Promise<string> };
   conn.sendRawTransaction = async (_raw, o) => { optionen = o; return "sig1111111111111111111111111111111111111111"; };
   const hash = "ab".repeat(32);
   const frist = Math.floor(Date.now() / 1000) + 50 * 3600;
   const r = await lockRueckSwap({
-    connection: conn as never, wallet: fakeWallet((tx) => { gesehen = tx as never; }),
+    connection: conn as never, wallet: fakeWallet((g) => { gesehen = g; }),
     swapId: "c".repeat(64), paymentHashHex: hash, lamports: 1_010_000, timelockUnix: frist, lpSol: PROVIDER,
   });
   assert.match(r.signature, /^sig/);
-  const ix = gesehen!.instructions[0];
-  assert.equal(gesehen!.instructions.length, 1);
-  assert.equal(bytesToHex(ix.data.slice(8 + 32, 8 + 64)), hash, "Hashlock");
-  assert.equal(Buffer.from(ix.data).readBigUInt64LE(8 + 72), 1_010_000n, "Betrag");
-  assert.equal(Buffer.from(ix.data).readBigInt64LE(8 + 64), BigInt(frist), "Frist");
-  assert.equal(ix.keys[0].pubkey.toBase58(), KUNDE, "Kunde sperrt");
-  assert.equal(ix.keys[1].pubkey.toBase58(), PROVIDER, "fuer den LP");
+  const ix = gesehen!.anweisungen[0]!;
+  assert.equal(gesehen!.anweisungen.length, 1);
+  assert.equal(bytesToHex(ix.daten.slice(8 + 32, 8 + 64)), hash, "Hashlock");
+  assert.equal(Buffer.from(ix.daten).readBigUInt64LE(8 + 72), 1_010_000n, "Betrag");
+  assert.equal(Buffer.from(ix.daten).readBigInt64LE(8 + 64), BigInt(frist), "Frist");
+  assert.equal(ix.konten[0]!.adresse, KUNDE, "Kunde sperrt");
+  assert.equal(ix.konten[1]!.adresse, PROVIDER, "fuer den LP");
   assert.deepEqual(optionen, { skipPreflight: false, preflightCommitment: "confirmed" });
 });
 
