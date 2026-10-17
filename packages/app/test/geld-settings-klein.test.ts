@@ -12,14 +12,17 @@ const quelle = (pfad: string) => readFileSync(new URL(pfad, import.meta.url), "u
 const html = quelle("../src/shell/index.html");
 const css = quelle("../src/shell/app.css");
 
-test("Kopf der Seite Währung: „KI-Budget“ mit Einheit – eine Obergrenze, kein Guthaben; keine SOL-Zeile ohne Quelle", () => {
+test("Kopf der Seite Währung: „KI-Budget“ – seit RM2c3 ohne Sitzung auf Kredit kein Rest, „—“; keine SOL-Zeile ohne Quelle", () => {
   assert.match(html, /<div class="nb-row"><span class="nb-label" data-i18n="waehr\.kopfBudget">KI-Budget<\/span><span class="nb-val" id="nb-sats">—<\/span><\/div>/);
   // Die SOL-Zeile las freedom.escrow.lamports – das schreibt nichts in der App
   assert.doesNotMatch(html, /id="nb-sol"/);
   assert.doesNotMatch(quelle("../src/shell/ui.ts"), /nb-sol|freedom\.escrow\.lamports/);
+  const ui = quelle("../src/shell/ui.ts");
+  const kopf = ui.slice(ui.indexOf("export function updateSidebarBalances("), ui.indexOf("// ---", ui.indexOf("export function updateSidebarBalances(")));
+  assert.match(kopf, /satsEl\.textContent = "—";/);
+  assert.doesNotMatch(kopf, /budgetState|sessionClient/, "kein Budget einer Sitzung mehr");
   setLang("de");
-  assert.equal(t("waehr.kopfSats", { n: 100 }), "100 sats");
-  assert.match(t("ein.budgetRest"), /eine Obergrenze, kein Guthaben/);
+  assert.match(t("ein.budgetRest"), /^Kein Budget auf Kredit mehr: Die App zahlt jede Antwort aus deiner Wallet/);
   setLang("en");
   assert.equal(t("waehr.kopfBudget"), "AI budget");
 });

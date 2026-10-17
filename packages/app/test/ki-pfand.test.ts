@@ -14,15 +14,15 @@ test("Anfrage: Pfand nur ohne Kanal, eigenen Knoten, Max-Modus und Prüfrunde �
   const agent = lies("shell/tabs/agent.ts");
   const bau = agent.slice(agent.indexOf("async function buildJobEvent("), agent.indexOf("/** Abbruch-Signal"));
   assert.match(bau, /const pfand = eigen \|\| kanal \|\| o\.ohnePfand \|\| zusatzTags\.some\(\(t\) => t\[0\] === "race"\) \? undefined\s*: await pfandFuerAnfrage\(targetPubkey, sitzung\.publicKey\(\), empfaenger, hoechst\);/);
-  // Tags im Kern: vor buildJobRequest/buildEvent, also vor dem Versiegeln
+  // Tags im Kern: vor buildJobRequest, also vor dem Versiegeln
   assert.ok(bau.indexOf("pfand?.tags") < bau.indexOf("buildJobRequest({"), "Tags vor dem Bau der Anfrage");
-  assert.match(bau, /const useSession = !eigen && !kanal && !pfand && sc\.activeFor/, "mit Pfand keine Sitzung");
+  assert.doesNotMatch(bau, /useSession|jobTags/, "keine Sitzung (seit RM2c3 gar keine)");
   assert.match(bau, /if \(pfand\) await pfand\.merke\(auftrag\.requestId\);[\s\S]*return auftrag;/, "gemerkt, bevor der Aufrufer sendet");
-  assert.match(lies("shell/pruefrunde-lauf.ts"), /buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, p\.sc, \[\], undefined, \{ ohnePfand: true \}\)/);
+  assert.match(lies("shell/pruefrunde-lauf.ts"), /buildJobEvent\(p\.prompt, p\.bid, p\.tier, pk, \[\], undefined, \{ ohnePfand: true \}\)/);
   assert.match(lies("shell/tabs/agent-wege.ts"), /const stumm = !letztes && !perKanal\(requestId\) && !perPfand\(requestId\);/, "kein zweiter Provider mit eigenem Pfand");
 });
 
-test("Antwort: per Pfand nur buchen – vor der Sitzung, Lightning zahlt den Anteil des Providers nie; übrige Anteile wie bisher", () => {
+test("Antwort: per Pfand nur buchen – vor der Lightning-Abrechnung, Lightning zahlt den Anteil des Providers nie; übrige Anteile wie bisher", () => {
   const agent = lies("shell/tabs/agent.ts");
   const antwort = agent.slice(agent.indexOf("async function handleAnswer("), agent.indexOf("/** Send-Button nach Job-Ende"));
   const pfand = antwort.indexOf("if (perPfand(r.requestId)) {");

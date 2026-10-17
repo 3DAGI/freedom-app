@@ -78,7 +78,7 @@ export async function bezahlterAuftrag(p: {
   } else {
     const abrechnung = await rechneAntwortAb(auftrag.requestId, ergebnis.amountMsat);
     const { zahlung } = await providerZahlung(p.provider);
-    await ensureSessionClient().chargeForResult(p.provider, abrechnung.providerMsat, antwort.id, zahlung, sitzung);
+    await ensureSessionClient().chargeForResult(p.provider, abrechnung.providerMsat, zahlung, sitzung);
     void zahleAnteile().catch(() => { /* beim nächsten Mal */ });
   }
   return { art: "antwort", output: ergebnis.output, amountMsat: ergebnis.amountMsat, ...(ergebnis.amountLamports !== undefined ? { amountLamports: ergebnis.amountLamports } : {}) };

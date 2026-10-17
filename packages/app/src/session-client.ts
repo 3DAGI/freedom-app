@@ -1,77 +1,25 @@
 /**
- * Session-Client (App-Seite, Stufe B): Streaming-Sats im KI-Tab.
+ * Abrechnung mit dem Provider (App-Seite) – seit RM2c3 ohne Sitzung auf Kredit.
  *
- * Ablauf aus User-Sicht:
- *   1. Erste Frage an einen Provider: Session wird eroeffnet (kind 38021,
- *      Budget + Rate-Deckel). Noch keine Zahlung.
- *   2. Jede Antwort: App verbucht den Anteil des Providers (5.1.3), zahlt ihn,
- *      sobald das Fenster faellig ist, an seine Lightning-Adresse und
- *      publiziert den Zahlungs-Beleg (38022).
- *   3. Budget-Warnung bei 80%, Session-Close wenn leer oder TTL abgelaufen.
+ * Bis RM2c3 eröffnete die App je Provider eine Sitzung (38021) mit 100 sats Budget, die der Knoten
+ * auf Kredit bediente; gezahlt wurde in Fenstern von 20 sats, dazu Belege (38022). Schlüssel kosten
+ * nichts – jeder neue bekam wieder Kredit (Entscheidung RM2 B, `docs/RM2-ENTWURF.md` V7). Jetzt trägt
+ * jede Anfrage ein Gebot (oder Pfand bzw. Gutschrift), und die App zahlt den Anteil des Providers
+ * (5.1.3) nach jeder Antwort, sobald ganze sats fällig sind – Kredit höchstens eine Antwort. Was unter
+ * einem sat bleibt, wartet auf die nächste Antwort desselben Schlüssels oder auf `begleiche()` (D1b2).
  *
- * Ohne verbundene Lightning-Wallet (oder ohne Adresse im Angebot) laeuft der
- * "Beleg-only"-Modus: Die App dokumentiert die Schuld signiert (38022). Der
- * Provider sieht das und entscheidet selbst, wie viel Kredit er gibt
- * (Betrugsrisiko = 1 Intervall).
+ * Gezählt wird je Provider und Sitzungsschlüssel (D1b): eine Antwort auf einen früheren Auftrag
+ * verbucht bei dessen Schlüssel. Nach einem unklaren Ausgang zahlt die App für diesen Schlüssel nie
+ * wieder von selbst – ob das Geld ging, weiß nur die Wallet.
  */
-import {
-  type NostrEvent,
-  type Signer,
-  OutboxPool,
-  buildPrivateSessionEvent,
-  buildEvent,
-  buildSessionOpen,
-  buildSessionPayment,
-  parseSessionOpen,
-  parseSessionPayment,
-  checkSessionLedger,
-  ParsedSessionOpen,
-  ParsedSessionPayment,
-  KIND_SESSION_OPEN,
-  KIND_SESSION_PAYMENT,
-  KIND_DVM_TEXT_GENERATION,
-} from "@freedomstack/protocol";
+import type { Signer } from "@freedomstack/protocol";
+
+/** Kleinster Betrag, der gezahlt wird – Lightning-Rechnungen über ganze sats. */
+const ZAHLEN_AB_MSAT = 1000;
 
 export interface SessionClientConfig {
-  /**
-   * Signer je Provider – der Sitzungsschluessel (Schritt 3.1), nie die
-   * Identitaet und nie der rohe Schluessel (Schritt 1.3).
-   */
+  /** Sitzungsschlüssel je Provider (Schritt 3.1) – nie die Identität. */
   signerFuer: (providerPubkey: string) => Signer;
-  pool: OutboxPool;
-  /** Standard-Budget pro Session in sats. */
-  defaultBudgetSats: number;
-  /** Settlement-Fenster in sats (so oft wird bezahlt). */
-  settleEverySats: number;
-  /** Session-TTL in Sekunden. */
-  ttlSecs: number;
-  /**
-   * Rechenarbeit laut Angebot des Providers (Schritt 3.2): Sitzung und Belege
-   * gehen versiegelt an ihn, der Knoten prueft sie vor dem Entschluesseln.
-   */
-  powFuer?: (providerPubkey: string) => number;
-}
-
-export const DEFAULT_SESSION_CONFIG = {
-  defaultBudgetSats: 100,
-  settleEverySats: 20,
-  ttlSecs: 3600,
-};
-
-export interface ActiveSession {
-  open: ParsedSessionOpen;
-  payments: ParsedSessionPayment[];
-  /** Gesamte aufgelaufene Schuld in msat (monoton, aus Results). */
-  chargedMsat: number;
-  /** Bereits bezahlte Summe in msat. */
-  paidMsat: number;
-  /**
-   * Rechnung einer Zahlung mit unklarem Ausgang: Ob das Geld ging, weiss nur
-   * die Wallet – in dieser Sitzung zahlt die App dann nie wieder automatisch.
-   */
-  unklar?: string;
-  /** Laeuft gerade eine Zahlung? Dann zahlt eine zweite Antwort nicht dieselbe Schuld. */
-  zahlt?: boolean;
 }
 
 /**
@@ -80,7 +28,7 @@ export interface ActiveSession {
  */
 export interface ProviderZahlung {
   rechnung(amountMsat: number): Promise<string>;
-  /** Gibt den Nachweis zurueck (Preimage). */
+  /** Gibt den Nachweis zurück (Preimage). */
   zahle(rechnung: string, amountMsat: number): Promise<string>;
 }
 
@@ -93,204 +41,95 @@ export interface Beglichen {
   rechnung?: string;
 }
 
+/** Was ein Sitzungsschlüssel einem Provider schuldet. */
+interface Konto {
+  provider: string;
+  kunde: string;
+  /** Verbucht (msat, Anteil des Providers). */
+  chargedMsat: number;
+  /** Bezahlt (msat). */
+  paidMsat: number;
+  /** Rechnung einer Zahlung mit unklarem Ausgang – dann nie wieder von selbst. */
+  unklar?: string;
+  /** Läuft gerade eine Zahlung? Dann zahlt eine zweite Antwort nicht dieselbe Schuld. */
+  zahlt?: boolean;
+}
+
 export class SessionClient {
-  private sessions = new Map<string, ActiveSession>();
-  private seqCounters = new Map<string, number>();
+  private konten = new Map<string, Konto>();
 
   constructor(private cfg: SessionClientConfig) {}
 
-  private sessionIdFor(providerPubkey: string, signer: Signer): string {
-    return `sess-${signer.publicKey().slice(0, 8)}-${providerPubkey.slice(0, 8)}-${Math.floor(Date.now() / 1000)}`;
+  private konto(provider: string, kunde: string): Konto {
+    const id = `${provider}:${kunde}`;
+    let k = this.konten.get(id);
+    if (!k) this.konten.set(id, (k = { provider, kunde, chargedMsat: 0, paidMsat: 0 }));
+    return k;
   }
 
   /**
-   * Aktive Session zu einem Provider (oder null) – nur die des Sitzungsschluessels
-   * (D1b): Eine Sitzung eines anderen Schluessels nennte dem Provider beide.
-   * Ohne Angabe gilt der aktuelle Schluessel fuer diesen Provider.
-   */
-  activeFor(providerPubkey: string, kundePk = this.cfg.signerFuer(providerPubkey).publicKey()): ActiveSession | null {
-    for (const s of this.sessions.values()) {
-      if (s.open.providerPubkey === providerPubkey && s.open.customerPubkey === kundePk) {
-        const now = Math.floor(Date.now() / 1000);
-        if (now <= s.open.expiration && s.chargedMsat < s.open.maxTotalMsat) return s;
-      }
-    }
-    return null;
-  }
-
-  /** Session eroeffnen (publiziert kind 38021). */
-  async openSession(
-    providerPubkey: string,
-    budgetSats = this.cfg.defaultBudgetSats,
-    signer: Signer = this.cfg.signerFuer(providerPubkey),
-  ): Promise<ActiveSession> {
-    const sessionId = this.sessionIdFor(providerPubkey, signer);
-    const ev = await signer.signEvent(
-      buildSessionOpen({
-        customerPubkey: signer.publicKey(),
-        providerPubkey,
-        sessionId,
-        maxTotalMsat: budgetSats * 1000,
-        maxRatePerKTokenMsat: 2000, // Deckel: 2 sats/1k tokens
-        settleEveryMsat: this.cfg.settleEverySats * 1000,
-        ttlSecs: this.cfg.ttlSecs,
-      }),
-    );
-    await this.versiegeltSenden(ev, providerPubkey, signer);
-    const session: ActiveSession = {
-      open: parseSessionOpen(ev),
-      payments: [],
-      chargedMsat: 0,
-      paidMsat: 0,
-    };
-    this.sessions.set(sessionId, session);
-    return session;
-  }
-
-  /** Tags fuer einen DVM-Job: session-Tag wenn aktiv, sonst bid-Fallback. */
-  jobTags(providerPubkey: string, fallbackBidMsat: number, kundePk?: string): string[][] {
-    const session = this.activeFor(providerPubkey, kundePk);
-    if (session) {
-      return [["session", session.open.sessionId]];
-    }
-    return [["bid", String(fallbackBidMsat)]];
-  }
-
-  /**
-   * Nach empfangener Antwort: den Anteil des Providers verbuchen, faellige
-   * Summe zahlen (ganze sats, hoechstens bis zum Budget), Beleg publizieren.
-   * settled=false im Beleg-only-Modus; unklar=true, wenn das Zahlen scheiterte.
-   * Verbucht in der Sitzung des Schluessels, der den Auftrag stellte (`kunde`,
-   * D1b) – ohne Angabe der aktuelle fuer diesen Provider.
+   * Nach einer Antwort: den Anteil des Providers verbuchen und zahlen, was an ganzen sats fällig ist.
+   * Verbucht beim Schlüssel, der den Auftrag stellte (`kunde`, D1b) – ohne Angabe der aktuelle.
    */
   async chargeForResult(
     providerPubkey: string,
     amountMsat: number,
-    resultEventId: string,
     wallet?: ProviderZahlung,
     kunde: Signer = this.cfg.signerFuer(providerPubkey),
-  ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; faelligAbMsat: number; paymentRef?: string; rechnung?: string; remainingMsat: number }> {
-    let session = this.activeFor(providerPubkey, kunde.publicKey());
-    if (!session) session = await this.openSession(providerPubkey, undefined, kunde);
-
-    session.chargedMsat += amountMsat;
-    const seq = (this.seqCounters.get(session.open.sessionId) ?? 0) + 1;
-    this.seqCounters.set(session.open.sessionId, seq);
-
-    // Settlement-Fenster erreicht? Nie ueber das Budget der Sitzung hinaus.
-    const { settled, unklar, due, paymentRef, rechnung: bezahlteRechnung } = await this.zahleFaellig(session, session.open.settleEveryMsat, wallet);
-
-    const cumulativeMsat = session.paidMsat;
-    const payment = await kunde.signEvent(
-      buildSessionPayment({
-        customerPubkey: kunde.publicKey(),
-        sessionId: session.open.sessionId,
-        seq,
-        cumulativeMsat,
-        unitsSinceLast: amountMsat,
-        refEventId: resultEventId,
-        paymentRef,
-      }),
-    );
-    await this.versiegeltSenden(payment, providerPubkey, kunde);
-    session.payments.push(parseSessionPayment(payment));
-
+  ): Promise<{ settled: boolean; unklar?: boolean; gezahltMsat?: number; offenMsat: number; paymentRef?: string; rechnung?: string }> {
+    const k = this.konto(providerPubkey, kunde.publicKey());
+    if (amountMsat > 0) k.chargedMsat += Math.floor(amountMsat);
+    const z = await this.zahleFaellig(k, wallet);
     return {
-      settled,
-      unklar,
-      gezahltMsat: settled ? due : 0,
-      faelligAbMsat: session.open.settleEveryMsat,
-      paymentRef,
-      ...(bezahlteRechnung ? { rechnung: bezahlteRechnung } : {}),
-      remainingMsat: session.open.maxTotalMsat - session.chargedMsat,
+      settled: z.settled, unklar: z.unklar, gezahltMsat: z.settled ? z.due : 0, offenMsat: k.chargedMsat - k.paidMsat,
+      ...(z.paymentRef ? { paymentRef: z.paymentRef } : {}), ...(z.rechnung ? { rechnung: z.rechnung } : {}),
     };
   }
 
   /**
-   * Faellige Summe zahlen – ganze sats, nie ueber das Budget, ab `abMsat`:
-   * erst die Rechnung (bewegt kein Geld), dann zahlen; nach unklarem Ausgang
-   * zahlt diese Sitzung nie wieder von selbst, und nie zwei Zahlungen zugleich.
+   * Fällige ganze sats zahlen: erst die Rechnung (bewegt kein Geld), dann zahlen; nach unklarem
+   * Ausgang zahlt dieser Schlüssel nie wieder von selbst, und nie zwei Zahlungen zugleich.
    */
-  private async zahleFaellig(session: ActiveSession, abMsat: number, wallet?: ProviderZahlung): Promise<{ settled: boolean; unklar: boolean; due: number; paymentRef?: string; rechnung?: string }> {
-    const offen = Math.min(session.chargedMsat, session.open.maxTotalMsat) - session.paidMsat;
+  private async zahleFaellig(k: Konto, wallet?: ProviderZahlung): Promise<{ settled: boolean; unklar: boolean; due: number; paymentRef?: string; rechnung?: string }> {
+    const offen = k.chargedMsat - k.paidMsat;
     const due = offen - (offen % 1000);
-    if (!(due > 0 && due >= abMsat && wallet && !session.unklar && !session.zahlt)) return { settled: false, unklar: false, due };
-    session.zahlt = true;
+    if (!(due >= ZAHLEN_AB_MSAT && wallet && !k.unklar && !k.zahlt)) return { settled: false, unklar: false, due };
+    k.zahlt = true;
     try {
       let rechnung: string | undefined;
       try {
         rechnung = await wallet.rechnung(due);
-      } catch { /* nichts gezahlt – Beleg-only, beim naechsten Mal wieder */ }
+      } catch { /* nichts gezahlt – beim nächsten Mal wieder */ }
       if (!rechnung) return { settled: false, unklar: false, due };
       try {
         const paymentRef = await wallet.zahle(rechnung, due);
-        session.paidMsat += due;
+        k.paidMsat += due;
         // Die bezahlte Rechnung – mit dem Preimage die Quittung (5.5b)
         return { settled: true, unklar: false, due, paymentRef, rechnung };
       } catch {
-        session.unklar = rechnung;
+        k.unklar = rechnung;
         return { settled: false, unklar: true, due };
       }
     } finally {
-      session.zahlt = false;
+      k.zahlt = false;
     }
   }
 
-  /** Provider, bei denen dieser Schluessel noch ganze sats schuldet (D1b2) – auch abgelaufene und volle Sitzungen. */
+  /** Provider, bei denen dieser Schlüssel noch ganze sats schuldet (D1b2) – ohne unklare. */
   offeneVon(kundePk: string): string[] {
     const offen = new Set<string>();
-    for (const s of this.sessions.values()) {
-      if (s.open.customerPubkey !== kundePk || s.unklar) continue;
-      if (Math.min(s.chargedMsat, s.open.maxTotalMsat) - s.paidMsat >= 1000) offen.add(s.open.providerPubkey);
+    for (const k of this.konten.values()) {
+      if (k.kunde === kundePk && !k.unklar && k.chargedMsat - k.paidMsat >= ZAHLEN_AB_MSAT) offen.add(k.provider);
     }
     return [...offen];
   }
 
-  /**
-   * Offene Betraege dieses Schluessels beim Provider begleichen (D1b2) – vor dem
-   * Wechsel zu einem neuen Schluessel: ab 1 sat statt erst ab dem Fenster,
-   * sonst wie `chargeForResult()`. Der Beleg kommt vom selben Schluessel und
-   * nennt keine neue Antwort.
-   */
+  /** Offene ganze sats dieses Schlüssels beim Provider begleichen (D1b2) – vor dem Wechsel zu einem neuen Schlüssel. */
   async begleiche(providerPubkey: string, kunde: Signer, wallet?: ProviderZahlung): Promise<Beglichen> {
-    let ergebnis: Beglichen = { settled: false, unklar: false, gezahltMsat: 0 };
-    for (const session of this.sessions.values()) {
-      if (session.open.providerPubkey !== providerPubkey || session.open.customerPubkey !== kunde.publicKey()) continue;
-      const z = await this.zahleFaellig(session, 1000, wallet);
-      if (z.unklar) ergebnis = { ...ergebnis, unklar: true };
-      if (!z.settled) continue;
-      const seq = (this.seqCounters.get(session.open.sessionId) ?? 0) + 1;
-      this.seqCounters.set(session.open.sessionId, seq);
-      const beleg = await kunde.signEvent(buildSessionPayment({
-        customerPubkey: kunde.publicKey(), sessionId: session.open.sessionId, seq,
-        cumulativeMsat: session.paidMsat, unitsSinceLast: 0, paymentRef: z.paymentRef,
-      }));
-      await this.versiegeltSenden(beleg, providerPubkey, kunde);
-      session.payments.push(parseSessionPayment(beleg));
-      ergebnis = { settled: true, unklar: ergebnis.unklar, gezahltMsat: ergebnis.gezahltMsat + z.due, paymentRef: z.paymentRef, rechnung: z.rechnung };
-    }
-    return ergebnis;
-  }
-
-  /**
-   * Sitzung und Belege nur versiegelt an den Provider (Schritt 3.2): Budget,
-   * Rate und bezahlte Summen stehen in keinem oeffentlichen Event.
-   */
-  private async versiegeltSenden(ev: NostrEvent, providerPubkey: string, signer: Signer): Promise<void> {
-    const { wrap } = await buildPrivateSessionEvent({
-      event: ev, sessionSigner: signer, providerPk: providerPubkey, powBits: this.cfg.powFuer?.(providerPubkey) ?? 0,
-    });
-    await this.cfg.pool.publish(wrap);
-  }
-
-  /** Budget-Stand einer Session (UI). */
-  budgetState(providerPubkey: string): { charged: number; max: number; pct: number } | null {
-    const s = this.activeFor(providerPubkey);
-    if (!s) return null;
-    return {
-      charged: s.chargedMsat,
-      max: s.open.maxTotalMsat,
-      pct: Math.round((s.chargedMsat / s.open.maxTotalMsat) * 100),
-    };
+    const k = this.konten.get(`${providerPubkey}:${kunde.publicKey()}`);
+    if (!k) return { settled: false, unklar: false, gezahltMsat: 0 };
+    const z = await this.zahleFaellig(k, wallet);
+    if (!z.settled) return { settled: false, unklar: z.unklar, gezahltMsat: 0 };
+    return { settled: true, unklar: false, gezahltMsat: z.due, paymentRef: z.paymentRef, rechnung: z.rechnung };
   }
 }

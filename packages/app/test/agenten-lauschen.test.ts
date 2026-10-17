@@ -62,7 +62,7 @@ test("11.3c2b: Auftrag versiegelt, je Agent und Raum, ohne Raum, gemerkt vor dem
 test("11.3c2b: bezahlt über ki-zahlung.ts, höchstens das Gebot, Antwort vom Agenten", () => {
   assert.match(quelle, /await kanalAntwort\(auftrag\.requestId, ergebnis\.amountLamports\);\n    await agentenBuch\.buche\(agentPk, raum, Math\.min\(ergebnis\.amountLamports \?\? imBudget, imBudget\)\);/);
   assert.match(quelle, /const abrechnung = await rechneAntwortAb\(auftrag\.requestId, ergebnis\.amountMsat\);/);
-  assert.match(quelle, /chargeForResult\(provider, abrechnung\.providerMsat, antwort\.id, zahlung, sitzung\);\n    await agentenBuch\.buche\(agentPk, raum, Math\.min\(ergebnis\.amountMsat, hoechst\)\);/);
+  assert.match(quelle, /chargeForResult\(provider, abrechnung\.providerMsat, zahlung, sitzung\);\n    await agentenBuch\.buche\(agentPk, raum, Math\.min\(ergebnis\.amountMsat, hoechst\)\);/);
   assert.ok(stelle("await agentenBuch.buche(agentPk, raum, Math.min(ergebnis.amountMsat") < stelle('return { art: "antwort", text: maske.zurueck(ergebnis.output) };'), "erst bezahlt und verbucht, dann die Antwort");
   assert.match(quelle, /if \(r\?\.art === "antwort"\) await sende\(agentAntwortEvent\(/);
   assert.match(quelle, /const sende = async \(u: [^)]+\): Promise<void> => void \(await pool\.publish\(await signer\.signEvent\(u\)\)\);/, "signiert vom Agenten");

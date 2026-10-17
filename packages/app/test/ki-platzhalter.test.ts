@@ -14,8 +14,9 @@ test("Vor dem Versiegeln: Frage und Verlauf ersetzt, nie beim eigenen Knoten; di
   const agent = lies("shell/tabs/agent.ts");
   const bau = agent.slice(agent.indexOf("export async function buildJobEvent("), agent.indexOf("export let jobAbort"));
   assert.match(bau, /const eigen = kopplungFuer\(targetPubkey\);[\s\S]*const roh = pendingContextSummary \? pendingContextSummary \+ prompt : prompt;\n  const maske = eigen \? \{ text: roh, ersetzt: 0 \} : maskiere\(roh\);\n  const fullPrompt = maske\.text;/);
-  assert.match(bau, /\["i", fullPrompt, "text"\]/);
+  // Seit RM2c3 ein Weg in die Anfrage (der über die Sitzung fiel weg)
   assert.match(bau, /input: fullPrompt,/);
+  assert.equal(ohneKommentare(bau).match(/\bfullPrompt\b/g)?.length, 2, "nur Definition und Anfrage");
   assert.equal(ohneKommentare(bau).match(/\broh\b/g)?.length, 3, "der rohe Text nur in seiner Definition und in der Maske – nie in der Anfrage");
   assert.match(bau, /eigen \? attachment\.name : maskiere\(attachment\.name\)\.text/);
   assert.match(bau, /merkeErsetzt\(auftrag\.requestId, maske\.ersetzt\);\n  merkeAnfrage\(auftrag\.requestId, empfaenger, hoechst, !!kanal\);\n  return auftrag;/);

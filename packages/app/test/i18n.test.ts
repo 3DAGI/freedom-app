@@ -207,7 +207,7 @@ test("8.16d1: Agent – Seite und tabs/agent.ts über Schlüssel; eigene Meldung
   try {
     setLang("en");
     assert.equal(t("agent.beispiel1Prompt"), "Explain the Nostr protocol in one sentence.");
-    assert.equal(t("agent.sitzung", { bezahlt: 3, max: 10, pct: 30 }), "session: 3/10 sats (30%)");
+    assert.equal(t("agent.offenSpaeter", { sats: 3 }), "3 sats open – paid with the next answer");
   } finally {
     setLang(vorher);
   }

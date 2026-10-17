@@ -127,29 +127,18 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
   resetSendBtn(sendBtn);
 }
 
+/**
+ * Nach einer Antwort: die Zeile unter der Eingabe leeren (dort stand bis RM2c3 das Budget der
+ * Sitzung auf Kredit – die gibt es nicht mehr; ein Guthaben zeigt der Kopf erst mit dem Cashu-Topf, RM2d).
+ */
 export function updateBudgetBar(): void {
   const el = $("#ai-budget");
+  el.textContent = "";
+  el.className = "mono-sm";
   const bal = $("#balance");
-  if (!state.lastProvider || !state.sessionClient) {
-    el.textContent = t("agent.keineSitzung");
-    el.className = "mono-sm";
-    if (bal) bal.textContent = "— sats";
-    return;
-  }
-  const b = state.sessionClient.budgetState(state.lastProvider);
-  if (!b) {
-    el.textContent = t("agent.keineSitzung");
-    el.className = "mono-sm";
-    if (bal) bal.textContent = "— sats";
-    return;
-  }
-  el.textContent = t("agent.sitzung", { bezahlt: Math.floor(b.charged / 1000), max: Math.floor(b.max / 1000), pct: b.pct });
-  el.className = b.pct >= 80 ? "mono-sm warn" : "mono-sm";
-  // Header-Guthaben: verbleibendes Session-Budget (non-custodial proxy)
   if (bal) {
-    const left = Math.floor((b.max - b.charged) / 1000);
-    bal.textContent = `${left} sats`;
-    bal.className = left < 10 ? "balance warn" : "balance";
+    bal.textContent = "— sats";
+    bal.className = "balance";
   }
   updateSidebarBalances();
 }

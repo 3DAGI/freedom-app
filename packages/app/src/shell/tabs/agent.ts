@@ -4,14 +4,13 @@
  * Eingabe stehen seit C-5d in eigenen Modulen (`modellwahl.ts`, `agent-verlauf.ts`,
  * `agent-wege.ts`, `agent-anzeige.ts`, `agent-eingabe.ts`).
  */
-import { KIND_DVM_TEXT_GENERATION, type NostrEvent, buildEvent, buildJobRequest, buildPrivateJobRequest, mitBesitzerNachweis, parseJobResult } from "@freedomstack/protocol";
+import { type NostrEvent, buildJobRequest, buildPrivateJobRequest, mitBesitzerNachweis, parseJobResult } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { ScoredProvider } from "../../matchmaking.js";
 import { type AntwortCache } from "../../ki-antworten.js";
 import { LS_VERLAUF, kontextPraefix, leseUmfang } from "../../ki-kontext.js";
 import { frageLokal, lokaleAdresse, lokalesModellAus } from "../../ki-lokal.js";
-import { SessionClient } from "../../session-client.js";
 import { pkShort } from "../../shell-logic.js";
 import { solText } from "../../preis-anzeige.js";
 import { merkeGratisAbgelehnt, switchTab, zeigeOnboarding } from "../app.js";
@@ -78,7 +77,7 @@ async function frageMeinenKnoten(prompt: string, modell: string, btn: HTMLButton
       addAiMessage("ai", t("agent.knotenOhneRelay"), "");
       return;
     }
-    const { wrap, requestId } = await buildJobEvent(prompt, 0, "free", k.knoten, ensureSessionClient(), [], modell);
+    const { wrap, requestId } = await buildJobEvent(prompt, 0, "free", k.knoten, [], modell);
     await weg.publish(wrap);
     setTypingStatus("thinking");
     const antwort = await waitForAnswer(requestId, KNOTEN_ZEIT_MS, k.knoten, { signal: jobAbort.signal, quelle: weg });
@@ -329,7 +328,6 @@ export async function buildJobEvent(
   bid: number,
   tier: string,
   targetPubkey: string,
-  sc: SessionClient,
   zusatzTags: string[][] = [],
   modell?: string,
   /** Ohne Cashu-Pfand (RM2c2) – Prüfrunden zahlen wie bisher. */
@@ -357,7 +355,7 @@ export async function buildJobEvent(
   // Zahlweg (12.4a, E3 A): mit SOL nur über den Kanal – ohne Kanal geht nichts hinaus, nie still Lightning
   if (!eigen && hoechst > 0) pruefeKiZahlweg(targetPubkey);
   const kanal = eigen ? undefined : await kanalGutschrift(targetPubkey, hoechst);
-  // Cashu-Pfand (RM2c2): ohne Kanal, wenn das Angebot die Mint des Topfs nennt – statt Sitzung; nie im Max-Modus
+  // Cashu-Pfand (RM2c2): ohne Kanal, wenn das Angebot die Mint des Topfs nennt; nie im Max-Modus
   // (jeder Provider bekäme Token), nie in Prüfrunden
   const pfand = eigen || kanal || o.ohnePfand || zusatzTags.some((t) => t[0] === "race") ? undefined
     : await pfandFuerAnfrage(targetPubkey, sitzung.publicKey(), empfaenger, hoechst);
@@ -373,25 +371,15 @@ export async function buildJobEvent(
   if (gewaehltesModell) {
     extraTags.push(["param", "model", gewaehltesModell]);
   }
-  // Nur die Sitzung dieses Schlüssels (D1b) – eine andere nennte dem Provider beide
-  const useSession = !eigen && !kanal && !pfand && sc.activeFor(targetPubkey, sitzung.publicKey());
-  const request = useSession
-    ? buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [
-        ["i", fullPrompt, "text"],
-        ...sc.jobTags(targetPubkey, bid * 1000, sitzung.publicKey()),
-        ["tier", tier],
-        ["p", targetPubkey],
-        ...extraTags,
-        ...zusatzTags,
-      ], "")
-    : buildJobRequest({
-        customerPubkey: sitzung.publicKey(),
-        input: fullPrompt,
-        bidMsat: eigen ? 0 : bid * 1000,
-        providerPubkey: targetPubkey,
-        params: [["tier", tier]],
-        extraTags: [...extraTags, ...zusatzTags],
-      });
+  // Seit RM2c3 ohne Sitzung auf Kredit: jede Anfrage trägt ihr Gebot (dazu Pfand oder Gutschrift)
+  const request = buildJobRequest({
+    customerPubkey: sitzung.publicKey(),
+    input: fullPrompt,
+    bidMsat: eigen ? 0 : bid * 1000,
+    providerPubkey: targetPubkey,
+    params: [["tier", tier]],
+    extraTags: [...extraTags, ...zusatzTags],
+  });
   const auftrag = await buildPrivateJobRequest({
     request: eigen ? mitBesitzerNachweis(request, eigen) : request, sessionSigner: sitzung, providerPk: targetPubkey,
     // Gratis (Gebot 0, A-14b): die Rechenarbeit aus dem Gratis-Angebot – beim eigenen Knoten nicht, der rechnet mit Nachweis
@@ -566,10 +554,10 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
     return;
   }
   const sc = ensureSessionClient();
-  // Den Anteil des Providers zahlt die Sitzung an seine Lightning-Adresse (5.1.3)
+  // Den Anteil des Providers zahlt die App nach jeder Antwort an seine Lightning-Adresse (5.1.3, seit RM2c3 ohne Sitzung)
   const { zahlung, grund } = await providerZahlung(r.providerPubkey);
-  // Verbucht in der Sitzung des Schlüssels, der den Auftrag stellte (D1b) – nicht aus dem Ergebnis, dessen p-Tag setzt der Provider
-  const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
+  // Verbucht beim Schlüssel, der den Auftrag stellte (D1b) – nicht aus dem Ergebnis, dessen p-Tag setzt der Provider
+  const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
   // Quittung (5.5b): erst mit bezahlter Rechnung und Preimage – über alle Antworten seit der letzten Zahlung
   void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
   // Antwort an den Schlüssel einer verlassenen Unterhaltung (D1b2): gleich begleichen
@@ -583,8 +571,9 @@ export async function handleAnswer(ev: import("@freedomstack/protocol").NostrEve
   } else if (charge.unklar) {
     toast(t("agent.zahlungUnklar"), true);
   } else {
-    // Beleg-only: Schuld dokumentiert und versiegelt beim Provider
-    toast(zahlung ? t("agent.belegGesammelt", { sats: Math.floor(charge.faelligAbMsat / 1000) }) : t("agent.belegNichtBezahlt", { grund: grund ?? "" }));
+    // Noch offen: unter einem sat oder die Rechnung kam nicht – gezahlt mit der nächsten Antwort oder beim Wechsel (D1b2)
+    toast(!zahlung ? t("agent.belegNichtBezahlt", { grund: grund ?? "" })
+      : charge.offenMsat < 1000 ? t("agent.restOffen") : t("agent.offenSpaeter", { sats: Math.floor(charge.offenMsat / 1000) }));
   }
   // Gesammelte Anteile zahlen, wo 100 sats je Empfaenger erreicht sind
   void zahleAnteile().then((a) => {

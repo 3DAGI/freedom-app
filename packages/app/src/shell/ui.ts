@@ -188,16 +188,10 @@ export function updateSidebarBalances(): void {
   if (!satsEl && !identEl) return;
   // ident
   if (identEl) identEl.textContent = escrowIdent();
-  // sats: session-budget rest (gleiche quelle wie header-balance)
+  // KI-Budget: seit RM2c3 gibt es keine Sitzung auf Kredit mehr und damit keinen Rest – „—“ wie im Kopf
   if (satsEl) {
-    let left: number | null = null;
-    try {
-      const b = state.sessionClient?.budgetState(state.lastProvider ?? "");
-      if (b) left = Math.floor((b.max - b.charged) / 1000);
-    } catch { /* keine session */ }
-    // Mit Einheit und als „KI-Budget“ (C-38, Nutzertest W-1): eine Obergrenze der Sitzung, kein Guthaben
-    satsEl.textContent = left === null ? "—" : t("waehr.kopfSats", { n: left });
-    satsEl.className = left !== null && left < 10 ? "nb-val nb-warn" : "nb-val";
+    satsEl.textContent = "—";
+    satsEl.className = "nb-val";
     satsEl.title = t("ein.budgetRest");
   }
 }

@@ -11085,3 +11085,32 @@ Spur A, `docs/RM2-ENTWURF.md` (V1, V4, V5; W1 A). Die Sitzung auf Kredit fällt 
 Anfrage, Antwort, Baustein und Takt); `ki-zahlung.test.ts` an die erweiterte Zeile im Kern angepasst.
 
 Knoten-Stand: Provider mit `PFAND=1` (RM2b3). Ohne Topf (bis RM2d) ändert sich für Nutzer nichts.
+
+## Schritt RM2c3 – Die Sitzung auf Kredit fällt weg
+
+Spur A, `docs/RM2-ENTWURF.md` (V7, V9; RM2 B). Der Knoten nimmt Sitzungen älterer Apps noch an – das ändert RM2c4 (neu in
+V9); RM2d (Spur C) bringt „Guthaben laden“ und die Wahl der Mint.
+
+**Gebaut:**
+- `app/src/session-client.ts`: nur noch die Abrechnung – ein Konto je Provider und Sitzungsschlüssel (D1b). Keine Sitzung
+  (38021), keine Belege (38022), kein Budget, kein Pool. `chargeForResult()` zahlt den Anteil des Providers nach jeder
+  Antwort, sobald ganze sats fällig sind (Rechnung zuerst; nach unklarem Ausgang nie wieder von selbst; nie zwei Zahlungen
+  zugleich) – Kredit höchstens eine Antwort, der Rest unter einem sat wartet auf die nächste oder auf `begleiche()`.
+- `buildJobEvent()`: jede Anfrage über `buildJobRequest()` mit Gebot (dazu Pfand oder Gutschrift) – der Weg über die Sitzung
+  und der Parameter `sc` fallen. `askWithFailover()` zieht keinen Provider mehr wegen einer offenen Sitzung vor.
+- Antwort, Prüfrunde, Agenten in Räumen, bezahlter Auftrag: `chargeForResult()` ohne Id des Ergebnisses (sie stand nur im
+  Beleg).
+- Oberfläche (Spur C, klein): Kopf und Seitenleiste zeigen kein Budget mehr („—“), die Zeile unter der Eingabe bleibt leer;
+  Toast „… sats offen – gezahlt mit der nächsten Antwort“ statt „gezahlt wird gesammelt ab …“; der Tooltip am KI-Budget sagt,
+  wie jetzt bezahlt wird. Texte `agent.keineSitzung`, `agent.sitzung`, `agent.belegGesammelt`, `waehr.kopfSats`,
+  `ein.poolFehlt` fallen.
+- `wiring-ausnahmen.txt`: `buildSessionOpen()`, `buildSessionPayment()`, `buildPrivateSessionEvent()` – nur noch Tests des
+  Knotens bauen sie, bis RM2c4.
+
+**Tests:** app gleich (1222 mit Test-Mint): `session-client.test.ts` neu (Schlüssel nicht serialisiert, keine Sitzung im
+Code, nach jeder Antwort ganze sats, Konten je Schlüssel); `ki-auftrag-schluessel`, `ki-wechsel`, `leak/ki-anfrage`
+(zwei Anfragen mit Gebot, Bezahlen schickt nichts über den Pool) und die Verdrahtungstests auf den Weg ohne Sitzung umgestellt
+– dieselben Regeln, dazu „nie wieder `useSession`/`jobTags`“. Leak 73 + 1 `todo` wie bisher.
+
+Knoten-Stand: unverändert – heutige Knoten bedienen Anfragen mit Gebot wie bisher.
+

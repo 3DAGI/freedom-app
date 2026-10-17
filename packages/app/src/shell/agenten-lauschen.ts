@@ -268,7 +268,7 @@ async function frageUndZahle(p: {
   } else {
     const abrechnung = await rechneAntwortAb(auftrag.requestId, ergebnis.amountMsat);
     const { zahlung } = await providerZahlung(provider);
-    await ensureSessionClient().chargeForResult(provider, abrechnung.providerMsat, antwort.id, zahlung, sitzung);
+    await ensureSessionClient().chargeForResult(provider, abrechnung.providerMsat, zahlung, sitzung);
     await agentenBuch.buche(agentPk, raum, Math.min(ergebnis.amountMsat, hoechst));
     void zahleAnteile().catch(() => { /* beim nächsten Mal */ });
   }

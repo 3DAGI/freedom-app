@@ -84,7 +84,7 @@ export function messeLauf(runde: Promise<Pruefrunde | null>, punkte: ReadonlyArr
 async function frage(pk: string, p: { prompt: string; bid: number; tier: string; hoechstMsat: number; publish: (ev: NostrEvent) => Promise<unknown>; sc: SessionClient }): Promise<Ausgang> {
   let requestId: string;
   try {
-    const auftrag = await buildJobEvent(p.prompt, p.bid, p.tier, pk, p.sc, [], undefined, { ohnePfand: true });
+    const auftrag = await buildJobEvent(p.prompt, p.bid, p.tier, pk, [], undefined, { ohnePfand: true });
     await p.publish(auftrag.wrap);
     requestId = auftrag.requestId;
   } catch {
@@ -96,16 +96,16 @@ async function frage(pk: string, p: { prompt: string; bid: number; tier: string;
   if (!a) return { pk, punkt: { zeit, ok: false }, kostenMsat: 0 }; // Frist verpasst
   if (a.aborted || ("providerError" in a && a.providerError)) return { pk, kostenMsat: 0 }; // Abbruch, Ablehnung: zählen nicht
   if ("kaputt" in a) return { pk, punkt: { zeit, ok: false }, kostenMsat: 0 };
-  const kostenMsat = await bezahle(a.ev, a.parsed!, p.sc).catch(() => p.hoechstMsat); // unklar: als verbraucht
+  const kostenMsat = await bezahle(a.parsed!, p.sc).catch(() => p.hoechstMsat); // unklar: als verbraucht
   return { pk, punkt: { zeit, ok: true, ms: Math.max(0, Date.now() - gesendet) }, output: a.parsed!.output, kostenMsat };
 }
 
-/** Wie `handleAnswer()`, ohne Anzeige: abrechnen (höchstens das Gebot), den Provider über die Sitzung zahlen, Quittung. */
-async function bezahle(ev: NostrEvent, r: ReturnType<typeof parseJobResult>, sc: SessionClient): Promise<number> {
+/** Wie `handleAnswer()`, ohne Anzeige: abrechnen (höchstens das Gebot), den Provider zahlen, Quittung. */
+async function bezahle(r: ReturnType<typeof parseJobResult>, sc: SessionClient): Promise<number> {
   const abrechnung = await rechneAntwortAb(r.requestId, r.amountMsat);
   if (abrechnung.providerMsat > 0) {
     const { zahlung } = await providerZahlung(r.providerPubkey);
-    const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, ev.id, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
+    const charge = await sc.chargeForResult(r.providerPubkey, abrechnung.providerMsat, zahlung, kiSitzungen.fuerAuftrag(r.requestId));
     void quittungNachZahlung(r.providerPubkey, abrechnung.providerMsat, charge);
     void begleicheWennVerlassen(sc, r.providerPubkey, kiSitzungen.fuerAuftrag(r.requestId)).catch(() => {});
   }

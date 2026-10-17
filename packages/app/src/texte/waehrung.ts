@@ -14,7 +14,6 @@ export const waehrung: Texte = {
   "waehr.trennen": { de: "trennen", en: "disconnect" },
   "waehr.nichtVerbunden": { de: "Nicht verbunden", en: "Not connected" },
   "waehr.kopfBudget": { de: "KI-Budget", en: "AI budget" },
-  "waehr.kopfSats": { de: "{n} sats", en: "{n} sats" },
   "waehr.solAdressePh": { de: "SOL-Adresse", en: "SOL address" },
   "waehr.verbinden": { de: "Verbinden", en: "Connect" },
   "waehr.eingebaut": { de: "Eingebaute Wallet", en: "Built-in wallet" },
