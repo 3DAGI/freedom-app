@@ -350,3 +350,8 @@ Bereichs unten anhängen.
   `docker-compose.yml` selbst – der Standard bleibt bei den Regeln von Docker (`docker-vibecoden.test.ts`). In dieser
   Umgebung baut ein Bild nur mit dem Zertifikat des Proxys (`--build-context`, nicht im Repo) und dem Basisbild von
   `mirror.gcr.io` (Docker Hub antwortet mit 429).
+- **`kill()` nur mit pid** (seit VKc3b): Scheitert `spawn` (Programm fehlt), hält Node bis zum Ereignis „error“ noch
+  den Griff, und `kind.kill()` schickt `kill()` an eine nie gesetzte pid. Steht dort 0 oder -1, geht SIGTERM an die
+  ganze Gruppe bzw. jeden Prozess des Nutzers – so endete in der CI zweimal der Runner („received a shutdown signal“),
+  ohne einen roten Test. Vor jedem `kill()` `lebt(kind)` (`code-motor.ts`) bzw. `kind.pid !== undefined`. Tests, die einen fehlenden
+  Motor beenden, zählen `kill()` ohne pid (`killOhnePid()` in `hermes-motor.test.ts`), statt ihn zu senden.

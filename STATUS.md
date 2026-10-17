@@ -11272,8 +11272,17 @@ Empfehlung dort. Ebenfalls von Spur C übernommen (17.10., Spur A im Nutzungslim
 `hermes-motor.test.ts` im Container grün (16 von 16, keiner übersprungen), und `npm run pruefen` nennt „Motor Hermes in
 /opt/hermes“. `apparmor=unconfined` ließ sich hier nicht messen (kein AppArmor); es steht für Ubuntu und DGX OS drin.
 
-**Tests:** node +3 (`docker-vibecoden.test.ts`: Hermes nur mit `VIBECODEN=1`, Hash je Paket, nur Wheels, in
-`HERMES_ORDNER`; Profil = Standard plus genau die eine Regel; Freigaben nur in der Ergänzung, nie im Standard).
+**Runner beendet (CI zweimal abgebrochen):** Im Schritt „Tests node“ kam nach 13 s „The runner has received a shutdown
+signal“, beide Male direkt nach dem ersten Test in `hermes-motor.test.ts`. Ursache: Der Test startet einen Motor mit
+fehlendem bubblewrap und ruft sofort `beende()`. Node hält bis zum Ereignis „error“ noch den Griff des Prozesses und
+schickt `kill()` an eine nie gesetzte pid. Hier stand dort 858994020 (strace, ESRCH). Steht dort 0 oder -1, trifft SIGTERM
+die ganze Prozessgruppe oder jeden Prozess des Nutzers, in der CI also den Runner. `lebt()` (`code-motor.ts`) prüft jetzt die
+pid vor jedem `kill()` (beide Motoren), `fuehreAus()` ebenso. Die Tests zählen `kill()` ohne pid, statt ihn zu senden.
+
+**Tests:** node +4:
+- `docker-vibecoden.test.ts`, 3 Tests: Hermes nur mit `VIBECODEN=1`, Hash je Paket, nur Wheels, in `HERMES_ORDNER`; Profil =
+  Standard plus genau die eine Regel; Freigaben nur in der Ergänzung, nie im Standard.
+- 1 Test: kein `kill()` ohne pid. Ohne die Prüfung sind 2 Tests rot.
 
 Knoten-Stand: Bild neu nur mit `VIBECODEN=1`. MENSCH: auf dem GX10 `docker compose -f docker-compose.yml -f
 docker-compose.vibecoden.yml up -d --build`, dann im Log `[code] Sandbox geht …` und `[code] Motor Hermes …`.
