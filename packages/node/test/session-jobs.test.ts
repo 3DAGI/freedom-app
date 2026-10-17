@@ -1,9 +1,8 @@
 /**
- * Session-Job-Test: DVM-Jobs mit Streaming-Sats-Session (Stufe B).
- *
- * Beweist: Kunde eroeffnet Session -> sendet Jobs OHNE Bid (nur session-Tag)
- * -> Provider validiert Budget + Belege -> arbeitet -> Buchhaltung pruefbar.
- * Plus: Provider lehnt Jobs bei erschoepftem/ungueltigem Budget ab.
+ * Session-Job-Test: bis RM2c3 rechnete der Knoten Aufträge ohne Gebot über eine Sitzung auf
+ * Kredit ab (38021, Budget ohne Deckung). Seit RM2c4 (RM2 B) bedient er sie nicht mehr – auch
+ * nicht mit gültiger Eröffnung –, wie zuvor schon bei erschöpftem Budget oder fremder Sitzung.
+ * Aufträge mit Gebot gehen wie bisher.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -39,14 +38,14 @@ function makeProvider(pool: OutboxPool, kp: ReturnType<typeof generateKeypair>) 
   );
 }
 
-test("Session-Jobs: Kunde chattet ohne Einzel-Bids, Provider rechnet ueber Session ab", async () => {
+test("RM2c4: eine Sitzung auf Kredit bedient der Knoten nicht mehr – auch mit gültiger Eröffnung; mit Gebot geht es", async () => {
   const customer = generateKeypair();
   const providerKp = generateKeypair();
   const pool = new OutboxPool([new MemoryRelay("mem://s1")], { minAcks: 1 });
   const provider = makeProvider(pool, providerKp);
   const now = Math.floor(Date.now() / 1000);
 
-  // 1. Kunde eroeffnet Session: 100k msat Budget, Rate-Deckel 1000/1k tokens
+  // Eine Eröffnung wie bis RM2c3: 100k msat Budget, an diesen Knoten, nicht abgelaufen
   await pool.publish(
     signEvent(
       buildSessionOpen({
@@ -61,31 +60,24 @@ test("Session-Jobs: Kunde chattet ohne Einzel-Bids, Provider rechnet ueber Sessi
       customer.sk,
     ),
   );
+  // Ein Auftrag ohne Gebot, nur mit session-Tag (ältere Apps): früher auf Kredit gerechnet
+  const job = signEvent(
+    buildEvent(customer.pk, KIND_DVM_TEXT_GENERATION, [["i", "Frage 1", "text"], ["session", "chat-sess-1"]], ""),
+    customer.sk,
+  );
+  await pool.publish(job);
+  assert.equal((await provider.pollOnce()).length, 0, "nichts gerechnet");
+  assert.equal((await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] })).length, 0);
+  const absage = (await pool.query({ kinds: [7000], "#e": [job.id] }))[0];
+  assert.ok(absage, "Absage per Rückmeldung");
+  assert.match(absage.content, /Sitzungen auf Kredit gibt es nicht mehr, bitte mit Gebot fragen/);
 
-  // 2. Drei Chat-Jobs OHNE bid, nur session-Tag (Live-Chat-Flow)
-  for (const prompt of ["Frage 1", "Frage 2", "Frage 3"]) {
-    const job = signEvent(
-      buildEvent(
-        customer.pk,
-        KIND_DVM_TEXT_GENERATION,
-        [["i", prompt, "text"], ["session", "chat-sess-1"]],
-        "",
-      ),
-      customer.sk,
-    );
-    await pool.publish(job);
-    const processed = await provider.pollOnce();
-    assert.equal(processed.length, 1, `Job "${prompt}" verarbeitet`);
-    // 2000 tokens * 1000 msat/1k = 2000 msat (unter Rate-Deckel)
-    assert.equal(processed[0].amountMsat, 2000);
-    // Seit 3.3 keine Vorschau fuers Log – die Antwort steht im Ergebnis-Event.
-    assert.equal(processed[0].outputPreview, "");
-  }
-
-  // 3. Alle Results liegen auf dem Relay (Kunde streamt Belege darauf)
-  const results = await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] });
-  assert.equal(results.length, 3);
-  assert.deepEqual(results.map((r) => parseJobResult(r).output).sort(), ["ok:Frage 1", "ok:Frage 2", "ok:Frage 3"]);
+  // Dieselbe Frage mit Gebot – wie die App seit RM2c3 jede Anfrage stellt
+  await pool.publish(signEvent(buildJobRequest({ customerPubkey: customer.pk, input: "Frage 1", bidMsat: 10_000 }), customer.sk));
+  const processed = await provider.pollOnce();
+  assert.equal(processed.length, 1);
+  assert.equal(processed[0].amountMsat, 2000, "nach Tokens, höchstens das Gebot");
+  assert.deepEqual((await pool.query({ kinds: [KIND_DVM_TEXT_RESULT] })).map((r) => parseJobResult(r).output), ["ok:Frage 1"]);
 });
 
 test("Session-Jobs: Provider lehnt bei erschoepftem Budget ab", async () => {

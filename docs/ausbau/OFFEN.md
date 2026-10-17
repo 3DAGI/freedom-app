@@ -156,7 +156,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
-| RM2c4 | Knoten: keine Sitzung auf Kredit mehr – Anfragen mit `session` ohne Deckung nicht bedienen; `validateSession()`, Annahme von 38021/38022 und die Bausteine dafür fallen (RM2d Oberfläche, Spur C: „Guthaben laden“, Mint wählen über `cashuTopf` aus `shell/ki-pfand.ts`, Kopf und Seitenleiste zeigen seit RM2c3 kein Budget mehr) | frei (RM2c1 ✓, RM2c2 ✓: Pfand im echten Pfad; RM2c3 ✓: die App eröffnet keine Sitzung mehr) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
+| RM2c4b | Protokoll: die Bausteine der Sitzung auf Kredit fallen (`stream.ts`, `buildPrivateSessionEvent()`, Ausnahmen in `wiring-ausnahmen.txt`, Aussage „ki-zahlung“ ohne Sitzungen und Belege) (RM2d Oberfläche, Spur C: „Guthaben laden“, Mint wählen über `cashuTopf` aus `shell/ki-pfand.ts`, Kopf und Seitenleiste zeigen seit RM2c3 kein Budget mehr) | frei (RM2c3 ✓: die App eröffnet keine Sitzung mehr; RM2c4a ✓: der Knoten bedient keine mehr) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |

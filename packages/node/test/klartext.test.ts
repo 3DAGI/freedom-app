@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildPrivateJobRequest,
-  buildPrivateSessionEvent, buildSessionOpen, generateKeypair,
+  generateKeypair,
 } from "@freedomstack/protocol";
 import { DvmProvider, type ProviderConfig } from "../src/dvm-provider.js";
 import { OllamaBackend, type InferenceBackend, type InferenceRequest, type InferenceResult } from "../src/inference.js";
@@ -85,16 +85,11 @@ function aufbau(extra: Partial<ProviderConfig> = {}) {
   return { pool, kp, backend, provider };
 }
 
-/** Versiegelte Sitzung und zwei versiegelte Anfragen darin – wie die App seit 3.2e. */
-async function privateSitzungMitAnfragen(pool: OutboxPool, providerPk: string, prompts: string[]): Promise<void> {
+/** Versiegelte Anfragen mit Gebot vom selben Sitzungsschlüssel – wie die App seit RM2c3 (bis dahin über eine Sitzung, 3.2e). */
+async function privateAnfragen(pool: OutboxPool, providerPk: string, prompts: string[]): Promise<void> {
   const sitzung = new LocalSigner(generateKeypair().sk);
-  const open = buildSessionOpen({
-    customerPubkey: sitzung.publicKey(), providerPubkey: providerPk, sessionId: "sess-klartext",
-    maxTotalMsat: 100_000, maxRatePerKTokenMsat: 1000, settleEveryMsat: 50_000, ttlSecs: 3600,
-  });
-  await pool.publish((await buildPrivateSessionEvent({ event: open, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap);
   for (const text of prompts) {
-    const request = buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [["i", text, "text"], ["session", "sess-klartext"], ["p", providerPk]], "");
+    const request = buildEvent(sitzung.publicKey(), KIND_DVM_TEXT_GENERATION, [["i", text, "text"], ["bid", "100000"], ["p", providerPk]], "");
     await pool.publish((await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap);
   }
 }
@@ -107,7 +102,7 @@ test("3.3 Abnahme: nach einem Job stehen Prompt und Antwort weder im Log noch in
   process.env.HOME = dir;
   try {
     const { pool, kp, backend, provider } = aufbau();
-    await privateSitzungMitAnfragen(pool, kp.pk, [PROMPT]);
+    await privateAnfragen(pool, kp.pk, [PROMPT]);
     const { wert: jobs, log } = await mitgeschrieben(() => provider.pollOnce());
     assert.equal(jobs.length, 1, "Job lief ueber die versiegelte Sitzung");
     assert.equal(jobs[0].amountMsat, 500);
@@ -130,7 +125,7 @@ test("3.3 Abnahme: nach einem Job stehen Prompt und Antwort weder im Log noch in
 test("3.3: kein Gespraechsverlauf im Knoten – jede Anfrage steht fuer sich, Kontext kommt in der Anfrage", async () => {
   const { pool, kp, backend, provider } = aufbau();
   const zweite = "[Bisheriger Verlauf]:\nDu: Hallo\nKI: Hallo!\n\n[Neue Nachricht]:\nWas war meine erste Frage?";
-  await privateSitzungMitAnfragen(pool, kp.pk, ["Hallo", zweite]);
+  await privateAnfragen(pool, kp.pk, ["Hallo", zweite]);
   await mitgeschrieben(() => provider.pollOnce());
   assert.equal(backend.anfragen.length, 2);
   assert.deepEqual(backend.anfragen.map((a) => a.history), [undefined, undefined], "kein Verlauf vom Knoten");
@@ -140,7 +135,7 @@ test("3.3: kein Gespraechsverlauf im Knoten – jede Anfrage steht fuer sich, Ko
 
 test("3.3: LOG_KLARTEXT schaltet die Vorschau fuer die Fehlersuche ein – nur dann", async () => {
   const { pool, kp, provider } = aufbau({ klartextProtokoll: true });
-  await privateSitzungMitAnfragen(pool, kp.pk, [PROMPT]);
+  await privateAnfragen(pool, kp.pk, [PROMPT]);
   const { wert: jobs } = await mitgeschrieben(() => provider.pollOnce());
   assert.equal(jobs[0].outputPreview, ANTWORT.slice(0, 120));
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");

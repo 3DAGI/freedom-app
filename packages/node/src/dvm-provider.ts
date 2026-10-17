@@ -31,10 +31,6 @@ import {
   toHex,
   mineEvent,
   buildPerformanceEvent,
-  parseSessionOpen,
-  parseSessionPayment,
-  checkSessionLedger,
-  ParsedSessionOpen,
   KIND_SESSION_PAYMENT,
   parseSolDepositOpen,
   ParsedSolDepositOpen,
@@ -559,10 +555,8 @@ export class DvmProvider {
     this.seen.add(r.request.id);
     const request: NostrEvent = { ...r.request, sig: "" };
     if (isDvmRequest(request.kind)) this.powJeAnfrage.set(request.id, r.powBits);
-    if (request.kind === KIND_SESSION_OPEN || request.kind === KIND_SESSION_PAYMENT) {
-      this.merkeSitzungsEvent(request);
-      return null;
-    }
+    // Sitzung auf Kredit und ihre Belege (38021/38022) nimmt der Knoten seit RM2c4a nicht mehr an
+    if (request.kind === KIND_SESSION_OPEN || request.kind === KIND_SESSION_PAYMENT) return null;
     if (request.kind === KIND_JOB_DISPUTE) {
       this.meldeReklamation(request);
       return null;
@@ -630,34 +624,6 @@ export class DvmProvider {
     }
     const { wrap } = await buildPrivateJobResponse({ response: ev, providerSigner: this.signer, sessionPk: request.pubkey });
     await this.pool.publish(wrap);
-  }
-
-  /**
-   * Versiegelt erhaltene Sitzungen und Belege (Schritt 3.2d), je Kunde und
-   * Sitzungs-ID. Nur im Speicher: Sitzungen laufen hoechstens Stunden, und
-   * nach einem Neustart eroeffnet der Kunde eine neue.
-   */
-  private privateSitzungen = new Map<string, { open?: NostrEvent; belege: NostrEvent[] }>();
-  private static MAX_PRIVATE_SITZUNGEN = 5000;
-
-  private merkeSitzungsEvent(ev: NostrEvent): void {
-    const sessionId = getTag(ev, "d");
-    if (!sessionId) return;
-    const schluessel = `${ev.pubkey}:${sessionId}`;
-    let s = this.privateSitzungen.get(schluessel);
-    if (!s) {
-      if (this.privateSitzungen.size >= DvmProvider.MAX_PRIVATE_SITZUNGEN) {
-        // Aelteste zuerst verwerfen – Map haelt die Einfuegereihenfolge.
-        this.privateSitzungen.delete(this.privateSitzungen.keys().next().value!);
-      }
-      s = { belege: [] };
-      this.privateSitzungen.set(schluessel, s);
-    }
-    if (ev.kind === KIND_SESSION_OPEN) {
-      if (!s.open) s.open = ev;  // die erste Eroeffnung gilt – spaetere aendern Budget und Rate nicht
-    } else if (!s.belege.some((b) => b.id === ev.id)) {
-      s.belege.push(ev);
-    }
   }
 
   /** NIP-90-Rückmeldung „processing“ (L2-2): der Auftrag ist angenommen – best effort, wie Zwischenstände. */
@@ -1066,54 +1032,6 @@ export class DvmProvider {
   }
 
   /**
-   * Session-Validierung (Provider-Seite, Stufe B):
-   *   1. Session-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
-   *   2. Muss an UNS adressiert sein (p-Tag = eigener pubkey)
-   *   3. Nicht abgelaufen
-   *   4. Buchhaltung pruefen: Belege des Kunden muessen konsistent sein
-   *      (checkSessionLedger) und das Budget darf nicht ueberzogen sein
-   * Gibt die Session bei Erfolg zurueck, sonst undefined.
-   */
-  private async validateSession(
-    sessionId: string,
-    customerPubkey: string,
-  ): Promise<ParsedSessionOpen | undefined> {
-    // Versiegelt erhaltene Sitzung zuerst (3.2d), sonst wie bisher vom Relay.
-    const privat = this.privateSitzungen.get(`${customerPubkey}:${sessionId}`);
-    const opens = privat?.open ? [privat.open] : await this.pool.query({
-      kinds: [KIND_SESSION_OPEN],
-      authors: [customerPubkey],
-      "#d": [sessionId],
-    });
-    if (opens.length === 0) return undefined;
-    let session: ParsedSessionOpen;
-    try {
-      session = parseSessionOpen(opens[0]);
-    } catch {
-      return undefined;
-    }
-    if (session.providerPubkey !== this.cfg.keypair.pk) return undefined;
-    if (Math.floor(Date.now() / 1000) > session.expiration) return undefined;
-
-    // Buchhaltung pruefen: bisherige Belege konsistent + Budget frei
-    const belege = privat?.open ? privat.belege : await this.pool.query({
-      kinds: [KIND_SESSION_PAYMENT],
-      authors: [customerPubkey],
-      "#d": [sessionId],
-    });
-    let payments;
-    try {
-      payments = belege.map(parseSessionPayment);
-    } catch {
-      return undefined;
-    }
-    const check = checkSessionLedger({ open: session, payments });
-    if (!check.ok) return undefined;
-    if (check.totalPaidMsat >= session.maxTotalMsat) return undefined;
-    return session;
-  }
-
-  /**
    * Solana-Deposit-Session validieren (Provider-Seite):
    *   1. Deposit-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein, nicht abgelaufen (Timelock)
@@ -1211,12 +1129,9 @@ export class DvmProvider {
     const pfand = lesePfandTags(request.tags);
     let perPfand = false;
 
-    // Session-Modus (Streaming-Sats, Stufe B): Job referenziert eine offene
-    // Session statt eines Einzel-Gebots. Der Provider prueft Budget + Belege
-    // und rechnet gegen die Session ab — kein Bid noetig.
     // Solana-Deposit-Modus: Job referenziert eine Deposit-Session (HTLC-Escrow),
-    // Abrechnung in lamports gegen das Verbrauchs-HTLC.
-    let session: ParsedSessionOpen | undefined;
+    // Abrechnung in lamports gegen das Verbrauchs-HTLC. Eine Sitzung auf Kredit (38021)
+    // bedient der Knoten seit RM2c4a nicht mehr – Schlüssel kosten nichts (RM2 B).
     let solDeposit: ParsedSolDepositOpen | undefined;
     let isFreeJob = false;
     // Gratis nach G1 (A-14): Grenze je Antwort, keine Werkzeuge, kein Schwarm, zählt ins Budget
@@ -1264,34 +1179,31 @@ export class DvmProvider {
       perPfand = true;
     } else if (sessionId) {
       if (bootstrap) throw new Error("Bootstrap-Phase: neue Provider nehmen nur Gratis-Jobs");
-      session = await this.validateSession(sessionId, request.pubkey);
-      if (!session) {
-        // Fallback: vielleicht eine Solana-Deposit-Session
-        solDeposit = await this.validateSolDeposit(sessionId, request.pubkey);
-        // Ohne Kurs kein fairer SOL-Preis: ablehnen, bevor gerechnet wird.
-        if (solDeposit && !this.kurs()) {
-          throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
-        }
-        // Auf SOL teilt erst der Zahlkanal (4.3) auf – bis dahin zahlt die App
-        // dort keine Anteile; eine Deklaration hieße doppelt zahlen.
-        if (solDeposit && aufteilung.length > 0) throw new Error("Aufteilung abgelehnt: auf SOL erst mit dem Zahlkanal");
-        if (!solDeposit) {
-          // Ungueltige Session (abgelaufen, fremder Provider, Budget leer,
-          // inkonsistente Belege). Frueher wurde der Job hier bedingungslos
-          // als Gratis-Job durchgewunken — das war ein unbegrenztes Schlupfloch:
-          // eine erfundene session-ID reichte fuer kostenlose Inferenz.
-          //
-          // Jetzt: Rueckfall NUR auf das GEMESSENE Free-Tier-Kontingent dieser
-          // pubkey. Der Chat bricht bei einem Provider-Neustart also weiterhin
-          // nicht ab (solange Gratis-Tokens uebrig sind), aber die Sybil-Grenze
-          // aus freeAllowanceLeft() gilt.
-          if (this.gratisErlaubt(request.pubkey, now, privat, powBits)) {
-            console.warn(`[provider] Session ${sessionId} ungueltig — fahre auf Free-Tier fort`);
-            isFreeJob = true;
-            gratisRegel = !!this.cfg.gratis;
-          } else {
-            throw new Error(`Session ${sessionId} ungueltig und kein Free-Tier-Kontingent`);
-          }
+      // Nur noch eine Solana-Deposit-Session – eine Sitzung auf Kredit gilt nicht mehr (RM2c4a)
+      solDeposit = await this.validateSolDeposit(sessionId, request.pubkey);
+      // Ohne Kurs kein fairer SOL-Preis: ablehnen, bevor gerechnet wird.
+      if (solDeposit && !this.kurs()) {
+        throw new Error("Kein SOL-Kurs: Anbieter braucht SOL_PRICE_SATS oder Kurs-Events von Liquiditätsgebern");
+      }
+      // Auf SOL teilt erst der Zahlkanal (4.3) auf – bis dahin zahlt die App
+      // dort keine Anteile; eine Deklaration hieße doppelt zahlen.
+      if (solDeposit && aufteilung.length > 0) throw new Error("Aufteilung abgelehnt: auf SOL erst mit dem Zahlkanal");
+      if (!solDeposit) {
+        // Keine Deposit-Session (auch eine Sitzung auf Kredit älterer Apps, seit RM2c4a).
+        // Frueher wurde der Job hier bedingungslos
+        // als Gratis-Job durchgewunken — das war ein unbegrenztes Schlupfloch:
+        // eine erfundene session-ID reichte fuer kostenlose Inferenz.
+        //
+        // Jetzt: Rueckfall NUR auf das GEMESSENE Free-Tier-Kontingent dieser
+        // pubkey. Der Chat bricht bei einem Provider-Neustart also weiterhin
+        // nicht ab (solange Gratis-Tokens uebrig sind), aber die Sybil-Grenze
+        // aus freeAllowanceLeft() gilt.
+        if (this.gratisErlaubt(request.pubkey, now, privat, powBits)) {
+          console.warn(`[provider] Session ${sessionId} ungueltig — fahre auf Free-Tier fort`);
+          isFreeJob = true;
+          gratisRegel = !!this.cfg.gratis;
+        } else {
+          throw new Error(`Session ${sessionId} ungueltig und kein Free-Tier-Kontingent – Sitzungen auf Kredit gibt es nicht mehr, bitte mit Gebot fragen`);
         }
       }
     } else if (bidMsat >= this.cfg.minBidMsat) {
@@ -1447,7 +1359,7 @@ export class DvmProvider {
     // Agent: erst die Antwort im Raum, dann das Ergebnis an den Fragenden – scheitert sie, zahlt er nichts
     if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output);
 
-    // Preis: Session-Rate, Deposit-Rate, Free-Tier (0), oder Bid-Preis.
+    // Preis: Deposit-Rate, Free-Tier (0), oder Bid-Preis.
     // PLUS Tool-Kosten (web_search etc.) — werden on top gerechnet.
     const toolCostMsat = toolResults.reduce((s, t) => s + t.costMsat, 0);
     const rawPrice = Math.ceil((result.completionTokens / 1000) * this.cfg.pricePerKTokenMsat);
@@ -1470,8 +1382,6 @@ export class DvmProvider {
       const textMsat = Math.min(rawPrice, Math.ceil((result.completionTokens / 1000) * depositRateMsatPerK));
       amountMsat = textMsat + toolCostMsat;
       chain = "solana";
-    } else if (session) {
-      amountMsat = Math.min(rawPrice, Math.ceil((result.completionTokens / 1000) * session.maxRatePerKTokenMsat)) + toolCostMsat;
     } else {
       amountMsat = Math.min(bidMsat, rawPrice) + toolCostMsat;
     }

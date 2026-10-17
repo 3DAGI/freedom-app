@@ -157,7 +157,7 @@ test("privat: Wiederholung zaehlt einmal – derselbe Umschlag und dieselbe Anfr
   assert.equal(backend.prompts.length, 1);
 });
 
-// ---------------------------------------------------------------- Sitzung und Belege versiegelt (3.2d)
+// ---------------------------------------------------------------- Sitzung und Belege versiegelt (3.2d) – seit RM2c4 abgesagt
 
 async function privateSitzung(providerPk: string, sitzung: LocalSigner, sessionId: string, bezahltMsat?: number) {
   const events = [buildSessionOpen({
@@ -175,14 +175,25 @@ async function sitzungsAnfrage(providerPk: string, sitzung: LocalSigner, session
   return (await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap;
 }
 
-test("privat 3.2d: versiegelte Sitzung – Jobs ohne Gebot werden ueber die Sitzung abgerechnet, nichts offen", async () => {
-  const { relay, pool, kp, provider } = aufbau({ freeTierUntil: undefined });
+test("privat RM2c4: versiegelte Sitzung – der Knoten nimmt sie nicht mehr an, ein Auftrag ohne Gebot wird versiegelt abgesagt; mit Gebot gerechnet", async () => {
+  const { relay, pool, kp, backend, provider } = aufbau({ freeTierUntil: undefined });
   const sitzung = new LocalSigner(generateKeypair().sk);
+  // Eröffnung wie bis RM2c3 (3.2d) – gültig, an diesen Knoten, mit Budget
   for (const w of await privateSitzung(kp.pk, sitzung, "sess-p1")) await pool.publish(w);
-  await pool.publish(await sitzungsAnfrage(kp.pk, sitzung, "sess-p1", "Frage mit Sitzung"));
+  const wrap = await sitzungsAnfrage(kp.pk, sitzung, "sess-p1", "Frage mit Sitzung");
+  await pool.publish(wrap);
+  assert.equal((await provider.pollOnce()).length, 0, "nicht mehr auf Kredit");
+  assert.equal(backend.prompts.length, 0);
+  const absagen = (await antwortenAn(relay, sitzung)).map((a) => a.response).filter((e) => e.kind === 7000);
+  assert.equal(absagen.length, 1);
+  assert.match(absagen[0].content, /Sitzungen auf Kredit gibt es nicht mehr, bitte mit Gebot fragen/);
+  assert.equal((await gesendet(relay, 7000)).length, 0, "Absage nicht offen");
+  // Mit Gebot – wie die App seit RM2c3 jede Anfrage stellt: gerechnet, höchstens das Gebot
+  const request = buildJobRequest({ customerPubkey: sitzung.publicKey(), input: "Frage mit Gebot", bidMsat: 10_000, providerPubkey: kp.pk });
+  await pool.publish((await buildPrivateJobRequest({ request, sessionSigner: sitzung, providerPk: kp.pk, powBits: 8 })).wrap);
   const jobs = await provider.pollOnce();
   assert.equal(jobs.length, 1);
-  assert.equal(jobs[0].amountMsat, 500, "500 Tokens × 1000 msat/1k – ueber die Sitzung, nicht gratis");
+  assert.equal(jobs[0].amountMsat, 500, "500 Tokens × 1000 msat/1k");
   assert.equal((await relay.query({ kinds: [38021] })).length, 0, "Sitzung nicht offen");
   assert.deepEqual(regelKeineZahlungsdaten(await relay.query({})), []);
 });

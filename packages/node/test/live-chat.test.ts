@@ -1,5 +1,5 @@
 /**
- * Live-Chat-Test: mehrere Session-Jobs hintereinander.
+ * Live-Chat-Test: mehrere Aufträge hintereinander (bis RM2c4 über eine Sitzung, seitdem mit Gebot).
  *
  * Bis Schritt 3.3 merkte sich der Knoten je Sitzung den Verlauf (Prompts und
  * Antworten im Klartext, bis 40 Nachrichten). Seit 3.3 verwirft er den
@@ -15,7 +15,6 @@ import {
   buildEvent,
   OutboxPool,
   MemoryRelay,
-  buildSessionOpen,
   KIND_DVM_TEXT_GENERATION,
 } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
@@ -33,7 +32,7 @@ class HistoryBackend implements InferenceBackend {
   }
 }
 
-test("Live-Chat seit 3.3: Session-Jobs bekommen keinen Verlauf vom Knoten", async () => {
+test("Live-Chat seit 3.3: Aufträge hintereinander bekommen keinen Verlauf vom Knoten", async () => {
   const customer = generateKeypair();
   const providerKp = generateKeypair();
   const pool = new OutboxPool([new MemoryRelay("mem://chat")], { minAcks: 1 });
@@ -44,28 +43,12 @@ test("Live-Chat seit 3.3: Session-Jobs bekommen keinen Verlauf vom Knoten", asyn
     backend,
   );
 
-  // Session eroeffnen
-  await pool.publish(
-    signEvent(
-      buildSessionOpen({
-        customerPubkey: customer.pk,
-        providerPubkey: providerKp.pk,
-        sessionId: "live-chat-1",
-        maxTotalMsat: 1_000_000,
-        maxRatePerKTokenMsat: 2000,
-        settleEveryMsat: 50_000,
-        ttlSecs: 3600,
-      }),
-      customer.sk,
-    ),
-  );
-
   // 3 aufeinanderfolgende Chat-Nachrichten; die dritte mit Kontext der App
   const mitKontext = "[Bisheriger Verlauf]:\nDu: Hallo\nKI: a:Hallo\n\n[Neue Nachricht]:\nWas war meine erste Frage?";
   for (const msg of ["Hallo", "Wie gehts?", mitKontext]) {
     await pool.publish(
       signEvent(
-        buildEvent(customer.pk, KIND_DVM_TEXT_GENERATION, [["i", msg, "text"], ["session", "live-chat-1"]], ""),
+        buildEvent(customer.pk, KIND_DVM_TEXT_GENERATION, [["i", msg, "text"], ["bid", "10000"]], ""),
         customer.sk,
       ),
     );
