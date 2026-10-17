@@ -11,6 +11,7 @@ import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-laden.js";
 import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
+import { hermesAusUmgebung } from "./hermes-motor.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -31,5 +32,8 @@ if (modelle.length) console.log(modellBefundeText(modelle));
 if (process.env.VIBECODEN?.trim() === "1") {
   const sandbox = await pruefeSandbox();
   console.log(`${sandbox.ok ? "✓" : "✗"} Code: ${sandboxText(sandbox)}`);
+  // Motor (VKc3): Hermes im venv – nur ob er da ist, ausgeführt wird er nur in der Sandbox
+  const hermes = hermesAusUmgebung(process.env);
+  console.log("hermes" in hermes ? `✓ Code: Motor Hermes in ${hermes.hermes.ordner}` : `✗ Code: ${"fehlt" in hermes ? hermes.fehlt : hermes.ungueltig}`);
 }
 process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);

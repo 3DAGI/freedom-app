@@ -27,8 +27,8 @@ import { CODE_GRENZEN, type CodeEnde, type CodeModus, type CodeSchritt } from "@
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 
 export const LAUF_GRENZEN = {
-  /** Ohne Antwort auf eine Freigabe abgelehnt – wie Hermes. */
-  freigabeMs: 300_000,
+  /** Ohne Antwort auf eine Freigabe abgelehnt – wie Hermes über ACP (60 s, `make_approval_callback`, VKc3). */
+  freigabeMs: 60_000,
   /** Höchstens so lange je Lauf, dann bricht der Knoten ab (`grenze`). */
   laufMs: 60 * 60_000,
   /** Nach `stopp` oder Grenze so lange auf den Motor warten, dann beenden. */
@@ -41,6 +41,8 @@ export const LAUF_GRENZEN = {
 export interface MotorVerbindung {
   strom: Stream | AgentApp;
   beende(): void;
+  /** Der Projektordner, wie der Motor ihn sieht – in der Sandbox `/arbeit` (VKc3); sonst der Ordner selbst. */
+  ort?: string;
 }
 /** Startet den Motor im Ordner des Projekts – nur in der Sandbox (VK4). */
 export type MotorStart = (ordner: string) => MotorVerbindung;
@@ -196,7 +198,7 @@ export class CodeLaeufe {
           clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
           clientInfo: { name: "freedom-knoten", version: "1" },
         });
-        const { sessionId } = await ctx.request("session/new", { cwd: ordner, mcpServers: [] });
+        const { sessionId } = await ctx.request("session/new", { cwd: motor.ort ?? ordner, mcpServers: [] });
         lauf.abbrechen = () => void ctx.notify("session/cancel", { sessionId }).catch(() => {});
         if (lauf.gestoppt || lauf.grenze) lauf.abbrechen();
         const { stopReason } = await ctx.request("session/prompt", { sessionId, prompt: [{ type: "text", text }] });

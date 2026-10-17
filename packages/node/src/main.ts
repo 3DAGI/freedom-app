@@ -39,6 +39,9 @@ import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidD
 import { turnAusUmgebung } from "./turn.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
+import { CodeLaeufe } from "./code-motor.js";
+import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
+import { oeffneModellBruecke } from "./modell-bruecke.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
 import { torAnfrage, torAusUmgebung, torWebSocket } from "./tor.js";
@@ -408,8 +411,26 @@ async function main(): Promise<void> {
   }
   if (projekte) statusRollen.add("code");
   console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
-  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log; den Motor startet erst VKc3 darin
-  if (projekte) console.log(`[code] ${sandboxText(await pruefeSandbox())}`);
+  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log. Der Motor (VKc3) nur
+  // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
+  let code: CodeLaeufe | undefined;
+  if (projekte) {
+    const sandbox = await pruefeSandbox();
+    console.log(`[code] ${sandboxText(sandbox)}`);
+    const hermesWahl = hermesAusUmgebung(process.env);
+    if ("ungueltig" in hermesWahl) {
+      console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
+    else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
+    else {
+      const bruecke = await oeffneModellBruecke(antrieb);
+      process.on("exit", () => bruecke.schliesse());
+      code = new CodeLaeufe({ ablage: projekte, motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0] }) });
+      console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
+    }
+  }
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
   const agentWahl = agentAusUmgebung(process.env);
   if (agentWahl?.grund) {
@@ -458,6 +479,7 @@ async function main(): Promise<void> {
       turn,
       projekte,
       agent: knotenAgent,
+      ...(code ? { code } : {}),
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },

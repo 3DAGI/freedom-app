@@ -156,7 +156,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓); die Sandbox hat kein Netz – das Modell erreicht der Motor nur über eine Brücke (Unix-Socket, wie Codex) | frei (VKb ✓: `sandboxMotor()`) |
+| VKc3b | Hermes 0.19.0 gepinnt ins Docker-Bild (venv `/opt/hermes`, nur mit `VIBECODEN=1` gebaut, Hash je Paket); Echttest mit Hermes und einem Coding-Modell mit Tool-Calling (MENSCH, GX10) | frei (VKc3a ✓: Brücke, Motor, `main.ts`) |
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
