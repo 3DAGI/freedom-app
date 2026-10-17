@@ -324,3 +324,8 @@ Bereichs unten anhängen.
   127.0.0.1. Ausgezahlt wird nur über `zahleAus()` (NUT-05, ab `PFAND_AUSZAHLUNG_SCHWELLE_SAT`, Rechnung über genau den
   Betrag, abgesichert wie ein Tausch: `laufend` mit `woher: "erloes"`, eine noch unterwegs befindliche Zahlung (`PENDING`)
   hält `laufend` fest).
+- **Keine Sitzung auf Kredit** (seit RM2c4a, `docs/RM2-ENTWURF.md` V7, RM2 B): Der Knoten bedient Aufträge nur mit Gebot,
+  Gutschrift (Zahlkanal), Pfand (Cashu), SOL-Hinterlegung (`session` auf eine 38023, bis E8), als Besitzer oder gratis nach
+  G1 – nie über eine Sitzung (38021) mit Budget ohne Deckung. Versiegelte Sitzungen und Belege (38021/38022) verwirft
+  `oeffnePrivat()`; ein Auftrag mit `session` ohne Hinterlegung bekommt die Absage „bitte mit Gebot fragen“. Nicht
+  wieder einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.

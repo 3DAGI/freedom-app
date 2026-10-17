@@ -11114,3 +11114,22 @@ Code, nach jeder Antwort ganze sats, Konten je Schlüssel); `ki-auftrag-schluess
 
 Knoten-Stand: unverändert – heutige Knoten bedienen Anfragen mit Gebot wie bisher.
 
+## Schritt RM2c4a – Der Knoten bedient keine Sitzung auf Kredit mehr
+
+Spur A, `docs/RM2-ENTWURF.md` (V7, V9; RM2 B). Aufgeteilt (V9): RM2c4a der Knoten, RM2c4b die Bausteine im Protokoll.
+
+**Gebaut:**
+- `node/src/dvm-provider.ts`: `validateSession()` und das Merken versiegelter Sitzungen und Belege (`merkeSitzungsEvent()`,
+  bis 5000 im Speicher) fallen; `oeffnePrivat()` verwirft 38021/38022. Ein Auftrag mit `session` gilt nur noch als
+  SOL-Hinterlegung (bis E8) – ohne sie wie bisher bei einer ungültigen Sitzung: gratis nach G1, sonst Absage, jetzt mit
+  „Sitzungen auf Kredit gibt es nicht mehr, bitte mit Gebot fragen“. Der Preis über die Rate einer Sitzung fällt.
+- `wiring-ausnahmen.txt`: `parseSessionOpen()`, `parseSessionPayment()`, `checkSessionLedger()` – nur noch Tests, bis RM2c4b.
+- Website (Spur C, ein Satz): Das Whitepaper nannte noch „eine Session mit Budget, die in Abständen abgerechnet wird“ –
+  seit RM2c3 falsch; jetzt „in Sats nach jeder Antwort …, oder in SOL über einen Zahlkanal“.
+
+**Tests:** node gleich: `session-jobs` (eine gültige Sitzung wird abgesagt, mit Gebot geht es), `private-jobs` (versiegelte
+Sitzung abgesagt, versiegelt; mit Gebot gerechnet), `live-chat` und `klartext` fragen jetzt mit Gebot – dieselben Regeln.
+
+Knoten-Stand: nach dem Merge den GX10 auf `main` bringen. Bis dahin nimmt er Sitzungen älterer Apps noch an; die App
+eröffnet seit RM2c3 keine mehr.
+
