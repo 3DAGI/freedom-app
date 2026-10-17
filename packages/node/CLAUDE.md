@@ -363,3 +363,10 @@ Bereichs unten anhängen.
   Projekts. Hermes findet den Server über `mcp_servers` in `config.yaml`, nicht über `session/new` (Hermes 0.19 kündigt
   `mcpCapabilities.http` nicht an). Die Sandbox bleibt ohne Netz; neue Werkzeuge mit Netz nur mit Blick auf VKd-W1 –
   Hermes fragt vor MCP-Aufrufen nicht.
+- **Verlauf, Diff und Zurück nur über `ProjektAblage`** (seit VKe2a, `PROTOCOL.md` §34): Ein Commit aus einem Auftrag
+  gilt nur nach `eigenerCommit()` – `istCommit()`, `cat-file -t` ist `commit`, und er führt zu `HEAD` (`merge-base
+  --is-ancestor`); sonst `code-commit`, nie Text von git. Der Diff nur über `git format-patch` mit `--no-ext-diff
+  --no-textconv` (Diff-Programme und Umwandlungen kämen aus dem Projekt) und gekürzt nach JSON-Länge (`CODE_GRENZEN.diff`
+  – der Umschlag fasst 65 535 Byte, Sonderzeichen werden länger). „Zurück“ setzt nie zurück: `read-tree -u --reset` und ein
+  neuer Commit „Zurück auf <kurz>“, damit auch das Zurück sich zurücknehmen lässt – und nie, solange im Projekt ein Lauf
+  geht (`CodeLaeufe.laeuftIn()`, sonst `code-belegt`).

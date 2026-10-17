@@ -912,7 +912,13 @@ export class DvmProvider {
       await this.cfg.projekte.neu(a.projekt);
       antwort = { aktion: "neu", projekt: a.projekt };
     } else if (a.aktion === "bundle") antwort = await this.bundleInsBlobNetz(this.cfg.projekte, a.projekt);
-    else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
+    else if (a.aktion === "verlauf") antwort = { aktion: "verlauf", commits: await this.cfg.projekte.verlauf(a.projekt) };
+    else if (a.aktion === "diff") antwort = { aktion: "diff", commit: a.commit, ...(await this.cfg.projekte.diff(a.projekt, a.commit)) };
+    else if (a.aktion === "zurueck") {
+      // nie während ein Agent im Projekt schreibt – sein nächster Commit hätte sonst den alten Stand
+      if (this.cfg.code?.laeuftIn(a.projekt)) throw new CodeAbgelehnt("code-belegt");
+      antwort = { aktion: "zurueck", commit: await this.cfg.projekte.zurueck(a.projekt, a.commit) };
+    } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
       ? { aktion: "freigabe", ok: this.cfg.code.freigabe(a.lauf, a.schritt, a.ja) }
@@ -938,7 +944,8 @@ export class DvmProvider {
       aufteilung: [],
       outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer`
         : antwort.aktion === "neu" ? "Code: Projekt angelegt"
-        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz` : `Code: ${antwort.aktion}`,
+        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz`
+        : antwort.aktion === "verlauf" ? `Code: Verlauf (${antwort.commits.length} Commits)` : `Code: ${antwort.aktion}`,
       durationMs: Date.now() - start,
     };
   }

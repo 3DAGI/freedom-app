@@ -122,6 +122,7 @@ export const settings: Texte = {
   "set.codeGit": { de: "git ist auf meinem Knoten gescheitert", en: "git failed on my node" },
   "set.codeAblage": { de: "der Ordner der Projekte auf meinem Knoten ist nicht lesbar oder nicht beschreibbar", en: "the projects folder on my node cannot be read or written" },
   "set.codeLeer": { de: "das Projekt hat noch keinen Schritt (Commit)", en: "the project has no step (commit) yet" },
+  "set.codeCommit": { de: "diesen Schritt gibt es im Projekt nicht – oder er liegt nicht auf dem Weg zum jetzigen Stand", en: "this step does not exist in the project – or it is not on the way to the current state" },
   "set.codeZuGross": { de: "das Projekt wäre als Bundle größer als 32 MB", en: "the project would be larger than 32 MB as a bundle" },
   "set.knotenWecken": { de: "Wecken – kommt Post für mich, weckt mein Knoten diesen Browser mit einer Meldung ohne Inhalt und Absender; der Push-Dienst des Browsers sieht, wann", en: "Wake-up – when mail arrives for me, my node wakes this browser with a notification without content or sender; the browser's push service sees when" },
   "set.weckenFragt": { de: "frage meinen Knoten …", en: "asking my node …" },

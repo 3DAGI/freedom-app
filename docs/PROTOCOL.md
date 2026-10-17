@@ -1185,6 +1185,9 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `freigabe` | `lauf` (Id des Auftrags, 64 Hex), `schritt` (1–200), `antwort` (`ja` oder `nein`) | `ok` |
 | `bundle` (seit VKl) | `projekt` | `blob`, `manifest` (Id des Manifest-Events, 64 Hex), `schluessel` (`alg`, `key`, `nonce`, `ox` wie bei Anhängen, §2.4), `bytes` (1 bis 32 MiB) |
 | `stopp` | `lauf` | `ok` |
+| `verlauf` (seit VKe2) | `projekt` | `commits`: höchstens 50 × `{ id, nachricht, zeit, dateien }`, neueste zuerst (`id` 40 oder 64 Hex, `nachricht` erste Zeile, höchstens 200 Zeichen) |
+| `diff` (seit VKe2) | `projekt`, `commit` | `commit`, `text` (wie `git format-patch`, ohne Diff-Programme des Projekts, als JSON-Text höchstens 30 000 Zeichen), `gekuerzt` |
+| `zurueck` (seit VKe2) | `projekt`, `commit` | `commit`: der neue Commit „Zurück auf <kurz>“ mit dem Baum des genannten – leer, wenn sich nichts änderte |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
   auf dem Knoten, ohne Punkt und Schrägstrich.
@@ -1236,12 +1239,13 @@ Tag, nie am Text:
 |---|---|
 | `code-aus` | Vibecoden ist auf dem Knoten aus (`VIBECODEN=1` fehlt, oder git fehlt) |
 | `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat keinen Motor – er startet ihn nur in der Sandbox (VKb, VKc3) |
-| `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei |
+| `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei; `zurueck`: im Projekt läuft ein Lauf |
 | `code-zu-viele` | `neu`: schon 100 Projekte |
 | `code-git` | `neu`: git konnte das Projekt nicht anlegen; `bundle`: git konnte das Bundle nicht bauen |
 | `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |
 | `code-leer` | `bundle`: das Projekt hat noch keinen Commit |
 | `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
+| `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.

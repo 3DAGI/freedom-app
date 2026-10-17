@@ -198,7 +198,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
-| VKe2 | App: Verlauf, Änderungen (Diff) und „hierher zurück“ auf der Projekte-Seite – braucht die Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten (VKe1 ✓: Auftrag, Schritte, Freigabe, Stopp) | frei |
+| VKe2b | App: Verlauf, Änderungen (Diff) und „hierher zurück“ auf der Projekte-Seite (VKe1 ✓: Auftrag, Schritte, Freigabe, Stopp; VKe2a ✓: Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten) | frei |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |
 | RM2d | Oberfläche Cashu-Pfand: „Guthaben laden“ statt Budget, Mint wählen und „verwahrt“ sichtbar – über `cashuTopf` aus `shell/ki-pfand.ts` (`waehleMint()`, `ladeAnfrage()`, `abholen()`, `guthaben()`); Kopf und Seitenleiste zeigen seit RM2c3 „—“ | frei (RM2c1–c4b ✓, Spur A) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |

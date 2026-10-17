@@ -21,6 +21,7 @@ export const CODE_FALL_TEXT: Record<string, string> = {
   "code-ablage": "set.codeAblage",
   "code-leer": "set.codeLeer",
   "code-zu-gross": "set.codeZuGross",
+  "code-commit": "set.codeCommit",
 };
 
 /** Warum der Knoten ablehnte – bekannte Kennung als Text, sonst nur, dass er ablehnte (seine Meldung bleibt draußen). */

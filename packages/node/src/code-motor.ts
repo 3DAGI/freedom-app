@@ -163,6 +163,11 @@ export class CodeLaeufe {
     });
   }
 
+  /** Läuft in diesem Projekt gerade ein Lauf? (VKe2: „zurück“ nur ohne Lauf) */
+  laeuftIn(projekt: string): boolean {
+    return [...this.laeufe.values()].some((l) => l.projekt === projekt);
+  }
+
   /** Antwort auf eine wartende Freigabe – false, wenn dieser Schritt nicht wartet. */
   freigabe(id: string, nr: number, ja: boolean): boolean {
     const f = this.laeufe.get(id)?.offen.get(nr);

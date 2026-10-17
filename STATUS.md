@@ -11352,3 +11352,33 @@ Sprachen, Seite nur als Text und Wege nur über `wegZumKnoten()`/`frageKnotenCod
 Umfang: rund 415 Zeilen Code, dazu Test, Smoke-Teil und Probe (643 insgesamt) – Verlauf, Diff und Zurück folgen als VKe2.
 Knoten-Stand: unverändert (Code-Aufträge seit VKc2, Motor seit VKc3).
 
+## Schritt VKe2a – Code-Aktionen: Verlauf, Diff, Zurück
+
+Spur A (Bausteine für die Projekte-Seite, VK6 „Diff …, Rückgängig“), `PROTOCOL.md` §34. Am 17.10. von Spur C gebaut.
+
+**Neu:**
+- Protokoll (`knoten-code.ts`): Aktionen `verlauf` (Projekt), `diff` und `zurueck` (Projekt und Commit, `istCommit()`:
+  40 oder 64 Hex). Antworten sind `commits` (höchstens 50, neueste zuerst, Nachricht höchstens 200 Zeichen, Zahl der
+  Dateien), `text` und `gekuerzt` beim Diff (JSON-Länge höchstens 30 000) und der neue Commit beim Zurück (leer, wenn sich
+  nichts änderte). Neue Kennung `code-commit`.
+- Knoten (`projekte.ts`):
+  - `verlauf()` über `git log` mit Trennzeichen.
+  - `diff()` über `git format-patch` ohne Diff-Programme und Umwandlungen des Projekts; die App liest ihn mit `leseDiff()`
+    wie jeden Patch.
+  - `zurueck()` über `read-tree -u --reset` und einen neuen Commit.
+  - Commits nur, wenn sie zu `HEAD` führen.
+- `dvm-provider.ts` beantwortet die drei Aktionen nur für den Besitzer, wie alle Code-Aufträge. `zurueck` lehnt er mit
+  `code-belegt` ab, solange im Projekt ein Lauf geht (`CodeLaeufe.laeuftIn()`).
+- App: Text für `code-commit` in beiden Sprachen (die Seite folgt mit VKe2b).
+
+**Tests:**
+- protocol +2: Aktionen lesen und bauen, Grenzen, falsche Commits.
+- node +5:
+  - Verlauf mit Dateizahl.
+  - Diff als Patch, ohne `textconv` aus dem Projekt, gekürzt.
+  - Zurück als neuer Commit, auch ein zweites Mal.
+  - Fremde und abseitige Commits.
+  - `code-belegt` während eines Laufs.
+
+Knoten-Stand: Die Aktionen braucht erst die App mit VKe2b; ein älterer Knoten kennt sie nicht und lehnt den Auftrag ab.
+
