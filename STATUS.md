@@ -11154,3 +11154,36 @@ weiter, eine DM nicht). Knoten-Tests bauen die Events älterer Apps jetzt selbst
 
 Knoten-Stand: wie RM2c4a.
 
+
+## Schritt A-21d1 – Transaktionen über kit: Baustein und SOL ohne Internet
+
+Spur A, `docs/KIT-PLAN.md` (A-21d; W1, W2 vom 11.10.). Nach A-21b (Anweisungen) und A-21c (Lesen) jetzt Bauen und
+Signieren. A-21d ist in drei Teile geteilt (Plan): d1 Baustein und SOL ohne Internet, d2 Zahlungen und Zahlkanal der
+App, d3 HTLC, Tausch, Relayer. Eine Probe zeigte vorher: kit baut für alle Fälle des Protokolls dieselben Nachrichten
+wie web3.js, auch mit Durable Nonce.
+
+**Neu:** `protocol/src/kit-transaktion.ts` – `baueTransaktion()` (Blockhash oder Durable Nonce; kit stellt das
+Weiterschalten an den Anfang), `signiereMit()` (`@noble/curves`, nur für verlangte Adressen, sonst `null`; neue
+Transaktion statt Änderung; den Schlüssel hält und nullt der Aufrufer), `alsDraht()`/`ausDraht()`, `leseNachricht()`
+(nur legacy, Rollen aus dem Kopf), `neuerKontoSchluessel()`.
+
+**Umgestellt:**
+- `sol-offline.ts`: Nonce-Konto anlegen/schließen und die Überweisung ohne Internet über kit (die Builder nehmen
+  `letzteHoehe`), die Prüfung liest über `ausDraht()`/`leseNachricht()`, Adressen des Nonce-Kontos über kit – ohne web3.js.
+- App: `EingebauteSolWallet.signiereTransaktion()` (dieselben Schlüssel wie `signiere()`, Kopien genullt); die
+  Offline-Zahlung und das Nonce-Konto in `shell/zahlschienen.ts` signieren damit, das neue Konto mit
+  `neuerKontoSchluessel()` (gleich danach genullt, statt `Keypair.generate()`). Gesendet wird bis A-21d2 noch über
+  `Connection.sendRawTransaction()` – die Bytes aus `alsDraht()`.
+
+**Frage W4** (vor A-21f, OFFEN 1.4): Wallets nur mit `window.solana` brauchen ein `Transaction`-Objekt von web3.js –
+Vorschlag A, den Weg mit A-21f streichen (Wallet Standard nimmt die App schon zuerst).
+
+**Tests:** protocol 1326 → 1331 (`kit-transaktion.test.ts`, 5: Kanal öffnen/aufstocken/einlösen/erstatten gleich den
+Vektoren, Signatur gleich der von web3.js, Draht hin und zurück, Rollen wie web3.js, v0 und fremde Indizes werfen,
+Durable Nonce vorn); app 1222 → 1223 (`signiereTransaktion()` Byte für Byte wie `signiere()`, fremde Zahler und
+unvergebene frische Adressen abgelehnt). `sol-offline`, `sol-vektoren`, Leak-Test `mesh` auf kit umgestellt; die
+Vektoren unverändert. Der Validator-Test `sol-offline-validator.test.ts` lief lokal gegen Agave 3.1.10 grün (Nonce-Konto
+über kit angelegt, Überweisung nach mehr als zwei Minuten eingereicht, danach verbraucht) – die CI hat dafür keinen
+Validator.
+
+Knoten-Stand: nicht berührt.

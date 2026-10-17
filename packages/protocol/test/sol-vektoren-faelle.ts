@@ -22,7 +22,7 @@ export const SITZUNG = adresse(8);
 export const EMPFAENGER: KanalEmpfaenger[] = [{ adresse: adresse(3), ppm: 20_000 }, { adresse: adresse(4), ppm: 5_000 }];
 export const KANAL = kanalAdresse(KUNDE, PROVIDER, 7n).adresse;
 
-export const alsText = (b: Uint8Array): string => Buffer.from(b).toString("base64");
+export const alsText = (b: ArrayLike<number>): string => Buffer.from(Uint8Array.from(b)).toString("base64");
 
 /** Nachricht so zusammengesetzt, wie App (`sendeMitWallet()`) und Knoten (`KanalKasse`) es tun: Zahler, Blockhash, Anweisungen. */
 export const nachricht = (zahler: string, ixs: TransactionInstruction[]): string => {
@@ -69,9 +69,10 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     "kanal-aufstocken": nachricht(KUNDE, [alsWeb3(stockeKanalAufAnweisung({ kunde: KUNDE, kanal: KANAL, betrag: 10_000_000n }))]),
     "kanal-einloesen": nachricht(PROVIDER, rechneKanalAbIxs({ provider: PROVIDER, gutschrift, sitzungsSchluessel: SITZUNG, empfaenger: EMPFAENGER })),
     "kanal-erstatten": nachricht(adresse(5), [alsWeb3(erstatteKanalAnweisung({ kunde: KUNDE, kanal: KANAL }))]),
-    "nonce-anlegen": alsText(baueNonceKontoAnlegen({ zahler: KUNDE, nonceKonto: adresse(10), mieteLamports: 1_447_680, blockhash: BLOCKHASH }).serializeMessage()),
-    "nonce-schliessen": alsText(baueNonceKontoSchliessen({ autoritaet: KUNDE, nonceKonto: adresse(10), lamports: 1_447_680, blockhash: BLOCKHASH }).serializeMessage()),
-    "offline-ueberweisung": alsText(baueOfflineUeberweisung({ von: KUNDE, an: adresse(11), lamports: 2_500_000, nonceKonto: adresse(10), stand }).serializeMessage()),
+    // Seit A-21d1 baut kit diese drei – die Nachricht steht in `messageBytes`
+    "nonce-anlegen": alsText(baueNonceKontoAnlegen({ zahler: KUNDE, nonceKonto: adresse(10), mieteLamports: 1_447_680, blockhash: BLOCKHASH, letzteHoehe: 1_000n }).messageBytes),
+    "nonce-schliessen": alsText(baueNonceKontoSchliessen({ autoritaet: KUNDE, nonceKonto: adresse(10), lamports: 1_447_680, blockhash: BLOCKHASH, letzteHoehe: 1_000n }).messageBytes),
+    "offline-ueberweisung": alsText(baueOfflineUeberweisung({ von: KUNDE, an: adresse(11), lamports: 2_500_000, nonceKonto: adresse(10), stand }).messageBytes),
     "lp-sperren": await lp((a) => a.lock({
       swapId: "lp-1", hashlock: new Uint8Array(32).fill(0xab), amountLamports: 40_000_000, timelockUnix: FRIST, recipient: KUNDE, initiator: PROVIDER,
     })),

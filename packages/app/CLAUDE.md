@@ -770,8 +770,10 @@ Fallstricke dieses Bereichs unten anhängen.
 
 - **`@solana/kit` nur über das Protokoll** (seit A-21b2, `docs/KIT-PLAN.md`): Die App baut Solana-Anweisungen als
   kit-`Instruction` mit `anweisung()`, `ueberweisungAnweisung()`, `AccountRole` und `type Instruction` aus
-  `@freedomstack/protocol` (`kit-bruecke.ts`) und gibt sie web3.js nur über `alsWeb3()` – bis A-21d baut web3.js die
-  Transaktion. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
+  `@freedomstack/protocol` (`kit-bruecke.ts`) und gibt sie web3.js nur über `alsWeb3()` – bis A-21d2/d3 baut web3.js die
+  Transaktion. Seit A-21d1 baut kit Nonce-Konto und Überweisung ohne Internet (`sol-offline.ts`); die eingebaute Wallet
+  signiert solche Transaktionen nur über `signiereTransaktion()` (dieselben Schlüssel wie `signiere()`, Kopien genullt), das
+  neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()` und wird gleich danach genullt. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
   App über http im Heimnetz fehlt. Die Bytes jeder Nachricht halten die Vektoren (`test/sol-vektoren-faelle.ts`).

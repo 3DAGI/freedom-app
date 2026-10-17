@@ -44,6 +44,14 @@ und TON bleiben unverdrahtet, bis diese Fragen beantwortet sind:
 
 Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
+### 1.4 Solana über kit (Spur A, 17.10.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| W4 | Wallets, die nur `window.solana` bieten (ohne Wallet Standard), verlangen ein `Transaction`-Objekt von web3.js. Mit A-21f geht web3.js. A den Weg streichen · B web3.js nur dafür behalten (rund 760 KB) · C ein Objekt nachbauen | **A** – Phantom, Solflare und Backpack sprechen den Wallet Standard, den die App schon zuerst nimmt |
+
+Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
+
 ### 1.3 Oberfläche (Spur C, 15.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -153,7 +161,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
-| A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| A-21d2–f | Signieren (d2 Zahlungen und Zahlkanal der App, d3 HTLC, Tausch, Relayer), Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool; A-21d1 ✓: Transaktionen über kit, SOL ohne Internet) | frei – A-21d2 als Nächstes; A-21f nach W4 ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |

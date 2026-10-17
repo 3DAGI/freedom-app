@@ -9,6 +9,7 @@ import {
   LAMPORTS_JE_SIGNATUR, NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, leseNonceKonto,
   nonceKontoKosten, pruefeOfflineUeberweisung, type NonceStand,
 } from "../src/sol-offline.js";
+import { alsDraht, leseNachricht, signiereMit, type SolTransaktion } from "../src/kit-transaktion.js";
 import { MeshKind, pruefeMeshInhalt } from "../src/mesh-transport.js";
 
 const HASH = "11111111111111111111111111111111";
@@ -31,10 +32,12 @@ function kontoDaten(autoritaet: PublicKey, wert: string, zustand = 1): Uint8Arra
 
 const stand = (): NonceStand => leseNonceKonto(kontoDaten(zahler.publicKey, NONCE_WERT));
 
+/** Seit A-21d1 baut kit; signiert wird über `signiereMit()` mit dem Schlüssel (32 Byte) der Attrappe. */
+const signiert = (tx: SolTransaktion, ...k: Keypair[]): SolTransaktion => k.reduce((t, kp) => signiereMit(t, kp.secretKey.slice(0, 32))!, tx);
+
 function offline(lamports = 12_345): Uint8Array {
   const tx = baueOfflineUeberweisung({ von: zahler.publicKey.toBase58(), an: ziel, lamports, nonceKonto: nonceKonto.publicKey.toBase58(), stand: stand() });
-  tx.sign(zahler);
-  return new Uint8Array(tx.serialize());
+  return alsDraht(signiert(tx, zahler));
 }
 
 test("Kosten vorher: Miete bleibt im Konto, dazu zwei Signaturen", () => {
@@ -44,12 +47,14 @@ test("Kosten vorher: Miete bleibt im Konto, dazu zwei Signaturen", () => {
 });
 
 test("Nonce-Konto anlegen: Konto erzeugen und einrichten, Zahler ist Autoritaet", () => {
-  const tx = baueNonceKontoAnlegen({ zahler: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), mieteLamports: 1_447_680, blockhash: HASH });
-  assert.equal(tx.instructions.length, 2);
-  assert.ok(tx.instructions.every((ix) => ix.programId.equals(SystemProgram.programId)));
-  assert.equal(new DataView(tx.instructions[1].data.buffer, tx.instructions[1].data.byteOffset).getUint32(0, true), 6, "InitializeNonceAccount");
-  tx.sign(zahler, nonceKonto);
-  assert.ok(tx.verifySignatures(), "Zahler und neues Konto signieren");
+  const tx = baueNonceKontoAnlegen({ zahler: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), mieteLamports: 1_447_680, blockhash: HASH, letzteHoehe: 100n });
+  const { anweisungen } = leseNachricht(tx);
+  assert.equal(anweisungen.length, 2);
+  assert.ok(anweisungen.every((ix) => ix.programm === SystemProgram.programId.toBase58()));
+  assert.equal(new DataView(anweisungen[1]!.daten.buffer, anweisungen[1]!.daten.byteOffset).getUint32(0, true), 6, "InitializeNonceAccount");
+  assert.equal(signiert(tx, zahler).signatures[nonceKonto.publicKey.toBase58() as never], null, "das neue Konto fehlt noch");
+  // Gegenprobe mit web3.js: beide Signaturen gültig
+  assert.ok(Transaction.from(alsDraht(signiert(tx, zahler, nonceKonto))).verifySignatures(), "Zahler und neues Konto signieren");
 });
 
 test("Nonce-Konto lesen: Autoritaet und Wert; Fremdes wird abgelehnt", () => {
@@ -65,6 +70,7 @@ test("Offline-Ueberweisung: erst weiterschalten, Nonce statt Blockhash, darf ueb
   const roh = offline();
   const tx = Transaction.from(roh);
   assert.equal(tx.recentBlockhash, NONCE_WERT);
+  assert.ok(tx.verifySignatures(), "web3.js liest, was kit gebaut hat");
   const p = pruefeOfflineUeberweisung(roh);
   assert.deepEqual(p, {
     ok: true, von: zahler.publicKey.toBase58(), an: ziel, lamports: 12_345,
@@ -83,6 +89,7 @@ test("Offline-Ueberweisung bauen: Unfug wird abgelehnt", () => {
 });
 
 test("Pruefen: ohne Nonce, falsche Reihenfolge, Zusatz, fremde Autoritaet, unsigniert – abgelehnt", () => {
+  // Fremde Formen baut hier web3.js – geprüft wird, was eine andere Software schicken könnte.
   const signiert = (tx: Transaction, ...s: Keypair[]) => { tx.recentBlockhash = NONCE_WERT; tx.feePayer = zahler.publicKey; tx.sign(...s); return new Uint8Array(tx.serialize()); };
   const weiter = (autoritaet = zahler.publicKey) => SystemProgram.nonceAdvance({ noncePubkey: nonceKonto.publicKey, authorizedPubkey: autoritaet });
   const zahlung = () => SystemProgram.transfer({ fromPubkey: zahler.publicKey, toPubkey: new PublicKey(ziel), lamports: 5 });
@@ -100,7 +107,7 @@ test("Pruefen: ohne Nonce, falsche Reihenfolge, Zusatz, fremde Autoritaet, unsig
   assert.equal(fall(new Uint8Array(1300)), "zu-gross", "Grundprüfung aus pruefeSolanaTx()");
 
   const unsigniert = baueOfflineUeberweisung({ von: zahler.publicKey.toBase58(), an: ziel, lamports: 5, nonceKonto: nonceKonto.publicKey.toBase58(), stand: stand() });
-  assert.equal(pruefeOfflineUeberweisung(new Uint8Array(unsigniert.serialize({ requireAllSignatures: false }))).ok, false);
+  assert.equal(pruefeOfflineUeberweisung(alsDraht(unsigniert)).ok, false);
   const verfaelscht = offline();
   verfaelscht[verfaelscht.length - 1] ^= 1;
   assert.equal(pruefeOfflineUeberweisung(verfaelscht).ok, false);
@@ -108,14 +115,14 @@ test("Pruefen: ohne Nonce, falsche Reihenfolge, Zusatz, fremde Autoritaet, unsig
 });
 
 test("Nonce-Konto schliessen: ganzes Guthaben zurueck an die Autoritaet", () => {
-  const tx = baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 1_447_680, blockhash: HASH });
-  assert.equal(tx.instructions.length, 1);
-  const ix = tx.instructions[0];
-  const d = new DataView(ix.data.buffer, ix.data.byteOffset, ix.data.byteLength);
+  const tx = baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 1_447_680, blockhash: HASH, letzteHoehe: 100n });
+  const { anweisungen } = leseNachricht(tx);
+  assert.equal(anweisungen.length, 1);
+  const ix = anweisungen[0]!;
+  const d = new DataView(ix.daten.buffer, ix.daten.byteOffset, ix.daten.byteLength);
   assert.equal(d.getUint32(0, true), 5, "WithdrawNonceAccount");
   assert.equal(d.getBigUint64(4, true), 1_447_680n);
-  assert.ok(ix.keys[1].pubkey.equals(zahler.publicKey), "zurück an die Autorität");
-  tx.sign(zahler);
-  assert.ok(tx.verifySignatures());
-  assert.throws(() => baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 0, blockhash: HASH }), /Guthaben/);
+  assert.equal(ix.konten[1]!.adresse, zahler.publicKey.toBase58(), "zurück an die Autorität");
+  assert.ok(Transaction.from(alsDraht(signiert(tx, zahler))).verifySignatures());
+  assert.throws(() => baueNonceKontoSchliessen({ autoritaet: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), lamports: 0, blockhash: HASH, letzteHoehe: 100n }), /Guthaben/);
 });

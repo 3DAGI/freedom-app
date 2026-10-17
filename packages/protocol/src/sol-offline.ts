@@ -15,13 +15,12 @@
  *
  * Geprueft wird ohne Buffer-BigInt-Methoden (DataView): die App prueft im Browser.
  */
-import { PublicKey, SYSVAR_RECENT_BLOCKHASHES_PUBKEY, SystemProgram, Transaction } from "@solana/web3.js";
-import { address, createNoopSigner } from "@solana/kit";
+import { address, createNoopSigner, getAddressDecoder } from "@solana/kit";
 import {
-  getAdvanceNonceAccountInstruction, getCreateAccountInstruction, getInitializeNonceAccountInstruction,
-  getTransferSolInstruction, getWithdrawNonceAccountInstruction,
+  getCreateAccountInstruction, getInitializeNonceAccountInstruction, getTransferSolInstruction, getWithdrawNonceAccountInstruction,
 } from "@solana-program/system";
-import { alsWeb3, SYSTEM_PROGRAMM } from "./kit-bruecke.js";
+import { SYSTEM_PROGRAMM } from "./kit-bruecke.js";
+import { ausDraht, baueTransaktion, leseNachricht, type GeleseneNachricht, type SolTransaktion } from "./kit-transaktion.js";
 import { pruefeSolanaTx, type SolanaTxFehler } from "./mesh-transport.js";
 import { ProtokollFehler } from "./fehler.js";
 
@@ -33,6 +32,8 @@ export const LAMPORTS_JE_SIGNATUR = 5000;
 /** Anweisungsnummern des System-Programms. */
 const SYS_TRANSFER = 2;
 const SYS_NONCE_ADVANCE = 4;
+/** Sysvar, aus dem das Weiterschalten den neuen Wert nimmt. */
+const SYSVAR_LETZTE_BLOCKHASHES = "SysvarRecentB1ockHashes11111111111111111111";
 
 /**
  * Was das Anlegen kostet: die Miete (rent-exempt fuer 80 Byte, vom RPC) bleibt
@@ -50,20 +51,23 @@ export function nonceKontoKosten(mieteLamports: number): { miete: number; gebueh
  * der Zahler. Signieren muessen Zahler und das neue Konto (frischer Schluessel,
  * danach nicht mehr gebraucht).
  */
-export function baueNonceKontoAnlegen(p: { zahler: string; nonceKonto: string; mieteLamports: number; blockhash: string }): Transaction {
+export function baueNonceKontoAnlegen(p: {
+  zahler: string; nonceKonto: string; mieteLamports: number; blockhash: string; letzteHoehe: bigint;
+}): SolTransaktion {
   nonceKontoKosten(p.mieteLamports);
   // Anweisungen aus @solana-program/system (A-21b1); unterschrieben wird später – hier nur die Rolle
   const zahler = createNoopSigner(address(p.zahler));
   const nonceKonto = createNoopSigner(address(p.nonceKonto));
-  const tx = new Transaction().add(
-    alsWeb3(getCreateAccountInstruction({
-      payer: zahler, newAccount: nonceKonto, lamports: p.mieteLamports, space: NONCE_KONTO_BYTES, programAddress: address(SYSTEM_PROGRAMM),
-    })),
-    alsWeb3(getInitializeNonceAccountInstruction({ nonceAccount: nonceKonto.address, nonceAuthority: zahler.address })),
-  );
-  tx.feePayer = new PublicKey(p.zahler);
-  tx.recentBlockhash = p.blockhash;
-  return tx;
+  return baueTransaktion({
+    zahler: p.zahler,
+    anweisungen: [
+      getCreateAccountInstruction({
+        payer: zahler, newAccount: nonceKonto, lamports: p.mieteLamports, space: NONCE_KONTO_BYTES, programAddress: address(SYSTEM_PROGRAMM),
+      }),
+      getInitializeNonceAccountInstruction({ nonceAccount: nonceKonto.address, nonceAuthority: zahler.address }),
+    ],
+    lebensdauer: { blockhash: p.blockhash, letzteHoehe: p.letzteHoehe },
+  });
 }
 
 /**
@@ -71,15 +75,18 @@ export function baueNonceKontoAnlegen(p: { zahler: string; nonceKonto: string; m
  * Autoritaet – danach gibt es das Konto nicht mehr. Mit Netz, signiert von der
  * Autoritaet.
  */
-export function baueNonceKontoSchliessen(p: { autoritaet: string; nonceKonto: string; lamports: number; blockhash: string }): Transaction {
+export function baueNonceKontoSchliessen(p: {
+  autoritaet: string; nonceKonto: string; lamports: number; blockhash: string; letzteHoehe: bigint;
+}): SolTransaktion {
   if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new Error("Guthaben ungültig");
   const autoritaet = createNoopSigner(address(p.autoritaet));
-  const tx = new Transaction().add(alsWeb3(getWithdrawNonceAccountInstruction({
-    nonceAccount: address(p.nonceKonto), recipientAccount: autoritaet.address, nonceAuthority: autoritaet, withdrawAmount: p.lamports,
-  })));
-  tx.feePayer = new PublicKey(p.autoritaet);
-  tx.recentBlockhash = p.blockhash;
-  return tx;
+  return baueTransaktion({
+    zahler: p.autoritaet,
+    anweisungen: [getWithdrawNonceAccountInstruction({
+      nonceAccount: address(p.nonceKonto), recipientAccount: autoritaet.address, nonceAuthority: autoritaet, withdrawAmount: p.lamports,
+    })],
+    lebensdauer: { blockhash: p.blockhash, letzteHoehe: p.letzteHoehe },
+  });
 }
 
 export interface NonceStand {
@@ -98,32 +105,30 @@ export function leseNonceKonto(daten: Uint8Array): NonceStand {
   if (version > 1) throw new Error(`Unbekannte Nonce-Version ${version}`);
   if (v.getUint32(4, true) !== 1) throw new ProtokollFehler("nonce-nicht-eingerichtet", "Nonce-Konto ist nicht eingerichtet");
   const gebuehr = v.getBigUint64(72, true);
+  const base58 = getAddressDecoder();
   return {
-    autoritaet: new PublicKey(daten.subarray(8, 40)).toBase58(),
-    nonce: new PublicKey(daten.subarray(40, 72)).toBase58(),
+    autoritaet: base58.decode(daten.subarray(8, 40)),
+    nonce: base58.decode(daten.subarray(40, 72)),
     lamportsJeSignatur: gebuehr <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(gebuehr) : Number.MAX_SAFE_INTEGER,
   };
 }
 
 /**
- * Ueberweisung fuer offline: erst das Weiterschalten des Nonce-Kontos, dann
- * die Ueberweisung; der Nonce-Wert steht an der Stelle des Blockhashs. Braucht
- * kein Netz – nur den vorher gelesenen Stand.
+ * Ueberweisung fuer offline: erst das Weiterschalten des Nonce-Kontos (setzt kit
+ * an den Anfang), dann die Ueberweisung; der Nonce-Wert steht an der Stelle des
+ * Blockhashs. Braucht kein Netz – nur den vorher gelesenen Stand.
  */
 export function baueOfflineUeberweisung(p: {
   von: string; an: string; lamports: number; nonceKonto: string; stand: NonceStand;
-}): Transaction {
+}): SolTransaktion {
   if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new ProtokollFehler("betrag-positiv", "Betrag muss eine positive ganze Zahl sein");
   if (p.von === p.an) throw new ProtokollFehler("an-sich-selbst", "Überweisung an sich selbst");
   if (p.stand.autoritaet !== p.von) throw new ProtokollFehler("nonce-andere-adresse", "Das Nonce-Konto gehört einer anderen Adresse");
-  const von = createNoopSigner(address(p.von));
-  const tx = new Transaction().add(
-    alsWeb3(getAdvanceNonceAccountInstruction({ nonceAccount: address(p.nonceKonto), nonceAuthority: von })),
-    alsWeb3(getTransferSolInstruction({ source: von, destination: address(p.an), amount: p.lamports })),
-  );
-  tx.feePayer = new PublicKey(p.von);
-  tx.recentBlockhash = p.stand.nonce;
-  return tx;
+  return baueTransaktion({
+    zahler: p.von,
+    anweisungen: [getTransferSolInstruction({ source: createNoopSigner(address(p.von)), destination: address(p.an), amount: p.lamports })],
+    lebensdauer: { nonce: p.stand.nonce, nonceKonto: p.nonceKonto, autoritaet: p.von },
+  });
 }
 
 /** Warum eine Offline-Überweisung nicht taugt (8.16g2b3) – die App bildet daraus den Text in ihrer Sprache. */
@@ -144,40 +149,40 @@ export type OfflinePruefung =
 export function pruefeOfflineUeberweisung(roh: Uint8Array): OfflinePruefung {
   const sig = pruefeSolanaTx(roh);
   if (!sig.ok) return sig;
-  let tx: Transaction;
+  let tx: GeleseneNachricht;
   try {
-    tx = Transaction.from(roh);
+    tx = leseNachricht(ausDraht(roh));
   } catch {
     return { ok: false, grund: "keine lesbare Transaktion", fall: "unlesbar" };
   }
-  if (tx.instructions.length !== 2) return { ok: false, grund: "erwartet: Nonce weiterschalten und Überweisung, sonst nichts", fall: "anweisungen" };
-  const [weiter, zahlung] = tx.instructions;
-  const wd = new DataView(weiter.data.buffer, weiter.data.byteOffset, weiter.data.byteLength);
-  if (!weiter.programId.equals(SystemProgram.programId) || weiter.data.length !== 4 || wd.getUint32(0, true) !== SYS_NONCE_ADVANCE) {
+  if (tx.anweisungen.length !== 2) return { ok: false, grund: "erwartet: Nonce weiterschalten und Überweisung, sonst nichts", fall: "anweisungen" };
+  const [weiter, zahlung] = tx.anweisungen;
+  const wd = new DataView(weiter.daten.buffer, weiter.daten.byteOffset, weiter.daten.byteLength);
+  if (weiter.programm !== SYSTEM_PROGRAMM || weiter.daten.length !== 4 || wd.getUint32(0, true) !== SYS_NONCE_ADVANCE) {
     return { ok: false, grund: "erste Anweisung schaltet kein Nonce-Konto weiter – kein Durable Nonce", fall: "kein-nonce" };
   }
-  const [nonceKonto, sysvar, autoritaet] = weiter.keys;
-  if (!nonceKonto || !sysvar?.pubkey.equals(SYSVAR_RECENT_BLOCKHASHES_PUBKEY) || !autoritaet?.isSigner) {
+  const [nonceKonto, sysvar, autoritaet] = weiter.konten;
+  if (!nonceKonto || sysvar?.adresse !== SYSVAR_LETZTE_BLOCKHASHES || !autoritaet?.signiert) {
     return { ok: false, grund: "Nonce-Anweisung unvollständig", fall: "nonce-unvollstaendig" };
   }
-  const zd = new DataView(zahlung.data.buffer, zahlung.data.byteOffset, zahlung.data.byteLength);
-  if (!zahlung.programId.equals(SystemProgram.programId) || zahlung.data.length !== 12 || zd.getUint32(0, true) !== SYS_TRANSFER) {
+  const zd = new DataView(zahlung.daten.buffer, zahlung.daten.byteOffset, zahlung.daten.byteLength);
+  if (zahlung.programm !== SYSTEM_PROGRAMM || zahlung.daten.length !== 12 || zd.getUint32(0, true) !== SYS_TRANSFER) {
     return { ok: false, grund: "zweite Anweisung ist keine Überweisung", fall: "keine-ueberweisung" };
   }
-  const [von, an] = zahlung.keys;
-  if (!von || !an || !von.isSigner) return { ok: false, grund: "Überweisung ohne signierenden Zahler", fall: "ohne-zahler" };
-  if (!von.pubkey.equals(autoritaet.pubkey) || !tx.feePayer?.equals(von.pubkey)) {
+  const [von, an] = zahlung.konten;
+  if (!von || !an || !von.signiert) return { ok: false, grund: "Überweisung ohne signierenden Zahler", fall: "ohne-zahler" };
+  if (von.adresse !== autoritaet.adresse || tx.zahler !== von.adresse) {
     return { ok: false, grund: "Zahler, Nonce-Autorität und Gebührenzahler müssen dieselbe Adresse sein", fall: "zahler-verschieden" };
   }
   const lamports = zd.getBigUint64(4, true);
   if (lamports === 0n || lamports > BigInt(Number.MAX_SAFE_INTEGER)) return { ok: false, grund: "Betrag ungültig", fall: "betrag" };
-  if (!tx.recentBlockhash) return { ok: false, grund: "kein Nonce-Wert", fall: "kein-nonce-wert" };
+  if (!tx.lebensdauer) return { ok: false, grund: "kein Nonce-Wert", fall: "kein-nonce-wert" };
   return {
     ok: true,
-    von: von.pubkey.toBase58(),
-    an: an.pubkey.toBase58(),
+    von: von.adresse,
+    an: an.adresse,
     lamports: Number(lamports),
-    nonceKonto: nonceKonto.pubkey.toBase58(),
-    nonce: tx.recentBlockhash,
+    nonceKonto: nonceKonto.adresse,
+    nonce: tx.lebensdauer,
   };
 }
