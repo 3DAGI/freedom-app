@@ -11286,3 +11286,40 @@ pid vor jedem `kill()` (beide Motoren), `fuehreAus()` ebenso. Die Tests zählen 
 
 Knoten-Stand: Bild neu nur mit `VIBECODEN=1`. MENSCH: auf dem GX10 `docker compose -f docker-compose.yml -f
 docker-compose.vibecoden.yml up -d --build`, dann im Log `[code] Sandbox geht …` und `[code] Motor Hermes …`.
+
+## Schritt VKd1 – Freedom-MCP: Websuche und Seite lesen für Hermes
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` („Freedom statt Nous Portal“, VK-W1n C). Von Spur C übernommen (17.10., Spur A
+im Nutzungslimit).
+
+**Neu:**
+- `node/src/freedom-mcp.ts`: `mcpAntwort()` – ein MCP-Server ohne Abhängigkeit (Streamable HTTP, Fassungen 2024-11-05
+  bis 2025-06-18). Er kennt `initialize`, `ping`, `tools/list` und `tools/call`; Benachrichtigungen bekommen keine
+  Antwort. Werkzeuge: `web_search` (DuckDuckGo, nur Kurzantworten) und `read_page` (Seite als Text). Ausgeführt wird nur
+  über die `ToolRegistry`, Fehler eines Werkzeugs stehen nur mit dem Fehlernamen im Ergebnis.
+- `modell-bruecke.ts`: `POST /mcp` beantwortet der Knoten selbst, nie der Antrieb. JSON-Antworten,
+  Benachrichtigungen 202, GET und DELETE 405, kaputtes JSON 400, höchstens 1 MiB.
+- `hermes-motor.ts`: `config.yaml` nennt `mcp_servers.freedom` an derselben Brücke. Über `session/new` ginge es nur, wenn
+  Hermes `mcpCapabilities.http` ankündigte – 0.19 tut das nicht (Quelltext gelesen). Er nimmt MCP-Server aber aus der
+  Konfiguration, die der Knoten vor jedem Lauf neu schreibt.
+- `main.ts`: die Brücke bekommt Freedom-MCP mit Websuche und Seite lesen.
+- `docker/hermes.in`: `hermes-agent[acp,mcp]`; die Sperrdatei hat 10 Pakete mehr (mcp 1.26.0 und seine Kette, starlette
+  1.0.1 statt 1.8.0, wie Hermes es für MCP pinnt). Lizenzen: MIT und BSD-3, pywin32 (PSF) nur unter Windows. In ein
+  Wegwerf-venv installiert mit `--require-hashes`, `pip check` ohne Befund; das venv wächst um 7 MB.
+
+**Gegen den Client geprüft:** Der MCP-Client von Hermes (mcp 1.26.0, Quelltext gelesen, nicht ausgeführt) öffnet ohne
+`Mcp-Session-Id` keinen GET-Strom und sendet kein DELETE. Er liest JSON-Antworten und nimmt 202 für Benachrichtigungen.
+Der Server vergibt deshalb keine Sitzungskennung.
+
+**Ehrlich:** Hermes fragt vor MCP-Aufrufen nicht – nur vor Änderungen an Dateien und riskanten Befehlen. In der App
+erscheint ein Aufruf als Schritt. Die Suchmaschine und die Seiten sehen die IP des Knotens (die Werkzeuge gehen wie beim
+Provider nicht über Tor) und, was in Suchanfrage oder Adresse steht. Frage VKd-W1 in `OFFEN.md`: im Modus „fragen“
+Netz-Aufrufe erst nach Ja (Empfehlung B, ohne neues Format).
+
+**Tests:** node +6 (`freedom-mcp.test.ts`: Aushandeln, Werkzeugliste, Aufrufe nur über die Registry, Fehler nur mit
+Namen, Ablehnungen ohne Ausführung, Brücke mit allen Antworten, Konfiguration und Verdrahtung, aus der echten Sandbox über
+das Startskript). `docker-vibecoden.test.ts` prüft MCP in der Sperrdatei.
+
+Knoten-Stand: Bild neu mit `VIBECODEN=1` (Sperrdatei geändert). MENSCH: im Echttest eine Aufgabe stellen, die eine Suche
+braucht, und im Log oder in der App den Schritt `web_search` sehen.
+

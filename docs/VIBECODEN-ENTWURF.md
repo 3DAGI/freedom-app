@@ -172,7 +172,8 @@ den Motor also tauschen.
 | dazu | Kiwix ohne Netz (B-31), die Programme unten |
 
 Diese MCP-Server gibt der Knoten Hermes über ACP je Sitzung mit. Hermes braucht dann kein Portal
-und keinen eigenen Schlüssel.
+und keinen eigenen Schlüssel. *(Seit VKd1: über `config.yaml`, die der Knoten vor jedem Lauf neu schreibt – also
+ebenfalls je Lauf. Über `session/new` ginge es nur, wenn Hermes `mcpCapabilities.http` ankündigte; 0.19 tut das nicht.)*
 
 **Was dagegen spricht, und was wir dagegen tun:**
 
@@ -288,7 +289,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 – **fertig** (`liste`, `neu`; ein Lauf bis VKc2 mit `code-ohne-motor` abgelehnt) |
 | VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 – **fertig** (`code-motor.ts`: Lauf im Hintergrund, Commit je Schritt; gestartet wird der Motor erst mit der Sandbox in VKc3, bis dahin `code-ohne-motor`) |
 | VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 – **VKc3a fertig** (`hermes-motor.ts`, `modell-bruecke.ts`, `motor/freedom_motor.py`: Brücke über einen Unix-Socket, Konfiguration je Projekt in `~/.freedom/hermes/<projekt>`, `main.ts`); **VKc3b fertig** (Hermes 0.19.0 im Bild mit `VIBECODEN=1`, Sandbox unter Docker über `docker-compose.vibecoden.yml`) |
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 – **VKd1 fertig** (`freedom-mcp.ts`: Websuche und Seite lesen als MCP-Server hinter der Brücke, `POST /mcp`; Hermes findet ihn über `config.yaml`, nicht über `session/new` – Hermes 0.19 kündigt MCP über HTTP in `initialize` nicht an; Netz-Werkzeuge fragen nicht vorher, Frage VKd-W1 in `OFFEN.md`); VKd2: Bilder, Sprache, Kiwix, Seiten-Bedienung |
 | VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 |
 | VKf | Kopplung mit Code zum Eintippen (K1) | A | ~250 – **fertig** (`kurzcode.ts`, Kind 38076, `npm run koppeln -- --code`, `PROTOCOL.md` §35) |
 | VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400, ggf. zwei Teile |

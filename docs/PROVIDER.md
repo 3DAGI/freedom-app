@@ -536,9 +536,17 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   braucht langen Kontext (`OLLAMA_CONTEXT_LENGTH=65536`). Gedächtnis und Skills von
   Hermes liegen je Projekt in `~/.freedom/hermes/<projekt>`, nie im Repo. Fehlt
   Hermes, steht es im Log, und Aufträge werden mit `code-ohne-motor` abgelehnt.
+- **Werkzeuge (seit VKd1):** Hermes kann über deinen Knoten im Netz suchen
+  (DuckDuckGo, nur Kurzantworten) und öffentliche Seiten als Text lesen (Freedom-MCP,
+  `POST /mcp` an derselben Brücke). Die Sandbox selbst bleibt ohne Netz; es gehen nur
+  diese zwei Werkzeuge hinaus, mit den Grenzen der Werkzeuge des Knotens (http und
+  https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
+  Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
+  Aufrufen nicht; in der App erscheinen sie als Schritt (Frage VKd-W1 in
+  `docs/ausbau/OFFEN.md`).
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
-  (rund 40 MB Pakete, venv etwa 135 MB, dazu python3 und ripgrep) und gibt dem
+  (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem
   Container, was bubblewrap braucht: das Seccomp-Profil `docker/seccomp-vibecoden.json`
   (das Standardprofil von Docker plus Namensräume: `clone`, `unshare`, `mount`,
   `umount2`, `pivot_root`, `setns`, `sethostname`), `systempaths=unconfined` (sonst

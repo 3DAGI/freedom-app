@@ -3,7 +3,8 @@
  * kein Netz. Der Knoten öffnet einen Unix-Socket in einem eigenen Ordner (0700), den die Sandbox nur lesbar
  * einbindet (`/bruecke`); dahinter liegt nur das Modell des Knotens – `GET /v1/models` und
  * `POST /v1/chat/completions` an den KI-Antrieb (`ki-antrieb.ts`), nie eine andere Adresse, nie ein anderer Pfad.
- * Wie die Proxy-Brücke von Codex – nie, indem die Sandbox das Netz des Rechners teilt.
+ * Wie die Proxy-Brücke von Codex – nie, indem die Sandbox das Netz des Rechners teilt. Seit VKd beantwortet sie dazu
+ * `POST /mcp` im Knoten selbst (Freedom-MCP, `freedom-mcp.ts`) – Werkzeuge des Knotens, nie ein weiterer Weg nach draußen.
  *
  * Der Schlüssel des Antriebs (`KI_SCHLUESSEL`) kommt erst hier dazu; Kopfzeilen aus der Sandbox gehen nicht
  * weiter. Was durchfließt, sind Fragen und Antworten des eigenen Projekts: nie ins Log, Fehler nach außen nur
@@ -19,6 +20,8 @@ import { antriebKopf, type KiAntrieb } from "./ki-antrieb.js";
 export const BRUECKE_GRENZEN = {
   /** Größte Anfrage aus der Sandbox (Verlauf eines langen Laufs samt Ausgaben). */
   anfrageBytes: 16 * 1024 * 1024,
+  /** Größte Nachricht an Freedom-MCP. */
+  mcpBytes: 1024 * 1024,
   /** Eine Antwort des Modells darf so lange dauern – lokale Modelle sind langsam. */
   antwortMs: 15 * 60_000,
 } as const;
@@ -43,18 +46,38 @@ export function brueckenZiel(antrieb: Pick<KiAntrieb, "art" | "url">, methode: s
 
 function absage(res: ServerResponse, status: number): void {
   if (res.headersSent) return void res.destroy();
-  res.writeHead(status, { "content-type": "text/plain; charset=utf-8", connection: "close" }).end(status === 413 ? "zu gross" : status === 404 ? "nicht hier" : "Modell nicht erreichbar");
+  const text = status === 413 ? "zu gross" : status === 404 ? "nicht hier" : status === 405 ? "nur POST" : status === 400 ? "kein JSON" : "Modell nicht erreichbar";
+  res.writeHead(status, { "content-type": "text/plain; charset=utf-8", connection: "close", ...(status === 405 ? { allow: "POST" } : {}) }).end(text);
 }
 
-/** Anfrage lesen – höchstens `anfrageBytes`, sonst null. */
-function leseKoerper(req: IncomingMessage): Promise<Buffer | null> {
+/** Freedom-MCP (VKd): eine Nachricht, eine Antwort als JSON – Benachrichtigungen 202, kein Strom vom Server (GET 405). */
+async function beantworteMcp(req: IncomingMessage, res: ServerResponse, mcp: (nachricht: unknown) => Promise<object | null>): Promise<void> {
+  if (req.method !== "POST") {
+    req.resume();
+    return absage(res, 405);
+  }
+  const koerper = await leseKoerper(req, BRUECKE_GRENZEN.mcpBytes);
+  if (koerper === null) return absage(res, 413);
+  let nachricht: unknown;
+  try {
+    nachricht = JSON.parse(koerper.toString("utf8"));
+  } catch {
+    return absage(res, 400);
+  }
+  const a = await mcp(nachricht);
+  if (a === null) return void res.writeHead(202).end();
+  res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(a));
+}
+
+/** Anfrage lesen – höchstens `grenze` Byte, sonst null. */
+function leseKoerper(req: IncomingMessage, grenze: number = BRUECKE_GRENZEN.anfrageBytes): Promise<Buffer | null> {
   return new Promise((fertig) => {
     const teile: Buffer[] = [];
     let n = 0;
     req.on("data", (b: Buffer) => {
       n += b.length;
       // darüber nichts mehr behalten, den Rest nur ablaufen lassen – die Absage geht sofort hinaus
-      if (n > BRUECKE_GRENZEN.anfrageBytes) return void fertig(null);
+      if (n > grenze) return void fertig(null);
       teile.push(b);
     });
     req.on("end", () => fertig(Buffer.concat(teile)));
@@ -63,11 +86,12 @@ function leseKoerper(req: IncomingMessage): Promise<Buffer | null> {
 }
 
 /** Brücke öffnen – ein Socket für alle Läufe des Knotens; `schliesse()` beim Ende des Knotens. */
-export async function oeffneModellBruecke(antrieb: KiAntrieb, o: { fetchImpl?: typeof fetch } = {}): Promise<ModellBruecke> {
+export async function oeffneModellBruecke(antrieb: KiAntrieb, o: { fetchImpl?: typeof fetch; mcp?: (nachricht: unknown) => Promise<object | null> } = {}): Promise<ModellBruecke> {
   const holen = o.fetchImpl ?? ((i: string | URL | Request, init?: RequestInit) => fetch(i, init));
   const ordner = mkdtempSync(join(tmpdir(), "freedom-bruecke-"));
   const sockel = join(ordner, "modell.sock");
   const server = createServer(async (req, res) => {
+    if (o.mcp && req.url === "/mcp") return beantworteMcp(req, res, o.mcp).catch(() => absage(res, 502));
     const ziel = brueckenZiel(antrieb, req.method, req.url);
     if (!ziel) {
       req.resume();
