@@ -4,7 +4,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { alsDraht, baueTransaktion, type SolTransaktion, ueberweisungAnweisung } from "@freedomstack/protocol";
 import { type StandardWallet, alsAnbieter, ketteAusRpc, solanaWallets } from "../src/wallet-standard.js";
 import { setLang } from "../src/i18n.js";
 
@@ -13,11 +14,13 @@ setLang("de");
 
 const ZIEL = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb";
 
-function ueberweisung(von: PublicKey): Transaction {
-  const tx = new Transaction().add(SystemProgram.transfer({ fromPubkey: von, toPubkey: new PublicKey(ZIEL), lamports: 5_000 }));
-  tx.recentBlockhash = "11111111111111111111111111111111";
-  tx.feePayer = von;
-  return tx;
+/** Seit A-21d2 eine Transaktion aus kit – die Test-Wallet liest die Bytes mit web3.js wie eine fremde Software. */
+function ueberweisung(von: PublicKey): SolTransaktion {
+  const a = von.toBase58();
+  return baueTransaktion({
+    zahler: a, anweisungen: [ueberweisungAnweisung({ von: a, an: ZIEL, lamports: 5_000n })],
+    lebensdauer: { blockhash: "11111111111111111111111111111111", letzteHoehe: 1n },
+  });
 }
 
 /** Eine Test-Wallet nach dem Wallet Standard, die mit einem echten Schluessel signiert. */
@@ -86,36 +89,36 @@ test("Signieren und senden: gebaute Transaktion, richtige Kette, Signatur base58
   const kp = Keypair.generate();
   const { wallet, log } = testWallet("Test", kp);
   const a = alsAnbieter(wallet, async () => "solana:devnet");
-  await assert.rejects(a.signAndSendTransaction!(ueberweisung(kp.publicKey)), /nicht verbunden/);
+  await assert.rejects(a.signiereUndSendeTransaktion!(ueberweisung(kp.publicKey)), /nicht verbunden/);
   const r = await a.connect({ onlyIfTrusted: true });
   assert.equal(r.publicKey.toBase58(), kp.publicKey.toBase58());
   assert.deepEqual(log[0], { was: "connect", eingabe: { silent: true } }, "still = silent");
   const tx = ueberweisung(kp.publicKey);
-  const { signature } = await a.signAndSendTransaction!(tx);
+  const { signature } = await a.signiereUndSendeTransaktion!(tx);
   const gesendet = log[1].eingabe as { transaction: Uint8Array; chain: string };
   assert.equal(gesendet.chain, "solana:devnet");
-  assert.deepEqual(Transaction.from(gesendet.transaction).instructions[0].data, tx.instructions[0].data);
+  assert.deepEqual(Uint8Array.from(Transaction.from(gesendet.transaction).serializeMessage()), Uint8Array.from(tx.messageBytes), "die Wallet bekommt die Bytes");
   assert.match(signature, /^[1-9A-HJ-NP-Za-km-z]{64,90}$/);
-  // signTransaction: signierte Transaktion zurueck, gueltig
-  const signiert = (await a.signTransaction!(ueberweisung(kp.publicKey))) as Transaction;
-  assert.equal(signiert.verifySignatures(), true);
+  // signiereTransaktion: signierte Transaktion zurueck (kit), gueltig
+  const signiert = await a.signiereTransaktion!(ueberweisung(kp.publicKey));
+  assert.equal(Transaction.from(alsDraht(signiert)).verifySignatures(), true);
   // Kette, die die Wallet nicht kann; kaputte Signatur
   const nurMain = alsAnbieter(testWallet("Main", kp, { chains: ["solana:mainnet"] }).wallet, async () => "solana:devnet");
   await nurMain.connect();
-  await assert.rejects(nurMain.signAndSendTransaction!(ueberweisung(kp.publicKey)), /unterstützt solana:devnet nicht/);
+  await assert.rejects(nurMain.signiereUndSendeTransaktion!(ueberweisung(kp.publicKey)), /unterstützt solana:devnet nicht/);
   const kurz = alsAnbieter(testWallet("Kurz", kp, { signaturLaenge: 10 }).wallet, async () => "solana:mainnet");
   await kurz.connect();
-  await assert.rejects(kurz.signAndSendTransaction!(ueberweisung(kp.publicKey)), /keine gültige Signatur/);
+  await assert.rejects(kurz.signiereUndSendeTransaktion!(ueberweisung(kp.publicKey)), /keine gültige Signatur/);
 });
 
 test("Nur anbieten, was die Wallet kann", () => {
   const kp = Keypair.generate();
   const nurSenden = alsAnbieter(testWallet("S", kp, { signieren: false }).wallet, async () => "solana:mainnet");
-  assert.equal(nurSenden.signTransaction, undefined);
-  assert.equal(typeof nurSenden.signAndSendTransaction, "function");
+  assert.equal(nurSenden.signiereTransaktion, undefined);
+  assert.equal(typeof nurSenden.signiereUndSendeTransaktion, "function");
   const nurSignieren = alsAnbieter(testWallet("T", kp, { senden: false }).wallet, async () => "solana:mainnet");
-  assert.equal(nurSignieren.signAndSendTransaction, undefined);
-  assert.equal(typeof nurSignieren.signTransaction, "function");
+  assert.equal(nurSignieren.signiereUndSendeTransaktion, undefined);
+  assert.equal(typeof nurSignieren.signiereTransaktion, "function");
 });
 
 test("Verbinden: eine Wallet direkt, mehrere per Auswahl, still nur die gemerkte", async () => {

@@ -12,7 +12,10 @@ import {
   connectSolanaWallet,
   isValidSolanaAddress,
   SolanaProvider,
+  ueberWeb3,
 } from "../src/solana-connect.js";
+import { Keypair, Transaction } from "@solana/web3.js";
+import { alsDraht, baueTransaktion, ueberweisungAnweisung } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
@@ -94,6 +97,34 @@ test("Verbinden: injizierter Provider liefert den Pubkey", async () => {
   const conn = await withProvider(fakeProvider("ABC123"), () => connectSolanaWallet({ userAgentOverride: UA.desktop }));
   assert.equal(conn!.pubkey, "ABC123");
   assert.equal(conn!.method, "injected");
+});
+
+test("A-21d2: Brücke für injizierte Wallets – die Wallet bekommt ein Objekt von web3.js, zurück kommt eine kit-Transaktion", async () => {
+  const kp = Keypair.generate();
+  const a = kp.publicKey.toBase58();
+  const tx = baueTransaktion({
+    zahler: a, anweisungen: [ueberweisungAnweisung({ von: a, an: "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtVb", lamports: 5_000n })],
+    lebensdauer: { blockhash: "11111111111111111111111111111111", letzteHoehe: 1n },
+  });
+  const gesehen: unknown[] = [];
+  const b = ueberWeb3({
+    connect: async () => ({ publicKey: kp.publicKey }),
+    signTransaction: async (t) => { gesehen.push(t); (t as Transaction).partialSign(kp); return t; },
+    signAndSendTransaction: async (t) => { gesehen.push(t); return { signature: "5".repeat(88) }; },
+  });
+  const signiert = await b.signiereTransaktion!(tx);
+  assert.ok(gesehen[0] instanceof Transaction, "Wallets mit window.solana verlangen web3.js");
+  assert.deepEqual(signiert.messageBytes, tx.messageBytes, "dieselbe Nachricht");
+  assert.equal(Transaction.from(alsDraht(signiert)).verifySignatures(), true);
+  assert.deepEqual(await b.signiereUndSendeTransaktion!(tx), { signature: "5".repeat(88) });
+  assert.ok(gesehen[1] instanceof Transaction);
+  // Nur anbieten, was die Wallet kann
+  const nichts = ueberWeb3({ connect: async () => ({ publicKey: kp.publicKey }) });
+  assert.equal(nichts.signiereTransaktion, undefined);
+  assert.equal(nichts.signiereUndSendeTransaktion, undefined);
+  // Verbunden über window.solana: die App bekommt die Brücke
+  const conn = await withProvider({ connect: async () => ({ publicKey: kp.publicKey }), signTransaction: async (t) => t }, () => connectSolanaWallet({ userAgentOverride: UA.desktop }));
+  assert.equal(typeof conn!.provider!.signiereTransaktion, "function");
 });
 
 test("Verbinden: Mobile ohne Provider ruft den Deeplink-Callback statt zu werfen", async () => {

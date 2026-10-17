@@ -12,7 +12,7 @@
  */
 import {
   type RelayerAngebot,
-  alsWeb3, MAX_ERSTATTUNG_LAMPORTS, pruefeRelayAuftrag, ueberweisungAnweisung,
+  alsDraht, baueTransaktion, MAX_ERSTATTUNG_LAMPORTS, pruefeRelayAuftrag, ueberweisungAnweisung,
 } from "@freedomstack/protocol";
 import { buildClaimInstruction } from "./swap-client.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "./sol-htlc.js";
@@ -66,16 +66,18 @@ export async function baueRelayEinloesung(p: {
   initiator: string;
   relayer: RelayerKandidat;
 }): Promise<Uint8Array> {
-  const { PublicKey, Transaction } = await import("@solana/web3.js");
   const empfaenger = p.wallet.publicKey.toBase58();
-  const tx = new Transaction().add(
-    alsWeb3(await buildClaimInstruction(p.swapId, p.preimage, empfaenger, p.initiator)),
-    alsWeb3(ueberweisungAnweisung({ von: empfaenger, an: p.relayer.solAdresse, lamports: BigInt(p.relayer.erstattungLamports) })),
-  );
-  tx.feePayer = new PublicKey(p.relayer.solAdresse);
-  tx.recentBlockhash = (await p.connection.getLatestBlockhash("confirmed")).blockhash;
-  const signiert = (await p.wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
-  const roh = Uint8Array.from(signiert.serialize({ requireAllSignatures: false, verifySignatures: false }));
+  // Der Relayer zahlt die Gebühr und unterschreibt zuletzt – sein Platz bleibt hier leer (A-21d2: kit)
+  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
+  const tx = baueTransaktion({
+    zahler: p.relayer.solAdresse,
+    anweisungen: [
+      await buildClaimInstruction(p.swapId, p.preimage, empfaenger, p.initiator),
+      ueberweisungAnweisung({ von: empfaenger, an: p.relayer.solAdresse, lamports: BigInt(p.relayer.erstattungLamports) }),
+    ],
+    lebensdauer: { blockhash, letzteHoehe: BigInt(lastValidBlockHeight) },
+  });
+  const roh = alsDraht(await p.wallet.signiereTransaktion(tx));
   const selbst = pruefeRelayAuftrag(roh, { relayer: p.relayer.solAdresse, programmId: HTLC_PROGRAM_ID, erstattungMin: p.relayer.erstattungLamports });
   if (!selbst.ok) throw new Error(t("zahl.relayerUnvollstaendig", { grund: relayGrund(selbst) }));
   return roh;

@@ -161,7 +161,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
-| A-21d2–f | Signieren (d2 Zahlungen und Zahlkanal der App, d3 HTLC, Tausch, Relayer), Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool; A-21d1 ✓: Transaktionen über kit, SOL ohne Internet) | frei – A-21d2 als Nächstes; A-21f nach W4 ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
+| A-21d3–f | Senden und Bestätigen über den Pool, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool; A-21d1 ✓: Transaktionen über kit, SOL ohne Internet; A-21d2 ✓: Wallets und alle Bauer der App über kit) | frei – A-21d3 als Nächstes; A-21f nach W4 ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |

@@ -20,6 +20,7 @@
  * Abhängigkeit funktioniert — und "funktioniert überall" schlägt "elegant".
  */
 
+import { alsDraht, ausDraht, type SolTransaktion } from "@freedomstack/protocol";
 import { alsAnbieter, solanaWallets } from "./wallet-standard.js";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
@@ -30,9 +31,39 @@ export interface SolanaProvider {
   connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
   disconnect?(): Promise<void>;
   signTransaction?(tx: unknown): Promise<unknown>;
+  signAndSendTransaction?(tx: unknown): Promise<{ signature: string }>;
   signMessage?(msg: Uint8Array, enc?: string): Promise<{ signature: Uint8Array }>;
   isPhantom?: boolean;
   isSolflare?: boolean;
+}
+
+/**
+ * Was die App von einer verbundenen Wallet braucht (seit A-21d2): Transaktionen aus kit
+ * signieren – und, wenn die Wallet das kann, selbst senden. Wallet Standard nimmt Bytes
+ * (`alsAnbieter()`), eine injizierte Wallet geht über `ueberWeb3()`.
+ */
+export interface SolAnbieter {
+  name?: string;
+  signiereTransaktion?(tx: SolTransaktion): Promise<SolTransaktion>;
+  signiereUndSendeTransaktion?(tx: SolTransaktion): Promise<{ signature: string }>;
+}
+
+/**
+ * Brücke für Wallets nur mit `window.solana` (A-21d2): Sie verlangen ein `Transaction`-Objekt
+ * von web3.js. Gebaut wird es aus den Bytes, zurück kommt wieder eine kit-Transaktion. Ob es
+ * diesen Weg nach A-21f noch gibt, entscheidet W4 (`docs/KIT-PLAN.md`).
+ */
+export function ueberWeb3(p: SolanaProvider): SolAnbieter {
+  const alsObjekt = async (tx: SolTransaktion) => (await import("@solana/web3.js")).Transaction.from(alsDraht(tx));
+  const a: SolAnbieter = {};
+  if (p.signTransaction) {
+    a.signiereTransaktion = async (tx) => {
+      const signiert = (await p.signTransaction!(await alsObjekt(tx))) as { serialize(o?: unknown): Uint8Array };
+      return ausDraht(Uint8Array.from(signiert.serialize({ requireAllSignatures: false, verifySignatures: false })));
+    };
+  }
+  if (p.signAndSendTransaction) a.signiereUndSendeTransaktion = async (tx) => p.signAndSendTransaction!(await alsObjekt(tx));
+  return a;
 }
 
 export interface SolanaEnvironment {
@@ -113,7 +144,7 @@ export function buildWalletDeeplink(
 export interface SolanaConnection {
   pubkey: string;
   method: SolanaConnectMethod;
-  provider?: SolanaProvider;
+  provider?: SolAnbieter;
   /** Name der Wallet (Wallet Standard) – zum stillen Wiederverbinden. */
   name?: string;
 }
@@ -174,7 +205,7 @@ export async function connectSolanaWallet(opts: ConnectOptions = {}): Promise<So
       // onlyIfTrusted: verbindet ohne Popup, wenn der Nutzer die Seite schon
       // einmal erlaubt hat. Für den stillen Start beim Laden der App.
       const resp = await provider.connect(opts.silent ? { onlyIfTrusted: true } : undefined);
-      return { pubkey: resp.publicKey.toBase58(), method: "injected", provider };
+      return { pubkey: resp.publicKey.toBase58(), method: "injected", provider: ueberWeb3(provider) };
     } catch (e) {
       if (opts.silent) return null; // kein Vertrauen vorhanden — völlig normal
       throw new Error(t("zahl.verbindungAbgelehnt", { fehler: fehlerText(e) }));

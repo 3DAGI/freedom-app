@@ -60,13 +60,6 @@ export interface Nachfrage {
   pruefung: LimitPruefung;
 }
 
-/** Das, was die Wallet an einer (legacy) Transaktion von web3.js braucht. */
-export interface SignierbareTx {
-  serializeMessage(): Uint8Array;
-  signatures: Array<{ publicKey: { toBase58(): string } }>;
-  addSignature(publicKey: unknown, signatur: Uint8Array): void;
-}
-
 const HEX64 = /^[0-9a-f]{64}$/;
 
 /**
@@ -230,27 +223,9 @@ export class EingebauteSolWallet {
   }
 
   /**
-   * Signiert die Transaktion fuer jede eigene Adresse, die sie verlangt
-   * (Hauptadresse und vergebene frische) – synchron, die Kopien werden genullt.
-   */
-  signiere(tx: SignierbareTx): void {
-    const nachricht = tx.serializeMessage(); // legt auch die Signatur-Plaetze an
-    let signiert = 0;
-    for (const hex of this.eigeneSchluessel()) {
-      this.mitSchluessel((sk) => {
-        const eigene = base58.encode(ed25519.getPublicKey(sk));
-        const platz = tx.signatures.find((p) => p.publicKey.toBase58() === eigene);
-        if (!platz) return;
-        tx.addSignature(platz.publicKey, ed25519.sign(nachricht, sk));
-        signiert++;
-      }, hex);
-    }
-    if (!signiert) throw new Error(t("zahl.keineSignaturVerlangt"));
-  }
-
-  /**
-   * Wie `signiere()`, für Transaktionen aus kit (A-21d1): je eigene Adresse, die sie
-   * verlangt, über `signiereMit()` – die Kopien der Schlüssel werden genullt.
+   * Signiert die Transaktion (kit, A-21d1) fuer jede eigene Adresse, die sie verlangt
+   * (Hauptadresse und vergebene frische), über `signiereMit()` – synchron, die Kopien der
+   * Schlüssel werden genullt. Die Fassung für web3.js (`signiere()`) fiel mit A-21d2.
    */
   signiereTransaktion(tx: SolTransaktion): SolTransaktion {
     let ergebnis = tx;

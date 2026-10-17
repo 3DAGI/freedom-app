@@ -4,8 +4,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
-import { alsDraht, baueTransaktion, ueberweisungAnweisung, zahle } from "@freedomstack/protocol";
+import { Keypair, Transaction } from "@solana/web3.js";
+import { alsDraht, baueTransaktion, type SolTransaktion, ueberweisungAnweisung, zahle } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "../src/identity.js";
 import { SolanaRail } from "../src/rails.js";
 import {
@@ -43,12 +43,13 @@ async function wallet(uhr = { t: T0 }) {
   return { s, w, uhr };
 }
 
-function ueberweisung(von: string): Transaction {
-  const tx = new Transaction().add(SystemProgram.transfer({ fromPubkey: new PublicKey(von), toPubkey: new PublicKey(ZIEL), lamports: 5_000 }));
-  tx.recentBlockhash = "11111111111111111111111111111111";
-  tx.feePayer = new PublicKey(von);
-  return tx;
+/** Seit A-21d2 signiert die Wallet nur Transaktionen aus kit; web3.js prüft hier gegen. */
+function ueberweisung(von: string): SolTransaktion {
+  return baueTransaktion({
+    zahler: von, anweisungen: [ueberweisungAnweisung({ von, an: ZIEL, lamports: 5_000n })], lebensdauer: { blockhash: "11111111111111111111111111111111", letzteHoehe: 1n },
+  });
 }
+const SK = (): Uint8Array => solSchluesselAusPhrase(PHRASE, identityFromMnemonic(PHRASE).pk);
 
 test("Einrichten: Phantom-Adresse aus den 12 Woertern, gespeichert nur der Schluessel", async () => {
   const { s, w } = await wallet();
@@ -65,7 +66,7 @@ test("Einrichten: Phantom-Adresse aus den 12 Woertern, gespeichert nur der Schlu
   s.gesperrt = true;
   assert.equal(w.eingerichtet(), false);
   assert.equal(w.adresse(), undefined);
-  assert.throws(() => w.signiere(ueberweisung(PHANTOM)), /nicht verfügbar/);
+  assert.throws(() => w.signiereTransaktion(ueberweisung(PHANTOM)), /nicht verfügbar/);
   s.gesperrt = false;
   await w.entfernen();
   assert.equal(w.eingerichtet(), false);
@@ -74,33 +75,28 @@ test("Einrichten: Phantom-Adresse aus den 12 Woertern, gespeichert nur der Schlu
 
 test("Signieren: gueltige Signatur fuer die eigene Adresse, fremde Transaktion abgelehnt", async () => {
   const { w } = await wallet();
-  const tx = ueberweisung(PHANTOM);
-  w.signiere(tx);
+  const tx = Transaction.from(alsDraht(w.signiereTransaktion(ueberweisung(PHANTOM))));
   assert.equal(tx.verifySignatures(), true);
   assert.equal(tx.signatures[0].publicKey.toBase58(), PHANTOM);
   // Dieselbe Signatur wie mit dem Schluessel aus web3.js (deterministisch nach Ed25519)
-  const vergleich = ueberweisung(PHANTOM);
-  const sk = solSchluesselAusPhrase(PHRASE, identityFromMnemonic(PHRASE).pk);
-  vergleich.sign(Keypair.fromSeed(sk));
+  const vergleich = Transaction.from(alsDraht(ueberweisung(PHANTOM)));
+  vergleich.sign(Keypair.fromSeed(SK()));
   assert.deepEqual(tx.signatures[0].signature, vergleich.signatures[0].signature);
   // Eine Transaktion, die eine andere Adresse bezahlen laesst: nicht signieren
   const fremd = ueberweisung(Keypair.generate().publicKey.toBase58());
-  assert.throws(() => w.signiere(fremd), /keine Signatur dieser Wallet/);
-  assert.equal(fremd.signatures[0].signature, null);
+  assert.throws(() => w.signiereTransaktion(fremd), /keine Signatur dieser Wallet/);
+  assert.deepEqual(Object.values(fremd.signatures), [null]);
 });
 
 test("A-21d1: Signieren über kit – dieselbe Signatur wie über web3.js, fremde Zahler abgelehnt, das Original unverändert", async () => {
   const { w } = await wallet();
-  const kit = (von: string) => baueTransaktion({
-    zahler: von, anweisungen: [ueberweisungAnweisung({ von, an: ZIEL, lamports: 5_000n })], lebensdauer: { blockhash: "11111111111111111111111111111111", letzteHoehe: 1n },
-  });
-  const tx = kit(PHANTOM);
+  const tx = ueberweisung(PHANTOM);
   const signiert = w.signiereTransaktion(tx);
   assert.equal(tx.signatures[PHANTOM as never], null, "das Original bleibt unsigniert");
-  const web3 = ueberweisung(PHANTOM);
-  w.signiere(web3);
+  const web3 = Transaction.from(alsDraht(tx));
+  web3.sign(Keypair.fromSeed(SK()));
   assert.deepEqual(alsDraht(signiert), Uint8Array.from(web3.serialize()), "Byte für Byte wie über web3.js");
-  assert.throws(() => w.signiereTransaktion(kit(Keypair.generate().publicKey.toBase58())), /keine Signatur dieser Wallet/);
+  assert.throws(() => w.signiereTransaktion(ueberweisung(Keypair.generate().publicKey.toBase58())), /keine Signatur dieser Wallet/);
 });
 
 test("Tageslimit: darunter ohne Nachfrage, darueber nur mit Bestaetigung, rollend 24 Stunden", async () => {
@@ -144,12 +140,12 @@ test("Solana-Schiene: ohne Freigabe wird nichts gebaut und nichts gesendet", asy
   const { w } = await wallet();
   await w.setzeLimit(1_000);
   let gebaut = 0;
-  const gesendet: Transaction[] = [];
+  const gesendet: SolTransaktion[] = [];
   const rail = new SolanaRail({
     wallet: () => ({
       adresse: w.adresse()!,
       freigabe: (lamports, ziel) => w.freigabe(lamports, ziel, async () => false),
-      signiereUndSende: async (tx) => { w.signiere(tx as Transaction); gesendet.push(tx as Transaction); return "5".repeat(88); },
+      signiereUndSende: async (tx) => { gesendet.push(w.signiereTransaktion(tx as SolTransaktion)); return "5".repeat(88); },
     }),
     baueUeberweisung: async (von) => { gebaut++; return ueberweisung(von); },
   });
@@ -159,7 +155,7 @@ test("Solana-Schiene: ohne Freigabe wird nichts gebaut und nichts gesendet", asy
   // im Limit: gebaut, signiert, gesendet
   const b = await zahle([rail], { ziel: ZIEL, betrag: { einheit: "lamports", wert: 500 }, zweck: "trinkgeld" });
   assert.equal(gebaut, 1);
-  assert.equal(gesendet[0].verifySignatures(), true);
+  assert.equal(Transaction.from(alsDraht(gesendet[0]!)).verifySignatures(), true);
   assert.equal(b.rail, "solana");
 });
 

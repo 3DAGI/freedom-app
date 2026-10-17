@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { Keypair, Transaction } from "@solana/web3.js";
-import { pruefeRelayAuftrag, MAX_ERSTATTUNG_LAMPORTS } from "@freedomstack/protocol";
+import { pruefeRelayAuftrag, MAX_ERSTATTUNG_LAMPORTS, signiereMit } from "@freedomstack/protocol";
 import { GEBUEHR_PUFFER_LAMPORTS, baueRelayEinloesung, brauchtRelayer, waehleRelayer } from "../src/relay-einloesung.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "../src/sol-htlc.js";
 import { setLang } from "../src/i18n.js";
@@ -41,12 +41,12 @@ test("Auswahl: gleiche Kette, guenstigster zuerst, nie der LP, keine ueberhoehte
   ]);
 });
 
+/** Seit A-21d2 bekommt die Wallet eine Transaktion aus kit (`signiereMit()` mit dem Schlüssel der Attrappe). */
 function wallet(k: Keypair, signiert = true): WalletSigner {
   return {
     publicKey: k.publicKey,
-    async signTransaction(tx: unknown) {
-      if (signiert) (tx as Transaction).partialSign(k);
-      return tx;
+    async signiereTransaktion(tx) {
+      return signiert ? signiereMit(tx, k.secretKey.slice(0, 32))! : tx;
     },
   };
 }

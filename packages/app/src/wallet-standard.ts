@@ -9,9 +9,11 @@
  * Ereignisse lohnt keine neue Abhaengigkeit.
  *
  * `alsAnbieter()` macht aus einer Standard-Wallet die Form, die der Rest der
- * App schon kennt (`connect`, `signTransaction`, `signAndSendTransaction`).
+ * App kennt (`connect`, seit A-21d2 `signiereTransaktion` und
+ * `signiereUndSendeTransaktion` mit Transaktionen aus kit – die Wallet bekommt Bytes).
  */
 import { base58 } from "@scure/base";
+import { alsDraht, ausDraht, type SolTransaktion } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
 export interface StandardKonto {
@@ -73,14 +75,6 @@ export function ketteAusRpc(url: string): "solana:mainnet" | "solana:devnet" | "
   return "solana:mainnet";
 }
 
-type Tx = { serialize(opts?: unknown): Uint8Array; version?: unknown };
-
-function serialisiere(tx: Tx): Uint8Array {
-  // Versionierte Transaktionen serialisieren ohne Optionen; alte nur ohne
-  // Signaturpruefung, denn die Signatur fehlt ja noch.
-  return Uint8Array.from(tx.version !== undefined ? tx.serialize() : tx.serialize({ requireAllSignatures: false, verifySignatures: false }));
-}
-
 /** Eine Standard-Wallet in der Form von `window.solana`. */
 export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
   let konto: StandardKonto | undefined;
@@ -101,8 +95,8 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
   const anbieter: {
     name: string;
     connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
-    signTransaction?(tx: unknown): Promise<unknown>;
-    signAndSendTransaction?(tx: unknown): Promise<{ signature: string }>;
+    signiereTransaktion?(tx: SolTransaktion): Promise<SolTransaktion>;
+    signiereUndSendeTransaktion?(tx: SolTransaktion): Promise<{ signature: string }>;
   } = {
     name: w.name,
     async connect(opts) {
@@ -115,19 +109,17 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
   };
   // Nur anbieten, was die Wallet kann – der Rest der App fragt danach.
   if (w.features["solana:signTransaction"]) {
-    anbieter.signTransaction = async (tx) => {
-      const t = tx as Tx;
+    anbieter.signiereTransaktion = async (tx) => {
       const [r] = await feature<Signieren>("solana:signTransaction").signTransaction({
-        account: verbundenesKonto(), transaction: serialisiere(t), chain: await passendeKette(),
+        account: verbundenesKonto(), transaction: alsDraht(tx), chain: await passendeKette(),
       });
-      const { Transaction, VersionedTransaction } = await import("@solana/web3.js");
-      return t.version !== undefined ? VersionedTransaction.deserialize(r.signedTransaction) : Transaction.from(r.signedTransaction);
+      return ausDraht(r.signedTransaction);
     };
   }
   if (w.features["solana:signAndSendTransaction"]) {
-    anbieter.signAndSendTransaction = async (tx) => {
+    anbieter.signiereUndSendeTransaktion = async (tx) => {
       const [r] = await feature<SignierenUndSenden>("solana:signAndSendTransaction").signAndSendTransaction({
-        account: verbundenesKonto(), transaction: serialisiere(tx as Tx), chain: await passendeKette(),
+        account: verbundenesKonto(), transaction: alsDraht(tx), chain: await passendeKette(),
       });
       if (!(r?.signature instanceof Uint8Array) || r.signature.length !== 64) throw new Error(t("zahl.walletOhneSignatur", { wallet: w.name }));
       return { signature: base58.encode(r.signature) };

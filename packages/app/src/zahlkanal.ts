@@ -19,10 +19,10 @@
  */
 import type { Connection } from "@solana/web3.js";
 import {
-  KANAL_PROGRAMM_ID, alsWeb3, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, leseKonto, msatZuLamports,
+  KANAL_PROGRAMM_ID, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, leseKonto, msatZuLamports,
   neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, type Instruction, type KanalEmpfaenger, type KanalStand, type SolRpc,
 } from "@freedomstack/protocol";
-import type { WalletSigner } from "./sol-htlc.js";
+import { signiertVonWallet, type WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
@@ -189,20 +189,15 @@ export function planeKanal(p: {
 
 /**
  * Anweisungen (kit, A-21b2) mit der Wallet signieren und senden – mit Vorabsimulation,
- * bis bestätigt. Die Transaktion baut bis A-21d noch web3.js (`alsWeb3()`).
+ * bis bestätigt. Die Transaktion baut seit A-21d2 kit (`signiertVonWallet()`).
  */
 export async function sendeMitWallet(
   conn: Connection, wallet: WalletSigner, ixs: Instruction[], fortschritt?: (schritt: string) => void,
 ): Promise<string> {
-  const { PublicKey, Transaction } = await import("@solana/web3.js");
-  const tx = new Transaction().add(...ixs.map(alsWeb3));
   fortschritt?.(t("zahl.warteWallet"));
-  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(wallet.publicKey.toBase58());
-  const signiert = (await wallet.signTransaction(tx)) as import("@solana/web3.js").Transaction;
+  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(conn, wallet, ixs);
   fortschritt?.(t("zahl.wirdGesendet"));
-  const signatur = await conn.sendRawTransaction(signiert.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+  const signatur = await conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" });
   fortschritt?.(t("zahl.warteKette"));
   const best = await conn.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
   if (best.value.err) throw new Error(t("zahl.txAbgelehnt", { fehler: JSON.stringify(best.value.err) }));

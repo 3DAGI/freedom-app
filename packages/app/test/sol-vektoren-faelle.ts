@@ -4,8 +4,8 @@
  * Verbindung und Wallet sind Attrappen: Die Verbindung nennt den festen Blockhash und
  * merkt, was gesendet wird; die Wallet signiert mit einem festen Schlüssel.
  */
-import { Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { kanalAdresse, oeffneKanalAnweisung, stockeKanalAufAnweisung } from "@freedomstack/protocol";
+import { Keypair, VersionedTransaction } from "@solana/web3.js";
+import { kanalAdresse, oeffneKanalAnweisung, signiereMit, stockeKanalAufAnweisung } from "@freedomstack/protocol";
 import { lockDeposit, lockRueckSwap, refundDepositOnChain, type WalletSigner } from "../src/sol-htlc.js";
 import { claimSwap } from "../src/swap-client.js";
 import { baueRelayEinloesung } from "../src/relay-einloesung.js";
@@ -32,9 +32,10 @@ function attrappe(): { connection: never; gesendet: Uint8Array[] } {
   return { connection: connection as never, gesendet };
 }
 
+/** Seit A-21d2 bekommt die Wallet eine Transaktion aus kit und signiert über `signiereMit()`. */
 const wallet = (n: number): WalletSigner => ({
   publicKey: schluessel(n).publicKey,
-  signTransaction: async (tx) => { (tx as Transaction).partialSign(schluessel(n)); return tx; },
+  signiereTransaktion: async (tx) => signiereMit(tx, new Uint8Array(32).fill(n))!,
 });
 
 /** Genau eine gesendete Transaktion → ihre Nachricht. */
@@ -71,8 +72,9 @@ export async function appFaelle(): Promise<Record<string, string>> {
       kunde: KUNDE, provider: PROVIDER, nonce: 7n, betrag: 50_000_000n, ablauf: 1_800_000_000n, sitzungsSchluessel: sitzung, empfaenger,
     })])),
     "kanal-aufstocken": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [stockeKanalAufAnweisung({ kunde: KUNDE, kanal, betrag: 10_000_000n })])),
-    "ueberweisung": alsText((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, undefined, attrappe().connection) as Transaction).serializeMessage()),
-    "ueberweisung-referenz": alsText((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, adresse(12), attrappe().connection) as Transaction).serializeMessage()),
+    // Seit A-21d2 baut kit die Überweisung – die Nachricht steht in `messageBytes`
+    "ueberweisung": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, undefined, attrappe().connection)).messageBytes)),
+    "ueberweisung-referenz": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, adresse(12), attrappe().connection)).messageBytes)),
   };
 }
 

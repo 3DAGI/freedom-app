@@ -10,10 +10,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { Keypair, PublicKey, type Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   AccountRole, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, SICHERUNG_NIE, fromHex, kanalAdresse, leseGutschriftTags, msatZuLamports,
   neuerSitzungsSchluessel, poolRpc, pruefeGutschrift, RpcPool, signiereGutschrift, toHex, type KanalStand,
+  erstatteKanalAnweisung, leseNachricht, type GeleseneNachricht, type SolTransaktion,
 } from "@freedomstack/protocol";
 import {
   KANAL_NUTZBAR_SEK, KanalBuch, LS_KANAELE, bedarfLamports, erstatteKanaele, kanalAufKette, planeKanal, programmBereit, type KanalEintrag,
@@ -152,7 +153,7 @@ function kontoDaten(k: string, eingezahlt = 1_000_000n): Buffer {
 }
 
 function kette(konten: Map<string, { owner: string; data: Buffer }>) {
-  const gesendet: Transaction[] = [];
+  const gesendet: GeleseneNachricht[] = [];
   const conn = {
     getAccountInfo: async (p: PublicKey) => {
       const k = konten.get(p.toBase58());
@@ -164,7 +165,8 @@ function kette(konten: Map<string, { owner: string; data: Buffer }>) {
   };
   const wallet = {
     publicKey: { toBase58: () => kunde },
-    signTransaction: async (tx: unknown) => { gesendet.push(tx as Transaction); return { serialize: () => Buffer.alloc(0) }; },
+    // Seit A-21d2 eine Transaktion aus kit – die Attrappe merkt, was sie lesen kann
+    signiereTransaktion: async (tx: SolTransaktion) => { gesendet.push(leseNachricht(tx)); return tx; },
   };
   return { conn: conn as unknown as import("@solana/web3.js").Connection, wallet, gesendet };
 }
@@ -183,9 +185,12 @@ test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; r
   assert.deepEqual(await runner.offen!([offen, fremdesProgramm, weg], "kanal"), [offen]);
   const r = await runner.refund([offen], "kanal");
   assert.deepEqual(r, { signature: "sig1", refunded: [offen], failed: [] });
-  const [ix] = k.gesendet[0]!.instructions;
-  assert.equal(ix!.programId.toBase58(), KANAL_PROGRAMM_ID);
-  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner]), [[kunde, false], [offen, false]]);
+  const [ix] = k.gesendet[0]!.anweisungen;
+  assert.equal(ix!.programm, KANAL_PROGRAMM_ID);
+  // Seit A-21d2 liest die Attrappe die fertige Nachricht: Hier zahlt der Kunde selbst die Gebühr und
+  // unterschreibt nur deshalb. Die Anweisung verlangt seine Unterschrift nicht (Z1).
+  assert.deepEqual(ix!.konten.map((x) => [x.adresse, x.signiert]), [[kunde, true], [offen, false]]);
+  assert.deepEqual(erstatteKanalAnweisung({ kunde, kanal: offen }).accounts!.map((x) => x.role), [AccountRole.WRITABLE, AccountRole.WRITABLE]);
 });
 
 test("Rückholen (Z1): Kanal einer anderen Wallet – das Geld geht an deren Adresse, diese Wallet zahlt nur die Gebühr", async () => {
@@ -195,10 +200,10 @@ test("Rückholen (Z1): Kanal einer anderen Wallet – das Geld geht an deren Adr
   const r = await erstatteKanaele(k.conn, k.wallet, [kanalFremd]);
   assert.deepEqual(r, { signature: "sig1", refunded: [kanalFremd], failed: [] });
   const tx = k.gesendet[0]!;
-  const [ix] = tx.instructions;
-  assert.deepEqual(ix!.keys.map((x) => [x.pubkey.toBase58(), x.isSigner, x.isWritable]), [[fremd, false, true], [kanalFremd, false, true]], "Empfänger ist der Kunde auf der Kette");
+  const [ix] = tx.anweisungen;
+  assert.deepEqual(ix!.konten.map((x) => [x.adresse, x.signiert, x.schreibbar]), [[fremd, false, true], [kanalFremd, false, true]], "Empfänger ist der Kunde auf der Kette");
   assert.notEqual(fremd, kunde);
-  assert.equal(tx.feePayer?.toBase58(), kunde, "die Gebühr zahlt diese Wallet");
+  assert.equal(tx.zahler, kunde, "die Gebühr zahlt diese Wallet");
 });
 
 test("Wächter: gibt die Art der Sperre an den Runner – ein Kanal wird wie ein Kanal zurückgeholt", async () => {

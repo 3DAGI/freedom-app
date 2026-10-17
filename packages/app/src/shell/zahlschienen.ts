@@ -12,7 +12,8 @@ import { t } from "../i18n.js";
 import { offlineGrund } from "../protokoll-texte.js";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
-import { type EingebauteSolWallet, type SignierbareTx, waehleAbsender } from "../sol-wallet.js";
+import { type EingebauteSolWallet, waehleAbsender } from "../sol-wallet.js";
+import type { SolAnbieter } from "../solana-connect.js";
 import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
 import { NWC_VERLAUF_MAX, leseWalletBuchungen, merkeZahlung, type WalletBuchung } from "../zahlungsbuch.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit, frischeEmpfangsadresse } from "./eingebaute-wallet.js";
@@ -45,31 +46,27 @@ export async function eigeneSolAdresse(): Promise<{ adresse: string; art: "frisc
 }
 
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
-type Anbieter = {
-  signAndSendTransaction?(tx: unknown): Promise<{ signature: string }>;
-  signTransaction?(tx: unknown): Promise<unknown>;
-};
-
-/** Eine signierte Transaktion ueber den RPC-Pool abschicken. */
-async function sende(signiert: unknown): Promise<string> {
+/** Eine signierte Transaktion (kit, A-21d2) ueber den RPC-Pool abschicken. */
+async function sende(signiert: SolTransaktion): Promise<string> {
   const { Connection } = await import("@solana/web3.js");
-  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction((signiert as { serialize(): Uint8Array }).serialize());
+  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(alsDraht(signiert));
 }
 
 /**
  * Signieren und senden: Kann die Wallet selbst senden, tut sie es; sonst
  * signiert sie, und die App schickt die Transaktion ueber den RPC-Pool ab.
+ * Die Ueberweisung baut `buildSolTransfer()` seit A-21d2 mit kit.
  */
-async function signiereUndSende(anbieter: Anbieter | undefined, tx: unknown): Promise<string> {
-  if (anbieter?.signAndSendTransaction) return (await anbieter.signAndSendTransaction(tx)).signature;
-  if (!anbieter?.signTransaction) throw new Error(t("zahl.walletKannNichtSignieren"));
-  return sende(await anbieter.signTransaction(tx));
+async function signiereUndSende(anbieter: SolAnbieter | undefined, tx: SolTransaktion): Promise<string> {
+  if (anbieter?.signiereUndSendeTransaktion) return (await anbieter.signiereUndSendeTransaktion(tx)).signature;
+  if (!anbieter?.signiereTransaktion) throw new Error(t("zahl.walletKannNichtSignieren"));
+  return sende(await anbieter.signiereTransaktion(tx));
 }
 
 /** Verbundene Wallet vor eingebauter: Wer eine verbindet, will sie benutzen. */
 function solanaWallet(): SolanaWalletZugang | undefined {
   const w = verbundeneSolanaWallet();
-  if (w) return { adresse: w.adresse, signiereUndSende: (tx) => signiereUndSende(w.provider as Anbieter | undefined, tx) };
+  if (w) return { adresse: w.adresse, signiereUndSende: (tx) => signiereUndSende(w.provider, tx as SolTransaktion) };
   const e = benutzbareEingebauteWallet();
   const adresse = e?.adresse();
   if (!e || !adresse) return undefined;
@@ -84,10 +81,7 @@ function solanaWallet(): SolanaWalletZugang | undefined {
       return waehleAbsender(guthaben, lamports);
     },
     freigabe: (lamports, ziel) => e.freigabe(lamports, ziel, bestaetigeUeberLimit),
-    signiereUndSende: async (tx) => {
-      e.signiere(tx as SignierbareTx);
-      return sende(tx);
-    },
+    signiereUndSende: async (tx) => sende(e.signiereTransaktion(tx as SolTransaktion)),
   };
 }
 
