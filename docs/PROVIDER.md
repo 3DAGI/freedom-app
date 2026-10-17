@@ -524,7 +524,17 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Code – nie direkt auf dem Rechner. **Unter Docker** sperrt das
   Standard-Seccomp meist Nutzer-Namensräume; dann meldet die Prüfung das. Ubuntu ab 24.04
   kann sie per AppArmor sperren (`kernel.apparmor_restrict_unprivileged_userns`).
-  Den Agenten startet der Knoten darin erst mit VKc3.
+- **Agent (seit VKc3a):** Hermes Agent (Nous Research, MIT) über ACP, nur in der
+  Sandbox. Der Knoten sucht ihn als venv in `HERMES_ORDNER` (Vorgabe `/opt/hermes`,
+  mit `bin/python` und `bin/hermes-acp`, etwa `python3 -m venv /opt/hermes &&
+  /opt/hermes/bin/pip install 'hermes-agent[acp]==0.19.0'`; das Python dazu muss
+  unter `/usr` liegen). Das Docker-Bild bringt ihn mit VKc3b. Das Modell erreicht
+  Hermes nur über eine Brücke des Knotens zum eigenen Antrieb (Ollama oder `KI_URL`) –
+  kein Nous Portal, kein Dienst im Internet. Welches Modell: `CODE_MODELL`, sonst das
+  erste im Angebot; es muss Werkzeuge aufrufen können (Tool-Calling), und Ollama
+  braucht langen Kontext (`OLLAMA_CONTEXT_LENGTH=65536`). Gedächtnis und Skills von
+  Hermes liegen je Projekt in `~/.freedom/hermes/<projekt>`, nie im Repo. Fehlt
+  Hermes, steht es im Log, und Aufträge werden mit `code-ohne-motor` abgelehnt.
 
 ## Gratis-Start (A-14)
 

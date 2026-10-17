@@ -51,6 +51,11 @@ export interface SandboxOrt {
   arbeit: string;
   /** Ein eigenes Home (z. B. `~/.hermes` je Projekt, VKc3) – als `/home/agent` schreibbar; sonst ein tmpfs. */
   home?: string;
+  /**
+   * Weitere Orte nur lesbar (VKc3): der Motor (Hermes außerhalb von `/usr`), sein Startskript und der Ordner
+   * mit dem Socket der Brücke zum Modell – verbinden geht auch nur lesbar. Ziele absolut, nie unter `/arbeit`.
+   */
+  nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
   /** GPU (NVIDIA, DRI) einbinden – nur auf Wunsch (VKb). */
   gpu?: boolean;
   /** Programm für bubblewrap (Test). */
@@ -106,6 +111,10 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
   ];
   // .git nur lesbar: ein Filter oder fsmonitor aus `.git/config` liefe sonst beim Commit im Knoten (VKc2)
   if (existsSync(join(o.arbeit, ".git"))) a.push("--ro-bind", join(o.arbeit, ".git"), "/arbeit/.git");
+  for (const { quelle, ziel } of o.nurLesbar ?? []) {
+    if (!ziel.startsWith("/") || ziel === "/arbeit" || ziel.startsWith("/arbeit/") || ziel.split("/").includes("..")) throw new Error("Ziel ungültig");
+    a.push("--ro-bind", quelle, ziel);
+  }
   if (o.gpu) {
     for (const g of ["/dev/nvidiactl", "/dev/nvidia-uvm", "/dev/nvidia0", "/dev/dri"]) if (existsSync(g)) a.push("--dev-bind", g, g);
   }
@@ -220,11 +229,16 @@ export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
  * `home(ordner)` nennt ein eigenes Home außerhalb des Repos (VKc3: `~/.hermes` je Projekt).
  * stderr des Motors geht nirgends hin – er kann Fremdtext tragen.
  */
-export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: string) => string; gpu?: boolean; bwrap?: string } = {}): MotorStart {
+export function sandboxMotor(befehl: readonly string[], o: {
+  home?: (ordner: string) => string; nurLesbar?: SandboxOrt["nurLesbar"]; gpu?: boolean; bwrap?: string;
+} = {}): MotorStart {
   if (befehl.length === 0 || befehl.some((t) => t === "")) throw new Error("Motor-Befehl leer");
   return (ordner) => {
     const etc = eigenesEtc();
-    const ort: SandboxOrt = { arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}) };
+    const ort: SandboxOrt = {
+      arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.nurLesbar ? { nurLesbar: o.nurLesbar } : {}),
+      ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}),
+    };
     const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
       stdio: ["pipe", "pipe", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
     });
@@ -233,6 +247,7 @@ export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: str
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
       beende: () => { if (kind.exitCode === null && kind.signalCode === null) kind.kill("SIGTERM"); },
+      ort: "/arbeit",
     };
   };
 }

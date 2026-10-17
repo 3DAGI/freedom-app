@@ -11211,3 +11211,41 @@ der Anweisung geprüft – in der fertigen Nachricht unterschreibt der Gebühren
 
 Knoten-Stand: nicht berührt. MENSCH: einmal mit Phantom oder Solflare auf Devnet sperren, einlösen, zurückholen und den
 Zahlkanal öffnen.
+
+## Schritt VKc3a – Hermes als Motor in der Sandbox: Brücke zum Modell und Start
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C, VK4, „Seit VKb“). Übernommen von Spur C am 17.10. (MENSCH: Spur A im
+Nutzungslimit, „Arbeite alle Punkte ab“). VKc3 ist in zwei Teile geteilt: a Knoten (Brücke, Start, Konfiguration),
+b Hermes ins Docker-Bild.
+
+**Neu:**
+- `node/src/modell-bruecke.ts` – `oeffneModellBruecke()`: ein Unix-Socket in einem eigenen Ordner (0700), dahinter nur
+  `GET /v1/models` und `POST /v1/chat/completions` des eigenen Antriebs (Ollama über `/v1`, sonst `KI_URL`); der Schlüssel
+  (`KI_SCHLUESSEL`) kommt erst hier dazu, Kopfzeilen aus der Sandbox gehen nicht weiter, Anfragen bis 16 MiB, Antworten
+  als Strom, nach außen feste Texte, nichts ins Log.
+- `node/motor/freedom_motor.py` – Startskript in der Sandbox (nur Standardbibliothek): reicht `127.0.0.1:8080` im
+  eigenen Netz-Namensraum an den Socket weiter und startet den Motor mit stdin/stdout des Knotens (ACP).
+- `node/src/hermes-motor.ts` – `hermesAusUmgebung()` (`HERMES_ORDNER`, Vorgabe `/opt/hermes`; `CODE_MODELL`),
+  `hermesKonfiguration()` (Modell `custom` über die Brücke, Freigaben `manual`, keine Nachinstallation),
+  `hermesMotor()`: vor jedem Start `config.yaml` ins Home des Projekts (`~/.freedom/hermes/<projekt>`, nie ins Repo,
+  ohne Verweisen zu folgen), dann Hermes über das Startskript in der Sandbox – venv, Skript und Socket nur lesbar.
+- `sandbox.ts`: `nurLesbar` (weitere Orte nur lesbar, nie unter `/arbeit`), `sandboxMotor()` nennt seinen Ort
+  (`/arbeit`); `code-motor.ts` gibt ihn in `session/new` weiter, Freigaben ohne Antwort nach 60 s abgelehnt (wie Hermes
+  über ACP, vorher 300 s).
+- **Verdrahtet:** `main.ts` baut `CodeLaeufe` mit `hermesMotor()`, sobald `VIBECODEN=1`, die Sandbox geht und Hermes da
+  ist (`[code] Motor Hermes in der Sandbox an`); sonst bleibt es bei `code-ohne-motor`. Ungültige Werte halten den Start
+  an. `npm run pruefen` nennt Hermes.
+
+**Befund aus dem Quelltext von Hermes 0.19.0** (PyPI, MIT, Nous Research; hier nicht ausgeführt – die Umgebung lässt
+Fremdcode nicht laufen): Über ACP fragt Hermes vor Änderungen an Dateien und vor Befehlen, die er für riskant hält, nicht
+vor jedem Befehl; Freigaben tragen eigene Kennungen (`perm-check-N`, `edit-approval-N`) und gelten nach 60 s als
+abgelehnt. `PROTOCOL.md` §34 sagt das jetzt.
+
+**Tests:** node +8 (`hermes-motor.test.ts`: Brücke nur zwei Wege, Schlüssel erst im Knoten, 413 und 502 mit festem
+Text; Umgebung; Konfiguration; Verweis statt `config.yaml` bzw. statt des Homes; `nurLesbar` nie unter `/arbeit`; mit
+echtem bubblewrap durch Startskript und Brücke zum Modell, der Antrieb direkt nicht erreichbar, der Ordner des Sockets
+nicht beschreibbar; `session/new` mit `/arbeit`).
+
+Knoten-Stand: neu für den Motor; ohne `VIBECODEN=1` ändert sich nichts. MENSCH: auf dem GX10 Hermes 0.19.0 als venv in
+`/opt/hermes` (oder mit VKc3b das Docker-Bild), ein Coding-Modell mit Tool-Calling (`CODE_MODELL`,
+`OLLAMA_CONTEXT_LENGTH=65536`), dann vom Handy einen Auftrag geben.

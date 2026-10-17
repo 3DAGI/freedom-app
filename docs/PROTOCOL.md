@@ -1218,8 +1218,11 @@ Kennungen.
   vorliegt. Die Reihenfolge der Umschläge sagt nichts (Zeitstempel nach NIP-59):
   die App ordnet nach `nr`, `befehl` vor `ausgabe`.
 - `freigabe` wählt beim Motor „einmal erlauben“ bzw. „einmal ablehnen“, nie „immer“.
-  Ohne Antwort nach 300 s gilt „nein“. Im Modus `frei` erlaubt der Knoten jeden
-  Befehl einzeln selbst.
+  Ohne Antwort nach 60 s gilt „nein“ (wie Hermes über ACP). Im Modus `frei` erlaubt der
+  Knoten jeden Befehl einzeln selbst.
+- Wann ein Schritt wartet, entscheidet der Motor: Hermes (seit VKc3) fragt vor jeder
+  Änderung an Dateien und vor Befehlen, die er für riskant hält – nicht vor jedem Befehl.
+  Eine Freigabe kann ein eigener Schritt sein, ohne `ausgabe`.
 - `stopp` bricht den Lauf ab (`gestoppt`); nach 60 min bricht der Knoten selbst ab
   (`grenze`), ebenso nach 200 Schritten.
 - `freigabe` und `stopp` antworten `ok: false`, wenn der Schritt nicht wartet bzw.

@@ -329,3 +329,15 @@ Bereichs unten anhängen.
   G1 – nie über eine Sitzung (38021) mit Budget ohne Deckung. Versiegelte Sitzungen und Belege (38021/38022) verwirft
   `oeffnePrivat()`; ein Auftrag mit `session` ohne Hinterlegung bekommt die Absage „bitte mit Gebot fragen“. Nicht
   wieder einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.
+- **Der Motor nur über `hermesMotor()` und die Brücke** (seit VKc3a, `hermes-motor.ts`, `modell-bruecke.ts`): Hermes läuft
+  nur in der Sandbox (`sandboxMotor()`); sein venv (`HERMES_ORDNER`), das Startskript `motor/freedom_motor.py` und der
+  Ordner des Sockets kommen nur lesbar hinein (`nurLesbar`, nie unter `/arbeit`). Das Modell erreicht er nur über
+  `oeffneModellBruecke()` – genau `GET /v1/models` und `POST /v1/chat/completions` des eigenen Antriebs, der Schlüssel
+  erst dort, Kopfzeilen aus der Sandbox nie weiter, nach außen feste Texte; nie der Sandbox das Netz geben. `config.yaml`
+  schreibt der Knoten vor jedem Start neu ins Home des Projekts (`~/.freedom/hermes/<projekt>`, nie ins Repo) – nur in
+  echte Ordner und ohne Verweisen zu folgen (`O_NOFOLLOW` nach dem Löschen): Das Home ist in der Sandbox schreibbar,
+  ein Verweis auf `~/.freedom/node-key` ließe den Knoten sonst außerhalb schreiben. Den Projektordner sieht der Motor
+  als `/arbeit` (`MotorVerbindung.ort` für `session/new`). Hermes fragt über ACP vor Änderungen an Dateien und vor
+  riskanten Befehlen, mit eigener Kennung (`perm-check-N`, `edit-approval-N`) und nach 60 s abgelehnt – nie „jeder
+  Befehl wartet“ versprechen. Hermes selbst läuft in dieser Umgebung nicht (Fremdcode); Tests ersetzen ihn hinter
+  demselben Startskript, den Echttest macht der MENSCH.
