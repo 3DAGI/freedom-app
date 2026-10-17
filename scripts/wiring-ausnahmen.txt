@@ -126,7 +126,6 @@ pricing.ts|videoPriceSats|Preise für Text und Video, noch nicht angebunden (Pre
 privacy-audit.ts|mixnetImpact|Auswirkung eines Mixnetzes, ohne Oberfläche (Verkehrsmuster, 6.4)
 
 private-job.ts|openPrivateJobRequest|Öffner nur für Anfragen (3.1); der Knoten nutzt seit 3.2d openPrivateKundenEvent, das auch Sitzungs-Events annimmt
-private-job.ts|buildPrivateSessionEvent|Sitzung auf Kredit (38021/38022): weder App (RM2c3) noch Knoten (RM2c4a) nutzen sie mehr – nur Tests bauen sie, für die Absage; fallen mit RM2c4b
 
 
 
@@ -149,12 +148,6 @@ spaces.ts|searchMessages|Suche in Raum-Nachrichten, ohne Oberfläche – die lok
 
 state-backup.ts|stateFingerprint|Prüfsumme für eine automatische Sicherung bei Änderung – die App sichert von Hand (8.12)
 
-stream.ts|amountDue|Streaming-Abrechnung: fälliger Betrag, noch nicht angebunden (PaymentRail, 4.1)
-stream.ts|checkSessionLedger|Sitzung auf Kredit: der Knoten liest seit RM2c4a keine Sitzungen und Belege mehr – nur Tests; fällt mit RM2c4b
-stream.ts|parseSessionOpen|Sitzung auf Kredit: der Knoten liest seit RM2c4a keine Sitzungen und Belege mehr – nur Tests; fällt mit RM2c4b
-stream.ts|parseSessionPayment|Sitzung auf Kredit: der Knoten liest seit RM2c4a keine Sitzungen und Belege mehr – nur Tests; fällt mit RM2c4b
-stream.ts|buildSessionOpen|Sitzung auf Kredit (38021): weder App (RM2c3) noch Knoten (RM2c4a) nutzen sie mehr – nur Tests bauen sie, für die Absage; fallen mit RM2c4b
-stream.ts|buildSessionPayment|Beleg einer Sitzung (38022): weder App (RM2c3) noch Knoten (RM2c4a) nutzen sie mehr – nur Tests bauen sie, für die Absage; fallen mit RM2c4b
 
 swap-privacy.ts|swapPrivacyInfo|Hinweistext zu Swap-Adressen, ohne Oberfläche (Privatsphäre auf Solana, 4.9)
 swap-privacy.ts|swapPrivacyCheck|Gesamtbericht mit deutschen Sätzen; die App ruft seit 8.16e die Einzelprüfungen (checkReuse, checkAmount, checkTiming) über tauschPruefung() und bildet die Texte in der Sprache der Oberfläche

@@ -128,7 +128,7 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | 38010 | Performance-Beleg (Worker, Season) |
 | 38011 / 38012 | *nicht mehr belegt* (Reward-Payout-Nachweis, Saison mit Pool-Regeln; nie veröffentlicht, entfernt mit 5.1.4d) |
 | 38013 | *nicht mehr belegt* (Reward-Claim, bis 5.1.4b) |
-| 38020–38022 | Sessions (Open/Payment/Close) – weder App (seit RM2c3) noch Knoten (seit RM2c4a) nutzen sie (§38) |
+| 38020–38022 | frei geworden: Sitzung auf Kredit (Open/Payment/Close), fiel mit RM2c3, RM2c4a und RM2c4b (§38) – nicht wiederverwenden |
 | 38027 | Provider-Capabilities (models, tools, storage, relay; Gratis-Start §30). Speicher: `["storage", <kapazität-bytes>, <msat-je-MB>, <bootstrap 0/1>, <gratis-bytes?>]` – der vierte Wert seit E9-2: bis zu dieser Größe einer Datei hält der Knoten gratis (ganze Zahl bis 2⁴⁰, sonst keine Angabe; `leseSpeicherGratis()`). Eine netzweite Gratis-Schwelle gibt es nicht |
 | 38028 | Cluster-Angebot: Gerät als Hälfte eines Paars verfügbar (§36, seit E9-1 – vorher lag es auf 38026, dem Kurs-Ticker) |
 | 38030 / 38031 | *nicht mehr belegt* (Mesh-Paket / Kurier-Zustellbeleg; nie angebunden, entfernt mit B-21 – über Mesh geht seit 7.1 nur der Umschlag) |
@@ -1377,5 +1377,7 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   ganze sats fällig sind – Kredit höchstens eine Antwort; der Rest unter einem sat wartet auf die nächste Antwort desselben
   Sitzungsschlüssels oder auf das Begleichen beim Wechsel der Unterhaltung. Seit RM2c4a nimmt auch der Knoten keine Sitzung
   und keine Belege mehr an: Ein Auftrag mit `session`, hinter dem keine SOL-Hinterlegung steht (bis E8), wird abgesagt
-  („bitte mit Gebot fragen“) oder nach G1 gratis bedient – nie mehr auf Kredit.
+  („bitte mit Gebot fragen“) oder nach G1 gratis bedient – nie mehr auf Kredit. Seit RM2c4b gibt es die Bausteine dafür nicht
+  mehr (`stream.ts`, `buildPrivateSessionEvent()`); `openPrivateKundenEvent()` nimmt versiegelte Sitzungen und Belege nicht
+  mehr an.
 - **Noch nicht:** „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).

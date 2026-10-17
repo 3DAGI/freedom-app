@@ -53,7 +53,6 @@ export * from "./performance.js";
 export * from "./dm.js";
 export * from "./blob.js";
 export * from "./git.js";
-export * from "./stream.js";
 export * from "./sol-deposit.js";
 export * from "./tiers.js";
 export * from "./gratis.js";

@@ -38,7 +38,7 @@
 import { type NostrEvent, type UnsignedEvent, computeEventId, getTag, verifyEvent } from "./event.js";
 import { KIND_GIFT_WRAP, giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import { KIND_DISPUTE_RESOLUTION, KIND_JOB_DISPUTE, PRUEFMATERIAL_MAX_ZEICHEN } from "./disputes-relays.js";
-import { KIND_DVM_FEEDBACK, KIND_SESSION_OPEN, KIND_SESSION_PAYMENT, isDvmRequest, isDvmResult } from "./kinds.js";
+import { KIND_DVM_FEEDBACK, isDvmRequest, isDvmResult } from "./kinds.js";
 import { eventDifficulty } from "./pow.js";
 import type { Signer } from "./signer.js";
 
@@ -67,27 +67,6 @@ export async function buildPrivateJobRequest(p: PrivateJobInput): Promise<{ wrap
     fixedJitter: 0, nowSecs: p.nowSecs, powBits: bits,
   });
   return { wrap, requestId: computeEventId(p.request) };
-}
-
-/** Sitzung (38021) und Belege (38022) des Kunden – seit 3.2 ebenfalls nur versiegelt. */
-function istSitzungsEvent(kind: number): boolean {
-  return kind === KIND_SESSION_OPEN || kind === KIND_SESSION_PAYMENT;
-}
-
-/**
- * Sitzungseroeffnung oder Beleg versiegelt an den Provider (Schritt 3.2) –
- * Budget, Rate und bezahlte Summen stehen dann in keinem oeffentlichen Event.
- */
-export async function buildPrivateSessionEvent(p: {
-  event: UnsignedEvent; sessionSigner: Signer; providerPk: string; powBits?: number; nowSecs?: number;
-}): Promise<{ wrap: NostrEvent; eventId: string }> {
-  if (!istSitzungsEvent(p.event.kind)) throw new Error(`Kein Sitzungs-Event: Kind ${p.event.kind}`);
-  if (!HEX64.test(p.providerPk)) throw new Error("Provider-Pubkey ungültig (64 Zeichen hex erwartet)");
-  if (p.event.pubkey !== p.sessionSigner.publicKey()) throw new Error("Event gehört nicht zum Sitzungsschlüssel");
-  const bits = p.powBits ?? 0;
-  if (!Number.isInteger(bits) || bits < 0 || bits > MAX_POW_BITS) throw new Error(`Rechenarbeit ${bits} außerhalb 0–${MAX_POW_BITS}`);
-  const wrap = await giftWrapMitSigner(p.event, p.sessionSigner, p.providerPk, { fixedJitter: 0, nowSecs: p.nowSecs, powBits: bits });
-  return { wrap, eventId: computeEventId(p.event) };
 }
 
 /** Empfaenger einer Reklamation: der Provider und hoechstens ein Pruefer. */
@@ -207,8 +186,7 @@ export async function openPrivateJobRequest(
 }
 
 /**
- * Wie openPrivateJobRequest, nimmt aber auch Sitzung (38021) und Belege
- * (38022) an (Schritt 3.2) sowie Reklamationen (38072, Schritt 3.4) – auch als
+ * Wie openPrivateJobRequest, nimmt aber auch Reklamationen (38072, Schritt 3.4) – auch als
  * Pruefer, an den der Umschlag geht – und Urteile (38073, Schritt 5.6) ueber
  * Reklamationen gegen diesen Provider; deren Absender ist der Pruefer.
  */
@@ -219,8 +197,9 @@ export async function openPrivateKundenEvent(
 ): Promise<GeoeffneterJob> {
   return oeffneVomKunden(
     wrap, providerSigner, minPowBits,
-    (k) => isDvmRequest(k) || istSitzungsEvent(k) || k === KIND_JOB_DISPUTE || k === KIND_DISPUTE_RESOLUTION,
-    "Weder Anfrage noch Sitzungs-Event noch Reklamation noch Urteil",
+    // Sitzung (38021) und Belege (38022) nicht mehr – die Sitzung auf Kredit fiel mit RM2c3/RM2c4
+    (k) => isDvmRequest(k) || k === KIND_JOB_DISPUTE || k === KIND_DISPUTE_RESOLUTION,
+    "Weder Anfrage noch Reklamation noch Urteil",
   );
 }
 

@@ -186,14 +186,14 @@ Spark-Wallet, dazu Cashu für kleine Beträge (NUT-11, NUT-12), immer mit der Mi
 | RM2c2 | App: verdrahten – Pfand im Kern der Anfrage statt Sitzung, Buchung nach der Antwort, Rückweg im Abruftakt; Grenze „cashu-pfand“ im Bericht | A | ~250 – **fertig** (16.10.: `app/src/shell/ki-pfand.ts`) |
 | RM2c3 | App: die Sitzung auf Kredit fällt weg (38021 ohne Zahlung, Fenster ohne Deckung) – ohne Pfand Gebot je Auftrag, bezahlt nach der Antwort | A | ~150 – **fertig** (16.10.: `app/src/session-client.ts` nur noch das Konto je Provider und Schlüssel) |
 | RM2c4a | Knoten: keine Sitzung auf Kredit mehr – eine Anfrage mit `session` ohne SOL-Hinterlegung wird abgesagt („bitte mit Gebot fragen“) oder nach G1 gratis bedient; `validateSession()` und das Merken versiegelter Sitzungen und Belege fallen | A | ~150 – **fertig** (17.10.: `node/src/dvm-provider.ts`) |
-| RM2c4b | Protokoll: die Bausteine der Sitzung fallen – `stream.ts` (`buildSessionOpen()`, `parseSessionOpen()`, `buildSessionPayment()`, `parseSessionPayment()`, `checkSessionLedger()`, `amountDue()`), `buildPrivateSessionEvent()`, Ausnahmen in `wiring-ausnahmen.txt`; 38020–38022 nicht wiederverwenden; Aussage „ki-zahlung“ ohne Sitzungen und Belege | A | ~250 (meist Löschungen) |
+| RM2c4b | Protokoll: die Bausteine der Sitzung fallen – `stream.ts` (`buildSessionOpen()`, `parseSessionOpen()`, `buildSessionPayment()`, `parseSessionPayment()`, `checkSessionLedger()`, `amountDue()`), `buildPrivateSessionEvent()`, Ausnahmen in `wiring-ausnahmen.txt`; 38020–38022 nicht wiederverwenden; Aussage „ki-zahlung“ ohne Sitzungen und Belege | A | ~250 (meist Löschungen) – **fertig** (17.10.: `protocol/src/stream.ts` entfernt) |
 | RM2d | Oberfläche: „Guthaben laden“ statt Budget-Sitzung, Mint und „verwahrt“ sichtbar | C | ~200 |
 
 - **Reihenfolge:** nach A-17c (Cashu-Baustein).
 - **Neue Abhängigkeit im Knoten:** `@cashu/cashu-ts` 4.11.0, MIT oder Apache-2.0, rund 2 MB
   entpackt, Abhängigkeiten `@noble`/`@scure`. Für die App ist sie schon mit E4b freigegeben.
 - **Die Prüfung ohne Mint (RM2a)** geht mit `@noble/curves`, das schon im Protokoll ist.
-- **Seit RM2c3** eröffnet die App keine Sitzung mehr, **seit RM2c4a** bedient auch der Knoten keine mehr; die Bausteine im Protokoll fallen mit RM2c4b.
+- **Seit RM2c3** eröffnet die App keine Sitzung mehr, **seit RM2c4a** bedient auch der Knoten keine mehr, **seit RM2c4b** gibt es die Bausteine nicht mehr. Offen ist nur noch RM2d (Spur C).
 
 ## Fragen an den MENSCHEN
 

@@ -15,7 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   KIND_DVM_TEXT_GENERATION, LocalSigner, MemoryRelay, OutboxPool, buildEvent, buildJobRequest,
-  buildDispute, buildPrivateDispute, buildPrivateUrteil, buildResolution, buildPrivateJobRequest, buildPrivateSessionEvent, buildSessionOpen, buildSessionPayment, eventDifficulty,
+  buildDispute, buildPrivateDispute, buildPrivateUrteil, buildResolution, buildPrivateJobRequest, eventDifficulty, giftWrapMitSigner,
   generateKeypair, getTag, openPrivateJobResponse, parseJobResult,
   regelKeineZahlungsdaten, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
@@ -160,14 +160,15 @@ test("privat: Wiederholung zaehlt einmal – derselbe Umschlag und dieselbe Anfr
 // ---------------------------------------------------------------- Sitzung und Belege versiegelt (3.2d) – seit RM2c4 abgesagt
 
 async function privateSitzung(providerPk: string, sitzung: LocalSigner, sessionId: string, bezahltMsat?: number) {
-  const events = [buildSessionOpen({
-    customerPubkey: sitzung.publicKey(), providerPubkey: providerPk, sessionId,
-    maxTotalMsat: 100_000, maxRatePerKTokenMsat: 1000, settleEveryMsat: 10_000, ttlSecs: 3600,
-  })];
+  // Wie ältere Apps (3.2e bis RM2c3): Eröffnung (38021) und Beleg (38022) versiegelt an den Provider
+  const events = [buildEvent(sitzung.publicKey(), 38021, [
+    ["d", sessionId], ["p", providerPk], ["max_total_msat", "100000"], ["max_rate_per_ktoken_msat", "1000"],
+    ["settle_every_msat", "10000"], ["expiration", String(Math.floor(Date.now() / 1000) + 3600)],
+  ], "")];
   if (bezahltMsat !== undefined) {
-    events.push(buildSessionPayment({ customerPubkey: sitzung.publicKey(), sessionId, seq: 1, cumulativeMsat: bezahltMsat, unitsSinceLast: 1 }));
+    events.push(buildEvent(sitzung.publicKey(), 38022, [["d", sessionId], ["seq", "1"], ["cumulative_msat", String(bezahltMsat)], ["units", "1"]], ""));
   }
-  return Promise.all(events.map(async (event) => (await buildPrivateSessionEvent({ event, sessionSigner: sitzung, providerPk, powBits: 8 })).wrap));
+  return Promise.all(events.map((event) => giftWrapMitSigner(event, sitzung, providerPk, { fixedJitter: 0, powBits: 8 })));
 }
 
 async function sitzungsAnfrage(providerPk: string, sitzung: LocalSigner, sessionId: string, text: string) {
