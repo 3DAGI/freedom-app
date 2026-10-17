@@ -4,6 +4,7 @@ import type { Texte } from "../i18n.js";
 export const fehler: Texte = {
   // Solana-RPC (RpcPool)
   "pf.rpcUnerreichbar": { de: "Kein Solana-Endpunkt erreichbar ({n} versucht). {details}", en: "No Solana endpoint reachable ({n} tried). {details}" },
+  "pf.txAbgelaufen": { de: "Die Transaktion kam nicht rechtzeitig in einen Block – gebucht wurde nichts", en: "The transaction did not make it into a block in time – nothing was booked" },
   // Lightning-Rechnung (leseBolt11)
   "pf.bolt11Praefix": { de: "kein bolt11-Präfix", en: "not a bolt11 prefix" },
   "pf.bolt11Betrag": { de: "ungültiger Betrag in der Rechnung", en: "invalid amount in the invoice" },

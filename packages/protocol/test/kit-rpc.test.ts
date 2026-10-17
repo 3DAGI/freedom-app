@@ -3,13 +3,21 @@
  * Weg – kit baut die Anfrage, der Pool sendet und weicht aus, kit liest die Antwort: BigInt
  * geht als Zahl hinaus, ein fachlicher Fehler der Kette bleibt beim ersten Endpunkt und kommt
  * als `SolanaError` mit Code zurück, ein toter Endpunkt wird übersprungen, ohne Endpunkt
- * bleibt es `rpc-unerreichbar`.
+ * bleibt es `rpc-unerreichbar`. Seit A-21d3a ebenso senden (Base64, immer mit Vorabsimulation) und
+ * bestätigen durch Nachfragen bis zur letzten Blockhöhe.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isSolanaError, SOLANA_ERROR__JSON_RPC__INVALID_PARAMS } from "@solana/kit";
+import {
+  getBase58Decoder, isSolanaError, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM, SOLANA_ERROR__JSON_RPC__INVALID_PARAMS,
+  SOLANA_ERROR__JSON_RPC__SERVER_ERROR_SEND_TRANSACTION_PREFLIGHT_FAILURE,
+} from "@solana/kit";
 import { Keypair } from "@solana/web3.js";
-import { leseGuthaben, leseKonto, leseProgrammKonten, poolRpc } from "../src/kit-rpc.js";
+import {
+  leseGuthaben, leseKonto, leseProgrammKonten, neuesterBlockhash, poolRpc, sendeTransaktion, txFehlerText, warteAufBestaetigung,
+} from "../src/kit-rpc.js";
+import { alsDraht, baueTransaktion, neuerKontoSchluessel, signiereMit } from "../src/kit-transaktion.js";
+import { erstatteKanalAnweisung } from "../src/channel.js";
 import { RpcPool } from "../src/rpc-pool.js";
 import { ProtokollFehler } from "../src/fehler.js";
 
@@ -80,4 +88,103 @@ test("kit über den Pool: toter Endpunkt wird übersprungen, ein Fehler der Kett
 
   const weg = await leseGuthaben(poolRpc(pool({ [E(1)]: "tot", [E(2)]: "tot" })), a).then(() => undefined, (e: unknown) => e);
   assert.ok(weg instanceof ProtokollFehler && weg.kennung === "rpc-unerreichbar", String(weg));
+});
+
+// ── A-21d3a: senden und bestätigen über den Pool ──────────────────────────────────────────────
+
+const signierte = () => {
+  const zahler = neuerKontoSchluessel();
+  const tx = baueTransaktion({
+    zahler: zahler.adresse, anweisungen: [erstatteKanalAnweisung({ kunde: zahler.adresse, kanal: adr() })],
+    lebensdauer: { blockhash: Keypair.generate().publicKey.toBase58(), letzteHoehe: 500n },
+  });
+  return signiereMit(tx, zahler.geheim)!;
+};
+const stand = (s: unknown) => ({ context: { slot: 1 }, value: [s] });
+
+test("A-21d3a: Blockhash mit letzter Höhe als BigInt; gesendet wird Base64 mit Vorabsimulation, zurück kommt die Signatur", async () => {
+  const tx = signierte();
+  const [sig] = Object.values(tx.signatures);
+  const signaturText = getBase58Decoder().decode(sig!);
+  const log: Aufruf[] = [];
+  const rpc = poolRpc(pool({
+    [E(1)]: (method) => method === "getLatestBlockhash"
+      ? { context: { slot: 1 }, value: { blockhash: "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", lastValidBlockHeight: 812 } }
+      : signaturText,
+  }, log));
+  assert.deepEqual(await neuesterBlockhash(rpc), { blockhash: "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", letzteHoehe: 812n });
+  assert.equal(await sendeTransaktion(rpc, alsDraht(tx)), signaturText);
+  assert.deepEqual(log.map((x) => [x.method, x.params]), [
+    ["getLatestBlockhash", [{ commitment: "confirmed" }]],
+    ["sendTransaction", [Buffer.from(alsDraht(tx)).toString("base64"), { encoding: "base64", preflightCommitment: "confirmed" }]],
+  ]);
+  assert.ok(!JSON.stringify(log).includes("skipPreflight"));
+});
+
+test("A-21d3a: lehnt die Vorabsimulation ab, wirft kit – mit dem Fehler der Kette als Ursache, gesendet nur einmal", async () => {
+  const log: Aufruf[] = [];
+  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    const { id, method, params } = JSON.parse(String(init!.body)) as Aufruf & { id: number };
+    log.push({ url: String(url), method, params });
+    return new Response(JSON.stringify({
+      jsonrpc: "2.0", id,
+      error: { code: -32002, message: "Transaction simulation failed", data: { err: { InstructionError: [0, { Custom: 6002 }] }, logs: [], accounts: null, unitsConsumed: 0 } },
+    }));
+  }) as typeof fetch;
+  const rpc = poolRpc(new RpcPool([{ url: E(1) }, { url: E(2) }], { fetchImpl }));
+  const f = await sendeTransaktion(rpc, alsDraht(signierte())).then(() => undefined, (e: unknown) => e);
+  assert.ok(isSolanaError(f, SOLANA_ERROR__JSON_RPC__SERVER_ERROR_SEND_TRANSACTION_PREFLIGHT_FAILURE), String(f));
+  assert.ok(isSolanaError((f as Error).cause, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM), String((f as Error).cause));
+  assert.equal(((f as Error).cause as { context: { code: number } }).context.code, 6002);
+  assert.deepEqual(log.map((x) => x.url), [E(1)], "eine Ablehnung der Kette nicht an den nächsten Endpunkt");
+});
+
+test("A-21d3a: Bestätigen fragt nach, bis die Kette bestätigt – ohne Fehler null, mit Fehler dieser (BigInt als Zahl im Text)", async () => {
+  const sig = getBase58Decoder().decode(new Uint8Array(64).fill(3));
+  let runde = 0;
+  const pausen: number[] = [];
+  const rpc = poolRpc(pool({
+    [E(1)]: (method) => {
+      if (method === "getBlockHeight") return 100;
+      runde++;
+      return stand(runde < 3 ? (runde === 1 ? null : { slot: 9, confirmations: 0, err: null, confirmationStatus: "processed" })
+        : { slot: 9, confirmations: 1, err: null, confirmationStatus: "confirmed" });
+    },
+  }));
+  assert.equal(await warteAufBestaetigung(rpc, sig, 150n, { abstandMs: 5, warte: async (ms) => { pausen.push(ms); } }), null);
+  assert.deepEqual(pausen, [5, 5]);
+
+  const mitFehler = poolRpc(pool({
+    [E(1)]: (method) => method === "getBlockHeight" ? 100
+      : stand({ slot: 9, confirmations: null, err: { InstructionError: [1, { Custom: 6004 }] }, confirmationStatus: "finalized" }),
+  }));
+  const err = await warteAufBestaetigung(mitFehler, sig, 150n, { warte: async () => assert.fail("nicht warten") });
+  assert.ok(err);
+  assert.equal(txFehlerText(err), '{"InstructionError":[1,{"Custom":6004}]}');
+  assert.equal(typeof (err as { InstructionError: [bigint | number, { Custom: unknown }] }).InstructionError[1].Custom, "bigint", "kit liefert BigInt");
+});
+
+test("A-21d3a: Über der letzten Höhe ohne Bestätigung – tx-abgelaufen; kam sie zwischen beiden Fragen doch, zählt das", async () => {
+  const sig = getBase58Decoder().decode(new Uint8Array(64).fill(4));
+  const log: Aufruf[] = [];
+  const weg = poolRpc(pool({ [E(1)]: (method) => method === "getBlockHeight" ? 151 : stand(null) }, log));
+  const f = await warteAufBestaetigung(weg, sig, 150n, { warte: async () => assert.fail("nicht warten") }).then(() => undefined, (e: unknown) => e);
+  assert.ok(f instanceof ProtokollFehler && f.kennung === "tx-abgelaufen", String(f));
+  assert.deepEqual(log.map((x) => x.method), ["getSignatureStatuses", "getBlockHeight", "getSignatureStatuses"]);
+  assert.deepEqual(log[0]!.params, [[sig]]);
+  assert.deepEqual(log[1]!.params, [{ commitment: "confirmed" }]);
+
+  let fragen = 0;
+  const spaet = poolRpc(pool({
+    [E(1)]: (method) => method === "getBlockHeight" ? 151
+      : stand(++fragen === 1 ? null : { slot: 9, confirmations: 1, err: null, confirmationStatus: "confirmed" }),
+  }));
+  assert.equal(await warteAufBestaetigung(spaet, sig, 150n, { warte: async () => assert.fail("nicht warten") }), null);
+
+  // Genau auf der letzten Höhe gilt sie noch
+  let hoehe = 150;
+  const knapp = poolRpc(pool({ [E(1)]: (method) => method === "getBlockHeight" ? hoehe++ : stand(null) }));
+  const g = await warteAufBestaetigung(knapp, sig, 150n, { warte: async () => {} }).then(() => undefined, (e: unknown) => e);
+  assert.ok(g instanceof ProtokollFehler && g.kennung === "tx-abgelaufen");
+  assert.equal(hoehe, 152, "erst bei 151 aufgegeben");
 });

@@ -120,7 +120,18 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
   - **A-21d3** Senden und Bestätigen über den Pool (`solRpc()`) statt einer eigenen
     `Connection`, die übrigen Lesestellen der App (Blockhash, Guthaben, Miete, Kanal) und
     `pruefeRelayAuftrag()` (Protokoll) über kit; danach braucht die App web3.js nur noch für
-    die Brücke (W4).
+    die Brücke (W4). Geteilt (17.10.2026), rund zehn Dateien in der App:
+    - **A-21d3a** Baustein und Zahlschienen – **fertig** (17.10.2026): `kit-rpc.ts` bekommt
+      `neuesterBlockhash()`, `sendeTransaktion()` (Base64, immer mit Vorabsimulation),
+      `warteAufBestaetigung()` (fragt nach, bis „confirmed“; über der letzten Blockhöhe ohne
+      Bestätigung `tx-abgelaufen`, ohne Websocket) und `txFehlerText()` (Fehler der Kette mit
+      BigInt). Über den Pool laufen jetzt die Überweisung (`buildSolTransfer()` nimmt eine
+      `SolRpc`), das Senden der Schienen, Nonce-Konto anlegen, lesen und schließen, das
+      Einreichen einer Offline-Überweisung und die Wahl des Absenders. Der zweite Pool in
+      `sol-transfer.ts` fällt;
+    - **A-21d3b** HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen der App
+      über `solRpc()`; Fehler des HTLC-Programms aus `SolanaError` (Code als BigInt);
+    - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
   `relayer-dienst.ts`, `sol-auszahlung.ts`.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle

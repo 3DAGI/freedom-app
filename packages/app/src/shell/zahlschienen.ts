@@ -5,8 +5,9 @@
  * zahlt mit `zahle(zahlschienen(), …)` – nicht mit einer eigenen Wallet-Suche.
  */
 import {
-  NONCE_KONTO_BYTES, alsDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, neuerKontoSchluessel, nonceKontoKosten,
-  pruefeOfflineUeberweisung, signiereMit, type PaymentRail, type SolTransaktion,
+  NONCE_KONTO_BYTES, alsDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseGuthaben, leseKonto, leseNonceKonto, neuerKontoSchluessel,
+  neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung, sendeTransaktion, signiereMit, txFehlerText, warteAufBestaetigung,
+  type PaymentRail, type SolRpc, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { offlineGrund } from "../protokoll-texte.js";
@@ -14,9 +15,10 @@ import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js"
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
 import { type EingebauteSolWallet, waehleAbsender } from "../sol-wallet.js";
 import type { SolAnbieter } from "../solana-connect.js";
-import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
+import { buildSolTransfer } from "../sol-transfer.js";
 import { NWC_VERLAUF_MAX, leseWalletBuchungen, merkeZahlung, type WalletBuchung } from "../zahlungsbuch.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit, frischeEmpfangsadresse } from "./eingebaute-wallet.js";
+import { solRpc } from "./state.js";
 import { geheim } from "./tresor.js";
 import { netzDa } from "./ui.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
@@ -46,10 +48,15 @@ export async function eigeneSolAdresse(): Promise<{ adresse: string; art: "frisc
 }
 
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
-/** Eine signierte Transaktion (kit, A-21d2) ueber den RPC-Pool abschicken. */
+/** Eine signierte Transaktion (kit, A-21d2) ueber den RPC-Pool abschicken – mit Vorabsimulation (A-21d3a). */
 async function sende(signiert: SolTransaktion): Promise<string> {
-  const { Connection } = await import("@solana/web3.js");
-  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(alsDraht(signiert));
+  return sendeTransaktion(await solRpc(), alsDraht(signiert));
+}
+
+/** Senden und warten, bis die Kette bestaetigt; lehnt sie ab, mit ihrem Fehler (Nonce-Konto anlegen, schliessen). */
+async function sendeUndBestaetige(rpc: SolRpc, signiert: SolTransaktion, letzteHoehe: bigint): Promise<void> {
+  const fehler = await warteAufBestaetigung(rpc, await sendeTransaktion(rpc, alsDraht(signiert)), letzteHoehe);
+  if (fehler) throw new Error(t("zahl.txAbgelehnt", { fehler: txFehlerText(fehler) }));
 }
 
 /**
@@ -74,10 +81,9 @@ function solanaWallet(): SolanaWalletZugang | undefined {
     adresse,
     // Frische Empfangsadressen (4.9c): gezahlt wird von einer, die allein reicht.
     absender: async (lamports) => {
-      const { fetchSolBalance } = await import("../solana-connect.js");
-      const rpc = await solRpcUrl();
+      const rpc = await solRpc();
       const adressen = e.eigeneAdressen();
-      const guthaben = await Promise.all(adressen.map(async (a) => ({ adresse: a, lamports: (await fetchSolBalance(a, rpc)).lamports })));
+      const guthaben = await Promise.all(adressen.map(async (a) => ({ adresse: a, lamports: Number(await leseGuthaben(rpc, a)) })));
       return waehleAbsender(guthaben, lamports);
     },
     freigabe: (lamports, ziel) => e.freigabe(lamports, ziel, bestaetigeUeberLimit),
@@ -98,7 +104,11 @@ export function zahlschienen(): PaymentRail[] {
       webln: () => (globalThis as { webln?: WebLN }).webln,
       online: () => netzDa(),
     }),
-    new SolanaRail({ wallet: solanaWallet, baueUeberweisung: buildSolTransfer, online: () => netzDa() }),
+    new SolanaRail({
+      wallet: solanaWallet,
+      baueUeberweisung: async (von, an, lamports, referenz) => buildSolTransfer(von, an, lamports, referenz, await solRpc()),
+      online: () => netzDa(),
+    }),
   ].map(mitBuch);
 }
 
@@ -134,10 +144,9 @@ function offlineWallet(): EingebauteSolWallet {
 
 /** Den aktuellen Wert eines Nonce-Kontos von der Kette lesen und ablegen (mit Netz). */
 async function legeStandAb(konto: string): Promise<NonceAblage> {
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const info = await new Connection(await solRpcUrl(), "confirmed").getAccountInfo(new PublicKey(konto), "confirmed");
+  const info = await leseKonto(await solRpc(), konto);
   if (!info) throw new Error(t("zahl.nonceNichtGefunden"));
-  const ablage: NonceAblage = { konto, stand: leseNonceKonto(new Uint8Array(info.data)), gelesen: Math.floor(Date.now() / 1000), verbraucht: false };
+  const ablage: NonceAblage = { konto, stand: leseNonceKonto(info.daten), gelesen: Math.floor(Date.now() / 1000), verbraucht: false };
   await schreibeAblage(geheim, ablage);
   return ablage;
 }
@@ -148,23 +157,21 @@ async function legeStandAb(konto: string): Promise<NonceAblage> {
  */
 export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr: number; gesamt: number }) => Promise<boolean>): Promise<NonceAblage> {
   const e = offlineWallet();
-  const { Connection } = await import("@solana/web3.js");
-  const c = new Connection(await solRpcUrl(), "confirmed");
-  const miete = await c.getMinimumBalanceForRentExemption(NONCE_KONTO_BYTES);
+  const rpc = await solRpc();
+  const miete = Number(await rpc.getMinimumBalanceForRentExemption(BigInt(NONCE_KONTO_BYTES), { commitment: "confirmed" }).send());
   if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
-  const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
+  const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);
   // Das neue Konto unterschreibt nur hier (A-21d1) – sein Schlüssel ist danach genullt
   const konto = neuerKontoSchluessel();
   let tx: SolTransaktion;
   try {
     tx = signiereMit(baueNonceKontoAnlegen({
-      zahler: e.adresse()!, nonceKonto: konto.adresse, mieteLamports: miete, blockhash, letzteHoehe: BigInt(lastValidBlockHeight),
+      zahler: e.adresse()!, nonceKonto: konto.adresse, mieteLamports: miete, blockhash, letzteHoehe,
     }), konto.geheim)!;
   } finally {
     konto.geheim.fill(0);
   }
-  const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
-  await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), letzteHoehe);
   return legeStandAb(konto.adresse);
 }
 
@@ -180,14 +187,12 @@ export async function schliesseNonceKonto(): Promise<number> {
   const e = offlineWallet();
   const a = leseAblage(geheim);
   if (!a) throw new Error(t("zahl.keinNonceAngelegt"));
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const c = new Connection(await solRpcUrl(), "confirmed");
-  const guthaben = await c.getBalance(new PublicKey(a.konto), "confirmed");
+  const rpc = await solRpc();
+  const guthaben = Number(await leseGuthaben(rpc, a.konto));
   if (guthaben > 0) {
-    const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
-    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash, letzteHoehe: BigInt(lastValidBlockHeight) });
-    const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
-    await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
+    const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);
+    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash, letzteHoehe });
+    await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), letzteHoehe);
   }
   await schreibeAblage(geheim, null);
   return guthaben;
@@ -206,6 +211,5 @@ export async function zahleSolOffline(an: string, lamports: number): Promise<Uin
 export async function reicheSolOfflineEin(roh: Uint8Array): Promise<string> {
   const p = pruefeOfflineUeberweisung(roh);
   if (!p.ok) throw new Error(offlineGrund(p));
-  const { Connection } = await import("@solana/web3.js");
-  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(roh);
+  return sendeTransaktion(await solRpc(), roh);
 }

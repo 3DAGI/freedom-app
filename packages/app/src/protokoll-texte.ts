@@ -465,6 +465,7 @@ export const reklamationsFrist = (w: { open: boolean; remainingSecs: number }): 
 /** Kennung eines `ProtokollFehler` → Schlüssel des Texts; die Werte setzt `t()` ein. */
 const FEHLER: Record<string, string> = {
   "rpc-unerreichbar": "pf.rpcUnerreichbar",
+  "tx-abgelaufen": "pf.txAbgelaufen",
   "bolt11-praefix": "pf.bolt11Praefix",
   "bolt11-betrag": "pf.bolt11Betrag",
   "bolt11-kurz": "pf.bolt11Kurz",

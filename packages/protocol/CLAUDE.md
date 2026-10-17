@@ -124,3 +124,9 @@ Fallstricke dieses Bereichs unten anhängen.
   über `neuerKontoSchluessel()`. `messageBytes` ist für kit nur lesbar – `@noble/curves` und `Buffer` bekommen
   `Uint8Array.from(…)`. Gelesen wird nur über `leseNachricht()` (legacy, Rollen aus dem Kopf), geschickt die Bytes aus
   `alsDraht()`.
+- **Senden und Bestätigen nur über `kit-rpc.ts`** (seit A-21d3a): `sendeTransaktion()` schickt immer mit Vorabsimulation
+  (nie `skipPreflight`), bestätigt wird nur über `warteAufBestaetigung()` – sie fragt nach, bis „confirmed“, und gibt den
+  Fehler der Kette zurück (`null` heißt gelungen), statt zu werfen; über der letzten Blockhöhe ohne Bestätigung wirft sie
+  `tx-abgelaufen` (nur für Blockhash, nie für Durable Nonce). kit liefert Zahlen in Fehlern als BigInt – `JSON.stringify()`
+  wirft dann; als Text nur über `txFehlerText()`. Lehnt die Vorabsimulation ab, wirft kit einen `SolanaError` (-32002), der
+  Fehler des Programms steht in `cause` (`context.code`), und der Pool reicht ihn nicht an den nächsten Endpunkt.
