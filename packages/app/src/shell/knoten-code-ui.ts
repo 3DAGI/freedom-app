@@ -9,12 +9,14 @@
  * Knopfdruck, nie beim Start; eigenes Modul – `mein-knoten.ts` hält den Kopplungscode.
  */
 import {
-  KIND_BLOB_MANIFEST, KIND_DVM_KNOTEN_CODE, LocalSigner, baueCodeAuftrag, generateKeypair, leseCodeAntwort,
+  KIND_BLOB_MANIFEST, KIND_DVM_KNOTEN_CODE, LocalSigner, baueCodeAuftrag, generateKeypair, istProjektName, leseCodeAntwort,
   type CodeAktion, type CodeAntwort, type Kopplung,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { BUNDLE_ZEIT_MS, CODE_TAKT_MS, CODE_ZEIT_MS, codeAblehnungText, projektZeile } from "../knoten-projekte.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { dialog } from "./dialog.js";
+import { oeffneProjekt } from "./knoten-projekt-ui.js";
 import { powFuerKnoten } from "./knoten-status-ui.js";
 import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
@@ -65,15 +67,36 @@ export async function holeBundleVomKnoten(projekt: string): Promise<Extract<Code
   return r.antwort;
 }
 
-/** Eine Zeile je Projekt – Text und der Knopf „In einen Raum stellen“. */
+/** Eine Zeile je Projekt – Text, „Öffnen“ (Projekte-Seite, VKe) und „In einen Raum stellen“. */
 function zeile(name: string, text: string): HTMLElement {
   const z = el("div", undefined, "knoten-projekt");
+  const oeffnen = el("button", t("set.projektOeffnen"));
+  oeffnen.type = "button";
+  oeffnen.setAttribute("aria-label", t("set.projektOeffnenAria", { name }));
+  oeffnen.addEventListener("click", () => oeffneProjekt(name, frageKnotenCode));
   const knopf = el("button", t("set.projektInRaum"), "ghost");
   knopf.type = "button";
   knopf.setAttribute("aria-label", t("set.projektInRaumAria", { name }));
   knopf.addEventListener("click", () => void stelleKnotenProjektEin(name, () => holeBundleVomKnoten(name)));
-  z.append(el("span", text), knopf);
+  z.append(el("span", text), oeffnen, knopf);
   return z;
+}
+
+/** „Neues Projekt“: Name im Dialog (`istProjektName()`), anlegen auf dem Knoten, dann die Seite öffnen. */
+async function neuesProjekt(): Promise<void> {
+  const k = meineKopplung();
+  if (!k) return;
+  const w = await dialog({
+    titel: t("set.projektNeu"), text: t("set.projektNeuText"), ok: t("set.projektNeuAnlegen"),
+    felder: [{ name: "name", label: t("set.projektNeuName"), art: "text", pflicht: true, mono: true }],
+    pruefe: (x) => (istProjektName(String(x.name).trim()) ? null : t("set.projektNeuFalsch")),
+  });
+  if (!w) return;
+  const name = String(w.name).trim();
+  const r = await frageKnotenCode(k, { aktion: "neu", projekt: name }, CODE_ZEIT_MS);
+  if ("grund" in r) return toast(r.grund, true);
+  void zeigeKnotenProjekte();
+  oeffneProjekt(name, frageKnotenCode);
 }
 
 /** „Projekte“: einmal fragen, die Liste als Zeilen zeigen. */
@@ -89,7 +112,10 @@ export async function zeigeKnotenProjekte(): Promise<void> {
     if ("grund" in r) ziel.replaceChildren(el("div", r.grund));
     else if (r.antwort.aktion === "liste") {
       const p = r.antwort.projekte;
-      ziel.replaceChildren(...(p.length ? p.map((x) => zeile(x.name, projektZeile(x))) : [el("div", t("set.projekteKeine"))]));
+      const neu = el("button", t("set.projektNeu"), "ghost");
+      neu.type = "button";
+      neu.addEventListener("click", () => void neuesProjekt());
+      ziel.replaceChildren(...(p.length ? p.map((x) => zeile(x.name, projektZeile(x))) : [el("div", t("set.projekteKeine"))]), neu);
     }
   } catch (e) {
     ziel.replaceChildren(el("div", t("set.projekteFehler", { fehler: fehlerText(e) })));

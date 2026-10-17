@@ -1576,6 +1576,104 @@ def anruf_pruefen(browser, url: str) -> dict:
     return erg
 
 
+
+def projekt_pruefen(browser, url: str) -> dict:
+    """Projekte-Seite (VKe): gekoppelt (Code vorab im Speicher) listet „Projekte“ die Projekte des Knotens, „Öffnen“
+    zeigt das Blatt; ein Auftrag geht versiegelt an den Knoten, der Schritt, der wartet, zeigt „Ja“ und „Nein“, „Ja“
+    geht als eigener Auftrag hinaus, danach kommen Ausgabe und Abschluss (Markdown nur als Text). Der Knoten ist
+    `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059)."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
+    code = f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}"
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=f"localStorage.setItem('freedom.knoten.kopplung', {json.dumps(code)});")
+    s, ev = seite.s, seite.ev
+    beantwortet: set[str] = set()
+
+    def an_knoten() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+    def antworte(n: int) -> int:
+        """Warten, bis n Umschläge beim Knoten sind, dann die neuen beantworten – zurück die Zahl der Umschläge."""
+        for _ in range(150):
+            if len(an_knoten()) >= n:
+                break
+            s.wait_for_timeout(200)
+        alle = an_knoten()
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts", "antworte", probe["sk"], probe["geheimnis"]],
+                                        cwd=wurzel, input=json.dumps(alle), capture_output=True, text=True, timeout=180, check=True).stdout)
+        for a in aus:
+            if a["fuer"] not in beantwortet:
+                beantwortet.add(a["fuer"])
+                relay.events.extend(a["events"])
+        return len(alle)
+    ev("() => { location.hash = '#/settings'; }")
+    s.click("[data-subtab-group=settings] [data-subtab=devices]")
+    s.wait_for_selector("#knoten-projekte", state="visible", timeout=15000)
+    s.click("#knoten-projekte")
+    erg["liste_umschlaege"] = antworte(1)
+    s.wait_for_selector("#knoten-projekte-liste .knoten-projekt", timeout=20000)
+    erg["liste"] = ev("""() => [...document.querySelectorAll('#knoten-projekte-liste .knoten-projekt')].map(z =>
+      [z.querySelector('span').textContent.split(' – ')[0], [...z.querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? b.textContent)])""")
+    erg["neu_knopf"] = ev("() => document.querySelector('#knoten-projekte-liste > button')?.textContent ?? ''")
+    s.click("#knoten-projekte-liste .knoten-projekt button")
+    s.wait_for_selector(".projekt-blatt", timeout=10000)
+    erg["blatt"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { titel: b.querySelector('h3').textContent, rolle: [b.getAttribute('role'), b.getAttribute('aria-modal')],
+        leer: b.querySelector('.projekt-schritte').textContent, modus: [...b.querySelectorAll('select option')].map(o => o.value),
+        stopp: b.querySelector('.projekt-stopp').hidden }; }""")
+    # leer abschicken: nur ein Hinweis, nichts hinaus
+    vorher = len(an_knoten())
+    s.click(".projekt-los")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Schreib zuerst')", timeout=5000)
+    erg["leer_hinaus"] = len(an_knoten()) - vorher
+    s.fill(".projekt-wunsch", "Lege index.html an.")
+    s.click(".projekt-los")
+    antworte(vorher + 1)
+    s.wait_for_selector(".projekt-freigabe button", timeout=20000)
+    erg["wartet"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { auftrag: b.querySelector('.projekt-auftrag').textContent, nr: b.querySelector('.projekt-nr').textContent,
+        gedanke: b.querySelector('.projekt-gedanke').textContent, befehl: b.querySelector('.projekt-befehl').textContent,
+        knoepfe: [...b.querySelectorAll('.projekt-freigabe button')].map(x => x.getAttribute('aria-label')),
+        laeuft: b.querySelector('.projekt-ende').textContent, stopp: b.querySelector('.projekt-stopp').hidden,
+        los: b.querySelector('.projekt-los').disabled }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-freigabe button")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-ende .projekt-abschluss", timeout=20000)
+    erg["fertig"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { ende: b.querySelector('.projekt-ende-zeile').textContent, abschluss: b.querySelector('.projekt-abschluss').textContent,
+        fett: b.querySelector('.projekt-abschluss strong')?.textContent ?? '', ausgabe: b.querySelector('.projekt-ausgabe summary').textContent,
+        text: b.querySelector('.projekt-ausgabe pre').textContent, knoepfe: b.querySelectorAll('.projekt-freigabe button').length,
+        los: b.querySelector('.projekt-los').disabled, stopp: b.querySelector('.projekt-stopp').hidden }; }""")
+    # Schließen mit Esc – das Blatt ist weg, die Liste bleibt
+    s.keyboard.press("Escape")
+    s.wait_for_function("() => !document.querySelector('.projekt-blatt')", timeout=5000)
+    erg["umschlaege"] = len(an_knoten())
+    if erg["liste"] != [["app", ["Projekt app öffnen", "app als Repo in einen Raum stellen"]]] or erg["neu_knopf"] != "Neues Projekt":
+        erg["fehler"].append(f"Liste {erg['liste']} {erg['neu_knopf']}")
+    if erg["blatt"] != {"titel": "Projekt app", "rolle": ["dialog", "true"], "leer": erg["blatt"]["leer"], "modus": ["fragen", "frei"], "stopp": True} \
+            or not erg["blatt"]["leer"].startswith("Schreib, was gebaut"):
+        erg["fehler"].append(f"Blatt {erg['blatt']}")
+    if erg["leer_hinaus"] != 0:
+        erg["fehler"].append(f"leer abgeschickt: {erg['leer_hinaus']} Umschläge")
+    if erg["wartet"] != {"auftrag": "Lege index.html an.", "nr": "Schritt 1", "gedanke": "Ich lege index.html an.", "befehl": "echo hallo > index.html",
+                         "knoepfe": ["Schritt 1 freigeben", "Schritt 1 ablehnen"], "laeuft": "Mein Knoten arbeitet …", "stopp": False, "los": True}:
+        erg["fehler"].append(f"wartet {erg['wartet']}")
+    if erg["fertig"] != {"ende": "Fertig (Schritte: 1)", "abschluss": "Fertig: index.html angelegt.", "fett": "index.html", "ausgabe": "Ausgabe – Rückgabe 0",
+                         "text": "hallo", "knoepfe": 0, "los": False, "stopp": True}:
+        erg["fehler"].append(f"fertig {erg['fertig']}")
+    if erg["umschlaege"] != 3:
+        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
 def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
     """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
     ev = seite.ev
@@ -6140,6 +6238,10 @@ def main() -> int:
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["projekt"] = projekt_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["projekt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["post_live"] = post_live_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["post_live"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6285,6 +6387,7 @@ def main() -> int:
           and erg.get("rueckmeldung", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
+          and erg.get("projekt", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("agent_abo", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True

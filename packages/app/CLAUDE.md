@@ -832,3 +832,13 @@ Fallstricke dieses Bereichs unten anhängen.
   web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Wer in Tests liest, was die
   Wallet bekam, nimmt `leseNachricht()` – das ist die fertige Nachricht: Der Gebührenzahler unterschreibt dort immer, auch wo
   die Anweisung selbst keine Unterschrift verlangt (Z1: das an der Anweisung prüfen, `erstatteKanalAnweisung().accounts`).
+- **Projekte-Seite nur über `shell/knoten-projekt-ui.ts`** (seit VKe1): Der Lauf gehört dem Knoten – die Seite gibt den
+  Auftrag über `wegZumKnoten()` mit frischem Sitzungsschlüssel und folgt ihm nur über `folgeLauf()` (`knoten-weg-ui.ts`:
+  jeder Umschlag einmal, Schritte nur über `leseCodeSchritt()`, eine Ablehnung nur mit Kennung). Schritte nur über
+  `nimmSchritt()` (`knoten-lauf.ts`) – geordnet nach `nr` und Art, nie nach Ankunft (Umschläge tragen zufällige
+  Zeitstempel); „Ja“ und „Nein“ nur, solange `wartetAufMich()` es sagt, gesendet nur über `frageKnotenCode()` wie der
+  Stopp. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
+  stehen nur im Speicher (`laeufe`), nie in `localStorage` oder `geheim` – Aufträge und Ausgaben sind Inhalt des Projekts.
+  „fragen“ nie als „vor jedem Befehl“ beschreiben: Hermes fragt vor Änderungen an Dateien und riskanten Befehlen.
+  Im Smoke-Test („projekt“) antwortet `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe.
+

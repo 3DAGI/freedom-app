@@ -2204,3 +2204,38 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 @media (prefers-reduced-motion: reduce) {
   #toast, .ai-optionen, .menue-schwebend, .modal-backdrop, .modal-backdrop .modal { animation: none; }
 }
+
+/* Projekte meines Knotens (VKe): Zeilen in „Mein Knoten“ und ein Blatt je Projekt – Auftrag, Schritte, Freigaben */
+.knoten-projekt { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.knoten-projekt span { flex: 1 1 12em; }
+.knoten-projekt button, #knoten-projekte-liste > button { width: auto; padding: 6px 10px; }
+#knoten-projekte-liste > button { margin-top: 8px; }
+.projekt-blatt { max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
+.projekt-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.projekt-kopf h3 { margin: 0; overflow-wrap: anywhere; }
+.projekt-kopf button { width: auto; padding: 6px 10px; }
+.projekt-schritte { display: flex; flex-direction: column; gap: 8px; }
+.projekt-auftrag { white-space: pre-wrap; border-left: 3px solid var(--accent); padding-left: 8px; margin: 0; }
+.projekt-schritt { border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; background: var(--surf); }
+.projekt-nr { font-size: 12px; color: var(--text-muted); }
+.projekt-gedanke { color: var(--text-muted); margin: 4px 0; white-space: pre-wrap; }
+.projekt-befehl, .projekt-ausgabe pre {
+  background: var(--code-bg); border-radius: var(--r-sm); padding: 6px 8px; margin: 4px 0; white-space: pre-wrap;
+  overflow-wrap: anywhere; font-family: ui-monospace, monospace; font-size: 12px; max-height: 40vh; overflow: auto;
+}
+.projekt-ausgabe summary { cursor: pointer; font-size: 12px; color: var(--text-muted); }
+.projekt-freigabe { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.projekt-freigabe span { flex: 1 1 14em; }
+.projekt-freigabe button { width: auto; padding: 6px 12px; }
+.projekt-ende-zeile { font-weight: 600; }
+.projekt-fuss { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
+.projekt-fuss textarea { margin-bottom: 0; }
+.projekt-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.projekt-knoepfe select { width: auto; flex: 1 1 14em; min-width: 0; max-width: 100%; margin-bottom: 0; text-overflow: ellipsis; }
+.projekt-knoepfe button { width: auto; padding: 8px 14px; }
+@media (max-width: 600px) {
+  .projekt-huelle { padding: 0; }
+  .projekt-knoepfe select { flex-basis: 100%; }
+  .projekt-knoepfe button { flex: 1 1 auto; }
+  .projekt-huelle .modal { max-width: none; max-height: 100dvh; height: 100%; border-radius: 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+}
