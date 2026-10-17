@@ -84,7 +84,7 @@ export function messeLauf(runde: Promise<Pruefrunde | null>, punkte: ReadonlyArr
 async function frage(pk: string, p: { prompt: string; bid: number; tier: string; hoechstMsat: number; publish: (ev: NostrEvent) => Promise<unknown>; sc: SessionClient }): Promise<Ausgang> {
   let requestId: string;
   try {
-    const auftrag = await buildJobEvent(p.prompt, p.bid, p.tier, pk, p.sc);
+    const auftrag = await buildJobEvent(p.prompt, p.bid, p.tier, pk, p.sc, [], undefined, { ohnePfand: true });
     await p.publish(auftrag.wrap);
     requestId = auftrag.requestId;
   } catch {

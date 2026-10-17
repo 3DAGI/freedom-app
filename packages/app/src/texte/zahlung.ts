@@ -217,6 +217,7 @@ export const zahlung: Texte = {
   "zahl.kanalErschoepft": { de: "Der Zahlkanal zu diesem Provider deckt kein weiteres Gebot mehr. Nichts gesendet – stocke ihn auf (Wallet › Hinterlegen), öffne einen neuen oder warte, bis er abläuft.", en: "The payment channel to this provider cannot cover another bid. Nothing sent – top it up (Wallet › Deposit), open a new one or wait until it expires." },
   "zahl.kanalKnapp": { de: "Der Zahlkanal wird knapp – noch {frei}. Stocke ihn auf (Wallet › Hinterlegen), damit die Session nicht abbricht.", en: "The payment channel is running low – {frei} left. Top it up (Wallet › Deposit) so the session doesn't stop." },
   "zahl.kanalBezahlt": { de: "Über den Zahlkanal bezahlt: {betrag}", en: "Paid through the payment channel: {betrag}" },
+  "zahl.pfandBezahlt": { de: "Aus dem Cashu-Pfand bezahlt: {sats} sats", en: "Paid from the Cashu deposit: {sats} sats" },
   "anf.anfordern": { de: "Anfordern statt senden", en: "Request instead of send" },
   "anf.titel": { de: "Zahlung anfordern von {name}", en: "Request payment from {name}" },
   "anf.text": { de: "Die Anforderung kommt ins Eingabefeld und geht wie jede Nachricht versiegelt hinaus. In sats stellt deine Wallet (NWC) eine Rechnung aus; in SOL nennt die App deine Adresse für genau diesen Kontakt.", en: "The request goes into the input field and is sent sealed like any message. In sats your wallet (NWC) issues an invoice; in SOL the app gives your address for exactly this contact." },

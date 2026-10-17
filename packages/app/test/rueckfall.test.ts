@@ -39,7 +39,7 @@ test("L2-2: Stille – ohne Lebenszeichen nach `stummNachMs` zurück; wer lebt, 
 
 test("L2-2: Rückfall nach 20 s nur mit einem nächsten Ziel und nie mit Gutschrift im Zahlkanal", () => {
   assert.match(lauf, /const HEDGE_AFTER_MS = Number\(localStorage\.getItem\("freedom\.hedgeMs"\) \?\? 20_000\);/);
-  assert.match(lauf, /const stumm = !letztes && !perKanal\(requestId\);/);
+  assert.match(lauf, /const stumm = !letztes && !perKanal\(requestId\) && !perPfand\(requestId\);/);
   assert.match(lauf, /\.\.\.\(stumm \? \{ stummNachMs: HEDGE_AFTER_MS \} : \{\}\),/);
   assert.ok(lauf.indexOf("buildJobEvent(prompt, bid, tier, target, sc)") < lauf.indexOf("perKanal(requestId)"), "erst nach dem Bau – dann ist bekannt, ob eine Gutschrift dabei ist");
   // Das letzte Ziel wartet mindestens so lange wie der erste ohne Rückfall gewartet hätte – der war vielleicht nur still

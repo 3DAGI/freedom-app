@@ -1367,4 +1367,9 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
 - **Über Tor und Auszahlung (seit RM2b3):** Mit `TOR_SOCKS` gehen alle Anfragen an die Mints durch Tor. Der Erlös geht je Mint
   ab 1000 sat an die eigene Lightning-Adresse (`NODE_LUD16`, NUT-05) – die Rechnung über genau den Betrag, der Rest nach
   Gebühr und Vorbehalt fürs Routing bleibt als Wechselgeld.
-- **Noch nicht:** Sperren und Übergeben in der App (RM2c).
+- **In der App (seit RM2c1/RM2c2):** Der Cashu-Topf sperrt Fenster (mindestens 20 sat, Frist eine Stunde, klein gestückelt,
+  frischer Rückweg je Fenster) auf den Pfand-Schlüssel und übergibt je Anfrage, bis die Deckung reicht – dieselbe Rechnung wie
+  der Knoten. Nur ohne Zahlkanal, nicht an den eigenen Knoten, nicht im Max-Modus, nicht in Prüfrunden; nennt das Angebot die
+  Mint des Topfs nicht oder reicht der Topf nicht, geht die Anfrage wie bisher. Nach der Antwort bucht die App den Anteil des
+  Providers, Lightning zahlt ihn nicht. Nach der Frist holt sie zurück, was der Provider nicht einlöste.
+- **Noch nicht:** Die Sitzung auf Kredit fällt erst mit RM2c3; „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).
