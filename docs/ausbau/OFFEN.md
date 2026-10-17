@@ -52,6 +52,15 @@ Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
 Quelle: [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Aufteilung VKd.
 
+### 1.6 Vibecoden: Vorschau der gebauten App (Spur A und B, 17.10.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| VKg-W1 | Vorschau der gebauten App: VK5 (über die Relays in einen `blob:`-Rahmen der App, CSP `frame-src blob:`) geht so nicht. Ein `blob:`- oder `srcdoc`-Rahmen erbt die CSP der App, und deren `script-src` erlaubt nur ihr eigenes Skript – Chromium verweigert jedes Skript der Vorschau (gemessen 17.10.). Eine Lockerung von `script-src` höbe den Schutz der App auf. A live wie ein Anruf (VKg): Der Knoten zeigt die App in einem Browser im virtuellen Bildschirm der Sandbox und streamt das Bild über den eigenen TURN (B-13), Eingaben zurück – ein Weg für Web und Linux · B der Knoten liefert die Vorschau unter eigener Adresse aus (VK-W3 B: Heimnetz, Domain oder `.onion`, eigener Ursprung, keine geerbte CSP) – nur Web, braucht die Adresse | **A** – ein Weg für alle Ziele (VK-W8 A), kein offener Port, nutzt den Anruf-Aufbau |
+| VKg-W2 | Für A ins Bild nur mit `VIBECODEN=1`: GStreamer mit `webrtcbin` (LGPL-2.1, eigener Prozess), ein virtueller Bildschirm (Xvfb oder ein Wayland-Compositor ohne Bildschirm) und Chromium für Web-Apps; NVENC nur auf dem GX10 (hier nicht prüfbar). Größe und Lizenzen misst der Bau vorher. Einverstanden? | **ja** – gepinnt wie Hermes, nur mit `VIBECODEN=1`, Echttest durch den MENSCHEN |
+
+Quelle: [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Live-Vorschau und Aufteilung VKg.
+
 ### 1.4 Solana über kit (Spur A, 17.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -198,7 +207,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
-| VKe2b | App: Verlauf, Änderungen (Diff) und „hierher zurück“ auf der Projekte-Seite (VKe1 ✓: Auftrag, Schritte, Freigabe, Stopp; VKe2a ✓: Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten) | frei |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |
 | RM2d | Oberfläche Cashu-Pfand: „Guthaben laden“ statt Budget, Mint wählen und „verwahrt“ sichtbar – über `cashuTopf` aus `shell/ki-pfand.ts` (`waehleMint()`, `ladeAnfrage()`, `abholen()`, `guthaben()`); Kopf und Seitenleiste zeigen seit RM2c3 „—“ | frei (RM2c1–c4b ✓, Spur A) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
