@@ -40,8 +40,6 @@ export const KIND_LP_OFFER = 38001;         // LP-Liquiditaetsangebot (Swap)
 export const KIND_SWAP_ATTESTATION = 38002; // Swap-Abschluss -> Reputation
 export const KIND_PERFORMANCE = 38010;      // Leistungs-Event (Nachricht/KI-Job/Liquiditaet)
 // 38011/38012 (Reward-Ausschuettung, Saison mit Pool-Regeln) nicht mehr belegt (5.1.4d)
-export const KIND_SESSION_OPEN = 38021;     // Streaming-Sats Session-Eroeffnung
-export const KIND_SESSION_PAYMENT = 38022;  // Streaming-Sats Zahlungs-Beleg
 export const KIND_SOL_DEPOSIT_OPEN = 38023; // Solana-Deposit-Session (Escrow)
 export const KIND_SOL_DEPOSIT_SETTLE = 38024; // Solana-Deposit Abrechnung
 export const KIND_PROVIDER_CAPABILITIES = 38027; // Provider-Faehigkeiten (Tier/Modelle/Tools/Preise) — v2, invalidiert alte 38025-Events
@@ -83,3 +81,6 @@ export function resultKindFor(requestKind: number): number {
 // 38030 (Mesh-Paket) und 38031 (Kurier-Zustellbeleg) fielen mit B-21 – nie
 // angebunden, über Mesh geht seit 7.1 nur der Umschlag (`pruefeMeshInhalt`).
 // Ebenso nicht wiederverwenden.
+// 38020–38022 (Sitzung auf Kredit: Eröffnung, Beleg, Schluss) fielen mit RM2c3 (App),
+// RM2c4a (Knoten) und RM2c4b (Bausteine) – Schlüssel kosten nichts, jeder neue bekam
+// wieder Kredit (RM2 B). Nicht wiederverwenden: alte Events liegen noch auf Relays.

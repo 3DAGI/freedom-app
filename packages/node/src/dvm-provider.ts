@@ -21,7 +21,6 @@ import {
   Keypair,
   OutboxPool,
   KIND_DVM_TEXT_GENERATION,
-  KIND_SESSION_OPEN,
   KIND_SOL_DEPOSIT_OPEN,
   isDvmRequest,
   buildJobResult,
@@ -31,7 +30,6 @@ import {
   toHex,
   mineEvent,
   buildPerformanceEvent,
-  KIND_SESSION_PAYMENT,
   parseSolDepositOpen,
   ParsedSolDepositOpen,
   KIND_GIFT_WRAP,
@@ -555,8 +553,6 @@ export class DvmProvider {
     this.seen.add(r.request.id);
     const request: NostrEvent = { ...r.request, sig: "" };
     if (isDvmRequest(request.kind)) this.powJeAnfrage.set(request.id, r.powBits);
-    // Sitzung auf Kredit und ihre Belege (38021/38022) nimmt der Knoten seit RM2c4a nicht mehr an
-    if (request.kind === KIND_SESSION_OPEN || request.kind === KIND_SESSION_PAYMENT) return null;
     if (request.kind === KIND_JOB_DISPUTE) {
       this.meldeReklamation(request);
       return null;

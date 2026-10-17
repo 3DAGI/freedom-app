@@ -13,14 +13,28 @@ import {
   OutboxPool,
   MemoryRelay,
   buildJobRequest,
-  buildSessionOpen,
-  buildSessionPayment,
   parseJobResult,
   KIND_DVM_TEXT_RESULT,
   KIND_DVM_TEXT_GENERATION,
 } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
 import { InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
+
+/** Eine Eröffnung (38021) wie ältere Apps bis RM2c3 – die Bausteine dafür fielen mit RM2c4b. */
+function alteSitzung(p: { customerPubkey: string; providerPubkey: string; sessionId: string; maxTotalMsat: number; maxRatePerKTokenMsat: number; settleEveryMsat: number; ttlSecs: number }, jetzt = Math.floor(Date.now() / 1000)) {
+  return buildEvent(p.customerPubkey, 38021, [
+    ["d", p.sessionId], ["p", p.providerPubkey], ["max_total_msat", String(p.maxTotalMsat)],
+    ["max_rate_per_ktoken_msat", String(p.maxRatePerKTokenMsat)], ["settle_every_msat", String(p.settleEveryMsat)],
+    ["expiration", String(jetzt + p.ttlSecs)],
+  ], "", jetzt);
+}
+
+/** Ein Beleg (38022) wie ältere Apps bis RM2c3. */
+function alterBeleg(p: { customerPubkey: string; sessionId: string; seq: number; cumulativeMsat: number; unitsSinceLast: number }) {
+  return buildEvent(p.customerPubkey, 38022, [
+    ["d", p.sessionId], ["seq", String(p.seq)], ["cumulative_msat", String(p.cumulativeMsat)], ["units", String(p.unitsSinceLast)],
+  ], "");
+}
 
 class FixedBackend implements InferenceBackend {
   name(): string { return "fixed"; }
@@ -48,7 +62,7 @@ test("RM2c4: eine Sitzung auf Kredit bedient der Knoten nicht mehr – auch mit 
   // Eine Eröffnung wie bis RM2c3: 100k msat Budget, an diesen Knoten, nicht abgelaufen
   await pool.publish(
     signEvent(
-      buildSessionOpen({
+      alteSitzung({
         customerPubkey: customer.pk,
         providerPubkey: providerKp.pk,
         sessionId: "chat-sess-1",
@@ -89,7 +103,7 @@ test("Session-Jobs: Provider lehnt bei erschoepftem Budget ab", async () => {
 
   await pool.publish(
     signEvent(
-      buildSessionOpen({
+      alteSitzung({
         customerPubkey: customer.pk,
         providerPubkey: providerKp.pk,
         sessionId: "chat-sess-2",
@@ -105,7 +119,7 @@ test("Session-Jobs: Provider lehnt bei erschoepftem Budget ab", async () => {
   // Kunde hat bereits Belege ueber das volle Budget gestreamt
   await pool.publish(
     signEvent(
-      buildSessionPayment({
+      alterBeleg({
         customerPubkey: customer.pk,
         sessionId: "chat-sess-2",
         seq: 1,
@@ -135,7 +149,7 @@ test("Session-Jobs: Provider lehnt Session ab, die an anderen Provider adressier
 
   await pool.publish(
     signEvent(
-      buildSessionOpen({
+      alteSitzung({
         customerPubkey: customer.pk,
         providerPubkey: otherProvider.pk, // NICHT unser Provider
         sessionId: "chat-sess-3",

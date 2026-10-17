@@ -11133,3 +11133,24 @@ Sitzung abgesagt, versiegelt; mit Gebot gerechnet), `live-chat` und `klartext` f
 Knoten-Stand: nach dem Merge den GX10 auf `main` bringen. Bis dahin nimmt er Sitzungen älterer Apps noch an; die App
 eröffnet seit RM2c3 keine mehr.
 
+## Schritt RM2c4b – Die Bausteine der Sitzung auf Kredit fallen
+
+Spur A, `docs/RM2-ENTWURF.md` (V7, V9; RM2 B). Nach App (RM2c3) und Knoten (RM2c4a) jetzt das Protokoll – RM2c ist fertig,
+offen bleibt RM2d (Oberfläche, Spur C).
+
+**Entfernt:**
+- `protocol/src/stream.ts` (`buildSessionOpen()`, `parseSessionOpen()`, `buildSessionPayment()`, `parseSessionPayment()`,
+  `checkSessionLedger()`, `amountDue()`) und `buildPrivateSessionEvent()`; `KIND_SESSION_OPEN`/`KIND_SESSION_PAYMENT` aus
+  `kinds.ts` – 38020–38022 stehen unter „Nicht mehr belegt“, nicht wiederverwenden.
+- `openPrivateKundenEvent()` nimmt versiegelte Sitzungen und Belege nicht mehr an („Weder Anfrage noch Reklamation noch
+  Urteil“); der Knoten braucht seine eigene Prüfung dafür nicht mehr.
+- `wiring-ausnahmen.txt`: die sieben Ausnahmen der Bausteine (821 Exporte, 142 begründet ausgenommen).
+- Datenschutz: Aussage „ki-zahlung“ jetzt „Anfragen und Antworten deiner KI-Nutzung …“ (ohne Sitzungen und Belege), Text in
+  beiden Sprachen, Szenario ohne Sitzung und Beleg.
+
+**Tests:** protocol 1340 → 1326 (−14, die Karte entfernt die Bausteine: `stream.test.ts` 7, Sitzungen in
+`tiers-stream.test.ts` 7); `private-job.test.ts` gleich (der Kunden-Öffner nimmt Sitzung und Beleg nicht mehr an; Anfragen
+weiter, eine DM nicht). Knoten-Tests bauen die Events älterer Apps jetzt selbst (`alteSitzung()`, `alterBeleg()`).
+
+Knoten-Stand: wie RM2c4a.
+

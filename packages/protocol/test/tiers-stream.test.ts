@@ -1,10 +1,10 @@
 /**
- * Tests fuer Provider-Stufen und Streaming-Sessions.
+ * Tests fuer Provider-Stufen.
  *
  * Die Stufe entscheidet, welcher Provider einen Auftrag ueberhaupt annehmen
  * darf — eine zu grosszuegige Pruefung fuehrt zu Kunden, die auf einer
- * ueberforderten Maschine warten. Die Session ist der Weg, auf dem waehrend
- * eines Jobs laufend bezahlt wird.
+ * ueberforderten Maschine warten. (Die Streaming-Sessions, bis RM2c4b hier
+ * getestet, fielen mit der Sitzung auf Kredit.)
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,12 +12,8 @@ import { generateKeypair, signEvent, buildEvent } from "../src/event.js";
 import {
   buildCapabilities, parseCapabilities, tierSatisfies, recommendedTier,
 } from "../src/tiers.js";
-import {
-  buildSessionOpen, parseSessionOpen, buildSessionPayment, parseSessionPayment,
-} from "../src/stream.js";
 
 const KP = generateKeypair();
-const KUNDE = generateKeypair();
 
 // ------------------------------------------------------------- Stufen
 
@@ -101,70 +97,4 @@ test("Beide Bedingungen zaehlen: Vertrauen ODER Erfahrung", () => {
 test("Kaputte Faehigkeiten werden abgelehnt", () => {
   const ev = signEvent(buildEvent(KP.pk, 38025, [], ""), KP.sk);
   assert.throws(() => parseCapabilities(ev));
-});
-
-// ------------------------------------------------------------ Sessions
-
-const NOW = 1_800_000_000;
-const session = (over: Record<string, unknown> = {}) => signEvent(buildSessionOpen({
-  sessionId: "s1", customerPubkey: KUNDE.pk, providerPubkey: KP.pk,
-  maxTotalMsat: 100_000, maxRatePerKTokenMsat: 2000,
-  settleEveryMsat: 20_000, ttlSecs: 3600, ...over,
-} as never, NOW), KUNDE.sk);
-
-test("Session: Roundtrip mit allen Grenzen", () => {
-  const s = parseSessionOpen(session());
-  assert.equal(s.sessionId, "s1");
-  assert.equal(s.maxTotalMsat, 100_000);
-  assert.equal(s.providerPubkey, KP.pk);
-});
-
-test("Eine Session traegt DREI Grenzen, nicht eine", () => {
-  // Gesamtbudget allein reicht nicht: Ohne Ratenobergrenze koennte ein
-  // Provider das Budget mit einem einzigen ueberteuerten Aufruf leeren,
-  // und ohne Abrechnungsintervall erst am Ende abrechnen.
-  const s = parseSessionOpen(session());
-  assert.ok(s.maxTotalMsat > 0);
-  assert.ok(s.maxRatePerKTokenMsat > 0);
-  assert.ok(s.settleEveryMsat > 0);
-});
-
-test("Die Session laeuft ab", () => {
-  // Eine unbefristete Session waere eine dauerhafte Vollmacht.
-  const s = parseSessionOpen(session({ ttlSecs: 3600 }));
-  assert.equal(s.expiration, NOW + 3600);
-});
-
-test("Unvollstaendige Session wird abgelehnt", () => {
-  const ev = signEvent(buildEvent(KUNDE.pk, 38021, [["d", "s1"]], ""), KUNDE.sk);
-  assert.throws(() => parseSessionOpen(ev), /fehlendes Tag/);
-});
-
-const zahlung = (over: Record<string, unknown> = {}) => signEvent(buildSessionPayment({
-  customerPubkey: KUNDE.pk, sessionId: "s1", seq: 1,
-  cumulativeMsat: 5000, unitsSinceLast: 500, ...over,
-} as never, NOW), KUNDE.sk);
-
-test("Zahlung verweist auf ihre Session", () => {
-  // Ohne diesen Bezug koennte ein Provider eine fremde Zahlung fuer sich
-  // verbuchen.
-  const p = parseSessionPayment(zahlung());
-  assert.equal(p.sessionId, "s1");
-  assert.equal(p.cumulativeMsat, 5000);
-});
-
-test("Belege sind fortlaufend nummeriert — Luecken sind ein Warnzeichen", () => {
-  // Der Betrag ist kumuliert, die Nummer fortlaufend. Fehlt eine Nummer,
-  // fehlt ein Beleg, und der Kunde kann nachfragen, statt erst am Ende zu
-  // merken, dass die Summe nicht stimmt.
-  const erste = parseSessionPayment(zahlung({ seq: 1, cumulativeMsat: 5000 }));
-  const dritte = parseSessionPayment(zahlung({ seq: 3, cumulativeMsat: 15_000 }));
-  assert.equal(erste.seq, 1);
-  assert.equal(dritte.seq, 3);
-  assert.ok(dritte.cumulativeMsat > erste.cumulativeMsat, "kumuliert, nicht je Schritt");
-});
-
-test("Kaputte Zahlung wird abgelehnt", () => {
-  const ev = signEvent(buildEvent(KUNDE.pk, 38022, [], ""), KUNDE.sk);
-  assert.throws(() => parseSessionPayment(ev));
 });

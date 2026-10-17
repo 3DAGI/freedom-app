@@ -156,7 +156,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | A-21d–f | Signieren, Knoten, Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool) | frei – A-21d als Nächstes ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
-| RM2c4b | Protokoll: die Bausteine der Sitzung auf Kredit fallen (`stream.ts`, `buildPrivateSessionEvent()`, Ausnahmen in `wiring-ausnahmen.txt`, Aussage „ki-zahlung“ ohne Sitzungen und Belege) (RM2d Oberfläche, Spur C: „Guthaben laden“, Mint wählen über `cashuTopf` aus `shell/ki-pfand.ts`, Kopf und Seitenleiste zeigen seit RM2c3 kein Budget mehr) | frei (RM2c3 ✓: die App eröffnet keine Sitzung mehr; RM2c4a ✓: der Knoten bedient keine mehr) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 | A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |
@@ -188,6 +187,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |
+| RM2d | Oberfläche Cashu-Pfand: „Guthaben laden“ statt Budget, Mint wählen und „verwahrt“ sichtbar – über `cashuTopf` aus `shell/ki-pfand.ts` (`waehleMint()`, `ladeAnfrage()`, `abholen()`, `guthaben()`); Kopf und Seitenleiste zeigen seit RM2c3 „—“ | frei (RM2c1–c4b ✓, Spur A) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |
 
 ### Ohne Spur
 

@@ -17,12 +17,11 @@ import { baueRelayAuth } from "../src/relay-zugang.js";
 import { LAYER_CELL_DEGREES, baueCoverageEintrag, baueCoverageWiderruf, buildCoverageAnnouncement, toCell } from "../src/coverage.js";
 import { signEvent } from "../src/event.js";
 import { buildJobRequest, buildJobResult } from "../src/dvm.js";
-import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateSessionEvent, buildPrivateUrteil, openPrivateJobRequest } from "../src/private-job.js";
+import { buildPrivateDispute, buildPrivateJobRequest, buildPrivateJobResponse, buildPrivateUrteil, openPrivateJobRequest } from "../src/private-job.js";
 import { buildDispute, buildResolution } from "../src/disputes-relays.js";
 import { verschluesseleDatei } from "../src/datei-krypto.js";
 import { buildPrivateKontaktliste } from "../src/kontaktliste.js";
 import { buildBlob } from "../src/blob.js";
-import { buildSessionOpen, buildSessionPayment } from "../src/stream.js";
 import { LocalSigner } from "../src/signer.js";
 import { pfandTags } from "../src/pfand.js";
 import { buildPrivateSolTrinkgeld } from "../src/sol-trinkgeld.js";
@@ -96,16 +95,14 @@ const ANTWORT = "Der Wert liegt im Normbereich.";
 const BOLT11 = "lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp";
 
 /**
- * Eine ganze private KI-Runde wie seit 3.2e (a = Identitaet, b = Provider):
- * Sitzung, Anfrage, Antwort mit Betrag und Rechnung, Beleg – alles versiegelt.
+ * Eine ganze private KI-Runde (a = Identitaet, b = Provider): Anfrage mit Gebot,
+ * Antwort mit Betrag und Rechnung – beides versiegelt. Sitzung und Beleg (3.2e)
+ * fielen mit RM2c3/RM2c4; bezahlt wird die Rechnung direkt, ohne Event.
  */
 async function privateKiRunde() {
   const sitzung = new LocalSigner(generateKeypair().sk);
   const provider = new LocalSigner(b.sk);
   const sp = sitzung.publicKey();
-  const open = await buildPrivateSessionEvent({ sessionSigner: sitzung, providerPk: b.pk, event: buildSessionOpen({
-    customerPubkey: sp, providerPubkey: b.pk, sessionId: "s1", maxTotalMsat: 100_000, maxRatePerKTokenMsat: 1000, settleEveryMsat: 20_000, ttlSecs: 3600,
-  }) });
   const { wrap: anfrage, requestId } = await buildPrivateJobRequest({ sessionSigner: sitzung, providerPk: b.pk, request: buildJobRequest({
     customerPubkey: sp, input: PROMPT, bidMsat: 1000, providerPubkey: b.pk,
   }) });
@@ -113,10 +110,7 @@ async function privateKiRunde() {
     providerPubkey: b.pk, requestId, requestKind: 5050, customerPubkey: sp, output: ANTWORT, amountMsat: 7000, bolt11: BOLT11,
     usage: { model: "m", promptTokens: 3, completionTokens: 7 },
   }) });
-  const beleg = await buildPrivateSessionEvent({ sessionSigner: sitzung, providerPk: b.pk, event: buildSessionPayment({
-    customerPubkey: sp, sessionId: "s1", seq: 1, cumulativeMsat: 7000, unitsSinceLast: 7,
-  }) });
-  return { wraps: [open.wrap, anfrage, antwort.wrap, beleg.wrap] };
+  return { wraps: [anfrage, antwort.wrap] };
 }
 
 const NOTIZ = "Antwort zum Laborbefund war unbrauchbar";
