@@ -9,6 +9,7 @@
  */
 import { fromHex, toHex } from "@freedomstack/protocol";
 import { startHero } from "../hero.js";
+import { themaBeimStart, wireThemaWahl } from "./thema-ui.js";
 import { LANGS, Lang, detectLang, gespeicherteSprache, getLang, setLang, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
@@ -120,7 +121,7 @@ import {
   starteAutoSperre,
   tresorEingerichtet,
 } from "./tresor.js";
-import {
+import { chip as baueChip,
   $,
   aktualisiereNavStatus,
   el,
@@ -208,17 +209,30 @@ async function baueSicherungsDialog(mnemonic: string): Promise<void> {
   const ablage = el("div");
   ablage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"; // kein UI-Text
   ablage.append(knopf("bk-copy", t("ein.kopieren"), "ghost", KLEIN), knopf("bk-file", t("ein.alsDatei"), "ghost", KLEIN));
-  const abfrage = el("div");
+  const abfrage = el("div", undefined, "wort-abfrage");
   abfrage.id = "bk-challenge";
-  abfrage.style.cssText = "display:flex;gap:6px;flex-wrap:wrap"; // kein UI-Text
+  // Wort-Chips (C-55b) statt Abtippen: je Stelle vier Wörter der eigenen Merkphrase, die Wahl im verborgenen Feld
+  const { wortAuswahl } = await import("../wort-chips.js");
   abfrage.append(...positionen.map((p) => {
-    const feld = el("input", undefined, "mono-sm");
+    const feld = el("input");
+    feld.type = "hidden";
     feld.dataset.pos = String(p);
-    feld.style.width = "110px";
-    feld.autocomplete = "off";
-    const label = el("label", undefined, "mono-sm");
-    label.append(`${t("ein.nummer", { n: p + 1 })} `, feld);
-    return label;
+    const gruppe = el("div", undefined, "wort-chips");
+    gruppe.setAttribute("role", "group");
+    const titel = el("span", t("ein.nummer", { n: p + 1 }), "wort-nr");
+    titel.id = `bk-nr-${p}`;
+    gruppe.setAttribute("aria-labelledby", titel.id);
+    const chips = wortAuswahl(woerter, p).map((w) => {
+      // Baustein Chip (C-56a)
+      const chip = baueChip(w, false, "wort-chip");
+      chip.addEventListener("click", () => {
+        feld.value = w;
+        for (const c of chips) c.setAttribute("aria-pressed", String(c === chip));
+      });
+      return chip;
+    });
+    gruppe.append(titel, ...chips, feld);
+    return gruppe;
   }));
   const fehler = el("div", undefined, "mono-sm");
   fehler.id = "bk-error";
@@ -680,6 +694,8 @@ function checkOwnProvider(): void {
  * danach ist der Schluessel da und die App startet wie bisher.
  */
 export function boot(): void {
+  // Design (C-57b) vor allem anderen, auch vor dem Entsperr-Dialog
+  themaBeimStart();
   // Sprache (8.16) zuerst: Entsperr-Dialog und Meldungen nach einer Notfall-Loeschung
   // kommen vor starte() – gespeicherte Wahl, wenn es sie noch gibt, sonst die des Browsers
   setLang(gespeicherteSprache(localStorage.getItem("freedom.lang")) ?? detectLang());
@@ -720,6 +736,7 @@ function starte(): void {
   if (mehrLangBtn) mehrLangBtn.textContent = `${langCode} ▾`;
   applyI18n();
   setupLangMenu();
+  wireThemaWahl();
   // Kein Gate mehr → Identity beim Boot laden/erzeugen (früher gate-button)
   loadOrCreateIdentity();
   // Tresor: automatische Sperre, aber nie mitten in einen Geldvorgang oder Auftrag;

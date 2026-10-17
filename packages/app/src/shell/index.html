@@ -240,10 +240,10 @@
             <div class="seiten-hinweis" data-hinweis="comm"></div>
             <input id="chat-suche" class="chat-suche" type="search" placeholder="Suchen – nur auf diesem Gerät" aria-label="Nachrichten durchsuchen – nur auf diesem Gerät" data-i18n-ph="komm.suchePh" data-i18n-aria="komm.sucheAria" autocomplete="off" />
             <div id="chat-filter" class="chat-filter" role="group" aria-label="Unterhaltungen filtern" data-i18n-aria="chatFilter.aria">
-              <button type="button" data-filter="alle" aria-pressed="true" data-i18n="chatFilter.alle">Alle</button>
-              <button type="button" data-filter="direkt" aria-pressed="false" data-i18n="chatFilter.direkt">Direkt</button>
-              <button type="button" data-filter="raeume" aria-pressed="false" data-i18n="chatFilter.raeume">Räume</button>
-              <button type="button" data-filter="ungelesen" aria-pressed="false" data-i18n="chatFilter.ungelesen">Ungelesen</button>
+              <button type="button" class="chip" data-filter="alle" aria-pressed="true" data-i18n="chatFilter.alle">Alle</button>
+              <button type="button" class="chip" data-filter="direkt" aria-pressed="false" data-i18n="chatFilter.direkt">Direkt</button>
+              <button type="button" class="chip" data-filter="raeume" aria-pressed="false" data-i18n="chatFilter.raeume">Räume</button>
+              <button type="button" class="chip" data-filter="ungelesen" aria-pressed="false" data-i18n="chatFilter.ungelesen">Ungelesen</button>
             </div>
             <div id="chat-suche-treffer" class="chat-list chat-suche-treffer hidden"></div>
             <div id="chat-list" class="chat-list"></div>
@@ -806,7 +806,7 @@
               </div>
 
               <div id="pf-disclosure" class="mono-sm"
-                style="border-left:2px solid var(--line,#2A2A2A);padding-left:9px"></div>
+                style="border-left:2px solid var(--line2);padding-left:9px"></div>
               <button id="pf-save" class="send-btn" style="width:auto;padding:8px 14px" data-i18n="profil.speichern">Profil speichern</button>
             </div>
           </details>
@@ -839,6 +839,12 @@
             <button role="tab" data-subtab="privacy"><span class="ic" data-icon="shield"></span> <span data-i18n="set.tabDatenschutz">Datenschutz</span></button>
             <button role="tab" data-subtab="share"><span class="ic" data-icon="link"></span> <span data-i18n="set.tabWeitergeben">Weitergeben</span></button>
             <div class="nav-lang settings-lang">
+              <label class="thema-wahl"><span data-i18n="set.design">Design</span>
+              <select data-thema-wahl>
+                <option value="system" data-i18n="set.designSystem">Wie das Gerät</option>
+                <option value="hell" data-i18n="set.designHell">Hell</option>
+                <option value="dunkel" data-i18n="set.designDunkel">Dunkel</option>
+              </select></label>
               <div class="lang-dropdown">
                 <button id="lang-btn-app" class="ghost lang-toggle" type="button" aria-label="Sprache" data-i18n-aria="set.sprache">🌐 ▾</button>
                 <div id="lang-menu-app" class="lang-menu hidden"></div>
@@ -1031,6 +1037,12 @@
               <div id="lang-menu-mehr" class="lang-menu hidden"></div>
             </div>
           </div>
+          <label class="mehr-zeile mehr-thema"><span class="ic" data-icon="sun"></span><span data-i18n="set.design">Design</span>
+              <select data-thema-wahl>
+                <option value="system" data-i18n="set.designSystem">Wie das Gerät</option>
+                <option value="hell" data-i18n="set.designHell">Hell</option>
+                <option value="dunkel" data-i18n="set.designDunkel">Dunkel</option>
+              </select></label>
           <p id="mehr-relays" class="mono-sm muted" role="status"></p>
         </div>
       </section>
@@ -1052,7 +1064,9 @@
     </nav>
   </div>
 
-  <div id="toast" class="hidden"></div>
+  <div id="toast" aria-hidden="true" hidden></div>
+  <div id="toast-ansage" class="visually-hidden" role="status"></div>
+  <div id="toast-alarm" class="visually-hidden" role="alert"></div>
   <!-- APP_JS -->
 </body>
 </html>

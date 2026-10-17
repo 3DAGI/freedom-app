@@ -66,3 +66,18 @@ dieses Bereichs unten anhängen.
 - **`check-wiring.py` und der Spread** (seit RM2b2): `BEZEICHNER` überging Namen nach einem Punkt – auch nach `...`. Ein
   Export, der nur als `...name(…)` aufgerufen wird (`tags.push(...cashuAngebotTags(c))`), galt als nicht verdrahtet. Der
   Selbsttest (`test_check_wiring.py`, `nachSpread`) hält das fest; `konfig.eigenschaft` bleibt eine Eigenschaft.
+- **Stil-Abdruck** (seit C-56b, Smoke-Teil „stil_abdruck“): je Seite und Größe die Stile der Bausteine aus
+  `docs/ausbau/BAUSTEINE.md`, verglichen mit `scripts/stil-soll.json`. Ändert sich das Design gewollt,
+  `STIL_NEU=1 python3 scripts/smoke_test.py packages/app/dist` und die Datei mitcommiten, im Pull Request nennen;
+  `BILDER=<ordner>` legt Bildschirmfotos zum Ansehen ab. Gemessen wird nur, was das CSS festlegt – Bildschirmfotos
+  hingen von den Schriften des Rechners ab und wären in der CI rot, ohne dass sich etwas änderte.
+  Seit C-57b je Design: dunkel ohne Vorsilbe, hell mit „hell/“.
+- **Playwright meldet „hell“** (seit C-57b): Ohne `color_scheme` sieht die App im Smoke-Test das helle Design –
+  wie jedes helle Gerät. Was ein Design braucht, setzt es ausdrücklich (`DialogSeite(…, farbschema="dark")`);
+  „zugang“ und „stil_abdruck“ laufen in beiden.
+
+- **Playwrights Uhr springt zurück** (gefunden in C-57c): Läuft die Uhr nach `clock.install()` in Echtzeit, kann ein
+  Durchlauf der Timer, der vor `pause_at()` begann, nach einem `fast_forward()` enden und die Uhr auf seine alte Zeit
+  zurücksetzen (`_advanceNow()` ohne Sperre) – der Timer, auf den man wartet, läuft dann nicht. Uhr vor der Handlung
+  anhalten, die Startzeit in derselben Aufgabe messen (`() => { const t = Date.now(); …click(); return t; }`) und bis zu
+  einer festen Zeit der Seite vorstellen, mit Nachsehen (`uhr_bis()` im Smoke-Teil „qr“) – nie nur Dauern addieren.

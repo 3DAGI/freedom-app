@@ -10838,6 +10838,229 @@ Tausch ohne Antwort (Mint tauschte → Zählerbereich; Anfrage kam nie an → zu
 
 Knoten-Stand: unverändert. Noch ohne Aufrufer – den bringt RM2c2.
 
+## Schritt C-55b – Onboarding: Merkphrase per Wort-Chips bestätigen
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-55. Zur Bestätigung tippte man drei Wörter ab. Am Handy scheiterte das oft an Autokorrektur und Großschreibung.
+
+- **Je Stelle vier Wörter der eigenen Merkphrase** als Chips (`wort-chips.ts`):
+  - das richtige und drei andere, ohne Doppelte;
+  - gemischt mit `crypto.getRandomValues`;
+  - wer nicht aufgeschrieben hat, trifft bei drei Stellen nur mit 1 : 64.
+- Die Wahl steht in einem verborgenen Feld je Stelle. Geprüft wird weiter mit `verifyMnemonicChallenge()`; ein falsches Wort meldet die Stelle.
+- Chips mit `aria-pressed`, je Stelle eine Gruppe mit Namen („Wort 4“).
+- Die Regel „Merkphrase nur bis zur Bestätigung und nur über `geheim`“ bleibt unverändert.
+
+Tests:
+- Neu: `wort-chips.test.ts` mit 4 Tests: vier Wörter mit dem richtigen, Mischen, Wiederholungen, Verdrahtung.
+- Der Smoke-Teil „einrichtung“ klickt:
+  - erst ein falsches Wort: die Meldung nennt die Stelle;
+  - dann das richtige: genau ein Chip gedrückt;
+  - die Einrichtung geht weiter.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1197 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-56a – Bausteine: Chip und Skelett, eine Übersicht für alle Spuren
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-56. Gleiche Dinge sahen je Seite anders aus: Filter, Wort-Auswahl, Ladeanzeigen. Jede Spur baute sie neu.
+
+- **Zwei neue Bausteine** als gemeinsame Klassen und Helfer in `shell/ui.ts`:
+  - Chip: `chip(text, gedrueckt, klasse)`, ein Knopf mit `aria-pressed`;
+  - Skelett: `skelett(zeilen, beschriftung)`, mit `role="status"` und ohne Bewegung bei „weniger Bewegung“.
+- Genutzt werden sie hier:
+  - Die Filter der Chat-Liste und die Wort-Chips der Einrichtung sind Chips.
+  - „Einnahmen“ lädt mit Skelett statt mit einem Satz.
+- `docs/ausbau/BAUSTEINE.md` nennt alle Bausteine mit Klasse und Regel: Knopf, primär, ghost, Chip, Karte, Feld, Schalter, Skelett, Gruppe und Zeile.
+- Fallstrick in `packages/app/CLAUDE.md`: neue Oberfläche nur aus diesen Bausteinen.
+
+Tests:
+- Neu: `bausteine.test.ts` mit 4 Tests: Helfer, Klassen im CSS, Übersicht vollständig, Verdrahtung.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1201 (+4), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-56b – Stil-Abdruck: die Bausteine bleiben gleich, über alle Spuren
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-56. Ob ein Knopf nach einer Änderung noch aussieht wie vorher, sah bisher niemand. Drei Spuren ändern dasselbe CSS.
+
+- **Neuer Smoke-Teil „stil_abdruck“.** Je Seite misst er eine feste Probe aller Bausteine (C-56a), dazu Seitentitel und Navigation:
+  - Seiten: Agent, Chats, Wallet, Verdienen, Einstellungen;
+  - jeweils auf Desktop und Handy;
+  - gemessen: Schrift, Größe, Gewicht, Schreibung, Radius, Farben, Mindesthöhe.
+- Verglichen wird mit `scripts/stil-soll.json`.
+- Gemessen wird nur, was das CSS festlegt: Übergänge aus, keine Bildschirmfotos. Die hingen von den Schriften des CI-Rechners ab.
+- Bei gewollter Änderung:
+  - `STIL_NEU=1` schreibt die Datei neu; sie wird mitcommittet und im Pull Request genannt.
+  - `BILDER=<ordner>` legt Bildschirmfotos zum Ansehen ab.
+
+Tests:
+- Neu: `stil-abdruck.test.ts` mit 3 Tests: Datei vollständig, gemerkte Werte gleich den Regeln der Bausteine, Smoke-Teil eingetragen.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1204 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57a – Jede Farbe als Token: Vorbereitung für das helle Design
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-57. Rund 70 Farben standen fest im CSS. Ein helles Design hätte jede einzeln gebraucht.
+
+- **Alle Farben als Token in `:root`:**
+  - Flächen und Ränder;
+  - Text in drei Stufen;
+  - Schrift auf Grün (`--auf-akzent`);
+  - Farben für Lightning, SOL, Rollen und Code.
+- Drei Variablen ohne Definition (`--acc`, `--line`, `--danger`) fielen still auf ihren Ersatz zurück. Sie zeigen jetzt auf ihre Tokens.
+- Fest bleiben nur Farben, die in beiden Designs gleich sind: Weiß auf farbigem Grund und Schwarz unter Videos.
+- Das dunkle Design bleibt gleich; der Stil-Abdruck (C-56b) ist unverändert grün.
+
+Tests:
+- Neu: `farben-tokens.test.ts` mit 3 Tests:
+  - keine Farbe außerhalb der Tokens;
+  - jede benutzte Variable ist definiert, ohne Ersatzfarben;
+  - Schrift auf Grün über `--auf-akzent`.
+- `bausteine.test.ts` (C-56a) liest die Schrift auf dem gedrückten Chip jetzt als Token (`--auf-akzent`) statt `#000`.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1207 (+3), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57b – Helles Design, Wahl Wie das Gerät · Hell · Dunkel
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-57. Die App war nur dunkel. Auf hellen Geräten und draußen in der Sonne war sie schwer zu lesen.
+
+- **Dieselben Tokens (C-57a) mit hellen Werten.** Text erreicht auf jeder Fläche mindestens 4,5:1.
+  - Grün wird dunkler (`#3B7600`); Schrift darauf ist weiß (5,6:1).
+  - Rot, Bernstein, Gold und die Farben für Lightning, SOL, Rollen und Code wurden je für Hell nachgezogen.
+- **Gewählt wird in den Settings**, neben der Sprache; am Handy auf „Mehr“. Standard ist „Wie das Gerät“.
+  - Eine feste Wahl steht als `data-theme` an `<html>`, gesetzt als Erstes in `boot()`, vor dem Entsperren.
+  - Sie wird in `freedom.thema` gespeichert, nur auf diesem Gerät und nicht in der Sicherung.
+  - Ohne feste Wahl entscheidet das CSS allein über `prefers-color-scheme`.
+- Was mit Code gemalt wird, nimmt die Tokens: Hintergrund der Startseite und der Lade-Orb des Agenten.
+- „Teilen“ sitzt als dunkles Glas auf dem Bild des Profils und hat in beiden Designs weiße Schrift. Im hellen Design war sie dunkel (1,14:1), das fand der Smoke-Teil „zugang“.
+
+Tests:
+- Neu: `thema.test.ts` mit 4 Tests: Lesen der Wahl, Attribut, nicht in der Sicherung, Verdrahtung.
+- `farben-tokens.test.ts` hat 3 Tests mehr:
+  - jede Farbe hat einen hellen Wert, gewählt und nach dem Gerät gleich;
+  - Kontrast jeder Schriftfarbe auf jeder Fläche, auch auf Grün und Rot;
+  - Bilder aus Code nehmen die Tokens.
+- Smoke-Test:
+  - „zugang“ misst Namen, Tastatur und Kontrast jetzt in beiden Designs.
+  - „stil_abdruck“ hat zehn helle Ansichten mehr; `scripts/stil-soll.json` wurde neu geschrieben.
+  - Neuer Teil „thema“: folgt dem Gerät (hell, nach dem Umschalten dunkel), „Dunkel“ gilt sofort und nach dem Neuladen, „Wie das Gerät“ auf „Mehr“ nimmt die Wahl zurück.
+- Ohne eigene Angabe läuft der Smoke-Test im hellen Design, denn Playwright meldet „hell“. So sieht ihn jedes helle Gerät.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1214 (+7), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-57c – Website hell nach dem Gerät
+
+Aus dem Oberflächen-Review (15.10.2026), dritter Teil von C-57. Die Website war nur dunkel.
+
+- **Die Website folgt dem Gerät** über `prefers-color-scheme`. Sie nutzt dieselben hellen Werte wie die App (C-57b). Eine Wahl gibt es auf den statischen Seiten nicht.
+- Feste Farben stehen jetzt als Token, in drei Arten von Stellen:
+  - im CSS: Navigation, Knöpfe, Terminal-Demo;
+  - im `<style>` des Dashboards;
+  - in `style="…"` der Befehle zum Kopieren, jetzt Klasse `befehl`.
+- Die Partikel im Hintergrund malen mit `--accent`.
+- Rot als Schrift ist im dunklen Design heller (`#E35D5D`). Vorher erreichte es auf Schwarz nur 4:1, wie in der App vor C-4.
+
+Tests:
+- `check-website.py` prüft neu mit `farben_pruefen()`:
+  - jede Farbe hat einen hellen Wert;
+  - keine feste Farbe außerhalb der Tokens;
+  - Kontrast von Text, Grün, Bernstein und Rot auf Grund und Karte mindestens 4,5:1, in beiden Designs.
+- Neu: `scripts/test_check_website.py` mit 7 Fällen, je ein Verstoß in einer Kopie der Website. Die CI führt den Selbsttest vor der Prüfung aus.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1214 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-59 – Rückmeldungen: Meldungen einheitlich, Skelette statt „—“, Übergänge
+
+Aus dem Oberflächen-Review (15.10.2026). Drei Mängel:
+- Ladezustände standen als „—“.
+- Eine zweite Meldung verschwand vorzeitig.
+- Vorleser hörten Meldungen nicht.
+
+- **Meldungen (Toast)** sind jetzt einheitlich:
+  - mit Zeichen (✓ oder !) und einem Rand in der Farbe der Art;
+  - Fehler stehen 7 statt 4 Sekunden, ein Klick schließt;
+  - eine neue Meldung ersetzt die alte samt Uhr; bis jetzt schloss die Uhr der alten auch die neue.
+- **Vorleser** hören Meldungen über eine Ansage, die immer da ist: `#toast-ansage` mit `role="status"`, Fehler über `#toast-alarm` mit `role="alert"`. Die sichtbare Meldung ist für sie verborgen, sonst käme sie doppelt.
+- **Skelett statt „—“**, solange ein Stand unterwegs ist (`ladend()` in `shell/ui.ts`):
+  - Lightning beim Verbinden;
+  - Browser-Wallet und eingebaute Wallet beim Abruf;
+  - Gesamtstand oben im Wallet;
+  - Stand des Knotens in Verdienen.
+  - „—“ heißt seitdem nur noch „kein Wert“.
+- **Übergänge:** Das Blatt kommt von unten, Popover, Dialoge und Meldungen blenden ein. Alles dauert unter 0,2 s, bei „weniger Bewegung“ gibt es keine Übergänge.
+
+Tests:
+- Neu: `rueckmeldungen.test.ts` mit 5 Tests: eine Uhr, Ansage für Vorleser, Skelett statt „—“, Übergänge samt „weniger Bewegung“, Smoke eingetragen.
+- Neuer Smoke-Teil „rueckmeldung“:
+  - Ansage-Regionen vorhanden;
+  - eine zweite Meldung nach drei Sekunden steht zwei Sekunden später noch;
+  - ein Klick schließt;
+  - Dialog mit Übergang, bei „weniger Bewegung“ ohne.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+5), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-58a – Startseite: echtes Bild der App, links bündig, Vertrauenszeile
+
+Aus dem Oberflächen-Review (15.10.2026), erster Teil von C-58. Bisher:
+- Die Startseite zeigte kein Bild der App, sondern ein fast leeres Terminal mit einer nachgestellten Szene („82 msat bezahlt“).
+- Der Hero war gemischt ausgerichtet.
+- Lizenz, reproduzierbarer Build und Tor standen tief im Text.
+
+- **Ein echtes Bild der App** statt der Szene: die Agent-Seite aus dem Build.
+  - Vier Bilder, je Sprache (de, en) und Design (dunkel, hell).
+  - Die Seite zeigt das passende: Design über `<picture>` und `prefers-color-scheme`, Sprache beim Umschalten.
+  - Aufgenommen mit `scripts/website-bilder.py`, wie der Smoke-Test: frisches Profil, nichts nach außen.
+  - Der Alternativtext steht in beiden Sprachen.
+- **Hero links bündig:** Text, Knöpfe und Vertrauenszeile an einer Kante, rechts das Bild; am Handy darunter.
+- **Vertrauenszeile** statt der Abzeichen. Jeder Punkt ist mit seinem Beleg verlinkt:
+  - Freie Lizenz (EUPL-1.2), Beleg: `LICENSE`;
+  - Reproduzierbarer Build, Beleg: FAQ Technik;
+  - Tor in den Apps, Beleg: Downloads;
+  - Niemand verwahrt dein Geld, Beleg: FAQ Geld.
+- `build-site.sh` legt `bilder/` mit aus.
+
+Tests:
+- `check-website.py` prüft neu mit `bilder_pruefen()`:
+  - jedes Bild ist ein PNG in 1200×760;
+  - Größe und Alternativtext stehen im HTML, der Alternativtext in beiden Sprachen;
+  - jede Quelle existiert, und `build-site.sh` legt den Ordner aus.
+- `test_check_website.py` hat 4 Fälle mehr: heute ohne Befund, Bild fehlt, falsche Größe, ohne Alternativtext.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
+## Schritt C-58b – Dashboard mit Kacheln und ruhigem Ausfall, Inhaltsverzeichnis an der Seite
+
+Aus dem Oberflächen-Review (15.10.2026), zweiter Teil von C-58. Bisher:
+- Das Dashboard nutzte rund 40 % der Breite.
+- Ohne Verbindung zeigte es acht rote Pillen und einen roten Satz.
+- Die Inhaltsverzeichnisse von FAQ und Whitepaper waren unvollständig und rollten mit weg.
+
+- **Kacheln von Anfang an:** vier Kacheln mit Platzhalter, ohne Verbindung „—“.
+- **Die Breite genutzt:** Angebote über beide Spalten, darunter je zwei Abschnitte nebeneinander (ab 900 px).
+- **Ruhiger Ausfall:**
+  - ein Kasten mit einem Satz, was los ist, und „Jetzt erneut versuchen“;
+  - die Relays im Einzelnen eingeklappt („0 von 8 erreichbar“), der Stand als Punkt statt roter Schrift;
+  - die Abschnitte sagen „Ohne Verbindung keine Zahlen.“
+- **Inhaltsverzeichnis** von FAQ und Whitepaper:
+  - als Navigation mit Titel;
+  - ab 1100 px als eigene Spalte, die beim Lesen stehen bleibt;
+  - jetzt mit allen Abschnitten. Es fehlten „Noch eine Frage offen?“ in der FAQ und fünf Abschnitte im Whitepaper.
+
+Tests:
+- `check-website.py` prüft neu mit `lesbarkeit_pruefen()`:
+  - jedes Verzeichnis nennt jeden Abschnitt in der Reihenfolge der Seite;
+  - das Dashboard hat einen ruhigen Ausfall und keine roten Pillen.
+- `test_check_website.py` hat 3 Fälle mehr.
+
+**Prüfungen:** protocol 1339 grün, node 507 (ohne Netz), app 1219 (+0), Leak 73 + 1 todo;
+tsc überall, Build, Wiring (Exit 0), Website, innerHTML, Smoke grün.
+
 ## Schritt RM2c2 – Cashu-Pfand im echten Pfad
 
 Spur A, `docs/RM2-ENTWURF.md` (V1, V4, V5; W1 A). Die Sitzung auf Kredit fällt mit RM2c3 (neu in V9); RM2d (Spur C) bringt

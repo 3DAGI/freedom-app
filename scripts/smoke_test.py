@@ -47,7 +47,7 @@ Aufruf:  python3 agent/werkzeuge/smoke_test.py packages/app/dist
 Voraussetzung: pip install playwright && python3 -m playwright install chromium
 Exit-Code 0 = bestanden, 1 = durchgefallen.
 """
-import datetime, functools, http.server, json, re, socket, subprocess, sys, threading
+import datetime, functools, http.server, json, os, re, socket, subprocess, sys, threading
 
 # Verlauf mit HTML im Modellnamen und in meta – beides kam frueher roh ins HTML.
 PROBE_VERLAUF = [{"id": "probe", "title": "Probe", "at": 1790000000, "messages": [
@@ -662,11 +662,12 @@ class DialogSeite:
     (`prompt`/`confirm`/`alert` – es darf keinen geben) und bedient die Dialoge aus `shell/dialog.ts`."""
 
     def __init__(self, browser, url: str, relay: "ProbeRelay", erg: dict, init: str | None = None,
-                 viewport: dict | None = None, mobil: bool = False) -> None:
+                 viewport: dict | None = None, mobil: bool = False, farbschema: str | None = None) -> None:
         basis = url.rsplit("/", 1)[0]
         self.browser_dialoge: list[str] = []
+        # Farbschema des Geräts (C-57b): ohne Angabe das von Playwright – hell
         self.ctx = browser.new_context(locale="de-DE", viewport=viewport or {"width": 1280, "height": 800},
-                                       is_mobile=mobil, has_touch=mobil)
+                                       is_mobile=mobil, has_touch=mobil, color_scheme=farbschema)
         if init:
             self.ctx.add_init_script(init)
         self.ctx.route("**/*", lambda r: r.continue_() if r.request.url.startswith(basis) else r.abort())
@@ -2342,10 +2343,12 @@ ZUGANG_SEITEN = ["#/agent", "#/chat", "#/repos", "#/waehrung", "#/verdienen", "#
 def zugang_pruefen(browser, url: str) -> dict:
     """Barrierefreiheit (C-4): auf jeder Seite und in jedem Unterreiter, Desktop und Handy – jedes Bedienelement
     hat einen Namen für Vorleser, nichts ist nur mit der Maus erreichbar, keine Tab-Reihenfolge von Hand
-    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1)."""
+    (tabindex > 0), Schrift mit Kontrast nach WCAG AA (4,5:1, groß 3:1). Seit C-57b in beiden Designs (das Gerät
+    hell, das Gerät dunkel)."""
     erg = {"fehler": []}
-    for groesse, vp in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]:
-        seite = DialogSeite(browser, url, ProbeRelay(), erg)
+    for schema, groesse, vp in [(sch, g, v) for sch in ("dark", "light")
+                                for g, v in [("desktop", {"width": 1280, "height": 800}), ("mobil", {"width": 390, "height": 844})]]:
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema=schema)
         if groesse == "mobil":
             seite.s.set_viewport_size(vp)
         funde: dict = {}
@@ -2365,10 +2368,11 @@ def zugang_pruefen(browser, url: str) -> dict:
                 for art, liste in seite.ev(ZUGANG_PRUEFUNG).items():
                     for x in liste:
                         funde.setdefault(art, {}).setdefault(x, f"{a}{':' + reiter[1] if reiter else ''}")
-        erg[groesse] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
-        for art, v in erg[groesse].items():
+        name = groesse if schema == "dark" else f"hell/{groesse}"
+        erg[name] = {art: [f"{x} ({wo})" for x, wo in v.items()] for art, v in funde.items()}
+        for art, v in erg[name].items():
             if v:
-                erg["fehler"].append(f"{groesse} {art}: {v[:6]}")
+                erg["fehler"].append(f"{name} {art}: {v[:6]}")
         seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
@@ -2608,17 +2612,29 @@ def qr_pruefen(browser, url: str) -> dict:
         pass
     code_dlg = ev(dlg) or {}
     code = code_dlg.get("wert") or ""
-    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    # Uhr anhalten, dann klicken – die Zeit des Klicks in derselben Aufgabe gemessen, in der die Uhr des QR beginnt
+    jetzt_ms = ev("() => Date.now()")
+    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
+    klick_ms = ev("() => { const t = Date.now(); document.querySelector('[role=dialog] .qr-zeigen').click(); return t; }")
     gezeigt = ev(dlg) or {}
     qr_pfad = ev("""() => { const b = document.querySelector('[role=dialog] .qr-bild');
       return b ? { d: b.querySelector('path').getAttribute('d'), g: +b.getAttribute('viewBox').split(' ')[2] } : null; }""")
-    jetzt_ms = ev("() => Date.now()")
-    s.clock.pause_at(datetime.datetime.fromtimestamp((jetzt_ms + 1000) / 1000, tz=datetime.timezone.utc))
-    s.clock.fast_forward("00:58")
-    s.wait_for_timeout(200)
+
+    def uhr_bis(ziel_ms: int) -> None:
+        """Die Uhr der Seite bis `ziel_ms` vorstellen. Playwrights Uhr kann nach `pause_at` zurückspringen: Ein
+        Durchlauf der Echtzeit, der vor der Pause begann, setzt an seinem Ende seine alte Zeit (`_advanceNow()` ohne
+        Sperre) – so lief der QR in der CI einmal nicht ab (C-57c). Darum die Zeit der Seite lesen und nachlegen."""
+        for _ in range(6):
+            rest = ziel_ms - ev("() => Date.now()")
+            if rest <= 0:
+                return
+            s.clock.fast_forward(int(rest))
+            s.wait_for_timeout(200)
+        erg["fehler"].append(f"Uhr der Seite erreicht {ziel_ms} nicht")
+
+    uhr_bis(klick_ms + 58_000)
     nach58 = (ev(dlg) or {}).get("bilder")
-    s.clock.fast_forward("00:03")
-    s.wait_for_timeout(200)
+    uhr_bis(klick_ms + 61_000)
     nach61 = ev(dlg) or {}
     sk = code.rsplit(":", 1)[-1] if code.count(":") == 2 else "?"
     gespeichert = ev("(sk) => [...Object.values(localStorage), ...Object.values(sessionStorage)].some(v => String(v).includes(sk))", sk)
@@ -2942,7 +2958,23 @@ def einrichtung_pruefen(browser, url: str) -> dict:
     erg["sicherung"] = ev("() => [document.querySelectorAll('.modal .mnemonic-list li').length, document.querySelectorAll('#bk-challenge input').length,"
                           " ['bk-copy', 'bk-file', 'bk-done', 'bk-later'].map((i) => document.getElementById(i)?.textContent ?? null)]")
     w = ev("() => [...document.querySelectorAll('.mnemonic-list li')].map(l => l.textContent)")
-    ev("(w) => document.querySelectorAll('#bk-challenge input').forEach(i => i.value = w[+i.dataset.pos])", w)
+    # Wort-Chips (C-55b): je Stelle vier Wörter der eigenen Merkphrase, eines davon richtig; die Wahl per Klick, ein
+    # falsches meldet die Stelle – hier wird geklickt statt in die verborgenen Felder geschrieben
+    chips = "() => [...document.querySelectorAll('#bk-challenge .wort-chips')].map(g => [+g.querySelector('input').dataset.pos, [...g.querySelectorAll('.wort-chip')].map(c => c.textContent)])"
+    gruppen = ev(chips)
+    def waehle(nr: int, wort: str) -> None:
+        ev("([n, w]) => [...document.querySelectorAll('#bk-challenge .wort-chips')[n].querySelectorAll('.wort-chip')].find(c => c.textContent === w).click()", [nr, wort])
+    falsch = next(x for x in gruppen[0][1] if x != w[gruppen[0][0]])
+    waehle(0, falsch)
+    for nr, (pos, _) in enumerate(gruppen[1:], start=1):
+        waehle(nr, w[pos])
+    ev("() => document.getElementById('bk-done').click()")
+    erg["chips"] = [[len(g[1]), w[g[0]] in g[1], len(set(g[1])) == len(g[1]), all(x in w for x in g[1])] for g in gruppen]
+    erg["chips"].append(ev("() => document.getElementById('bk-error').textContent"))
+    waehle(0, w[gruppen[0][0]])
+    erg["chips"].append(ev("() => [...document.querySelectorAll('#bk-challenge .wort-chips')[0].querySelectorAll('.wort-chip')].map(c => c.getAttribute('aria-pressed')).filter(a => a === 'true').length"))
+    if erg["chips"] != [[4, True, True, True]] * 3 + [f"Falsch: Wort {gruppen[0][0] + 1}. Nochmal vergleichen.", 1]:
+        erg["fehler"].append(f"Wort-Chips {erg['chips']}")
     ev("() => document.getElementById('bk-done').click()")
     lies = """() => { const k = document.querySelector('#einrichtung .onboarding-card');
         return k ? [k.dataset.seite, k.querySelector('h2')?.textContent ?? null, [...k.querySelectorAll('button')].map((b) => b.id),
@@ -5671,6 +5703,165 @@ MOBIL_MESSEN = """() => {
 }"""
 
 
+STIL_SOLL = Path(__file__).resolve().parent / "stil-soll.json"
+# Was der Abdruck je Seite misst: Bausteine (C-56a) und ihre Stile – nur Erklärtes aus dem CSS, keine Schriftmetrik
+STIL_ABDRUCK = """() => {
+  // Übergänge aus: gemessen werden die Endwerte, nie ein Zwischenstand (die Navigation färbt sich über 150 ms um)
+  const ruhe = document.createElement('style');
+  ruhe.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+  document.head.append(ruhe);
+  const stil = (e) => { if (!e) return null; const c = getComputedStyle(e); return [c.fontFamily.split(',')[0].trim(), c.fontSize,
+    c.fontWeight, c.textTransform, c.borderTopLeftRadius, c.backgroundColor, c.color, c.minHeight]; };
+  // Eine feste Probe aus allen Bausteinen (C-56a) – unabhängig davon, was die Seite gerade nachlädt
+  const probe = document.createElement('div');
+  probe.id = 'stil-probe';
+  const h = (tag, klasse, typ) => { const e = document.createElement(tag); if (klasse) e.className = klasse; if (typ) e.type = typ; probe.append(e); return e; };
+  const teile = {
+    knopf: h('button'), primaer: h('button', 'primaer'), ghost: h('button', 'ghost'), chip: h('button', 'chip'),
+    karte: h('div', 'card'), feld: h('input', '', 'text'), schalter: h('input', 'schalter', 'checkbox'), skelett: h('span', 'skelett-zeile'),
+  };
+  const gruppe = h('div', 'einst-gruppe');
+  const zeile = document.createElement('label'); zeile.className = 'einst-zeile'; gruppe.append(zeile);
+  (document.querySelector('.tab-page.active .page-body') ?? document.querySelector('.tab-page.active') ?? document.body).append(probe);
+  const erg = Object.fromEntries(Object.entries(teile).map(([k, e]) => [k, stil(e)]));
+  erg.gruppe = stil(gruppe); erg.zeile = stil(zeile);
+  probe.remove();
+  erg.text = stil(document.body);
+  erg.titel = stil(document.querySelector('.tab-page.active h1.page-title'));
+  erg.navigation = stil(document.querySelector('.app-nav button[data-tab].active, .app-nav button[data-tab][aria-current=page]'));
+  ruhe.remove();
+  return erg;
+}"""
+
+
+def stil_abdruck_pruefen(browser, url: str) -> dict:
+    """Bausteine bleiben gleich (C-56b, Oberflächen-Review): je Seite (Agent, Chats, Wallet, Verdienen, Einstellungen) auf
+    Desktop und Handy ein Abdruck aus den Stilen einer festen Probe aller Bausteine, des Seitentitels und der Navigation –
+    Schrift, Größe, Gewicht, Schreibung, Radius, Farben, Mindesthöhe; verglichen mit `scripts/stil-soll.json`. Gemessen wird nur, was das CSS
+    festlegt, nicht die Schrift des Rechners – Bildschirmfotos hingen von den Schriften des CI-Rechners ab. Gewollt
+    geändert: `STIL_NEU=1` schreibt die Datei neu (mitcommiten, im Pull Request nennen); `BILDER=<ordner>` legt dazu
+    Bildschirmfotos ab, zum Ansehen. Seit C-57b je Design: dunkel ohne Vorsilbe, hell mit „hell/“."""
+    erg = {"fehler": []}
+    ist = {}
+    bilder = os.environ.get("BILDER")
+    for schema, groesse, vp, mobil in [(sch, *g) for sch in ("dark", "light")
+                                       for g in (("desktop", {"width": 1280, "height": 800}, False), ("mobil", {"width": 390, "height": 844}, True))]:
+        vorsilbe = "" if schema == "dark" else "hell/"
+        seite = DialogSeite(browser, url, ProbeRelay(), erg, viewport=vp, mobil=mobil, farbschema=schema)
+        ev, s = seite.ev, seite.s
+        for name, hash_ in (("agent", "#/agent"), ("chats", "#/chat"), ("wallet", "#/waehrung"), ("verdienen", "#/verdienen"), ("einstellungen", "#/settings")):
+            ev("(h) => { location.hash = h; }", hash_)
+            s.wait_for_function("() => !!document.querySelector('.tab-page.active')", timeout=10000)
+            ist[f"{vorsilbe}{groesse}/{name}"] = ev(STIL_ABDRUCK)
+            if bilder:
+                Path(bilder).mkdir(parents=True, exist_ok=True)
+                s.screenshot(path=str(Path(bilder) / f"{vorsilbe.rstrip('/') or 'dunkel'}-{groesse}-{name}.png"))
+        seite.ctx.close()
+    erg["ist"] = ist
+    if os.environ.get("STIL_NEU") == "1":
+        STIL_SOLL.write_text(json.dumps(ist, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        erg["neu_geschrieben"] = str(STIL_SOLL)
+    soll = json.loads(STIL_SOLL.read_text(encoding="utf-8")) if STIL_SOLL.exists() else {}
+    for k in sorted(set(soll) | set(ist)):
+        for teil in sorted(set(soll.get(k, {})) | set(ist.get(k, {}))):
+            a, b = soll.get(k, {}).get(teil), ist.get(k, {}).get(teil)
+            if a != b:
+                erg["fehler"].append(f"{k} {teil}: soll {a}, ist {b}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+THEMA_STAND = """() => ({ attr: document.documentElement.dataset.theme ?? null, grund: getComputedStyle(document.body).backgroundColor,
+  wahl: [...document.querySelectorAll('select[data-thema-wahl]')].map((w) => w.value), gespeichert: localStorage.getItem('freedom.thema') })"""
+HELL_GRUND, DUNKEL_GRUND = "rgb(246, 247, 245)", "rgb(5, 5, 5)"
+
+
+def thema_pruefen(browser, url: str) -> dict:
+    """Helles Design (C-57b): ohne Wahl folgt die App dem Gerät (hell, nach dem Umschalten dunkel); „Dunkel“ in den
+    Settings gilt sofort, für beide Auswahlen und nach dem Neuladen; „Wie das Gerät“ auf „Mehr“ (Handy) nimmt sie zurück."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema="light")
+    s, ev = seite.s, seite.ev
+    g = erg["gang"] = {}
+    g["start"] = ev(THEMA_STAND)
+    s.emulate_media(color_scheme="dark")
+    g["geraet_dunkel"] = ev(THEMA_STAND)
+    s.emulate_media(color_scheme="light")
+    ev("() => { location.hash = '#/settings'; }")
+    s.wait_for_selector(".thema-wahl select", state="visible", timeout=10000)
+    s.select_option(".thema-wahl select", "dunkel")
+    g["dunkel"] = ev(THEMA_STAND)
+    s.reload(wait_until="load")
+    s.wait_for_function("() => !!document.querySelector('.tab-page.active')", timeout=30000)
+    g["neu_geladen"] = ev(THEMA_STAND)
+    s.set_viewport_size({"width": 390, "height": 844})
+    ev("() => { location.hash = '#/mehr'; }")
+    s.wait_for_selector(".mehr-thema select", state="visible", timeout=10000)
+    s.select_option(".mehr-thema select", "system")
+    g["system"] = ev(THEMA_STAND)
+    seite.ctx.close()
+    soll = {"start": {"attr": None, "grund": HELL_GRUND, "wahl": ["system", "system"], "gespeichert": None},
+            "geraet_dunkel": {"attr": None, "grund": DUNKEL_GRUND, "wahl": ["system", "system"], "gespeichert": None},
+            "dunkel": {"attr": "dunkel", "grund": DUNKEL_GRUND, "wahl": ["dunkel", "dunkel"], "gespeichert": "dunkel"},
+            "neu_geladen": {"attr": "dunkel", "grund": DUNKEL_GRUND, "wahl": ["dunkel", "dunkel"], "gespeichert": "dunkel"},
+            "system": {"attr": None, "grund": HELL_GRUND, "wahl": ["system", "system"], "gespeichert": None}}
+    for k, v in soll.items():
+        if g.get(k) != v:
+            erg["fehler"].append(f"{k}: soll {v}, ist {g.get(k)}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+def rueckmeldung_pruefen(browser, url: str) -> dict:
+    """Rückmeldungen (C-59): Die Meldung (Toast) ist für Vorleser verborgen, gesagt wird sie über eine Ansage, die
+    immer da ist; eine zweite Meldung bleibt ihre volle Zeit (bis C-59 schloss sie die Uhr der ersten), ein Klick
+    schließt. Dialoge und Meldungen blenden ein – bei „weniger Bewegung“ nicht."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, farbschema="dark")
+    s, ev = seite.s, seite.ev
+    g = erg["gang"] = {}
+    g["regionen"] = ev("() => [document.getElementById('toast').getAttribute('aria-hidden'),"
+                       " document.getElementById('toast-ansage').getAttribute('role'), document.getElementById('toast-alarm').getAttribute('role')]")
+    ev("() => { location.hash = '#/verdienen'; }")
+    s.wait_for_function("() => !!document.querySelector('[data-subtab-group=earn] [data-subtab=host]')?.offsetParent", timeout=10000)
+    ev("() => document.querySelector('[data-subtab-group=earn] [data-subtab=host]').click()")
+    stand = """() => { const t = document.getElementById('toast'); return { zu: t.hidden, art: t.className, text: t.textContent,
+      zeichen: getComputedStyle(t, '::before').content, bewegung: getComputedStyle(t).animationName,
+      ansage: document.getElementById('toast-ansage').textContent }; }"""
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_function("() => document.getElementById('toast-ansage').textContent === 'Befehl kopiert'", timeout=5000)
+    g["erste"] = ev(stand)
+    # Die zweite drei Sekunden später – zwei Sekunden danach steht sie noch (die Uhr der ersten liefe nach vier ab)
+    s.wait_for_timeout(3000)
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_timeout(2000)
+    g["zweite"] = ev("() => !document.getElementById('toast').hidden")
+    ev("() => document.getElementById('toast').click()")
+    g["klick"] = ev("() => document.getElementById('toast').hidden")
+    ev("() => document.getElementById('models-seed').click()")
+    s.wait_for_selector(".modal-backdrop .modal", timeout=10000)
+    g["dialog"] = ev("() => [getComputedStyle(document.querySelector('.modal-backdrop')).animationName, getComputedStyle(document.querySelector('.modal-backdrop .modal')).animationName]")
+    s.keyboard.press("Escape")
+    s.wait_for_function("() => !document.querySelector('.modal-backdrop')", timeout=10000)
+    s.emulate_media(reduced_motion="reduce")
+    ev("() => document.getElementById('models-seed').click()")
+    s.wait_for_selector(".modal-backdrop .modal", timeout=10000)
+    g["dialog_ruhig"] = ev("() => [getComputedStyle(document.querySelector('.modal-backdrop')).animationName, getComputedStyle(document.querySelector('.modal-backdrop .modal')).animationName]")
+    s.keyboard.press("Escape")
+    ev("() => document.getElementById('knoten-befehl-kopieren').click()")
+    s.wait_for_function("() => !document.getElementById('toast').hidden", timeout=5000)
+    g["toast_ruhig"] = ev("() => getComputedStyle(document.getElementById('toast')).animationName")
+    seite.ctx.close()
+    soll = {"regionen": ["true", "status", "alert"],
+            "erste": {"zu": False, "art": "", "text": "Befehl kopiert", "zeichen": '"✓" / ""', "bewegung": "fs-pop", "ansage": "Befehl kopiert"},
+            "zweite": True, "klick": True, "dialog": ["fs-blende", "fs-pop"], "dialog_ruhig": ["none", "none"], "toast_ruhig": "none"}
+    for k, v in soll.items():
+        if g.get(k) != v:
+            erg["fehler"].append(f"{k}: soll {v}, ist {g.get(k)}")
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def mobil_pruefen(browser, url: str) -> dict:
     """Handy hochkant und quer (C.5a): keine Seite mit waagrechter Laufleiste, jede Berührfläche mindestens
     40 px, das eigene Bild in der Kopfzeile, beim Tippen weicht die untere Leiste. Seit C.5b: gleiche Ränder
@@ -5929,6 +6120,18 @@ def main() -> int:
             except Exception as e:
                 erg["einst_zeilen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["stil_abdruck"] = stil_abdruck_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["stil_abdruck"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["thema"] = thema_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["thema"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["rueckmeldung"] = rueckmeldung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rueckmeldung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["agent_folgen"] = agent_folgen_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["agent_folgen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6077,6 +6280,9 @@ def main() -> int:
           and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("einst_zeilen", {}).get("bestanden") is True
+          and erg.get("stil_abdruck", {}).get("bestanden") is True
+          and erg.get("thema", {}).get("bestanden") is True
+          and erg.get("rueckmeldung", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True

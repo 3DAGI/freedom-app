@@ -127,6 +127,116 @@ def navigation_pruefen() -> list[str]:
     return fehler
 
 
+# In beiden Designs gleich (C-57c): der Schatten des Sprachmenüs
+FARBEN_BEIDE = {"rgba(0,0,0,.6)"}
+# Bilder der App auf der Startseite (C-58a): je Sprache und Design, Größe wie scripts/website-bilder.py
+BILD_SPRACHEN, BILD_DESIGNS, BILD_GROESSE = ("de", "en"), ("dunkel", "hell"), (1200, 760)
+
+
+def _leuchte(farbe: str) -> float:
+    x = farbe.lstrip("#")
+    if len(x) == 3:
+        x = "".join(c * 2 for c in x)
+    kanaele = [int(x[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in kanaele]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def kontrast(a: str, b: str) -> float:
+    hell, dunkel = sorted([_leuchte(a), _leuchte(b)], reverse=True)
+    return (hell + 0.05) / (dunkel + 0.05)
+
+
+def farben_pruefen() -> list[str]:
+    """Zwei Designs (C-57c): Die Website folgt dem Gerät. Jede Farbe steht als Token in `:root` (dunkel) und im
+    Block `prefers-color-scheme: light`; Schrift erreicht auf Grund und Karte in beiden mindestens 4,5:1. Feste
+    Farben nur in den Tokens – nicht im übrigen CSS, nicht im `<style>` des Dashboards, nicht in `style="…"`."""
+    fehler: list[str] = []
+    css = open(os.path.join(BASIS, "css", "style.css"), encoding="utf-8").read()
+    ohne = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    dunkel_m = re.search(r"^:root \{(.*?)\}", ohne, re.S | re.M)
+    hell_m = re.search(r"@media \(prefers-color-scheme: light\) \{\s*:root \{(.*?)\}", ohne, re.S)
+    if not dunkel_m or not hell_m:
+        return ["css/style.css: Tokens für Dunkel und Hell fehlen (C-57c)"]
+    tokens = lambda t: dict(re.findall(r"(--[a-z0-9-]+):\s*([^;]+);", t))
+    dunkel, hell = tokens(dunkel_m.group(1)), tokens(hell_m.group(1))
+    for name, wert in dunkel.items():
+        if re.fullmatch(r"#[0-9a-fA-F]{3,8}|rgba?\(.*\)", wert.strip()) and name not in hell:
+            fehler.append(f"css/style.css: {name} ohne hellen Wert (C-57c)")
+    for design, t in (("dunkel", dunkel), ("hell", hell)):
+        for flaeche in ("--bg", "--card"):
+            for schrift in ("--text", "--text-muted", "--accent", "--amber", "--red"):
+                k = kontrast(t[schrift], t[flaeche])
+                if k < 4.5:
+                    fehler.append(f"css/style.css: {design} {schrift} auf {flaeche} nur {k:.2f}:1 (C-57c)")
+        if kontrast(t["--auf-akzent"], t["--accent"]) < 4.5:
+            fehler.append(f"css/style.css: {design} Schrift auf Grün zu schwach (C-57c)")
+    rest = ohne.replace(dunkel_m.group(0), "").replace(hell_m.group(0), "")
+    for farbe in re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", rest):
+        if farbe.lower() not in FARBEN_BEIDE:
+            fehler.append(f"css/style.css: feste Farbe {farbe} außerhalb der Tokens (C-57c)")
+    for datei in SEITEN:
+        inhalt = open(os.path.join(BASIS, datei), encoding="utf-8").read()
+        for stil in re.findall(r"<style>(.*?)</style>", inhalt, re.S) + re.findall(r'style="([^"]*)"', inhalt):
+            for farbe in re.findall(r"(?<![-\w])#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)", stil):
+                if not re.search(r"--brand:\s*" + re.escape(farbe), stil):
+                    fehler.append(f"{datei}: feste Farbe {farbe} im Stil statt eines Tokens (C-57c)")
+    return fehler
+
+
+def bilder_pruefen() -> list[str]:
+    """Echtes Bild der App (C-58a): Jede Sprache und jedes Design hat ein PNG in der Größe, die
+    `website-bilder.py` aufnimmt; die Startseite nennt Breite, Höhe und einen Alternativtext in beiden Sprachen, und
+    `build-site.sh` legt den Ordner mit aus – sonst zeigte die Seite ein kaputtes Bild."""
+    fehler: list[str] = []
+    for sprache in BILD_SPRACHEN:
+        for design in BILD_DESIGNS:
+            datei = os.path.join(BASIS, "bilder", f"app-{sprache}-{design}.png")
+            if not os.path.isfile(datei):
+                fehler.append(f"bilder/app-{sprache}-{design}.png fehlt (C-58a)")
+                continue
+            kopf = open(datei, "rb").read(24)
+            if kopf[:8] != b"\x89PNG\r\n\x1a\n" or (int.from_bytes(kopf[16:20], "big"), int.from_bytes(kopf[20:24], "big")) != BILD_GROESSE:
+                fehler.append(f"bilder/app-{sprache}-{design}.png: kein PNG in {BILD_GROESSE[0]}×{BILD_GROESSE[1]} (C-58a)")
+    inhalt = open(os.path.join(BASIS, "index.html"), encoding="utf-8").read()
+    img = re.search(r"<img data-bild=\"dunkel\"[^>]*>", inhalt, re.S)
+    if not img or f'width="{BILD_GROESSE[0]}"' not in img.group(0) or f'height="{BILD_GROESSE[1]}"' not in img.group(0) \
+            or 'data-i18n-alt="heroBildAlt"' not in img.group(0) or not re.search(r'alt="[^"]{20,}"', img.group(0)):
+        fehler.append("index.html: Bild der App ohne Größe oder Alternativtext (C-58a)")
+    if len(re.findall(r"heroBildAlt: \"[^\"]{20,}\"", inhalt)) < 2:
+        fehler.append("index.html: Alternativtext des Bildes nicht in beiden Sprachen (C-58a)")
+    for quelle in re.findall(r'(?:src|srcset)="(bilder/[^"]+)"', inhalt):
+        if not os.path.isfile(os.path.join(BASIS, quelle)):
+            fehler.append(f"index.html: {quelle} fehlt (C-58a)")
+    bau = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "build-site.sh"), encoding="utf-8").read()
+    if 'cp -r "$W"/bilder "$OUT"/' not in bau:
+        fehler.append("scripts/build-site.sh: legt bilder/ nicht aus (C-58a)")
+    return fehler
+
+
+def lesbarkeit_pruefen() -> list[str]:
+    """Inhaltsverzeichnis und Dashboard (C-58b): FAQ und Whitepaper führen ein Verzeichnis als Navigation, das jeden
+    Abschnitt (h2 mit id) nennt und nur auf vorhandene zeigt; das Dashboard zeigt einen Ausfall ruhig – ein Kasten
+    mit Weg weiter, die Relays im Einzelnen eingeklappt und ohne rote Pillen."""
+    fehler: list[str] = []
+    for datei in ("faq.html", "whitepaper.html"):
+        inhalt = open(os.path.join(BASIS, datei), encoding="utf-8").read()
+        toc = re.search(r'<nav class="doc-toc" aria-label="Inhalt">(.*?)</nav>', inhalt, re.S)
+        if not toc:
+            fehler.append(f"{datei}: kein Inhaltsverzeichnis als Navigation (C-58b)")
+            continue
+        ziele = re.findall(r'href="#([^"]+)"', toc.group(1))
+        abschnitte = re.findall(r'<h2 id="([^"]+)"', inhalt)
+        if ziele != abschnitte:
+            fehler.append(f"{datei}: Inhaltsverzeichnis {ziele} passt nicht zu den Abschnitten {abschnitte} (C-58b)")
+    dash = open(os.path.join(BASIS, "dashboard.html"), encoding="utf-8").read()
+    if '<details id="relay-details">' not in dash or 'class="ruhig"' not in dash or 'id="neu-laden"' not in dash:
+        fehler.append("dashboard.html: kein ruhiger Ausfall (Kasten, Weg weiter, Relays eingeklappt) (C-58b)")
+    if re.search(r'<span class="\$\{cls\}">|class="err"', dash):
+        fehler.append("dashboard.html: rote Pillen oder Fehlertext in Rot (C-58b)")
+    return fehler
+
+
 def main() -> int:
     fehler: list[str] = []
     im_release = release_dateien()
@@ -177,6 +287,9 @@ def main() -> int:
             fehler.append(f"{datei}: keine Beschreibung")
 
     fehler += navigation_pruefen()
+    fehler += farben_pruefen()
+    fehler += bilder_pruefen()
+    fehler += lesbarkeit_pruefen()
 
     for datei in EINSTIEG:
         inhalt = open(datei, encoding="utf-8").read()
