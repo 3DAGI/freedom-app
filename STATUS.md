@@ -11187,3 +11187,27 @@ Vektoren unverändert. Der Validator-Test `sol-offline-validator.test.ts` lief l
 Validator.
 
 Knoten-Stand: nicht berührt.
+
+## Schritt A-21d2 – Wallet-Schnittstelle und alle Bauer der App über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21d; W1, W2 vom 11.10.). Neu geschnitten: Die Wallet-Schnittstelle müssen alle Wallets und
+alle Aufrufer zugleich wechseln, und die HTLC-Bauer umzustellen kostete nicht mehr als eine Übergangshilfe – deshalb hier
+Schnittstelle und alle Bauer; A-21d3 übernimmt Senden und Bestätigen über den Pool und `pruefeRelayAuftrag()`.
+
+**Geändert:**
+- `WalletSigner` hat nur noch `signiereTransaktion()` mit kit-Transaktionen. Die eingebaute Wallet signiert direkt (ihr
+  `signiere()` für web3.js und `SignierbareTx` fallen), Wallet Standard bekommt Bytes (`alsAnbieter()`, web3.js raus aus
+  `wallet-standard.ts`), Wallets nur mit `window.solana` gehen über `ueberWeb3()` (`solana-connect.ts`, baut das
+  `Transaction`-Objekt aus den Bytes – bis W4). Gemeinsamer Typ `SolAnbieter`.
+- Über kit bauen: HTLC sperren (Deposit, Rück-Swap), einlösen, zurückholen, die Einlösung über einen Relayer, der
+  Zahlkanal (`sendeMitWallet()`) und die Überweisung (`buildSolTransfer()`) – über `baueTransaktion()` und
+  `signiertVonWallet()`. Gesendet wird bis A-21d3 über `Connection.sendRawTransaction(alsDraht(…))`.
+- `check-wiring.py` (Zahlwege) kennt `signiereUndSendeTransaktion` und `signiereMit(`; die Brücke darf
+  `signAndSendTransaction` rufen.
+
+**Tests:** app 1223 → 1224 (Brücke für `window.solana`). Alle 9 Vektoren der App unverändert, jetzt über kit gebaut;
+Attrappen lesen über `leseNachricht()`, ihre Blockhashes sind echte 32 Byte (kit prüft, web3.js nahm „Fake111…“); Z1 an
+der Anweisung geprüft – in der fertigen Nachricht unterschreibt der Gebührenzahler immer. Bundle −2 KB.
+
+Knoten-Stand: nicht berührt. MENSCH: einmal mit Phantom oder Solflare auf Devnet sperren, einlösen, zurückholen und den
+Zahlkanal öffnen.
