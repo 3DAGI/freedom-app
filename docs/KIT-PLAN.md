@@ -95,6 +95,26 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
   Bundle +44 KB (RPC-Schicht von kit), bis A-21f web3.js geht.
 - **A-21d Signieren.** Ein kit-Signer über `@noble/curves` für `LocalSigner` und die eingebaute
   Wallet mit ihren frischen Adressen. Wallet Standard bekommt Bytes wie heute.
+  Geteilt (17.10.2026), weil er rund 15 Dateien in Protokoll und App berührt. Eine Probe zeigte
+  vorher, dass kit für alle Fälle des Protokolls dieselben Nachrichten baut wie web3.js, auch mit
+  Durable Nonce:
+  - **A-21d1** Baustein und SOL ohne Internet – **fertig** (17.10.2026): `kit-transaktion.ts`
+    mit `baueTransaktion()` (Blockhash oder Durable Nonce; kit stellt das Weiterschalten an den
+    Anfang), `signiereMit()` (`@noble/curves`, nur für Adressen, die die Nachricht verlangt; den
+    Schlüssel hält und nullt der Aufrufer), `alsDraht()`/`ausDraht()`, `leseNachricht()` (nur
+    legacy, Rollen aus dem Kopf) und `neuerKontoSchluessel()`. Über kit laufen jetzt das
+    Nonce-Konto (anlegen, schließen), die Überweisung ohne Internet und ihre Prüfung
+    (`sol-offline.ts`); die eingebaute Wallet signiert sie mit `signiereTransaktion()`.
+    Gesendet wird bis A-21d2 noch über `Connection.sendRawTransaction()` – die Bytes kommen
+    aus `alsDraht()`. Alle 17 Vektoren unverändert, Signaturen gleich denen von web3.js;
+  - **A-21d2** Zahlungen und Zahlkanal der App: Die Wallets bekommen kit-Transaktionen – die
+    eingebaute über `signiereTransaktion()`, Wallet Standard als Bytes, die injizierte
+    (`window.solana`) über eine Brücke zu web3.js bis W4; `buildSolTransfer()`,
+    `sendeMitWallet()` und die Zahlschienen bauen über kit; senden und bestätigen über
+    `solRpc()` (den Pool) statt einer eigenen `Connection`;
+  - **A-21d3** HTLC, Tausch und Einlösung über einen Relayer (App: `sol-htlc.ts`,
+    `swap-client.ts`, `relay-einloesung.ts`, Rückhol-Wächter) und `pruefeRelayAuftrag()`
+    (Protokoll) über kit; danach signiert in der App nichts mehr über web3.js.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
   `relayer-dienst.ts`, `sol-auszahlung.ts`.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle
@@ -110,6 +130,14 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
 - **W3 – Wann?** A-12 (Kasse über Squads) braucht neue Anweisungen. Werden sie gleich für kit
   geschrieben, entfällt ein Umbau. Vorschlag: A-21a und A-21b vor A-12a, den Rest danach. Oder
   erst nach Mainnet (M-8), weil der Gewinn mit 7 % klein ist.
+
+- **W4 – Injizierte Wallets ohne Wallet Standard** (vor A-21f, 17.10.2026). Ältere Erweiterungen
+  bieten nur `window.solana`; deren `signTransaction()` verlangt ein `Transaction`-Objekt von
+  web3.js. Phantom, Solflare und Backpack melden sich heute auch über den Wallet Standard, der
+  Bytes nimmt – den nimmt die App schon zuerst. **A** den Weg über `window.solana` mit A-21f
+  streichen (die App nennt dann nur Wallets mit Wallet Standard), **B** web3.js allein für
+  diesen Weg behalten (nachgeladen; mit Abhängigkeiten gemessen rund 760 KB), **C** ein eigenes Objekt nachbauen, das wie
+  eine `Transaction` aussieht (zerbrechlich). Vorschlag: **A**.
 
 ## Was dieser Plan nicht tut
 

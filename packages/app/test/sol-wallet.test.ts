@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
-import { zahle } from "@freedomstack/protocol";
+import { alsDraht, baueTransaktion, ueberweisungAnweisung, zahle } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "../src/identity.js";
 import { SolanaRail } from "../src/rails.js";
 import {
@@ -87,6 +87,20 @@ test("Signieren: gueltige Signatur fuer die eigene Adresse, fremde Transaktion a
   const fremd = ueberweisung(Keypair.generate().publicKey.toBase58());
   assert.throws(() => w.signiere(fremd), /keine Signatur dieser Wallet/);
   assert.equal(fremd.signatures[0].signature, null);
+});
+
+test("A-21d1: Signieren über kit – dieselbe Signatur wie über web3.js, fremde Zahler abgelehnt, das Original unverändert", async () => {
+  const { w } = await wallet();
+  const kit = (von: string) => baueTransaktion({
+    zahler: von, anweisungen: [ueberweisungAnweisung({ von, an: ZIEL, lamports: 5_000n })], lebensdauer: { blockhash: "11111111111111111111111111111111", letzteHoehe: 1n },
+  });
+  const tx = kit(PHANTOM);
+  const signiert = w.signiereTransaktion(tx);
+  assert.equal(tx.signatures[PHANTOM as never], null, "das Original bleibt unsigniert");
+  const web3 = ueberweisung(PHANTOM);
+  w.signiere(web3);
+  assert.deepEqual(alsDraht(signiert), Uint8Array.from(web3.serialize()), "Byte für Byte wie über web3.js");
+  assert.throws(() => w.signiereTransaktion(kit(Keypair.generate().publicKey.toBase58())), /keine Signatur dieser Wallet/);
 });
 
 test("Tageslimit: darunter ohne Nachfrage, darueber nur mit Bestaetigung, rollend 24 Stunden", async () => {

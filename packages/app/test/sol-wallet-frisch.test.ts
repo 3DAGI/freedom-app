@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { base58 } from "@scure/base";
-import { deriveSolanaKey } from "@freedomstack/protocol";
+import { alsDraht, ausDraht, deriveSolanaKey } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "../src/identity.js";
 import { SolanaRail } from "../src/rails.js";
 import {
@@ -92,6 +92,10 @@ test("Signieren fuer eine vergebene frische Adresse, nicht fuer eine noch unverg
   w.signiere(t1 as never);
   assert.equal(t1.verifySignatures(), true);
   assert.throws(() => w.signiere(tx(phantom(2)) as never), /keine Signatur dieser Wallet/, "Adresse 2 ist noch nicht vergeben");
+  // Über kit (A-21d1) ebenso: die vergebene ja, die unvergebene nein
+  const kit = (von: string) => ausDraht(Uint8Array.from(tx(von).serialize({ requireAllSignatures: false })));
+  assert.ok(Transaction.from(alsDraht(w.signiereTransaktion(kit(frisch)))).verifySignatures());
+  assert.throws(() => w.signiereTransaktion(kit(phantom(2))), /keine Signatur dieser Wallet/);
 });
 
 test("Absender: kleinste Adresse, die allein reicht und danach leer oder mietfrei ist – sonst ehrlich ablehnen", () => {

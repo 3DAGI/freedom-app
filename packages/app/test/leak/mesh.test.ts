@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MeshKind, MeshPriority, Reassembler, baueOfflineUeberweisung, buildDigest, buildEvent, buildPrivateDm, fragment,
+  MeshKind, MeshPriority, Reassembler, alsDraht, baueOfflineUeberweisung, signiereMit, buildDigest, buildEvent, buildPrivateDm, fragment,
   generateKeypair, regelMeshVerschluesselt, signEvent, type NostrEvent,
 } from "@freedomstack/protocol";
 import { Keypair } from "@solana/web3.js";
@@ -150,12 +150,12 @@ test("Offline-SOL-Zahlung (7.2): ueber Funk ohne Nostr-Schluessel und ohne Nachr
     nonceKonto: Keypair.generate().publicKey.toBase58(),
     stand: { autoritaet: sol.publicKey.toBase58(), nonce: Keypair.generate().publicKey.toBase58(), lamportsJeSignatur: 5000 },
   });
-  tx.sign(sol);
+  const signiert = signiereMit(tx, sol.secretKey.slice(0, 32))!; // seit A-21d1 baut kit
   const t = mitschnitt();
   const n = new MeshNode({ onMessage: () => {} }, 100_000);
   n.setEigeneSchluessel([alice.pk]);
   await n.attach(t);
-  n.enqueue(new Uint8Array(tx.serialize()), MeshKind.SolanaTx, MeshPriority.Zahlung, "SOL offline");
+  n.enqueue(alsDraht(signiert), MeshKind.SolanaTx, MeshPriority.Zahlung, "SOL offline");
   await warte(100);
   assert.ok(t.gesendet.length >= 1);
   assert.deepEqual(pruefe(t.gesendet), []);

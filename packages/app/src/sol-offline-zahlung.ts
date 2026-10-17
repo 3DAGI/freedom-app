@@ -8,8 +8,8 @@
  * verbraucht, bis die App ihn mit Netz neu liest. Die Ablage liegt ueber
  * `geheim` (Praefix freedom.solWallet) – sie verbindet Nonce-Konto und Adresse.
  */
-import { baueOfflineUeberweisung, pruefeOfflineUeberweisung, railFuerZiel, type NonceStand } from "@freedomstack/protocol";
-import type { Nachfrage, SignierbareTx, WalletSpeicher } from "./sol-wallet.js";
+import { alsDraht, baueOfflineUeberweisung, pruefeOfflineUeberweisung, railFuerZiel, type NonceStand, type SolTransaktion } from "@freedomstack/protocol";
+import type { Nachfrage, WalletSpeicher } from "./sol-wallet.js";
 import { t } from "./i18n.js";
 import { offlineGrund } from "./protokoll-texte.js";
 
@@ -50,7 +50,7 @@ export async function schreibeAblage(s: WalletSpeicher, a: NonceAblage | null): 
 export interface OfflineWallet {
   adresse(): string | undefined;
   freigabe(lamports: number, ziel: string, bestaetige: (n: Nachfrage) => Promise<boolean>): Promise<boolean>;
-  signiere(tx: SignierbareTx): void;
+  signiereTransaktion(tx: SolTransaktion): SolTransaktion;
 }
 
 /**
@@ -73,8 +73,7 @@ export async function erstelleOfflineZahlung(
   // Erst bauen: Unfug (an sich selbst, fremdes Nonce-Konto) zaehlt nicht zum Tageslimit.
   const tx = baueOfflineUeberweisung({ von, an: p.an, lamports: p.lamports, nonceKonto: a.konto, stand: a.stand });
   if (!(await w.freigabe(p.lamports, p.an, bestaetige))) throw new Error(t("zahl.nichtFreigegebenErstellt"));
-  w.signiere(tx as unknown as SignierbareTx);
-  const roh = new Uint8Array(tx.serialize());
+  const roh = alsDraht(w.signiereTransaktion(tx));
   const pruefung = pruefeOfflineUeberweisung(roh);
   if (!pruefung.ok) throw new Error(offlineGrund(pruefung));
   await schreibeAblage(s, { ...a, verbraucht: true });

@@ -5,7 +5,8 @@
  * zahlt mit `zahle(zahlschienen(), …)` – nicht mit einer eigenen Wallet-Suche.
  */
 import {
-  NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, nonceKontoKosten, pruefeOfflineUeberweisung, type PaymentRail,
+  NONCE_KONTO_BYTES, alsDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, neuerKontoSchluessel, nonceKontoKosten,
+  pruefeOfflineUeberweisung, signiereMit, type PaymentRail, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { offlineGrund } from "../protokoll-texte.js";
@@ -153,18 +154,24 @@ async function legeStandAb(konto: string): Promise<NonceAblage> {
  */
 export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr: number; gesamt: number }) => Promise<boolean>): Promise<NonceAblage> {
   const e = offlineWallet();
-  const { Connection, Keypair } = await import("@solana/web3.js");
+  const { Connection } = await import("@solana/web3.js");
   const c = new Connection(await solRpcUrl(), "confirmed");
   const miete = await c.getMinimumBalanceForRentExemption(NONCE_KONTO_BYTES);
   if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
-  const konto = Keypair.generate();
   const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
-  const tx = baueNonceKontoAnlegen({ zahler: e.adresse()!, nonceKonto: konto.publicKey.toBase58(), mieteLamports: miete, blockhash });
-  tx.partialSign(konto);
-  e.signiere(tx as unknown as SignierbareTx);
-  const signatur = await c.sendRawTransaction(tx.serialize());
+  // Das neue Konto unterschreibt nur hier (A-21d1) – sein Schlüssel ist danach genullt
+  const konto = neuerKontoSchluessel();
+  let tx: SolTransaktion;
+  try {
+    tx = signiereMit(baueNonceKontoAnlegen({
+      zahler: e.adresse()!, nonceKonto: konto.adresse, mieteLamports: miete, blockhash, letzteHoehe: BigInt(lastValidBlockHeight),
+    }), konto.geheim)!;
+  } finally {
+    konto.geheim.fill(0);
+  }
+  const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
   await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
-  return legeStandAb(konto.publicKey.toBase58());
+  return legeStandAb(konto.adresse);
 }
 
 /** Den Wert neu lesen (mit Netz) – danach ist wieder eine Offline-Zahlung moeglich. */
@@ -184,9 +191,8 @@ export async function schliesseNonceKonto(): Promise<number> {
   const guthaben = await c.getBalance(new PublicKey(a.konto), "confirmed");
   if (guthaben > 0) {
     const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
-    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash });
-    e.signiere(tx as unknown as SignierbareTx);
-    const signatur = await c.sendRawTransaction(tx.serialize());
+    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash, letzteHoehe: BigInt(lastValidBlockHeight) });
+    const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
     await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
   }
   await schreibeAblage(geheim, null);

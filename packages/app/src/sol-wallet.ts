@@ -25,7 +25,9 @@
 import { base58 } from "@scure/base";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { type Ausgabe, type LimitPruefung, MIETE_LEERES_KONTO, deriveSolanaKey, imFenster, pruefeTageslimit } from "@freedomstack/protocol";
+import {
+  type Ausgabe, type LimitPruefung, MIETE_LEERES_KONTO, type SolTransaktion, deriveSolanaKey, imFenster, pruefeTageslimit, signiereMit,
+} from "@freedomstack/protocol";
 import { identityFromMnemonic } from "./identity.js";
 import { t } from "./i18n.js";
 
@@ -233,10 +235,8 @@ export class EingebauteSolWallet {
    */
   signiere(tx: SignierbareTx): void {
     const nachricht = tx.serializeMessage(); // legt auch die Signatur-Plaetze an
-    const v = this.vorrat();
-    const schluessel = [this.s.getItem(LS_SOL_WALLET) ?? "", ...v.schluessel.slice(0, v.vergeben)];
     let signiert = 0;
-    for (const hex of schluessel) {
+    for (const hex of this.eigeneSchluessel()) {
       this.mitSchluessel((sk) => {
         const eigene = base58.encode(ed25519.getPublicKey(sk));
         const platz = tx.signatures.find((p) => p.publicKey.toBase58() === eigene);
@@ -246,6 +246,29 @@ export class EingebauteSolWallet {
       }, hex);
     }
     if (!signiert) throw new Error(t("zahl.keineSignaturVerlangt"));
+  }
+
+  /**
+   * Wie `signiere()`, für Transaktionen aus kit (A-21d1): je eigene Adresse, die sie
+   * verlangt, über `signiereMit()` – die Kopien der Schlüssel werden genullt.
+   */
+  signiereTransaktion(tx: SolTransaktion): SolTransaktion {
+    let ergebnis = tx;
+    let signiert = 0;
+    for (const hex of this.eigeneSchluessel()) {
+      this.mitSchluessel((sk) => {
+        const neu = signiereMit(ergebnis, sk);
+        if (neu) { ergebnis = neu; signiert++; }
+      }, hex);
+    }
+    if (!signiert) throw new Error(t("zahl.keineSignaturVerlangt"));
+    return ergebnis;
+  }
+
+  /** Hauptadresse und vergebene frische (als Hex) – nur zum Signieren. */
+  private eigeneSchluessel(): string[] {
+    const v = this.vorrat();
+    return [this.s.getItem(LS_SOL_WALLET) ?? "", ...v.schluessel.slice(0, v.vergeben)];
   }
 
   private vorrat(): { vergeben: number; schluessel: string[] } {

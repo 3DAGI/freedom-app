@@ -116,3 +116,11 @@ Fallstricke dieses Bereichs unten anhängen.
   SHA-256) nur mit `scripts/negentropy-referenz.mjs` neu erzeugen (Referenz auf Commit und Prüfsumme gepinnt, in einer VM nur
   mit `crypto`). Der Port in nostr-tools (`nip77`) ist keine Referenz für die antwortende Seite – sie antwortet nie mit
   einer Id-Liste. Nachrichten von außen nur in `NEG_GRENZEN`, Fehler nur als `NegFehler` mit Kennung.
+- **Transaktionen nur über `kit-transaktion.ts`** (seit A-21d1, `docs/KIT-PLAN.md`): bauen mit `baueTransaktion()` (Blockhash
+  samt `letzteHoehe` oder Durable Nonce – kit setzt das Weiterschalten selbst an den Anfang, nie zusätzlich von Hand),
+  signieren nur mit `signiereMit()` (`@noble/curves`, liefert `null` für eine Adresse, die die Nachricht nicht verlangt; eine
+  neue Transaktion statt Änderung). Der Schlüssel dort hat 32 Byte – `Keypair.secretKey` von web3.js hat 64 (Schlüssel und
+  Adresse), im Test `secretKey.slice(0, 32)`; den Schlüssel hält und nullt der Aufrufer, ein frischer für ein neues Konto nur
+  über `neuerKontoSchluessel()`. `messageBytes` ist für kit nur lesbar – `@noble/curves` und `Buffer` bekommen
+  `Uint8Array.from(…)`. Gelesen wird nur über `leseNachricht()` (legacy, Rollen aus dem Kopf), geschickt die Bytes aus
+  `alsDraht()`.

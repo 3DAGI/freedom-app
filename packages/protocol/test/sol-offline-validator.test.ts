@@ -11,6 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Connection, Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from "@solana/web3.js";
 import { NONCE_KONTO_BYTES, baueNonceKontoAnlegen, baueOfflineUeberweisung, leseNonceKonto, pruefeOfflineUeberweisung } from "../src/sol-offline.js";
+import { alsDraht, signiereMit } from "../src/kit-transaktion.js";
 
 const RPC = process.env.SOLANA_LOKAL_RPC ?? "http://127.0.0.1:8899";
 
@@ -43,10 +44,13 @@ test("VALIDATOR: Offline-Ueberweisung mit Durable Nonce gilt nach mehr als zwei 
   // 1. Online: Nonce-Konto anlegen und den Wert lesen.
   const nonceKonto = Keypair.generate();
   const miete = await c.getMinimumBalanceForRentExemption(NONCE_KONTO_BYTES);
-  const { blockhash } = await c.getLatestBlockhash("confirmed");
-  const anlegen = baueNonceKontoAnlegen({ zahler: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), mieteLamports: miete, blockhash });
-  anlegen.sign(zahler, nonceKonto);
-  await c.confirmTransaction(await c.sendRawTransaction(anlegen.serialize()), "confirmed");
+  const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
+  const anlegen = baueNonceKontoAnlegen({
+    zahler: zahler.publicKey.toBase58(), nonceKonto: nonceKonto.publicKey.toBase58(), mieteLamports: miete, blockhash, letzteHoehe: BigInt(lastValidBlockHeight),
+  });
+  // Seit A-21d1 baut kit und signiert `signiereMit()` (32 Byte Schlüssel)
+  const signiert = signiereMit(signiereMit(anlegen, zahler.secretKey.slice(0, 32))!, nonceKonto.secretKey.slice(0, 32))!;
+  await c.confirmTransaction(await c.sendRawTransaction(alsDraht(signiert)), "confirmed");
   const konto = await c.getAccountInfo(nonceKonto.publicKey, "confirmed");
   assert.ok(konto);
   const stand = leseNonceKonto(new Uint8Array(konto.data));
@@ -54,8 +58,7 @@ test("VALIDATOR: Offline-Ueberweisung mit Durable Nonce gilt nach mehr als zwei 
   // 2. „Offline“: Ueberweisung bauen und signieren; zum Vergleich eine normale mit frischem Blockhash.
   const roh = (() => {
     const tx = baueOfflineUeberweisung({ von: zahler.publicKey.toBase58(), an: ziel.toBase58(), lamports: 1_000_000, nonceKonto: nonceKonto.publicKey.toBase58(), stand });
-    tx.sign(zahler);
-    return new Uint8Array(tx.serialize());
+    return alsDraht(signiereMit(tx, zahler.secretKey.slice(0, 32))!);
   })();
   assert.equal(pruefeOfflineUeberweisung(roh).ok, true);
   const normal = await c.getLatestBlockhash("confirmed");
