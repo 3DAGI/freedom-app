@@ -15,15 +15,21 @@
  * - Wurzel: `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt selbst. Pfade
  *   ohne Endung, die es nicht gibt, bekommen die `index.html` (Seiten mit eigenem Routing).
  *
+ * Hat das Projekt einen Dev-Server (VKg1c, `dev-server.ts`: Skript `dev` in `package.json`), leitet die Vorschau jede
+ * Anfrage dorthin weiter, auch WebSocket für Hot Reload – mit Host und Origin wie lokal und ohne das eigene Cookie.
+ *
  * Nach außen nur feste Texte, ins Log nur Zahlen – Projektnamen und Pfade sind Inhalt.
  */
 import { constants } from "node:fs";
 import { lstat, open, readlink, realpath, type FileHandle } from "node:fs/promises";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, request as httpAnfrage, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { connect } from "node:net";
+import type { Duplex } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { extname, join, sep } from "node:path";
 import { istProjektName, istVorschauAdresse } from "@freedomstack/protocol";
 import type { ProjektAblage } from "./projekte.js";
+import { DEV_PORT, type DevServer } from "./dev-server.js";
 
 export const VORSCHAU_COOKIE = "freedom_vorschau";
 /** Standard-Port der Vorschau – neben LNURL (3601) und Quota-API (3602). */
@@ -79,6 +85,26 @@ export function vorschauAusUmgebung(env: { VORSCHAU_URL?: string; VORSCHAU_PORT?
   return { einstellung: { basis, port, host } };
 }
 
+/**
+ * Kopfzeilen für den Dev-Server (VKg1c): Host und Origin wie auf dem Rechner selbst – Vite lässt sonst nichts durch
+ * (`allowedHosts`, Herkunft des WebSockets) –, ohne Referer und ohne das Cookie der Vorschau; andere Cookies der Seite bleiben.
+ */
+export function devKopf(kopf: IncomingHttpHeaders): Record<string, string | string[]> {
+  const aus: Record<string, string | string[]> = {};
+  for (const [k, w] of Object.entries(kopf)) {
+    if (w === undefined || k === "host" || k === "origin" || k === "referer") continue;
+    if (k === "cookie") {
+      const rest = String(w).split(";").map((c) => c.trim()).filter((c) => c && !c.startsWith(`${VORSCHAU_COOKIE}=`)).join("; ");
+      if (rest) aus.cookie = rest;
+      continue;
+    }
+    aus[k] = w;
+  }
+  aus.host = `localhost:${DEV_PORT}`;
+  if (kopf.origin) aus.origin = `http://localhost:${DEV_PORT}`;
+  return aus;
+}
+
 /** Kurzer fester Text als Antwort – nie Pfade oder Meldungen des Systems. */
 function text(res: ServerResponse, status: number, inhalt: string, kopf: Record<string, string> = {}): void {
   res.writeHead(status, { ...KOPF, "Content-Type": "text/plain; charset=utf-8", ...kopf });
@@ -89,8 +115,14 @@ export class VorschauServer {
   private readonly zeichenJeProjekt = new Map<string, string>();
   private readonly projektJeZeichen = new Map<string, string>();
   private server?: Server;
+  private dev?: Pick<DevServer, "sockel">;
 
   constructor(private readonly ablage: Pick<ProjektAblage, "ort">, readonly einstellung: VorschauEinstellung) {}
+
+  /** Dev-Server nutzen (VKg1c) – nur, wenn die Sandbox geht; `main.ts` entscheidet. */
+  nutzeDev(dev: Pick<DevServer, "sockel">): void {
+    this.dev = dev;
+  }
 
   /** Adresse der Vorschau eines Projekts – das Zeichen bleibt bis zum Neustart gleich. */
   adresse(projekt: string): string {
@@ -112,6 +144,7 @@ export class VorschauServer {
         else res.destroy();
       });
     });
+    server.on("upgrade", (req: IncomingMessage, socket: Duplex, kopf: Buffer) => void this.upgrade(req, socket, kopf).catch(() => socket.destroy()));
     server.headersTimeout = 10_000;
     server.requestTimeout = 30_000;
     this.server = server;
@@ -130,7 +163,6 @@ export class VorschauServer {
   }
 
   private async beantworte(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (req.method !== "GET" && req.method !== "HEAD") return text(res, 405, "Nur lesen", { Allow: "GET, HEAD" });
     const roh = req.url ?? "/";
     if (roh.length > 2048 || !roh.startsWith("/")) return text(res, 400, "Adresse ungültig");
     const pfad = roh.split("?")[0]!;
@@ -147,6 +179,9 @@ export class VorschauServer {
     }
     const projekt = this.projektAusCookie(req.headers.cookie);
     if (!projekt) return text(res, 404, "Keine Vorschau – in der App „Vorschau“ neu öffnen");
+    const sockel = this.dev ? await this.dev.sockel(projekt) : null;
+    if (sockel) return this.leiteWeiter(req, res, sockel);
+    if (req.method !== "GET" && req.method !== "HEAD") return text(res, 405, "Nur lesen", { Allow: "GET, HEAD" });
     let namen: string[];
     try {
       namen = teile.map((t) => decodeURIComponent(t));
@@ -171,6 +206,47 @@ export class VorschauServer {
     } finally {
       await datei.fh.close().catch(() => {});
     }
+  }
+
+  /** An den Dev-Server – jede Methode, Antwort samt Kopfzeilen so, wie er sie gibt. */
+  private leiteWeiter(req: IncomingMessage, res: ServerResponse, sockel: string): Promise<void> {
+    return new Promise((fertig) => {
+      // ohne Agent: keine offenen Verbindungen zum Dev-Server nach der Antwort (ein Pool hielte den Knoten fest)
+      const weiter = httpAnfrage({ socketPath: sockel, method: req.method, path: req.url, headers: devKopf(req.headers), agent: false }, (antwort) => {
+        res.writeHead(antwort.statusCode ?? 502, antwort.headers);
+        antwort.on("error", () => res.destroy());
+        antwort.on("close", () => fertig());
+        antwort.pipe(res);
+      });
+      weiter.on("error", () => {
+        if (!res.headersSent) text(res, 502, "Dev-Server antwortet nicht");
+        else res.destroy();
+        fertig();
+      });
+      req.pipe(weiter);
+    });
+  }
+
+  /** WebSocket (Hot Reload) nur mit Cookie und nur zum Dev-Server – sonst zu. */
+  private async upgrade(req: IncomingMessage, socket: Duplex, kopf: Buffer): Promise<void> {
+    socket.on("error", () => socket.destroy());
+    const projekt = this.projektAusCookie(req.headers.cookie);
+    const sockel = projekt && this.dev ? await this.dev.sockel(projekt) : null;
+    if (!sockel || !(req.url ?? "").startsWith("/")) return void socket.destroy();
+    const ziel = connect(sockel);
+    // Sockets des HTTP-Servers bleiben halb offen – endet eine Seite, enden beide (sonst hielte jeder Tab den Server fest)
+    for (const [a, b] of [[ziel, socket], [socket, ziel]] as const) {
+      a.on("error", () => b.destroy());
+      a.on("end", () => b.destroy());
+      a.on("close", () => b.destroy());
+    }
+    ziel.on("connect", () => {
+      const zeilen = Object.entries(devKopf(req.headers)).flatMap(([k, w]) => (Array.isArray(w) ? w : [w]).map((x) => `${k}: ${x}`));
+      ziel.write([`${req.method} ${req.url} HTTP/1.1`, ...zeilen, "", ""].join("\r\n"));
+      if (kopf.length) ziel.write(kopf);
+      ziel.pipe(socket);
+      socket.pipe(ziel);
+    });
   }
 
   private projektAusCookie(kopf: string | undefined): string | undefined {

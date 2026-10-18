@@ -437,3 +437,11 @@ Bereichs unten anhängen.
   Archive nie. Ein neuer Weg nach draußen kommt nie als weiterer Pfad an die Brücke, sondern als eigene Entscheidung (VK-W4 B,
   „Internet frei“). Node liegt in der Sandbox nur, wenn es unter `/usr` liegt (Docker-Bild: `/usr/local`) – im Test mit
   `/opt/node22` dieses zusätzlich nur lesbar einbinden.
+- **Dev-Server der Vorschau nur über `DevServer`** (seit VKg1c, `dev-server.ts`): Gestartet wird nur `npm run dev` aus einer
+  echten `package.json` (`devBefehl()`), nur über `sandboxDienst()` (ohne Netz, ohne Grenze der Rechenzeit, Ausgabe nirgends
+  hin) und nur, wenn die Sandbox geht. Erreicht wird er nur über `freedom_motor.py --zurueck` an einem Socket in einem Ordner,
+  den der Knoten anlegt und nur dieser Sandbox schreibbar gibt (`schreibbar`) – nie ein Socket im Home oder im Projekt, dort
+  könnte der Agent einen Verweis auf einen fremden Socket legen. Die Vorschau leitet mit `devKopf()` weiter (Host und Origin
+  `localhost:5173`, sonst lässt Vite nichts durch, ohne das eigene Cookie) und ohne Agent (`agent: false` – ein Pool hielte
+  Verbindungen offen). WebSocket: Sockets des HTTP-Servers bleiben halb offen; endet eine Seite, beide beenden – sonst
+  wartet `close()` ewig (so hing der erste Test).

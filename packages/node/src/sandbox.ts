@@ -62,6 +62,8 @@ export interface SandboxOrt {
    * mit dem Socket der Brücke zum Modell – verbinden geht auch nur lesbar. Ziele absolut, nie unter `/arbeit`.
    */
   nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
+  /** Weitere Orte schreibbar (VKg1c: der Ordner mit dem Socket des Dev-Servers) – Regeln wie `nurLesbar`. */
+  schreibbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
   /** GPU (NVIDIA, DRI) einbinden – nur auf Wunsch (VKb). */
   gpu?: boolean;
   /** Programm für bubblewrap (Test). */
@@ -121,9 +123,11 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
   ];
   // .git nur lesbar: ein Filter oder fsmonitor aus `.git/config` liefe sonst beim Commit im Knoten (VKc2)
   if (existsSync(join(o.arbeit, ".git"))) a.push("--ro-bind", join(o.arbeit, ".git"), "/arbeit/.git");
-  for (const { quelle, ziel } of o.nurLesbar ?? []) {
-    if (!ziel.startsWith("/") || ziel === "/arbeit" || ziel.startsWith("/arbeit/") || ziel.split("/").includes("..")) throw new Error("Ziel ungültig");
-    a.push("--ro-bind", quelle, ziel);
+  for (const [art, liste] of [["--ro-bind", o.nurLesbar], ["--bind", o.schreibbar]] as const) {
+    for (const { quelle, ziel } of liste ?? []) {
+      if (!ziel.startsWith("/") || ziel === "/arbeit" || ziel.startsWith("/arbeit/") || ziel.split("/").includes("..")) throw new Error("Ziel ungültig");
+      a.push(art, quelle, ziel);
+    }
   }
   if (o.gpu) {
     for (const g of ["/dev/nvidiactl", "/dev/nvidia-uvm", "/dev/nvidia0", "/dev/dri"]) if (existsSync(g)) a.push("--dev-bind", g, g);
@@ -262,4 +266,22 @@ export function sandboxMotor(befehl: readonly string[], o: {
       ort: "/arbeit",
     };
   };
+}
+
+/**
+ * Ein Dienst in der Sandbox, der lange läuft (VKg1c: der Dev-Server der Vorschau) – wie der Motor ohne Grenze der
+ * Rechenzeit, aber ohne Ein- und Ausgabe: Was er schreibt, ist Fremdtext und geht nirgends hin. `ende` erfüllt sich,
+ * wenn er endet; `beende()` beendet ihn samt allem darin.
+ */
+export function sandboxDienst(befehl: readonly string[], o: SandboxOrt): { ende: Promise<void>; beende: () => void } {
+  if (befehl.length === 0 || befehl.some((t) => t === "" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
+  const etc = eigenesEtc();
+  const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
+    stdio: ["ignore", "ignore", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
+  });
+  const ende = new Promise<void>((fertig) => {
+    kind.on("error", () => { etc.weg(); fertig(); });
+    kind.on("close", () => { etc.weg(); fertig(); });
+  });
+  return { ende, beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); } };
 }

@@ -7,9 +7,16 @@ weiter und startet dann den Motor mit stdin und stdout des Knotens (ACP). Was
 durchfliesst, liest und schreibt es nicht.
 
 Aufruf: python3 freedom_motor.py <sockel> <port> -- <befehl ...>
+
+Seit VKg1c auch zurueck, fuer den Dev-Server der Vorschau: mit --zurueck lauscht das
+Skript am Socket (in einem Ordner, den nur der Knoten und diese Sandbox sehen) und
+reicht jede Verbindung an 127.0.0.1:<port> in der Sandbox weiter.
+
+Aufruf: python3 freedom_motor.py --zurueck <sockel> <port> -- <befehl ...>
 Nur die Standardbibliothek; laeuft mit dem Python des Motors.
 """
 
+import os
 import socket
 import subprocess
 import sys
@@ -32,13 +39,26 @@ def pumpe(von, nach):
             pass
 
 
-def weiter(kunde, sockel):
+def nach_sockel(sockel):
     ziel = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         ziel.connect(sockel)
     except OSError:
-        kunde.close()
         ziel.close()
+        raise
+    return ziel
+
+
+def nach_port(port):
+    return socket.create_connection(("127.0.0.1", port), timeout=10)
+
+
+def weiter(kunde, verbinde):
+    try:
+        ziel = verbinde()
+        ziel.settimeout(None)
+    except OSError:
+        kunde.close()
         return
     hin = threading.Thread(target=pumpe, args=(kunde, ziel), daemon=True)
     hin.start()
@@ -49,20 +69,29 @@ def weiter(kunde, sockel):
 
 
 def main(argv):
-    if len(argv) < 5 or argv[3] != "--" or not argv[2].isdigit():
-        sys.stderr.write("Aufruf: freedom_motor.py <sockel> <port> -- <befehl ...>\n")
+    zurueck = len(argv) > 1 and argv[1] == "--zurueck"
+    a = argv[1:] if zurueck else argv
+    if len(a) < 5 or a[3] != "--" or not a[2].isdigit():
+        sys.stderr.write("Aufruf: freedom_motor.py [--zurueck] <sockel> <port> -- <befehl ...>\n")
         return 2
-    sockel, port, befehl = argv[1], int(argv[2]), argv[4:]
-    # erst lauschen, dann den Motor starten - seine erste Anfrage kommt sonst ins Leere
-    dienst = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    dienst.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    dienst.bind(("127.0.0.1", port))
+    sockel, port, befehl = a[1], int(a[2]), a[4:]
+    # erst lauschen, dann den Befehl starten - seine erste Anfrage kommt sonst ins Leere
+    if zurueck:
+        dienst = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        dienst.bind(sockel)
+        os.chmod(sockel, 0o600)
+        verbinde = lambda: nach_port(port)
+    else:
+        dienst = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        dienst.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        dienst.bind(("127.0.0.1", port))
+        verbinde = lambda: nach_sockel(sockel)
     dienst.listen(16)
 
     def annehmen():
         while True:
             kunde, _ = dienst.accept()
-            threading.Thread(target=weiter, args=(kunde, sockel), daemon=True).start()
+            threading.Thread(target=weiter, args=(kunde, verbinde), daemon=True).start()
 
     threading.Thread(target=annehmen, daemon=True).start()
     try:

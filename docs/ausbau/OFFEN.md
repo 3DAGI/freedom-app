@@ -152,8 +152,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | VKd2 | Freedom-MCP: Bilder (ComfyUI oder Provider), Sprache (mit B-38), Kiwix (mit B-31), Browser mit Seiten-Bedienung (Playwright-MCP) – VKd1 ✓: Websuche und Seite lesen, VKd1b ✓: gelesen wird nur, was im Auftrag oder in Suchergebnissen steht, VKd3 ✓: Pakete (npm, PyPI) über die Brücke | frei |
-| VKg1 | Vorschau wie Replit (VKg-W1, 18.10.): a Knoten liefert das Projekt live unter eigener Adresse aus (eigener Port, Zufallspfad, Code-Aktion `vorschau`), b App öffnet sie im neuen Tab, c Dev-Server aus der Sandbox (Hot Reload) – a ✓ (`vorschau.ts`, `VORSCHAU_URL`), b ✓ (Knopf „Vorschau“); gebaute Apps (`npm run build`) gehen seit VKd3 | frei – VKg1c als Nächstes |
-| VKg2 | Vorschau als Bildstrom für Programme ohne Web (Linux, später Android, Windows): virtueller Bildschirm, GStreamer `webrtcbin`, NVENC, über den eigenen TURN – mit Spur B | frei (VKg-W2 ja), nach VKg1; NVENC prüft der MENSCH auf dem GX10 |
+| VKg2 | Vorschau als Bildstrom für Programme ohne Web (Linux, später Android, Windows): virtueller Bildschirm, GStreamer `webrtcbin`, NVENC, über den eigenen TURN – mit Spur B | frei (VKg-W2 ja; VKg1 ✓: Web-Vorschau wie Replit mit Hot Reload); NVENC prüft der MENSCH auf dem GX10 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
