@@ -586,6 +586,7 @@ const FEHLER: Record<string, string> = {
   "datei-hash": "pf.dateiHash",
   "qr-zu-lang": "pf.qrZuLang",
   "planung-ungueltig": "pf.planungUngueltig",
+  "gruppenanruf-ungueltig": "pf.gruppenanrufUngueltig",
   "raum-kanal": "pf.raumKanal",
   "kopplung-knoten": "pf.kopplungKnoten",
   "kopplung-geheimnis": "pf.kopplungGeheimnis",

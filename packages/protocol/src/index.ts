@@ -138,6 +138,7 @@ export * from "./repo-auftrag.js";
 export * from "./ki-lokal.js";
 export * from "./sicherheitscode.js";
 export * from "./raum-planung.js";
+export * from "./raum-gruppenanruf.js";
 export * from "./agent-karte.js";
 export * from "./agent-auftrag.js";
 export * from "./agent-raum.js";

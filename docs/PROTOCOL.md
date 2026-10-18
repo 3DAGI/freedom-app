@@ -1443,6 +1443,21 @@ Label `freedom/anruf`, Kontext `livekit:<raum>` (ASCII, der Raum aus der Anfrage
 es einen neuen – wer entfernt wurde, kennt ihn nicht. Ist die Gruppe nicht in der genannten Epoche, gibt es keinen
 Schlüssel (kein stiller Wechsel). Er reist nie; die App setzt ihn als Schlüssel des Anrufs (B-34c).
 
+**Einladung in der Gruppe** (seit B-34c1, `raum-gruppenanruf.ts`): Wer anruft, fragt seinen Knoten nach je einem Zugang je
+MLS-Mitglied (auch für sich) und schickt sie als **inneres Event** des privaten Raums – nie offen:
+
+| Teil | Inhalt |
+|---|---|
+| Art | `25041` (`ART_GRUPPENANRUF`) |
+| Tags | `["space", <raum>]`, `["anruf", <kennung>]` – die Kennung aus der Anfrage (32 Zeichen Hex) |
+| Inhalt | JSON wie die Antwort des Knotens (`url`, `raum`, `zugaenge`, `bis`) plus `mitglieder`: je Zugang das MLS-Mitglied, dem er gehört, in derselben Reihenfolge |
+| Ende | dieselbe Art mit `["ende", "1"]` und leerem Inhalt – zählt nur vom Anrufenden |
+
+Gelesen wird nur über `raumGruppenanrufe()`: die Zugänge wie `leseLivekitZugaenge()`, die Mitglieder als 64 Zeichen Hex,
+verschieden und so viele wie Zugänge; Abgelaufenes und Beendetes fällt weg, bei mehreren Einladungen desselben Anrufenden
+gilt die neueste. Nennen zwei Anrufende dieselbe Kennung, gilt keiner (die Zeit setzt der Absender selbst). Alle
+Mitglieder sehen alle Zugänge – sie sind ohnehin in der Gruppe; die Kennungen sind zufällig, nie Schlüssel.
+
 ## 40. Umschläge über Reticulum (LXMF, seit B-32a)
 
 Entscheidungen RN1/RN2 A und RN-W1–W5 A (`docs/RETICULUM-ENTWURF.md`): Reticulum ist der zweite Funkweg neben

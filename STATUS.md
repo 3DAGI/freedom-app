@@ -11662,3 +11662,23 @@ anderer; nach dem Commit ein neuer, den das entfernte Mitglied nicht ableiten ka
 fremde Gruppe und Nicht-Mitglied: Fehler).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-34c1 – Gruppenanrufe: Einladung in der Gruppe, anrufen und beenden
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). B-34c ist geteilt: c1 bringt die Einladung und das
+Anrufen ohne neue Abhängigkeit, c2 das Beitreten mit `livekit-client` samt Oberfläche.
+
+- **Protokoll:** `raum-gruppenanruf.ts` – Einladung als inneres Event (Art 25041, `["anruf", <kennung>]`, Inhalt wie die
+  Antwort des Knotens plus `mitglieder`), Ende nur vom Anrufenden; gelesen nur über `raumGruppenanrufe()` (Zugänge wie
+  `leseLivekitZugaenge()`, Abgelaufenes und Beendetes fällt weg, die neueste Einladung gilt, zwei Anrufende mit derselben
+  Kennung: keiner). `PROTOCOL.md` §39.
+- **App:** `shell/gruppenanruf.ts` – `livekitZugaengeVomKnoten()` (wie der eigene TURN: gekoppelt, frischer
+  Sitzungsschlüssel, `wegZumKnoten()`), `starteGruppenanruf()` (zufällige Kennung, je Mitglied ein Zugang, Einladung über
+  `mlsSendeEvent()`), `beendeGruppenanruf()`, `laufendeGruppenanrufe()`. Fehlertext `pf.gruppenanrufUngueltig`.
+
+**Tests:** protocol +4 (Einladung je Mitglied, bauen nur mit passenden Mitgliedern, Ende nur vom Anrufenden, Ablauf,
+neueste gilt, zwei Anrufe; doppelte Kennung, acht kaputte Fälle), app +3 (anrufen: Kennung zufällig, auch für mich, nur
+in die Gruppe, jeder seinen Zugang, beenden; zu viele, kein Zugang; Verdrahtung wie TURN), Leak +1 (durch die echte
+MLS-Engine: nur Kind 445, kein Zugang, keine Adresse, keine Kennung, keine Identität).
+
+Knoten-Stand: unverändert (Zugänge seit B-34a).
