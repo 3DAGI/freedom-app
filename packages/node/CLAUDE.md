@@ -387,3 +387,14 @@ Bereichs unten anhängen.
   heißt „gibt es nicht“), geöffnet mit `O_NOFOLLOW | O_NONBLOCK` (ein FIFO hielte den Server an), unter Linux danach der
   echte Ort über `/proc/self/fd` – der Agent schreibt im Projekt und könnte zwischen `lstat` und `open` tauschen. Im Test
   Pfade mit `node:http` schicken, nie mit `fetch`: Der glättet `..`, `%2e%2e` und Rückstriche, bevor sie ankommen.
+- **MCP-Server für den Motor nur über `mcp-katalog.ts`** (seit VKk1, `docs/VIBECODEN-ENTWURF.md` VKk): Hermes startet
+  sie selbst, als Kind in seiner Sandbox (`hermesMotor({ mcp })` → `mcp_servers` in `config.yaml`) – nie ein Server im
+  Knoten oder daneben. Was ein Server braucht, kommt nur lesbar hinein (`McpServer.nurLesbar`, unter `/usr` schon
+  sichtbar) – nie die Wurzel, das Home oder ein Ordner darüber (`OrdnerZuWeit`: ein `MCP_BROWSER=~/chrome` bände sonst
+  `~/.freedom` mit dem Schlüssel ein), Werkzeuge nur aus seiner Liste zum Erlauben (`tools.include`) – nie eines, das beliebigen Code im Server
+  ausführt (`browser_run_code_unsafe`). Die Liste gilt für die gepinnte Fassung (`playwright` exakt 1.62.1); der echte
+  Test vergleicht sie mit `tools/list` – eine neue Fassung bringt neue Werkzeuge erst nach einem Blick darauf. Der Browser
+  ist Playwright MCP aus `playwright-core` (`lib/entry/mcp.js`, kein `@playwright/mcp` daneben): `--headless --isolated
+  --no-sandbox` (Chromium dürfte in unserer Sandbox keine Namensräume anlegen), `--output-dir` im tmpfs (sonst landen
+  Bildschirmfotos im Commit), nie `--caps`, `--port` oder `--allow-unrestricted-file-access`. Snapshots nennen Elemente
+  mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`.

@@ -188,6 +188,9 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille | wartet auf NG2 (1.0b; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
 | B-37 | MeshCore als zweites LoRa-Format | Entwurf ✓ ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) – Bau nach MCO-W1/W2 (1.0b), nachrangig |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
+| VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |
+| VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | nach VKg2 (Bildstrom) |
+| VKi | Windows: Wine und Hangover | nach VKg2 (Bildstrom) |
 
 ### Spur C – Oberfläche
 

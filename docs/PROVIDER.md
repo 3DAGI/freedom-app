@@ -549,6 +549,17 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   deren Adresse im Auftrag oder in einem Suchergebnis steht (seit VKd1b, wie bei
   Claude) – keine Adresse, die der Agent selbst baut, kein Link aus einer gelesenen
   Seite. Die Suchanfrage selbst ist frei.
+- **Browser (seit VKk1):** Hermes kann durchklicken, was er baut – Playwright MCP
+  (Microsoft, Apache-2.0, aus `playwright-core`) steuert Chromium ohne Kopf, beide in
+  der Sandbox des Motors und ohne Netz: Der Browser sieht nur Seiten, die der Agent in
+  derselben Sandbox ausliefert (etwa `python3 -m http.server`), nie das Internet oder
+  deinen Rechner. Ausgeführt werden nur die Werkzeuge zum Sehen, Klicken und Tippen,
+  nicht `browser_run_code_unsafe` (beliebiger Code im Server). Unter Docker bringt das
+  Bild mit `VIBECODEN=1` Chromium und Schriften aus Debian mit (einige hundert MB); sonst
+  sucht der Knoten `/usr/lib/chromium/chromium` und `/opt/google/chrome/chrome`, oder
+  du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
+  oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
+  sagt es.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

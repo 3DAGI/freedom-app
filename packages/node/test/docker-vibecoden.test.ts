@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
+import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
 const lies = (pfad: string) => readFileSync(new URL(`../../../${pfad}`, import.meta.url), "utf8");
 
@@ -50,4 +51,19 @@ test("VKc3b: docker-compose.vibecoden.yml – Bild mit Hermes, Sandbox-Freigaben
   assert.ok(!/security_opt|unconfined|seccomp/.test(standard), "der Standard bleibt bei den Regeln von Docker");
   assert.ok(!/3603|VORSCHAU/.test(standard), "die Vorschau (VKg1a) gibt es nur mit Vibecoden");
   assert.match(standard, /VIBECODEN: "\$\{VIBECODEN:-0\}"/);
+});
+
+test("VKk1: Chromium, Schriften und Playwright nur mit VIBECODEN=1 – das schlanke Bild bleibt ohne", () => {
+  const docker = lies("docker/node.Dockerfile");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/);
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^\\\n]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^\\\n]+)/.exec(docker));
+  assert.ok(immer.includes("bubblewrap") && !immer.includes("chromium"), immer.join(" "));
+  for (const p of ["chromium", "fonts-liberation"]) assert.ok(vibecoden.includes(p), p);
+  // optionale Pakete (Playwright, ohne Browser-Download) nur mit Vibecoden
+  assert.match(docker, /OPTIONAL=\$\(\[ "\$VIBECODEN" = "1" \] \|\| echo --omit=optional\);/);
+  assert.equal(docker.match(/--no-fund \$OPTIONAL/g)?.length, 2);
+  assert.match(docker, /ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1\n/);
+  // den Chromium aus Debian findet der Knoten von selbst
+  assert.equal(BROWSER_ORTE[0], "/usr/lib/chromium/chromium");
 });

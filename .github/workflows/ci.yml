@@ -63,6 +63,11 @@ jobs:
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
         run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
 
+      # VKk1: der Browser des Motors (Playwright MCP) läuft im Test gegen echtes Chrome in bubblewrap –
+      # das Bild des Runners bringt es mit; fehlt es, soll das hier auffallen, nicht als übersprungener Test
+      - name: Chrome fuer den Browser-Test des Motors
+        run: /opt/google/chrome/chrome --version
+
       - name: Tests node
         run: npm test --workspace @freedomstack/node
 

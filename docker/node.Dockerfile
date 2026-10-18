@@ -1,9 +1,8 @@
 # Provider-Knoten.
 #
 # Bewusst schlank: Playwright ist eine OPTIONALE Abhaengigkeit (~300 MB inkl.
-# Browser) und wird hier nicht installiert. Wer Browser-Automatisierung
-# braucht, baut ein eigenes Image — dem Normalfall diese Groesse aufzuzwingen
-# waere der falsche Standardfall.
+# Browser) und kommt nur mit VIBECODEN=1 ins Bild (Browser des Motors, VKk1) —
+# dem Normalfall diese Groesse aufzuzwingen waere der falsche Standardfall.
 FROM node:22-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -23,10 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewra
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes
 # Paket mit Hash aus docker/hermes-requirements.txt, nur fertige Wheels, nichts nachgeladen. Hermes
 # (MIT) läuft nur in der Sandbox (hermes-motor.ts); python3 und ripgrep sind eigene Programme.
+# Chromium (BSD-3 u. a., aus Debian) und Schriften für den Browser des Motors (VKk1, VKg-W2) – ebenfalls nur in
+# der Sandbox, gesteuert von Playwright MCP aus playwright-core (mcp-katalog.ts).
 ARG VIBECODEN=0
 COPY docker/hermes-requirements.txt /tmp/hermes-requirements.txt
 RUN if [ "$VIBECODEN" = "1" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep \
+      apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep chromium fonts-liberation \
       && rm -rf /var/lib/apt/lists/* \
       && python3 -m venv /opt/hermes \
       && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \
@@ -41,10 +42,11 @@ COPY packages/protocol/package.json packages/protocol/
 COPY packages/mls/package.json packages/mls/
 COPY packages/node/package.json packages/node/
 
+# Playwright (optional, ohne eigenen Browser – den bringt Debian) nur mit VIBECODEN=1 (VKk1)
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-RUN npm install --workspaces --include-workspace-root \
-      --no-audit --no-fund --omit=optional \
-    || npm install --no-audit --no-fund --omit=optional
+RUN OPTIONAL=$([ "$VIBECODEN" = "1" ] || echo --omit=optional); \
+    npm install --workspaces --include-workspace-root --no-audit --no-fund $OPTIONAL \
+    || npm install --no-audit --no-fund $OPTIONAL
 
 COPY packages/protocol packages/protocol
 # MLS-Engine (gebaut, dist/) – für den Agenten in privaten Räumen (11.3d2a, AGENT_PRIVAT)

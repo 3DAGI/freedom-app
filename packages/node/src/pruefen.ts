@@ -12,6 +12,7 @@ import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-lade
 import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { hermesAusUmgebung } from "./hermes-motor.js";
+import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -35,5 +36,12 @@ if (process.env.VIBECODEN?.trim() === "1") {
   // Motor (VKc3): Hermes im venv – nur ob er da ist, ausgeführt wird er nur in der Sandbox
   const hermes = hermesAusUmgebung(process.env);
   console.log("hermes" in hermes ? `✓ Code: Motor Hermes in ${hermes.hermes.ordner}` : `✗ Code: ${"fehlt" in hermes ? hermes.fehlt : hermes.ungueltig}`);
+  // MCP-Katalog (VKk1): nur ob Programm und Server da sind – ausgeführt nur in der Sandbox des Motors
+  const mcp = mcpAusUmgebung(process.env);
+  if ("ungueltig" in mcp) console.log(`✗ Code: ${mcp.ungueltig}`);
+  else {
+    for (const s of mcp.server) console.log(`✓ Code: für den Motor ${s.name} (MCP)`);
+    for (const f of mcp.fehlt) console.log(`✗ Code: ${MCP_TEXT[f]}`);
+  }
 }
 process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);
