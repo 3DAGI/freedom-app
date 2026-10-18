@@ -155,3 +155,41 @@ test("A-31: Projektnamen taugen als Ordnername – klein, ohne Punkt, Schrägstr
   for (const gut of ["a", "meine-app", "x1", "0", "a".repeat(40)]) assert.ok(istProjektName(gut), gut);
   for (const schlecht of ["", ".", "..", "a/b", "a.b", "A", "a b", "-a", "a\n", "ä", "a".repeat(41), 7, null]) assert.ok(!istProjektName(schlecht), String(schlecht));
 });
+
+const C1 = "1a".repeat(20), C2 = "2b".repeat(32);
+
+test("VKe2: Verlauf, Diff, zurück – Aktionen mit Commit-Kennung (SHA-1 oder SHA-256), sonst baut und liest sie niemand", async () => {
+  const knoten = generateKeypair();
+  const k = neueKopplung(knoten.pk);
+  for (const aktion of [{ aktion: "verlauf", projekt: "app" }, { aktion: "diff", projekt: "app", commit: C1 }, { aktion: "zurueck", projekt: "app", commit: C2 }] as CodeAktion[]) {
+    const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: k, aktion });
+    const r = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+    assert.ok(r.ok);
+    assert.deepEqual(leseCodeAuftrag(r.request), aktion);
+  }
+  for (const commit of ["", "1A".repeat(20), "1a".repeat(19), "1a".repeat(21), "HEAD", "main", "1a".repeat(20) + "\n"]) {
+    await assert.rejects(baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: k, aktion: { aktion: "diff", projekt: "app", commit } }), commit);
+    assert.equal(leseCodeAuftrag(kern([["param", "aktion", "zurueck"], ["param", "projekt", "app"], ["param", "commit", commit]])), null, commit);
+  }
+  assert.equal(leseCodeAuftrag(kern([["param", "aktion", "verlauf"], ["param", "projekt", "app"], ["param", "commit", C1]])), null, "fremder Parameter");
+  assert.equal(leseCodeAuftrag(kern([["param", "aktion", "diff"], ["param", "projekt", "app"]])), null, "Commit fehlt");
+});
+
+test("VKe2: Antworten – Verlauf begrenzt, Diff nach JSON-Länge begrenzt (passt in einen Umschlag), zurück mit leerem Commit", () => {
+  const commit = { id: C1, nachricht: "Schritt 3", zeit: 1_790_000_000, dateien: 2 };
+  const verlauf: CodeAntwort = { aktion: "verlauf", commits: [commit] };
+  assert.deepEqual(leseCodeAntwort(codeAntwortText(verlauf), "verlauf"), verlauf);
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: Array.from({ length: CODE_GRENZEN.commits + 1 }, () => commit) }));
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: [{ ...commit, nachricht: "x".repeat(CODE_GRENZEN.nachricht + 1) }] }));
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: [{ ...commit, id: "HEAD" }] }));
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "verlauf", commits: [{ ...commit, autor: "x" }] }), "verlauf"), null);
+  const diff: CodeAntwort = { aktion: "diff", commit: C2, text: "diff --git a/x b/x\n+\"hallo\"\n", gekuerzt: false };
+  assert.deepEqual(leseCodeAntwort(codeAntwortText(diff), "diff"), diff);
+  // Zeilenumbrüche zählen im JSON doppelt – die Grenze gilt dort, nicht in Zeichen
+  const knapp = "\n".repeat(Math.floor((CODE_GRENZEN.diff - 2) / 2));
+  assert.ok(leseCodeAntwort(codeAntwortText({ ...diff, text: knapp }), "diff"));
+  assert.throws(() => codeAntwortText({ ...diff, text: knapp + "\n" }));
+  for (const z of [{ aktion: "zurueck", commit: "" }, { aktion: "zurueck", commit: C1 }] as CodeAntwort[]) assert.deepEqual(leseCodeAntwort(codeAntwortText(z), "zurueck"), z);
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "zurueck", commit: "HEAD" }), "zurueck"), null);
+  assert.equal(leseCodeAntwort(codeAntwortText(diff), "verlauf"), null, "nur zur erwarteten Aktion");
+});

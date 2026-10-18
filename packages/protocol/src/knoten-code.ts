@@ -38,11 +38,23 @@ export const CODE_GRENZEN = {
   projekte: 100,
   /** git-Bundle eines Projekts, in Byte (wie ein hochgeladenes Bundle in der App). */
   bundle: 32 * 1024 * 1024,
+  /** Commits im Verlauf (VKe2), neueste zuerst. */
+  commits: 50,
+  /** Erste Zeile einer Commit-Nachricht. */
+  nachricht: 200,
+  /**
+   * Diff eines Commits – gemessen als JSON-Text (`JSON.stringify(text).length`): Die Antwort reist in einem
+   * Umschlag, und NIP-44 fasst 65 535 Byte; Zeilenumbrüche und Anführungszeichen zählen dort doppelt.
+   */
+  diff: 30_000,
 } as const;
 
 /** Name eines Projekts: zugleich Name seines Ordners auf dem Knoten – klein, ohne Punkt und Schrägstrich. */
 const PROJEKT = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
+/** Kennung eines Commits – SHA-1 (40) oder SHA-256 (64), klein geschrieben. */
+const COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+export const istCommit = (c: unknown): c is string => typeof c === "string" && COMMIT.test(c);
 
 export function istProjektName(n: unknown): n is string {
   return typeof n === "string" && PROJEKT.test(n);
@@ -57,9 +69,13 @@ export type CodeAktion =
   | { aktion: "auftrag"; projekt: string; text: string; modus: CodeModus }
   | { aktion: "freigabe"; lauf: string; schritt: number; ja: boolean }
   | { aktion: "stopp"; lauf: string }
-  | { aktion: "bundle"; projekt: string };
+  | { aktion: "bundle"; projekt: string }
+  /** Verlauf, Diff eines Commits, zurück auf einen Commit (VKe2) – „zurück“ legt einen neuen Commit an, nichts geht verloren. */
+  | { aktion: "verlauf"; projekt: string }
+  | { aktion: "diff"; projekt: string; commit: string }
+  | { aktion: "zurueck"; projekt: string; commit: string };
 
-export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle"] as const;
+export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle", "verlauf", "diff", "zurueck"] as const;
 
 /** Je Aktion die erlaubten Parameter, jeder genau einmal. */
 const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
@@ -69,6 +85,9 @@ const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
   freigabe: ["lauf", "schritt", "antwort"],
   stopp: ["lauf"],
   bundle: ["projekt"],
+  verlauf: ["projekt"],
+  diff: ["projekt", "commit"],
+  zurueck: ["projekt", "commit"],
 };
 
 const istSchrittNr = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= CODE_GRENZEN.schritte;
@@ -92,6 +111,11 @@ function gepruefteAktion(a: CodeAktion): CodeAktion | null {
       return HEX64.test(a.lauf) ? { aktion: "stopp", lauf: a.lauf } : null;
     case "bundle":
       return istProjektName(a.projekt) ? { aktion: "bundle", projekt: a.projekt } : null;
+    case "verlauf":
+      return istProjektName(a.projekt) ? { aktion: "verlauf", projekt: a.projekt } : null;
+    case "diff":
+    case "zurueck":
+      return istProjektName(a.projekt) && istCommit(a.commit) ? { aktion: a.aktion, projekt: a.projekt, commit: a.commit } : null;
     default:
       return null;
   }
@@ -105,6 +129,9 @@ function parameterVon(a: CodeAktion): string[][] {
     case "freigabe": return [["lauf", a.lauf], ["schritt", String(a.schritt)], ["antwort", a.ja ? "ja" : "nein"]];
     case "stopp": return [["lauf", a.lauf]];
     case "bundle": return [["projekt", a.projekt]];
+    case "verlauf": return [["projekt", a.projekt]];
+    case "diff":
+    case "zurueck": return [["projekt", a.projekt], ["commit", a.commit]];
   }
 }
 
@@ -150,6 +177,9 @@ export function leseCodeAuftrag(request: Pick<NostrEvent, "kind" | "tags">): Cod
       return gepruefteAktion({ aktion: "freigabe", lauf: w.lauf!, schritt: Number(w.schritt), ja: w.antwort === "ja" });
     }
     case "bundle": return gepruefteAktion({ aktion: "bundle", projekt: w.projekt! });
+    case "verlauf": return gepruefteAktion({ aktion: "verlauf", projekt: w.projekt! });
+    case "diff":
+    case "zurueck": return gepruefteAktion({ aktion, projekt: w.projekt!, commit: w.commit! });
     default: return gepruefteAktion({ aktion: "stopp", lauf: w.lauf! });
   }
 }
@@ -204,6 +234,14 @@ export function leseCodeSchritt(text: string): CodeSchritt | null {
 export const CODE_ENDEN = ["fertig", "grenze", "gestoppt", "abgelehnt", "fehler"] as const;
 export type CodeEnde = (typeof CODE_ENDEN)[number];
 
+/** Ein Commit im Verlauf (VKe2): Kennung, erste Zeile der Nachricht, Zeit (Unix-Sekunden), geänderte Dateien. */
+export interface CodeCommit {
+  id: string;
+  nachricht: string;
+  zeit: number;
+  dateien: number;
+}
+
 export interface CodeProjekt {
   name: string;
   /** Schritte (Commits) im Projekt. */
@@ -223,7 +261,12 @@ export type CodeAntwort =
    * Das Projekt als git-Bundle (VKl): verschlüsselt ins Blob-Netz gelegt (`blob`, Manifest-Event `manifest`),
    * hier nur der Schlüssel dazu – versiegelt an den Besitzer. Klartext-Größe in `bytes`.
    */
-  | { aktion: "bundle"; blob: string; manifest: string; schluessel: DateiSchluessel; bytes: number };
+  | { aktion: "bundle"; blob: string; manifest: string; schluessel: DateiSchluessel; bytes: number }
+  | { aktion: "verlauf"; commits: CodeCommit[] }
+  /** Diff als Patch (wie `git format-patch`), über `CODE_GRENZEN.diff` gekürzt. */
+  | { aktion: "diff"; commit: string; text: string; gekuerzt: boolean }
+  /** Der neue Commit – leer, wenn das Projekt schon so aussah. */
+  | { aktion: "zurueck"; commit: string };
 
 const istSchrittZahl = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
 
@@ -261,6 +304,23 @@ function gepruefteAntwort(roh: unknown): CodeAntwort | null {
       const k = a.schluessel as DateiSchluessel;
       return { aktion: "bundle", blob: a.blob, manifest: a.manifest, schluessel: { alg: k.alg, key: k.key, nonce: k.nonce, ox: k.ox }, bytes: a.bytes as number };
     }
+    case "verlauf": {
+      if (felder !== 2 || !Array.isArray(a.commits) || a.commits.length > CODE_GRENZEN.commits) return null;
+      const commits: CodeCommit[] = [];
+      for (const c of a.commits as unknown[]) {
+        if (typeof c !== "object" || c === null || Array.isArray(c) || Object.keys(c).length !== 4) return null;
+        const { id, nachricht, zeit, dateien } = c as Record<string, unknown>;
+        if (!istCommit(id) || !istText(nachricht, CODE_GRENZEN.nachricht) || !istSchrittZahl(zeit) || !istSchrittZahl(dateien)) return null;
+        commits.push({ id, nachricht, zeit, dateien });
+      }
+      return { aktion: "verlauf", commits };
+    }
+    case "diff":
+      if (felder !== 4 || !istCommit(a.commit) || typeof a.text !== "string" || typeof a.gekuerzt !== "boolean") return null;
+      if (JSON.stringify(a.text).length > CODE_GRENZEN.diff) return null;
+      return { aktion: "diff", commit: a.commit, text: a.text, gekuerzt: a.gekuerzt };
+    case "zurueck":
+      return felder === 2 && (a.commit === "" || istCommit(a.commit)) ? { aktion: "zurueck", commit: a.commit as string } : null;
     default:
       return null;
   }

@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { CODE_GRENZEN, istProjektName, type CodeProjekt } from "@freedomstack/protocol";
+import { CODE_GRENZEN, istCommit, istProjektName, type CodeCommit, type CodeProjekt } from "@freedomstack/protocol";
 
 export const projekteOrdner = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "projekte");
 
@@ -23,7 +23,7 @@ export const projekteOrdner = (home = process.env.HOME ?? "."): string => join(h
  * Projektnamen – sie gehen nur als `code-ablage` hinaus und ins Log.
  */
 export class CodeAbgelehnt extends Error {
-  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage" | "code-leer" | "code-zu-gross") {
+  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage" | "code-leer" | "code-zu-gross" | "code-commit") {
     super(`Code: ${fall}`);
     this.name = "CodeAbgelehnt";
   }
@@ -46,8 +46,11 @@ export class ProjektAblage {
     this.gitProgramm = o.git ?? "git";
   }
 
-  /** git ohne Shell, mit leerer Umgebung bis auf PATH; das Repository immer ausdrücklich (`--git-dir`). */
-  private git(args: string[], projekt?: string, timeout = 10_000): Promise<string> {
+  /**
+   * git ohne Shell, mit leerer Umgebung bis auf PATH; das Repository immer ausdrücklich (`--git-dir`). Mit `teilweise`
+   * liefert ein Lauf über `maxBuffer` den Anfang statt eines Fehlers (Diff, VKe2).
+   */
+  private git(args: string[], projekt?: string, timeout = 10_000, o: { maxBuffer?: number; teilweise?: boolean } = {}): Promise<string> {
     const ort = projekt ? ["--git-dir", join(this.ordner, projekt, ".git"), "--work-tree", join(this.ordner, projekt)] : [];
     return new Promise((ok, fehler) => {
       execFile(this.gitProgramm, [...GIT_FEST, ...ort, ...args], {
@@ -56,8 +59,11 @@ export class ProjektAblage {
           PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: this.ordner, LC_ALL: "C",
           GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_CEILING_DIRECTORIES: this.ordner,
         },
-        timeout, maxBuffer: 1 << 20, windowsHide: true,
-      }, (e, stdout) => (e ? fehler(e) : ok(String(stdout))));
+        timeout, maxBuffer: o.maxBuffer ?? 1 << 20, windowsHide: true,
+      }, (e, stdout) => {
+        if (e && o.teilweise && (e as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return ok(String(stdout));
+        return e ? fehler(e) : ok(String(stdout));
+      });
     });
   }
 
@@ -138,6 +144,63 @@ export class ProjektAblage {
       return new Uint8Array(await readFile(datei));
     } finally {
       await rm(datei, { force: true });
+    }
+  }
+
+  /** Ein Commit dieses Projekts, der zu `HEAD` führt – sonst `code-commit` (fremde Kennung, Zweig daneben, kein Commit). */
+  private async eigenerCommit(name: string, commit: string): Promise<void> {
+    if (!istProjektName(name) || !istCommit(commit)) throw new Error("Commit ungültig");
+    const art = (await this.git(["cat-file", "-t", commit], name).catch(() => "")).trim();
+    if (art !== "commit") throw new CodeAbgelehnt("code-commit");
+    await this.git(["merge-base", "--is-ancestor", commit, "HEAD"], name).catch(() => { throw new CodeAbgelehnt("code-commit"); });
+  }
+
+  /** Verlauf (VKe2): die letzten `CODE_GRENZEN.commits` Commits von `HEAD`, neueste zuerst, je mit Zahl der geänderten Dateien. */
+  async verlauf(name: string): Promise<CodeCommit[]> {
+    if (!istProjektName(name)) throw new Error("Projektname ungültig");
+    if (!(await this.git(["rev-list", "-n", "1", "--all"], name).catch(() => "")).trim()) return [];
+    const roh = await this.git(["log", "-n", String(CODE_GRENZEN.commits), "--no-renames", "--name-only", "--format=%x1e%H%x1f%ct%x1f%s", "HEAD"], name)
+      .catch(() => { throw new CodeAbgelehnt("code-git"); });
+    const commits: CodeCommit[] = [];
+    for (const block of roh.split("\x1e").slice(1)) {
+      const [kopf = "", ...dateien] = block.split("\n");
+      const [id = "", zeit = "", nachricht = ""] = kopf.split("\x1f");
+      if (!istCommit(id) || !/^\d{1,12}$/.test(zeit)) continue;
+      commits.push({ id, zeit: Number(zeit), nachricht: [...nachricht].slice(0, CODE_GRENZEN.nachricht).join(""), dateien: dateien.filter((d) => d !== "").length });
+    }
+    return commits;
+  }
+
+  /**
+   * Diff eines Commits (VKe2) als Patch wie `git format-patch` – den liest die App wie jeden Patch (`leseDiff()`). Ohne
+   * Diff-Programme und Textumwandlung aus dem Projekt (`--no-ext-diff`, `--no-textconv`), auf `CODE_GRENZEN.diff`
+   * (JSON-Länge) gekürzt.
+   */
+  async diff(name: string, commit: string): Promise<{ text: string; gekuerzt: boolean }> {
+    await this.eigenerCommit(name, commit);
+    const roh = await this.git(["format-patch", "-1", "--stdout", "--no-signature", "--no-color", "--no-ext-diff", "--no-textconv", commit], name, 20_000,
+      { maxBuffer: 4 << 20, teilweise: true }).catch(() => { throw new CodeAbgelehnt("code-git"); });
+    let text = roh, gekuerzt = false;
+    while (JSON.stringify(text).length > CODE_GRENZEN.diff) {
+      text = text.slice(0, Math.floor(text.length * 0.9));
+      gekuerzt = true;
+    }
+    return { text, gekuerzt: gekuerzt || roh.length >= 4 << 20 };
+  }
+
+  /**
+   * Zurück auf einen Commit (VKe2): dessen Baum als neuer Commit „Zurück auf <kurz>“ – nichts geht verloren, auch das
+   * Zurück lässt sich zurücknehmen. Nur Commits, die zu `HEAD` führen. Zurück der neue Commit, leer, wenn sich nichts änderte.
+   */
+  async zurueck(name: string, commit: string): Promise<string> {
+    await this.eigenerCommit(name, commit);
+    try {
+      await this.git(["read-tree", "-u", "--reset", commit], name, 60_000);
+      if ((await this.git(["diff", "--cached", "--quiet", "HEAD"], name).then(() => true, () => false))) return "";
+      await this.git(["-c", "user.name=Freedom-Agent", "-c", "user.email=agent@knoten.invalid", "commit", "-q", "--no-verify", "-m", `Zurück auf ${commit.slice(0, 7)}`], name);
+      return (await this.git(["rev-parse", "HEAD"], name)).trim();
+    } catch {
+      throw new CodeAbgelehnt("code-git");
     }
   }
 
