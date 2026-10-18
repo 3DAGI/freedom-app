@@ -11727,7 +11727,9 @@ und LiveKit am GX10 steht beim MENSCHEN (OFFEN 2.3).
   hinaus –, danach E2EE-Worker aus blob: ohne CSP-Verstoß und eine Verbindung nur zur Adresse aus der Einladung (die
   Attrappe schließt sie). Ada beendet, bei Bo ist der Anruf weg. Die Adresse des SFU steht nie im Klartext auf dem Relay.
 
-**Tests:** protocol +1 (Grenze mit Szenario), app +3 (UI: Rückfrage vor `trittBei()`, eigener Anruf ohne, beenden
-verlässt; Spuren, nichts gemerkt; Verdrahtung), Smoke-Teil „privatraum“ erweitert.
+**Tests:** protocol +1 (Grenze mit Szenario), app +4 (UI: Rückfrage vor `trittBei()`, eigener Anruf ohne, beenden
+verlässt; Spuren, nichts gemerkt; Verdrahtung; der Smoke-Teil prüft, was er soll), Smoke-Teil „privatraum“ erweitert. Die
+Verbindung zum SFU stellt im Smoke-Test eine Hülle um WebSocket nach – `WebSocketRoute.close()` im Handler hielt den Test
+an (Fallstrick in `scripts/CLAUDE.md`).
 
 Knoten-Stand: unverändert.
