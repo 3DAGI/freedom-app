@@ -531,6 +531,28 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
+## Gruppenanrufe über den eigenen Knoten (B-34, im Aufbau)
+
+Ab drei Personen läuft ein Anruf über einen SFU auf deinem Knoten: LiveKit als eigener Dienst (wie coturn). Der Knoten
+vergibt nur Zugänge – je Teilnehmer einen, mit einer zufälligen Kennung, nur für diesen Anruf und kurz gültig. Bild und
+Ton verschlüsselt die App (B-34b/c); der SFU sieht, wer wann spricht und wie viel, aber nicht was.
+
+- **Einrichten (Docker):** einmal
+  `bash scripts/livekit-einrichten.sh ./livekit.yaml <name> --docker >> .env`, dann
+  `docker compose --profile livekit up -d`. Die Datei (0600, in `.gitignore`) hat zufälligen Schlüssel und Geheimnis,
+  höchstens 25 Teilnehmer je Raum, keinen eigenen TURN, kein Redis, Protokoll erst ab „warn“.
+- **Erreichbar machen:**
+  - Das Signal hört nur auf `127.0.0.1:7880`. Davor gehört ein Reverse-Proxy mit TLS, der `wss://<name>` dorthin
+    weiterreicht.
+  - An Firewall und Router freigeben: TCP 7881 und UDP 50000–50100.
+- **Umgebung des Knotens:** `LIVEKIT_URL` (`wss://…`), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (mindestens 32 Zeichen) –
+  die drei Zeilen aus dem Skript; optional `LIVEKIT_GUELTIG_SEK` (Standard 3600, höchstens 86400).
+- **Nie halb:** Fehlt eines oder ist es ungültig, vergibt der Knoten keine Zugänge. Im Log steht `[livekit] …`; die
+  Rolle „Gruppenanrufe“ zeigt der Status in der App.
+- **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt (Kind 5081). Zugänge stehen nie im Log.
+- **Noch nicht:** der Schlüssel aus der Gruppe (B-34b), Beitreten in der App (B-34c), Oberfläche (B-34d); der Installer
+  richtet LiveKit noch nicht ein.
+
 ## Vibecoden auf dem eigenen Knoten (A-31, im Aufbau)
 
 Vom Handy aus Programme auf deinem Knoten bauen lassen

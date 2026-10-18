@@ -52,13 +52,14 @@ import {
   KIND_DVM_KNOTEN_STATUS, KURZCODE_TAG, knotenStatusText, type KnotenStatus,
   buildBlob, generateKeypair, verschluesseleDatei,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
-  KIND_DVM_TURN, turnZugangText,
+  KIND_DVM_TURN, turnZugangText, KIND_DVM_LIVEKIT, leseLivekitAnfrage, livekitZugaengeText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
+import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
@@ -152,6 +153,8 @@ export interface ProviderConfig {
   weckBuch?: WeckBuch;
   /** TURN des eigenen Knotens (B-13a, T2 A) – ohne: keine Zugänge. */
   turn?: TurnDienst;
+  /** SFU für Gruppenanrufe (B-34a, LK2–LK4 A) – ohne: keine Zugänge. */
+  livekit?: LivekitDienst;
   /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
   projekte?: ProjektAblage;
   /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
@@ -256,9 +259,9 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN-Zugänge und Code-Aufträge des Besitzers nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN- und LiveKit-Zugänge und Code-Aufträge des Besitzers nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
-    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE) return;
+    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE || request.kind === KIND_DVM_LIVEKIT) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -1041,6 +1044,41 @@ export class DvmProvider {
   }
 
   /**
+   * Zugänge zum Gruppenanruf (5081, seit B-34a, LK2–LK4 A): nur aus einem Umschlag und mit Nachweis
+   * (`istBesitzer()`), je Teilnehmer ein frischer Zugang (`livekitZugaenge()`) für genau den gefragten Raum. Die
+   * Zugänge reisen nur versiegelt und gehen nie ins Log; nach außen nur feste Texte.
+   */
+  private async handleLivekit(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Gruppenanruf nur für den Besitzer");
+    if (!this.cfg.livekit) throw new Error("kein Gruppenanruf");
+    const anfrage = leseLivekitAnfrage(getTag(request, "i") ?? "");
+    if (!anfrage) throw new Error("Anfrage ungültig");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: livekitZugaengeText(livekitZugaenge(this.cfg.livekit, anfrage.raum, anfrage.anzahl, Math.floor(start / 1000))),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "Zugänge zum Gruppenanruf an den Besitzer",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Solana-Deposit-Session validieren (Provider-Seite):
    *   1. Deposit-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein, nicht abgelaufen (Timelock)
@@ -1118,6 +1156,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_TURN) return this.handleTurn(request, privat);
     // Vibecoden auf dem eigenen Knoten (5080, A-31): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_KNOTEN_CODE) return this.handleCode(request, privat);
+    // Zugänge zum Gruppenanruf (5081, B-34a): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_LIVEKIT) return this.handleLivekit(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
