@@ -296,7 +296,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
-| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 |
+| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 – **VKk1 fertig** (`mcp-katalog.ts`: der Browser – Playwright MCP aus `playwright-core` 1.62.1, das der Knoten schon hatte, exakt gepinnt; Chromium aus Debian im Bild mit `VIBECODEN=1`; als Kind von Hermes in dessen Sandbox, ohne Netz; Werkzeuge nur aus `PLAYWRIGHT_WERKZEUGE`, ohne `browser_run_code_unsafe`) |
 | VKl | „Als Repo in einen Raum stellen“ | A | ~200 – **fertig** (VKl1 Knoten: Code-Aktion `bundle`, `PROTOCOL.md` §34; VKl2 App: „Mein Knoten“ › Projekte) |
 
 ### Neue Fragen

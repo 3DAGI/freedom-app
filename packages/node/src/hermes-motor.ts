@@ -16,6 +16,7 @@ import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSyn
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MotorStart } from "./code-motor.js";
+import { hermesMcpEintrag, type McpServer } from "./mcp-katalog.js";
 import { BRUECKE_IN_SANDBOX, type ModellBruecke } from "./modell-bruecke.js";
 import type { ProjektAblage } from "./projekte.js";
 import { sandboxMotor } from "./sandbox.js";
@@ -54,14 +55,16 @@ export function hermesAusUmgebung(env: { HERMES_ORDNER?: string; CODE_MODELL?: s
  * `config.yaml` für Hermes – als JSON, das YAML liest. Nur Schlüssel, die Hermes 0.19 kennt: das Modell über die
  * Brücke (`custom`, Adresse in der Sandbox), Freedom-MCP über dieselbe Brücke (VKd – in der Konfiguration statt über ACP,
  * weil Hermes 0.19 MCP über HTTP in `initialize` nicht ankündigt), Freigaben `manual` (nie `smart`, das ein zweites Modell
- * fragte), keine Nachinstallation aus PyPI (die Sandbox hat ohnehin kein Netz).
+ * fragte), keine Nachinstallation aus PyPI (die Sandbox hat ohnehin kein Netz). Server aus dem MCP-Katalog (VKk) startet
+ * Hermes selbst, als Kind in derselben Sandbox – nur mit den Werkzeugen ihrer Liste.
  */
-export function hermesKonfiguration(modell: string): string {
+export function hermesKonfiguration(modell: string, mcp: readonly McpServer[] = []): string {
   if (!MODELL.test(modell)) throw new Error("Modellname ungültig");
+  if (mcp.some((s) => s.name === "freedom")) throw new Error("MCP-Name vergeben");
   const bruecke = `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`;
   return JSON.stringify({
     model: { provider: "custom", base_url: `${bruecke}/v1`, default: modell, api_key: "bruecke" },
-    mcp_servers: { freedom: { url: `${bruecke}/mcp` } },
+    mcp_servers: { freedom: { url: `${bruecke}/mcp` }, ...Object.fromEntries(mcp.map((s) => [s.name, hermesMcpEintrag(s)])) },
     approvals: { mode: "manual", cron_mode: "deny" },
     security: { allow_lazy_installs: false, redact_secrets: true },
   }, null, 2) + "\n";
@@ -79,6 +82,8 @@ export function hermesHeim(ablage: Pick<ProjektAblage, "ordner">, projektOrdner:
 export function hermesMotor(o: {
   hermes: HermesEinstellung; ablage: Pick<ProjektAblage, "ordner">; bruecke: Pick<ModellBruecke, "ordner">;
   modell: () => string | undefined; bwrap?: string;
+  /** MCP-Server aus dem Katalog (VKk) – was sie brauchen, kommt nur lesbar in die Sandbox. */
+  mcp?: readonly McpServer[];
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
@@ -89,6 +94,7 @@ export function hermesMotor(o: {
         { quelle: ordner, ziel: ordner },
         { quelle: STARTSKRIPT, ziel: STARTSKRIPT_IN_SANDBOX },
         { quelle: o.bruecke.ordner, ziel: BRUECKE_IN_SANDBOX.ordner },
+        ...(o.mcp ?? []).flatMap((s) => s.nurLesbar),
       ],
       ...(o.bwrap ? { bwrap: o.bwrap } : {}),
     },
@@ -96,7 +102,7 @@ export function hermesMotor(o: {
   return (projekt) => {
     const modell = o.hermes.modell ?? o.modell();
     if (!modell) throw Object.assign(new Error("kein Modell für Code-Läufe"), { name: "KeinModell" });
-    schreibeKonfiguration(hermesHeim(o.ablage, projekt), hermesKonfiguration(modell));
+    schreibeKonfiguration(hermesHeim(o.ablage, projekt), hermesKonfiguration(modell, o.mcp));
     return start(projekt);
   };
 }

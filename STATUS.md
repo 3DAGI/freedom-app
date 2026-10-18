@@ -11493,3 +11493,32 @@ Selbstprüfung prüft `root`. Als `nobody` grün; ohne die Grenze rot (gegengepr
 Rest von 11.5s4 (Speicher aller Prozesse zusammen über cgroups v2) → 11.5s4b, später.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKk1 – Browser für den Motor: Playwright MCP in der Sandbox
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk „MCP-Katalog“, Tabelle „MCP für gängige Programme“: Web/Test – Playwright MCP,
+Apache-2.0, ARM64 ✓; VKg-W2: Chromium ins Bild). Der Agent soll durchklicken können, was er baut – wie ein Mensch im
+Browser, bevor er „fertig“ sagt.
+
+**Neu:**
+- `mcp-katalog.ts`: MCP-Server für Hermes, je Server gepinnt und nur in der Sandbox des Motors.
+  - Erster Server: der Browser – Playwright MCP, wie er in `playwright-core` steckt (`lib/entry/mcp.js`). Das Paket hat
+    der Knoten schon (optional, für die Web-Werkzeuge aus 8.7); jetzt exakt gepinnt auf 1.62.1. Keine neue Abhängigkeit.
+  - Ohne Kopf, Profil nur im Speicher (`--isolated`), Chromium ohne eigene Sandbox (in unserer dürfte es keine
+    Namensräume anlegen), Ausgaben ohne Namen nach `/tmp` statt ins Projekt.
+  - `PLAYWRIGHT_WERKZEUGE`: die Grundausstattung außer `browser_run_code_unsafe` (beliebiger Code im Server, nach
+    Playwright „RCE-equivalent“) – an Hermes als `tools.include`.
+  - `mcpAusUmgebung()`: `MCP_BROWSER` (Pfad zu Chromium, `aus`), sonst Chromium aus Debian, sonst Google Chrome;
+    ein falscher Pfad hält den Start an, fehlt etwas, läuft der Motor ohne Browser (Log `MCP_TEXT`).
+  - Nur lesbar in die Sandbox: `playwright-core`, der Ordner des Browsers und das Präfix von Node, wo sie außerhalb von
+    `/usr` liegen, dazu `/etc/fonts` (ohne zeigten Bildschirmfotos keine Buchstaben).
+- `hermes-motor.ts`: `hermesKonfiguration(modell, mcp)` und `hermesMotor({ mcp })`; `main.ts` gibt die Server weiter.
+- Docker (`VIBECODEN=1`): Chromium und Schriften aus Debian, die optionalen Pakete des Knotens (Playwright ohne
+  Browser-Download).
+
+**Tests:** node +6 (Umgebung, Server-Argumente, Hermes-Konfiguration, der Motor bindet ein und schreibt `config.yaml`,
+das Docker-Bild, echt in bubblewrap: Seite aus der Sandbox mit JavaScript und Klick, die Liste zum Erlauben gleich der
+gepinnten Fassung bis auf `browser_run_code_unsafe`, weder der Rechner noch das Internet erreichbar). Die CI prüft vorher,
+dass Chrome im Runner liegt – sonst übersprünge sich der echte Test still.
+
+Knoten-Stand: nur der Knoten (mit `VIBECODEN=1`).

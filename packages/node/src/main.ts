@@ -41,6 +41,7 @@ import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
+import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
 import { oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
@@ -444,6 +445,12 @@ async function main(): Promise<void> {
       console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);
       process.exit(1);
     }
+    // MCP-Katalog (VKk): Programme für den Motor, nur in seiner Sandbox – VKk1 der Browser (Playwright MCP)
+    const mcpWahl = mcpAusUmgebung(process.env);
+    if ("ungueltig" in mcpWahl) {
+      console.error(`[code] ${mcpWahl.ungueltig} – der Knoten startet nicht`);
+      process.exit(1);
+    }
     if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
     else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
     else {
@@ -456,9 +463,11 @@ async function main(): Promise<void> {
       process.on("exit", () => bruecke.schliesse());
       code = new CodeLaeufe({
         ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
-        motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0] }),
+        motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server }),
       });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
+      for (const s of mcpWahl.server) console.log(`[code] für den Motor: ${s.name} (MCP, in der Sandbox)`);
+      for (const f of mcpWahl.fehlt) console.log(`[code] ${MCP_TEXT[f]}`);
     }
   }
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
