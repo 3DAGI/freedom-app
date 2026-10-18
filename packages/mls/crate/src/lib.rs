@@ -173,6 +173,10 @@ fn merkmale() -> FeatureRegistry {
 
 // ------------------------------------------------------------- Hilfen
 
+/// Label des MLS-Exporters für Schlüssel von Gruppenanrufen (B-34b, `docs/PROTOCOL.md` §39) –
+/// ein anderes Label hieße eine neue Fassung.
+const ANRUF_LABEL: &str = "freedom/anruf";
+
 fn fehler(e: impl fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
@@ -595,6 +599,31 @@ impl MlsKonto {
 
     pub fn epoche(&self, gruppe_id: String) -> Result<f64, JsValue> {
         self.lies(|i| Ok(i.engine.epoch(&gruppe(&gruppe_id)?).map_err(fehler)?.0 as f64))
+    }
+
+    /// Schlüssel für Bild und Ton eines Gruppenanrufs (B-34b, LK3 A): MLS-Exporter
+    /// mit `ANRUF_LABEL` und dem Anruf (32 Zeichen Hex) als Kontext, 32 Byte. Alle
+    /// Mitglieder derselben Epoche bekommen denselben; nach einem Commit gibt es einen
+    /// neuen, den ein entferntes Mitglied nicht kennt. `epoche` ist die Epoche, für die
+    /// der Aufrufer ihn will – ist die Gruppe woanders, Fehler statt eines anderen
+    /// Schlüssels. Geheim: nie ins Log, nie gespeichert.
+    #[wasm_bindgen(js_name = anrufSchluessel)]
+    pub fn anruf_schluessel(&self, gruppe_id: String, anruf: String, epoche: f64) -> Result<js_sys::Uint8Array, JsValue> {
+        if anruf.len() != 32 || !anruf.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+            return Err(fehler("Anruf ungültig"));
+        }
+        let kontext = format!("livekit:{anruf}");
+        self.lies(|i| {
+            let (e, schluessel) = i
+                .engine
+                .freedom_export_secret(&gruppe(&gruppe_id)?, ANRUF_LABEL, kontext.as_bytes(), 32)
+                .map_err(fehler)?;
+            if e.0 as f64 != epoche {
+                return Err(fehler("Epoche gewechselt"));
+            }
+            // direkt aus dem Speicher der Engine kopiert; `schluessel` wird beim Verlassen genullt
+            Ok(js_sys::Uint8Array::from(&schluessel[..]))
+        })
     }
 
     /// Nostr-Routing der Gruppe: `h` (Wert des h-Tags, hex) und ihre Relays –

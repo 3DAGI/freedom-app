@@ -1437,6 +1437,12 @@ so viele Zugänge wie gefragt):
 Zugänge sind Geheimnisse: nur versiegelt, nie offen, nie im Log. An die Teilnehmer gehen sie als inneres Event der
 MLS-Gruppe (B-34c), Bild und Ton verschlüsselt mit einem Schlüssel aus der Gruppe (B-34b).
 
+**Schlüssel für Bild und Ton** (seit B-34b, LK3 A): MLS-Exporter (RFC 9420 §8.5) der Gruppe des privaten Raums –
+Label `freedom/anruf`, Kontext `livekit:<raum>` (ASCII, der Raum aus der Anfrage), 32 Byte; in der App nur über
+`Mls.anrufSchluessel(gruppe, raum, epoche)`. Alle Mitglieder derselben Epoche leiten denselben ab, nach jedem Commit gibt
+es einen neuen – wer entfernt wurde, kennt ihn nicht. Ist die Gruppe nicht in der genannten Epoche, gibt es keinen
+Schlüssel (kein stiller Wechsel). Er reist nie; die App setzt ihn als Schlüssel des Anrufs (B-34c).
+
 ## 40. Umschläge über Reticulum (LXMF, seit B-32a)
 
 Entscheidungen RN1/RN2 A und RN-W1–W5 A (`docs/RETICULUM-ENTWURF.md`): Reticulum ist der zweite Funkweg neben

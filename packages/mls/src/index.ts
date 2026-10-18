@@ -208,6 +208,16 @@ export class Mls {
     return this.konto.epoche(gruppe);
   }
 
+  /**
+   * Schlüssel für Bild und Ton eines Gruppenanrufs (B-34b): 32 Byte aus dem MLS-Exporter der Epoche `epoche` –
+   * alle Mitglieder derselben Epoche bekommen denselben, nach einem Commit gibt es einen neuen. `anruf` ist die
+   * Kennung des Anrufs (32 Zeichen Hex, wie bei den LiveKit-Zugängen). Ist die Gruppe nicht in `epoche`, wirft er.
+   * Geheim: nie ins Log, nie speichern; nach dem Anruf nullen.
+   */
+  anrufSchluessel(gruppe: string, anruf: string, epoche: number): Uint8Array {
+    return this.konto.anrufSchluessel(gruppe, anruf, epoche);
+  }
+
   /** Nostr-Routing: `h` (Wert des h-Tags, hex) und die Relays der Gruppe – dort abonnieren, dorthin senden. */
   routing(gruppe: string): { h: string; relays: string[] } {
     return JSON.parse(this.konto.routing(gruppe) as string) as { h: string; relays: string[] };

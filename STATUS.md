@@ -11643,3 +11643,22 @@ Großes; heraus nichts an andere, nichts ohne Ziel, nichts Abgeschnittenes, kein
 dem Draht; Bibliothek exakt gepinnt, EUPL-1.2, nur in diesem Modul und nur dynamisch geladen).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-34b – Gruppenanrufe: Schlüssel je Epoche aus dem MLS-Exporter
+
+Spur B, Entscheidung LK3 A (18.10.2026, `docs/GRUPPENANRUF-ENTWURF.md`): Der Schlüssel für Bild und Ton kommt aus der
+MLS-Gruppe des privaten Raums – kein Geheimnis, das reisen muss.
+
+- **MDK** (`mdk.patch`): `Engine::freedom_export_secret()` – MLS-Exporter (RFC 9420 §8.5) mit beliebigem Label und
+  Kontext, wie `group_context()` (lebende Gruppe, bei ausstehendem eigenem Commit dessen Epoche). Die Engine rechnet sonst
+  nur ihre eigenen Labels vorab.
+- **Crate:** `anrufSchluessel(gruppe, anruf, epoche)` – Label `freedom/anruf`, Kontext `livekit:<raum>`, 32 Byte, direkt
+  aus dem Speicher der Engine als `Uint8Array` (danach genullt); eine andere Epoche als die genannte ist ein Fehler.
+  `Mls.anrufSchluessel()` im Paket, `PROTOCOL.md` §39.
+- Erst `bauen.sh --pruefen` am alten Stand (bitgleich), dann neu gebaut und erneut geprüft (bitgleich).
+
+**Tests:** mls +3 (alle Mitglieder einer Epoche denselben, beliebig oft, auch nach Neuladen, je Anruf und Gruppe ein
+anderer; nach dem Commit ein neuer, den das entfernte Mitglied nicht ableiten kann; falsche Epoche, ungültiger Anruf,
+fremde Gruppe und Nicht-Mitglied: Fehler).
+
+Knoten-Stand: unverändert.

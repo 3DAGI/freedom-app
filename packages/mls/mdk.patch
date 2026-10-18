@@ -19,6 +19,51 @@ index 7de16e1..5421239 100644
  tempfile = "3"
  uuid = { version = "1", features = ["v4"] }
  
+diff --git a/crates/cgka-engine/src/engine.rs b/crates/cgka-engine/src/engine.rs
+index 3d2ccc0..8ab21fd 100644
+--- a/crates/cgka-engine/src/engine.rs
++++ b/crates/cgka-engine/src/engine.rs
+@@ -3304,6 +3304,40 @@ impl<S: StorageProvider> Engine<S> {
+         Ok(admins)
+     }
+ 
++    /// Freedom (B-34b): MLS-Exporter (RFC 9420 §8.5) mit eigenem Label und
++    /// Kontext – für Schlüssel, die alle Mitglieder einer Epoche gleich
++    /// ableiten (Bild und Ton eines Gruppenanrufs). Wie `group_context()`
++    /// gilt bei einem ausstehenden eigenen Commit dessen Epoche.
++    pub fn freedom_export_secret(
++        &self,
++        group_id: &GroupId,
++        label: &str,
++        context: &[u8],
++        length: usize,
++    ) -> Result<(EpochId, cgka_traits::SecretBytes), EngineError> {
++        let provider = crate::provider::EngineOpenMlsProvider::<S>::new(
++            &self.crypto,
++            self.storage.mls_storage(),
++        );
++        let crypto =
++            <crate::provider::EngineOpenMlsProvider<'_, S> as openmls_traits::OpenMlsProvider>::crypto(&provider);
++        self.with_live_mls_group(group_id, |mls_group| {
++            let (epoch, secret) = match mls_group.pending_commit() {
++                Some(staged) => (
++                    staged.group_context().epoch().as_u64(),
++                    staged.export_secret(crypto, label, context, length),
++                ),
++                None => (
++                    mls_group.epoch().as_u64(),
++                    mls_group.export_secret(crypto, label, context, length),
++                ),
++            };
++            let secret = secret
++                .map_err(|e| EngineError::Backend(format!("freedom export_secret: {e:?}")))?;
++            Ok((EpochId(epoch), cgka_traits::SecretBytes::new(secret)))
++        })
++    }
++
+     pub fn safe_export_secret_with_epoch(
+         &mut self,
+         group_id: &GroupId,
 diff --git a/crates/cgka-engine/src/own_commit_intent.rs b/crates/cgka-engine/src/own_commit_intent.rs
 index a822ba5..6cb1c34 100644
 --- a/crates/cgka-engine/src/own_commit_intent.rs
