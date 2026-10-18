@@ -44,6 +44,12 @@ export const SANDBOX_GRENZEN = {
    * privaten, beschreibbaren Speicher – nicht reservierten Adressraum. `ulimit -v` bräche Node und WASM.
    */
   speicherKiB: 4 * 1024 * 1024,
+  /**
+   * Prozesse und Threads aller Programme eines Befehls zusammen (11.5s4a) – gegen Fork-Bomben. `RLIMIT_NPROC` zählt seit
+   * Linux 5.14 je Nutzer-Namensraum, also je Sandbox; gesetzt erst darin, damit die Prozesse des Knotens nicht mitzählen.
+   * Für den globalen root zählt der Kern nicht (`pruefeSandbox()` sagt das).
+   */
+  prozesse: 1024,
 } as const;
 
 export interface SandboxOrt {
@@ -63,19 +69,23 @@ export interface SandboxOrt {
 }
 
 /** `seccomp`: ob der Filter aus 11.5s2 mitläuft (nur x86_64 und arm64). */
-export type SandboxPruefung = { ok: true; seccomp: boolean } | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" };
+export type SandboxPruefung =
+  | { ok: true; seccomp: boolean; /** Knoten läuft als root (11.5s4a): Dann zählt der Kern keine Prozesse. */ root?: boolean }
+  | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" };
 
 /** Feste Sätze für Log und `npm run pruefen` – nie Text von bubblewrap. */
-export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp", string> = {
+export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" | "sandbox.root", string> = {
   "sandbox.ok": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar, seccomp)",
   "sandbox.ok-ohne-seccomp": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar) – seccomp gibt es für diese Architektur nicht",
   "sandbox.fehlt": "Sandbox fehlt: bubblewrap ist nicht installiert (apt install bubblewrap) – ohne Sandbox führt der Knoten keinen Code aus",
   "sandbox.namensraum": "Sandbox geht nicht: bubblewrap darf keine Nutzer-Namensräume anlegen (Docker-Seccomp, AppArmor ab Ubuntu 24.04) – ohne Sandbox führt der Knoten keinen Code aus",
   "sandbox.seccomp": "Sandbox geht nicht: bubblewrap lädt den seccomp-Filter nicht – ohne Sandbox führt der Knoten keinen Code aus",
+  "sandbox.root": "Der Knoten läuft als root: Die Grenze für Prozesse je Befehl greift dann nicht – den Knoten als eigenen Nutzer betreiben",
 };
 
 export function sandboxText(p: SandboxPruefung): string {
-  return SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
+  const satz = SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
+  return p.ok && p.root ? `${satz}. ${SANDBOX_TEXT["sandbox.root"]}` : satz;
 }
 
 const PATH_INNEN = "/usr/local/bin:/usr/bin:/bin";
@@ -129,7 +139,9 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
  */
 function mitGrenzen(befehl: readonly string[], rechenzeit = true): string[] {
   const g = SANDBOX_GRENZEN;
-  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`];
+  // Prozesse: bash und zsh nennen die Grenze `-u`, dash `-p` (bei bash heißt `-p` Pipe-Größe und scheitert – dann läuft nichts)
+  const prozesse = `{ ulimit -u ${g.prozesse} 2>/dev/null || ulimit -p ${g.prozesse}; }`;
+  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`, prozesse];
   return ["/bin/sh", "-c", `${grenzen.join(" && ")} && exec "$@"`, "sandbox", ...befehl];
 }
 
@@ -212,7 +224,7 @@ export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
   try {
     const seccomp = seccompFilter() !== null;
     const r = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap }, 10_000);
-    if (r.code === 0) return { ok: true, seccomp };
+    if (r.code === 0) return { ok: true, seccomp, root: process.getuid?.() === 0 };
     if (!seccomp) return { ok: false, fall: "sandbox.namensraum" };
     const ohne = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap, ohneSeccomp: true }, 10_000);
     return { ok: false, fall: ohne.code === 0 ? "sandbox.seccomp" : "sandbox.namensraum" };

@@ -11469,3 +11469,27 @@ den Knopf mit VKg1b.
   - Über den Knoten versiegelt; ohne `VORSCHAU_URL` `code-vorschau-aus`.
 
 Knoten-Stand: nur der Knoten; die App ruft `vorschau` erst mit VKg1b auf.
+
+## Schritt 11.5s4a – Prozesse je Befehl begrenzen
+
+Spur B, `docs/REPO-AGENTEN-ENTWURF.md` (Tabelle 11.5s). Erster Teil von 11.5s4: Bisher begrenzte die Sandbox Speicher,
+Rechenzeit und Dateien je Prozess, aber nicht die Zahl der Prozesse – eine Fork-Bombe im Repo eines Auftrags hätte den
+Rechner des Providers gefüllt.
+
+**Neu:**
+- `SANDBOX_GRENZEN.prozesse` = 1024: Prozesse und Threads aller Programme eines Befehls zusammen, gesetzt in der Sandbox
+  über `ulimit` (`mitGrenzen()`, für Befehle und den Motor).
+  - `RLIMIT_NPROC` zählt seit Linux 5.14 je Nutzer-Namensraum, also je Sandbox; die Prozesse des Knotens zählen nicht mit.
+  - bash nennt die Grenze `-u`, dash `-p` – die Sandbox nimmt `{ ulimit -u N 2>/dev/null || ulimit -p N; }`.
+- `pruefeSandbox()` meldet `root`, wenn der Knoten als root läuft: Dann zählt der Kern keine Prozesse. `sandboxText()`
+  hängt den Satz `sandbox.root` an (Log beim Start, `npm run pruefen`).
+- `PROVIDER.md`: die Grenze und der Rat, den Knoten als eigenen Nutzer zu betreiben (das Docker-Bild tut das).
+- Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** node +1 (Fork-Bombe endet an der Grenze, mehr als die Hälfte der Kinder startet, ein Befehl danach läuft
+normal; als root übersprungen). Die Grenzen-Probe liest zusätzlich „Max processes“ aus `/proc/self/limits`, die
+Selbstprüfung prüft `root`. Als `nobody` grün; ohne die Grenze rot (gegengeprüft).
+
+Rest von 11.5s4 (Speicher aller Prozesse zusammen über cgroups v2) → 11.5s4b, später.
+
+Knoten-Stand: nur der Knoten.

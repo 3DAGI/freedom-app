@@ -293,6 +293,14 @@ Bereichs unten anhängen.
   `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
   (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
   Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
+- **Prozesse je Befehl nur in der Sandbox begrenzen** (seit 11.5s4a, `SANDBOX_GRENZEN.prozesse`): `RLIMIT_NPROC` zählt
+  seit Linux 5.14 je Nutzer-Namensraum – gesetzt in der Sandbox gilt es für alle Prozesse und Threads des Befehls, die des
+  Knotens zählen nicht mit; nie vor `bwrap` setzen. Der Name des Schalters hängt an der Shell: bash und zsh `ulimit -u`,
+  dash `ulimit -p` (bei bash ist `-p` die Pipe-Größe, nur lesbar – der Aufruf scheitert und mit `&&` liefe nichts), daher
+  `{ ulimit -u N 2>/dev/null || ulimit -p N; }` (geschweifte Klammern, keine Subshell). Für den globalen root zählt der
+  Kern keine Prozesse (`INIT_USER`) – der Container der Agenten läuft als root, dort überspringt sich der Test mit der
+  Fork-Bombe; geprüft wurde er als `nobody` (`setpriv --reuid=65534 …`), die CI läuft ohne root. `pruefeSandbox()`
+  meldet `root`, das Log warnt.
 - **Pakete nur über `pakete.ts`** (seit 11.5n, W6a „So“): Die Sandbox bleibt ohne Netz, Pakete holt der Knoten vorher –
   nur aus `package-lock.json` (Fassung 2/3, `integrity` sha512) und `requirements.txt` mit `--hash=sha256` (`holeAusSperre()`)
   oder mit Namen und fester Version (`paketHolen()`, höchstens 20 je Auftrag, nur offene Räume – das prüft der Aufrufer).
