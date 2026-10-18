@@ -411,6 +411,41 @@ sich nicht verbergen. Deshalb ist `TORRENT` aus, bis du es einschaltest.
   mit einem Geheimnis je Start, das nur in einer Datei steht (0600).
 - aria2c endet mit dem Knoten.
 
+## Werkzeuge über MCP (B-31a)
+
+Der Knoten kann dem Modell Werkzeuge aus MCP-Servern anbieten, die auf diesem
+Rechner laufen – etwa Wikipedia ohne Internet (Kiwix, B-31b). Welche, legst nur
+du fest: in `~/.freedom/mcp.json`.
+
+```json
+{
+  "server": {
+    "wiki": {
+      "befehl": ["/usr/bin/python3", "/opt/mcp/wiki/server.py"],
+      "nurLesbar": ["/opt/mcp/wiki", "/daten/zim"]
+    }
+  }
+}
+```
+
+- **Nur in der Sandbox:** Jeder Server läuft in bubblewrap wie der Motor (VKb):
+  ohne Netz, Wurzel nur lesbar, leere Umgebung, begrenzte Prozesse und
+  Speicher. Ohne Sandbox startet kein Server (Log `[werkzeuge] MCP-Server aus`).
+- **`befehl`:** Programm mit absolutem Pfad und seine Argumente.
+- **`nurLesbar`:** Ordner, die der Server braucht, nur lesbar unter demselben
+  Pfad (höchstens 8). Der Ordner des Programms kommt dazu, wenn er nicht unter
+  `/usr` liegt. Nie die Wurzel, dein Home, einen Ordner darüber oder
+  `~/.freedom` – dort liegt der Schlüssel des Knotens.
+- **Grenzen:** höchstens 4 Server, je Server 32 Werkzeuge. Für das Modell heißen
+  sie `mcp__<server>__<werkzeug>` und haben dieselben Grenzen wie die
+  eingebauten Werkzeuge (Eingabe 2000 Zeichen, 20 Sekunden, Ausgabe gekürzt auf
+  4000 Zeichen). Gratis-Antworten bekommen keine Werkzeuge.
+- **Ungültige Datei** hält den Knoten an (`[werkzeuge] … – der Knoten startet
+  nicht`); `npm run pruefen` zeigt dasselbe. Startet ein Server nicht, läuft der
+  Knoten ohne ihn weiter.
+- **Was durchfließt,** ist Inhalt einer KI-Anfrage: Der Knoten schreibt es nie
+  ins Log, nach außen gehen nur feste Fehlertexte.
+
 ## Agent auf dem Knoten (11.3d1a, im Aufbau)
 
 Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn
