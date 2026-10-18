@@ -68,7 +68,7 @@ LK2 **A** (`livekit-client` ins Bundle), LK3 **A** (Schlüssel aus dem MLS-Expor
 
 | Schritt | Inhalt | Umfang |
 |---|---|---|
-| B-34a | Knoten: Dienst (V1), Zugänge versiegelt (V2), Selbstprüfung im Status | ~300 |
+| B-34a ✓ | Knoten: Dienst (V1), Zugänge versiegelt (V2), Selbstprüfung im Status – `livekit.ts`, Kind 5081 (`PROTOCOL.md` §39), Profil „livekit“, `scripts/livekit-einrichten.sh` | ~300 |
 | B-34b | MLS: Schlüssel je Epoche (LK3), Tests | ~150 |
 | B-34c | App: Beitreten, Bild und Ton mit E2EE, IP-Warnung (V4), Datenschutzbericht | ~350 |
 | B-34d | Oberfläche (Spur C oder hier klein) | ~200 |

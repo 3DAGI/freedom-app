@@ -19,6 +19,7 @@ site/
 __pycache__/
 # TURN-Konfiguration mit Geheimnis (B-13b, scripts/turn-einrichten.sh) – nie einchecken
 turnserver.conf
+livekit.yaml
 # Umgebung für docker compose (B-13b: TURN_SECRET) – nie einchecken
 .env
 # Desktop-Hülle: von tauri-build erzeugt

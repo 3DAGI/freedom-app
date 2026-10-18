@@ -37,6 +37,7 @@ import { pfandKasseAusUmgebung, pfandOrt, rechnungVon } from "./pfand-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
+import { livekitAusUmgebung } from "./livekit.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
@@ -429,6 +430,10 @@ async function main(): Promise<void> {
   const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
   console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
   if (turn) statusRollen.add("turn");
+  // Gruppenanrufe (B-34a, LK2–LK4 A): livekit-server läuft als eigener Dienst, der Knoten vergibt nur Zugänge
+  const { dienst: livekit, grund: livekitGrund } = livekitAusUmgebung(process.env);
+  console.log(livekit ? `[livekit] Zugänge für den Besitzer an (je ${livekit.gueltigSek} s)` : `[livekit] ${livekitGrund}`);
+  if (livekit) statusRollen.add("livekit");
   // Vibecoden auf dem eigenen Knoten (A-31, VKc1): Projekte nur mit VIBECODEN=1 und git – ungültig → kein Start
   const projekteWahl = projekteAusUmgebung(process.env);
   if (projekteWahl?.grund) {
@@ -547,6 +552,7 @@ async function main(): Promise<void> {
       agent: knotenAgent,
       ...(code ? { code } : {}),
       ...(vorschau ? { vorschau } : {}),
+      livekit,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },

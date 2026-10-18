@@ -11598,3 +11598,26 @@ Grenzen und `seit`, Verdrahtung).
 Frage AG-W5 in `OFFEN.md` 1.5, Befund in `ATOMIC-AGENT-ENTWURF.md`; B-30a wartet.
 
 Knoten-Stand: keiner nötig – die Relay-Rolle kann NIP-77 seit B-35b.
+
+## Schritt B-34a – Gruppenanrufe: SFU als Dienst und Zugänge im Knoten
+
+Spur B, Entscheidungen LK2–LK4 A (18.10.2026, `docs/GRUPPENANRUF-ENTWURF.md`): Ab drei Personen läuft ein Anruf über
+einen SFU (LiveKit) neben dem Knoten – wie coturn für 1:1-Anrufe. Der Knoten vergibt nur Zugänge.
+
+- **Protokoll:** `livekit-zugang.ts` – Anfrage (Kind 5081) versiegelt mit Besitzer-Nachweis über
+  `baueLivekitAnfrage()` (zufälliger Raum, 1 bis 25 Zugänge), Antwort streng über `leseLivekitZugaenge()` (derselbe
+  Raum, genau so viele Zugänge, Kennungen verschieden, JWT-Form, höchstens ein Tag). `PROTOCOL.md` §39.
+- **Knoten:** `livekit.ts` – `livekitAusUmgebung()` (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, nie halb),
+  `livekitToken()` (JWT HS256 mit `node:crypto`, keine Abhängigkeit), `livekitZugaenge()`; der Provider antwortet nur
+  dem Besitzer aus einem Umschlag (`handleLivekit()`), Zugänge zählen nicht als Aufträge; Rolle „livekit“ im Status, die
+  App zeigt sie als „Gruppenanrufe (LiveKit)“.
+- **Dienst:** `scripts/livekit-einrichten.sh` (Datei 0600 mit zufälligem Schlüssel und Geheimnis, Signal nur auf
+  127.0.0.1, kein eigener TURN, kein Redis, höchstens 25 je Raum, Protokoll ab „warn“) und das Profil „livekit“ in
+  `docker-compose.yml` (`livekit/livekit-server:v1.13.10`); `livekit.yaml` in `.gitignore`.
+
+**Tests:** protocol +3 (Adresse, Anfrage versiegelt mit Nachweis, Antwort mit elf unzulässigen Fällen), node +7
+(Umgebung, JWT so geprüft wie livekit-server, Provider: der Besitzer bekommt Zugänge, nie im Log, nie offen, zählt nicht;
+fremd, ohne Nachweis, zu viele und ohne SFU abgelehnt; Verdrahtung; Skript; Docker). Der Test der Status-Rollen zählt jetzt
+13 Rollen.
+
+Knoten-Stand: nur der Knoten, und nur mit den drei `LIVEKIT_*`-Werten.

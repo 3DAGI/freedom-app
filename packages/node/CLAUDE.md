@@ -407,3 +407,10 @@ Bereichs unten anhängen.
   `mcp__<server>__<werkzeug>`, Grenzen aus `WERKZEUG_GRENZEN`, Fehler nur als feste Texte – nie Text des Servers außer
   dem Ergebnis selbst, nie Ein- oder Ausgaben ins Log. Die Server des Motors (Hermes, VKk) sind ein anderer Weg
   (`mcp-katalog.ts`).
+- **Gruppenanrufe nur über `livekit.ts`** (seit B-34a, LK2–LK4 A): Der SFU ist `livekit-server` als eigener Dienst
+  (Profil „livekit“, Datei nur aus `scripts/livekit-einrichten.sh`: 0600, Signal nur auf 127.0.0.1, kein eigener TURN,
+  kein Redis, Protokoll ab `warn`) – keine npm-Abhängigkeit, das JWT rechnet `livekitToken()` mit `node:crypto` (HS256,
+  `iss` = API-Schlüssel, `sub` = zufällige Kennung, `video` nur für diesen Raum, nie Verwaltungsrechte). Zugänge nur mit
+  `livekitAusUmgebung()` (nie halb) und nur an den Besitzer aus einem Umschlag (5081, `istBesitzer()`), je Anfrage frische
+  Kennungen, höchstens `LIVEKIT_GRENZEN.teilnehmer`; Geheimnis und Zugänge nie ins Log. Wie bei TURN zählen sie nicht als
+  Aufträge (`zaehle()`). Eine neue Rolle im Status braucht einen Text in `ROLLEN_TEXT` der App.

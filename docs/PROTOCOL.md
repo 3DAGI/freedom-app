@@ -1412,3 +1412,27 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   mehr (`stream.ts`, `buildPrivateSessionEvent()`); `openPrivateKundenEvent()` nimmt versiegelte Sitzungen und Belege nicht
   mehr an.
 - **Noch nicht:** „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).
+
+## 39. Zugänge zum Gruppenanruf des eigenen Knotens (Kind 5081, seit B-34a)
+
+Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`): Ab drei Personen läuft ein Anruf über einen SFU – LiveKit
+als eigener Dienst neben dem Knoten (wie coturn, §26). Der Knoten vergibt nur Zugänge: je Teilnehmer ein JWT nach
+LiveKit, signiert mit dem API-Geheimnis des Dienstes.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, `baueLivekitAnfrage()`):
+`i` = `{"raum": <32 Zeichen Hex, zufällig>, "anzahl": 1–25}`, `bid` = 0, `p` = Schlüssel des Knotens, `besitzer` =
+Nachweis nach §21. Der Raum ist eine zufällige Kennung des Anrufs – nie die Gruppe, nie ein Schlüssel. Der Knoten
+antwortet nur aus einem Umschlag mit gültigem Nachweis; Zugänge zählen nicht als Aufträge.
+
+**Antwort** (6081, versiegelt an den Sitzungsschlüssel), gelesen nur mit `leseLivekitZugaenge()` (derselbe Raum, genau
+so viele Zugänge wie gefragt):
+
+| Feld | Inhalt |
+|---|---|
+| `url` | Adresse des SFU, `wss://host[:port]` |
+| `raum` | die Kennung aus der Anfrage |
+| `zugaenge` | je Teilnehmer `{ kennung, token }`: Kennung 16 Zeichen Hex (zufällig, verschieden), Token ein JWT (HS256): `iss` = API-Schlüssel, `sub` = `jti` = Kennung, `nbf`, `exp`, `video` = `{ room, roomJoin, canPublish, canSubscribe, canPublishData }` – nur dieser Raum, keine Verwaltung |
+| `bis` | Ablauf, in der Zukunft, höchstens einen Tag entfernt |
+
+Zugänge sind Geheimnisse: nur versiegelt, nie offen, nie im Log. An die Teilnehmer gehen sie als inneres Event der
+MLS-Gruppe (B-34c), Bild und Ton verschlüsselt mit einem Schlüssel aus der Gruppe (B-34b).
