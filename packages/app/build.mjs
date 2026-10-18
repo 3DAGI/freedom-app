@@ -98,6 +98,36 @@ const result = await build({
         return { contents: quelle.replace("import.meta.url", "undefined"), loader: "js" };
       });
     },
+  }, {
+    // Gruppenanrufe (B-34c2): livekit-client vorab minifiziert – das Bundle der App ist es nicht,
+    // und unminifiziert wüchse freedom.html um 1,4 MB statt etwa 0,6 MB (LK2 A nannte 0,6–0,9 MB).
+    name: "livekit-klein",
+    setup(b) {
+      b.onResolve({ filter: /^livekit-client$/ }, () => ({ path: "livekit-client", namespace: "freedom-lk" }));
+      b.onLoad({ filter: /^livekit-client$/, namespace: "freedom-lk" }, async () => {
+        const lk = await build({
+          stdin: { contents: 'export { BaseKeyProvider, Room, createKeyMaterialFromBuffer } from "livekit-client";', resolveDir: root, loader: "js" },
+          bundle: true, format: "esm", platform: "browser", target: "es2020", minify: true, write: false, logLevel: "warning",
+          define: { "process.env.NODE_ENV": '"production"' },
+        });
+        return { contents: lk.outputFiles[0].text, loader: "js", resolveDir: root };
+      });
+    },
+  }, {
+    // Gruppenanrufe (B-34c2): der E2EE-Worker von livekit-client als Text im einen Skript –
+    // die App startet ihn aus einer blob:-Adresse (die CSP erlaubt solche Worker seit B-12c). Kein eigenes Netz,
+    // keine zweite Datei; gebaut wie das Bundle (iife, minifiziert, bitgleich).
+    name: "e2ee-worker",
+    setup(b) {
+      b.onResolve({ filter: /^freedom:e2ee-worker$/ }, () => ({ path: "e2ee-worker", namespace: "freedom" }));
+      b.onLoad({ filter: /^e2ee-worker$/, namespace: "freedom" }, async () => {
+        const w = await build({
+          stdin: { contents: 'import "livekit-client/e2ee-worker";', resolveDir: root, loader: "js" },
+          bundle: true, format: "iife", platform: "browser", target: "es2020", minify: true, write: false, logLevel: "warning",
+        });
+        return { contents: w.outputFiles[0].text, loader: "text" };
+      });
+    },
   }],
   logLevel: "warning",
 });

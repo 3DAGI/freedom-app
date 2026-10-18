@@ -872,3 +872,11 @@ Fallstricke dieses Bereichs unten anhängen.
   zufällig, nie die Gruppe; die Einladung nur als inneres Event (`raumGruppenanruf()` über `mlsSendeEvent()`) – sie trägt
   Zugänge, nie offen veröffentlichen, nie merken (Leak-Szenario `leak/gruppenanruf.test.ts`). Laufende Anrufe nur aus
   den inneren Events über `laufendeGruppenanrufe()`; beenden nur den eigenen (`beendeGruppenanruf()`).
+- **Gruppenanrufen beitreten nur über `shell/gruppenanruf-verbindung.ts`** (seit B-34c2, LK2–LK4 A): `livekit-client`
+  (2.22.4, exakt gepinnt) nur dort und nur dynamisch; im Build vorab minifiziert (Plugin „livekit-klein“ in `build.mjs` –
+  nur die Namen, die das Modul nutzt; ein Test vergleicht die Listen), der E2EE-Worker als Text aus `freedom:e2ee-worker`
+  (Plugin „e2ee-worker“), gestartet aus einer blob:-Adresse – keine neue Lockerung der CSP. Schlüssel nur aus
+  `anrufSchluessel()` je MLS-Epoche, im Ring unter `schluesselIndex()` (die vorige bleibt lesbar), die Bytes nach dem
+  Übergeben nullen; nach jedem Abgleich des privaten Raums `schluesselNachziehen()`. Weg nur nach `beitrittsWeg()`: mit
+  eigenem TURN nur relay, ohne erst nach Zustimmung – nie still direkt. Nie `setLogLevel()`/`setLogExtension()` von
+  livekit-client aufrufen: `loglevel` schriebe dann `loglevel:…` in localStorage (ohne Präfix `freedom.`).

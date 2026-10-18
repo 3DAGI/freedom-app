@@ -11682,3 +11682,24 @@ in die Gruppe, jeder seinen Zugang, beenden; zu viele, kein Zugang; Verdrahtung 
 MLS-Engine: nur Kind 445, kein Zugang, keine Adresse, keine Kennung, keine Identität).
 
 Knoten-Stand: unverändert (Zugänge seit B-34a).
+
+## Schritt B-34c2 – Gruppenanrufe: Beitreten mit livekit-client, Ende-zu-Ende verschlüsselt
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). Die Oberfläche (anrufen, beitreten, Bild und Ton)
+und die Grenze im Datenschutzbericht kommen mit B-34d – erst dann kann man einem Anruf wirklich beitreten.
+
+- **Abhängigkeit:** `livekit-client` 2.22.4 (Apache-2.0, Unterabhängigkeiten MIT/Apache/BSD, LK2 A), exakt gepinnt. Im
+  Build vorab minifiziert (das App-Bundle ist es nicht; unminifiziert wären es +1,46 MB), der E2EE-Worker als Text im
+  einen Skript. Gemessen mit einem Probe-Verweis: `freedom.html` +0,92 MB (+9,8 %), gepackt +0,20 MB – im Bundle erst,
+  wenn B-34d `trittBei()` aufruft; bis dahin +1 KB.
+- **App:** `gruppenanruf-ablauf.ts` (ohne Browser: `beitrittsWeg()` – mit eigenem TURN nur relay, sonst `"warnung"` bis
+  zur Zustimmung; `schluesselIndex()` – Epoche modulo 16), `shell/gruppenanruf-verbindung.ts` (`trittBei()`,
+  `schluesselNachziehen()`, `verlasse()`, `imGruppenanruf()`): eigener Schlüsselring auf `BaseKeyProvider` (gemeinsamer
+  Schlüssel, kein Weiterdrehen), erst verschlüsseln, dann verbinden. Nach jedem Abgleich eines privaten Raums
+  (`tabs/raeume.ts`) zieht ein laufender Anruf den Schlüssel der neuen Epoche nach.
+
+**Tests:** app +5 (Weg mit und ohne TURN, Zustimmung; Schlüssel-Index; Beitreten: Schlüssel nur aus der Gruppe und
+genullt, Weg, Worker, livekit-client nur dynamisch, nichts gemerkt, die genutzten Namen gleich denen des Builds; Build:
+Plugins, CSP unverändert, Fassung und Lizenz; Verdrahtung in `raeume.ts`).
+
+Knoten-Stand: unverändert.

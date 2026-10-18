@@ -16,6 +16,7 @@ import { mlsAbgleichen, mlsGesperrt } from "../mls-konto.js";
 import {
   PRIVAT, type PrivaterRaum, aenderePrivatenKanal, einladungsText, entferneAusRaum, gruppeVon, istPrivat, ladeInPrivatenRaum, ladePrivatenRaum, legePrivatenKanalAn, legePrivatenRaumAn, loescheImRaum, meldeImRaum, meldungErledigt, meldungenFuer, privateRaeume, sendePrivat, setzeModeratoren, wennMeldung,
 } from "../raum-mls.js";
+import { schluesselNachziehen } from "../gruppenanruf-verbindung.js";
 import { $, avatar, eigeneInitiale, toast } from "../ui.js";
 import { personInitiale } from "../../avatar.js";
 import { geheim, richteTresorEin, tresorEingerichtet } from "../tresor.js";
@@ -327,6 +328,8 @@ async function oeffneRaum(spaceId: string): Promise<void> {
       return;
     }
     spacesUi.privat = raum;
+    // Läuft hier ein Gruppenanruf, gilt nach einem Commit der Schlüssel der neuen Epoche (B-34c2)
+    void schluesselNachziehen(gruppe);
     spacesUi.state = raum.zustand;
     spacesUi.messages = raum.nachrichten;
     if (raum.zustand.space) privatNamen.set(spaceId, raum.zustand.space.name);
