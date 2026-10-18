@@ -65,6 +65,10 @@ Weitere Befunde:
 | **PT2** – Welche Programme? (Befund: lyrebird ist in Teilen GPL-3) | **A** `snowflake-client` und WebTunnel-Client – beide frei lizenziert, kein obfs4 · **B** lyrebird als eigenes Programm neben der Hülle (getrennte Programme, die nur über die PT-Schnittstelle reden, gelten üblicherweise als bloße Zusammenstellung; Pflichten: GPL-Text und Quelltext-Angebot beilegen) – mit obfs4 und meek · **C** eigenes kleines Go-Programm aus Snowflake-Bibliothek und WebTunnel (frei, etwa 17 MB, aber Go-Code im Projekt) | **A** – deckt PT1 A ganz ab (Snowflake und WebTunnel), keine Copyleft-Frage, kein Go-Code bei uns. obfs4 war nur „kommt mit“. |
 | **PT3** – Woher kommen Brücken? | **A** Snowflake mit den eingebauten Zeilen, WebTunnel (und weitere Snowflake-Zeilen) zum Einfügen · **B** dazu Moat (Brücken aus der Hülle über den Dienst von BridgeDB holen) | **A** – Moat später, wenn A trägt |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), PT3 **A** (Snowflake mit den eingebauten Zeilen, WebTunnel und weitere Snowflake-Zeilen zum Einfügen; Moat später). Damit ist B-33 frei; B-33a als Nächstes. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe, Variante A)
 
 | Schritt | Inhalt | Umfang |

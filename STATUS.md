@@ -11522,3 +11522,22 @@ gepinnten Fassung bis auf `browser_run_code_unsafe`, weder der Rechner noch das 
 dass Chrome im Runner liegt – sonst übersprünge sich der echte Test still.
 
 Knoten-Stand: nur der Knoten (mit `VIBECODEN=1`).
+
+## Schritt Entscheidungen Spur B – 18 Fragen beantwortet (18.10.2026)
+
+Spur B, nur Doku. Die offenen Fragen aus `OFFEN.md` 1.0b standen auf einer Entscheidungsvorlage (Seite „Entscheidungen
+Spur B“, je Frage Optionen und Empfehlung). Der MENSCH hat am 18.10.2026 geantwortet – überall wie empfohlen, bis auf
+MCO-W1:
+
+- **B-31:** MC1-Größe **B** – eigener schlanker MCP-Client im Knoten statt des SDK (29 MB, 95 Pakete).
+- **B-35c:** NG2 **A** – die App gleicht nach einer Pause den eigenen Posteingang mit dem eigenen Knoten ab.
+- **B-30:** AG-W1–W4 **A** – Atomic Agent nicht als Motor; Hinweis unter „Dieses Gerät“ (B-30a).
+- **B-33:** PT2 **A** (Snowflake und WebTunnel, kein lyrebird), PT3 **A** (eingebaute Snowflake-Zeilen, Rest zum Einfügen).
+- **B-32:** RN-W1–W5 **A** – `@reticulum/core` + `@reticulum/lxmf`, Adresse versiegelt an Kontakte, zuerst die App.
+- **B-34:** LK2–LK4 **A** – `livekit-client` ins Bundle, Schlüssel aus dem MLS-Exporter, IP nur über den eigenen TURN.
+- **B-37:** MCO-W2 **B** – erst mit einem Gerät vor Ort; MCO-W1 (Datentyp) zurückgestellt bis dahin (`OFFEN.md` 1.2).
+
+**Doku:** Abschnitt „Entscheidungen vom 18.10.2026“ in den fünf Entwürfen, `OFFEN.md` (1.0b entfällt, Spur-B-Zeilen
+frei, MCO-W1 unter 1.2), Sammlung (B-30 bis B-37), FORTSCHRITT.
+
+Keine Code-Änderung, kein Knoten-Stand nötig.

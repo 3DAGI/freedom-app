@@ -60,6 +60,10 @@ Weitere Befunde:
 | **LK3** – Woher kommt der Schlüssel? | **A** MLS-Exporter (Crate ändern, `bauen.sh --pruefen`) · **B** der Gastgeber würfelt je Epoche einen Schlüssel und schickt ihn als inneres Event in die Gruppe | **A** – kein zusätzliches Geheimnis, das reisen muss; B als Übergang, falls die Crate warten soll |
 | **LK4** – IP der Teilnehmer | **A** wie V4: über den eigenen TURN, sonst Warnung vor dem Beitritt · **B** immer direkt, Hinweis im Datenschutzbericht | **A** |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+LK2 **A** (`livekit-client` ins Bundle), LK3 **A** (Schlüssel aus dem MLS-Exporter, die Crate wird dafür geändert – mit `bauen.sh --pruefen`), LK4 **A** (über den eigenen TURN, sonst Warnung vor dem Beitritt). Damit ist B-34 frei; B-34a als Nächstes. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe)
 
 | Schritt | Inhalt | Umfang |
