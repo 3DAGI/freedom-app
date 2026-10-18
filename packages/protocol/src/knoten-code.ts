@@ -47,6 +47,8 @@ export const CODE_GRENZEN = {
    * Umschlag, und NIP-44 fasst 65 535 Byte; Zeilenumbrüche und Anführungszeichen zählen dort doppelt.
    */
   diff: 30_000,
+  /** Adresse der Vorschau (VKg1a), in Zeichen. */
+  vorschau: 300,
 } as const;
 
 /** Name eines Projekts: zugleich Name seines Ordners auf dem Knoten – klein, ohne Punkt und Schrägstrich. */
@@ -73,9 +75,11 @@ export type CodeAktion =
   /** Verlauf, Diff eines Commits, zurück auf einen Commit (VKe2) – „zurück“ legt einen neuen Commit an, nichts geht verloren. */
   | { aktion: "verlauf"; projekt: string }
   | { aktion: "diff"; projekt: string; commit: string }
-  | { aktion: "zurueck"; projekt: string; commit: string };
+  | { aktion: "zurueck"; projekt: string; commit: string }
+  /** Adresse der Vorschau des Projekts (VKg1a) – der Knoten liefert es live unter eigenem Ursprung aus. */
+  | { aktion: "vorschau"; projekt: string };
 
-export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle", "verlauf", "diff", "zurueck"] as const;
+export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle", "verlauf", "diff", "zurueck", "vorschau"] as const;
 
 /** Je Aktion die erlaubten Parameter, jeder genau einmal. */
 const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
@@ -88,6 +92,7 @@ const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
   verlauf: ["projekt"],
   diff: ["projekt", "commit"],
   zurueck: ["projekt", "commit"],
+  vorschau: ["projekt"],
 };
 
 const istSchrittNr = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= CODE_GRENZEN.schritte;
@@ -112,7 +117,8 @@ function gepruefteAktion(a: CodeAktion): CodeAktion | null {
     case "bundle":
       return istProjektName(a.projekt) ? { aktion: "bundle", projekt: a.projekt } : null;
     case "verlauf":
-      return istProjektName(a.projekt) ? { aktion: "verlauf", projekt: a.projekt } : null;
+    case "vorschau":
+      return istProjektName(a.projekt) ? { aktion: a.aktion, projekt: a.projekt } : null;
     case "diff":
     case "zurueck":
       return istProjektName(a.projekt) && istCommit(a.commit) ? { aktion: a.aktion, projekt: a.projekt, commit: a.commit } : null;
@@ -129,7 +135,8 @@ function parameterVon(a: CodeAktion): string[][] {
     case "freigabe": return [["lauf", a.lauf], ["schritt", String(a.schritt)], ["antwort", a.ja ? "ja" : "nein"]];
     case "stopp": return [["lauf", a.lauf]];
     case "bundle": return [["projekt", a.projekt]];
-    case "verlauf": return [["projekt", a.projekt]];
+    case "verlauf":
+    case "vorschau": return [["projekt", a.projekt]];
     case "diff":
     case "zurueck": return [["projekt", a.projekt], ["commit", a.commit]];
   }
@@ -177,7 +184,8 @@ export function leseCodeAuftrag(request: Pick<NostrEvent, "kind" | "tags">): Cod
       return gepruefteAktion({ aktion: "freigabe", lauf: w.lauf!, schritt: Number(w.schritt), ja: w.antwort === "ja" });
     }
     case "bundle": return gepruefteAktion({ aktion: "bundle", projekt: w.projekt! });
-    case "verlauf": return gepruefteAktion({ aktion: "verlauf", projekt: w.projekt! });
+    case "verlauf":
+    case "vorschau": return gepruefteAktion({ aktion, projekt: w.projekt! });
     case "diff":
     case "zurueck": return gepruefteAktion({ aktion, projekt: w.projekt!, commit: w.commit! });
     default: return gepruefteAktion({ aktion: "stopp", lauf: w.lauf! });
@@ -266,7 +274,25 @@ export type CodeAntwort =
   /** Diff als Patch (wie `git format-patch`), über `CODE_GRENZEN.diff` gekürzt. */
   | { aktion: "diff"; commit: string; text: string; gekuerzt: boolean }
   /** Der neue Commit – leer, wenn das Projekt schon so aussah. */
-  | { aktion: "zurueck"; commit: string };
+  | { aktion: "zurueck"; commit: string }
+  /** Adresse der Vorschau: Ursprung des Vorschau-Servers, im Pfad das Zeichen des Projekts (64 Hex). */
+  | { aktion: "vorschau"; url: string };
+
+/**
+ * Adresse einer Vorschau (VKg1a): http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<64 Hex>/`.
+ * Die App öffnet nur, was hier durchgeht – nie `javascript:` oder eine Adresse mit fremden Teilen.
+ */
+export function istVorschauAdresse(u: unknown): u is string {
+  if (typeof u !== "string" || u.length > CODE_GRENZEN.vorschau) return false;
+  let a: URL;
+  try {
+    a = new URL(u);
+  } catch {
+    return false;
+  }
+  return (a.protocol === "http:" || a.protocol === "https:") && a.hostname !== "" && a.username === "" && a.password === ""
+    && a.search === "" && a.hash === "" && /^\/[0-9a-f]{64}\/$/.test(a.pathname) && a.href === u;
+}
 
 const istSchrittZahl = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
 
@@ -321,6 +347,8 @@ function gepruefteAntwort(roh: unknown): CodeAntwort | null {
       return { aktion: "diff", commit: a.commit, text: a.text, gekuerzt: a.gekuerzt };
     case "zurueck":
       return felder === 2 && (a.commit === "" || istCommit(a.commit)) ? { aktion: "zurueck", commit: a.commit as string } : null;
+    case "vorschau":
+      return felder === 2 && istVorschauAdresse(a.url) ? { aktion: "vorschau", url: a.url } : null;
     default:
       return null;
   }

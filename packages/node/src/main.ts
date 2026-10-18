@@ -43,6 +43,7 @@ import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
+import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
@@ -413,6 +414,25 @@ async function main(): Promise<void> {
   }
   if (projekte) statusRollen.add("code");
   console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
+  // Vorschau wie Replit (VKg1a): die Projekte live unter eigenem Port – nur mit VORSCHAU_URL, ungültig → kein Start
+  let vorschau: VorschauServer | undefined;
+  if (projekte) {
+    const wahl = vorschauAusUmgebung(process.env);
+    if (wahl?.grund) {
+      console.error(`[vorschau] ${wahl.grund} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    if (wahl?.einstellung) {
+      vorschau = new VorschauServer(projekte, wahl.einstellung);
+      await vorschau.starte().then(
+        (port) => console.log(`[vorschau] an, Port ${port}`),
+        (e) => {
+          console.warn(`[vorschau] Port ${wahl.einstellung!.port} nicht frei (${(e as NodeJS.ErrnoException).code ?? "Fehler"}) – Vorschau aus`);
+          vorschau = undefined;
+        },
+      );
+    } else console.log("[vorschau] aus (VORSCHAU_URL setzen)");
+  }
   // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log. Der Motor (VKc3) nur
   // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
   let code: CodeLaeufe | undefined;
@@ -490,6 +510,7 @@ async function main(): Promise<void> {
       projekte,
       agent: knotenAgent,
       ...(code ? { code } : {}),
+      ...(vorschau ? { vorschau } : {}),
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },

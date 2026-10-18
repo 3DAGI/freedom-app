@@ -372,3 +372,10 @@ Bereichs unten anhängen.
   – der Umschlag fasst 65 535 Byte, Sonderzeichen werden länger). „Zurück“ setzt nie zurück: `read-tree -u --reset` und ein
   neuer Commit „Zurück auf <kurz>“, damit auch das Zurück sich zurücknehmen lässt – und nie, solange im Projekt ein Lauf
   geht (`CodeLaeufe.laeuftIn()`, sonst `code-belegt`).
+- **Vorschau nur über `VorschauServer`** (seit VKg1a, `vorschau.ts`, `PROTOCOL.md` §34): eigener Port (`VORSCHAU_PORT`), nie
+  der von Relay und App – sonst teilte die Vorschau den Ursprung mit freedom.html. Zugang nur über das Zeichen je Projekt
+  (32 Zufallsbyte, `adresse()`, nur versiegelt an den Besitzer) und danach das Cookie; die Weiterleitung nie auf `//host`
+  oder `/\host`. Dateien nur über `finde()`: kein Name mit Punkt am Anfang, jeder Teil des Pfads mit `lstat` (ein Verweis
+  heißt „gibt es nicht“), geöffnet mit `O_NOFOLLOW | O_NONBLOCK` (ein FIFO hielte den Server an), unter Linux danach der
+  echte Ort über `/proc/self/fd` – der Agent schreibt im Projekt und könnte zwischen `lstat` und `open` tauschen. Im Test
+  Pfade mit `node:http` schicken, nie mit `fetch`: Der glättet `..`, `%2e%2e` und Rückstriche, bevor sie ankommen.

@@ -11438,3 +11438,34 @@ Mach es genauso, ohne fragen.“
 - `CodeLaeufe` meldet den Auftrag, auch wenn der Motor scheitert.
 
 Knoten-Stand: nur der Knoten; die App ändert sich nicht.
+
+## Schritt VKg1a – Vorschau wie Replit: der Knoten liefert das Projekt aus
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (Entscheidung VKg-W1 vom 18.10.2026: „Genauso wie bei Replit, schnelles Live-Rendern in
+Originalqualität, direkt spielbar/durchklickbar“). Erster Teil: der Server im Knoten und die Code-Aktion. Die App bekommt
+den Knopf mit VKg1b.
+
+**Neu:**
+- `vorschau.ts`: `VorschauServer` auf eigenem Port (`VORSCHAU_PORT`, Standard 3603) – nie der Port von Relay und App, also
+  ein anderer Ursprung als freedom.html.
+  - Je Projekt ein Zeichen aus 32 Zufallsbyte, neu bei jedem Start (`adresse()`).
+  - `/<zeichen>/…` setzt ein Cookie (HttpOnly, SameSite=Lax) und leitet auf `/…` – Seiten mit Pfaden ab `/` laufen.
+  - Nur lesen, live (`no-store`), mit echten Inhaltstypen (auch `wasm`), `nosniff`, kein Referrer.
+  - `dist/` oder `build/` vor den Quellen; Pfade ohne Endung, die fehlen, bekommen die `index.html`.
+  - Nichts mit Punkt am Anfang (`.git`, `.env`), keine Verweise: jeder Teil mit `lstat`, geöffnet mit `O_NOFOLLOW`, unter
+    Linux danach der echte Ort über `/proc/self/fd`.
+- `vorschauAusUmgebung()`: `VORSCHAU_URL` (Ursprung ohne Pfad), `VORSCHAU_PORT`, `VORSCHAU_HOST`; ungültig hält den Start an.
+- Code-Aktion `vorschau` (`knoten-code.ts`, `PROTOCOL.md` §34): Antwort `url`, nur in der Form von `istVorschauAdresse()`;
+  ohne Vorschau `code-vorschau-aus` (Text in der App in beiden Sprachen).
+- `docker-compose.vibecoden.yml`: Port 3603 und `VORSCHAU_URL`; `PROVIDER.md` erklärt Heimnetz, Domain und `.onion`.
+- Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:**
+- protocol +1: Aktion und Antwort; keine Adresse mit `javascript:`, Zugangsdaten, Suche, Anker oder anderem Pfad.
+- node +4:
+  - Umgebung.
+  - Zeichen und Weiterleitung, auch nie auf `//host`.
+  - Nur Dateien im Projekt: `.git`, `.env`, `..`, `%2e%2e`, Verweise, ein Verweis mitten im Pfad; live und `dist/`.
+  - Über den Knoten versiegelt; ohne `VORSCHAU_URL` `code-vorschau-aus`.
+
+Knoten-Stand: nur der Knoten; die App ruft `vorschau` erst mit VKg1b auf.

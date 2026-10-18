@@ -15,6 +15,12 @@ services:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot
       CODE_MODELL: "${CODE_MODELL:-}"
+      # Vorschau wie Replit (VKg1a): die Adresse, unter der dein Handy den Knoten erreicht, z. B.
+      # http://192.168.1.20:3603 – leer: keine Vorschau. Port 3603, nie der Port der App (7777).
+      VORSCHAU_URL: "${VORSCHAU_URL:-}"
+    ports:
+      # nur für Tor oder einen Reverse-Proxy auf diesem Rechner: VORSCHAU_BIND=127.0.0.1
+      - "${VORSCHAU_BIND:-0.0.0.0}:3603:3603"
     security_opt:
       - seccomp=docker/seccomp-vibecoden.json
       - systempaths=unconfined

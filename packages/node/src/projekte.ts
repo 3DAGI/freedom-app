@@ -23,7 +23,7 @@ export const projekteOrdner = (home = process.env.HOME ?? "."): string => join(h
  * Projektnamen – sie gehen nur als `code-ablage` hinaus und ins Log.
  */
 export class CodeAbgelehnt extends Error {
-  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage" | "code-leer" | "code-zu-gross" | "code-commit") {
+  constructor(readonly fall: "code-aus" | "code-ohne-motor" | "code-belegt" | "code-zu-viele" | "code-git" | "code-ablage" | "code-leer" | "code-zu-gross" | "code-commit" | "code-vorschau-aus") {
     super(`Code: ${fall}`);
     this.name = "CodeAbgelehnt";
   }

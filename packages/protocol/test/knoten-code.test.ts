@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CODE_GRENZEN, KIND_DVM_KNOTEN_CODE, KIND_GIFT_WRAP, LocalSigner, baueCodeAuftrag, buildJobRequest, codeAntwortText,
-  codeSchrittText, generateKeypair, getTag, istBesitzer, istProjektName, leseCodeAntwort, leseCodeAuftrag, leseCodeSchritt,
+  codeSchrittText, generateKeypair, getTag, istBesitzer, istProjektName, istVorschauAdresse, leseCodeAntwort, leseCodeAuftrag, leseCodeSchritt,
   neueKopplung, openPrivateKundenEvent, resultKindFor, type CodeAktion, type CodeAntwort, type CodeSchritt,
 } from "../src/index.js";
 
@@ -192,4 +192,30 @@ test("VKe2: Antworten – Verlauf begrenzt, Diff nach JSON-Länge begrenzt (pass
   for (const z of [{ aktion: "zurueck", commit: "" }, { aktion: "zurueck", commit: C1 }] as CodeAntwort[]) assert.deepEqual(leseCodeAntwort(codeAntwortText(z), "zurueck"), z);
   assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "zurueck", commit: "HEAD" }), "zurueck"), null);
   assert.equal(leseCodeAntwort(codeAntwortText(diff), "verlauf"), null, "nur zur erwarteten Aktion");
+});
+
+const ZEICHEN = "5c".repeat(32);
+
+test("VKg1a: Vorschau – Aktion mit Projekt; Antwort nur mit einer Adresse, die die App gefahrlos öffnet", async () => {
+  const knoten = generateKeypair();
+  const aktion: CodeAktion = { aktion: "vorschau", projekt: "app" };
+  const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: neueKopplung(knoten.pk), aktion });
+  const r = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+  assert.ok(r.ok);
+  assert.deepEqual(leseCodeAuftrag(r.request), aktion);
+  assert.equal(leseCodeAuftrag(kern([["param", "aktion", "vorschau"]])), null, "Projekt fehlt");
+  assert.equal(leseCodeAuftrag(kern([["param", "aktion", "vorschau"], ["param", "projekt", "../x"]])), null);
+  for (const gut of [`http://192.168.1.20:3603/${ZEICHEN}/`, `https://vorschau.example.org/${ZEICHEN}/`, `http://${"a".repeat(56)}.onion/${ZEICHEN}/`]) {
+    assert.ok(istVorschauAdresse(gut), gut);
+    assert.deepEqual(leseCodeAntwort(codeAntwortText({ aktion: "vorschau", url: gut }), "vorschau"), { aktion: "vorschau", url: gut });
+  }
+  for (const schlecht of [
+    `javascript:alert(1)//${ZEICHEN}/`, `file:///${ZEICHEN}/`, `ftp://h/${ZEICHEN}/`, `http://u:p@h/${ZEICHEN}/`, `http://h/${ZEICHEN}/?x=1`,
+    `http://h/${ZEICHEN}/#a`, `http://h/${ZEICHEN}`, `http://h/x/${ZEICHEN}/`, `http://h/${ZEICHEN.toUpperCase()}/`, `http://h:80/${ZEICHEN}/`,
+    `HTTP://h/${ZEICHEN}/`, `http://h/${"5c".repeat(31)}/`, `https://${"a".repeat(CODE_GRENZEN.vorschau)}.org/${ZEICHEN}/`, "", 7, null,
+  ]) {
+    assert.ok(!istVorschauAdresse(schlecht), String(schlecht));
+    assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "vorschau", url: schlecht }), "vorschau"), null, String(schlecht));
+  }
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "vorschau", url: `http://h/${ZEICHEN}/`, projekt: "app" }), "vorschau"), null, "fremdes Feld");
 });
