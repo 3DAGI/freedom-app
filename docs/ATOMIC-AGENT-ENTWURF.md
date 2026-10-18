@@ -53,6 +53,16 @@ wird erst nach Freigabe.
 
 W1 **A** (nicht als Motor im Knoten, Hermes bleibt), W2 **A** (unter „Dieses Gerät“ wie jeder lokale Server, mit ehrlichem Hinweis), W3 **A** (nur mit abgeschalteter Analyse empfehlen, der Hinweis nennt den Schalter), W4 **A** (B-30 bleibt, umgesetzt über V2 als B-30a). Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
 
+## Befund vor B-30a (18.10.2026, Quelltext Commit `7899d17`)
+
+- `atomic-agent serve` (`src/http/http-server.ts`) setzt keine CORS-Kopfzeilen (`Access-Control-Allow-Origin` fehlt
+  überall im Quelltext) und kennt keine Route für `OPTIONS` – die Antwort ist 404.
+- Eine Seite von anderem Ursprung (die App auf GitHub Pages, vom Knoten oder aus der Hülle) darf die Antwort deshalb
+  nicht lesen; mit `--api-key` schickt der Browser vor jeder Frage ein `OPTIONS`, das schon scheitert.
+- `GET /v1/models` gibt es (ohne Anmeldung, ein Eintrag `atomic-agent`), `POST /v1/chat/completions` mit Bearer.
+- Damit trägt W2 A („wie jeder lokale Server“) nicht. Ollama (`OLLAMA_ORIGINS`) und LM Studio (CORS-Schalter) lassen
+  sich freigeben, Atomic Agent nicht. Frage AG-W5 in `OFFEN.md` 1.5; B-30a wartet darauf.
+
 ## Aufteilung (nach Freigabe, Empfehlung)
 
 | Schritt | Inhalt | Umfang |

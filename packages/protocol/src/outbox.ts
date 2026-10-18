@@ -17,6 +17,7 @@
  *     es kann sie nur vorenthalten. Redundanz neutralisiert genau das.
  */
 import { NostrEvent, verifyEvent } from "./event.js";
+import { NegFehler, type NegSpeicher } from "./negentropy.js";
 
 export interface RelayFilter {
   kinds?: number[];
@@ -45,6 +46,8 @@ export interface Relay {
     onEvent: (ev: NostrEvent) => void,
     onEose?: () => void,
   ): Promise<() => void>;
+  /** Optionaler Abgleich nach NIP-77 (B-35c, `WebSocketRelay.abgleiche()`). */
+  abgleiche?(filter: RelayFilter, speicher: NegSpeicher): Promise<{ habe: string[]; brauche: string[] }>;
 }
 
 export interface PublishReport {
@@ -250,6 +253,16 @@ export class OutboxPool {
    */
   async queryAn(filter: RelayFilter, urls: readonly string[]): Promise<NostrEvent[]> {
     return (await this.frage(this.relays.filter((r) => urls.includes(r.url)), filter)).events;
+  }
+
+  /**
+   * Abgleich nach NIP-77 mit einem Relay dieses Pools (B-35c) – über dessen Verbindung. Ohne passendes Relay oder
+   * ohne Abgleich in der Verbindung `NegFehler("neg.zeit")` wie bei einem Relay, das NIP-77 nicht kennt.
+   */
+  async abgleicheAn(url: string, filter: RelayFilter, speicher: NegSpeicher): Promise<{ habe: string[]; brauche: string[] }> {
+    const relay = this.relays.find((r) => r.url === url);
+    if (!relay?.abgleiche) throw new NegFehler("neg.zeit");
+    return relay.abgleiche(filter, speicher);
   }
 
   private async frage(relays: readonly Relay[], filter: RelayFilter): Promise<{ events: NostrEvent[]; antworten: string[] }> {

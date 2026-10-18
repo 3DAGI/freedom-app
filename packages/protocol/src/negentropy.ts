@@ -28,7 +28,10 @@ export const NEG_GRENZEN = {
   ids: 100_000,
 } as const;
 
-export type NegFall = "neg.format" | "neg.fassung" | "neg.gross" | "neg.reihenfolge";
+export type NegFall = "neg.format" | "neg.fassung" | "neg.gross" | "neg.reihenfolge"
+  // ein Abgleich mit einem Relay (B-35c1, `WebSocketRelay.abgleiche()`): Anmeldung gescheitert, abgelehnt
+  // (`NEG-ERR`), keine Antwort (der Relay kennt NIP-77 vielleicht nicht), zu viele Runden
+  | "neg.anmeldung" | "neg.abgelehnt" | "neg.zeit" | "neg.runden";
 
 /** Fehler im Abgleich – `fall` ist die Kennung, nie Text aus der Nachricht. */
 export class NegFehler extends Error {
