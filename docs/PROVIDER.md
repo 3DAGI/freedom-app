@@ -516,7 +516,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   leere Umgebung; dein Home und `~/.freedom` sieht der Code nicht. Grenzen je
   Befehl: 60 s, 120 s Rechenzeit, Dateien bis 512 MB, 1024 offene Dateien,
   `/tmp` mit 512 MB, seit 11.5s3 4 GB Arbeitsspeicher je Prozess (ein Befehl mit
-  vielen Prozessen kann zusammen mehr belegen – das begrenzt die Sandbox noch nicht).
+  vielen Prozessen kann zusammen mehr belegen – das begrenzt die Sandbox noch nicht),
+  seit 11.5s4a höchstens 1024 Prozesse und Threads je Befehl (gegen Fork-Bomben).
+  Diese Grenze zählt der Kernel nicht, wenn der Knoten als root läuft – betreib ihn
+  als eigenen Nutzer (das Docker-Bild tut das); sonst warnt das Log beim Start.
   Seit 11.5s2 sperrt ein seccomp-Filter Kernaufrufe, die kein Werkzeug braucht
   (`io_uring`, Schlüsselbund, eBPF, neue Namensräume) – auf x86_64 und arm64.
   Ob sie geht, steht beim Start im Log (`[code] Sandbox …`) und in
