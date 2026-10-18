@@ -1582,7 +1582,8 @@ def projekt_pruefen(browser, url: str) -> dict:
     zeigt das Blatt; ein Auftrag geht versiegelt an den Knoten, der Schritt, der wartet, zeigt „Ja“ und „Nein“, „Ja“
     geht als eigener Auftrag hinaus, danach kommen Ausgabe und Abschluss (Markdown nur als Text). Der Knoten ist
     `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059). Seit VKe2: „Verlauf“
-    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann."""
+    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann. Seit VKg1b:
+    „Vorschau“ holt die Adresse vom Knoten und öffnet sie im neuen Tab ohne Verweis zurück."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
@@ -1644,6 +1645,8 @@ def projekt_pruefen(browser, url: str) -> dict:
     s.click(".projekt-freigabe button")
     antworte(n + 1)
     s.wait_for_selector(".projekt-ende .projekt-abschluss", timeout=20000)
+    # die Umschläge kommen in beliebiger Reihenfolge (NIP-59) – auch auf die Ausgabe des Schritts warten
+    s.wait_for_selector(".projekt-ausgabe summary", timeout=20000)
     erg["fertig"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
       return { ende: b.querySelector('.projekt-ende-zeile').textContent, abschluss: b.querySelector('.projekt-abschluss').textContent,
         fett: b.querySelector('.projekt-abschluss strong')?.textContent ?? '', ausgabe: b.querySelector('.projekt-ausgabe summary').textContent,
@@ -1682,6 +1685,15 @@ def projekt_pruefen(browser, url: str) -> dict:
     antworte(n + 2)
     s.click(".projekt-verlauf-knopf")
     erg["zurueck_zum_auftrag"] = ev("() => [document.querySelector('.projekt-neben').hidden, document.querySelector('.projekt-fuss').hidden]")
+    # Vorschau (VKg1b): die Adresse vom Knoten, geöffnet im neuen Tab ohne Verweis zurück, dazu Kopieren, QR und Hinweis
+    n = len(an_knoten())
+    s.click(".projekt-vorschau-knopf")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-vorschau-link", timeout=20000)
+    erg["vorschau"] = ev("""() => { const b = document.querySelector('.projekt-neben'), a = b.querySelector('.projekt-vorschau-link');
+      return { href: a.getAttribute('href'), target: a.target, rel: a.rel, text: a.textContent,
+        adresse: b.querySelector('.projekt-vorschau-adresse').textContent, kopieren: !!b.querySelector('.projekt-vorschau-kopieren'),
+        qr: !!b.querySelector('.qr-zeigen'), http: !!b.querySelector('.projekt-vorschau-http'), auftrag_weg: document.querySelector('.projekt-fuss').hidden }; }""")
     # Schließen mit Esc – das Blatt ist weg, die Liste bleibt
     s.keyboard.press("Escape")
     s.wait_for_function("() => !document.querySelector('.projekt-blatt')", timeout=5000)
@@ -1707,8 +1719,12 @@ def projekt_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Rückfrage {erg['zurueck_frage']} – vorher hinaus: {erg['zurueck_vorher']}")
     if erg["zurueck"] != "Zurückgesetzt – neuer Schritt 2b2b2b2" or erg["zurueck_zum_auftrag"] != [True, False]:
         erg["fehler"].append(f"zurück {erg['zurueck']} {erg['zurueck_zum_auftrag']}")
-    if erg["umschlaege"] != 8:
-        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf")
+    vorschau = f"http://192.168.1.20:3603/{'5c' * 32}/"
+    if erg["vorschau"] != {"href": vorschau, "target": "_blank", "rel": "noopener noreferrer", "text": "Vorschau öffnen", "adresse": vorschau,
+                           "kopieren": True, "qr": True, "http": True, "auftrag_weg": True}:
+        erg["fehler"].append(f"Vorschau {erg['vorschau']}")
+    if erg["umschlaege"] != 9:
+        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf, Vorschau")
     erg["browser_dialoge"] = seite.browser_dialoge
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")

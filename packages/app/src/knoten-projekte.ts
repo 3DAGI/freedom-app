@@ -30,6 +30,15 @@ export function codeAblehnungText(fall: string | undefined): string {
   return fall && Object.hasOwn(CODE_FALL_TEXT, fall) ? t(CODE_FALL_TEXT[fall]!) : t("set.codeAbgelehnt");
 }
 
+/**
+ * Vorschau (VKg1b): Über http – außer zu einer .onion-Adresse, die Tor verschlüsselt – kann mitlesen, wer im selben
+ * Netz ist. Die Adresse kommt nur aus `leseCodeAntwort()` (`istVorschauAdresse()`).
+ */
+export function vorschauUnverschluesselt(url: string): boolean {
+  const u = new URL(url);
+  return u.protocol === "http:" && !u.hostname.endsWith(".onion");
+}
+
 /** Eine Zeile je Projekt – Name, Schritte, letzte Änderung. */
 export function projektZeile(p: CodeProjekt): string {
   const datum = new Date(p.geaendert * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" });

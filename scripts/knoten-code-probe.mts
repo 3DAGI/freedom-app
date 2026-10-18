@@ -1,7 +1,7 @@
 // Mein Knoten für Browser-Prüfungen der Projekte-Seite (VKe): ein Wegwerf-Knoten, der Code-Aufträge (5080) so beantwortet
 // wie `handleCode` im Knoten – versiegelt an den Sitzungsschlüssel, nur mit Besitzer-Nachweis. Ein Lauf hat genau einen
 // Schritt, der auf Freigabe wartet; erst nach „ja“ kommen Ausgabe und Ergebnis. Nur für smoke_test.py, nie für ein echtes
-// Relay. Verlauf, Änderungen und Zurück (VKe2) mit einem Commit. Aufruf:
+// Relay. Verlauf, Änderungen und Zurück (VKe2) mit einem Commit, die Vorschau (VKg1b) mit fester Adresse. Aufruf:
 //   npx tsx scripts/knoten-code-probe.mts                       -> {"knoten": "<hex>", "sk": "<hex>", "geheimnis": "<hex>"}
 //   npx tsx scripts/knoten-code-probe.mts antworte <sk> <geheimnis>   (alle Umschläge an den Knoten als JSON auf stdin)
 //     -> [{"fuer": "<Id des Umschlags>", "events": [<Umschlag>…]}]   – je Auftrag die Antworten, so oft gefragt, wie es ihn gibt
@@ -57,6 +57,7 @@ if (process.argv[2] !== "antworte") {
         " index.html | 1 +", "", "diff --git a/index.html b/index.html", "new file mode 100644", "--- /dev/null", "+++ b/index.html", "@@ -0,0 +1 @@", "+hallo", ""].join("\n");
       events.push(await ergebnis(r, { aktion: "diff", commit: a.commit, text, gekuerzt: false }));
     } else if (a.aktion === "zurueck") events.push(await ergebnis(r, { aktion: "zurueck", commit: "2b".repeat(20) }));
+    else if (a.aktion === "vorschau") events.push(await ergebnis(r, { aktion: "vorschau", url: `http://192.168.1.20:3603/${"5c".repeat(32)}/` }));
     aus.push({ fuer: w.id, events });
   }
   console.log(JSON.stringify(aus));
