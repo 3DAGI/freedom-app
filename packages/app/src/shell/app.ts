@@ -60,6 +60,7 @@ import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
+import { wireGruppenanrufe } from "./gruppenanruf-ui.js";
 import { agentenImTakt, starteGeraeteAgenten } from "./agenten-lauschen.js";
 import {
   captureReferral,
@@ -790,6 +791,7 @@ function starte(): void {
   wireSprachnachricht();
   // Anrufe (B-13d3): nur auf Klick; eingehende kommen über den Posteingang (alsAnruf)
   wireAnrufe();
+  wireGruppenanrufe();
   // Agenten auf dem Gerät (11.3c2): Erwähnungen in offenen Räumen beantworten, solange die App offen ist –
   // im Abruftakt nur nachsehen, ob das Abo zu Agenten und Tresor passt; private Räume (11.3c3b) erst dort (MLS-Engine)
   void starteGeraeteAgenten();

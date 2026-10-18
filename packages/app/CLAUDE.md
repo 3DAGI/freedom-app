@@ -877,6 +877,12 @@ Fallstricke dieses Bereichs unten anhängen.
   nur die Namen, die das Modul nutzt; ein Test vergleicht die Listen), der E2EE-Worker als Text aus `freedom:e2ee-worker`
   (Plugin „e2ee-worker“), gestartet aus einer blob:-Adresse – keine neue Lockerung der CSP. Schlüssel nur aus
   `anrufSchluessel()` je MLS-Epoche, im Ring unter `schluesselIndex()` (die vorige bleibt lesbar), die Bytes nach dem
-  Übergeben nullen; nach jedem Abgleich des privaten Raums `schluesselNachziehen()`. Weg nur nach `beitrittsWeg()`: mit
-  eigenem TURN nur relay, ohne erst nach Zustimmung – nie still direkt. Nie `setLogLevel()`/`setLogExtension()` von
+  Übergeben nullen; nach jedem Abgleich des privaten Raums `schluesselNachziehen()`. Einem fremden Anruf nur nach
+  Zustimmung (seit B-34d, `zustimmungNoetig()`): Die Signalverbindung (WebSocket) geht immer direkt zum SFU – auch mit
+  eigenem TURN sieht der Knoten des Anrufenden die IP; nie „über deinen Vermittler sieht er sie nicht“ versprechen. Bild und
+  Ton nach `beitrittsWeg()`: mit eigenem TURN nur relay. Nie `setLogLevel()`/`setLogExtension()` von
   livekit-client aufrufen: `loglevel` schriebe dann `loglevel:…` in localStorage (ohne Präfix `freedom.`).
+  Oberfläche (seit B-34d) nur über `shell/gruppenanruf-ui.ts`: Knopf `#raum-anruf` und Zeilen `#raum-anrufe` nur im
+  privaten Raum, die Leiste im Anruf über allem; Bild und Ton nur als Spuren aus `beiMedien()`, der eigene Ton nie. Im Anruf
+  keine Namen – alle Eingeladenen sehen alle Zugänge, wer welchen nutzt, prüft niemand. Im Smoke-Test („privatraum“)
+  liefert `scripts/gruppenanruf-probe.mts` die Zugänge, die Relay-Attrappe schließt die Verbindung zum SFU (`ProbeRelay.sfu`).

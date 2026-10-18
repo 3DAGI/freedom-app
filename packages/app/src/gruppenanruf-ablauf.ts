@@ -1,9 +1,11 @@
 /**
  * Beitreten zu einem Gruppenanruf – die Regeln ohne Browser (B-34c2, LK3 A, LK4 A, `docs/GRUPPENANRUF-ENTWURF.md`):
  *
- * - **Weg (LK4 A):** mit eigenem Vermittler (TURN, 5079) nur über ihn (`iceTransportPolicy: "relay"`) – der SFU des
- *   Anrufenden sieht dann nur die Adresse des eigenen TURN. Ohne eigenen nur nach Zustimmung (`zugestimmt`): dann sieht
- *   der Knoten des Anrufenden die IP-Adresse; die App sagt das vor dem Beitritt.
+ * - **Zustimmung (LK4 A, Befund B-34d):** Die Signalverbindung von livekit-client (WebSocket) geht immer direkt zum SFU
+ *   des Anrufenden – sein Knoten sieht die IP-Adresse also auch dann, wenn Bild und Ton über den eigenen TURN laufen.
+ *   Einem fremden Anruf tritt die App deshalb nur nach Zustimmung bei (`zustimmungNoetig()`); beim eigenen läuft der SFU
+ *   auf dem eigenen Knoten.
+ * - **Weg:** mit eigenem Vermittler (TURN, 5079) Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`), sonst direkt.
  * - **Schlüssel (LK3 A):** je MLS-Epoche einer aus `anrufSchluessel()`, im Ring von livekit-client unter dem Index
  *   `epoche % SCHLUESSEL_RING` – Bild und Ton aus der vorigen Epoche bleiben lesbar, bis alle nachgezogen haben.
  */
@@ -15,10 +17,14 @@ export const SCHLUESSEL_RING = 16;
 
 export type BeitrittsWeg = { art: "turn"; rtc: RTCConfiguration } | { art: "direkt"; rtc: RTCConfiguration };
 
-/** Wie man zum SFU kommt – oder `"warnung"`: ohne eigenen TURN erst nach Zustimmung. */
-export function beitrittsWeg(eigenerTurn: TurnZugang | null, zugestimmt: boolean): BeitrittsWeg | "warnung" {
-  if (eigenerTurn) return { art: "turn", rtc: { iceServers: [iceServerAus(eigenerTurn)], iceTransportPolicy: "relay" } };
-  return zugestimmt ? { art: "direkt", rtc: {} } : "warnung";
+/** Ob die App vor dem Beitritt fragen muss: bei jedem Anruf, den nicht ich selbst (`ich`, MLS-Schlüssel) begonnen habe. */
+export function zustimmungNoetig(a: { von: string }, ich: string): boolean {
+  return a.von !== ich;
+}
+
+/** Wie Bild und Ton zum SFU kommen – erst nach der Zustimmung gefragt. */
+export function beitrittsWeg(eigenerTurn: TurnZugang | null): BeitrittsWeg {
+  return eigenerTurn ? { art: "turn", rtc: { iceServers: [iceServerAus(eigenerTurn)], iceTransportPolicy: "relay" } } : { art: "direkt", rtc: {} };
 }
 
 /** Index des Schlüssels einer Epoche im Ring. */

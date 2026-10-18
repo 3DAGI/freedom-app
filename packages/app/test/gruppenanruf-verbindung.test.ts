@@ -6,18 +6,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { TurnZugang } from "@freedomstack/protocol";
-import { SCHLUESSEL_RING, beitrittsWeg, schluesselIndex } from "../src/gruppenanruf-ablauf.js";
+import { SCHLUESSEL_RING, beitrittsWeg, schluesselIndex, zustimmungNoetig } from "../src/gruppenanruf-ablauf.js";
 
 const lies = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const TURN: TurnZugang = { urls: ["turns:turn.example.org:5349"], nutzer: "1790000000:abc", passwort: "geheim-passwort-abc", bis: 1_790_000_000 };
 
-test("B-34c2: Weg zum SFU – mit eigenem TURN nur relay, ohne erst nach Zustimmung", () => {
-  assert.deepEqual(beitrittsWeg(TURN, false), {
+test("B-34d: fremdem Anruf nur nach Zustimmung – die Signalverbindung zeigt dem SFU die IP; Bild und Ton mit eigenem TURN nur relay", () => {
+  const [ich, andere] = ["a".repeat(64), "b".repeat(64)];
+  assert.equal(zustimmungNoetig({ von: andere }, ich), true, "auch mit eigenem TURN – der WebSocket geht direkt zum SFU");
+  assert.equal(zustimmungNoetig({ von: ich }, ich), false, "der eigene Anruf läuft auf dem eigenen Knoten");
+  assert.deepEqual(beitrittsWeg(TURN), {
     art: "turn", rtc: { iceServers: [{ urls: ["turns:turn.example.org:5349"], username: "1790000000:abc", credential: "geheim-passwort-abc" }], iceTransportPolicy: "relay" },
   });
-  assert.deepEqual(beitrittsWeg(TURN, true), beitrittsWeg(TURN, false), "mit eigenem TURN gilt immer er – auch nach Zustimmung");
-  assert.equal(beitrittsWeg(null, false), "warnung", "ohne eigenen TURN nie still direkt");
-  assert.deepEqual(beitrittsWeg(null, true), { art: "direkt", rtc: {} });
+  assert.deepEqual(beitrittsWeg(null), { art: "direkt", rtc: {} });
 });
 
 test("B-34c2: Schlüssel-Index je Epoche im Ring – die vorige bleibt lesbar", () => {
@@ -27,12 +28,12 @@ test("B-34c2: Schlüssel-Index je Epoche im Ring – die vorige bleibt lesbar", 
   for (const falsch of [-1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 2]) assert.throws(() => schluesselIndex(falsch), RangeError);
 });
 
-test("B-34c2: Beitreten – Schlüssel nur aus der Gruppe und genullt, Weg nach beitrittsWeg(), Worker aus dem Bundle", () => {
+test("B-34c2: Beitreten – Schlüssel nur aus der Gruppe und genullt, erst nach Zustimmung, Worker aus dem Bundle", () => {
   const q = lies("src/shell/gruppenanruf-verbindung.ts");
   assert.match(q, /roh: mls\.anrufSchluessel\(gruppe, anruf, epoche\)/, "nur aus dem MLS-Exporter (B-34b)");
   assert.match(q, /roh\.fill\(0\);/, "die Bytes werden nach dem Übergeben genullt");
   assert.match(q, /this\.onSetEncryptionKey\(await lk\.createKeyMaterialFromBuffer\(kopie\), undefined, schluesselIndex\(epoche\)\)/);
-  assert.match(q, /const weg = beitrittsWeg\(await eigenerTurnZugang\(\), p\.zugestimmt === true\);\n\s+if \(weg === "warnung"\) return "warnung";/);
+  assert.match(q, /if \(p\.zugestimmt !== true\) return "warnung";\n\s+const weg = beitrittsWeg\(await eigenerTurnZugang\(\)\);/, "erst fragen, dann den Vermittler holen");
   assert.match(q, /await room\.setE2EEEnabled\(true\);\n\s+await room\.connect\(a\.url, a\.zugang\.token, \{ rtcConfig: weg\.rtc,/, "erst verschlüsseln, dann verbinden");
   assert.match(q, /await import\("freedom:e2ee-worker"\)/);
   assert.match(q, /new Worker\(adresse\)/);

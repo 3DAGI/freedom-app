@@ -5,10 +5,11 @@
  * - Schlüssel nur aus der Gruppe (`anrufSchluessel()`, B-34b): je MLS-Epoche einer, im Ring unter `schluesselIndex()`;
  *   nach jedem Abgleich der Gruppe zieht `schluesselNachziehen()` den der neuen Epoche nach. Die Bytes werden nach dem
  *   Übergeben genullt; gemerkt wird nichts.
- * - Weg nur nach `beitrittsWeg()`: über den eigenen TURN (nur relay), sonst erst nach Zustimmung (`"warnung"`).
+ * - Nur nach Zustimmung (`"warnung"`, `zustimmungNoetig()`): Die Signalverbindung zeigt dem SFU die IP-Adresse immer.
+ *   Bild und Ton danach nach `beitrittsWeg()` – über den eigenen TURN nur relay, sonst direkt.
  * - Der E2EE-Worker kommt als Text aus dem Bundle (`freedom:e2ee-worker`) und startet aus einer blob:-Adresse.
  *
- * Die Oberfläche (Knöpfe im privaten Raum, Warnung, Bild und Ton) kommt mit B-34d.
+ * Die Oberfläche bekommt Bild und Ton nur als Spuren über `beiMedien()` (B-34d, `gruppenanruf-ui.ts`).
  */
 import type { RaumGruppenanruf } from "@freedomstack/protocol";
 import type { Room } from "livekit-client";
@@ -17,6 +18,13 @@ import { eigenerTurnZugang } from "./anruf.js";
 import { mlsKonto } from "./mls-konto.js";
 
 export type Beitritt = "beigetreten" | "warnung" | "kein-zugang" | "kein-schluessel" | "besetzt" | "fehler";
+
+/** Eine Spur im Anruf – eigen oder von einer Kennung (zufällig, nie ein Schlüssel). */
+export interface AnrufSpur {
+  art: "audio" | "video";
+  spur: MediaStreamTrack;
+  eigen: boolean;
+}
 
 interface Schluesselring {
   setze(roh: Uint8Array, epoche: number): Promise<void>;
@@ -32,6 +40,25 @@ interface Laufend {
 }
 
 let laufend: Laufend | null = null;
+let beobachter: ((spuren: AnrufSpur[] | null) => void) | null = null;
+
+/** Wer Bild und Ton zeigt (die Oberfläche): bei jeder Änderung alle Spuren, nach dem Ende `null`. */
+export function beiMedien(f: (spuren: AnrufSpur[] | null) => void): void {
+  beobachter = f;
+}
+
+function melde(): void {
+  const l = laufend;
+  if (!l) return beobachter?.(null);
+  const spuren: AnrufSpur[] = [];
+  for (const p of [l.room.localParticipant, ...l.room.remoteParticipants.values()]) {
+    for (const pub of p.trackPublications.values()) {
+      const spur = pub.track?.mediaStreamTrack;
+      if (spur && !pub.isMuted && (pub.kind === "audio" || pub.kind === "video")) spuren.push({ art: pub.kind, spur, eigen: p === l.room.localParticipant });
+    }
+  }
+  beobachter?.(spuren);
+}
 
 /** Der Schlüssel der aktuellen Epoche aus der Gruppe – oder null (kein Konto, MLS beschäftigt, nicht Mitglied). */
 async function schluesselJetzt(gruppe: string, anruf: string): Promise<{ roh: Uint8Array; epoche: number } | null> {
@@ -69,8 +96,9 @@ async function neuerRing(lk: typeof import("livekit-client")): Promise<Schluesse
 export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugestimmt?: boolean; medien?: ("audio" | "video")[] } = {}): Promise<Beitritt> {
   if (laufend) return "besetzt";
   if (!a.zugang) return "kein-zugang";
-  const weg = beitrittsWeg(await eigenerTurnZugang(), p.zugestimmt === true);
-  if (weg === "warnung") return "warnung";
+  // Erst fragen, dann den eigenen Vermittler holen – die Signalverbindung zeigt dem SFU die IP-Adresse in jedem Fall
+  if (p.zugestimmt !== true) return "warnung";
+  const weg = beitrittsWeg(await eigenerTurnZugang());
   const schluessel = await schluesselJetzt(gruppe, a.anruf);
   if (!schluessel) return "kein-schluessel";
 
@@ -82,6 +110,11 @@ export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugesti
   const worker = new Worker(adresse);
   URL.revokeObjectURL(adresse);
   const room = new lk.Room({ e2ee: { keyProvider: ring, worker } });
+  for (const e of ["trackSubscribed", "trackUnsubscribed", "trackMuted", "trackUnmuted", "localTrackPublished", "localTrackUnpublished", "participantDisconnected"] as const) {
+    room.on(e, melde);
+  }
+  // Getrennt (Knoten weg, Anruf beendet): wie verlassen
+  room.on("disconnected", () => void (laufend?.room === room ? verlasse() : undefined));
   try {
     await room.setE2EEEnabled(true);
     await room.connect(a.url, a.zugang.token, { rtcConfig: weg.rtc, autoSubscribe: true });
@@ -94,6 +127,7 @@ export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugesti
     return "fehler";
   }
   laufend = { room, worker, ring, gruppe, anruf: a.anruf, epoche: schluessel.epoche };
+  melde();
   return "beigetreten";
 }
 
@@ -117,6 +151,13 @@ export async function verlasse(): Promise<void> {
   if (!l) return;
   await l.room.disconnect().catch(() => undefined);
   l.worker.terminate();
+  melde();
+}
+
+/** Eigenes Mikrofon an oder aus (stumm) – nur im laufenden Anruf. */
+export async function mikrofon(an: boolean): Promise<void> {
+  await laufend?.room.localParticipant.setMicrophoneEnabled(an).catch(() => undefined);
+  melde();
 }
 
 /** Ob und in welchem Anruf man gerade ist. */

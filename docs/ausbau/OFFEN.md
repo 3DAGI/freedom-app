@@ -75,6 +75,17 @@ nicht lesen; „wie jeder lokale Server unter ‚Dieses Gerät‘“ geht so nic
 |---|---|---|---|
 | AG-W5 | Wie weiter mit B-30a? | A B-30 schließen (Atomic Agent nur erwähnen: „braucht einen eigenen Vermittler“) · B die Desktop-Hülle reicht Anfragen an `127.0.0.1` selbst weiter (Rust, nur dieser Rechner; der Browser bleibt außen vor) · C nur ein Hinweis unter „Dieses Gerät“, dass es im Browser nicht geht | **A** – B wäre ein eigener Weg nur für ein Programm, das zudem Analyse standardmäßig an hat |
 
+### 1.6 Gruppenanrufe (Spur B, 18.10.2026)
+
+Befund in B-34d: `livekit-client` baut die Signalverbindung (WebSocket) immer direkt zur Adresse des SFU auf – der Knoten
+der anrufenden Person sieht die IP-Adresse jedes Teilnehmenden, auch wenn Bild und Ton über den eigenen TURN laufen (die
+Annahme hinter LK4 A, „dann sieht der SFU nur die Adresse des TURN“, stimmte nur für Bild und Ton). Seit B-34d fragt die
+App deshalb vor jedem fremden Anruf; Details in [`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md).
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| LK5 | Soll der eigene Knoten die Signalverbindung zum fremden SFU weiterreichen, damit dessen Betreiber die IP nicht sieht? | A ja: eine Weiterleitung im Relay des eigenen Knotens (nur für den Besitzer, nur `wss://` zu öffentlichen Adressen aus einer Einladung, ein eigener Schritt im Knoten und in der App) · B nein: es bleibt bei der Rückfrage vor dem Beitritt | **A** – erst dann hält der Weg über den eigenen Knoten, was LK4 A wollte; bis dahin sagt die App es ehrlich (B) |
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
@@ -140,6 +151,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Provider | echter Provider in unter 30 Minuten, beide Schienen; echte KI-Anfrage in der Live-App | 8.2, 3.1 |
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
+| Gruppenanruf | LiveKit am GX10 (`scripts/livekit-einrichten.sh`, Profil „livekit“), drei Geräte im privaten Raum: anrufen, beitreten mit und ohne eigenen TURN, Bild und Ton, jemand verlässt die Gruppe (neuer Schlüssel) | B-34 |
 | Native Apps | Tor in Desktop und Android (`IsTor: true`) | 6.1 |
 | Oberfläche | kurzer Nutzertest: fünf Personen ohne Nostr-Vorwissen, drei Aufgaben (erste Frage, Wallet verbinden, Freund anschreiben), Zeit und Abbrüche | Review 15.10. |
 | Sonstiges | fremde Person richtet die App in unter fünf Minuten ein; QR-Scan am Handy; Radicle-Spiegel mit `rad` | 8.1, 11.1b, 8.10 |
@@ -186,7 +198,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-31 | Werkzeuge über MCP, Kiwix – eigener schlanker MCP-Client im Knoten (stdio, JSON-RPC) – a ✓ (`mcp-client.ts`: Server aus `~/.freedom/mcp.json`, nur in der Sandbox, Werkzeuge `mcp__<server>__<werkzeug>` in der Agenten-Schleife) | frei – B-31b Kiwix als Nächstes (`kiwix-serve` aus Debian in der Sandbox, eigene Brücke als MCP-Server; Docker, Installer) |
 | B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – b als Nächstes |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop, c Oberfläche, d Android) | frei (PT2 A, PT3 A, 18.10.; [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
-| B-34 | Gruppenanrufe über LiveKit (a Dienst und Zugänge im Knoten, b Schlüssel aus MLS, c App, d Oberfläche) – a ✓ (`livekit.ts`, Kind 5081, Profil „livekit“, `scripts/livekit-einrichten.sh`), b ✓ (`anrufSchluessel()` aus dem MLS-Exporter), c1 ✓ (Einladung als inneres Event, anrufen und beenden), c2 ✓ (Beitreten mit `livekit-client`, Schlüssel je Epoche, Weg über eigenen TURN) | frei – B-34d als Nächstes (Oberfläche, Datenschutzbericht, Smoke-Test) ([`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |

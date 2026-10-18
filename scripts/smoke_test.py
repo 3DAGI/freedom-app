@@ -1850,6 +1850,103 @@ def privatraum_repo(ada: "DialogSeite", bo: "DialogSeite", relay: "ProbeRelay", 
         erg["fehler"].append(f"Patch im privaten Raum {erg['patch']}")
 
 
+# Gruppenanrufe (seit B-34d): zählt Worker (der E2EE-Worker kommt aus einer blob:-Adresse) und Verstöße gegen die CSP
+GRUPPENANRUF_ZAEHLER = """
+(() => {
+  const st = window.__gruppenanruf = { worker: 0, csp: [] };
+  const W = window.Worker;
+  window.Worker = function (u, o) { if (String(u).startsWith('blob:')) st.worker++; return new W(u, o); };
+  document.addEventListener('securitypolicyviolation', (e) => st.csp.push(e.violatedDirective));
+})();
+"""
+
+
+def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", rb: "ProbeRelay", pille: str, erg: dict) -> None:
+    """B-34d: Ada koppelt ihren Knoten (`scripts/gruppenanruf-probe.mts` hinter der Relay-Attrappe) und ruft im Raum an – die
+    Zugänge kommen versiegelt (5081), die Einladung geht nur als Chiffrat in die Gruppe, ihrem eigenen Anruf tritt sie ohne
+    Rückfrage bei (über ihren Vermittler, 5079). Bo sieht den Anruf; „Beitreten“ fragt erst nach der IP – abgebrochen geht
+    nichts hinaus, danach startet der E2EE-Worker und die App verbindet sich nur mit der Adresse aus der Einladung (die
+    Attrappe schließt sie: „Beitreten ging nicht“). Ada beendet, bei Bo ist der Anruf danach weg."""
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
+    beantwortet: set[str] = set()
+
+    def an_knoten() -> list[dict]:
+        return list({e["id"]: e for e in ra.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+    def antworte(n: int) -> list[int]:
+        """Warten, bis n Umschläge beim Knoten sind, dann die neuen beantworten – zurück deren Kinds."""
+        for _ in range(300):
+            if len(an_knoten()) >= n:
+                break
+            ada.s.wait_for_timeout(200)
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", "antworte", probe["sk"], probe["geheimnis"]],
+                                        cwd=wurzel, input=json.dumps(an_knoten()), capture_output=True, text=True, timeout=180, check=True).stdout)
+        kinds = []
+        for a in aus:
+            if a["fuer"] not in beantwortet:
+                beantwortet.add(a["fuer"])
+                kinds.append(a["kind"])
+                ra.events.extend(a["events"])
+        return kinds
+    toast = "() => document.getElementById('toast')?.textContent ?? ''"
+    # Ada koppelt ihren Knoten (Settings › Geräte), dann zurück in den Raum
+    ada.ev("() => { location.hash = '#/settings'; }")
+    ada.s.click("[data-subtab-group=settings] [data-subtab=devices]")
+    ada.s.wait_for_selector("#knoten-koppeln", state="visible", timeout=15000)
+    ada.ev("() => document.getElementById('knoten-koppeln').click()")
+    ada.warte_dialog("Mein Knoten koppeln")
+    ada.tippe(f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}")
+    ada.warte_zu()
+    ada.ev("() => { location.hash = '#/chat'; }")
+    ada.ev(f"() => document.querySelector(\"{pille}\").click()")
+    ada.s.wait_for_function("() => document.getElementById('raum-anruf')?.classList.contains('hidden') === false", timeout=60000)
+    ada.ev("() => document.getElementById('raum-anruf').click()")
+    anfragen = antworte(1) + antworte(2)
+    ada.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+    ada.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile')", timeout=30000)
+    erg["anruf_ada"] = {"anfragen": anfragen, "sfu": sorted(set(ra.sfu)),
+                        "zeile": ada.ev("() => [...document.querySelectorAll('#raum-anrufe .gruppenanruf-zeile')].map(z => [z.querySelector('strong').textContent,"
+                                        " [...z.querySelectorAll('button')].map(b => b.textContent)])"),
+                        "zaehler": ada.ev("() => [window.__gruppenanruf.worker, window.__gruppenanruf.csp]")}
+    # Bo öffnet den Raum: der Anruf steht dort; „Beitreten“ fragt erst – abgebrochen geht nichts hinaus
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    bo.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile button')", timeout=60000)
+    zeile = bo.ev("() => { const z = document.querySelector('#raum-anrufe .gruppenanruf-zeile');"
+                  " return [z.querySelector('strong').textContent, z.querySelector('span').textContent, [...z.querySelectorAll('button')].map(b => b.textContent)]; }")
+    bo.ev("() => document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click()")
+    frage = bo.warte_dialog("Gruppenanruf beitreten?")
+    bo.s.keyboard.press("Escape")
+    bo.warte_zu()
+    bo.s.wait_for_timeout(1000)
+    abgebrochen = [len(rb.sfu), bo.ev("() => window.__gruppenanruf.worker")]
+    bo.ev("() => document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click()")
+    bo.warte_dialog("Gruppenanruf beitreten?")
+    dialog_ok(bo, "Beitreten")
+    bo.warte_zu()
+    bo.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+    erg["anruf_bo"] = {"zeile": zeile, "frage": frage["text"] if frage else None, "abgebrochen": abgebrochen, "sfu": sorted(set(rb.sfu)),
+                       "zaehler": bo.ev("() => [window.__gruppenanruf.worker, window.__gruppenanruf.csp]")}
+    # Ada beendet – bei Bo ist der Anruf nach dem nächsten Öffnen weg
+    ada.ev("() => [...document.querySelectorAll('#raum-anrufe .gruppenanruf-zeile button')].find(b => b.textContent === 'Beenden').click()")
+    ada.s.wait_for_function("() => document.getElementById('raum-anrufe').classList.contains('hidden')", timeout=60000)
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    try:
+        bo.s.wait_for_function("() => document.getElementById('raum-anrufe').classList.contains('hidden')", timeout=60000)
+        erg["anruf_bo"]["beendet"] = True
+    except Exception:
+        erg["anruf_bo"]["beendet"] = False
+    a, b = erg["anruf_ada"], erg["anruf_bo"]
+    if a != {"anfragen": [5081, 5079], "sfu": ["wss://sfu.probe.test/rtc/v1"] if a["sfu"] == ["wss://sfu.probe.test/rtc/v1"] else ["wss://sfu.probe.test/rtc"],
+             "zeile": [["Dein Gruppenanruf", ["Beitreten", "Mit Bild", "Beenden"]]], "zaehler": [1, []]}:
+        erg["fehler"].append(f"Gruppenanruf Ada {a}")
+    if not (b["zeile"][0].startswith("Gruppenanruf von ") and b["zeile"][1:] == ["2 eingeladen", ["Beitreten", "Mit Bild"]]
+            and "sieht deine IP-Adresse" in (b["frage"] or "") and b["abgebrochen"] == [0, 0] and b["sfu"] == a["sfu"]
+            and b["zaehler"] == [1, []] and b["beendet"] is True):
+        erg["fehler"].append(f"Gruppenanruf Bo {b}")
+
+
 def privatraum_pruefen(browser, url: str) -> dict:
     """Privater Raum (C-12) mit echter MLS-Engine: zwei Browser hinter derselben Relay-Attrappe. Ada legt den Raum an
     und lädt Bo ein (KeyPackage, Einladung versiegelt an seinen Posteingang), Bo nimmt beim nächsten Start an,
@@ -1858,8 +1955,8 @@ def privatraum_pruefen(browser, url: str) -> dict:
     erg = {"fehler": []}
     ra, rb = ProbeRelay(), ProbeRelay()
     rb.events = ra.events  # ein Relay für beide, jeder Browser mit eigener Verbindung (der eigene Schlüssel je Attrappe)
-    ada = DialogSeite(browser, url, ra, erg)
-    bo = DialogSeite(browser, url, rb, erg)
+    ada = DialogSeite(browser, url, ra, erg, init=GRUPPENANRUF_ZAEHLER)
+    bo = DialogSeite(browser, url, rb, erg, init=GRUPPENANRUF_ZAEHLER)
     for seite, pw in ((ada, "ada tresor 1"), (bo, "bo tresor 1")):
         tresor_an(seite, pw)
         # Die Liste der Unterhaltungen gleicht den Posteingang ab – dabei fragt die App ihre eigenen Relay-Listen
@@ -1949,9 +2046,10 @@ def privatraum_pruefen(browser, url: str) -> dict:
     if erg.get("ada_liest") is True:
         privatraum_moderation(ada, bo, ra, pk_bo, pille, gruss, antwort, erg)
         privatraum_repo(ada, bo, ra, pille, repo_id, betreff, erg)
+        privatraum_anruf(ada, bo, ra, rb, pille, erg)
     # Auf dem Relay nur Chiffrat: weder Name noch Text des Raums im Klartext
     roh = json.dumps(ra.events, ensure_ascii=False)
-    erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff) if x in roh]
+    erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff, "sfu.probe.test") if x in roh]
     erg["kinds"] = sorted({e.get("kind") for e in ra.events})
     if not erg["keypackage"]:
         erg["fehler"].append("Bo hat kein KeyPackage veröffentlicht")
@@ -2632,6 +2730,7 @@ class ProbeRelay:
         self.events: list[dict] = []
         self.gesendet: list[dict] = []  # was die App veröffentlicht (seit C.2c)
         self.abos: dict[tuple, tuple] = {}  # offene REQs je Verbindung (seit B-13e) – für zustellen()
+        self.sfu: list[str] = []  # Verbindungen zum SFU eines Gruppenanrufs (seit B-34d), ohne Zugang
 
     @staticmethod
     def passt(ev: dict, f: dict) -> bool:
@@ -2647,6 +2746,11 @@ class ProbeRelay:
         return True
 
     def verbinde(self, ws) -> None:
+        if "/rtc" in ws.url:  # SFU eines Gruppenanrufs (B-34d): nur merken, wohin – dann zu (die App meldet „ging nicht“)
+            self.sfu.append(ws.url.split("?")[0])
+            ws.close()
+            return
+
         def nachricht(roh) -> None:
             try:
                 m = json.loads(roh)
