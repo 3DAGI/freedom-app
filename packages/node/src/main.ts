@@ -42,7 +42,7 @@ import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { oeffneModellBruecke } from "./modell-bruecke.js";
-import { mcpAntwort } from "./freedom-mcp.js";
+import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
@@ -427,13 +427,17 @@ async function main(): Promise<void> {
     if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
     else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
     else {
-      // Freedom-MCP (VKd): Websuche und Seite lesen aus dem Knoten, nur über die Brücke
+      // Freedom-MCP (VKd): Websuche und Seite lesen aus dem Knoten, nur über die Brücke; lesen nur, was Auftrag oder Suche nennen
       const werkzeuge = new ToolRegistry();
       werkzeuge.register(new WebSearchExecutor());
       werkzeuge.register(new BrowserExecutor());
-      const bruecke = await oeffneModellBruecke(antrieb, { mcp: (n) => mcpAntwort(n, werkzeuge) });
+      const freigaben = new LeseFreigaben();
+      const bruecke = await oeffneModellBruecke(antrieb, { mcp: (n) => mcpAntwort(n, werkzeuge, freigaben) });
       process.on("exit", () => bruecke.schliesse());
-      code = new CodeLaeufe({ ablage: projekte, motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0] }) });
+      code = new CodeLaeufe({
+        ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
+        motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0] }),
+      });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
     }
   }

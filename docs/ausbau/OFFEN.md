@@ -26,7 +26,9 @@ verweist nur; bei Widerspruch gilt die Quelle.
 
 Am 14.10.2026 entschieden (MENSCH: „Ja zu allen deinen Vorschlägen“): VK-W1n C, VK-W6
 bis VK-W9, W3a, W6a, W7 und RM2 W1–W5 – eingetragen in den Entwürfen (Abschnitte
-„Entscheidungen vom 14.10.2026“). Offen sind nur noch die Punkte unten.
+„Entscheidungen vom 14.10.2026“). Am 18.10.2026 entschieden: VKd-W1 (wie Claude und OpenAI,
+ohne Fragen), VKg-W1 (Vorschau wie Replit), VKg-W2 (ja) – eingetragen in
+[`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md). Offen sind nur noch die Punkte unten.
 
 ### 1.0 Telegram-Mini-App (TMA-1, 14.10.2026)
 
@@ -43,23 +45,6 @@ und TON bleiben unverdrahtet, bis diese Fragen beantwortet sind:
 | T5 | Grenze „telegram“ im Datenschutzbericht | ja, mit T1 |
 
 Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
-
-### 1.5 Vibecoden: Netz-Werkzeuge im Modus „fragen“ (Spur A, 17.10.2026)
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| VKd-W1 | Seit VKd1 kann Hermes über den Knoten im Netz suchen und Seiten lesen (Freedom-MCP). Hermes fragt vorher nicht – er fragt nur vor Änderungen an Dateien und riskanten Befehlen. In der App erscheint der Aufruf als Schritt. Eine gelesene Seite könnte den Agenten anstiften, Inhalt des Projekts in eine Suchanfrage oder Adresse zu packen. A so lassen (sichtbar als Schritt, im Modus „frei“ sowieso ohne Frage) · B im Modus „fragen“ wartet jeder Netz-Aufruf auf Ja: Der Knoten schreibt je Lauf ein eigenes Zeichen in `config.yaml` (`headers`), die Brücke ordnet den Aufruf damit dem Lauf zu und stellt ihn als Schritt mit `wartet` – ohne neues Format | **B** – wer „fragen“ wählt, erwartet, dass nichts das Projekt verlässt, ohne dass er Ja sagt |
-
-Quelle: [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Aufteilung VKd.
-
-### 1.6 Vibecoden: Vorschau der gebauten App (Spur A und B, 17.10.2026)
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| VKg-W1 | Vorschau der gebauten App: VK5 (über die Relays in einen `blob:`-Rahmen der App, CSP `frame-src blob:`) geht so nicht. Ein `blob:`- oder `srcdoc`-Rahmen erbt die CSP der App, und deren `script-src` erlaubt nur ihr eigenes Skript – Chromium verweigert jedes Skript der Vorschau (gemessen 17.10.). Eine Lockerung von `script-src` höbe den Schutz der App auf. A live wie ein Anruf (VKg): Der Knoten zeigt die App in einem Browser im virtuellen Bildschirm der Sandbox und streamt das Bild über den eigenen TURN (B-13), Eingaben zurück – ein Weg für Web und Linux · B der Knoten liefert die Vorschau unter eigener Adresse aus (VK-W3 B: Heimnetz, Domain oder `.onion`, eigener Ursprung, keine geerbte CSP) – nur Web, braucht die Adresse | **A** – ein Weg für alle Ziele (VK-W8 A), kein offener Port, nutzt den Anruf-Aufbau |
-| VKg-W2 | Für A ins Bild nur mit `VIBECODEN=1`: GStreamer mit `webrtcbin` (LGPL-2.1, eigener Prozess), ein virtueller Bildschirm (Xvfb oder ein Wayland-Compositor ohne Bildschirm) und Chromium für Web-Apps; NVENC nur auf dem GX10 (hier nicht prüfbar). Größe und Lizenzen misst der Bau vorher. Einverstanden? | **ja** – gepinnt wie Hermes, nur mit `VIBECODEN=1`, Echttest durch den MENSCHEN |
-
-Quelle: [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Live-Vorschau und Aufteilung VKg.
 
 ### 1.4 Solana über kit (Spur A, 17.10.2026)
 
@@ -172,7 +157,9 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKd2 | Freedom-MCP: Bilder (ComfyUI oder Provider), Sprache (mit B-38), Kiwix (mit B-31), Browser mit Seiten-Bedienung (Playwright-MCP) – VKd1 ✓: Websuche und Seite lesen | frei; Freigabe der Netz-Werkzeuge nach VKd-W1 |
+| VKd2 | Freedom-MCP: Bilder (ComfyUI oder Provider), Sprache (mit B-38), Kiwix (mit B-31), Browser mit Seiten-Bedienung (Playwright-MCP) – VKd1 ✓: Websuche und Seite lesen, VKd1b ✓: gelesen wird nur, was im Auftrag oder in Suchergebnissen steht | frei |
+| VKg1 | Vorschau wie Replit (VKg-W1, 18.10.): a Knoten liefert das Projekt live unter eigener Adresse aus (eigener Port, Zufallspfad, Code-Aktion `vorschau`), b App öffnet sie im neuen Tab, c Dev-Server aus der Sandbox (Hot Reload) | frei – VKg1a als Nächstes |
+| VKg2 | Vorschau als Bildstrom für Programme ohne Web (Linux, später Android, Windows): virtueller Bildschirm, GStreamer `webrtcbin`, NVENC, über den eigenen TURN – mit Spur B | frei (VKg-W2 ja), nach VKg1; NVENC prüft der MENSCH auf dem GX10 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |

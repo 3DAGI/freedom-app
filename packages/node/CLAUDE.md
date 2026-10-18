@@ -361,8 +361,10 @@ Bereichs unten anhängen.
   GET-Strom), höchstens `BRUECKE_GRENZEN.mcpBytes`. Ausgeführt nur über `ToolRegistry.run` (Grenzen, `safeFetch`);
   Fehler eines Werkzeugs nur mit dem Fehlernamen ins Ergebnis, nie ins Log – Suchanfragen und Adressen sind Inhalt des
   Projekts. Hermes findet den Server über `mcp_servers` in `config.yaml`, nicht über `session/new` (Hermes 0.19 kündigt
-  `mcpCapabilities.http` nicht an). Die Sandbox bleibt ohne Netz; neue Werkzeuge mit Netz nur mit Blick auf VKd-W1 –
-  Hermes fragt vor MCP-Aufrufen nicht.
+  `mcpCapabilities.http` nicht an). Die Sandbox bleibt ohne Netz; Hermes fragt vor MCP-Aufrufen nicht (VKd-W1, wie
+  Claude). Deshalb liest `read_page` seit VKd1b nur Adressen, die `LeseFreigaben.darf()` kennt: aus dem Auftrag
+  (`CodeLaeufe` → `beimAuftrag`) und aus Ergebnissen von `web_search` – nie aus gelesenen Seiten, sonst baute eine Seite
+  dem Agenten die Adresse zum Hinausschleusen. Ein neues Werkzeug, das Adressen abruft, gehört hinter dieselbe Prüfung.
 - **Verlauf, Diff und Zurück nur über `ProjektAblage`** (seit VKe2a, `PROTOCOL.md` §34): Ein Commit aus einem Auftrag
   gilt nur nach `eigenerCommit()` – `istCommit()`, `cat-file -t` ist `commit`, und er führt zu `HEAD` (`merge-base
   --is-ancestor`); sonst `code-commit`, nie Text von git. Der Diff nur über `git format-patch` mit `--no-ext-diff
