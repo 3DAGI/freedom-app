@@ -210,5 +210,3 @@ repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag
 repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
-livekit-zugang.ts|baueLivekitAnfrage|Gruppenanruf: die App fragt ihren Knoten nach Zugängen erst mit B-34c (Beitreten, MLS-Schlüssel); B-34a baut nur den Knoten
-livekit-zugang.ts|leseLivekitZugaenge|Gruppenanruf: die App liest die Zugänge erst mit B-34c; B-34a baut nur den Knoten

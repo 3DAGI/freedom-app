@@ -866,3 +866,9 @@ Fallstricke dieses Bereichs unten anhängen.
   die erwartete Adresse selbst ein). LXMF-Felder nur als `Map` mit Zahlen als Schlüssel – ein Objekt machte Text daraus,
   und die Python-Referenz fände das Feld nicht. Die Nachricht kommt aus `@reticulum/lxmf/src/message.js` (Typen über
   `src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
+- **Gruppenanrufe nur über `shell/gruppenanruf.ts`** (seit B-34c1, LK2–LK4 A, `docs/PROTOCOL.md` §39): anrufen nur über
+  `starteGruppenanruf()` – Zugänge nur vom gekoppelten Knoten (`livekitZugaengeVomKnoten()`: frischer Sitzungsschlüssel,
+  `wegZumKnoten()`, Antwort nur über `leseLivekitZugaenge()`), je Mitglied der Gruppe einer (auch für sich), die Kennung
+  zufällig, nie die Gruppe; die Einladung nur als inneres Event (`raumGruppenanruf()` über `mlsSendeEvent()`) – sie trägt
+  Zugänge, nie offen veröffentlichen, nie merken (Leak-Szenario `leak/gruppenanruf.test.ts`). Laufende Anrufe nur aus
+  den inneren Events über `laufendeGruppenanrufe()`; beenden nur den eigenen (`beendeGruppenanruf()`).
