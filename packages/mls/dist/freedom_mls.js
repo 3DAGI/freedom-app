@@ -56,6 +56,37 @@ export class MlsKonto {
         }
     }
     /**
+     * Schlüssel für Bild und Ton eines Gruppenanrufs (B-34b, LK3 A): MLS-Exporter
+     * mit `ANRUF_LABEL` und dem Anruf (32 Zeichen Hex) als Kontext, 32 Byte. Alle
+     * Mitglieder derselben Epoche bekommen denselben; nach einem Commit gibt es einen
+     * neuen, den ein entferntes Mitglied nicht kennt. `epoche` ist die Epoche, für die
+     * der Aufrufer ihn will – ist die Gruppe woanders, Fehler statt eines anderen
+     * Schlüssels. Geheim: nie ins Log, nie gespeichert.
+     * @param {string} gruppe_id
+     * @param {string} anruf
+     * @param {number} epoche
+     * @returns {Uint8Array}
+     */
+    anrufSchluessel(gruppe_id, anruf, epoche) {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(gruppe_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len0 = WASM_VECTOR_LEN;
+            const ptr1 = passStringToWasm0(anruf, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            wasm.mlskonto_anrufSchluessel(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, epoche);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+            if (r2) {
+                throw takeObject(r1);
+            }
+            return takeObject(r0);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
+    /**
      * Einladung (Kind 1059) annehmen; gibt die Gruppen-Id zurück.
      * @param {string} einladung
      * @returns {Promise<any>}
@@ -545,6 +576,10 @@ function __wbg_get_imports() {
             const ret = new Array();
             return addHeapObject(ret);
         },
+        __wbg_new_from_slice_9a868026ffa4208a: function(arg0, arg1) {
+            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
+            return addHeapObject(ret);
+        },
         __wbg_new_typed_b01cb72a8af741a3: function(arg0, arg1) {
             try {
                 var state0 = {a: arg0, b: arg1};
@@ -552,7 +587,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_26016(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_26028(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -658,12 +693,12 @@ function __wbg_get_imports() {
         },
         __wbindgen_generic_0000000000000001: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 2066, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_26014);
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_26026);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 1660, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19763);
+            const ret = makeMutClosure(arg0, arg1, __wasm_bindgen_func_elem_19775);
             return addHeapObject(ret);
         },
         __wbindgen_generic_0000000000000003: function(arg0) {
@@ -695,18 +730,18 @@ function __wbg_get_imports() {
     };
 }
 
-function __wasm_bindgen_func_elem_19763(arg0, arg1) {
-    wasm.__wasm_bindgen_func_elem_19763(arg0, arg1);
+function __wasm_bindgen_func_elem_19775(arg0, arg1) {
+    wasm.__wasm_bindgen_func_elem_19775(arg0, arg1);
 }
 
-function __wasm_bindgen_func_elem_26016(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_26016(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_26028(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_26028(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
-function __wasm_bindgen_func_elem_26014(arg0, arg1, arg2) {
+function __wasm_bindgen_func_elem_26026(arg0, arg1, arg2) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.__wasm_bindgen_func_elem_26014(retptr, arg0, arg1, addHeapObject(arg2));
+        wasm.__wasm_bindgen_func_elem_26026(retptr, arg0, arg1, addHeapObject(arg2));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         if (r1) {
