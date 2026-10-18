@@ -1188,6 +1188,7 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `verlauf` (seit VKe2) | `projekt` | `commits`: höchstens 50 × `{ id, nachricht, zeit, dateien }`, neueste zuerst (`id` 40 oder 64 Hex, `nachricht` erste Zeile, höchstens 200 Zeichen) |
 | `diff` (seit VKe2) | `projekt`, `commit` | `commit`, `text` (wie `git format-patch`, ohne Diff-Programme des Projekts, als JSON-Text höchstens 30 000 Zeichen), `gekuerzt` |
 | `zurueck` (seit VKe2) | `projekt`, `commit` | `commit`: der neue Commit „Zurück auf <kurz>“ mit dem Baum des genannten – leer, wenn sich nichts änderte |
+| `vorschau` (seit VKg1a) | `projekt` | `url`: Adresse der Vorschau – http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<zeichen>/` (64 Hex), höchstens 300 Zeichen (`istVorschauAdresse()`) |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
   auf dem Knoten, ohne Punkt und Schrägstrich.
@@ -1246,6 +1247,7 @@ Tag, nie am Text:
 | `code-leer` | `bundle`: das Projekt hat noch keinen Commit |
 | `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
 | `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
+| `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
@@ -1256,6 +1258,17 @@ ins Blob-Netz – signiert von einem **Wegwerfschlüssel**, nie vom Schlüssel d
 ein Repo im Raum den Besitzer mit seinem Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst
 (ohne Verdrängung, wie §B-9b). Den Schlüssel zum Blob bekommt nur der Besitzer, versiegelt in der Antwort;
 die App stellt das Repo damit in einen Raum (VKl2).
+
+**Vorschau** (seit VKg1a, wie Replit): Der Knoten liefert die Projekte über einen eigenen Port aus
+(`VORSCHAU_PORT`, Standard 3603) – ein anderer Ursprung als Relay und App, die Vorschau kommt nie an
+deren Speicher. Je Projekt gilt ein Zeichen aus 32 Zufallsbyte, neu bei jedem Start; nur der Besitzer
+bekommt es, in der versiegelten Antwort auf `vorschau`. Der Aufruf `/<zeichen>/…` setzt das Cookie
+`freedom_vorschau` (HttpOnly, SameSite=Lax) und leitet auf `/…` weiter; danach gilt das Cookie. Die
+Seiten laufen also mit Pfaden ab `/`; in einem Browser zeigt `/` immer das zuletzt geöffnete
+Projekt. Ausgeliefert wird nur gelesen, live (`Cache-Control: no-store`) und nur aus dem Projekt:
+`dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt selbst. Namen mit Punkt am
+Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehlen, bekommen die
+`index.html`.
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 

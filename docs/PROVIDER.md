@@ -546,6 +546,21 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   deren Adresse im Auftrag oder in einem Suchergebnis steht (seit VKd1b, wie bei
   Claude) – keine Adresse, die der Agent selbst baut, kein Link aus einer gelesenen
   Seite. Die Suchanfrage selbst ist frei.
+- **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
+  Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
+  Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der
+  dein Handy den Knoten erreicht, etwa `http://192.168.1.20:3603` im Heimnetz, eine
+  eigene Domain mit https über einen Reverse-Proxy oder eine `.onion`-Adresse
+  (Tor auf `127.0.0.1:3603`). Der Port ist `VORSCHAU_PORT` (Standard 3603) – nie der
+  Port von Relay und App, und hinter einem Reverse-Proxy nie dieselbe Domain wie die
+  App, sonst käme die Vorschau an deren Speicher. Der Knoten lauscht auf
+  `VORSCHAU_HOST` (Standard alle Adressen). Ohne `VORSCHAU_URL` gibt es keine
+  Vorschau, ein ungültiger Wert hält den Start an. Wer die Adresse samt Zeichen
+  kennt, sieht das Projekt; das Zeichen bekommt nur der Besitzer, versiegelt, und es
+  ändert sich bei jedem Start. Über http im Heimnetz kann mitlesen, wer im selben
+  Netz ist – für unterwegs `.onion` oder https. Ausgeliefert wird nur gelesen:
+  `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt, nie
+  `.git`, `.env` oder Verweise hinaus.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem
@@ -558,6 +573,9 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   darin ihren eigenen, engeren Filter an. Ohne die Ergänzung bleibt das Bild schlank,
   und die Selbstprüfung meldet, dass keine Sandbox geht. Gemessen mit Docker 29: ohne
   Ergänzung keine Sandbox, mit ihr laufen die Sandbox-Tests im Container grün.
+  Die Ergänzung gibt außerdem den Port der Vorschau frei (3603, auf allen Adressen;
+  für Tor oder einen Reverse-Proxy auf demselben Rechner `VORSCHAU_BIND=127.0.0.1`)
+  und reicht `VORSCHAU_URL` durch.
 
 ## Gratis-Start (A-14)
 

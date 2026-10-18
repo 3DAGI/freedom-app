@@ -41,11 +41,13 @@ test("VKc3b: Seccomp – das Standardprofil plus genau eine Regel für Namensrä
 
 test("VKc3b: docker-compose.vibecoden.yml – Bild mit Hermes, Sandbox-Freigaben nur hier, nie im Standard", () => {
   const ergaenzung = lies("docker-compose.vibecoden.yml");
-  for (const z of ['VIBECODEN: "1"', "- seccomp=docker/seccomp-vibecoden.json", "- systempaths=unconfined", "- apparmor=unconfined", 'CODE_MODELL: "${CODE_MODELL:-}"']) {
+  for (const z of ['VIBECODEN: "1"', "- seccomp=docker/seccomp-vibecoden.json", "- systempaths=unconfined", "- apparmor=unconfined", 'CODE_MODELL: "${CODE_MODELL:-}"',
+    'VORSCHAU_URL: "${VORSCHAU_URL:-}"', '- "${VORSCHAU_BIND:-0.0.0.0}:3603:3603"']) {
     assert.ok(ergaenzung.includes(z), z);
   }
   assert.match(ergaenzung, /build:\n\s+args:\n\s+VIBECODEN: "1"/);
   const standard = lies("docker-compose.yml");
   assert.ok(!/security_opt|unconfined|seccomp/.test(standard), "der Standard bleibt bei den Regeln von Docker");
+  assert.ok(!/3603|VORSCHAU/.test(standard), "die Vorschau (VKg1a) gibt es nur mit Vibecoden");
   assert.match(standard, /VIBECODEN: "\$\{VIBECODEN:-0\}"/);
 });

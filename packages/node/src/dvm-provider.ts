@@ -62,6 +62,7 @@ import { type TurnDienst, turnZugang } from "./turn.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
+import type { VorschauServer } from "./vorschau.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { PfandKasse } from "./pfand-kasse.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -155,6 +156,8 @@ export interface ProviderConfig {
   projekte?: ProjektAblage;
   /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
   code?: CodeLaeufe;
+  /** Vorschau der Projekte unter eigenem Ursprung (VKg1a, `VORSCHAU_URL`) – ohne: `code-vorschau-aus`. */
+  vorschau?: Pick<VorschauServer, "adresse">;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -918,6 +921,9 @@ export class DvmProvider {
       // nie während ein Agent im Projekt schreibt – sein nächster Commit hätte sonst den alten Stand
       if (this.cfg.code?.laeuftIn(a.projekt)) throw new CodeAbgelehnt("code-belegt");
       antwort = { aktion: "zurueck", commit: await this.cfg.projekte.zurueck(a.projekt, a.commit) };
+    } else if (a.aktion === "vorschau") {
+      if (!this.cfg.vorschau) throw new CodeAbgelehnt("code-vorschau-aus");
+      antwort = { aktion: "vorschau", url: this.cfg.vorschau.adresse(a.projekt) };
     } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
