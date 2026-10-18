@@ -37,6 +37,7 @@ import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
 import { neueUmfrage, neuerTermin, zeigePlanung } from "../raum-planung-ui.js";
+import { rufeImRaumAn, zeigeGruppenanrufe } from "../gruppenanruf-ui.js";
 
 // ------------------------------------------------------------- Räume
 
@@ -709,6 +710,10 @@ async function oeffneKanal(channelId: string): Promise<void> {
   else planung?.replaceChildren();
   planung?.classList.toggle("hidden", !spacesUi.privat || planung.children.length === 0);
   for (const id of ["kanal-umfrage", "kanal-termin"]) document.getElementById(id)?.classList.toggle("hidden", !spacesUi.privat || !darf);
+  // Gruppenanrufe (B-34d) – nur privat, als innere Events der Gruppe
+  const anrufe = document.getElementById("raum-anrufe");
+  if (anrufe) zeigeGruppenanrufe(anrufe, spacesUi.privat, nameVon, () => void raumNeuLaden());
+  document.getElementById("raum-anruf")?.classList.toggle("hidden", !spacesUi.privat);
 
   // Schreibrecht: Wer nicht darf, bekommt den Grund statt eines toten Feldes.
   $("#channel-composer").classList.toggle("hidden", !darf);
@@ -1503,6 +1508,10 @@ export async function wireSpacesTab(): Promise<void> {
   });
   document.getElementById("kanal-termin")?.addEventListener("click", () => {
     if (spacesUi.privat && spacesUi.channelId) void neuerTermin(spacesUi.privat, spacesUi.channelId, () => void raumNeuLaden());
+  });
+  // Gruppenanruf (B-34d) – nur im privaten Raum
+  document.getElementById("raum-anruf")?.addEventListener("click", () => {
+    if (spacesUi.privat) void rufeImRaumAn(spacesUi.privat);
   });
   const oeffentlich = $("#space-create-public");
   if (oeffentlich) oeffentlich.onclick = () => void legeRaumAn(true);

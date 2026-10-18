@@ -72,7 +72,22 @@ LK2 **A** (`livekit-client` ins Bundle), LK3 **A** (Schlüssel aus dem MLS-Expor
 | B-34b ✓ | MLS: Schlüssel je Epoche (LK3) – `Engine::freedom_export_secret()` in `mdk.patch`, `anrufSchluessel(gruppe, anruf, epoche)` in der Crate (Label `freedom/anruf`, Kontext `livekit:<raum>`, `PROTOCOL.md` §39) | ~150 |
 | B-34c1 ✓ | Einladung als inneres Event der Gruppe (`raum-gruppenanruf.ts`, Art 25041), anrufen und beenden in der App (`shell/gruppenanruf.ts`: Zugänge vom eigenen Knoten, je Mitglied einer), Leak-Szenario | ~250 |
 | B-34c2 ✓ | App: Beitreten mit `livekit-client` 2.22.4 (`shell/gruppenanruf-verbindung.ts`): je MLS-Epoche ein Schlüssel im Ring (`schluesselIndex()`), Weg nur über den eigenen TURN oder nach Zustimmung (`beitrittsWeg()`, V4), E2EE-Worker als Text im Bundle; `livekit-client` vorab minifiziert (gemessen: `freedom.html` +0,92 MB, gepackt +0,20 MB, sobald B-34d ihn aufruft) | ~300 |
-| B-34d | Oberfläche im privaten Raum (anrufen, beitreten mit IP-Warnung, Bild und Ton, verlassen), Datenschutzbericht, Smoke-Test mit Attrappe | ~300 |
+| B-34d ✓ | Oberfläche im privaten Raum (`shell/gruppenanruf-ui.ts`: anrufen, beitreten mit Rückfrage zur IP, Bild und Ton, stumm, verlassen, beenden), Grenze „gruppenanruf“ im Datenschutzbericht, Smoke-Teil „privatraum“ mit Knoten-Attrappe (`scripts/gruppenanruf-probe.mts`) | ~400 |
+
+## Befund B-34d (18.10.2026): die Signalverbindung geht direkt
+
+`livekit-client` verbindet sich für die Signalisierung per WebSocket direkt mit der Adresse des SFU (`<url>/rtc/v1`, im
+Quelltext `createRtcUrl()`); `iceServers` und `iceTransportPolicy: "relay"` gelten nur für Bild und Ton. Der Knoten der
+anrufenden Person sieht die IP-Adresse jedes Teilnehmenden also immer – auch mit eigenem TURN. Die Aussage unter
+„Befunde“ („dann sieht der SFU nur die Adresse des TURN“) stimmte nur für Bild und Ton.
+
+Folge in B-34d (strenger als LK4 A, im Sinn der Entscheidung): Einem fremden Anruf tritt die App nur nach Rückfrage bei
+(`zustimmungNoetig()`), auch mit eigenem TURN; beim eigenen läuft der SFU auf dem eigenen Knoten. Der eigene TURN trägt
+weiter Bild und Ton. Datenschutzbericht: Grenze „gruppenanruf“. Ob der eigene Knoten die Signalverbindung weiterreichen
+soll, fragt LK5 (`docs/ausbau/OFFEN.md` 1.6).
+
+Außerdem: Alle Eingeladenen sehen alle Zugänge der Einladung (V2) – wer im Anruf welchen nutzt, prüft niemand. Die App
+nennt im Anruf deshalb keine Namen.
 
 ## Quellen
 

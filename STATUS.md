@@ -11703,3 +11703,33 @@ genullt, Weg, Worker, livekit-client nur dynamisch, nichts gemerkt, die genutzte
 Plugins, CSP unverändert, Fassung und Lizenz; Verdrahtung in `raeume.ts`).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-34d – Gruppenanrufe: Oberfläche im privaten Raum, Datenschutzbericht, Smoke-Test
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). Damit ist B-34 im Code fertig; der Test mit Geräten
+und LiveKit am GX10 steht beim MENSCHEN (OFFEN 2.3).
+
+- **Befund:** `livekit-client` baut die Signalverbindung (WebSocket zu `<url>/rtc/v1`) immer direkt zum SFU auf – der
+  Knoten der anrufenden Person sieht die IP-Adresse jedes Teilnehmenden, auch wenn Bild und Ton über den eigenen TURN
+  laufen. B-34c2 ließ mit eigenem TURN ohne Rückfrage beitreten; seit B-34d fragt die App vor jedem fremden Anruf
+  (`zustimmungNoetig()`), der eigene TURN trägt weiter Bild und Ton. Ob der eigene Knoten die Signalverbindung
+  weiterreichen soll: Frage LK5 (OFFEN 1.6, Empfehlung A).
+- **Oberfläche:** `shell/gruppenanruf-ui.ts` – Knopf 📞 im Kopf des Kanals (nur privat; ohne gekoppelten Knoten ein
+  Hinweis), über dem Verlauf je laufendem Anruf eine Zeile („Beitreten“, „Mit Bild“, beim eigenen „Beenden“); wer anruft,
+  tritt gleich bei. Im Anruf eine Leiste über allem (auch auf anderen Seiten): Bild und Ton als Spuren aus `beiMedien()`,
+  „Stumm“, „Verlassen“. Ist der Anruf beendet, verlässt die App ihn beim nächsten Abgleich. Keine Namen im Anruf – alle
+  Eingeladenen sehen alle Zugänge.
+- **Datenschutzbericht:** Grenze „gruppenanruf“ (Regel `mls-gruppe`, Szenario mit echter MLS-Engine: Zugänge, Kennungen
+  und Adresse nur als Chiffrat), Texte in beiden Sprachen.
+- **Größe:** `freedom.html` 9,32 → 10,26 MB (+0,93 MB, +10,0 %), gepackt 4,47 MB – wie in B-34c2 gemessen.
+- **Smoke-Test** („privatraum“): Ada koppelt ihren Knoten (`scripts/gruppenanruf-probe.mts` antwortet auf 5081 und 5079),
+  ruft an, tritt bei (über ihren TURN); Bo sieht den Anruf, „Beitreten“ fragt erst nach der IP – abgebrochen geht nichts
+  hinaus –, danach E2EE-Worker aus blob: ohne CSP-Verstoß und eine Verbindung nur zur Adresse aus der Einladung (die
+  Attrappe schließt sie). Ada beendet, bei Bo ist der Anruf weg. Die Adresse des SFU steht nie im Klartext auf dem Relay.
+
+**Tests:** protocol +1 (Grenze mit Szenario), app +4 (UI: Rückfrage vor `trittBei()`, eigener Anruf ohne, beenden
+verlässt; Spuren, nichts gemerkt; Verdrahtung; der Smoke-Teil prüft, was er soll), Smoke-Teil „privatraum“ erweitert. Die
+Verbindung zum SFU stellt im Smoke-Test eine Hülle um WebSocket nach – `WebSocketRoute.close()` im Handler hielt den Test
+an (Fallstrick in `scripts/CLAUDE.md`).
+
+Knoten-Stand: unverändert.

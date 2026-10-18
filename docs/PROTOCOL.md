@@ -1458,6 +1458,11 @@ verschieden und so viele wie Zugänge; Abgelaufenes und Beendetes fällt weg, be
 gilt die neueste. Nennen zwei Anrufende dieselbe Kennung, gilt keiner (die Zeit setzt der Absender selbst). Alle
 Mitglieder sehen alle Zugänge – sie sind ohnehin in der Gruppe; die Kennungen sind zufällig, nie Schlüssel.
 
+**Beitreten** (seit B-34c2, B-34d): `livekit-client` mit E2EE, Schlüssel je MLS-Epoche im Ring unter `epoche % 16`. Die
+Signalverbindung (WebSocket zu `<url>/rtc/v1`) geht immer direkt zum SFU – der Knoten der anrufenden Person sieht die
+IP-Adresse jedes Teilnehmenden; die App tritt einem fremden Anruf nur nach Rückfrage bei. Mit eigenem Vermittler (§26) gehen
+Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`).
+
 ## 40. Umschläge über Reticulum (LXMF, seit B-32a)
 
 Entscheidungen RN1/RN2 A und RN-W1–W5 A (`docs/RETICULUM-ENTWURF.md`): Reticulum ist der zweite Funkweg neben

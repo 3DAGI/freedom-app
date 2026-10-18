@@ -1943,6 +1943,12 @@ button.menue-punkt.menue-gefahr { color: var(--red-text); }
 .planung-fuss { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
 .planung-fuss .planung-loeschen { margin-left: auto; }
 .planung-knopf { flex: none; }
+/* ---------- Gruppenanrufe im privaten Raum (B-34d): je Anruf eine Zeile über dem Verlauf ---------- */
+.raum-anrufe { display: flex; flex-direction: column; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.gruppenanruf-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.gruppenanruf-zeile strong { overflow-wrap: anywhere; }
+.gruppenanruf-knoepfe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.gruppenanruf-knoepfe button { width: auto; min-height: 40px; }
 
 /* ---------- Mobil (C.5a): Berührflächen, Häkchen, Safe-Area, Tastatur, eigenes Bild ---------- */
 /* Häkchen und Wahlknöpfe nie in voller Breite (die Regel für input setzte sie auf 100 %) */

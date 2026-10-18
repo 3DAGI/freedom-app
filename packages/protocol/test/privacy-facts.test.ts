@@ -43,6 +43,7 @@ import { buildStateBackup, deriveBackupKey, waehleSicherung } from "../src/state
 import { baueStueckAbruf } from "../src/blob.js";
 import { regelAgentRaumPrivat, regelMlsGruppe } from "../src/leak-rules.js";
 import { raumAgentAntwort, type RaumNachricht } from "../src/agent-auftrag.js";
+import { raumGruppenanruf, raumGruppenanrufEnde } from "../src/raum-gruppenanruf.js";
 import { raumAgentKarte, raumAgentenListe } from "../src/agent-karte.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { baueRufUmschlaege } from "../src/quittung.js";
@@ -528,6 +529,25 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
       + regelKeinKlartext(alle, ["Geheimlektor", "Geheime Frage", "Geheime Antwort", agent.pk]).length
       + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk, agent.pk] }).length;
   },
+  "gruppenanruf": async () => {
+    // Wie die App seit B-34c1/B-34d: Einladung mit den Zugängen und Ende als innere Events – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ef".repeat(32)));
+    const g = await ma.gruppeAnlegen("", [kpB], ["wss://gruppe.test"]);
+    const anruf = "9c".repeat(16);
+    const zugaenge = [{ kennung: "1a2b3c4d5e6f7a8b", token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJnZWhlaW0xIn0.c2lnbmF0dXJlZWlucw" },
+      { kennung: "8b7a6f5e4d3c2b1a", token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJnZWhlaW0yIn0.c2lnbmF0dXJlendlaQ" }];
+    const z = { url: "wss://sfu.geheimknoten.example.org", raum: anruf, bis: Math.floor(Date.now() / 1000) + 3600, zugaenge };
+    const events: NostrEvent[] = [];
+    for (const x of [raumGruppenanruf(g.gruppe, z, [a.pk, b.pk]), raumGruppenanrufEnde(g.gruppe, anruf)]) events.push(...(await ma.sendenEvent(g.gruppe, ...alsArgs(x))).events);
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== 2) return 1;
+    return regelKeinKlartext(alle, ["geheimknoten", anruf, ...zugaenge.flatMap((x) => [x.kennung, x.token])]).length
+      + regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen
     const mods = [generateKeypair(), generateKeypair()];
@@ -635,6 +655,16 @@ test("B-13d3: Anrufe – die IP vor dem Gegenüber belegt, der Vermittler als Gr
   const t = privacyFactsText();
   assert.match(t.slice(0, t.indexOf("Bewusste Grenzen:")), /✓ Bei Anrufen sieht dein Gegenüber deine IP-Adresse nicht/);
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ein Anruf läuft immer über einen Vermittler \(TURN\) .*die App sagt dir das vor dem Annehmen\./);
+});
+
+test("B-34d: Gruppenanrufe stehen als Grenze im Bericht – IP beim Knoten der anrufenden Person, Einladung nur in der Gruppe; das Szenario hält sie ein", async () => {
+  assert.equal(await SZENARIEN.gruppenanruf!(), 0, "Zugänge, Kennungen und Adresse nur als MLS-Chiffrat");
+  const f = PRIVACY_FACTS.find((x) => x.id === "gruppenanruf");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "mls-gruppe");
+  assert.match(f?.grund ?? "", /ein eigener Vermittler \(TURN\) verbirgt die IP-Adresse davor nicht/, "Befund B-34d: die Signalverbindung geht direkt");
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Gruppenanrufe in privaten Räumen laufen über den Knoten der anrufenden Person \(LiveKit\).*die App fragt dich vor dem Beitritt\./);
 });
 
 test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {

@@ -81,3 +81,8 @@ dieses Bereichs unten anhängen.
   zurücksetzen (`_advanceNow()` ohne Sperre) – der Timer, auf den man wartet, läuft dann nicht. Uhr vor der Handlung
   anhalten, die Startzeit in derselben Aufgabe messen (`() => { const t = Date.now(); …click(); return t; }`) und bis zu
   einer festen Zeit der Seite vorstellen, mit Nachsehen (`uhr_bis()` im Smoke-Teil „qr“) – nie nur Dauern addieren.
+- **`WebSocketRoute.close()` nie im Handler von `route_web_socket`** (gefunden in B-34d): In der synchronen API wartet
+  `close()` auf eine Antwort (anders als `send()`) – im Handler aufgerufen, hält es den ganzen Test an, ohne Fehler und
+  ohne dass eine Frist greift. Eine Verbindung, die gleich scheitern soll, im Browser nachstellen: eine Hülle um
+  `window.WebSocket` per `Object.defineProperty` (Getter und Setter – Playwright setzt seine eigene Fassung danach), wie
+  `GRUPPENANRUF_ZAEHLER` für den SFU.
