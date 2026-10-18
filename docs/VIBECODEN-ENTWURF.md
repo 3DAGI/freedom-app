@@ -289,10 +289,10 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 – **fertig** (`liste`, `neu`; ein Lauf bis VKc2 mit `code-ohne-motor` abgelehnt) |
 | VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 – **fertig** (`code-motor.ts`: Lauf im Hintergrund, Commit je Schritt; gestartet wird der Motor erst mit der Sandbox in VKc3, bis dahin `code-ohne-motor`) |
 | VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 – **VKc3a fertig** (`hermes-motor.ts`, `modell-bruecke.ts`, `motor/freedom_motor.py`: Brücke über einen Unix-Socket, Konfiguration je Projekt in `~/.freedom/hermes/<projekt>`, `main.ts`); **VKc3b fertig** (Hermes 0.19.0 im Bild mit `VIBECODEN=1`, Sandbox unter Docker über `docker-compose.vibecoden.yml`) |
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 – **VKd1 fertig** (`freedom-mcp.ts`: Websuche und Seite lesen als MCP-Server hinter der Brücke, `POST /mcp`; Hermes findet ihn über `config.yaml`, nicht über `session/new` – Hermes 0.19 kündigt MCP über HTTP in `initialize` nicht an; Netz-Werkzeuge fragen nicht vorher, Frage VKd-W1 in `OFFEN.md`); VKd2: Bilder, Sprache, Kiwix, Seiten-Bedienung |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 – **VKd1 fertig** (`freedom-mcp.ts`: Websuche und Seite lesen als MCP-Server hinter der Brücke, `POST /mcp`; Hermes findet ihn über `config.yaml`, nicht über `session/new` – Hermes 0.19 kündigt MCP über HTTP in `initialize` nicht an; Netz-Werkzeuge fragen nicht vorher); **VKd1b fertig** (18.10., VKd-W1: wie Claude – `read_page` liest nur Adressen aus dem Auftrag und aus Ergebnissen von `web_search`, `LeseFreigaben`); VKd2: Bilder, Sprache, Kiwix, Seiten-Bedienung |
 | VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 – **VKe1 fertig** (`knoten-projekt-ui.ts`, `knoten-lauf.ts`: Auftrag, Schritte live, Ja/Nein, Stopp, Abschluss); **VKe2a fertig** (Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten, `PROTOCOL.md` §34); **VKe2b fertig** (Verlauf, Änderungen über `zeigePatch()`, „hierher zurück“ nach Rückfrage) – VKe fertig, die Vorschau gehört zu VKg |
 | VKf | Kopplung mit Code zum Eintippen (K1) | A | ~250 – **fertig** (`kurzcode.ts`, Kind 38076, `npm run koppeln -- --code`, `PROTOCOL.md` §35) |
-| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400, ggf. zwei Teile – wartet auf VKg-W1/W2 (`OFFEN.md` 1.6): Die Vorschau über die Relays (VK5) liefe nicht – ein `blob:`-Rahmen erbt die CSP der App, Chromium verweigert seine Skripte (gemessen 17.10.) |
+| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400 je Teil – entschieden 18.10. (unten): **VKg1** Vorschau wie Replit über eigene Adresse des Knotens (a Server und Code-Aktion, b App, c Dev-Server aus der Sandbox), **VKg2** Bildstrom für Programme ohne Web. Die Vorschau über die Relays (VK5) liefe nicht – ein `blob:`-Rahmen erbt die CSP der App, Chromium verweigert seine Skripte (gemessen 17.10.) |
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
@@ -361,3 +361,68 @@ folgen nach VKc2 und der Sandbox (VKb, Spur B).
 MCP-Server erreicht der Motor darin nur über eine Brücke, die VKc3 baut (wie die Proxy-Brücke
 von Codex: ein Unix-Socket in die Sandbox, dahinter nur das Modell) – nie, indem die Sandbox
 das Netz des Rechners teilt.
+
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+| Nr. | Entscheidung |
+|---|---|
+| VKd-W1 | **Wie Claude und OpenAI, ohne Fragen** („Wie macht Claude und OpenAI das? Mach es genauso, ohne fragen.“) |
+| VKg-W1 | **Wie Replit** („schnelles Live-Rendern in Originalqualität, direkt spielbar/durchklickbar“) – die Vorschau über eine eigene Adresse des Knotens; der Bildstrom bleibt für Programme ohne Web |
+| VKg-W2 | **Ja** – GStreamer `webrtcbin`, virtueller Bildschirm und Chromium ins Bild, nur mit `VIBECODEN=1` |
+
+**VKd-W1 – so machen es die anderen (gelesen 18.10.):**
+- **Claude** (`web_fetch`): Claude baut keine Adressen selbst. Abgerufen wird nur, was in der
+  Nachricht des Nutzers steht oder aus Suchergebnissen kommt. Links aus abgerufenen Seiten
+  zählen seit Juli 2026 nicht mehr. Gefragt wird nicht.
+- **OpenAI:** ChatGPT ruft eine Adresse ohne Rückfrage nur ab, wenn ein unabhängiger Index sie
+  schon kennt, also öffentlich. Codex arbeitet mit einer Liste erlaubter Domains, nur GET, HEAD
+  und OPTIONS.
+
+Freedom macht es wie Claude (**VKd1b**): `read_page` liest nur Adressen aus dem Text des
+Auftrags und aus Ergebnissen von `web_search` (`LeseFreigaben` in `freedom-mcp.ts`).
+- Eine selbst gebaute Adresse lehnt der Knoten ab, ebenso einen Link aus einer gelesenen Seite.
+  Eine Seite kann den Agenten also nicht dazu bringen, Inhalt des Projekts in eine Adresse zu
+  packen.
+- Gefragt wird nicht.
+- Die Suchanfrage bleibt frei, wie bei Claude und OpenAI. Was darin steht, sieht die
+  Suchmaschine; `PROVIDER.md` sagt das.
+
+**VKg-W1 – Vorschau wie Replit.** Replit zeigt die laufende App über eine eigene Adresse, im
+Browser echt gerendert und sofort neu nach jeder Änderung; dazu gibt es „im neuen Tab öffnen“.
+Übertragen auf den Knoten:
+- **VKg1a (Knoten):** ein Vorschau-Server auf eigenem Port, also eigenem Ursprung.
+  - Nie auf dem Port von Relay und App: Sonst teilte die Vorschau den Ursprung mit freedom.html
+    und käme an deren Speicher.
+  - Im Pfad steht ein Zufallszeichen je Projekt. Der Besitzer bekommt es nur versiegelt, über
+    die Code-Aktion `vorschau`.
+  - Ausgeliefert werden die Dateien des Projekts, live und nur lesend: kein `.git`, keine
+    Symlinks hinaus, `nosniff`, `no-store`, kein Referrer.
+  - Nach außen gilt die Adresse aus `VORSCHAU_URL`: Heimnetz, eine Domain mit https oder `.onion`.
+    Über http im Heimnetz kann mitlesen, wer im selben Netz ist – die Texte sagen das.
+- **VKg1b (App):** ein Knopf „Vorschau“ auf dem Blatt des Projekts. Er öffnet die Adresse im
+  neuen Tab (`noopener`). Die CSP der App ändert sich nicht.
+- **VKg1c (Knoten):** Dev-Server aus der Sandbox (Vite, `npm run dev` …) für Hot Reload.
+  - Die Sandbox bleibt ohne Netz.
+  - Der Server lauscht dort auf einem Unix-Socket.
+  - Der Vorschau-Server reicht Anfragen und WebSocket dorthin weiter.
+- **VKg2:** Bildstrom für Programme ohne Web (Linux, später Android und Windows) und für
+  unterwegs ohne Adresse.
+  - Virtueller Bildschirm, GStreamer `webrtcbin`, NVENC auf dem GX10 (sonst Kodierung in
+    Software), über den eigenen TURN (B-13).
+  - Nur mit `VIBECODEN=1`.
+
+**Sandbox auf anderen Geräten** (Frage MENSCH 18.10.: „Freedom soll ja nicht nur auf DGX Spark
+laufen“):
+- Die Sandbox (`sandbox.ts`, bubblewrap) ist nicht an den GX10 gebunden. Sie läuft auf jedem
+  Linux, das Nutzer-Namensräume erlaubt: x86-64 und ARM64, Raspberry Pi (64 Bit), Server und
+  Docker (`docker-compose.vibecoden.yml`).
+- Ubuntu ab 23.10 beschränkt Nutzer-Namensräume über AppArmor. `pruefeSandbox()` sagt beim
+  Start, ob die Sandbox geht.
+- Unter Windows und macOS läuft der Knoten in Docker Desktop (WSL2 bzw. eine Linux-VM), darin
+  dieselbe Sandbox.
+- An den GX10 gebunden ist nur NVENC (VKg2).
+- SPACE (perplexityai) passt nicht. Es braucht Kubernetes, Postgres und privilegiertes Docker
+  und läuft nur auf x86-64.
+- Später, für Aufträge Fremder (11.5), wäre gVisor (`runsc`, Apache-2.0, x86-64 und ARM64, ohne
+  KVM) eine zweite Art in `sandbox.ts`. Es hat einen eigenen Kernel im Nutzerraum. Das ist eine
+  neue Abhängigkeit und damit eine eigene Frage, wenn 11.5c sie braucht.

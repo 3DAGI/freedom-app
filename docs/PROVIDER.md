@@ -542,8 +542,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   diese zwei Werkzeuge hinaus, mit den Grenzen der Werkzeuge des Knotens (http und
   https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
   Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
-  Aufrufen nicht; in der App erscheinen sie als Schritt (Frage VKd-W1 in
-  `docs/ausbau/OFFEN.md`).
+  Aufrufen nicht; in der App erscheinen sie als Schritt. Gelesen werden nur Seiten,
+  deren Adresse im Auftrag oder in einem Suchergebnis steht (seit VKd1b, wie bei
+  Claude) – keine Adresse, die der Agent selbst baut, kein Link aus einer gelesenen
+  Seite. Die Suchanfrage selbst ist frei.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

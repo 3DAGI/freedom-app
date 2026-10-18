@@ -11408,3 +11408,33 @@ Knoten, alle versiegelt; die Probe beantwortet `verlauf`, `diff` und `zurueck`.
 
 Knoten-Stand: VKe2a (die Code-Aktionen) – ein älterer Knoten lehnt „Verlauf“ ab.
 
+
+## Schritt VKd1b – Seiten lesen nur aus Auftrag und Suche (wie Claude)
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (Entscheidungen vom 18.10.2026). MENSCH zu VKd-W1: „Wie macht Claude und OpenAI das?
+Mach es genauso, ohne fragen.“
+
+**So machen es die anderen:**
+- Claude (`web_fetch`) baut keine Adressen selbst. Es ruft nur ab, was in der Nachricht des Nutzers steht oder aus
+  Suchergebnissen kommt. Links aus abgerufenen Seiten zählen seit Juli 2026 nicht mehr.
+- ChatGPT ruft ohne Rückfrage nur Adressen ab, die ein unabhängiger Index kennt. Codex nutzt eine Liste erlaubter Domains.
+- Keiner fragt vor dem Lesen.
+
+**Neu:**
+- `freedom-mcp.ts`:
+  - `LeseFreigaben` merkt sich die Adressen aus dem Text des Auftrags und aus Ergebnissen von `web_search` (höchstens
+    `LESE_FREIGABEN_MAX`, die ältesten fallen heraus).
+  - `read_page` liest nur diese. Eine andere Adresse lehnt der Knoten mit festem Text ab, ohne sie abzurufen.
+  - `adressenIn()` findet http- und https-Adressen in Text (Klammern wie bei Wikipedia, Satzzeichen am Ende).
+- `code-motor.ts`: `CodeLaeufe` meldet den Auftrag über `beimAuftrag`; `main.ts` verbindet das mit den Freigaben.
+- Gefragt wird nicht. Die Suchanfrage bleibt frei, wie bei Claude und OpenAI – `PROVIDER.md` sagt, was die Suchmaschine sieht.
+- Entscheidungen VKd-W1, VKg-W1 (Vorschau wie Replit: VKg1a–c) und VKg-W2 (ja: VKg2) im Entwurf, dazu die Sandbox auf
+  anderen Geräten. Fragen 1.5 und 1.6 in `OFFEN.md` gelöscht; Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** node +3:
+- Adressen in Text finden.
+- `read_page` nur mit Freigabe: aus dem Auftrag ja, aus der Suche ja, selbst gebaut, abgewandelt oder aus einer
+  gelesenen Seite nein; die älteste fällt beim Höchststand heraus.
+- `CodeLaeufe` meldet den Auftrag, auch wenn der Motor scheitert.
+
+Knoten-Stand: nur der Knoten; die App ändert sich nicht.

