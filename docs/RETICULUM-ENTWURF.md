@@ -76,6 +76,25 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
+## Stand B-32a (18.10.2026)
+
+- **Bibliothek:** `@reticulum/core` und `@reticulum/lxmf` 0.9.12, exakt gepinnt (0.9.9–0.9.11 schlossen Lecks und
+  Abstürze; 0.9.12 ist bei B-32a einen Tag alt). `@reticulum/lxmf` hängt nur an `@reticulum/core`. Die Nachricht kommt
+  aus `@reticulum/lxmf/src/message.js` – das Paket nennt die Klasse an der Wurzel `LXMessage` und hat dort keine Typen
+  (Brücke `src/reticulum-typen.d.ts`).
+- **Größe (W5):** Baustein samt Bibliothek gebündelt 163 KB, gepackt 48 KB – fast alles `@reticulum/core` (Links,
+  Ressourcen, Transport, die B-32b braucht). Noch nicht in `freedom.html`: die App lädt den Baustein erst mit B-32b;
+  dort wird an `freedom.html` gemessen.
+- **Identität (V2):** `freedom.reticulum.identitaet` in `geheim` (`GEHEIM_FEST`); alles unter `freedom.reticulum.`
+  steht in `SICHERUNG_NIE` (damit auch nicht im Export). Ein kaputter Eintrag wird nie ersetzt.
+- **Umschlag (V1):** `reticulum-umschlag.ts` – Felder `0xFB` = `"freedom/mesh-1"`, `0xFC` = Art + Nutzlast, Schlüssel
+  als Zahlen (`Map`; ein Objekt machte Text daraus). Gelesen wird nur die direkte Form mit der eigenen Adresse am
+  Anfang: Ohne sie nähme die Bibliothek eine Nachricht als „opportunistisch“ und setzte die erwartete Adresse ein.
+  Opportunistische Pakete (ein Paket, Ziel im Kopf von Reticulum) kommen mit B-32b, wenn der Transport das Ziel nennt.
+- **Gegen Python geprüft?** Nein – die Python-Referenz läuft wegen ihrer Lizenz nicht im Projekt (Befunde oben). Die
+  Form folgt der Spezifikation und den eigenen Interop-Tests von reticulum-js; die Live-Probe mit Sideband/NomadNet
+  macht der MENSCH mit B-32b.
+
 ## Quellen
 
 - reticulum-js, README und Changelog im npm-Paket `@reticulum/core` 0.9.8 (gelesen 15.10.2026)

@@ -11621,3 +11621,25 @@ fremd, ohne Nachweis, zu viele und ohne SFU abgelehnt; Verdrahtung; Skript; Dock
 13 Rollen.
 
 Knoten-Stand: nur der Knoten, und nur mit den drei `LIVEKIT_*`-Werten.
+
+## Schritt B-32a – Reticulum: Bibliothek, Identität je Gerät, Umschlag in LXMF
+
+Spur B, Entscheidungen RN-W1–W5 A (18.10.2026, `docs/RETICULUM-ENTWURF.md`): Reticulum wird der zweite Funkweg neben
+Meshtastic. B-32a legt die Bausteine ohne Netz und ohne Gerät.
+
+- **Abhängigkeit:** `@reticulum/core` und `@reticulum/lxmf` 0.9.12 in der App, exakt gepinnt (EUPL-1.2 wie Freedom, core
+  ohne Abhängigkeiten, lxmf nur mit core). Gebündelt 163 KB, gepackt 48 KB – unter der Grenze aus W5 (etwa 150 KB);
+  noch nicht in `freedom.html`, die App lädt den Baustein erst mit B-32b.
+- **Identität:** `reticulumIdentitaet()` – je Gerät zufällig (64 Byte), nur in `geheim` (`freedom.reticulum.identitaet`
+  in `GEHEIM_FEST`, alles unter `freedom.reticulum.` in `SICHERUNG_NIE`, also auch nicht im Export); ein kaputter
+  Eintrag wird nie ersetzt. `lxmfAdresse()` nennt die Adresse (`lxmf.delivery`, 16 Byte).
+- **Umschlag:** `verpackeFuerReticulum()` nur nach `pruefeMeshInhalt()` mit den eigenen Schlüsseln, als LXMF-Nachricht
+  mit den Feldern `0xFB` = `"freedom/mesh-1"` und `0xFC` = Art + Nutzlast (Schlüssel als Zahlen); `entpackeAusReticulum()`
+  nur in direkter Form an die eigene Adresse, nur diese Art, nur was `pruefeMeshInhalt()` durchlässt. `PROTOCOL.md` §40.
+
+**Tests:** app +8 (Identität: zufällig, gemerkt, nie in Sicherung oder Export, kaputt nie ersetzt; hin und zurück mit
+Signatur; Feldschlüssel als Zahlen im msgpack; hinaus kein Klartext, keine eigene Kopie, keine kurze Adresse, nichts zu
+Großes; heraus nichts an andere, nichts ohne Ziel, nichts Abgeschnittenes, keine fremde Art, kein Klartext; Grenze auf
+dem Draht; Bibliothek exakt gepinnt, EUPL-1.2, nur in diesem Modul und nur dynamisch geladen).
+
+Knoten-Stand: unverändert.

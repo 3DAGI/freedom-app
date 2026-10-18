@@ -856,3 +856,13 @@ Fallstricke dieses Bereichs unten anhängen.
   nie stattdessen alles laden. Die Zeit der Runde (`freedom.posteingang.knotenRunde`, im Tresor) erst merken, wenn alles
   Geholte beim Knoten liegt (`vollstaendig`). NIP-77 nur über `gleicheAbAn()` (`state.ts`): im Pool über dessen
   Verbindung, sonst Nebenverbindung – den Fehler an `neben.mit()` vorbei, sonst wäre der Relay ausgesetzt (A-26).
+- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40): `@reticulum/core` und
+  `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, geladen erst bei Bedarf. Die Identität je Gerät nur über
+  `reticulumIdentitaet()` – zufällig, nie aus dem Nostr-Schlüssel, nur in `geheim` (`freedom.reticulum.identitaet`; alles
+  unter `freedom.reticulum.` in `SICHERUNG_NIE`); einen kaputten Eintrag nie ersetzen. Fehler nur als `ReticulumFehler`
+  mit Kennung (`fall`, bei `inhalt` dazu die Prüfung) – nie Text, der i18n-Test findet ihn; Texte dazu ab B-32b. Hinaus nur über
+  `verpackeFuerReticulum()` (vorher `pruefeMeshInhalt()` mit den eigenen Schlüsseln), herein nur über
+  `entpackeAusReticulum()` (nur die direkte Form mit der eigenen Adresse am Anfang – sonst setzt `Message.deserialize()`
+  die erwartete Adresse selbst ein). LXMF-Felder nur als `Map` mit Zahlen als Schlüssel – ein Objekt machte Text daraus,
+  und die Python-Referenz fände das Feld nicht. Die Nachricht kommt aus `@reticulum/lxmf/src/message.js` (Typen über
+  `src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.

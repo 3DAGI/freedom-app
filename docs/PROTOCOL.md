@@ -1436,3 +1436,26 @@ so viele Zugänge wie gefragt):
 
 Zugänge sind Geheimnisse: nur versiegelt, nie offen, nie im Log. An die Teilnehmer gehen sie als inneres Event der
 MLS-Gruppe (B-34c), Bild und Ton verschlüsselt mit einem Schlüssel aus der Gruppe (B-34b).
+
+## 40. Umschläge über Reticulum (LXMF, seit B-32a)
+
+Entscheidungen RN1/RN2 A und RN-W1–W5 A (`docs/RETICULUM-ENTWURF.md`): Reticulum ist der zweite Funkweg neben
+Meshtastic (`docs/MESHTASTIC.md`). Über ihn geht dasselbe: nur, was `pruefeMeshInhalt()` durchlässt – Umschläge (1059) und voll
+signierte Solana-Transaktionen, nie die eigene DM-Kopie.
+
+**Identität:** je Gerät eine eigene Reticulum-Identität (64 Byte: X25519 und Ed25519, zufällig, nie aus dem
+Nostr-Schlüssel), nur in `geheim` (`freedom.reticulum.identitaet`), nie in Sicherung oder Export. Die Adresse ist das
+Ziel `lxmf.delivery` dieser Identität (16 Byte).
+
+**Nachricht:** eine LXMF-Nachricht in direkter Form (Ziel 16, Absender 16, Signatur 64, msgpack), signiert mit der
+Identität des Absenders. Titel und Inhalt bleiben leer; die Daten stehen in den Feldern, Schlüssel als Zahlen wie in
+der Python-Referenz:
+
+| Feld | Inhalt |
+|---|---|
+| `0xFB` (`FIELD_CUSTOM_TYPE`) | `"freedom/mesh-1"` – eine andere Form hieße eine neue Fassung |
+| `0xFC` (`FIELD_CUSTOM_DATA`) | ein Byte Art (`MeshKind`) + Nutzlast, höchstens 65 535 Byte |
+
+Gelesen wird nur eine Nachricht, deren Ziel am Anfang die eigene Adresse ist (`entpackeAusReticulum()`), nur mit dieser
+Art und nur, was `pruefeMeshInhalt()` durchlässt. Die Signatur des Absenders prüft die App ab B-32b aus seiner
+Bekanntgabe; der Umschlag darin ist ohnehin signiert. Reticulum verschlüsselt auf dem Weg zusätzlich an den Empfänger.
