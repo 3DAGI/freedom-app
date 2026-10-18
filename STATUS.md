@@ -11382,3 +11382,29 @@ Spur A (Bausteine für die Projekte-Seite, VK6 „Diff …, Rückgängig“), `P
 
 Knoten-Stand: Die Aktionen braucht erst die App mit VKe2b; ein älterer Knoten kennt sie nicht und lehnt den Auftrag ab.
 
+## Schritt VKe2b – Projekte-Seite: Verlauf, Änderungen, hierher zurück
+
+Spur C, `docs/VIBECODEN-ENTWURF.md` (VK6). Auf VKe2a (Code-Aktionen im Knoten). Damit ist VKe fertig.
+
+**Neu:**
+- Auf dem Blatt eines Projekts „Verlauf“: die Commits, neueste zuerst, mit Datum und Zahl der Dateien.
+- „Änderungen“ zeigt den Commit über `zeigePatch()`, dieselbe Ansicht wie bei Patches in Repos. Ein gekürzter Diff ist
+  markiert.
+- „Hierher zurück“ fragt erst nach (`bestaetige()`). Danach legt der Knoten einen neuen Commit mit dem alten Stand an,
+  nichts geht verloren. Läuft gerade ein Lauf, sagt die App das (`code-belegt`).
+- Texte in beiden Sprachen.
+- Fallstrick in `packages/app/CLAUDE.md`.
+
+**Vorschau (VKg) – gemessen statt gebaut:** Die Vorschau über die Relays (VK5: die gebaute App in einem `blob:`-Rahmen,
+CSP `frame-src blob:`) liefe nicht. Ein `blob:`- oder `srcdoc`-Rahmen erbt die CSP der App, und deren `script-src` erlaubt
+nur das eigene Skript. Chromium meldet „Refused to execute inline script“, gemessen mit Playwright am 17.10. Fragen
+VKg-W1 (Weg: live wie ein Anruf oder eigene Adresse des Knotens) und VKg-W2 (GStreamer, virtueller Bildschirm, Chromium
+im Bild) stehen in `OFFEN.md` 1.6.
+
+**Browser-Test:** Der Teil „projekt“ prüft dazu Verlauf, Änderungen und „hierher zurück“. Das sind 8 Umschläge an den
+Knoten, alle versiegelt; die Probe beantwortet `verlauf`, `diff` und `zurueck`.
+
+**Tests:** app unverändert (die Seite prüft der Browser-Test).
+
+Knoten-Stand: VKe2a (die Code-Aktionen) – ein älterer Knoten lehnt „Verlauf“ ab.
+

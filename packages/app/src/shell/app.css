@@ -2214,6 +2214,11 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .projekt-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .projekt-kopf h3 { margin: 0; overflow-wrap: anywhere; }
 .projekt-kopf button { width: auto; padding: 6px 10px; }
+.projekt-kopf-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.projekt-neben { display: flex; flex-direction: column; gap: 6px; }
+.projekt-commit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding: 6px 0; }
+.projekt-commit-text { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+.projekt-commit button { width: auto; padding: 6px 10px; }
 .projekt-schritte { display: flex; flex-direction: column; gap: 8px; }
 .projekt-auftrag { white-space: pre-wrap; border-left: 3px solid var(--accent); padding-left: 8px; margin: 0; }
 .projekt-schritt { border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; background: var(--surf); }

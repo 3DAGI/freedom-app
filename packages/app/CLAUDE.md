@@ -841,4 +841,9 @@ Fallstricke dieses Bereichs unten anhängen.
   stehen nur im Speicher (`laeufe`), nie in `localStorage` oder `geheim` – Aufträge und Ausgaben sind Inhalt des Projekts.
   „fragen“ nie als „vor jedem Befehl“ beschreiben: Hermes fragt vor Änderungen an Dateien und riskanten Befehlen.
   Im Smoke-Test („projekt“) antwortet `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe.
+  Verlauf, Änderungen und „hierher zurück“ (seit VKe2b) nur über `frageKnotenCode()` mit den Aktionen `verlauf`,
+  `diff`, `zurueck`; der Diff nur über `zeigePatch()` (dieselbe Ansicht wie bei Repos, nur Text), zurück nur nach
+  `bestaetige()` – der Knoten legt einen neuen Commit an, nichts geht verloren, und Texte sagen nichts anderes.
+  Eine Vorschau der gebauten App nie in einem `blob:`- oder `srcdoc`-Rahmen versprechen: er erbt die CSP der App, und
+  ihr `script-src` verweigert jedes fremde Skript (gemessen 17.10., Frage VKg-W1).
 

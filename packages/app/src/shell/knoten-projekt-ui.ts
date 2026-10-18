@@ -2,22 +2,25 @@
  * Projekte-Seite (VKe, Entwurf `docs/VIBECODEN-ENTWURF.md`, VK6): ein Projekt meines Knotens als Blatt – Auftrag geben
  * (fragen oder frei), Schritte live (Gedanke, Befehl, Ausgabe), Freigaben mit Ja und Nein, Stopp, am Ende der Abschluss
  * des Agenten. Der Auftrag geht über `wegZumKnoten()` mit frischem Sitzungsschlüssel; Freigabe und Stopp sind eigene
- * Aufträge (`frageKnotenCode()`, hereingereicht – das Modul bleibt frei von Kreisen). Gezeigt wird nur Text, der
+ * Aufträge (`frageKnotenCode()`, hereingereicht – das Modul bleibt frei von Kreisen). „Verlauf“ (VKe2) zeigt die Commits,
+ * ihre Änderungen über die Patch-Ansicht der Repos (`zeigePatch()`) und setzt nach Rückfrage auf einen zurück – als neuen
+ * Commit, nichts geht verloren. Gezeigt wird nur Text, der
  * Abschluss über `markdownDom()`. Der Lauf gehört dem Knoten: Schließt man das Blatt, läuft er weiter; solange die App
  * offen ist, folgt sie ihm und zeigt ihn beim nächsten Öffnen wieder – nur im Speicher, nie gemerkt.
  */
-import { CODE_GRENZEN, LocalSigner, baueCodeAuftrag, generateKeypair, leseCodeAntwort, type CodeModus } from "@freedomstack/protocol";
-import { t } from "../i18n.js";
+import { CODE_GRENZEN, LocalSigner, baueCodeAuftrag, generateKeypair, leseCodeAntwort, type CodeCommit, type CodeModus } from "@freedomstack/protocol";
+import { gebietsschema, t } from "../i18n.js";
 import { LAUF_ZEIT_MS, codeText, endeText, neuerLauf, nimmSchritt, wartetAufMich, type LaufStand, type SchrittAnzeige } from "../knoten-lauf.js";
 import { CODE_TAKT_MS, CODE_ZEIT_MS, codeAblehnungText } from "../knoten-projekte.js";
 import { fehlerText } from "../protokoll-texte.js";
-import { alsModal } from "./dialog.js";
+import { alsModal, bestaetige } from "./dialog.js";
 import type { frageKnotenCode } from "./knoten-code-ui.js";
 import { powFuerKnoten } from "./knoten-status-ui.js";
 import { folgeLauf, wegZumKnoten } from "./knoten-weg-ui.js";
 import { markdownDom } from "./markdown-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
-import { el, toast } from "./ui.js";
+import { zeigePatch } from "./tabs/patch-seite.js";
+import { el, ladend, toast } from "./ui.js";
 
 type Frage = typeof frageKnotenCode;
 
@@ -98,14 +101,21 @@ async function starte(projekt: string, text: string, modus: CodeModus): Promise<
 
 /** Das Blatt eines Projekts öffnen – zeigt den letzten Lauf dieser Sitzung, wenn es einen gibt. */
 export function oeffneProjekt(projekt: string, frage: Frage): void {
-  const k = meineKopplung();
-  if (!k) return;
+  const gekoppelt = meineKopplung();
+  if (!gekoppelt) return;
+  const k = gekoppelt;
   offen?.schliesse();
   const huelle = el("div", undefined, "modal-backdrop projekt-huelle");
   const karte = el("div", undefined, "modal projekt-blatt");
   const zu = knopf(t("set.projektSchliessen"), "ghost projekt-zu");
+  const verlaufKnopf = knopf(t("set.projektVerlauf"), "ghost projekt-verlauf-knopf", t("set.projektVerlaufAria", { name: projekt }));
   const kopf = el("div", undefined, "projekt-kopf");
-  kopf.append(el("h3", t("set.projektTitel", { name: projekt })), zu);
+  const kopfKnoepfe = el("div", undefined, "projekt-kopf-knoepfe");
+  kopfKnoepfe.append(verlaufKnopf, zu);
+  kopf.append(el("h3", t("set.projektTitel", { name: projekt })), kopfKnoepfe);
+  /** Verlauf und Änderungen (VKe2) stehen hier statt Schritten und Auftrag. */
+  const neben = el("div", undefined, "projekt-neben");
+  neben.hidden = true;
   const schritte = el("div", undefined, "projekt-schritte");
   schritte.setAttribute("aria-live", "polite");
   const ende = el("div", undefined, "projekt-ende");
@@ -128,7 +138,7 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
   const knoepfe = el("div", undefined, "projekt-knoepfe");
   knoepfe.append(modus, stopp, los);
   fuss.append(wunsch, knoepfe);
-  karte.append(kopf, schritte, ende, fuss);
+  karte.append(kopf, neben, schritte, ende, fuss);
   huelle.append(karte);
 
   const antworte = async (z: SchrittAnzeige, ja: boolean): Promise<void> => {
@@ -158,6 +168,55 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
     modus.disabled = aktiv;
     stopp.hidden = !aktiv;
   }
+
+  const lauf = (an: boolean): void => {
+    neben.hidden = an;
+    for (const x of [schritte, ende, fuss]) x.hidden = !an;
+    verlaufKnopf.textContent = t(an ? "set.projektVerlauf" : "set.projektZumAuftrag");
+  };
+
+  const zeigeAenderungen = async (c: CodeCommit): Promise<void> => {
+    ladend(neben);
+    const r = await frage(k, { aktion: "diff", projekt, commit: c.id }, CODE_ZEIT_MS);
+    if ("grund" in r) return void neben.replaceChildren(el("p", r.grund, "mono-sm"));
+    if (r.antwort.aktion !== "diff") return;
+    neben.replaceChildren(...zeigePatch({
+      betreff: c.nachricht, commit: c.id, text: r.antwort.text, aktionen: [], zeit: c.zeit,
+      ...(r.antwort.gekuerzt ? { hinweis: t("set.projektDiffGekuerzt") } : {}),
+      zurueck: { text: t("set.projektZumVerlauf"), tun: () => void zeigeVerlauf() },
+    }));
+  };
+
+  const setzeZurueck = async (c: CodeCommit): Promise<void> => {
+    if (!await bestaetige({ titel: t("set.projektZurueckTitel"), text: t("set.projektZurueckText", { nachricht: c.nachricht }), ok: t("set.projektZurueck") })) return;
+    const r = await frage(k, { aktion: "zurueck", projekt, commit: c.id }, CODE_ZEIT_MS);
+    if ("grund" in r) return toast(r.grund, true);
+    if (r.antwort.aktion !== "zurueck") return;
+    toast(r.antwort.commit ? t("set.projektZurueckOk", { kurz: r.antwort.commit.slice(0, 7) }) : t("set.projektZurueckGleich"));
+    await zeigeVerlauf();
+  };
+
+  async function zeigeVerlauf(): Promise<void> {
+    lauf(false);
+    ladend(neben);
+    const r = await frage(k, { aktion: "verlauf", projekt }, CODE_ZEIT_MS);
+    if ("grund" in r) return void neben.replaceChildren(el("p", r.grund, "mono-sm"));
+    if (r.antwort.aktion !== "verlauf") return;
+    const commits = r.antwort.commits;
+    neben.replaceChildren(...(commits.length ? commits.map((c) => {
+      const z = el("div", undefined, "projekt-commit");
+      const text = el("div", undefined, "projekt-commit-text");
+      const datum = new Date(c.zeit * 1000).toLocaleString(gebietsschema(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      text.append(el("div", c.nachricht), el("div", t("set.projektCommitZeile", { datum, n: c.dateien }), "mono-sm"));
+      const aend = knopf(t("set.projektAenderungen"), "ghost", t("set.projektAenderungenAria", { nachricht: c.nachricht }));
+      aend.addEventListener("click", () => void zeigeAenderungen(c));
+      const zur = knopf(t("set.projektZurueck"), "ghost", t("set.projektZurueckAria", { nachricht: c.nachricht }));
+      zur.addEventListener("click", () => void setzeZurueck(c));
+      z.append(text, aend, zur);
+      return z;
+    }) : [el("p", t("set.projektVerlaufLeer"), "mono-sm")]));
+  }
+  verlaufKnopf.addEventListener("click", () => (neben.hidden ? void zeigeVerlauf() : lauf(true)));
 
   const schliesse = (): void => {
     huelle.remove();

@@ -1581,7 +1581,8 @@ def projekt_pruefen(browser, url: str) -> dict:
     """Projekte-Seite (VKe): gekoppelt (Code vorab im Speicher) listet „Projekte“ die Projekte des Knotens, „Öffnen“
     zeigt das Blatt; ein Auftrag geht versiegelt an den Knoten, der Schritt, der wartet, zeigt „Ja“ und „Nein“, „Ja“
     geht als eigener Auftrag hinaus, danach kommen Ausgabe und Abschluss (Markdown nur als Text). Der Knoten ist
-    `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059)."""
+    `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059). Seit VKe2: „Verlauf“
+    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
@@ -1648,6 +1649,39 @@ def projekt_pruefen(browser, url: str) -> dict:
         fett: b.querySelector('.projekt-abschluss strong')?.textContent ?? '', ausgabe: b.querySelector('.projekt-ausgabe summary').textContent,
         text: b.querySelector('.projekt-ausgabe pre').textContent, knoepfe: b.querySelectorAll('.projekt-freigabe button').length,
         los: b.querySelector('.projekt-los').disabled, stopp: b.querySelector('.projekt-stopp').hidden }; }""")
+    # Verlauf (VKe2): ein Commit, seine Änderungen in der Patch-Ansicht, zurück nach Rückfrage
+    # Titel des obersten Dialogs – das Blatt selbst ist auch einer (`alsModal()`)
+    letzter = "() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop()?.querySelector('h3')?.textContent ?? ''"
+    n = len(an_knoten())
+    s.click(".projekt-verlauf-knopf")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-commit", timeout=20000)
+    erg["verlauf"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { zeilen: [...b.querySelectorAll('.projekt-commit')].map(z => [z.querySelector('.projekt-commit-text div').textContent,
+        [...z.querySelectorAll('button')].map(x => x.getAttribute('aria-label'))]), auftrag_weg: b.querySelector('.projekt-fuss').hidden,
+        knopf: b.querySelector('.projekt-verlauf-knopf').textContent }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-commit button")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-neben .diff-datei", timeout=20000)
+    erg["aenderungen"] = ev("""() => { const b = document.querySelector('.projekt-neben');
+      return { datei: b.querySelector('.diff-datei-kopf .mono').textContent, neu: [...b.querySelectorAll('.diff-neu .diff-text')].map(z => z.textContent) }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-neben .patch-zurueck")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-commit", timeout=20000)
+    n = len(an_knoten())
+    ev("() => document.querySelectorAll('.projekt-commit button')[1].click()")
+    s.wait_for_function(f"() => ({letzter})() === 'Projekt zurücksetzen?'", timeout=10000)
+    erg["zurueck_frage"] = ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop().querySelector('p')?.textContent ?? ''")
+    erg["zurueck_vorher"] = len(an_knoten()) - n
+    ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop().querySelector('.dlg-knoepfe button:last-child').click()")
+    antworte(n + 1)
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Zurückgesetzt')", timeout=20000)
+    erg["zurueck"] = ev("() => document.getElementById('toast').textContent")
+    antworte(n + 2)
+    s.click(".projekt-verlauf-knopf")
+    erg["zurueck_zum_auftrag"] = ev("() => [document.querySelector('.projekt-neben').hidden, document.querySelector('.projekt-fuss').hidden]")
     # Schließen mit Esc – das Blatt ist weg, die Liste bleibt
     s.keyboard.press("Escape")
     s.wait_for_function("() => !document.querySelector('.projekt-blatt')", timeout=5000)
@@ -1665,8 +1699,16 @@ def projekt_pruefen(browser, url: str) -> dict:
     if erg["fertig"] != {"ende": "Fertig (Schritte: 1)", "abschluss": "Fertig: index.html angelegt.", "fett": "index.html", "ausgabe": "Ausgabe – Rückgabe 0",
                          "text": "hallo", "knoepfe": 0, "los": False, "stopp": True}:
         erg["fehler"].append(f"fertig {erg['fertig']}")
-    if erg["umschlaege"] != 3:
-        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe")
+    if erg["verlauf"] != {"zeilen": [["Schritt 1", ["Änderungen von „Schritt 1“ zeigen", "Projekt auf „Schritt 1“ zurücksetzen"]]], "auftrag_weg": True, "knopf": "Zum Auftrag"}:
+        erg["fehler"].append(f"Verlauf {erg['verlauf']}")
+    if erg["aenderungen"] != {"datei": "index.html", "neu": ["hallo"]}:
+        erg["fehler"].append(f"Änderungen {erg['aenderungen']}")
+    if not erg["zurueck_frage"].startswith("Der Stand nach „Schritt 1“ wird ein neuer Schritt") or erg["zurueck_vorher"] != 0:
+        erg["fehler"].append(f"Rückfrage {erg['zurueck_frage']} – vorher hinaus: {erg['zurueck_vorher']}")
+    if erg["zurueck"] != "Zurückgesetzt – neuer Schritt 2b2b2b2" or erg["zurueck_zum_auftrag"] != [True, False]:
+        erg["fehler"].append(f"zurück {erg['zurueck']} {erg['zurueck_zum_auftrag']}")
+    if erg["umschlaege"] != 8:
+        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf")
     erg["browser_dialoge"] = seite.browser_dialoge
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")

@@ -1,7 +1,7 @@
 // Mein Knoten für Browser-Prüfungen der Projekte-Seite (VKe): ein Wegwerf-Knoten, der Code-Aufträge (5080) so beantwortet
 // wie `handleCode` im Knoten – versiegelt an den Sitzungsschlüssel, nur mit Besitzer-Nachweis. Ein Lauf hat genau einen
 // Schritt, der auf Freigabe wartet; erst nach „ja“ kommen Ausgabe und Ergebnis. Nur für smoke_test.py, nie für ein echtes
-// Relay. Aufruf:
+// Relay. Verlauf, Änderungen und Zurück (VKe2) mit einem Commit. Aufruf:
 //   npx tsx scripts/knoten-code-probe.mts                       -> {"knoten": "<hex>", "sk": "<hex>", "geheimnis": "<hex>"}
 //   npx tsx scripts/knoten-code-probe.mts antworte <sk> <geheimnis>   (alle Umschläge an den Knoten als JSON auf stdin)
 //     -> [{"fuer": "<Id des Umschlags>", "events": [<Umschlag>…]}]   – je Auftrag die Antworten, so oft gefragt, wie es ihn gibt
@@ -51,6 +51,12 @@ if (process.argv[2] !== "antworte") {
         events.push(await ergebnis(lauf, { aktion: "auftrag", ende: "fertig", schritte: 1, abschluss: a.ja ? "Fertig: **index.html** angelegt." : "Nichts geändert." }));
       }
     } else if (a.aktion === "stopp") events.push(await ergebnis(r, { aktion: "stopp", ok: false }));
+    else if (a.aktion === "verlauf") events.push(await ergebnis(r, { aktion: "verlauf", commits: [{ id: "1a".repeat(20), nachricht: "Schritt 1", zeit: jetzt, dateien: 1 }] }));
+    else if (a.aktion === "diff") {
+      const text = [`From ${a.commit} Mon Sep 17 00:00:00 2001`, "From: Freedom-Agent <agent@knoten.invalid>", "Subject: [PATCH] Schritt 1", "", "---",
+        " index.html | 1 +", "", "diff --git a/index.html b/index.html", "new file mode 100644", "--- /dev/null", "+++ b/index.html", "@@ -0,0 +1 @@", "+hallo", ""].join("\n");
+      events.push(await ergebnis(r, { aktion: "diff", commit: a.commit, text, gekuerzt: false }));
+    } else if (a.aktion === "zurueck") events.push(await ergebnis(r, { aktion: "zurueck", commit: "2b".repeat(20) }));
     aus.push({ fuer: w.id, events });
   }
   console.log(JSON.stringify(aus));
