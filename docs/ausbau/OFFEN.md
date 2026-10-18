@@ -64,6 +64,17 @@ Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 
 Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 
+### 1.5 Atomic Agent (Spur B, 18.10.2026)
+
+Befund nach W2 A: `atomic-agent serve` sendet keine CORS-Kopfzeilen und beantwortet `OPTIONS` mit 404 (Quelltext
+`src/http/http-server.ts`, Commit `7899d17`). Die App im Browser – und die Web-Ansicht der Hülle – kann seine Antworten
+nicht lesen; „wie jeder lokale Server unter ‚Dieses Gerät‘“ geht so nicht. Details in
+[`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md).
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| AG-W5 | Wie weiter mit B-30a? | A B-30 schließen (Atomic Agent nur erwähnen: „braucht einen eigenen Vermittler“) · B die Desktop-Hülle reicht Anfragen an `127.0.0.1` selbst weiter (Rust, nur dieser Rechner; der Browser bleibt außen vor) · C nur ein Hinweis unter „Dieses Gerät“, dass es im Browser nicht geht | **A** – B wäre ein eigener Weg nur für ein Programm, das zudem Analyse standardmäßig an hat |
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
@@ -171,12 +182,11 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.5s4b | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt) (11.5s3 ✓: 4 GiB je Prozess über `ulimit -d`; 11.5s4a ✓: höchstens 1024 Prozesse je Befehl) | später, nachrangig |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
-| B-30a | Atomic Agent: Hinweis unter „Dieses Gerät“ (Adresse, Schlüssel, Werkzeuge und Analyse ehrlich genannt) | frei (AG-W1–W4 A, 18.10.; [`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) |
+| B-30a | Atomic Agent: Hinweis unter „Dieses Gerät“ (Adresse, Schlüssel, Werkzeuge und Analyse ehrlich genannt) | wartet auf AG-W5 (1.5): `atomic-agent serve` kennt kein CORS ([`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) |
 | B-31 | Werkzeuge über MCP, Kiwix – eigener schlanker MCP-Client im Knoten (stdio, JSON-RPC) – a ✓ (`mcp-client.ts`: Server aus `~/.freedom/mcp.json`, nur in der Sandbox, Werkzeuge `mcp__<server>__<werkzeug>` in der Agenten-Schleife) | frei – B-31b Kiwix als Nächstes (`kiwix-serve` aus Debian in der Sandbox, eigene Brücke als MCP-Server; Docker, Installer) |
 | B-32 | Reticulum als zweiter Funkweg (a Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop, c Oberfläche, d Android) | frei (PT2 A, PT3 A, 18.10.; [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-34 | Gruppenanrufe über LiveKit (a Dienst und Zugänge im Knoten, b Schlüssel aus MLS, c App, d Oberfläche) | frei (LK2–LK4 A, 18.10.; [`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md)) |
-| B-35c | Abgleich nach Funkstille: die App gleicht den eigenen Posteingang mit dem eigenen Knoten ab | frei (NG2 A, 18.10.; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |

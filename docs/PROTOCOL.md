@@ -1349,7 +1349,18 @@ ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfa
   Filter auf Umschläge ohne Anmeldung ergibt `blocked: … auth-required`). Höchstens 50 000 Events je Abgleich, Rahmen
   60 000 Byte, offene Abgleiche zählen wie Abos, jede Nachricht wie eine Abfrage. `NEG-ERR` nur mit festen Texten
   (`blocked:`, `closed:`, `error:`); NIP-11 nennt 77.
-- **Noch nicht:** der Abgleich nach Funkstille (B-35c: eigenes Relay mit anderen, Gateway).
+- **Client (seit B-35c):** `WebSocketRelay.abgleiche(filter, speicher)` beginnt (`NEG-OPEN`), führt die Runden bis zum
+  Ende und schließt (`NEG-CLOSE`); `brauche` hat der Relay, `habe` nur wir. Rahmen 60 000 Byte, höchstens 50 Runden
+  (`NEG_CLIENT`), je Nachricht die Zeitgrenze der Verbindung. Verlangt der Relay eine Anmeldung (`auth-required:` oder
+  `blocked: … (auth-required)`), meldet sich die Verbindung einmal an – nur über `anmelden` – und beginnt neu. Fehler nur
+  als `NegFehler`: `neg.anmeldung`, `neg.abgelehnt` (`NEG-ERR`), `neg.zeit` (keine Antwort – der Relay kennt NIP-77
+  vielleicht nicht), `neg.runden`, dazu die des Kerns. Im Pool über `OutboxPool.abgleicheAn()`.
+- **Abgleich nach einer Pause (seit B-35c, Entscheidung NG2 A):** Die App gleicht ihren Posteingang (Kind 1059 an den
+  eigenen Schlüssel, `since` = letzte Runde minus zwei Tage wegen der Rückdatierung nach NIP-59) mit dem eigenen Knoten
+  ab – nur gekoppelt und nur, wenn sein Relay im eigenen Satz steht. Die Umschläge beim Knoten sind der eigene Stand,
+  Negentropy mit jedem anderen Posteingang findet, was dem Knoten fehlt; geholt wird nur das, in Stücken (höchstens 500
+  je Runde), und beim Knoten abgelegt. Ein Posteingang ohne NIP-77 bleibt aus – nie alles laden.
+- **Noch nicht:** der Abgleich über ein Funk-Gateway und der Knoten mit seinen eigenen Events (NG2 B, später).
 
 ## 38. Cashu-Pfand für Lightning-Sitzungen (seit RM2a)
 

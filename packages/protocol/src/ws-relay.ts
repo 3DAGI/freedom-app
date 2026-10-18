@@ -11,9 +11,13 @@
  * Kein Framework: rohes WebSocket-API (Node 22+ hat es eingebaut).
  */
 import { NostrEvent } from "./event.js";
+import { NEG_GRENZEN, NegFehler, Negentropy, type NegSpeicher } from "./negentropy.js";
 import { Relay, RelayFilter } from "./outbox.js";
 
 interface WireMsg extends Array<unknown> {}
+
+/** Grenzen eines Abgleichs (B-35c1): Rahmen je Nachricht wie die Relay-Rolle, Runden bis zum Abbruch. */
+export const NEG_CLIENT = { rahmen: 60_000, runden: 50 } as const;
 
 export interface WebSocketRelayOptions {
   /** Timeout fuer Publish-Ack und Query-EOSE (ms). */
@@ -72,6 +76,8 @@ export class WebSocketRelay implements Relay {
   private challenge: string | null = null;
   private anmeldung: Promise<boolean> | null = null;
   private wiederholt = new Set<string>();
+  /** Laufende Abgleiche (NIP-77, B-35c1): je Kennung, wer auf die nächste Nachricht wartet. */
+  private negWartende = new Map<string, (art: "msg" | "err", text: string) => void>();
 
   constructor(
     public url: string,
@@ -176,6 +182,9 @@ export class WebSocketRelay implements Relay {
         this.okWaiters.delete(id);
         w.resolve(ok);
       }
+    } else if (type === "NEG-MSG" || type === "NEG-ERR") {
+      const [subId, text] = rest as [string, unknown];
+      if (typeof text === "string") this.negWartende.get(subId)?.(type === "NEG-MSG" ? "msg" : "err", text);
     } else if (type === "CLOSED") {
       const [subId, meldung] = rest as [string, string?];
       const req = this.pending.has(subId) || this.subscriptions.has(subId) ? this.reqs.get(subId) : undefined;
@@ -307,6 +316,60 @@ export class WebSocketRelay implements Relay {
         this.ws?.send(JSON.stringify(["CLOSE", subId]));
       } catch { /* Verbindung evtl. schon zu */ }
     };
+  }
+
+  /**
+   * Abgleich nach NIP-77 (B-35c1): die eigenen Einträge (`speicher`, versiegelt) gegen die des Relays unter
+   * `filter`. `brauche` hat der Relay und wir nicht, `habe` umgekehrt. Verlangt der Relay eine Anmeldung (Umschläge),
+   * meldet sich die Verbindung einmal an – nur über `anmelden` – und beginnt neu. Fehler nur als `NegFehler` mit
+   * Kennung, nie mit Text des Relays.
+   */
+  async abgleiche(filter: RelayFilter, speicher: NegSpeicher): Promise<{ habe: string[]; brauche: string[] }> {
+    await this.connect();
+    for (let versuch = 0; ; versuch++) {
+      const r = await this.einAbgleich(filter, speicher);
+      if (!("anmelden" in r)) return r;
+      if (versuch > 0 || !(await this.melde())) throw new NegFehler("neg.anmeldung");
+    }
+  }
+
+  private async einAbgleich(filter: RelayFilter, speicher: NegSpeicher): Promise<{ habe: string[]; brauche: string[] } | { anmelden: true }> {
+    const subId = `n${++this.subCounter}`;
+    const neg = new Negentropy(speicher, NEG_CLIENT.rahmen);
+    const habe: string[] = [], brauche: string[] = [];
+    let naechste: { art: "msg" | "err"; text: string } | null = null;
+    let wecke: (() => void) | null = null;
+    this.negWartende.set(subId, (art, text) => { naechste = { art, text }; wecke?.(); });
+    const sende = (m: unknown[]) => { naechste = null; this.ws?.send(JSON.stringify(m)); };
+    try {
+      sende(["NEG-OPEN", subId, filter, neg.beginne()]);
+      for (let runde = 0; runde < NEG_CLIENT.runden; runde++) {
+        const antwort = await new Promise<{ art: "msg" | "err"; text: string } | null>((fertig) => {
+          if (naechste) return fertig(naechste);
+          const uhr = setTimeout(() => fertig(null), this.timeoutMs);
+          wecke = () => { clearTimeout(uhr); fertig(naechste); };
+        });
+        wecke = null;
+        if (!antwort) throw new NegFehler("neg.zeit");
+        if (antwort.art === "err") {
+          // NIP-42 nennt „auth-required:“; die Relay-Rolle (B-35b) „blocked: … (auth-required)“
+          if (antwort.text.startsWith("auth-required:") || /\(auth-required\)/.test(antwort.text)) return { anmelden: true };
+          throw new NegFehler("neg.abgelehnt");
+        }
+        const r = neg.abgleich(antwort.text);
+        habe.push(...r.habe);
+        brauche.push(...r.brauche);
+        if (habe.length + brauche.length > NEG_GRENZEN.ids) throw new NegFehler("neg.gross");
+        if (r.antwort === null) return { habe, brauche };
+        sende(["NEG-MSG", subId, r.antwort]);
+      }
+      throw new NegFehler("neg.runden");
+    } finally {
+      this.negWartende.delete(subId);
+      try {
+        this.ws?.send(JSON.stringify(["NEG-CLOSE", subId]));
+      } catch { /* Verbindung evtl. schon zu */ }
+    }
   }
 
   /**

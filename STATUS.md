@@ -11568,3 +11568,33 @@ Verdrahtung, echt in bubblewrap mit einer Attrappe in Python: zwei Seiten, unzul
 nach dem Schließen nicht mehr erreichbar).
 
 Knoten-Stand: nur der Knoten, und nur mit `~/.freedom/mcp.json`.
+
+## Schritt B-35c – Posteingang nach einer Pause mit dem eigenen Knoten abgleichen
+
+Spur B, Entscheidung NG2 A (18.10.2026): Nur die App darf sich als Empfänger ihrer Umschläge anmelden – also gleicht
+sie ab, nicht der Knoten. Nach einer Pause holt sie, was an ihren Posteingängen liegt und dem Knoten fehlt, und legt es
+auch beim Knoten ab. Was fehlt, findet Negentropy (B-35a/b), ohne alle Umschläge zu laden.
+
+- **Protokoll:** `WebSocketRelay.abgleiche(filter, speicher)` – der Client zu NIP-77: `NEG-OPEN`, Runden bis zum Ende,
+  `NEG-CLOSE`; bei `auth-required` einmal anmelden (nur über `anmelden`) und neu beginnen; Grenzen `NEG_CLIENT`
+  (Rahmen 60 000 Byte, 50 Runden), Fehler nur als `NegFehler` (`neg.anmeldung`, `neg.abgelehnt`, `neg.zeit`,
+  `neg.runden`). `Relay.abgleiche?` und `OutboxPool.abgleicheAn()` für die Verbindung des Pools.
+- **App:** `posteingang-abgleich.ts` rechnet eine Runde: Stand = die Umschläge beim Knoten (seit der letzten Runde minus
+  zwei Tage, NIP-59), Negentropy mit jedem anderen Posteingang, nur das Fehlende in Stücken holen (höchstens 500 je
+  Runde), nur Umschläge an den eigenen Schlüssel, beim Knoten ablegen. Ein Posteingang ohne NIP-77 bleibt aus.
+  `shell/posteingang-knoten.ts` startet sie aus `syncDmInbox()`, wenn sie fällig ist (Start, wieder online, länger als
+  zehn Minuten verborgen), nur gekoppelt, nur mit dem Relay des Knotens im eigenen Satz, als Gerät nie; die Zeit der
+  Runde merkt sie im Tresor erst, wenn alles Geholte beim Knoten liegt. `gleicheAbAn()` (`state.ts`): im Pool über
+  dessen Verbindung, sonst über eine Nebenverbindung, ohne den Relay auszusetzen.
+- Text beim Übernehmen des Knoten-Relays (Settings) nennt, dass die App dort nach einer Pause ablegt.
+
+**Tests:** node +3 (echt gegen die Relay-Rolle: in beide Richtungen über mehrere Runden, Filter, Pool; Umschläge nur nach
+Anmeldung, einmal je Verbindung, als Fremder nie; Relay ohne NIP-77, Ablehnung, kaputte Antworten, endlose Runden – nur
+Kennungen), app +4 (eine Runde mit echtem Negentropy im Speicher, Knoten nicht erreichbar und untergeschobene Events,
+Grenzen und `seit`, Verdrahtung).
+
+**Befund zu B-30a (Atomic Agent), nur Doku:** `atomic-agent serve` sendet keine CORS-Kopfzeilen und beantwortet
+`OPTIONS` mit 404 (Quelltext, Commit `7899d17`) – die App kann seine Antworten im Browser nicht lesen, W2 A trägt so nicht.
+Frage AG-W5 in `OFFEN.md` 1.5, Befund in `ATOMIC-AGENT-ENTWURF.md`; B-30a wartet.
+
+Knoten-Stand: keiner nötig – die Relay-Rolle kann NIP-77 seit B-35b.

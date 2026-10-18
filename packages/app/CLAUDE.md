@@ -847,3 +847,12 @@ Fallstricke dieses Bereichs unten anhängen.
   Eine Vorschau der gebauten App nie in einem `blob:`- oder `srcdoc`-Rahmen versprechen: er erbt die CSP der App, und
   ihr `script-src` verweigert jedes fremde Skript (gemessen 17.10., Frage VKg-W1).
 
+- **Posteingang mit dem eigenen Knoten nur über `posteingang-abgleich.ts`** (seit B-35c, NG2 A): eine Runde nur aus
+  `syncDmInbox()` über `abgleichMitKnoten()` (`shell/posteingang-knoten.ts`) und nur, wenn sie fällig ist (Start,
+  `online`, länger als `pauseSek` verborgen – kein eigener Takt), nur gekoppelt, nur mit dem Relay des Knotens im eigenen
+  Satz (sonst dürfte die App sich dort nicht anmelden), als Gerät nie. Der Stand ist, was beim Knoten liegt; von den
+  anderen Posteingängen nur Ids aus `brauche` holen (Stücke von `jeAbfrage`, höchstens `hoechstens` je Runde – unter dem
+  Flutschutz des Knotens) und nur Umschläge an den eigenen Schlüssel ab `seit`. Ein Posteingang ohne NIP-77 bleibt aus –
+  nie stattdessen alles laden. Die Zeit der Runde (`freedom.posteingang.knotenRunde`, im Tresor) erst merken, wenn alles
+  Geholte beim Knoten liegt (`vollstaendig`). NIP-77 nur über `gleicheAbAn()` (`state.ts`): im Pool über dessen
+  Verbindung, sonst Nebenverbindung – den Fehler an `neben.mit()` vorbei, sonst wäre der Relay ausgesetzt (A-26).

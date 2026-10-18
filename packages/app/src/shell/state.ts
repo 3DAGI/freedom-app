@@ -8,7 +8,7 @@
  * Aus app.ts verschoben (Schritt 1.0) – woertlich, ohne Logikaenderung.
  */
 import {
-  LocalSigner, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth,
+  LocalSigner, type NegSpeicher, type NostrEvent, OutboxPool, type RelayFilter, type Signer, type UnsignedEvent, WebSocketRelay, baueRelayAuth,
   normalizeRelayUrl, startUrls, verifyEvent,
 } from "@freedomstack/protocol";
 import { zugaenge } from "../relay-kauf.js";
@@ -356,6 +356,20 @@ export async function frageAn(filter: RelayFilter, urls: readonly string[]): Pro
   const alle = new Map<string, NostrEvent>();
   for (const a of antworten) if (a.status === "fulfilled") for (const ev of a.value) if (!alle.has(ev.id) && verifyEvent(ev)) alle.set(ev.id, ev);
   return [...alle.values()];
+}
+
+/**
+ * Abgleich nach NIP-77 mit einem Relay (B-35c) – im Pool über dessen Verbindung, sonst über eine Nebenverbindung;
+ * angemeldet wird wie überall nur, wo `darfAnmelden()` es erlaubt. Ein Relay ohne NIP-77 ist kein kaputtes: Der Fehler
+ * läuft an `neben.mit()` vorbei, sonst wäre die Adresse ausgesetzt (A-26).
+ */
+export async function gleicheAbAn(url: string, filter: RelayFilter, speicher: NegSpeicher): Promise<{ habe: string[]; brauche: string[] }> {
+  const pool = await ensurePool();
+  const { imPool, fremd } = teileZiele(pool, [url]);
+  if (imPool[0]) return pool.abgleicheAn(imPool[0], filter, speicher);
+  const r = await neben.mit(fremd[0]!, nebenArt(), (v) => v.abgleiche(filter, speicher).then((ok) => ({ ok }), (fehler: unknown) => ({ fehler })));
+  if ("fehler" in r) throw r.fehler;
+  return r.ok;
 }
 
 /**
