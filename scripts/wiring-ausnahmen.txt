@@ -206,7 +206,6 @@ agent-auftrag.ts|agentAntwortTags|Agenten in Räumen (11.3b2, nur Protokoll) –
 agent-auftrag.ts|ausInnererNachricht|Agenten in Räumen (11.3b2, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
 agent-auftrag.ts|budgetStufe|Agenten in Räumen (11.3b2, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
 agent-auftrag.ts|naechsteStufe|Agenten in Räumen (11.3b2, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
-knoten-code.ts|leseCodeSchritt|Vibecoden auf dem eigenen Knoten: die App baut Aufträge und liest Schritte und Antworten erst mit der Projekte-Seite (A-31, VKe)
 repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag erst mit „Agent beauftragen“ (11.5b → 11.5d)
 repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)

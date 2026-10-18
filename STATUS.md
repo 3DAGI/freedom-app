@@ -11323,3 +11323,32 @@ das Startskript). `docker-vibecoden.test.ts` prüft MCP in der Sperrdatei.
 Knoten-Stand: Bild neu mit `VIBECODEN=1` (Sperrdatei geändert). MENSCH: im Echttest eine Aufgabe stellen, die eine Suche
 braucht, und im Log oder in der App den Schritt `web_search` sehen.
 
+## Schritt VKe1 – Projekte-Seite: Auftrag, Schritte, Freigabe, Stopp
+
+Spur C mit Bausteinen der Spur A, `docs/VIBECODEN-ENTWURF.md` (VK6, Aufteilung VKe). Gebaut am 17.10., während Spur A im
+Nutzungslimit ist – nach VKc3 läuft ein Auftrag jetzt bis zum Motor, also braucht er eine Seite.
+
+**Neu:**
+- „Mein Knoten“ › Projekte: „Öffnen“ an jeder Zeile und „Neues Projekt“ (Name nach `istProjektName()`, angelegt auf dem
+  Knoten, dann gleich geöffnet).
+- `shell/knoten-projekt-ui.ts`: das Projekt als Blatt – Auftrag schreiben, Modus „fragen“ oder „frei“, Schritte live
+  (Gedanke, Befehl, Ausgabe aufklappbar, gekürzt markiert), an einem wartenden Schritt „Ja“ und „Nein“, „Stopp“, am Ende
+  wie der Lauf endete und der Abschluss des Agenten als Markdown. Der Auftrag geht über `wegZumKnoten()` mit frischem
+  Sitzungsschlüssel; Freigabe und Stopp sind eigene Aufträge über `frageKnotenCode()`. Schließt man das Blatt, läuft der
+  Lauf auf dem Knoten weiter; solange die App offen ist, folgt sie ihm und zeigt ihn beim nächsten Öffnen – nur im Speicher.
+- `knoten-lauf.ts` (ohne DOM): `nimmSchritt()` ordnet nach `nr` und Art (Umschläge kommen in beliebiger Reihenfolge,
+  doppelte zählen nicht), `wartetAufMich()`, Texte für jedes Ende (`CODE_ENDE_TEXT`) und jede Rückgabe.
+- `knoten-weg-ui.ts`: `folgeLauf()` – Schritte (7000 `partial`) bis zum Ergebnis oder einer Ablehnung, jeder Umschlag
+  einmal. Damit ist `leseCodeSchritt()` verdrahtet (Zeile aus `wiring-ausnahmen.txt` entfernt).
+- Texte in beiden Sprachen; „fragen“ heißt ehrlich „fragt vor Änderungen an Dateien und riskanten Befehlen“ (VKc3a).
+
+**Browser-Test:** neuer Teil „projekt“ im Smoke-Test – gekoppelt, Liste, Blatt, ein Auftrag geht versiegelt an den Knoten
+(`scripts/knoten-code-probe.mts` hinter der Relay-Attrappe), der wartende Schritt zeigt „Ja“/„Nein“, „Ja“ geht als
+eigener Auftrag hinaus, danach Ausgabe und Abschluss; alles an den Knoten ist ein Umschlag.
+
+**Tests:** app +4 (`knoten-lauf.test.ts`: Ordnung und Dubletten, wann ein Schritt wartet, Texte je Ende in beiden
+Sprachen, Seite nur als Text und Wege nur über `wegZumKnoten()`/`frageKnotenCode()`).
+
+Umfang: rund 415 Zeilen Code, dazu Test, Smoke-Teil und Probe (643 insgesamt) – Verlauf, Diff und Zurück folgen als VKe2.
+Knoten-Stand: unverändert (Code-Aufträge seit VKc2, Motor seit VKc3).
+
