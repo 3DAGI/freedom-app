@@ -625,7 +625,7 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
 - **Werkzeuge (seit VKd1):** Hermes kann über deinen Knoten im Netz suchen
   (DuckDuckGo, nur Kurzantworten) und öffentliche Seiten als Text lesen (Freedom-MCP,
   `POST /mcp` an derselben Brücke). Die Sandbox selbst bleibt ohne Netz; es gehen nur
-  diese zwei Werkzeuge hinaus, mit den Grenzen der Werkzeuge des Knotens (http und
+  diese zwei Werkzeuge hinaus (Pakete gehen seit VKd3 eigene Wege, unten), mit den Grenzen der Werkzeuge des Knotens (http und
   https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
   Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
   Aufrufen nicht; in der App erscheinen sie als Schritt. Gelesen werden nur Seiten,
@@ -643,6 +643,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Pakete (seit VKd3):** `npm install` und `pip install` im Projekt gehen über
+  dieselbe Brücke. Der Knoten holt nur von registry.npmjs.org, pypi.org und
+  files.pythonhosted.org, nur lesend, ohne Weiterleitung, mit `TOR_SOCKS` durch Tor,
+  je Datei bis 50 MB, je Stunde höchstens 20 000 Abrufe und 4 GB. Prüfsummen rechnen
+  npm und pip selbst. Die Registry sieht die IP deines Knotens (oder den Ausgang von
+  Tor) und die Namen der Pakete. Andere Adressen (GitHub, CDNs) gehen aus der
+  Sandbox nicht.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

@@ -11999,3 +11999,34 @@ Spur C, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a (Vorschau-Se
   im Test seit VKe1, kein Fehler der App.
 
 Knoten-Stand: VKg1a (Code-Aktion `vorschau`) – ein älterer Knoten lehnt die Vorschau ab.
+
+## Schritt VKd3 – Pakete über die Brücke (npm, PyPI)
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK4: „Pakete holt der Knoten“, W6a). Ohne diesen Schritt ging in der Sandbox kein
+`npm install` – also keine React- oder Vite-App, die die Vorschau (VKg1) zeigen könnte.
+
+**Neu:**
+- `paket-spiegel.ts`: Die Brücke beantwortet `GET /npm/…` (registry.npmjs.org) und `/pypi/simple/…`, `/pypi/files/…`
+  (pypi.org, files.pythonhosted.org).
+  - Nur diese Pfade (`spiegelZiel()`), nur lesend, über `holeOderFehlt()` aus `pakete.ts`: feste Liste, ohne Weiterleitung,
+    SSRF-Wächter oder Tor, je Abruf höchstens 50 MB.
+  - Adressen in Paketlisten und Index zeigen danach auf die Brücke (`aufDieBruecke()`); Archive bleiben unverändert.
+  - Je Stunde höchstens 20 000 Abrufe und 4 GB (`SpiegelKonto`), sonst 429.
+  - Antworten nur mit festen Texten; ins Log nichts.
+- `hermes-motor.ts`: `.npmrc` und `pip.conf` im Home des Motors (`paketKonfiguration()`), vor jedem Start neu und nie durch
+  einen Verweis (`schreibeInsHeim()`, auch für `config.yaml`).
+- `pakete.ts`: `holeOderFehlt()` – wie `hole()`, 404 als „gibt es nicht“.
+- `PROVIDER.md` sagt, was die Registry sieht; Fallstrick in `packages/node/CLAUDE.md`.
+
+**Gemessen** (Sandbox ohne Netz, echte Registries):
+- `npm install vite@6 vue@3` (33 Pakete, mit den nativen Programmen von Rollup und esbuild) und `vite build` in 11 s.
+- `pip install six` in einem venv.
+- `curl https://registry.npmjs.org/` direkt aus der Sandbox geht nicht.
+
+**Tests:** node +4:
+- Ziele des Spiegels.
+- Über die Brücke: umgeschrieben, Archive unverändert, 404, 413, 502, andere Methoden und Pfade nie zur Registry.
+- Grenze je Stunde.
+- `.npmrc` und `pip.conf` im Motor, nie durch einen Verweis.
+
+Knoten-Stand: nur der Knoten.

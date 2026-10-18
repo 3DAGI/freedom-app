@@ -430,3 +430,10 @@ Bereichs unten anhängen.
   Pfad und Anfrage, nie Kopfzeilen des Browsers; abgelehnt nur mit festem Status, nie Text vom SFU. Was der SFU gleich
   nach dem Öffnen schickt, kommt vor dem Browser an (`resume` läuft per `nextTick` vor der Fortsetzung nach `await`) –
   `oeffne()` hebt es auf, bis `verbinde()` es zustellt. Die Anfrage trägt den Zugang zum Anruf: Adressen nie ins Log.
+- **Pakete nur über den Spiegel der Brücke** (seit VKd3, `paket-spiegel.ts`): npm und pip im Motor finden die Registry nur über
+  `.npmrc` und `pip.conf` im Home (`paketKonfiguration()`, geschrieben wie `config.yaml` über `schreibeInsHeim()` – nie durch
+  einen Verweis). Der Spiegel nimmt nur `GET`/`HEAD` auf `/npm/…` und `/pypi/simple|files/…` (`spiegelZiel()`), holt nur über
+  `holeOderFehlt()` von `PAKET_QUELLEN` und schreibt Adressen in Paketlisten und Index auf die Brücke um (`aufDieBruecke()`),
+  Archive nie. Ein neuer Weg nach draußen kommt nie als weiterer Pfad an die Brücke, sondern als eigene Entscheidung (VK-W4 B,
+  „Internet frei“). Node liegt in der Sandbox nur, wenn es unter `/usr` liegt (Docker-Bild: `/usr/local`) – im Test mit
+  `/opt/node22` dieses zusätzlich nur lesbar einbinden.
