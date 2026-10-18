@@ -13,6 +13,7 @@ import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { hermesAusUmgebung } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
+import { mcpAusDatei } from "./mcp-client.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -44,4 +45,8 @@ if (process.env.VIBECODEN?.trim() === "1") {
     for (const f of mcp.fehlt) console.log(`✗ Code: ${MCP_TEXT[f]}`);
   }
 }
-process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);
+// Werkzeuge über MCP (B-31a): nur ob mcp.json stimmt – gestartet werden die Server nur im laufenden Knoten, in der Sandbox
+const mcpServer = mcpAusDatei();
+if ("ungueltig" in mcpServer) console.log(`✗ Werkzeuge: ${mcpServer.ungueltig} – der Knoten startet so nicht`);
+else if (mcpServer.server.length > 0) console.log(`✓ Werkzeuge: ${mcpServer.server.length} MCP-Server in mcp.json (${mcpServer.server.map((s) => s.name).join(", ")}), laufen nur in der Sandbox`);
+process.exit(!antrieb || "ungueltig" in mcpServer || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);

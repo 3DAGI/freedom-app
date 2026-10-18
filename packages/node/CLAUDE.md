@@ -398,3 +398,12 @@ Bereichs unten anhängen.
   --no-sandbox` (Chromium dürfte in unserer Sandbox keine Namensräume anlegen), `--output-dir` im tmpfs (sonst landen
   Bildschirmfotos im Commit), nie `--caps`, `--port` oder `--allow-unrestricted-file-access`. Snapshots nennen Elemente
   mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`.
+- **MCP-Server für das Modell nur über `mcp-client.ts`** (seit B-31a, MC1-Größe B): eigener Client ohne SDK – keine
+  Abhängigkeit dafür einführen. Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`), gestartet nur über
+  `starteMcpServer()` in `sandboxMotor()` – nie ein Server außerhalb der Sandbox, nie mit Netz. Eingebunden wird nur
+  lesbar und nie die Wurzel, das Home, ein Ordner darüber oder `~/.freedom` (`zuWeit()`, auch der Ordner des Programms
+  außerhalb von `/usr`, auch hinter Verweisen – `realpath`). Namen fürs Modell höchstens 64 Zeichen
+  (OpenAI-kompatibel). Das Modell erreicht sie nur über `McpWerkzeuge` (`OllamaBackend.mcp`): Namen
+  `mcp__<server>__<werkzeug>`, Grenzen aus `WERKZEUG_GRENZEN`, Fehler nur als feste Texte – nie Text des Servers außer
+  dem Ergebnis selbst, nie Ein- oder Ausgaben ins Log. Die Server des Motors (Hermes, VKk) sind ein anderer Weg
+  (`mcp-katalog.ts`).

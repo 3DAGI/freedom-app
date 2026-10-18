@@ -11541,3 +11541,30 @@ MCO-W1:
 frei, MCO-W1 unter 1.2), Sammlung (B-30 bis B-37), FORTSCHRITT.
 
 Keine Code-Änderung, kein Knoten-Stand nötig.
+
+## Schritt B-31a – Eigener MCP-Client im Knoten
+
+Spur B, Entscheidung MC1-Größe B (18.10.2026): statt des MCP-SDK (29 MB, 95 Pakete) ein schlanker Client ohne
+Abhängigkeit. Der Knoten bietet dem Modell damit Werkzeuge aus MCP-Servern an, die der Betreiber festlegt – als Grundlage
+für Kiwix (B-31b) und Sprache (B-38).
+
+- `mcp-client.ts`: MCP über stdio (JSON-RPC 2.0, eine Nachricht je Zeile) – `initialize` mit der neuesten Fassung aus
+  `MCP_FASSUNGEN`, `tools/list` über alle Seiten, `tools/call`; Anfragen des Servers nur `ping`, sonst „Method not found“.
+  - Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`): Name, Programm mit absolutem Pfad, Ordner nur lesbar – nie
+    die Wurzel, das Home, ein Ordner darüber oder `~/.freedom`, auch nicht hinter einem Verweis. Eine kaputte Datei
+    hält den Start an.
+  - Jeder Server nur in der Sandbox (`sandboxMotor()`: ohne Netz, seccomp, Grenzen für Speicher und Prozesse), mit
+    eigenem Arbeitsordner, der mit ihm verschwindet.
+  - `McpWerkzeuge`: Werkzeuge als `mcp__<server>__<werkzeug>`, unzulässige Namen und zu große Schemas weg, höchstens 32
+    je Server, Namen höchstens 64 Zeichen (OpenAI-kompatibel); Grenzen wie die eingebauten Werkzeuge
+    (`WERKZEUG_GRENZEN`); Fehler nur als feste Texte.
+- `inference.ts`: `OllamaBackend.mcp` – die Agenten-Schleife bietet die Werkzeuge an und führt sie aus; ohne Werkzeuge
+  (gratis) auch keine von MCP.
+- `main.ts` startet die Server nach dem Antrieb, ins Log nur Namen und Zahlen; `npm run pruefen` zeigt die Datei.
+
+**Tests:** node +5 (`mcp.json` mit 15 unzulässigen Fällen und Verweisen auf `~/.freedom`, Grenzen samt Namen über
+64 Zeichen und feste Texte, Agenten-Schleife mit Werkzeug-Aufruf,
+Verdrahtung, echt in bubblewrap mit einer Attrappe in Python: zwei Seiten, unzulässiger Name weg, kein Netz, Zeitlimit,
+nach dem Schließen nicht mehr erreichbar).
+
+Knoten-Stand: nur der Knoten, und nur mit `~/.freedom/mcp.json`.

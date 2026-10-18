@@ -42,6 +42,7 @@ import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
+import { McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
@@ -207,6 +208,32 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log(`Inference-Backend bereit: ${backend.name()}`);
+
+  // Werkzeuge über MCP (B-31a, MC1-Größe B): Server nur aus ~/.freedom/mcp.json, nur in der Sandbox – ungültig → kein
+  // Start; ohne Sandbox oder wenn ein Server nicht startet, rechnet der Knoten ohne ihn (das Log sagt es)
+  const mcpServerWahl = mcpAusDatei();
+  if ("ungueltig" in mcpServerWahl) {
+    console.error(`[werkzeuge] ${mcpServerWahl.ungueltig} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  if (mcpServerWahl.server.length > 0) {
+    const sandbox = await pruefeSandbox();
+    if (!sandbox.ok) console.log(`[werkzeuge] MCP-Server aus – ${sandboxText(sandbox)}`);
+    else {
+      const kasten = new McpWerkzeuge();
+      for (const s of mcpServerWahl.server) {
+        try {
+          const { verbindung, werkzeuge } = await starteMcpServer(s);
+          kasten.nimm(s.name, verbindung, werkzeuge);
+          console.log(`[werkzeuge] MCP ${s.name}: ${werkzeuge.length} Werkzeuge, in der Sandbox`);
+        } catch (e) {
+          console.warn(`[werkzeuge] MCP ${s.name} startet nicht (${(e as Error).name})`);
+        }
+      }
+      if (kasten.anzahl > 0) backend.mcp = kasten;
+      process.on("exit", () => kasten.schliesse());
+    }
+  }
 
   // Relays: aus env, sonst oeffentliche Defaults. Offline-Relays werden beim
   // ersten Publish sichtbar; OutboxPool toleriert Teilausfaelle (minAcks).
