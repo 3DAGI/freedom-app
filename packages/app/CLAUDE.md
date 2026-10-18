@@ -885,4 +885,5 @@ Fallstricke dieses Bereichs unten anhängen.
   Oberfläche (seit B-34d) nur über `shell/gruppenanruf-ui.ts`: Knopf `#raum-anruf` und Zeilen `#raum-anrufe` nur im
   privaten Raum, die Leiste im Anruf über allem; Bild und Ton nur als Spuren aus `beiMedien()`, der eigene Ton nie. Im Anruf
   keine Namen – alle Eingeladenen sehen alle Zugänge, wer welchen nutzt, prüft niemand. Im Smoke-Test („privatraum“)
-  liefert `scripts/gruppenanruf-probe.mts` die Zugänge, die Relay-Attrappe schließt die Verbindung zum SFU (`ProbeRelay.sfu`).
+  liefert `scripts/gruppenanruf-probe.mts` die Zugänge, eine Hülle um WebSocket schließt die Verbindung zum SFU
+  (`GRUPPENANRUF_ZAEHLER`).
