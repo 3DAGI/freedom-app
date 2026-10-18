@@ -49,6 +49,10 @@ wird erst nach Freigabe.
 | W3 | Analyse und Absturzberichte | A nur mit abgeschalteter Analyse empfehlen (Hinweis nennt den Schalter) · B gar nicht empfehlen, solange Analyse standardmäßig an ist | **A** |
 | W4 | AG1 neu fassen? | A AG1 A gilt weiter für „eigene Wege“, umgesetzt über V2 · B B-30 schließen | **A** |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+W1 **A** (nicht als Motor im Knoten, Hermes bleibt), W2 **A** (unter „Dieses Gerät“ wie jeder lokale Server, mit ehrlichem Hinweis), W3 **A** (nur mit abgeschalteter Analyse empfehlen, der Hinweis nennt den Schalter), W4 **A** (B-30 bleibt, umgesetzt über V2 als B-30a). Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe, Empfehlung)
 
 | Schritt | Inhalt | Umfang |

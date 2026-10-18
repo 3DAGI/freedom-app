@@ -61,6 +61,10 @@ nennen (Messung an `freedom.html`, W5).
 | W4 | Wo zuerst? | A App mit RNode über WebSerial · B Gateway im Knoten · C beides zugleich | **A**, dann B |
 | W5 | Größe von `freedom.html` | A immer dabei · B nur in der Hülle (Desktop/Android) · C eigener Build | **A**, wenn der Zuwachs unter etwa 150 KB (gzip) bleibt – sonst neu fragen |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adresse versiegelt an Kontakte; B, persönlich per QR, zusätzlich), W3 **A** (direkt und über den eigenen Knoten), W4 **A** (zuerst die App mit RNode über WebSerial, dann das Gateway), W5 **A** (immer in `freedom.html`, solange der Zuwachs unter etwa 150 KB gepackt bleibt – sonst neu fragen). Damit ist B-32 frei; B-32a als Nächstes. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe)
 
 | Schritt | Inhalt | Umfang |
