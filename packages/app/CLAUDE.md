@@ -902,3 +902,10 @@ Fallstricke dieses Bereichs unten anhängen.
   Stimme nicht vorlesen, nie auf eine Netzstimme ausweichen. Die Spracherkennung des Browsers (`…Recognition`) schickt in
   Chrome den Ton an Google – nie benutzen, ein Test sucht danach. Im Smoke-Test („lokal“) spielt `SPRACHE_ATTRAPPE`
   `speechSynthesis` mit einer Netzstimme als Vorgabe.
+- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
+  was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
+  Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
+  Bestätigung (`freedom.reticulum.funk`, `leseFunkWahl()`). Eine Region gibt es nur mit Quelle; ohne Eintrag sendet die App
+  dort nicht – nie eine Vorgabe raten. Neue Regionen oder Grenzen nur mit dem Primärtext (Beschluss der Kommission bzw. der
+  Behörde des Landes) und Testfall. Verbunden wird nur über `verbindeRNode()` (`RNodeWebSerialInterface`, prüft das Echo der
+  Firmware); Meldungen der Bibliothek nie zeigen. Im Test spricht eine Attrappe KISS wie die Firmware (`rnode-funk.test.ts`).

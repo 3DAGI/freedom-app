@@ -214,6 +214,13 @@ export async function wireMeshTab(): Promise<void> {
     }
   };
 
+  // RNode (B-32b1, RN-W6 A): Region bestätigen, dann verbinden – vorerst hört sie nur zu
+  const rnode = $("#mesh-rnode");
+  if (rnode) rnode.onclick = async () => {
+    const { rnodeKnopf } = await import("../rnode-ui.js");
+    await rnodeKnopf($("#mesh-status"));
+  };
+
   void zeigeOfflineFaehigkeiten("lora");
 
   const netz = $("#net-mode") as HTMLSelectElement | null;
