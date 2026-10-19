@@ -138,6 +138,26 @@ Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
 - Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme
   auf demselben Rechner könnten den Zugang ebenfalls nutzen (sie bekämen nur Tor).
 
+**Brücken (seit B-33b1, Desktop):** Wo Tor gesperrt ist, geht arti über eine Brücke
+(`src/bruecken.rs`, `docs/TOR-BRUECKEN-ENTWURF.md`): Snowflake – eingebaut sind die zwei
+Zeilen aus Snowflake 2.14.1, dieselben wie im Tor Browser – oder WebTunnel (Zeilen von
+bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
+
+- Die Programme `freedom-snowflake` und `freedom-webtunnel` liegen neben dem Programm der
+  Hülle (gebaut von `scripts/pt-bauen.sh`, beigelegt ab B-33b2); arti startet sie selbst.
+  Fehlen sie, sagt `netz_stand` `bruecken_moeglich: false`, und `netz_setzen` lehnt Brücken
+  ab (`bruecken-fehlen`).
+- Die Wahl steht in `netz.json`: `"bruecken": true`, eigene Zeilen in `"zeilen"`.
+  `netz_setzen` nimmt dazu `bruecken` und `zeilen` (fehlen sie, bleibt es, wie es war; eine
+  leere Liste heißt: die eingebauten). Zeilen gelten nur geprüft – Transport `snowflake` oder
+  `webtunnel`, IP mit Port, Fingerabdruck 40 Hex, nur sichtbare ASCII-Zeichen, höchstens 16 –,
+  sonst Fehler `zeile:<stelle>:<kennung>`. Die App erfährt nur ihre Zahl (`eigene_zeilen`).
+- Mit Brücken geht arti nur über sie ins Tor-Netz. Fehlt ein Programm oder gilt eine
+  gemerkte Zeile nicht, startet arti nicht (`fehler: "bruecke"`) – nie still ohne Brücke.
+- Geprüft ist der Weg bis zur Brücke mit einer Attrappe des Programms (arti startet es und
+  verbindet sich mit Adresse und Parametern der Zeile); ins Tor-Netz kommt arti hier nicht –
+  den Live-Test macht der MENSCH, am besten aus einem Netz mit Sperre.
+
 **Android (6.1b2a):** wry setzt dort keinen Proxy. Die Hülle setzt ihn über JNI mit
 androidx.webkit (`ProxyController`, steckt in Tauris Android-Vorlage) für alle WebViews
 der App (`src/android_tor.rs`). Der Zugang spricht dafür auch HTTP CONNECT (am ersten Byte

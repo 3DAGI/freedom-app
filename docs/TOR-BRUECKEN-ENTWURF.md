@@ -74,7 +74,8 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 | Schritt | Inhalt | Umfang |
 |---|---|---|
 | B-33a ✓ | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf – `scripts/pt-bauen.sh`, Workflow „Tor-Brücken“ | ~150 |
-| B-33b | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe | ~300 |
+| B-33b1 ✓ | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe – `bruecken.rs` | ~300 |
+| B-33b2 | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
 | B-33c | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
 | B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
 
@@ -97,6 +98,18 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 | Android arm64 | 16,9 MB (5,9 MB) | 5,2 MB (2,0 MB) |
 
   Je Paket der Hülle kommen damit rund 22 MB entpackt (etwa 8 MB gepackt) dazu – wie im Entwurf geschätzt.
+
+## Stand B-33b1 (19.10.2026)
+
+- **arti:** Feature `pt-client` (bringt `bridge-client` mit). Neu im Bau ist nur die Crate `tor-ptmgr` 0.46.0 – vom
+  Tor-Projekt wie arti, MIT oder Apache-2.0, rund 2400 Zeilen Rust.
+- **Hülle:** `bruecken.rs` prüft Zeilen (V4), kennt die eingebauten Snowflake-Zeilen und sucht die Programme neben dem
+  eigenen Programm (`freedom-snowflake`, `freedom-webtunnel`). `netz.json` trägt `bruecken` und `zeilen`; `netz_setzen`
+  nimmt beides, `netz_stand` nennt `bruecken`, `bruecken_aktiv`, `bruecken_moeglich` und die Zahl der eigenen Zeilen.
+  Mit Brücken startet arti nur mit ihnen; fehlt ein Programm oder gilt eine Zeile nicht, gar nicht (`fehler: "bruecke"`).
+- **Geprüft:** Ein Test startet arti mit einer Attrappe des Programms – arti startet sie nach der PT-Spezifikation und
+  verbindet sich über ihren SOCKS-Zugang mit Adresse und Parametern der Brücke (`url`, `fronts`).
+- **Offen:** beilegen (B-33b2), Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH).
 
 ## Quellen
 

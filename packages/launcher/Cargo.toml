@@ -22,9 +22,10 @@ sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# 6.1b1a: Tor in der Hülle – arti freigegeben 07.10.2026 (Desktop, seit 6.1b2a auch Android)
+# 6.1b1a: Tor in der Hülle – arti freigegeben 07.10.2026 (Desktop, seit 6.1b2a auch Android);
+# `pt-client` seit B-33b1 für Brücken (PT2 A) – bringt nur `tor-ptmgr` (Tor-Projekt, MIT oder Apache-2.0) dazu
 [target.'cfg(not(target_os = "ios"))'.dependencies]
-arti-client = { version = "=0.46.0", default-features = false, features = ["tokio", "rustls", "compression", "static-sqlite", "onion-service-client"] }
+arti-client = { version = "=0.46.0", default-features = false, features = ["tokio", "rustls", "compression", "static-sqlite", "onion-service-client", "pt-client"] }
 tokio = { version = "1", features = ["net", "io-util", "time", "sync"] }
 # rustls (über arti) braucht einen Krypto-Anbieter, den das Programm festlegt – ring steckt schon darin
 rustls = { version = "0.23", default-features = false, features = ["ring"] }

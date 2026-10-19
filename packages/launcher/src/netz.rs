@@ -5,30 +5,39 @@
 //! Start – der Proxy eines Webviews steht beim Bauen des Fensters fest (unter
 //! Android setzt ihn `android_tor.rs`, bevor die App lädt). Mit „Tor“ bekommt das
 //! Fenster immer einen Proxy, auch wenn arti nicht startet: Dann scheitern die
-//! Verbindungen, statt still direkt hinauszugehen.
+//! Verbindungen, statt still direkt hinauszugehen. Mit Brücken (B-33b, `bruecken.rs`) geht
+//! arti nur über sie ins Tor-Netz – fehlt ein Programm oder gilt eine Zeile nicht, startet
+//! arti nicht (nie still ohne Brücke).
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-#[derive(Serialize, Deserialize)]
-struct Datei {
-    tor: bool,
+/// Die Wahl in `netz.json`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Wahl {
+    pub tor: bool,
+    /// Tor über Brücken (B-33b) – ohne eigene Zeilen die eingebauten von Snowflake.
+    #[serde(default)]
+    pub bruecken: bool,
+    /// Eigene Brücken-Zeilen, geprüft (`bruecken::pruefe_zeilen()`) – sie bleiben nur in dieser Datei.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub zeilen: Vec<String>,
 }
 
 /// Die gespeicherte Wahl – fehlt die Datei oder ist sie kaputt: direkt.
-pub fn lies_wahl(datei: &Path) -> bool {
-    std::fs::read(datei).ok().and_then(|d| serde_json::from_slice::<Datei>(&d).ok()).is_some_and(|d| d.tor)
+pub fn lies_wahl(datei: &Path) -> Wahl {
+    std::fs::read(datei).ok().and_then(|d| serde_json::from_slice::<Wahl>(&d).ok()).unwrap_or_default()
 }
 
 /// Schreibt die Wahl – erst eine neue Datei ganz, dann umbenennen.
-pub fn schreibe_wahl(datei: &Path, tor: bool) -> std::io::Result<()> {
+pub fn schreibe_wahl(datei: &Path, wahl: &Wahl) -> std::io::Result<()> {
     if let Some(ordner) = datei.parent() {
         std::fs::create_dir_all(ordner)?;
     }
     let neu = datei.with_extension("neu");
-    std::fs::write(&neu, serde_json::to_vec(&Datei { tor }).map_err(std::io::Error::other)?)?;
+    std::fs::write(&neu, serde_json::to_vec(wahl).map_err(std::io::Error::other)?)?;
     std::fs::rename(neu, datei)
 }
 
@@ -40,6 +49,8 @@ pub struct Netz {
     datei: Option<PathBuf>,
     /// Diese Sitzung läuft über Tor (der Proxy des Fensters).
     aktiv: bool,
+    /// … und über Brücken.
+    bruecken_aktiv: bool,
     port: Option<u16>,
     bereit: Arc<AtomicBool>,
     fehler: Arc<Mutex<Option<&'static str>>>,
@@ -60,23 +71,42 @@ pub struct NetzStand {
     pub aktiv: bool,
     /// arti ist verbunden (Bootstrap fertig).
     pub bereit: bool,
-    /// `start` (arti startet nicht), `bootstrap` (keine Verbindung ins Tor-Netz) oder
-    /// `proxy` (das Webview nahm den Proxy nicht an – unter Android bleibt die App dann ungeladen).
+    /// `start` (arti startet nicht), `bootstrap` (keine Verbindung ins Tor-Netz),
+    /// `proxy` (das Webview nahm den Proxy nicht an – unter Android bleibt die App dann ungeladen)
+    /// oder `bruecke` (Brücken gewählt, aber ein Programm fehlt oder eine Zeile gilt nicht).
     pub fehler: Option<&'static str>,
+    /// Brücken gewählt – gilt ab dem nächsten Start (B-33b).
+    pub bruecken: bool,
+    /// Diese Sitzung läuft über Brücken.
+    pub bruecken_aktiv: bool,
+    /// Die Programme der Brücken liegen bei (Desktop).
+    pub bruecken_moeglich: bool,
+    /// So viele eigene Zeilen sind gemerkt (die Zeilen selbst bleiben in der Hülle).
+    pub eigene_zeilen: usize,
 }
 
 impl Netz {
     /// Liest die Wahl und startet – auf dem Desktop, wenn gewählt – Tor.
     pub fn starte<R: tauri::Runtime>(pfade: &tauri::path::PathResolver<R>) -> Self {
         let datei = pfade.app_data_dir().ok().map(|d| d.join("netz.json"));
-        let gewaehlt = datei.as_deref().is_some_and(lies_wahl);
+        let wahl = datei.as_deref().map(lies_wahl).unwrap_or_default();
         let bereit = Arc::new(AtomicBool::new(false));
         let fehler = Arc::new(Mutex::new(None));
-        let (aktiv, port) = if TOR_MOEGLICH && gewaehlt { (true, starte_tor(pfade, &bereit, &fehler)) } else { (false, None) };
+        let aktiv = TOR_MOEGLICH && wahl.tor;
+        let bruecken = (aktiv && wahl.bruecken).then(|| crate::bruecken::zeilen_fuer(&wahl.zeilen));
+        let port = match &bruecken {
+            Some(Err(_)) => {
+                *fehler.lock().unwrap() = Some("bruecke");
+                None
+            }
+            _ if aktiv => starte_tor(pfade, &bereit, &fehler, bruecken.and_then(Result::ok)),
+            _ => None,
+        };
         if aktiv && port.is_none() {
-            *fehler.lock().unwrap() = Some("start");
+            fehler.lock().unwrap().get_or_insert("start");
         }
-        Netz { datei, aktiv, port, bereit, fehler, proxy_moeglich: Arc::new(AtomicBool::new(cfg!(desktop))) }
+        let bruecken_aktiv = aktiv && wahl.bruecken;
+        Netz { datei, aktiv, bruecken_aktiv, port, bereit, fehler, proxy_moeglich: Arc::new(AtomicBool::new(cfg!(desktop))) }
     }
 
     /// Der Proxy fürs Fenster (Desktop, SOCKS5): mit Tor immer einer – startet nichts, einer, der nie antwortet.
@@ -104,26 +134,36 @@ impl Netz {
     }
 
     pub fn stand(&self) -> NetzStand {
+        let wahl = self.datei.as_deref().map(lies_wahl).unwrap_or_default();
         NetzStand {
             verfuegbar: TOR_MOEGLICH && self.proxy_moeglich.load(Ordering::SeqCst),
-            tor: self.datei.as_deref().is_some_and(lies_wahl),
+            tor: wahl.tor,
             aktiv: self.aktiv,
             bereit: self.aktiv && self.bereit.load(Ordering::SeqCst),
             fehler: if self.aktiv { *self.fehler.lock().unwrap() } else { None },
+            bruecken: wahl.bruecken,
+            bruecken_aktiv: self.bruecken_aktiv,
+            bruecken_moeglich: TOR_MOEGLICH && crate::bruecken::moeglich(),
+            eigene_zeilen: wahl.zeilen.len(),
         }
     }
 }
 
-/// Startet Tor und meldet den Port des Zugangs.
+/// Startet Tor (mit Brücken, wenn `bruecken` Zeilen nennt) und meldet den Port des Zugangs.
 #[cfg(any(desktop, target_os = "android"))]
-fn starte_tor<R: tauri::Runtime>(pfade: &tauri::path::PathResolver<R>, bereit: &Arc<AtomicBool>, fehler: &Arc<Mutex<Option<&'static str>>>) -> Option<u16> {
+fn starte_tor<R: tauri::Runtime>(
+    pfade: &tauri::path::PathResolver<R>,
+    bereit: &Arc<AtomicBool>,
+    fehler: &Arc<Mutex<Option<&'static str>>>,
+    bruecken: Option<Vec<String>>,
+) -> Option<u16> {
     let zustand = pfade.app_data_dir().ok()?.join("tor");
     let cache = pfade.app_cache_dir().ok()?.join("tor");
-    tor_start::starte(zustand, cache, bereit.clone(), fehler.clone()).ok()
+    tor_start::starte(zustand, cache, bereit.clone(), fehler.clone(), bruecken).ok()
 }
 
 #[cfg(not(any(desktop, target_os = "android")))]
-fn starte_tor<R: tauri::Runtime>(_: &tauri::path::PathResolver<R>, _: &Arc<AtomicBool>, _: &Arc<Mutex<Option<&'static str>>>) -> Option<u16> {
+fn starte_tor<R: tauri::Runtime>(_: &tauri::path::PathResolver<R>, _: &Arc<AtomicBool>, _: &Arc<Mutex<Option<&'static str>>>, _: Option<Vec<String>>) -> Option<u16> {
     None
 }
 
@@ -133,17 +173,43 @@ pub fn netz_stand(n: tauri::State<'_, Netz>) -> NetzStand {
 }
 
 /// Speichert die Wahl; mit `neustart` startet die Hülle gleich neu (der Proxy gilt ab dem Start).
+/// `bruecken` und `zeilen` (B-33b) bleiben, wie sie sind, wenn sie fehlen; eigene Zeilen gelten nur alle
+/// zusammen (Fehler `zeile:<stelle>:<kennung>`), eine leere Liste heißt: die eingebauten.
 #[tauri::command]
-pub fn netz_setzen<R: tauri::Runtime>(app: tauri::AppHandle<R>, n: tauri::State<'_, Netz>, tor: bool, neustart: bool) -> Result<NetzStand, String> {
-    if tor && !n.stand().verfuegbar {
+pub fn netz_setzen<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    n: tauri::State<'_, Netz>,
+    tor: bool,
+    neustart: bool,
+    bruecken: Option<bool>,
+    zeilen: Option<Vec<String>>,
+) -> Result<NetzStand, String> {
+    let stand = n.stand();
+    if tor && !stand.verfuegbar {
         return Err("nicht-verfuegbar".into());
     }
     let Some(datei) = &n.datei else { return Err("keine-ablage".into()) };
-    schreibe_wahl(datei, tor).map_err(|_| "ablage".to_string())?;
+    let wahl = neue_wahl(lies_wahl(datei), tor, bruecken, zeilen, stand.bruecken_moeglich)?;
+    schreibe_wahl(datei, &wahl).map_err(|_| "ablage".to_string())?;
     if neustart {
         neu_starten(&app);
     }
     Ok(n.stand())
+}
+
+/// Die neue Wahl aus der alten – Brücken nur, wenn ihre Programme beiliegen.
+fn neue_wahl(alt: Wahl, tor: bool, bruecken: Option<bool>, zeilen: Option<Vec<String>>, moeglich: bool) -> Result<Wahl, String> {
+    let mut wahl = Wahl { tor, ..alt };
+    if let Some(z) = zeilen {
+        wahl.zeilen = crate::bruecken::pruefe_zeilen(&z).map_err(|(i, f)| format!("zeile:{i}:{}", f.kennung()))?;
+    }
+    if let Some(b) = bruecken {
+        if b && !moeglich {
+            return Err("bruecken-fehlen".into());
+        }
+        wahl.bruecken = b;
+    }
+    Ok(wahl)
 }
 
 /// Der Ausweg der Warteseite (Android): direkt wählen und schließen – nur auf Klick.
@@ -151,7 +217,8 @@ pub fn netz_setzen<R: tauri::Runtime>(app: tauri::AppHandle<R>, n: tauri::State<
 pub fn direkt_und_neu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> ! {
     use tauri::Manager;
     if let Some(datei) = app.try_state::<Netz>().and_then(|n| n.datei.clone()) {
-        let _ = schreibe_wahl(&datei, false);
+        let wahl = Wahl { tor: false, ..lies_wahl(&datei) };
+        let _ = schreibe_wahl(&datei, &wahl);
     }
     neu_starten(app);
 }
@@ -174,21 +241,34 @@ mod tor_start {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
 
-    /// Bindet den Zugang (Port vom System), startet arti und meldet den Port.
-    pub fn starte(zustand: PathBuf, cache: PathBuf, bereit: Arc<AtomicBool>, fehler: Arc<Mutex<Option<&'static str>>>) -> std::io::Result<u16> {
+    /// Bindet den Zugang (Port vom System), startet arti – mit `bruecken` nur über sie – und meldet den Port.
+    pub fn starte(
+        zustand: PathBuf,
+        cache: PathBuf,
+        bereit: Arc<AtomicBool>,
+        fehler: Arc<Mutex<Option<&'static str>>>,
+        bruecken: Option<Vec<String>>,
+    ) -> std::io::Result<u16> {
         let lauscher = std::net::TcpListener::bind("127.0.0.1:0")?;
         lauscher.set_nonblocking(true)?;
         let port = lauscher.local_addr()?.port();
         // arti nimmt den Krypto-Anbieter, den das Programm festlegt (schon festgelegt: auch gut)
         let _ = rustls::crypto::ring::default_provider().install_default();
         // Ein Fehler in arti darf die Hülle nicht reißen – dann scheitern nur die Verbindungen
-        let client = std::panic::catch_unwind(|| {
+        let fehler_bruecke = fehler.clone();
+        let client = std::panic::catch_unwind(move || {
             tauri::async_runtime::block_on(async move {
                 let mut cfg = arti_client::config::TorClientConfigBuilder::from_directories(zustand, cache);
                 // Unter Android gehören die Ordner über den App-Daten dem System (Gruppe
                 // schreibbar) – arti lehnte sie ab. Dort schützt die Sandbox je App.
                 if cfg!(target_os = "android") {
                     cfg.storage().permissions().dangerously_trust_everyone();
+                }
+                if let Some(zeilen) = &bruecken {
+                    if crate::bruecken::konfiguriere(&mut cfg, zeilen, crate::bruecken::programm).is_err() {
+                        *fehler_bruecke.lock().unwrap() = Some("bruecke");
+                        return None;
+                    }
                 }
                 let cfg: TorClientConfig = cfg.build().ok()?;
                 TorClient::builder().config(cfg).create_unbootstrapped().ok()
@@ -209,7 +289,7 @@ mod tor_start {
                 })
             }
             None => {
-                *fehler.lock().unwrap() = Some("start");
+                fehler.lock().unwrap().get_or_insert("start");
                 Arc::new(|_z: Ziel| Box::pin(async { Err::<Box<dyn Strom>, _>(std::io::Error::other("tor")) }))
             }
         };
@@ -251,23 +331,56 @@ mod tests {
         o
     }
 
+    fn tor(tor: bool) -> Wahl {
+        Wahl { tor, ..Wahl::default() }
+    }
+
     #[test]
     fn ohne_datei_direkt_und_die_wahl_bleibt() {
         let d = ordner("wahl").join("netz.json");
-        assert!(!lies_wahl(&d));
-        schreibe_wahl(&d, true).unwrap();
-        assert!(lies_wahl(&d));
-        schreibe_wahl(&d, false).unwrap();
-        assert!(!lies_wahl(&d));
+        assert_eq!(lies_wahl(&d), tor(false));
+        schreibe_wahl(&d, &tor(true)).unwrap();
+        assert_eq!(lies_wahl(&d), tor(true));
+        schreibe_wahl(&d, &tor(false)).unwrap();
+        assert_eq!(lies_wahl(&d), tor(false));
         std::fs::write(&d, b"{kaputt").unwrap();
-        assert!(!lies_wahl(&d), "kaputt heißt direkt – die Wahl zeigt die App, nichts geht still über Tor verloren");
+        assert_eq!(lies_wahl(&d), tor(false), "kaputt heißt direkt – die Wahl zeigt die App, nichts geht still über Tor verloren");
         std::fs::remove_dir_all(d.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn brueckenwahl_in_derselben_datei_alte_bleibt_lesbar() {
+        let d = ordner("bruecken").join("netz.json");
+        std::fs::create_dir_all(d.parent().unwrap()).unwrap();
+        std::fs::write(&d, br#"{"tor":true}"#).unwrap();
+        assert_eq!(lies_wahl(&d), tor(true), "netz.json vor B-33b");
+        let w = Wahl { tor: true, bruecken: true, zeilen: vec![crate::bruecken::SNOWFLAKE_EINGEBAUT[0].into()] };
+        schreibe_wahl(&d, &w).unwrap();
+        assert_eq!(lies_wahl(&d), w);
+        schreibe_wahl(&d, &tor(true)).unwrap();
+        assert_eq!(std::fs::read_to_string(&d).unwrap(), r#"{"tor":true,"bruecken":false}"#, "ohne Zeilen keine leere Liste");
+        std::fs::remove_dir_all(d.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn neue_wahl_brueckenzeilen_nur_geprueft_und_nur_mit_programmen() {
+        let alt = Wahl { tor: true, bruecken: true, zeilen: vec![crate::bruecken::SNOWFLAKE_EINGEBAUT[1].into()] };
+        // Ohne Angaben zu Brücken bleibt deren Wahl – auch beim Ausweg „direkt“
+        assert_eq!(neue_wahl(alt.clone(), false, None, None, false), Ok(Wahl { tor: false, ..alt.clone() }));
+        assert_eq!(neue_wahl(alt.clone(), true, Some(true), None, false), Err("bruecken-fehlen".into()));
+        assert_eq!(neue_wahl(alt.clone(), true, Some(false), None, false).map(|w| w.bruecken), Ok(false), "abschalten geht immer");
+        let eingefuegt = vec![format!("Bridge {}", crate::bruecken::SNOWFLAKE_EINGEBAUT[0]), "webtunnel 192.0.2.9:443 kurz".into()];
+        assert_eq!(neue_wahl(alt.clone(), true, Some(true), Some(eingefuegt), true), Err("zeile:1:fingerabdruck".into()));
+        let w = neue_wahl(alt.clone(), true, Some(true), Some(vec![format!("Bridge {}", crate::bruecken::SNOWFLAKE_EINGEBAUT[0])]), true).unwrap();
+        assert_eq!(w.zeilen, vec![crate::bruecken::SNOWFLAKE_EINGEBAUT[0].to_string()], "in fester Form gemerkt");
+        assert_eq!(neue_wahl(w, true, None, Some(vec![]), true).map(|w| w.zeilen.len()), Ok(0), "leer: wieder die eingebauten");
     }
 
     fn netz(aktiv: bool, port: Option<u16>, fehler: Option<&'static str>, proxy_moeglich: bool) -> Netz {
         Netz {
             datei: None,
             aktiv,
+            bruecken_aktiv: false,
             port,
             bereit: Arc::new(AtomicBool::new(true)),
             fehler: Arc::new(Mutex::new(fehler)),
