@@ -86,6 +86,30 @@ App deshalb vor jedem fremden Anruf; Details in [`GRUPPENANRUF-ENTWURF.md`](../G
 |---|---|---|---|
 | LK5 | Soll der eigene Knoten die Signalverbindung zum fremden SFU weiterreichen, damit dessen Betreiber die IP nicht sieht? | A ja: eine Weiterleitung im Relay des eigenen Knotens (nur für den Besitzer, nur `wss://` zu öffentlichen Adressen aus einer Einladung, ein eigener Schritt im Knoten und in der App) · B nein: es bleibt bei der Rückfrage vor dem Beitritt | **A** – erst dann hält der Weg über den eigenen Knoten, was LK4 A wollte; bis dahin sagt die App es ehrlich (B) |
 
+### 1.7 Sprache lokal (Spur B, 19.10.2026)
+
+Entwurf [`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md) (B-38): whisper.cpp (MIT) für Text aus Sprache, Piper (seit dem Umzug
+GPL-3, eigenes Programm) zum Vorlesen; der Browser nur mit lokalen Stimmen, nie `SpeechRecognition` (Chrome schickt den
+Ton an Google).
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| SP-W1 | Wo wird Sprache zu Text? | A eigener Knoten und „Dieses Gerät“ · B nur eigener Knoten · C dazu fremde Provider (NIP-90 5000) | **A** – C mit A-11 |
+| SP-W2 | Vorlesen | A nur lokale Stimmen des Geräts · B dazu Piper auf dem eigenen Knoten · C nur Piper | **A** |
+| SP-W3 | Piper (GPL-3) als eigenes Programm im Knoten? (nur bei SP-W2 B/C) | A ja, wie `kiwix-serve` · B nein | **A** |
+| SP-W4 | Vorgabe-Modell für Whisper | A base (142 MiB) · B small (466 MiB) · C large-v3-turbo-q5_0 (547 MiB, mit GPU) | **C** auf dem GX10, A ohne GPU |
+| SP-W5 | Ton wandeln | A im Browser (16-kHz-PCM) · B ffmpeg im Knoten | **A** |
+| SP-W6 | Whisper auch als MCP-Werkzeug für den Agenten | A später · B gleich | **A** |
+
+### 1.8 Reticulum mit RNode (Spur B, 19.10.2026)
+
+Vor B-32b: Eine RNode sendet nur mit den Funkparametern, die die App ihr gibt; was erlaubt ist, hängt von der Region ab.
+Details in [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md), Abschnitt „Frage vor B-32b“.
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| RN-W6 | Woher kommen die Funkparameter? | A Vorgaben je Region, vor dem ersten Senden bestätigt, Abweichen nur innerhalb der Grenzen · B alles selbst eintragen · C wie A ohne Grenzen | **A** |
+
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
@@ -196,10 +220,10 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30a | Atomic Agent: Hinweis unter „Dieses Gerät“ (Adresse, Schlüssel, Werkzeuge und Analyse ehrlich genannt) | wartet auf AG-W5 (1.5): `atomic-agent serve` kennt kein CORS ([`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) |
-| B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – b als Nächstes |
+| B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | b wartet auf RN-W6 (1.8: Funkparameter je Region); RN-W1–W5 A, 18.10. ([`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop – b1 Logik, b2 Pakete –, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“), b1 ✓ (`bruecken.rs`: arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen, Test mit Attrappe), b2 ✓ (Programme in den Paketen, geprüft gegen den Bau), c ✓ (Schalter „Über eine Brücke“, eigene Zeilen auch per QR-Code, ehrliche Texte), d ✓ (Android: Programme als `lib<name>.so` im APK, mit cgo für DNS, im APK geprüft) | Code fertig; MENSCH: Live-Test mit einem Paket aus dem Lauf, Desktop und Android ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
-| B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
+| B-38 | Sprache lokal (whisper.cpp, Piper) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | wartet auf SP-W1–W6 (1.7) |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | nach VKg2 (Bildstrom) |
 | VKi | Windows: Wine und Hangover | nach VKg2 (Bildstrom) |

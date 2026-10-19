@@ -11885,3 +11885,21 @@ Workflows; app gleich (1258, Rückfrage unter Android im bestehenden Test). Das 
 erreichbar – den cgo-Bau zeigt die CI.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-38-Entwurf – Sprache lokal (und Frage RN-W6 vor B-32b)
+
+Spur B, nur Dokumente. Sammlung B-38 ist nach B-31 frei; wie bei B-30 bis B-37 erst ein Entwurf.
+
+- **`docs/SPRACHE-ENTWURF.md`:** whisper.cpp v1.9.5 (MIT; Modelle base 142 MiB bis large-v3-turbo-q5_0 547 MiB),
+  `whisper-server` sendet selbst `Access-Control-Allow-Origin: *` – „Dieses Gerät“ geht ohne Umweg; mit `--convert` ruft er
+  ffmpeg auf fremde Dateien auf, ohne Größengrenze. Piper ist seit dem Umzug nach `piper1-gpl` GPL-3 (bettet espeak-ng
+  ein), 34 MB plus onnxruntime – als eigenes Programm wie `kiwix-serve`. Im Browser nie `SpeechRecognition` (Chrome
+  schickt den Ton an Google), beim Vorlesen nur Stimmen mit `localService`. Vorschläge V1–V6, Fragen SP-W1–W6, Aufteilung
+  B-38a–d.
+- **`docs/RETICULUM-ENTWURF.md`:** Frage RN-W6 vor B-32b – eine RNode sendet nur mit den Funkparametern der App; Vorschlag:
+  Vorgaben je Region mit Bestätigung. Bisher stand die Frage nur im Chat.
+- **`OFFEN.md`:** 1.7 (SP-W1–W6) und 1.8 (RN-W6); B-32b und B-38 warten darauf.
+
+**Tests:** kein Code geändert.
+
+Knoten-Stand: unverändert.
