@@ -11773,3 +11773,29 @@ Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V1).
 **Tests:** der Workflow selbst (zweimal bauen, Summen vergleichen); Paket-Tests unverändert.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-33b1 – Tor-Brücken in der Hülle (Desktop)
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V3, V4). B-33b ist geteilt: b1 die Logik der
+Hülle, b2 die Programme in den Paketen.
+
+- **arti mit `pt-client`:** neu im Bau ist nur die Crate `tor-ptmgr` 0.46.0 (Tor-Projekt, MIT oder Apache-2.0).
+- **`bruecken.rs`** (neu): `pruefe_zeile()` (V4: Transport `snowflake` oder `webtunnel`, IP mit Port, Fingerabdruck
+  40 Hex, Parameter `schlüssel=wert`, nur sichtbare ASCII-Zeichen, feste Form ohne „Bridge“, zuletzt der Leser von
+  arti), höchstens 16 Zeilen, alle oder keine. Eingebaut die zwei Zeilen aus `client/torrc` von Snowflake 2.14.1 (ein
+  Test bindet sie an die Fassung in `pt-bauen.sh`). Programme nur mit festem Namen neben der Hülle
+  (`freedom-snowflake`, `freedom-webtunnel`); `konfiguriere()` schaltet Brücken fest an und legt je genutztem
+  Transport ein verwaltetes Programm an – fehlt eines, gilt nichts.
+- **`netz.rs`:** `netz.json` trägt `bruecken` und `zeilen` (alte Dateien bleiben lesbar). Mit Brücken startet arti nur
+  mit ihnen; gilt eine gemerkte Zeile nicht oder fehlt ein Programm, startet arti nicht (`fehler: "bruecke"`, das
+  Fenster bekommt trotzdem den toten Proxy) – nie still ohne Brücke, kaputte eigene Zeilen nie still durch die
+  eingebauten ersetzt. `netz_setzen` nimmt `bruecken` und `zeilen` (Fehler `zeile:<stelle>:<kennung>`,
+  `bruecken-fehlen`), `netz_stand` nennt `bruecken`, `brueckenAktiv`, `brueckenMoeglich`, `eigeneZeilen` – die Zeilen
+  selbst bleiben in der Hülle. Kein neues Kommando, keine neue Erlaubnis.
+
+**Tests:** Hülle +9 (54): Zeilen (gültig, jede Art Fehler), alle oder keine, Programme nur mit festem Namen, arti nimmt
+Zeilen und Programme an, alte `netz.json`, neue Wahl, eingebaute Zeilen zur Fassung – und eine Attrappe des Programms:
+arti startet sie nach der PT-Spezifikation und verbindet sich über ihren SOCKS-Zugang mit Adresse und Parametern der
+Snowflake-Brücke. Ins Tor-Netz kommt arti hier nicht; den Live-Test macht der MENSCH.
+
+Knoten-Stand: unverändert.

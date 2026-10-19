@@ -6,13 +6,15 @@
 //! im Netz – das tut nur die App, mit denselben Regeln wie im Browser. Eine neuere
 //! Oberfläche installiert die Hülle seit 6.1a3b nur nach eigener Prüfung
 //! (`installation.rs`, `update.rs`). Der Verkehr der App geht auf Wunsch über Tor
-//! (6.1b1a Desktop, 6.1b2a Android: `netz.rs`, `tor.rs`, `android_tor.rs`). Die App darf
+//! (6.1b1a Desktop, 6.1b2a Android: `netz.rs`, `tor.rs`, `android_tor.rs`), auf dem Desktop auch
+//! über Brücken (B-33b: `bruecken.rs`). Die App darf
 //! nur die Kommandos aus `capabilities/oberflaeche.json` rufen. Kamera und Mikrofon
 //! regelt seit 6.1d `erlaubnis.rs`.
 
 mod ablage;
 #[cfg(target_os = "android")]
 mod android_tor;
+mod bruecken;
 mod erlaubnis;
 mod installation;
 mod netz;
