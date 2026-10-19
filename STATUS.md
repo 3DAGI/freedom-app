@@ -11824,3 +11824,19 @@ nur zu 127.0.0.1 – im README und im Entwurf vermerkt (für die Texte in B-33c)
 Plattform (NSIS nur dort).
 
 Knoten-Stand: unverändert.
+
+## Schritt SH1-Test – Gegenprobe ohne Zufallstreffer
+
+Spur B (gefunden in der CI von #529, Bereich von SH1/Spur A, nur ein Test).
+
+- **Befund:** `succession.test.ts` › „SH1: alte Anteile (Fassung 1) bleiben lesbar – gemischt nie“ war gelegentlich rot.
+  Die Gegenprobe rechnete einen zufälligen Dreier von Anteilen der Fassung 2 (Privy: zufällige x-Werte, Körper 0x11b) mit
+  der Rechnung der Fassung 1 (x = Nummer, Körper 0x11d) und verlangte, dass nicht das Geheimnis herauskommt. Ob das zufällig
+  doch passt, hängt nur an den x-Werten, für alle 32 Byte zugleich. Gemessen in 100 000 Läufen: in 795 passte einer der zehn
+  Dreier, in 2 zwei, nie mehr; der feste erste Dreier allein etwa jeder 250. Lauf.
+- **Fix:** Die Gegenprobe prüft alle zehn Dreier und verlangt, dass nicht alle passen. „Gemischt nie“ prüft weiter die
+  Zeile davor (Fassungen werden nie gemischt). Fallstrick in `packages/protocol/CLAUDE.md`.
+
+**Tests:** Anzahl gleich (protocol 1342); `succession.test.ts` 40-mal hintereinander grün.
+
+Knoten-Stand: unverändert.
