@@ -11861,3 +11861,27 @@ Dialog bleibt offen, die Form von bridges.torproject.org geht als eine Zeile an 
 Brücke und Tor mit Neustart; nichts davon im Speicher der App.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-33d – Tor-Brücken unter Android
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V2). Letzter Teil von B-33.
+
+- **Befund:** Ohne cgo fragt Go unter Android 127.0.0.1:53 nach Namen (kein `/etc/resolv.conf`; Go: „DNS requests don't
+  work on Android, so prefer the cgo resolver“) – Snowflake und WebTunnel fänden ihr Ziel nie. `pt-bauen.sh` baut die
+  Android-Programme darum mit cgo gegen das NDK 27.3.13750724 (dasselbe wie das APK, API 24, Abschnitte auf 16 KB); die
+  übrigen Plattformen bleiben ohne cgo und bitgleich (lokal verglichen). Ohne NDK bricht der Bau ab.
+- **APK:** `pt-beilegen.sh … aarch64-linux-android` legt `libfreedom_snowflake.so` und `libfreedom_webtunnel.so` nach
+  `jniLibs/arm64-v8a/`, Lizenztexte nach `assets/bruecken-lizenzen/`; `scripts/android-bruecken.py` (neu) schaltet in
+  `build.gradle.kts` das Entpacken beim Installieren ein (`useLegacyPackaging`) und das Strippen für beide aus.
+- **Hülle:** `bruecken::programm()` sucht unter Android im Ordner der eigenen Bibliothek (`/proc/self/maps`, ohne JNI);
+  `dateiname()`, `bibliotheksordner()`.
+- **CI:** Job „Android-APK“ braucht jetzt „bruecken“ und prüft die Programme im APK (Byte für Byte, komprimiert,
+  `extractNativeLibs` nicht aus, Ausrichtung ab 16 KB, Lizenzen); beide Bau-Jobs holen das NDK.
+- **Oberfläche:** Rückfrage unter Android „Die App schließt sich …“ (`set.brueckeAnTextAndroid`,
+  `set.brueckeAusTextAndroid`), „Gerät“ statt „Rechner“ im Text zur Brücke.
+
+**Tests:** Hülle +2 (57): Namen und Ordner unter Android (auch: nur im APK → keine Brücken), dasselbe NDK in Skript und
+Workflows; app gleich (1258, Rückfrage unter Android im bestehenden Test). Das NDK ist aus der Entwicklungsumgebung nicht
+erreichbar – den cgo-Bau zeigt die CI.
+
+Knoten-Stand: unverändert.

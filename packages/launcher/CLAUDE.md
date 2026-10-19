@@ -77,3 +77,9 @@ Fallstricke dieses Bereichs unten anhängen.
   (141, so in der ersten CI von B-33b2); `grep … > /dev/null` liest bis zum Ende. Was die Prüfung entpackt, nie unter
   `target/` liegen lassen – ein grüner Lauf legt `target/` in den Cache, der nächste baut darauf (danach scheiterte
   linuxdeploy auf arm64 einmal ohne Grund im Log; seitdem baut Linux mit `--verbose`).
+  Unter Android (seit B-33d) nur als `lib/arm64-v8a/libfreedom_<name>.so` (`dateiname()`), gefunden über den Ordner der
+  eigenen Bibliothek aus `/proc/self/maps` (`bibliotheksordner()`) – nie aus dem App-Ordner starten (W^X seit API 29).
+  `gen/android` entsteht je Lauf: Programme nur über `pt-beilegen.sh … aarch64-linux-android` nach `android init`, Gradle nur
+  über `scripts/android-bruecken.py` (`useLegacyPackaging = true`, sonst bleiben sie im APK und es gibt keinen Ordner;
+  `keepDebugSymbols`, sonst strippt das Release sie und der Vergleich mit dem Bau scheitert). Das Entpacken gilt dann für
+  alle Bibliotheken der App – die Installation wird größer, der Download nicht.

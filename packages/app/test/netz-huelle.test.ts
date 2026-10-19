@@ -146,6 +146,15 @@ test("B-33c: Brücken setzen nur über die Hülle – mit Brücke auch Tor", asy
     assert.equal(await setzeBruecken({ tor: true, neustart: true, bruecken: true }, null), "Die Wahl ließ sich nicht speichern – es bleibt, wie es war.");
     assert.match(brueckeRueckfrage(true, "desktop").text, /freiwillige Proxys deine IP-Adresse .* DNS .* Geht die Brücke nicht, geht nichts hinaus\.$/);
     assert.equal(brueckeRueckfrage(false, "desktop").ok, "Neu starten");
+    // B-33d: Android startet nicht neu, die App schließt sich – Text und Knopf sagen das
+    const androidAn = brueckeRueckfrage(true, "android");
+    assert.match(androidAn.text, /^Die App schließt sich\. Öffnest du sie wieder, geht sie über Tor mit einer Brücke ins Netz/);
+    assert.match(androidAn.text, /dein Gerät fragt sein DNS .* Geht die Brücke nicht, geht nichts hinaus\.$/);
+    assert.doesNotMatch(androidAn.text, /startet neu|Rechner/);
+    assert.equal(androidAn.ok, "App schließen");
+    assert.match(brueckeRueckfrage(false, "android").text, /^Die App schließt sich\. .*ohne Brücke/);
+    assert.equal(brueckeRueckfrage(false, "android").ok, "App schließen");
+    assert.doesNotMatch(brueckeRueckfrage(true, "desktop").text, /schließt sich/);
   } finally {
     setLang("en");
   }

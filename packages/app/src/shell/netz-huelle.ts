@@ -109,12 +109,13 @@ export async function setzeTor(an: boolean, aufruf: HuellenAufruf | null = huell
   }
 }
 
-/** Die Rückfrage zu Brücken: mit Brücke geht die App über Tor (wenn nötig, schaltet sie es mit ein). */
+/** Die Rückfrage zu Brücken: mit Brücke geht die App über Tor (wenn nötig, schaltet sie es mit ein). Android schließt die App (B-33d). */
 export function brueckeRueckfrage(an: boolean, art: HuellenArt): { titel: string; text: string; ok: string } {
+  const android = art === "android";
   return {
     titel: t(an ? "set.brueckeAnTitel" : "set.brueckeAusTitel"),
-    text: t(an ? "set.brueckeAnText" : "set.brueckeAusText"),
-    ok: t(art === "android" ? "set.torSchliessen" : "set.torNeustart"),
+    text: t(an ? (android ? "set.brueckeAnTextAndroid" : "set.brueckeAnText") : android ? "set.brueckeAusTextAndroid" : "set.brueckeAusText"),
+    ok: t(android ? "set.torSchliessen" : "set.torNeustart"),
   };
 }
 
