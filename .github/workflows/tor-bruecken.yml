@@ -1,0 +1,42 @@
+# Tor-Brücken (B-33a, Entscheidungen PT2 A, PT3 A, docs/TOR-BRUECKEN-ENTWURF.md V1): baut `snowflake-client` und den
+# WebTunnel-Client aus den Quellen für alle Plattformen der Hülle – zweimal, an zwei Pfaden, und vergleicht die
+# Summen (scripts/pt-bauen.sh --pruefen). Ablage als Artefakt des Laufs mit Lizenztexten und SHA256SUMS; kein Release,
+# beigelegt werden die Programme erst mit B-33b (Desktop) und B-33d (Android).
+
+name: Tor-Brücken
+
+on:
+  push:
+    branches: [main]
+    paths: ["scripts/pt-bauen.sh", ".github/workflows/tor-bruecken.yml"]
+  pull_request:
+    paths: ["scripts/pt-bauen.sh", ".github/workflows/tor-bruecken.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bauen:
+    name: Snowflake und WebTunnel bauen (reproduzierbar)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dieselbe Fassung wie GO_FASSUNG im Skript – ohne Cache, die Module kommen über proxy.golang.org und sum.golang.org
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+
+      - name: Bauen und vergleichen
+        run: bash scripts/pt-bauen.sh --pruefen tor-bruecken
+
+      - name: Programme ablegen (Artefakt, kein Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tor-bruecken
+          path: tor-bruecken
+          retention-days: 14
+          if-no-files-found: error

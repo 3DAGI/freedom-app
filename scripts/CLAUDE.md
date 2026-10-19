@@ -86,3 +86,11 @@ dieses Bereichs unten anhängen.
   ohne dass eine Frist greift. Eine Verbindung, die gleich scheitern soll, im Browser nachstellen: eine Hülle um
   `window.WebSocket` per `Object.defineProperty` (Getter und Setter – Playwright setzt seine eigene Fassung danach), wie
   `GRUPPENANRUF_ZAEHLER` für den SFU.
+- **Tor-Brücken nur aus den Quellen** (seit B-33a, `pt-bauen.sh`): `snowflake-client` und WebTunnel-Client nur über
+  `go install <modul>/<paket>@<version>` – go.mod und go.sum der Projekte gelten, nie ein eigenes go.mod mit `go get`
+  (MVS könnte andere Fassungen wählen), nie Programme herunterladen. Go nur über `GO_FASSUNG` (`GOTOOLCHAIN`) und
+  `setup-go` mit derselben Zahl; ändern nur zusammen und mit `--pruefen`. Mit `GOBIN` baut Go nicht für andere
+  Plattformen – die Programme liegen dann unter `$GOPATH/bin/<os>_<arch>/`. Der Modul-Cache ist nur lesbar: vor dem
+  Löschen `chmod -R u+w`, Dateien daraus nur mit `install -m 0644` kopieren – `cp` übernimmt den Schreibschutz, und das
+  zweite Programm mit demselben Modul scheitert (CI rot, als root lokal nicht zu sehen; prüfen mit
+  `setpriv --reuid=65534`). Ohne Lizenztext eines Moduls bricht der Bau ab.

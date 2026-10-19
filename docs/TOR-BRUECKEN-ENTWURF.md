@@ -73,10 +73,30 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 
 | Schritt | Inhalt | Umfang |
 |---|---|---|
-| B-33a | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf | ~150 |
+| B-33a ✓ | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf – `scripts/pt-bauen.sh`, Workflow „Tor-Brücken“ | ~150 |
 | B-33b | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe | ~300 |
 | B-33c | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
 | B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
+
+## Stand B-33a (19.10.2026)
+
+- **Bau:** `scripts/pt-bauen.sh` baut beide Programme mit `go install <modul>/<paket>@<version>` – go.mod und go.sum der
+  Projekte gelten unverändert, geprüft gegen sum.golang.org. Go 1.24.7 (`GOTOOLCHAIN`), ohne cgo, `-trimpath
+  -buildvcs=false`, ohne Build-Id; Snowflake für Android mit `-checklinkname=0`. `--pruefen` baut zweimal an zwei
+  Pfaden und vergleicht die Summen – reproduzierbar (lokal und im Workflow „Tor-Brücken“, Artefakt `tor-bruecken`,
+  14 Tage).
+- **Lizenzen:** Je Plattform liegen in `lizenzen/` die Texte jedes Moduls, das in ein Programm eingeht (`go list -deps`,
+  31 Module samt NOTICE-Dateien); fehlt einem Modul der Text, bricht der Bau ab.
+- **Größe** (entpackt, mit gzip -9):
+
+| Plattform | `snowflake-client` | WebTunnel-Client |
+|---|---|---|
+| Linux x86_64 | 16,8 MB (6,2 MB) | 5,0 MB (2,1 MB) |
+| Linux arm64 | 15,1 MB (5,6 MB) | 4,8 MB (1,9 MB) |
+| Windows x86_64 | 17,2 MB (6,3 MB) | 5,2 MB (2,1 MB) |
+| Android arm64 | 16,9 MB (5,9 MB) | 5,2 MB (2,0 MB) |
+
+  Je Paket der Hülle kommen damit rund 22 MB entpackt (etwa 8 MB gepackt) dazu – wie im Entwurf geschätzt.
 
 ## Quellen
 
