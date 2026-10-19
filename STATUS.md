@@ -11756,3 +11756,20 @@ die Brücke gegen echtes `kiwix-serve` mit einem ZIM aus `zimwriterfs`, initiali
 über `mcp.json`).
 
 Knoten-Stand: wer Kiwix nutzen will, braucht den Knoten ab diesem Stand und `kiwix-tools`; sonst unverändert.
+
+## Schritt B-33a – Tor-Brücken: Snowflake und WebTunnel aus den Quellen bauen
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V1).
+
+- **`scripts/pt-bauen.sh`:** baut `snowflake-client` (Snowflake 2.14.1, BSD-3-Clause) und den WebTunnel-Client (0.0.7,
+  MIT) für Linux x86_64 und arm64, Windows x86_64 und Android arm64 – mit `go install` aus den Modulen (deren go.mod und
+  go.sum, geprüft gegen sum.golang.org), Go 1.24.7, ohne cgo, `-trimpath -buildvcs=false`, ohne Build-Id; Snowflake für
+  Android mit `-checklinkname=0`. Je Plattform die Lizenztexte aller eingehenden Module (fehlt einer, kein Bau), dazu
+  `SHA256SUMS`. `--pruefen` baut zweimal an zwei Pfaden – lokal reproduzierbar.
+- **Workflow „Tor-Brücken“** (`tor-bruecken.yml`): bei Änderungen am Skript und von Hand; Artefakt `tor-bruecken`
+  (14 Tage), kein Release. Beigelegt werden die Programme erst mit B-33b (Desktop) und B-33d (Android).
+- **Größe:** je Plattform rund 22 MB entpackt, etwa 8 MB gepackt (Tabelle im Entwurf, „Stand B-33a“).
+
+**Tests:** der Workflow selbst (zweimal bauen, Summen vergleichen); Paket-Tests unverändert.
+
+Knoten-Stand: unverändert.

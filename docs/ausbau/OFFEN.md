@@ -197,7 +197,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30a | Atomic Agent: Hinweis unter „Dieses Gerät“ (Adresse, Schlüssel, Werkzeuge und Analyse ehrlich genannt) | wartet auf AG-W5 (1.5): `atomic-agent serve` kennt kein CORS ([`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) |
 | B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – b als Nächstes |
-| B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop, c Oberfläche, d Android) | frei (PT2 A, PT3 A, 18.10.; [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
+| B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“) | frei – B-33b als Nächstes (arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen) ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |
