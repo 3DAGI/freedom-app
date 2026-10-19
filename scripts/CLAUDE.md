@@ -94,3 +94,9 @@ dieses Bereichs unten anhängen.
   Löschen `chmod -R u+w`, Dateien daraus nur mit `install -m 0644` kopieren – `cp` übernimmt den Schreibschutz, und das
   zweite Programm mit demselben Modul scheitert (CI rot, als root lokal nicht zu sehen; prüfen mit
   `setpriv --reuid=65534`). Ohne Lizenztext eines Moduls bricht der Bau ab.
+  Android (seit B-33d) nur mit cgo gegen das NDK `NDK_FASSUNG` (gleich `NDK_VERSION` in `launcher.yml` und der Fassung in
+  `tor-bruecken.yml` – ein Test der Hülle vergleicht): Ohne cgo fragt Go unter Android 127.0.0.1:53 (kein
+  `/etc/resolv.conf`), und keine Brücke fände ihr Ziel – der Bau läuft trotzdem durch, man sieht es nur auf dem Gerät.
+  Abschnitte mit `-z max-page-size=16384` (16-KB-Seiten). Ohne NDK bricht der Bau ab; zum Ausprobieren ohne NDK
+  `PT_PLATTFORMEN="linux/amd64 windows/amd64"`. dl.google.com ist aus der Entwicklungsumgebung gesperrt – den Android-Bau
+  zeigt erst die CI.

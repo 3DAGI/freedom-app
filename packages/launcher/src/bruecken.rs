@@ -111,19 +111,44 @@ pub fn zeilen_fuer(eigene: &[String]) -> Result<Vec<String>, (usize, ZeilenFehle
     }
 }
 
+/// Der Dateiname eines Programms: Desktop wie in `TRANSPORTE`, unter Android als Bibliothek
+/// (`libfreedom_snowflake.so`) – nur so legt Android es beim Installieren in `nativeLibraryDir`, und nur
+/// von dort darf eine App ein Programm starten (B-33d, `docs/TOR-BRUECKEN-ENTWURF.md` V2).
+pub fn dateiname(name: &str, android: bool) -> String {
+    if android {
+        format!("lib{}.so", name.replace('-', "_"))
+    } else {
+        format!("{name}{}", std::env::consts::EXE_SUFFIX)
+    }
+}
+
 /// Das Programm eines Transports in diesem Ordner – nur eine Datei mit dem festen Namen.
-pub fn programm_in(ordner: &Path, transport: &str) -> Option<PathBuf> {
+pub fn programm_in(ordner: &Path, transport: &str, android: bool) -> Option<PathBuf> {
     let (_, name) = TRANSPORTE.iter().find(|(t, _)| *t == transport)?;
-    let pfad = ordner.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+    let pfad = ordner.join(dateiname(name, android));
     pfad.is_file().then_some(pfad)
 }
 
-/// Das Programm neben der Hülle (Tauri legt Beigaben neben das eigene Programm). Android erst mit B-33d.
+/// Der Ordner, aus dem Android die eigene Bibliothek der Hülle geladen hat (`nativeLibraryDir`), aus
+/// `/proc/self/maps` – ohne JNI, also schon beim Start von Tor, vor dem Fenster. Liegt die Bibliothek
+/// nur im APK (`base.apk!/lib/…`, nicht entpackt), gibt es keinen Ordner: dann auch keine Brücken.
+pub fn bibliotheksordner(maps: &str) -> Option<PathBuf> {
+    maps.lines().find_map(|zeile| {
+        let pfad = zeile.split_whitespace().nth(5)?;
+        (pfad.starts_with('/') && !pfad.contains('!') && pfad.ends_with("/libfreedom_launcher_lib.so"))
+            .then(|| Path::new(pfad).parent().map(Path::to_path_buf))
+            .flatten()
+    })
+}
+
+/// Das Programm neben der Hülle: Desktop neben dem eigenen Programm (Tauri legt Beigaben dorthin),
+/// Android im Ordner der eigenen Bibliothek.
 pub fn programm(transport: &str) -> Option<PathBuf> {
     if cfg!(target_os = "android") {
-        return None;
+        let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
+        return programm_in(&bibliotheksordner(&maps)?, transport, true);
     }
-    programm_in(std::env::current_exe().ok()?.parent()?, transport)
+    programm_in(std::env::current_exe().ok()?.parent()?, transport, false)
 }
 
 /// Brücken gehen nur, wenn alle Programme beiliegen.
@@ -230,6 +255,19 @@ mod tests {
         assert_eq!(beigelegt, erwartet, "tauri.bruecken.conf.json und TRANSPORTE nennen dieselben Programme");
         let skript = include_str!("../../../scripts/pt-beilegen.sh");
         assert!(skript.contains("binaries/freedom-$n-$TRIPEL$ENDUNG") && skript.contains("for n in snowflake webtunnel"));
+        assert!(skript.contains("jniLibs/arm64-v8a/libfreedom_$n.so"), "Android: dieselben Namen wie dateiname()");
+        assert!(include_str!("../../../scripts/android-bruecken.py").contains(r#"["libfreedom_snowflake.so", "libfreedom_webtunnel.so"]"#));
+        assert_eq!(TRANSPORTE.iter().map(|(_, n)| dateiname(n, true)).collect::<Vec<_>>(), ["libfreedom_snowflake.so", "libfreedom_webtunnel.so"]);
+    }
+
+    #[test]
+    fn android_programme_mit_demselben_ndk_wie_das_apk() {
+        // cgo unter Android (DNS) – die Programme und das APK bauen gegen dieselbe Fassung des NDK
+        let skript = include_str!("../../../scripts/pt-bauen.sh");
+        let fassung = skript.lines().find_map(|z| z.strip_prefix("NDK_FASSUNG=")).expect("NDK_FASSUNG fehlt in pt-bauen.sh");
+        assert!(include_str!("../../../.github/workflows/launcher.yml").contains(&format!("NDK_VERSION: \"{fassung}\"")));
+        assert!(include_str!("../../../.github/workflows/tor-bruecken.yml").contains(&format!("\"ndk;{fassung}\"")));
+        assert!(skript.contains("CGO_ENABLED=1 CC=$NDK/") && skript.contains("max-page-size=16384"));
     }
 
     #[test]
@@ -237,13 +275,34 @@ mod tests {
         let o = std::env::temp_dir().join(format!("freedom-bruecken-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&o);
         std::fs::create_dir_all(o.join(format!("freedom-webtunnel{}", std::env::consts::EXE_SUFFIX))).unwrap();
-        assert_eq!(programm_in(&o, "snowflake"), None);
-        assert_eq!(programm_in(&o, "webtunnel"), None, "ein Ordner ist kein Programm");
+        assert_eq!(programm_in(&o, "snowflake", false), None);
+        assert_eq!(programm_in(&o, "webtunnel", false), None, "ein Ordner ist kein Programm");
         let p = o.join(format!("freedom-snowflake{}", std::env::consts::EXE_SUFFIX));
         std::fs::write(&p, b"").unwrap();
-        assert_eq!(programm_in(&o, "snowflake"), Some(p));
-        assert_eq!(programm_in(&o, "obfs4"), None);
+        assert_eq!(programm_in(&o, "snowflake", false), Some(p));
+        assert_eq!(programm_in(&o, "obfs4", false), None);
+        assert_eq!(programm_in(&o, "snowflake", true), None, "Android sucht nur den Namen als Bibliothek");
+        let a = o.join("libfreedom_snowflake.so");
+        std::fs::write(&a, b"").unwrap();
+        assert_eq!(programm_in(&o, "snowflake", true), Some(a));
         std::fs::remove_dir_all(&o).unwrap();
+    }
+
+    #[test]
+    fn android_namen_und_ordner_der_eigenen_bibliothek() {
+        assert_eq!(dateiname("freedom-snowflake", true), "libfreedom_snowflake.so");
+        assert_eq!(dateiname("freedom-webtunnel", true), "libfreedom_webtunnel.so");
+        let lib = "/data/app/~~x==/io.github.threedagi.freedom-y==/lib/arm64";
+        let maps = format!(
+            "6f00000000-6f00010000 r--p 00000000 fd:05 123 /system/lib64/libc.so\n\
+             7a00000000-7a00100000 r-xp 00000000 fd:05 456 {lib}/libfreedom_launcher_lib.so\n\
+             7b00000000-7b00001000 rw-p 00000000 00:00 0\n"
+        );
+        assert_eq!(bibliotheksordner(&maps), Some(PathBuf::from(lib)));
+        let im_apk = "7a00000000-7a00100000 r-xp 00000000 fd:05 456 /data/app/x/base.apk!/lib/arm64-v8a/libfreedom_launcher_lib.so\n";
+        assert_eq!(bibliotheksordner(im_apk), None, "nicht entpackt: kein Ordner, keine Brücken");
+        assert_eq!(bibliotheksordner("7a00000000-7a00100000 r-xp 00000000 fd:05 456 /x/libfreedom_launcher_lib.so.alt\n"), None);
+        assert_eq!(bibliotheksordner(""), None);
     }
 
     #[cfg(desktop)]

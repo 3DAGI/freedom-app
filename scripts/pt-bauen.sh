@@ -6,9 +6,15 @@
 #   scripts/pt-bauen.sh --pruefen <ziel>    baut zweimal an zwei Pfaden – verschiedene Summen: Fehler (CI)
 #
 # Fest ist: Go (GO_FASSUNG, über GOTOOLCHAIN), die Module und ihre Abhängigkeiten (go.sum der Projekte, geprüft gegen
-# sum.golang.org), ohne cgo, `-trimpath -buildvcs=false`, ohne Build-Id. Die Quellen kommen über proxy.golang.org
+# sum.golang.org), ohne cgo (außer Android, unten), `-trimpath -buildvcs=false`, ohne Build-Id. Die Quellen kommen über proxy.golang.org
 # (gitlab.torproject.org selbst ist aus der Entwicklungsumgebung gesperrt). Lizenzen: Snowflake BSD-3-Clause, WebTunnel
 # MIT, Abhängigkeiten frei (BSD, MIT, Apache-2.0, CC0, 0BSD) – ihre Texte liegen je Plattform in `lizenzen/`.
+#
+# Android (B-33d) mit cgo: Ohne cgo fragt Go dort 127.0.0.1:53 nach Namen (es gibt kein /etc/resolv.conf; Go selbst:
+# „DNS requests don't work on Android, so prefer the cgo resolver“) – Snowflake erreichte weder CDN noch STUN, WebTunnel
+# nicht seine Domain. Mit cgo fragt das Programm das System (wie jede App). Dafür ein festes NDK (NDK_FASSUNG, gleich
+# NDK_VERSION in launcher.yml; Ordner aus PT_NDK oder $ANDROID_HOME/ndk/<fassung>), API 24 wie die Hülle, Seiten bis
+# 16 KB. Fehlt es, bricht der Bau ab – nie still ohne cgo.
 set -euo pipefail
 
 GO_FASSUNG=go1.24.7
@@ -16,19 +22,40 @@ PT=gitlab.torproject.org/tpo/anti-censorship/pluggable-transports
 SNOWFLAKE="$PT/snowflake/v2@v2.14.1"
 WEBTUNNEL="$PT/webtunnel@v0.0.7"
 # Plattformen der Hülle: Linux (x86_64, arm64), Windows (x86_64), Android (arm64, B-33d)
-PLATTFORMEN=(linux/amd64 linux/arm64 windows/amd64 android/arm64)
+# (PT_PLATTFORMEN wählt zum Ausprobieren weniger, etwa ohne NDK: "linux/amd64 windows/amd64")
+read -ra PLATTFORMEN <<< "${PT_PLATTFORMEN:-linux/amd64 linux/arm64 windows/amd64 android/arm64}"
+NDK_FASSUNG=27.3.13750724
+NDK="${PT_NDK:-${ANDROID_HOME:-/fehlt}/ndk/$NDK_FASSUNG}"
 
 MODUS=bauen
 if [ "${1:-}" = "--pruefen" ]; then MODUS=pruefen; shift; fi
 ZIEL="${1:?Ziel fehlt – scripts/pt-bauen.sh [--pruefen] <ziel>}"
 
+# Das NDK nur in der festen Fassung – ein anderes ergäbe andere Bytes
+if [[ " ${PLATTFORMEN[*]} " == *" android/"* ]]; then
+  grep -Eq "^Pkg\.Revision *= *${NDK_FASSUNG//./\\.} *$" "$NDK/source.properties" 2>/dev/null \
+    || { echo "Android braucht das NDK $NDK_FASSUNG (PT_NDK oder \$ANDROID_HOME/ndk/$NDK_FASSUNG) – nicht gefunden: $NDK" >&2; exit 1; }
+fi
+
+# Umgebung je Plattform: Android mit cgo über den Compiler des NDK, sonst ohne
+cgo_umgebung() { # <goos>
+  if [ "$1" = android ]; then
+    echo "CGO_ENABLED=1 CC=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+  else
+    echo "CGO_ENABLED=0"
+  fi
+}
+
 # Ein Programm eines Moduls bauen: `go install <modul>/<paket>@<version>` nimmt go.mod und go.sum des Moduls selbst
 baue() { # <gopath> <goos> <goarch> <modul@version> <paket> <name> <ausgabe>
   local gp=$1 goos=$2 goarch=$3 modul=$4 paket=$5 name=$6 aus=$7 extra=""
-  # Snowflake greift über wlynxg/anet auf Interna von net zu – unter Android ohne cgo nur so (Befund im Entwurf)
+  # Snowflake greift über wlynxg/anet auf Interna von net zu – unter Android nur so (Befund im Entwurf)
   if [ "$goos" = android ] && [ "$name" = snowflake-client ]; then extra="-checklinkname=0"; fi
-  GOPATH="$gp" GOMODCACHE="$gp/mod" GOTOOLCHAIN="$GO_FASSUNG" GOFLAGS="-mod=mod" GOOS="$goos" GOARCH="$goarch" \
-    CGO_ENABLED=0 GOPROXY="https://proxy.golang.org" GOSUMDB="sum.golang.org" \
+  # Android lädt Programme mit 16-KB-Seiten nur, wenn die Abschnitte so ausgerichtet sind
+  if [ "$goos" = android ]; then extra="$extra -extldflags=-Wl,-z,max-page-size=16384"; fi
+  # shellcheck disable=SC2046 # die Zuweisungen aus cgo_umgebung() sind Wörter für env
+  env $(cgo_umgebung "$goos") GOPATH="$gp" GOMODCACHE="$gp/mod" GOTOOLCHAIN="$GO_FASSUNG" GOFLAGS="-mod=mod" GOOS="$goos" \
+    GOARCH="$goarch" GOPROXY="https://proxy.golang.org" GOSUMDB="sum.golang.org" \
     go install -trimpath -buildvcs=false -ldflags="-s -w -buildid= $extra" "${modul%@*}/$paket@${modul#*@}"
   local bin="$gp/bin/client"
   [ "$goos/$goarch" = "$(go env GOOS)/$(go env GOARCH)" ] || bin="$gp/bin/${goos}_${goarch}/client"
@@ -44,8 +71,9 @@ lizenzen() { # <gopath> <goos> <goarch> <modul@version> <paket> <ausgabe>
   # Pfade im Modul-Cache: Großbuchstaben als „!klein“ (wie Go sie ablegt)
   quelle="$gp/mod/$(echo "${modul%@*}" | sed 's/[A-Z]/!\L&/g')@${modul#*@}"
   local module
-  module="$(GOPATH="$gp" GOMODCACHE="$gp/mod" GOTOOLCHAIN="$GO_FASSUNG" GOFLAGS="-mod=mod" GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
-    go list -C "$quelle" -deps -f '{{if .Module}}{{.Module.Path}} {{.Module.Dir}}{{end}}' "./$paket" | sort -u)"
+  # shellcheck disable=SC2046
+  module="$(env $(cgo_umgebung "$goos") GOPATH="$gp" GOMODCACHE="$gp/mod" GOTOOLCHAIN="$GO_FASSUNG" GOFLAGS="-mod=mod" GOOS="$goos" \
+    GOARCH="$goarch" go list -C "$quelle" -deps -f '{{if .Module}}{{.Module.Path}} {{.Module.Dir}}{{end}}' "./$paket" | sort -u)"
   while read -r pfad ordner; do
     local gefunden=0
     for datei in "$ordner"/LICENSE* "$ordner"/LICENCE* "$ordner"/COPYING* "$ordner"/NOTICE*; do

@@ -1,7 +1,7 @@
 # Tor-Brücken (B-33a, Entscheidungen PT2 A, PT3 A, docs/TOR-BRUECKEN-ENTWURF.md V1): baut `snowflake-client` und den
 # WebTunnel-Client aus den Quellen für alle Plattformen der Hülle – zweimal, an zwei Pfaden, und vergleicht die
 # Summen (scripts/pt-bauen.sh --pruefen). Ablage als Artefakt des Laufs mit Lizenztexten und SHA256SUMS; kein Release,
-# beigelegt werden die Programme erst mit B-33b (Desktop) und B-33d (Android).
+# beigelegt werden sie in launcher.yml (Desktop seit B-33b2, Android seit B-33d).
 
 name: Tor-Brücken
 
@@ -29,6 +29,10 @@ jobs:
         with:
           go-version: "1.24.7"
           cache: false
+
+      # Android-Programme mit cgo (B-33d): dasselbe NDK wie das APK (NDK_FASSUNG im Skript, NDK_VERSION in launcher.yml)
+      - name: Android-NDK (fester Stand)
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.3.13750724" > /dev/null'
 
       - name: Bauen und vergleichen
         run: bash scripts/pt-bauen.sh --pruefen tor-bruecken

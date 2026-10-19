@@ -14,15 +14,18 @@
 # WebTunnel-Client als freedom-snowflake, freedom-webtunnel): einmal gebaut aus den
 # Quellen (scripts/pt-bauen.sh, Job „bruecken“), je Plattform gegen SHA256SUMS geprueft
 # beigelegt (scripts/pt-beilegen.sh) und im fertigen Paket noch einmal verglichen.
+# Seit B-33d auch dem APK: als Bibliotheken libfreedom_snowflake.so, libfreedom_webtunnel.so (nur aus
+# nativeLibraryDir darf eine App Programme starten), gebaut mit cgo gegen dasselbe NDK wie das APK
+# (DNS geht unter Android nur so); im APK byte-gleich mit dem Bau und beim Installieren entpackt.
 
 name: Desktop-Hülle
 
 on:
   push:
     branches: [main]
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
   pull_request:
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
   workflow_dispatch:
     inputs:
       veroeffentlichen:
@@ -32,6 +35,10 @@ on:
 
 permissions:
   contents: read
+
+# Ein NDK für APK und Tor-Brücken (gleich NDK_FASSUNG in scripts/pt-bauen.sh – ein Test der Hülle vergleicht)
+env:
+  NDK_VERSION: "27.3.13750724"
 
 jobs:
   bruecken:
@@ -46,6 +53,10 @@ jobs:
         with:
           go-version: "1.24.7"
           cache: false
+
+      # Android-Programme mit cgo (B-33d) – pt-bauen.sh nimmt nur diese Fassung
+      - name: Android-NDK (fester Stand)
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null'
 
       - name: Bauen
         run: bash scripts/pt-bauen.sh tor-bruecken
@@ -196,10 +207,9 @@ jobs:
 
   android:
     name: Android-APK bauen (Test)
+    needs: bruecken
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      NDK_VERSION: "27.3.13750724"
 
     steps:
       - uses: actions/checkout@v4
@@ -242,13 +252,20 @@ jobs:
             cargo install tauri-cli --version "^2" --locked
           fi
 
-      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon
+      - uses: actions/download-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+
+      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon, Tor-Bruecken
         working-directory: packages/launcher
         run: |
           cargo tauri android init --ci
           python3 ../../scripts/launcher-symbole.py --android
           cp proguard-tor.pro gen/android/app/freedom-tor.pro
           python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
+          bash ../../scripts/pt-beilegen.sh ../../tor-bruecken . aarch64-linux-android
+          python3 ../../scripts/android-bruecken.py gen/android/app
 
       - name: APK bauen (arm64)
         working-directory: packages/launcher
@@ -272,6 +289,30 @@ jobs:
             grep -q "android.permission.$r'" rechte.txt || { echo "fehlt im APK: $r"; exit 1; }
           done
           rm -f rechte.txt
+
+      # B-33d: die Programme byte-gleich mit dem Bau (nicht gestrippt), komprimiert und mit Entpacken beim Installieren
+      # (sonst gibt es kein nativeLibraryDir mit ihnen), Seiten bis 16 KB, die Lizenztexte dabei
+      - name: Pruefen – Tor-Bruecken im APK (B-33d)
+        working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=app-universal-release-unsigned.apk
+          BAU="$GITHUB_WORKSPACE/tor-bruecken/android-arm64"
+          rm -rf bruecken && mkdir bruecken
+          for n in snowflake webtunnel; do
+            unzip -p "$APK" "lib/arm64-v8a/libfreedom_$n.so" > "bruecken/$n"
+            cmp "bruecken/$n" "$BAU/$n-client" || { echo "im APK anders als im Bau: $n"; exit 1; }
+            unzip -v "$APK" "lib/arm64-v8a/libfreedom_$n.so" > bruecken/eintrag.txt
+            grep -E ' Defl:' bruecken/eintrag.txt > /dev/null || { echo "nicht komprimiert – Android entpackt es nicht: $n"; exit 1; }
+            readelf -lW "bruecken/$n" | awk '$1 == "LOAD" { print $NF }' > bruecken/ausrichtung.txt
+            [ -s bruecken/ausrichtung.txt ] || { echo "keine LOAD-Abschnitte gelesen: $n"; exit 1; }
+            while read -r a; do [ $((a)) -ge 16384 ] || { echo "Abschnitte nur auf $a ausgerichtet: $n"; exit 1; }; done < bruecken/ausrichtung.txt
+          done
+          "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > bruecken/manifest.txt
+          if grep -E 'extractNativeLibs.*=(false|0x0)' bruecken/manifest.txt > /dev/null; then echo "extractNativeLibs=false im APK"; exit 1; fi
+          unzip -l "$APK" > bruecken/inhalt.txt
+          grep -E 'assets/bruecken-lizenzen/.*/snowflake/v2/LICENSE' bruecken/inhalt.txt > /dev/null || { echo "Lizenztexte fehlen im APK"; exit 1; }
+          rm -rf bruecken
 
       - name: Signieren mit Wegwerf-Schluessel (nur dieser Lauf)
         working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release

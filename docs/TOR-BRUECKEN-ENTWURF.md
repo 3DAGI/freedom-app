@@ -77,7 +77,7 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 | B-33b1 ✓ | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe – `bruecken.rs` | ~300 |
 | B-33b2 ✓ | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
 | B-33c ✓ | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
-| B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
+| B-33d ✓ | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
 
 ## Stand B-33a (19.10.2026)
 
@@ -136,6 +136,29 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
   Snowflake: freiwillige Proxys sehen die IP-Adresse, nicht, was man tut, und der Rechner fragt sein DNS nach CDN und
   STUN-Servern (gemessen in B-33b2); geht die Brücke nicht, geht nichts hinaus.
 - **Offen:** Android (B-33d), Live-Test (MENSCH).
+
+## Stand B-33d (19.10.2026)
+
+- **Befund – DNS unter Android nur mit cgo:** Ohne cgo nimmt Go seinen eigenen Resolver, und der liest
+  `/etc/resolv.conf` – die gibt es unter Android nicht, also fragt er 127.0.0.1:53 (Go selbst, `net/conf.go`: „DNS requests
+  don't work on Android, so prefer the cgo resolver“). Snowflake erreichte so weder CDN noch STUN-Server, WebTunnel nicht
+  seine Domain. Deshalb baut `pt-bauen.sh` die Android-Programme **mit cgo** gegen ein festes NDK (27.3.13750724, dasselbe
+  wie das APK; API 24, Abschnitte auf 16 KB ausgerichtet) – abweichend von V1 nur für Android. Sie fragen dann das System
+  wie jede App (auch „Privates DNS“). Desktop bleibt ohne cgo, die Summen sind unverändert. Fehlt das NDK, bricht der Bau ab.
+- **Im APK:** `pt-beilegen.sh … aarch64-linux-android` legt die Programme als `jniLibs/arm64-v8a/libfreedom_snowflake.so`
+  und `libfreedom_webtunnel.so` ab, die Lizenztexte nach `assets/bruecken-lizenzen/`. `scripts/android-bruecken.py` trägt
+  in `build.gradle.kts` ein: `useLegacyPackaging = true` (Android entpackt sie beim Installieren nach `nativeLibraryDir` –
+  nur von dort darf eine App Programme starten) und `keepDebugSymbols` für beide (sonst strippt das Release sie).
+- **Hülle:** `bruecken::programm()` sucht unter Android im Ordner der eigenen Bibliothek (`libfreedom_launcher_lib.so`,
+  aus `/proc/self/maps` – ohne JNI, schon beim Start von Tor); liegt sie nur im APK, gibt es keine Brücken.
+- **CI (`launcher.yml`, Job „Android-APK“):** beide Programme im APK Byte für Byte wie im Bau, komprimiert (also beim
+  Installieren entpackt), `extractNativeLibs` nicht aus, Abschnitte ab 16 KB ausgerichtet, Lizenztexte dabei.
+- **Oberfläche:** Die Rückfrage sagt unter Android „Die App schließt sich“ statt „startet neu“; die Texte sagen „Gerät“
+  statt „Rechner“.
+- **Nicht geprüft hier:** Das NDK ist aus der Entwicklungsumgebung nicht erreichbar – den cgo-Bau und seine
+  Reproduzierbarkeit zeigt erst die CI (Workflow „Tor-Brücken“ mit `--pruefen`). Ob Snowflake auf einem Gerät ins Tor-Netz
+  kommt, zeigt nur der Live-Test (MENSCH).
+- **Offen:** Live-Test auf Desktop und Android (MENSCH).
 
 ## Quellen
 

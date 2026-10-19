@@ -138,7 +138,7 @@ Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
 - Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme
   auf demselben Rechner könnten den Zugang ebenfalls nutzen (sie bekämen nur Tor).
 
-**Brücken (seit B-33b1, Desktop):** Wo Tor gesperrt ist, geht arti über eine Brücke
+**Brücken (seit B-33b1, Desktop; Android seit B-33d):** Wo Tor gesperrt ist, geht arti über eine Brücke
 (`src/bruecken.rs`, `docs/TOR-BRUECKEN-ENTWURF.md`): Snowflake – eingebaut sind die zwei
 Zeilen aus Snowflake 2.14.1, dieselben wie im Tor Browser – oder WebTunnel (Zeilen von
 bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
@@ -167,6 +167,12 @@ bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
   so arbeitet es auch im Tor Browser. Texte der Oberfläche sagen das (V5, B-33c).
 - In der App (seit B-33c): Settings › Datenschutz › „Über eine Brücke“ und „Eigene Brücken“ (einfügen oder per
   QR-Code), nur wenn `bruecken_moeglich`.
+- Android (seit B-33d): Die Programme liegen im APK als `lib/arm64-v8a/libfreedom_snowflake.so` und
+  `libfreedom_webtunnel.so` – nur aus `nativeLibraryDir` darf eine App Programme starten. Die CI legt sie nach
+  `cargo tauri android init` bei (`pt-beilegen.sh … aarch64-linux-android`), `scripts/android-bruecken.py` schaltet das
+  Entpacken beim Installieren ein und das Strippen für sie aus; die Hülle findet den Ordner über ihre eigene Bibliothek
+  (`/proc/self/maps`). Gebaut sind sie mit cgo gegen dasselbe NDK wie das APK – ohne cgo fände Go unter Android keinen
+  DNS-Server.
 - Geprüft ist der Weg bis zur Brücke mit einer Attrappe des Programms (arti startet es und
   verbindet sich mit Adresse und Parametern der Zeile); ins Tor-Netz kommt arti hier nicht –
   den Live-Test macht der MENSCH, am besten aus einem Netz mit Sperre.
