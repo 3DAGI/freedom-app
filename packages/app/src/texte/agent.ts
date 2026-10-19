@@ -76,6 +76,12 @@ export const agent: Texte = {
   "agent.qualitaet": { de: "Qualität", en: "Quality" },
   "agent.kopierenAntwort": { de: "Antwort kopieren", en: "Copy answer" },
   "agent.kopieren": { de: "Kopieren", en: "Copy" },
+  // B-38a: Vorlesen nur mit Stimmen dieses Geräts (SP-W2 A)
+  "agent.vorlesen": { de: "Vorlesen", en: "Read aloud" },
+  "agent.vorlesenStopp": { de: "Stopp", en: "Stop" },
+  "agent.vorlesenTitel": { de: "Antwort mit einer Stimme dieses Geräts vorlesen – Stimmen, die über das Netz sprechen, nimmt die App nicht", en: "Read the answer aloud with a voice on this device – the app never uses voices that speak over the network" },
+  "agent.vorlesenKeineStimme": { de: "Keine Stimme auf diesem Gerät für diese Sprache. Stimmen, die über das Netz sprechen, nimmt die App nicht – im Betriebssystem eine Stimme installieren.", en: "No voice on this device for this language. The app never uses voices that speak over the network – install a voice in your operating system." },
+  "agent.vorlesenCode": { de: "Code ausgelassen.", en: "Code skipped." },
   "agent.unterhaltung": { de: "Unterhaltung", en: "Conversation" },
   "agent.kopierenAlle": { de: "Ganze Unterhaltung kopieren", en: "Copy whole conversation" },
   "agent.modellWaehlen": { de: "Modell wählen", en: "Choose model" },

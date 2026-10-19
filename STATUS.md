@@ -11921,3 +11921,20 @@ Bauschritte frei), Sammlung und FORTSCHRITT. Offen bleiben die Fragen anderer Sp
 **Tests:** kein Code geändert.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-38a – Vorlesen auf dem Gerät
+
+Spur B, SP-W2 A (`docs/SPRACHE-ENTWURF.md`, V1 und V5).
+
+- **`vorlesen.ts`:** `waehleStimme()` (nur `localService === true`, Sprache der App, unter ihnen die Vorgabe des Systems),
+  `vorleseStuecke()` (Satzenden, bis 220 Zeichen, höchstens 8000), `Vorleser` (ein Text zugleich, Abbruch, wartet bis
+  1,5 s auf `voiceschanged`), `browserSprecher()` (setzt jeder Äußerung die lokale Stimme; ohne `speechSynthesis` keiner).
+- **`shell/vorlesen-ui.ts`:** „Vorlesen“ neben „Kopieren“ unter jeder Antwort, ein zweiter Klick hält an, Code-Blöcke als
+  „Code ausgelassen.“; ohne lokale Stimme ein Hinweis. Symbol `volume`, fünf Texte in beiden Sprachen.
+- **Nie:** Netzstimmen (Chrome „Google …“) und die Spracherkennung des Browsers – ein Test sucht in allen Quellen danach.
+
+**Tests:** app +8 (Stimmenwahl, Stücke, Vorleser mit Abbruch und spätem `voiceschanged`, Sprecher des Browsers, Verdrahtung).
+Smoke-Teil „lokal“: Attrappe mit „Google Deutsch“ als Vorgabe und einer lokalen Stimme – gesprochen nur mit der lokalen, Code
+ausgelassen, „Stopp“ bricht ab.
+
+Knoten-Stand: unverändert.

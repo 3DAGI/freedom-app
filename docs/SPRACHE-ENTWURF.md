@@ -90,12 +90,25 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 
 | Schritt | Inhalt | Umfang |
 |---|---|---|
-| B-38a | Vorlesen auf dem Gerät: Knopf an Antworten und Nachrichten, nur lokale Stimmen, Sprache passend, Smoke-Test mit Attrappe | ~150 |
+| B-38a ✓ | Vorlesen auf dem Gerät: Knopf an den Antworten des Agenten, nur lokale Stimmen, Sprache passend, Smoke-Test mit Attrappe | ~150 |
 | B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
 Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENSCH.
+
+## Stand B-38a (19.10.2026)
+
+- **`vorlesen.ts`** (ohne DOM): `waehleStimme()` nimmt nur Stimmen mit `localService === true` in der Sprache der App –
+  unter ihnen die Vorgabe des Systems, sonst die erste; eine Netzstimme nie, auch nicht als Rückfall, eine andere Sprache
+  auch nicht. `vorleseStuecke()` teilt den Text an Satzenden in Stücke bis 220 Zeichen (höchstens 8000 Zeichen).
+  `Vorleser` liest immer nur einen Text, ein neuer oder `stopp()` bricht ab; die Stimmen wartet er bis 1,5 s ab
+  (`voiceschanged`). `browserSprecher()` setzt jeder Äußerung ausdrücklich die lokale Stimme – ohne `voice` nähme der
+  Browser seine Vorgabe, in Chrome eine Netzstimme; ohne `speechSynthesis` (Android-WebView) gibt es keinen Sprecher.
+- **Oberfläche** (`shell/vorlesen-ui.ts`): „Vorlesen“ neben „Kopieren“ unter jeder Antwort des Agenten (`aria-pressed`,
+  ein zweiter Klick hält an), Code-Blöcke als „Code ausgelassen.“. Ohne lokale Stimme ein Hinweis, kein Vorlesen.
+- **Nicht in der App:** die Spracherkennung des Browsers – ein Test sucht danach in allen Quellen.
+- **Offen:** Nachrichten im Chat vorlesen kommt mit B-38c (dort gibt es dann auch Sprachnachrichten als Text).
 
 ## Quellen
 

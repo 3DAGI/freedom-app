@@ -12,6 +12,7 @@ import { iconEl } from "../../icons.js";
 import { lokalesModellAus } from "../../ki-lokal.js";
 import { bestaetige, dialog } from "../dialog.js";
 import { antwortDom } from "../antwort-ui.js";
+import { vorlesenKnopf } from "../vorlesen-ui.js";
 import { fliesstext, pkShort } from "../../shell-logic.js";
 import { ausMsat } from "../../preis-anzeige.js";
 import { merkeGratisAbgelehnt, switchTab } from "../app.js";
@@ -166,6 +167,9 @@ function blasenGeruest(role: "user" | "ai", meta: string, model?: string): { bla
     });
     const aktionen = el("div", undefined, "antwort-aktionen");
     aktionen.append(kopieren);
+    // B-38a: vorlesen nur mit Stimmen dieses Geräts – ohne `speechSynthesis` kein Knopf
+    const vorlesen = vorlesenKnopf(koerper);
+    if (vorlesen) aktionen.append(vorlesen);
     blase.append(aktionen);
   }
   return { blase, koerper };
