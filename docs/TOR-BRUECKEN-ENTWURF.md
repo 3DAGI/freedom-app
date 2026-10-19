@@ -75,7 +75,7 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 |---|---|---|
 | B-33a ✓ | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf – `scripts/pt-bauen.sh`, Workflow „Tor-Brücken“ | ~150 |
 | B-33b1 ✓ | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe – `bruecken.rs` | ~300 |
-| B-33b2 | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
+| B-33b2 ✓ | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
 | B-33c | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
 | B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
 
@@ -110,6 +110,20 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 - **Geprüft:** Ein Test startet arti mit einer Attrappe des Programms – arti startet sie nach der PT-Spezifikation und
   verbindet sich über ihren SOCKS-Zugang mit Adresse und Parametern der Brücke (`url`, `fronts`).
 - **Offen:** beilegen (B-33b2), Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH).
+
+## Stand B-33b2 (19.10.2026)
+
+- **Pakete:** `launcher.yml` baut die Programme einmal aus den Quellen (Job „bruecken“, `pt-bauen.sh`); jeder Job der
+  Matrix legt die seiner Plattform über `scripts/pt-beilegen.sh` bei – nur, was `SHA256SUMS` nennt, unverändert, als
+  `binaries/freedom-<name>-<ziel-tripel>` für Tauris `externalBin`, dazu die Lizenztexte als Ressource
+  (`bruecken-lizenzen/`). Gebaut wird mit `--config tauri.bruecken.conf.json`; danach vergleicht die CI die Programme in
+  deb, AppImage und NSIS-Installer Byte für Byte mit dem Bau.
+- **Ohne Brücken** baut die Hülle wie bisher (`cargo test`, `cargo build` brauchen die Programme nicht).
+- **Gemessen mit dem gebauten deb** (Xvfb, `strace -f -e trace=execve,connect`, `{"tor":true,"bruecken":true}`): die Hülle
+  startet `usr/bin/freedom-snowflake` neben sich; hinaus geht nur dieses Programm – DNS-Anfragen an den Resolver des
+  Systems (Broker-Front, STUN) –, Hülle, arti und Fenster nur zu 127.0.0.1. Für V5 heißt das: Wer das DNS des Rechners
+  sieht, sieht die Namen von CDN und STUN-Servern, nicht Tor – wie beim Tor Browser.
+- **Offen:** Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH, mit einem Paket aus dem Lauf).
 
 ## Quellen
 

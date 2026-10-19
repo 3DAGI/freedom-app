@@ -144,9 +144,16 @@ Zeilen aus Snowflake 2.14.1, dieselben wie im Tor Browser – oder WebTunnel (Ze
 bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
 
 - Die Programme `freedom-snowflake` und `freedom-webtunnel` liegen neben dem Programm der
-  Hülle (gebaut von `scripts/pt-bauen.sh`, beigelegt ab B-33b2); arti startet sie selbst.
-  Fehlen sie, sagt `netz_stand` `bruecken_moeglich: false`, und `netz_setzen` lehnt Brücken
-  ab (`bruecken-fehlen`).
+  Hülle; arti startet sie selbst. Fehlen sie, sagt `netz_stand` `bruecken_moeglich: false`,
+  und `netz_setzen` lehnt Brücken ab (`bruecken-fehlen`).
+- In die Pakete kommen sie seit B-33b2 (`launcher.yml`): Der Job „bruecken“ baut sie aus den
+  Quellen (`scripts/pt-bauen.sh`), `scripts/pt-beilegen.sh` legt die der eigenen Plattform
+  nach Prüfung gegen `SHA256SUMS` als `binaries/freedom-<name>-<ziel-tripel>` ab, dazu die
+  Lizenztexte (`bruecken-lizenzen/`, im Paket bei den Ressourcen), und
+  `cargo tauri build --config tauri.bruecken.conf.json` legt sie bei (`externalBin`). Danach
+  vergleicht die CI die Programme im fertigen Paket (deb, AppImage, NSIS) Byte für Byte.
+  Ohne diese Datei baut die Hülle wie bisher – nur ohne Brücken. Lokal:
+  `bash scripts/pt-bauen.sh /tmp/pt && bash scripts/pt-beilegen.sh /tmp/pt packages/launcher`.
 - Die Wahl steht in `netz.json`: `"bruecken": true`, eigene Zeilen in `"zeilen"`.
   `netz_setzen` nimmt dazu `bruecken` und `zeilen` (fehlen sie, bleibt es, wie es war; eine
   leere Liste heißt: die eingebauten). Zeilen gelten nur geprüft – Transport `snowflake` oder
@@ -154,6 +161,10 @@ bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
   sonst Fehler `zeile:<stelle>:<kennung>`. Die App erfährt nur ihre Zahl (`eigene_zeilen`).
 - Mit Brücken geht arti nur über sie ins Tor-Netz. Fehlt ein Programm oder gilt eine
   gemerkte Zeile nicht, startet arti nicht (`fehler: "bruecke"`) – nie still ohne Brücke.
+- Hinaus geht dann das Programm der Brücke selbst: Snowflake löst über das DNS des Systems
+  die Namen von Broker-Front und STUN-Servern auf (gemessen mit dem Paket: nur dieses
+  Programm, sonst nichts außer 127.0.0.1) und spricht danach WebRTC mit freiwilligen Proxys –
+  so arbeitet es auch im Tor Browser. Texte der Oberfläche sagen das (V5, B-33c).
 - Geprüft ist der Weg bis zur Brücke mit einer Attrappe des Programms (arti startet es und
   verbindet sich mit Adresse und Parametern der Zeile); ins Tor-Netz kommt arti hier nicht –
   den Live-Test macht der MENSCH, am besten aus einem Netz mit Sperre.

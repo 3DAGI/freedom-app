@@ -11799,3 +11799,28 @@ arti startet sie nach der PT-Spezifikation und verbindet sich über ihren SOCKS-
 Snowflake-Brücke. Ins Tor-Netz kommt arti hier nicht; den Live-Test macht der MENSCH.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-33b2 – Tor-Brücken in den Paketen der Hülle
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V1, V2).
+
+- **`launcher.yml`:** neuer Job „bruecken“ baut `snowflake-client` und WebTunnel-Client einmal aus den Quellen
+  (`pt-bauen.sh`, Go 1.24.7). Jeder Job der Matrix (Linux x86_64 und arm64, Windows x86_64) legt die Programme seiner
+  Plattform bei und baut mit `cargo tauri build --config tauri.bruecken.conf.json`; danach vergleicht er die Programme im
+  fertigen Paket (deb, AppImage, NSIS-Installer) Byte für Byte mit dem Bau und sucht die Lizenztexte.
+- **`scripts/pt-beilegen.sh`** (neu): nimmt nur, was `SHA256SUMS` des Baus für die Plattform nennt, und nur unverändert;
+  legt die Programme unter den festen Namen aus `bruecken.rs` ab (`binaries/freedom-<name>-<ziel-tripel>`), dazu die
+  Lizenztexte (`bruecken-lizenzen/`). Unbekanntes Ziel oder abweichende Summe: nichts.
+- **`tauri.bruecken.conf.json`** (neu): `externalBin` und die Lizenztexte als Ressource – getrennt von `tauri.conf.json`,
+  damit `cargo test` und `cargo build` ohne die Programme laufen. `binaries/` und `bruecken-lizenzen/` stehen in
+  `.gitignore`.
+
+**Tests:** Hülle +1 (55): `tauri.bruecken.conf.json`, `pt-beilegen.sh` und `TRANSPORTE` nennen dieselben Programme.
+`pt-beilegen.sh` lokal: Linux und Windows richtig benannt, unbekanntes Ziel und eine veränderte Datei abgelehnt. Lokal
+gebaut (deb, AppImage, x86_64): beide Programme liegen in `usr/bin` bitgleich mit dem Bau, die Lizenztexte unter
+`usr/lib/FreedomStack/bruecken-lizenzen/`. Das deb unter Xvfb mit `{"tor":true,"bruecken":true}`: die Hülle startet das
+beigelegte `freedom-snowflake`; hinaus geht nur dieses Programm (DNS für Broker-Front und STUN), Hülle, arti und Fenster
+nur zu 127.0.0.1 – im README und im Entwurf vermerkt (für die Texte in B-33c). Die Prüfung im Paket läuft in der CI je
+Plattform (NSIS nur dort).
+
+Knoten-Stand: unverändert.

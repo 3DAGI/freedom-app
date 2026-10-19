@@ -10,15 +10,19 @@
 # Herunterladen: nur ueber „Run workflow“ mit Haken „veroeffentlichen“ auf main
 # (Job unten). Feste Dateinamen, auf die die Website zeigt; Desktop unsigniert,
 # das APK nur mit dem festen Schluessel aus den Secrets – ohne ihn kein APK.
+# Seit B-33b2 liegen den Desktop-Paketen die Tor-Bruecken bei (snowflake-client und
+# WebTunnel-Client als freedom-snowflake, freedom-webtunnel): einmal gebaut aus den
+# Quellen (scripts/pt-bauen.sh, Job „bruecken“), je Plattform gegen SHA256SUMS geprueft
+# beigelegt (scripts/pt-beilegen.sh) und im fertigen Paket noch einmal verglichen.
 
 name: Desktop-Hülle
 
 on:
   push:
     branches: [main]
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", ".github/workflows/launcher.yml"]
   pull_request:
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", ".github/workflows/launcher.yml"]
   workflow_dispatch:
     inputs:
       veroeffentlichen:
@@ -30,8 +34,33 @@ permissions:
   contents: read
 
 jobs:
+  bruecken:
+    name: Tor-Bruecken bauen (aus den Quellen)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dieselbe Fassung wie GO_FASSUNG in scripts/pt-bauen.sh (reproduzierbar geprueft im Workflow „Tor-Brücken“)
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+
+      - name: Bauen
+        run: bash scripts/pt-bauen.sh tor-bruecken
+
+      - name: Fuer die Pakete ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+          retention-days: 1
+          if-no-files-found: error
+
   bauen:
     name: Hülle bauen und testen (${{ matrix.os }})
+    needs: bruecken
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -99,12 +128,40 @@ jobs:
             cargo install tauri-cli --version "^2" --locked
           fi
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+
+      - name: Tor-Bruecken beilegen (nur geprueft)
+        shell: bash
+        run: bash scripts/pt-beilegen.sh tor-bruecken packages/launcher
+
       - name: Pakete bauen
         working-directory: packages/launcher
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then B=deb,appimage; else B=nsis; fi
-          cargo tauri build --bundles "$B" -- --locked
+          cargo tauri build --bundles "$B" --config tauri.bruecken.conf.json -- --locked
+
+      - name: Pruefen – Tor-Bruecken im Paket, bitgleich mit dem Bau
+        working-directory: packages/launcher/target/release/bundle
+        shell: bash
+        run: |
+          T=$(rustc -vV | sed -n 's/^host: //p')
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            mkdir -p ../pruef-deb && dpkg-deb -x deb/*.deb ../pruef-deb
+            (cd ../pruef-deb && find . -path '*bruecken-lizenzen*' -name 'LICENSE*' | grep -q snowflake)
+            for n in snowflake webtunnel; do cmp ../pruef-deb/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
+            A=$(ls appimage/*.AppImage) && chmod +x "$A" && (cd .. && "bundle/$A" --appimage-extract > /dev/null)
+            for n in snowflake webtunnel; do cmp ../squashfs-root/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
+          else
+            7z x -y -o../pruef-nsis nsis/*-setup.exe > /dev/null
+            for n in snowflake webtunnel; do
+              F=$(find ../pruef-nsis -name "freedom-$n.exe") && [ "$(echo "$F" | wc -l)" = 1 ] && cmp "$F" ../../../binaries/freedom-$n-$T.exe
+            done
+            find ../pruef-nsis -path '*bruecken-lizenzen*' -name 'LICENSE*' | grep -q snowflake
+          fi
 
       - name: Pruefsummen
         working-directory: packages/launcher/target/release/bundle

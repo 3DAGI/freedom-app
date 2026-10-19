@@ -69,3 +69,7 @@ Fallstricke dieses Bereichs unten anhängen.
   nie still ohne Brücke, kaputte eigene Zeilen nie still durch die eingebauten ersetzen. Eingebaut sind nur die Zeilen
   aus `client/torrc` der Snowflake-Fassung, die `pt-bauen.sh` baut (ein Test vergleicht). `leseNetzStand()` der App
   liest `fehler` streng – „bruecke“ braucht dort Text, bevor eine Oberfläche Brücken einschalten kann (B-33c).
+  In die Pakete (seit B-33b2) nur über `scripts/pt-beilegen.sh` (nur, was `SHA256SUMS` des Baus nennt) und
+  `tauri.bruecken.conf.json` – nie in `tauri.conf.json` selbst (sonst baut `cargo test` ohne die Programme nicht) und nie
+  `binaries/` einchecken. Namen in der Datei und in `TRANSPORTE` gleich (ein Test vergleicht); Tauri legt die Programme
+  ohne Tripel neben die Hülle (deb und AppImage `usr/bin`, NSIS das Installationsverzeichnis).

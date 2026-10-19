@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "externalBin": ["binaries/freedom-snowflake", "binaries/freedom-webtunnel"],
+    "resources": {
+      "bruecken-lizenzen/": "bruecken-lizenzen/"
+    }
+  }
+}
