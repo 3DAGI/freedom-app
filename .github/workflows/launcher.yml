@@ -140,9 +140,16 @@ jobs:
       - name: Pakete bauen
         working-directory: packages/launcher
         shell: bash
+        # Entpacktes aus der Prüfung gehört nicht in den Cache von target/ – ältere Läufe ließen es dort liegen.
+        # Unter Linux mit --verbose: Scheitert linuxdeploy, steht der Grund im Log (sonst nur „failed to run linuxdeploy“).
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then B=deb,appimage; else B=nsis; fi
-          cargo tauri build --bundles "$B" --config tauri.bruecken.conf.json -- --locked
+          rm -rf target/release/pruef-deb target/release/squashfs-root target/release/pruef-nsis
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            df -h . | tail -1
+            cargo tauri build --verbose --bundles deb,appimage --config tauri.bruecken.conf.json -- --locked
+          else
+            cargo tauri build --bundles nsis --config tauri.bruecken.conf.json -- --locked
+          fi
 
       - name: Pruefen – Tor-Bruecken im Paket, bitgleich mit dem Bau
         working-directory: packages/launcher/target/release/bundle
@@ -156,12 +163,14 @@ jobs:
             for n in snowflake webtunnel; do cmp ../pruef-deb/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
             A=$(ls appimage/*.AppImage) && chmod +x "$A" && (cd .. && "bundle/$A" --appimage-extract > /dev/null)
             for n in snowflake webtunnel; do cmp ../squashfs-root/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
+            rm -rf ../pruef-deb ../squashfs-root
           else
             7z x -y -o../pruef-nsis nsis/*-setup.exe > /dev/null
             for n in snowflake webtunnel; do
               F=$(find ../pruef-nsis -name "freedom-$n.exe") && [ "$(echo "$F" | wc -l)" = 1 ] && cmp "$F" ../../../binaries/freedom-$n-$T.exe
             done
             find ../pruef-nsis -path '*bruecken-lizenzen*' -name 'LICENSE*' | grep snowflake > /dev/null
+            rm -rf ../pruef-nsis
           fi
 
       - name: Pruefsummen
