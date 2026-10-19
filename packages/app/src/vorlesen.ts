@@ -43,7 +43,7 @@ export function waehleStimme<S extends Stimme>(alle: readonly S[], sprache: stri
  * Der Text in Stücken: Leerraum zusammengezogen, höchstens `VORLESE_GRENZEN.zeichen`, geteilt an Satzenden, sonst an
  * Leerzeichen – ein Stück höchstens `VORLESE_GRENZEN.stueck` Zeichen (ein Wort ohne Leerzeichen notfalls hart).
  */
-export function vorleseStuecke(text: string, g = VORLESE_GRENZEN): string[] {
+export function vorleseStuecke(text: string, g: { zeichen: number; stueck: number } = VORLESE_GRENZEN): string[] {
   const ganz = text.replace(/\s+/g, " ").trim().slice(0, g.zeichen);
   const saetze = ganz.match(/[^.!?…]+(?:[.!?…]+|$)/g) ?? [];
   const stuecke: string[] = [];
