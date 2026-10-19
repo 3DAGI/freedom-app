@@ -95,6 +95,17 @@ Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENS
   Form folgt der Spezifikation und den eigenen Interop-Tests von reticulum-js; die Live-Probe mit Sideband/NomadNet
   macht der MENSCH mit B-32b.
 
+## Frage vor B-32b (19.10.2026)
+
+Eine RNode sendet nur mit Funkparametern, die die App ihr beim Verbinden gibt (Frequenz, Bandbreite, Spreizfaktor,
+Kodierrate, Sendeleistung) – anders als Meshtastic, wo die Region im Gerät steht und die App sie nie setzt (7.5).
+Was erlaubt ist, hängt von der Region ab (Frequenzbereich, höchste Sendeleistung, Sendezeit). Die Adresse für Kontakte
+(W2) kommt erst mit B-32c; bis dahin tauscht man sie persönlich per QR-Code aus (W2 B, schon entschieden).
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| RN-W6 | Woher kommen die Funkparameter der RNode? | **A** Vorgaben je Region (Bereich, Leistung, Sendezeit aus einer Tabelle im Code, mit Quelle), die man vor dem ersten Senden bestätigt; Abweichen nur innerhalb der Grenzen der Region · **B** man trägt alles selbst ein, die App schlägt nichts vor · **C** wie A, aber ohne Grenzen (Funkamateure) | **A** – niemand muss Frequenzpläne kennen, und die App sendet nie außerhalb dessen, was die gewählte Region erlaubt |
+
 ## Quellen
 
 - reticulum-js, README und Changelog im npm-Paket `@reticulum/core` 0.9.8 (gelesen 15.10.2026)
