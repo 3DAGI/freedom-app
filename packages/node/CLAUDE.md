@@ -421,4 +421,12 @@ Bereichs unten anhängen.
   127.0.0.1 mit `--blockexternal` und `--attachToProcess`; gelesen wird nur ein Pfad aus der Suche (`istArtikelPfad()`),
   Umleitungen nur auf denselben Ursprung. Ihre stdout ist der MCP-Kanal – nie etwas anderes dorthin schreiben. Fehlt das
   Programm, wirft `starteMcpServer()` `ProgrammFehlt` (`braucht`). Tests bauen das ZIM mit `zimwriterfs` (`zim-tools`).
-
+- **Signalverbindung zum Gruppenanruf nur über `SignalWeiterleitung`** (seit B-34e1, LK5 A, `signal-weiterleitung.ts`,
+  `docs/PROTOCOL.md` §41): Zeichen nur über `vergib()` aus `handleSignal()` (5082, aus einem Umschlag, `istBesitzer()`),
+  nur im Speicher, höchstens bis zum Ablauf der Einladung und einen Tag. Der Relay gibt nur `/signal/…` an `weiter()` –
+  alles andere bleibt Nostr (`WebSocketServer` mit `noServer`, eigener `upgrade`-Handler; mit `server` lehnte `ws` fremde
+  Pfade mit 400 ab). Zum SFU nur über `verbinde` aus `main.ts` (mit Tor `torWsVerbindung()`, sonst `direktVerbinden` nach
+  `pruefeZiel` mit `checkUrlSafe()`) – nie ein zweites `new WebSocket(` in der Datei, ein Test zählt. Weiter gehen nur
+  Pfad und Anfrage, nie Kopfzeilen des Browsers; abgelehnt nur mit festem Status, nie Text vom SFU. Was der SFU gleich
+  nach dem Öffnen schickt, kommt vor dem Browser an (`resume` läuft per `nextTick` vor der Fortsetzung nach `await`) –
+  `oeffne()` hebt es auf, bis `verbinde()` es zustellt. Die Anfrage trägt den Zugang zum Anruf: Adressen nie ins Log.

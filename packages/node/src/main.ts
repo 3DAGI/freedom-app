@@ -38,6 +38,7 @@ import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } fr
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
 import { livekitAusUmgebung } from "./livekit.js";
+import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
@@ -50,7 +51,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
-import { torAnfrage, torAusUmgebung, torWebSocket } from "./tor.js";
+import { torAnfrage, torAusUmgebung, torWebSocket, torWsVerbindung } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
@@ -436,6 +437,14 @@ async function main(): Promise<void> {
   const { dienst: livekit, grund: livekitGrund } = livekitAusUmgebung(process.env);
   console.log(livekit ? `[livekit] Zugänge für den Besitzer an (je ${livekit.gueltigSek} s)` : `[livekit] ${livekitGrund}`);
   if (livekit) statusRollen.add("livekit");
+  // Signalverbindung zu fremden Gruppenanrufen (B-34e1, LK5 A): nur mit eigenem Relay – die App erreicht den Knoten über
+  // dessen Port. Zum SFU über Tor, wenn der Knoten Tor nutzt; ohne Tor nur zu öffentlichen Adressen.
+  const signal = process.env.RELAY_ENABLED === "1"
+    ? new SignalWeiterleitung({
+      verbinde: torProxy ? torWsVerbindung(torProxy) : direktVerbinden,
+      pruefeZiel: async (ziel) => !!torProxy || (await checkUrlSafe(ziel.replace(/^wss:/, "https:"))).allowed,
+    })
+    : undefined;
   // Vibecoden auf dem eigenen Knoten (A-31, VKc1): Projekte nur mit VIBECODEN=1 und git – ungültig → kein Start
   const projekteWahl = projekteAusUmgebung(process.env);
   if (projekteWahl?.grund) {
@@ -555,6 +564,7 @@ async function main(): Promise<void> {
       ...(code ? { code } : {}),
       ...(vorschau ? { vorschau } : {}),
       livekit,
+      signal,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
@@ -739,9 +749,14 @@ async function main(): Promise<void> {
       eventDatei: join(process.env.HOME ?? ".", ".freedom", "relay-events.json"),
       maxEvents: Number(process.env.RELAY_MAX_EVENTS ?? 100_000),
       app: appGeladen?.ok ? appGeladen.app : undefined,
+      signal,
     });
     await relayRole.start();
     statusRollen.add("relay");
+    if (signal) {
+      statusRollen.add("signal");
+      console.log(`[signal] Weg zu fremden Gruppenanrufen für den Besitzer an (${torProxy ? "über Tor" : "direkt"})`);
+    }
     if (appGeladen?.ok) statusRollen.add("app");
     // Der Knoten liest und schreibt auch im eigenen Relay (B-9c, L5 A) – im Prozess, ohne WebSocket. Eine
     // Verbindung zu sich selbst aus RELAYS ersetzt dieser Weg: ohne Anmeldung sähe sie keine Umschläge.

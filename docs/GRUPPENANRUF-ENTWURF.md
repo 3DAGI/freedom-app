@@ -73,7 +73,8 @@ LK2 **A** (`livekit-client` ins Bundle), LK3 **A** (Schlüssel aus dem MLS-Expor
 | B-34c1 ✓ | Einladung als inneres Event der Gruppe (`raum-gruppenanruf.ts`, Art 25041), anrufen und beenden in der App (`shell/gruppenanruf.ts`: Zugänge vom eigenen Knoten, je Mitglied einer), Leak-Szenario | ~250 |
 | B-34c2 ✓ | App: Beitreten mit `livekit-client` 2.22.4 (`shell/gruppenanruf-verbindung.ts`): je MLS-Epoche ein Schlüssel im Ring (`schluesselIndex()`), Weg nur über den eigenen TURN oder nach Zustimmung (`beitrittsWeg()`, V4), E2EE-Worker als Text im Bundle; `livekit-client` vorab minifiziert (gemessen: `freedom.html` +0,92 MB, gepackt +0,20 MB, sobald B-34d ihn aufruft) | ~300 |
 | B-34d ✓ | Oberfläche im privaten Raum (`shell/gruppenanruf-ui.ts`: anrufen, beitreten mit Rückfrage zur IP, Bild und Ton, stumm, verlassen, beenden), Grenze „gruppenanruf“ im Datenschutzbericht, Smoke-Teil „privatraum“ mit Knoten-Attrappe (`scripts/gruppenanruf-probe.mts`) | ~400 |
-| B-34e | Signalverbindung über den eigenen Knoten (LK5 A): Weiterleitung im Relay des Knotens, nur für den Besitzer (Nachweis), nur `wss://` zu öffentlichen Adressen aus einer Einladung; die App verbindet `livekit-client` dorthin, die Rückfrage vor fremden Anrufen entfällt dann | ~300 |
+| B-34e1 ✓ | Signalverbindung über den eigenen Knoten (LK5 A), Teil Knoten: Kind 5082 (nur Besitzer, Nachweis, versiegelt), Weiterleitung `/signal/<zeichen>` im Relay des Knotens, nur `wss://`, ohne Tor nur öffentliche Adressen, mit Tor über den Proxy | ~300 |
+| B-34e2 | Teil App: Zeichen beim eigenen Knoten holen, `livekit-client` dorthin verbinden; mit Weiterleitung und eigenem TURN entfällt die Rückfrage vor fremden Anrufen; Datenschutzbericht, Smoke-Test | ~250 |
 
 ## Befund B-34d (18.10.2026): die Signalverbindung geht direkt
 
@@ -95,6 +96,17 @@ nennt im Anruf deshalb keine Namen.
 LK5 **A** – der eigene Knoten reicht die Signalverbindung zum fremden SFU weiter (nur für den Besitzer, nur `wss://` zu
 öffentlichen Adressen aus einer Einladung). Erst dann hält der Weg über den eigenen Knoten, was LK4 A wollte. Bis B-34e
 fragt die App weiter vor jedem fremden Anruf. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
+
+## Stand B-34e1 (19.10.2026)
+
+Der Knoten reicht die Signalverbindung weiter (`node/src/signal-weiterleitung.ts`, `docs/PROTOCOL.md` §41): Der Besitzer
+holt versiegelt ein Zeichen für ein Ziel (Kind 5082), der Relay des Knotens nimmt `/signal/<zeichen>/rtc[/v1]` an und
+verbindet sich zum SFU – mit Tor über den Proxy, ohne Tor nur zu öffentlichen Adressen. Weiter gehen nur Pfad und
+Anfrage; Kopfzeilen des Browsers (Herkunft, Cookies, Browserkennung) bleiben beim Knoten. Was der SFU gleich nach dem
+Öffnen schickt (die Antwort auf den Beitritt), hebt der Knoten auf, bis der Browser angenommen ist – sonst ginge sie
+verloren. `livekit-client` fragt nach einem Fehler `…/rtc/v1/validate` per HTTP; der Relay antwortet dort wie auf jeden
+anderen Pfad (200, Hinweistext), der Client meldet dann einen allgemeinen Fehler statt „Zugang abgelehnt“ – für die App
+gleich. Die App nutzt den Weg ab B-34e2; bis dahin fragt sie vor fremden Anrufen.
 
 ## Quellen
 
