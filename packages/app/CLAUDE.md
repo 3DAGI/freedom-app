@@ -891,3 +891,9 @@ Fallstricke dieses Bereichs unten anhängen.
   keine Namen – alle Eingeladenen sehen alle Zugänge, wer welchen nutzt, prüft niemand. Im Smoke-Test („privatraum“)
   liefert `scripts/gruppenanruf-probe.mts` die Zugänge, eine Hülle um WebSocket schließt die Verbindung zum SFU
   (`GRUPPENANRUF_ZAEHLER`).
+- **Vorlesen nur über `vorlesen.ts`** (seit B-38a, SP-W2 A): Stimmen nur über `waehleStimme()` – `localService === true` und
+  die Sprache der App; Chrome bietet „Google …“-Stimmen als Vorgabe an, die den Text an Google schicken. Jede Äußerung
+  bekommt ausdrücklich `voice` (`browserSprecher()`), sonst spricht der Browser mit seiner Vorgabe. Ohne passende lokale
+  Stimme nicht vorlesen, nie auf eine Netzstimme ausweichen. Die Spracherkennung des Browsers (`…Recognition`) schickt in
+  Chrome den Ton an Google – nie benutzen, ein Test sucht danach. Im Smoke-Test („lokal“) spielt `SPRACHE_ATTRAPPE`
+  `speechSynthesis` mit einer Netzstimme als Vorgabe.

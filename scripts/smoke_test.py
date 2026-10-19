@@ -3634,6 +3634,31 @@ def meshtastic_pruefen(browser, url: str) -> dict:
 
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
+# B-38a: Stimmen wie in Chrome – die Vorgabe ist eine Netzstimme („Google …“), daneben eine lokale. Die App darf nur die
+# lokale nehmen; `cancel()` bricht wie im Browser die laufende Äußerung mit `onerror` ab.
+SPRACHE_ATTRAPPE = r"""(() => {
+  const stimmen = [
+    { name: 'Google Deutsch', lang: 'de-DE', localService: false, default: true, voiceURI: 'Google Deutsch' },
+    { name: 'Anna (lokal)', lang: 'de-DE', localService: true, default: false, voiceURI: 'Anna' },
+  ];
+  const gesagt = [];
+  let abbrueche = 0, laufend = null;
+  class Aeusserung { constructor(text) { this.text = text; this.voice = null; this.lang = ''; this.onend = null; this.onerror = null; } }
+  const synth = {
+    getVoices: () => stimmen,
+    speak: (u) => {
+      gesagt.push({ text: u.text, stimme: u.voice ? u.voice.name : null });
+      laufend = u;
+      setTimeout(() => { if (laufend === u) { laufend = null; u.onend && u.onend(); } }, 1500);
+    },
+    cancel: () => { abbrueche++; const u = laufend; laufend = null; if (u && u.onerror) u.onerror(); },
+    addEventListener: () => {}, removeEventListener: () => {},
+  };
+  Object.defineProperty(window, 'speechSynthesis', { configurable: true, get: () => synth });
+  Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, get: () => Aeusserung, set: () => {} });
+  window.__vorlesen = { gesagt, abbrueche: () => abbrueche };
+})();"""
+
 
 def gratis_auto_pruefen(browser, url: str) -> dict:
     """Tarif „Automatisch“ (A-14b2): Vorgabe im Agenten. Ohne Gratis-Anbieter und ohne Wallet geht
@@ -4394,6 +4419,7 @@ def lokal_pruefen(browser, url: str) -> dict:
         else:
             route.fulfill(status=404, headers=cors)
     ctx.route("http://localhost:11434/**", modell_dienst)  # später registriert → zuerst gefragt
+    ctx.add_init_script(SPRACHE_ATTRAPPE)
     s = ctx.new_page()
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
@@ -4447,6 +4473,27 @@ def lokal_pruefen(browser, url: str) -> dict:
     if erg["antwort_md"] != [0, "fett <img src=x onerror=alert(1)>", "fett", "ts",
                              ["tok-kw:const", 'tok-str:"<b>"', "tok-com:// x"], "✓ kopiert", 'const a = "<b>"; // x']:
         erg["fehler"].append(f"Antwort mit Markdown {erg['antwort_md']}")
+    # B-38a: „Vorlesen“ unter der Antwort – nur mit der lokalen Stimme, Code ausgelassen; ein zweiter Klick hält an
+    knopf_v = "[...document.querySelectorAll('#ai-thread .bubble.ai .antwort-vorlesen')].at(-1)"
+    erg["vorlesen"] = {"knoepfe": ev("() => document.querySelectorAll('#ai-thread .bubble.ai .antwort-vorlesen').length"),
+                       "fragen": ev("() => document.querySelectorAll('#ai-thread .bubble.user .antwort-vorlesen').length")}
+    ev(f"() => {knopf_v}.click()")
+    try:
+        s.wait_for_function("() => window.__vorlesen.gesagt.length > 0", timeout=5000)
+    except Exception:
+        pass
+    erg["vorlesen"]["waehrend"] = ev(f"() => ({{ text: {knopf_v}.textContent.trim(), gedrueckt: {knopf_v}.getAttribute('aria-pressed') }})")
+    ev(f"() => {knopf_v}.click()")
+    erg["vorlesen"]["danach"] = ev(f"() => ({{ text: {knopf_v}.textContent.trim(), gedrueckt: {knopf_v}.getAttribute('aria-pressed'),"
+                                   " abbrueche: window.__vorlesen.abbrueche(), gesagt: window.__vorlesen.gesagt })")
+    gesagt_v = erg["vorlesen"]["danach"]["gesagt"]
+    if erg["vorlesen"]["knoepfe"] < 2 or erg["vorlesen"]["fragen"] != 0 \
+            or erg["vorlesen"]["waehrend"] != {"text": "Stopp", "gedrueckt": "true"} \
+            or erg["vorlesen"]["danach"]["text"] != "Vorlesen" or erg["vorlesen"]["danach"]["gedrueckt"] != "false" \
+            or erg["vorlesen"]["danach"]["abbrueche"] < 1 or len(gesagt_v) != 1 \
+            or any(g["stimme"] != "Anna (lokal)" for g in gesagt_v) \
+            or "fett" not in gesagt_v[0]["text"] or "Code ausgelassen." not in gesagt_v[0]["text"] or "const a" in gesagt_v[0]["text"]:
+        erg["fehler"].append(f"Vorlesen {erg['vorlesen']}")
     # D2: privat – mit der Wahl „Netz“ geht nichts hinaus (kein Umschlag, keine Frage an localhost), die Frage bleibt
     # im Feld; mit „Dieses Gerät“ antwortet das Gerät wie bisher
     ev("() => document.getElementById('ai-privat').click()")
