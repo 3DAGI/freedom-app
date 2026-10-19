@@ -76,7 +76,8 @@ test("B-34c1: verdrahtet wie TURN – nur gekoppelt, über wegZumKnoten mit fris
   assert.match(q, /await wegZumKnoten\(k\.knoten, sitzung\)/);
   assert.match(q, /leseLivekitZugaenge\(a\.ergebnis, anfrage\)/, "die Antwort nur streng gelesen");
   assert.match(q, /sende: mlsSendeEvent/, "Einladungen nur als inneres Event");
-  assert.deepEqual(q.match(/\.publish\(/g), [".publish("], "hinaus nur die versiegelte Anfrage über den Weg zum Knoten");
-  assert.match(q, /await weg\.publish\(wrap\);/);
+  // Zugänge (5081) und seit B-34e2 der Weg des Signals (5082): je eine versiegelte Anfrage über den Weg zum Knoten, sonst nichts
+  assert.deepEqual(q.match(/\.publish\(/g), [".publish(", ".publish("], "hinaus nur die versiegelten Anfragen über den Weg zum Knoten");
+  assert.equal(q.match(/await weg\.publish\(wrap\);/g)?.length, 2);
   assert.doesNotMatch(q, /ensurePool|pool\.|console\.|localStorage|geheim\./, "nichts offen, nichts ins Log, nichts gemerkt");
 });

@@ -1459,10 +1459,10 @@ gilt die neueste. Nennen zwei Anrufende dieselbe Kennung, gilt keiner (die Zeit 
 Mitglieder sehen alle Zugänge – sie sind ohnehin in der Gruppe; die Kennungen sind zufällig, nie Schlüssel.
 
 **Beitreten** (seit B-34c2, B-34d): `livekit-client` mit E2EE, Schlüssel je MLS-Epoche im Ring unter `epoche % 16`. Die
-Signalverbindung (WebSocket zu `<url>/rtc/v1`) geht immer direkt zum SFU – der Knoten der anrufenden Person sieht die
-IP-Adresse jedes Teilnehmenden; die App tritt einem fremden Anruf nur nach Rückfrage bei. Mit eigenem Vermittler (§26) gehen
-Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`). Seit B-34e1 kann der eigene Knoten die Signalverbindung
-weiterreichen (§41); die App nutzt das ab B-34e2.
+Signalverbindung (WebSocket zu `<url>/rtc/v1`) geht ohne eigenen Knoten direkt zum SFU – der Knoten der anrufenden Person
+sieht die IP-Adresse; die App tritt einem fremden Anruf dann nur nach Rückfrage bei. Mit eigenem Vermittler (§26) gehen
+Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`). Seit B-34e reicht der eigene Knoten die Signalverbindung weiter
+(§41): Gehen Signal und Bild und Ton beide über ihn, tritt die App ohne Rückfrage bei.
 
 ## 40. Umschläge über Reticulum (LXMF, seit B-32a)
 
@@ -1508,6 +1508,10 @@ aus einem Umschlag mit gültigem Nachweis; Zeichen zählen nicht als Aufträge.
 
 Liegt der Ablauf schon zurück, gibt es kein Zeichen (Rückmeldung „Anruf vorbei“). Zeichen sind Geheimnisse: nur
 versiegelt, nie im Log; der Knoten hält sie nur im Speicher (höchstens 16, nach einem Neustart fragt die App neu).
+
+**In der App** (seit B-34e2): nur bei einem fremden Anruf, nur mit Relay des Knotens und nur, wenn sein Status (§24) die
+Rolle `signal` nennt – ein Knoten vor B-34e1 läse 5082 als gewöhnlichen Auftrag. Das Zeichen hält die App nur für diesen
+Beitritt.
 
 **Verbindung:** Die App gibt `livekit-client` als Adresse `<Relay des Knotens>/signal/<zeichen>`; der Client hängt
 `/rtc/v1` (bzw. `/rtc` als Rückfall) und die Anfrage an. Der Relay des Knotens (Rolle `relay`, Status-Rolle `signal`)

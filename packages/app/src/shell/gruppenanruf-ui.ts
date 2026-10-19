@@ -2,13 +2,13 @@
  * Gruppenanrufe im privaten Raum – Oberfläche (B-34d, Entscheidungen LK2–LK4 A, `docs/GRUPPENANRUF-ENTWURF.md`).
  * Ein Knopf im Kopf des Kanals ruft an (nur gekoppelt – die Zugänge kommen vom eigenen Knoten); über dem Verlauf steht je
  * laufendem Anruf des Raums eine Zeile: beitreten (Ton oder mit Bild), den eigenen beenden. Einem fremden Anruf tritt die
- * App erst nach der Rückfrage bei, dass der Knoten der anrufenden Person die IP-Adresse sieht (`zustimmungNoetig()`).
+ * App erst nach der Rückfrage bei, dass der Knoten der anrufenden Person die IP-Adresse sieht – außer Signal und Bild und
+ * Ton gehen über den eigenen Knoten (B-34e, `trittBei()` meldet sonst `"warnung"`).
  * Im Anruf steht eine Leiste über allem (wie bei 1:1, auch auf anderen Seiten): Bild und Ton, stumm, verlassen.
  *
  * Nur DOM mit `textContent`; Bild und Ton nur als Spuren aus `beiMedien()`. livekit-client lädt erst beim Beitreten.
  */
 import { LIVEKIT_GRENZEN, type RaumGruppenanruf } from "@freedomstack/protocol";
-import { zustimmungNoetig } from "../gruppenanruf-ablauf.js";
 import { t } from "../i18n.js";
 import { bestaetige } from "./dialog.js";
 import { beendeGruppenanruf, laufendeGruppenanrufe, starteGruppenanruf, type GruppenanrufStart } from "./gruppenanruf.js";
@@ -40,15 +40,15 @@ function knopf(text: string, klasse: string, los: () => void): HTMLButtonElement
   return b;
 }
 
-/** Beitreten – bei einem fremden Anruf erst nach der Rückfrage. */
+/** Beitreten – bei einem fremden Anruf erst den Weg über den eigenen Knoten suchen, ohne ihn erst nach der Rückfrage. */
 async function beitreten(raum: PrivaterRaum, a: RaumGruppenanruf, art: ("audio" | "video")[], name: string): Promise<void> {
-  let zugestimmt = !zustimmungNoetig(a, raum.ich);
-  if (!zugestimmt) {
-    zugestimmt = await bestaetige({ titel: t("gruppenanruf.ipTitel"), text: t("gruppenanruf.ipText", { name }), ok: t("gruppenanruf.trotzdem") });
-    if (!zugestimmt) return;
-  }
   stumm = false;
-  const r = await trittBei(raum.gruppe, a, { zugestimmt, medien: art }).catch((): Beitritt => "fehler");
+  if (a.von !== raum.ich && meineKopplung()) toast(t("gruppenanruf.wegSucht"));
+  let r = await trittBei(raum.gruppe, a, { ich: raum.ich, medien: art }).catch((): Beitritt => "fehler");
+  if (r === "warnung") {
+    if (!(await bestaetige({ titel: t("gruppenanruf.ipTitel"), text: t("gruppenanruf.ipText", { name }), ok: t("gruppenanruf.trotzdem") }))) return;
+    r = await trittBei(raum.gruppe, a, { ich: raum.ich, zugestimmt: true, medien: art }).catch((): Beitritt => "fehler");
+  }
   if (r !== "beigetreten") toast(t(BEITRITT_TEXT[r]), true);
   zeichne();
 }

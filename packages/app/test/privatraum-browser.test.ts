@@ -30,7 +30,7 @@ test("C-12: Smoke „privatraum“ – angelegt, eingeladen, angenommen, Thread,
 
 test("B-34d: Smoke „privatraum“ – Gruppenanruf: Zugänge vom Knoten, Rückfrage vor dem Beitritt, abgebrochen nichts hinaus, SFU nur aus der Einladung", () => {
   const teil = smoke.slice(smoke.indexOf("def privatraum_anruf("), smoke.indexOf("def privatraum_pruefen("));
-  assert.match(smoke, /privatraum_anruf\(ada, bo, ra, pille, erg\)/);
+  assert.match(smoke, /privatraum_anruf\(ada, bo, ra, rb, pille, erg\)/);
   assert.match(smoke, /ada = DialogSeite\(browser, url, ra, erg, init=GRUPPENANRUF_ZAEHLER\)/);
   // Der Knoten bekommt erst die Frage nach Zugängen (5081), dann – beim Beitreten der Anruferin – nach ihrem TURN (5079)
   assert.match(teil, /"anfragen": \[5081, 5079\]/);
@@ -41,4 +41,8 @@ test("B-34d: Smoke „privatraum“ – Gruppenanruf: Zugänge vom Knoten, Rück
   // Die Verbindung zum SFU stellt die Seite nach, nie der Handler von route_web_socket (close() hielte den Test an)
   assert.match(smoke, /Object\.defineProperty\(window, 'WebSocket', \{ configurable: true, get: \(\) => Huelle, set:/);
   assert.doesNotMatch(smoke.slice(smoke.indexOf("class ProbeRelay"), smoke.indexOf("def zustellen(")), /ws\.close\(\)/);
+  // B-34e2: mit eigenem Knoten (Relay-Liste, Rolle „signal“, TURN) ohne Rückfrage, das Signal nur über ihn
+  assert.match(teil, /probe_bo = neue_probe\("knoten-bo"\)\n\s+ra\.events\.append\(probe_bo\["relayliste"\]\)\n\s+koppeln\(bo, probe_bo\)/);
+  assert.match(teil, /e\.get\("weg"\) == \[5077, 5079, 5082\] and e\.get\("ohne_frage"\) is True/);
+  assert.match(teil, /re\.fullmatch\(r"wss:\/\/knoten-bo\\\.probe\\\.test\/signal\/\[0-9a-f\]\{64\}\/rtc\(\/v1\)\?", u\) for u in e\["sfu"\]/);
 });

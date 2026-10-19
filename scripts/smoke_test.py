@@ -1879,28 +1879,29 @@ GRUPPENANRUF_ZAEHLER = """
 """
 
 
-def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", pille: str, erg: dict) -> None:
+def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", rb: "ProbeRelay", pille: str, erg: dict) -> None:
     """B-34d: Ada koppelt ihren Knoten (`scripts/gruppenanruf-probe.mts` hinter der Relay-Attrappe) und ruft im Raum an – die
     Zugänge kommen versiegelt (5081), die Einladung geht nur als Chiffrat in die Gruppe, ihrem eigenen Anruf tritt sie ohne
     Rückfrage bei (über ihren Vermittler, 5079). Bo sieht den Anruf; „Beitreten“ fragt erst nach der IP – abgebrochen geht
     nichts hinaus, danach startet der E2EE-Worker und die App verbindet sich nur mit der Adresse aus der Einladung (die
-    Hülle aus `GRUPPENANRUF_ZAEHLER` schließt sie: „Beitreten ging nicht“). Ada beendet, bei Bo ist der Anruf danach weg."""
+    Hülle aus `GRUPPENANRUF_ZAEHLER` schließt sie: „Beitreten ging nicht“). B-34e2: Bo koppelt seinen eigenen Knoten (mit
+    Relay-Liste) – dann fragt die App Status, Vermittler und Weiterleitung (5077, 5079, 5082) und tritt ohne Rückfrage bei,
+    das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`. Ada beendet, bei Bo ist der Anruf danach weg."""
     wurzel = Path(__file__).resolve().parent.parent
-    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts"], cwd=wurzel, capture_output=True, text=True,
-                                      timeout=180, check=True).stdout)
+
+    def neue_probe(name: str) -> dict:
+        return json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", name], cwd=wurzel, capture_output=True, text=True,
+                                         timeout=180, check=True).stdout)
+    probe = neue_probe("knoten")
     beantwortet: set[str] = set()
 
-    def an_knoten() -> list[dict]:
-        return list({e["id"]: e for e in ra.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+    def an_knoten(p: dict, relay: "ProbeRelay") -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", p["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
 
-    def antworte(n: int) -> list[int]:
-        """Warten, bis n Umschläge beim Knoten sind, dann die neuen beantworten – zurück deren Kinds."""
-        for _ in range(300):
-            if len(an_knoten()) >= n:
-                break
-            ada.s.wait_for_timeout(200)
-        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", "antworte", probe["sk"], probe["geheimnis"]],
-                                        cwd=wurzel, input=json.dumps(an_knoten()), capture_output=True, text=True, timeout=180, check=True).stdout)
+    def beantworte(p: dict, relay: "ProbeRelay") -> list[int]:
+        """Alle Umschläge an den Knoten beantworten, die er lesen kann – zurück die Kinds der neu beantworteten."""
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", "antworte", p["sk"], p["geheimnis"]],
+                                        cwd=wurzel, input=json.dumps(an_knoten(p, relay)), capture_output=True, text=True, timeout=180, check=True).stdout)
         kinds = []
         for a in aus:
             if a["fuer"] not in beantwortet:
@@ -1908,16 +1909,27 @@ def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", pi
                 kinds.append(a["kind"])
                 ra.events.extend(a["events"])
         return kinds
+
+    def antworte(n: int) -> list[int]:
+        """Warten, bis n Umschläge bei Adas Knoten sind, dann die neuen beantworten – zurück deren Kinds."""
+        for _ in range(300):
+            if len(an_knoten(probe, ra)) >= n:
+                break
+            ada.s.wait_for_timeout(200)
+        return beantworte(probe, ra)
+
+    def koppeln(seite: "DialogSeite", p: dict) -> None:
+        seite.ev("() => { location.hash = '#/settings'; }")
+        seite.s.click("[data-subtab-group=settings] [data-subtab=devices]")
+        seite.s.wait_for_selector("#knoten-koppeln", state="visible", timeout=15000)
+        seite.ev("() => document.getElementById('knoten-koppeln').click()")
+        seite.warte_dialog("Mein Knoten koppeln")
+        seite.tippe(f"freedom-kopplung:1:{p['knoten']}:{p['geheimnis']}")
+        seite.warte_zu()
+        seite.ev("() => { location.hash = '#/chat'; }")
     toast = "() => document.getElementById('toast')?.textContent ?? ''"
     # Ada koppelt ihren Knoten (Settings › Geräte), dann zurück in den Raum
-    ada.ev("() => { location.hash = '#/settings'; }")
-    ada.s.click("[data-subtab-group=settings] [data-subtab=devices]")
-    ada.s.wait_for_selector("#knoten-koppeln", state="visible", timeout=15000)
-    ada.ev("() => document.getElementById('knoten-koppeln').click()")
-    ada.warte_dialog("Mein Knoten koppeln")
-    ada.tippe(f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}")
-    ada.warte_zu()
-    ada.ev("() => { location.hash = '#/chat'; }")
+    koppeln(ada, probe)
     ada.ev(f"() => document.querySelector(\"{pille}\").click()")
     ada.s.wait_for_function("() => document.getElementById('raum-anruf')?.classList.contains('hidden') === false", timeout=60000)
     ada.ev("() => document.getElementById('raum-anruf').click()")
@@ -1947,6 +1959,27 @@ def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", pi
     erg["anruf_bo"] = {"zeile": zeile, "frage": frage["text"] if frage else None, "abgebrochen": abgebrochen,
                        "sfu": sorted(set(bo.ev("() => window.__gruppenanruf.sfu"))),
                        "zaehler": bo.ev("() => [window.__gruppenanruf.worker, window.__gruppenanruf.csp]")}
+    # B-34e2: Bo koppelt seinen eigenen Knoten (Relay-Liste im Relay) – dann ohne Rückfrage, das Signal nur über ihn
+    probe_bo = neue_probe("knoten-bo")
+    ra.events.append(probe_bo["relayliste"])
+    koppeln(bo, probe_bo)
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    bo.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile button')", timeout=60000)
+    vorher = len(bo.ev("() => window.__gruppenanruf.sfu"))
+    bo.ev("() => { document.getElementById('toast').textContent = ''; document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click(); }")
+    weg: list[int] = []
+    for _ in range(120):
+        weg += beantworte(probe_bo, rb)
+        if 5082 in weg or bo.ev("() => !!document.querySelector('[role=dialog][aria-modal=true]')"):
+            break
+        bo.s.wait_for_timeout(500)
+    try:
+        bo.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+        ohne_frage = not bo.ev("() => !!document.querySelector('[role=dialog][aria-modal=true]')")
+    except Exception:
+        ohne_frage = False
+    erg["anruf_bo"]["eigener_knoten"] = {"weg": sorted(set(weg)), "ohne_frage": ohne_frage,
+                                         "sfu": sorted(set(bo.ev("() => window.__gruppenanruf.sfu")[vorher:]))}
     # Ada beendet – bei Bo ist der Anruf nach dem nächsten Öffnen weg
     ada.ev("() => [...document.querySelectorAll('#raum-anrufe .gruppenanruf-zeile button')].find(b => b.textContent === 'Beenden').click()")
     ada.s.wait_for_function("() => document.getElementById('raum-anrufe').classList.contains('hidden')", timeout=60000)
@@ -1966,6 +1999,11 @@ def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", pi
             and "sieht deine IP-Adresse" in (b["frage"] or "") and b["abgebrochen"] == [0, 0] and b["sfu"] == a["sfu"]
             and b["zaehler"] == [1, []] and b["beendet"] is True):
         erg["fehler"].append(f"Gruppenanruf Bo {b}")
+    # Mit eigenem Knoten: Status, Vermittler, Weiterleitung – dann ohne Rückfrage, das Signal nur über den eigenen Knoten
+    e = b.get("eigener_knoten", {})
+    if not (e.get("weg") == [5077, 5079, 5082] and e.get("ohne_frage") is True and e.get("sfu")
+            and all(re.fullmatch(r"wss://knoten-bo\.probe\.test/signal/[0-9a-f]{64}/rtc(/v1)?", u) for u in e["sfu"])):
+        erg["fehler"].append(f"Gruppenanruf Bo mit eigenem Knoten {e}")
 
 
 def privatraum_pruefen(browser, url: str) -> dict:
@@ -2067,7 +2105,7 @@ def privatraum_pruefen(browser, url: str) -> dict:
     if erg.get("ada_liest") is True:
         privatraum_moderation(ada, bo, ra, pk_bo, pille, gruss, antwort, erg)
         privatraum_repo(ada, bo, ra, pille, repo_id, betreff, erg)
-        privatraum_anruf(ada, bo, ra, pille, erg)
+        privatraum_anruf(ada, bo, ra, rb, pille, erg)
     # Auf dem Relay nur Chiffrat: weder Name noch Text des Raums im Klartext
     roh = json.dumps(ra.events, ensure_ascii=False)
     erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff, "sfu.probe.test") if x in roh]

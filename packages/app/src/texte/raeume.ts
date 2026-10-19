@@ -286,10 +286,11 @@ export const raeume: Texte = {
   "gruppenanruf.fehler": { de: "Beitreten ging nicht – Knoten nicht erreichbar oder kein Mikrofon", en: "Could not join – node unreachable or no microphone" },
   "gruppenanruf.ipTitel": { de: "Gruppenanruf beitreten?", en: "Join group call?" },
   "gruppenanruf.ipText": {
-    de: "Der Anruf läuft über den Knoten von {name}: Er sieht deine IP-Adresse und wann und wie lange du teilnimmst und sprichst – nicht, was. Bild und Ton sind Ende-zu-Ende-verschlüsselt. Hast du einen eigenen Vermittler (TURN), gehen Bild und Ton über ihn – deine IP-Adresse sieht der Knoten beim Verbindungsaufbau trotzdem.",
-    en: "The call runs through {name}'s node: it sees your IP address and when and for how long you take part and speak – not what. Video and audio are end-to-end encrypted. If you have a relay server of your own (TURN), video and audio go through it – the node still sees your IP address when connecting.",
+    de: "Der Anruf läuft über den Knoten von {name}: Er sieht deine IP-Adresse und wann und wie lange du teilnimmst und sprichst – nicht, was. Bild und Ton sind Ende-zu-Ende-verschlüsselt. Mit einem eigenen Knoten, der Relay und Vermittler (TURN) betreibt, fragt die App nicht: Dann geht beides über ihn, und der Knoten von {name} sieht nur dessen Adresse.",
+    en: "The call runs through {name}'s node: it sees your IP address and when and for how long you take part and speak – not what. Video and audio are end-to-end encrypted. With a node of your own that runs a relay and a relay server (TURN), the app doesn't ask: both then go through it, and {name}'s node only sees its address.",
   },
   "gruppenanruf.trotzdem": { de: "Beitreten", en: "Join" },
+  "gruppenanruf.wegSucht": { de: "Frage deinen Knoten nach dem Weg …", en: "Asking your node for a route …" },
   "gruppenanruf.aria": { de: "Gruppenanruf", en: "Group call" },
   "gruppenanruf.leiste": { de: "Im Gruppenanruf – Bild und Ton Ende-zu-Ende-verschlüsselt", en: "In a group call – video and audio end-to-end encrypted" },
   "gruppenanruf.stumm": { de: "Stumm", en: "Mute" },

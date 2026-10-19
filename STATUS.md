@@ -11956,3 +11956,26 @@ Spur B, LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`, `docs/PROTOCOL.md` §41). B-34e g
 Browsers, Ablehnungen, Tor, Besitzer, Fremde, Verdrahtung). Zwei Exporte für die App in `wiring-ausnahmen.txt` (B-34e2).
 
 Knoten-Stand: neu – die App nutzt den Weg ab B-34e2; bis dahin ändert sich für Nutzer nichts.
+
+## Schritt B-34e2 – Gruppenanrufe über den eigenen Knoten (App)
+
+Spur B, LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`, `docs/PROTOCOL.md` §39, §41). Zweiter Teil von B-34e – B-34 ist damit im
+Code fertig.
+
+- **`gruppenanruf-ablauf.ts`:** `beitrittsWeg(turn, signal)` trägt die Adresse des Signals; `zustimmungNoetig(a, ich, weg)`
+  fragt nicht mehr, wenn TURN und Signal beide über den eigenen Knoten gehen; `signalAdresse()` (Relay ohne Pfad plus
+  `/signal/<zeichen>`).
+- **`shell/gruppenanruf.ts`:** `signalWegVomKnoten()` – nur mit Relay des Knotens und Rolle `signal` im Status (ein älterer
+  Knoten läse 5082 als Auftrag), dann 5082 versiegelt, Antwort streng gelesen.
+- **`shell/gruppenanruf-verbindung.ts`:** `trittBei()` holt bei einem fremden Anruf erst den Weg (TURN und Signal parallel),
+  meldet ohne ihn `"warnung"`; nach der Rückfrage gilt der gerade geholte Weg; `room.connect()` mit `weg.signal`.
+- **Oberfläche:** erst `trittBei()`, bei `"warnung"` die Rückfrage, dann mit Zustimmung; Hinweis „Frage deinen Knoten nach
+  dem Weg …“; Text der Rückfrage nennt den Weg ohne Frage.
+- **Datenschutzbericht:** Grenze „gruppenanruf“ mit der Ausnahme (eigener Knoten mit Relay und Vermittler), Szenario: 5082
+  nur versiegelt, das Ziel nicht offen.
+
+**Tests:** app +2 (Weg und Rückfrage, Adresse), angepasst: Verdrahtung von Beitreten und Oberfläche; protocol: Szenario im
+Datenschutz-Test. Smoke („privatraum“): Bo koppelt einen eigenen Probe-Knoten mit Relay-Liste und tritt ohne Rückfrage bei –
+das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`.
+
+Knoten-Stand: B-34e1 (Weiterleitung); ohne ihn fragt die App wie bisher.

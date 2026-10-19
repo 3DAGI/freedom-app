@@ -131,7 +131,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
 | Wissen | Kiwix mit einer echten Wikipedia (ZIM von download.kiwix.org) am GX10: `KIWIX_ZIM` im Installer, eine Frage, die das Modell mit `mcp__wiki__search`/`read` beantwortet | B-31b |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
-| Gruppenanruf | LiveKit am GX10 (`scripts/livekit-einrichten.sh`, Profil „livekit“), drei Geräte im privaten Raum: anrufen, beitreten mit und ohne eigenen TURN, Bild und Ton, jemand verlässt die Gruppe (neuer Schlüssel) | B-34 |
+| Gruppenanruf | LiveKit am GX10 (`scripts/livekit-einrichten.sh`, Profil „livekit“), drei Geräte im privaten Raum: anrufen, beitreten mit und ohne eigenen TURN, einmal mit eigenem Knoten (Relay, TURN) ohne Rückfrage (B-34e), Bild und Ton, jemand verlässt die Gruppe (neuer Schlüssel) | B-34 |
 | Native Apps | Tor in Desktop und Android (`IsTor: true`) | 6.1 |
 | Oberfläche | kurzer Nutzertest: fünf Personen ohne Nostr-Vorwissen, drei Aufgaben (erste Frage, Wallet verbinden, Freund anschreiben), Zeit und Abbrüche | Review 15.10. |
 | Sonstiges | fremde Person richtet die App in unter fünf Minuten ein; QR-Scan am Handy; Radicle-Spiegel mit `rad` | 8.1, 11.1b, 8.10 |
@@ -178,7 +178,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop – b1 Logik, b2 Pakete –, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“), b1 ✓ (`bruecken.rs`: arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen, Test mit Attrappe), b2 ✓ (Programme in den Paketen, geprüft gegen den Bau), c ✓ (Schalter „Über eine Brücke“, eigene Zeilen auch per QR-Code, ehrliche Texte), d ✓ (Android: Programme als `lib<name>.so` im APK, mit cgo für DNS, im APK geprüft) | Code fertig; MENSCH: Live-Test mit einem Paket aus dem Lauf, Desktop und Android ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App: als Text und Diktieren) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | frei (SP-W1–W6, 19.10.) – a ✓ (Vorlesen nur mit lokalen Stimmen), b als Nächstes |
-| B-34e | Gruppenanrufe: Signalverbindung über den eigenen Knoten (LK5 A, [`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md)) | e1 ✓ (Knoten, Kind 5082), e2 App als Nächstes |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | nach VKg2 (Bildstrom) |
 | VKi | Windows: Wine und Hangover | nach VKg2 (Bildstrom) |
