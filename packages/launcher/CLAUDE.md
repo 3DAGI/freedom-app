@@ -72,4 +72,6 @@ Fallstricke dieses Bereichs unten anhängen.
   In die Pakete (seit B-33b2) nur über `scripts/pt-beilegen.sh` (nur, was `SHA256SUMS` des Baus nennt) und
   `tauri.bruecken.conf.json` – nie in `tauri.conf.json` selbst (sonst baut `cargo test` ohne die Programme nicht) und nie
   `binaries/` einchecken. Namen in der Datei und in `TRANSPORTE` gleich (ein Test vergleicht); Tauri legt die Programme
-  ohne Tripel neben die Hülle (deb und AppImage `usr/bin`, NSIS das Installationsverzeichnis).
+  ohne Tripel neben die Hülle (deb und AppImage `usr/bin`, NSIS das Installationsverzeichnis). In Schritten der Workflows
+  (bash mit `pipefail`) nie `… | grep -q` – endet `grep` beim ersten Treffer, stirbt der Erzeuger gelegentlich an SIGPIPE
+  (141, so in der ersten CI von B-33b2); `grep … > /dev/null` liest bis zum Ende.
