@@ -414,3 +414,11 @@ Bereichs unten anhängen.
   `livekitAusUmgebung()` (nie halb) und nur an den Besitzer aus einem Umschlag (5081, `istBesitzer()`), je Anfrage frische
   Kennungen, höchstens `LIVEKIT_GRENZEN.teilnehmer`; Geheimnis und Zugänge nie ins Log. Wie bei TURN zählen sie nicht als
   Aufträge (`zaehle()`). Eine neue Rolle im Status braucht einen Text in `ROLLEN_TEXT` der App.
+- **Kiwix nur über die eigene Brücke** (seit B-31b, `mcp/kiwix-bruecke.mjs`): in `mcp.json` nur `"kiwix": [ZIM-Dateien]` –
+  der Knoten setzt Brücke und `kiwix-serve` (`KIWIX_SERVE`, Debian `kiwix-tools`, GPL-3.0+, eigenes Programm) selbst ein,
+  nur in der Sandbox (`starteMcpServer()`), ZIM-Ordner nur lesbar und nie zu weit (`zuWeit()`). Die Brücke ist reines
+  JavaScript ohne Pakete (läuft ohne tsx), schreibt nie nach stderr, gibt `kiwix-serve` keine Ausgabe, startet ihn nur auf
+  127.0.0.1 mit `--blockexternal` und `--attachToProcess`; gelesen wird nur ein Pfad aus der Suche (`istArtikelPfad()`),
+  Umleitungen nur auf denselben Ursprung. Ihre stdout ist der MCP-Kanal – nie etwas anderes dorthin schreiben. Fehlt das
+  Programm, wirft `starteMcpServer()` `ProgrammFehlt` (`braucht`). Tests bauen das ZIM mit `zimwriterfs` (`zim-tools`).
+

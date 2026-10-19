@@ -4,6 +4,7 @@
  * Installer ruft sie am Ende auf. Endet mit 1, wenn etwas fehlt, womit der
  * Knoten nicht verdienen kann.
  */
+import { existsSync } from "node:fs";
 import { DEFAULT_MAINNET_RPCS, RpcPool } from "@freedomstack/protocol";
 import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -13,7 +14,7 @@ import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { hermesAusUmgebung } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
-import { mcpAusDatei } from "./mcp-client.js";
+import { KIWIX_SERVE, mcpAusDatei } from "./mcp-client.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -49,4 +50,6 @@ if (process.env.VIBECODEN?.trim() === "1") {
 const mcpServer = mcpAusDatei();
 if ("ungueltig" in mcpServer) console.log(`✗ Werkzeuge: ${mcpServer.ungueltig} – der Knoten startet so nicht`);
 else if (mcpServer.server.length > 0) console.log(`✓ Werkzeuge: ${mcpServer.server.length} MCP-Server in mcp.json (${mcpServer.server.map((s) => s.name).join(", ")}), laufen nur in der Sandbox`);
+// Kiwix (B-31b): ohne kiwix-serve startet der Server nicht – hier schon sagen, welches Paket fehlt
+if ("server" in mcpServer) for (const s of mcpServer.server) if (s.braucht && !existsSync(s.braucht)) console.log(`✗ Werkzeuge: ${s.name} braucht ${s.braucht}${s.braucht === KIWIX_SERVE ? " (Paket kiwix-tools)" : ""}`);
 process.exit(!antrieb || "ungueltig" in mcpServer || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);

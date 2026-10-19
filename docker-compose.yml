@@ -193,6 +193,8 @@ services:
       # ein neuer Schluessel — Reputation weg, Gratisphase zurueck auf Anfang.
       - freedom-state:/home/node/.freedom
       - freedom-data:/home/node/freedom-data
+      # Wissen ohne Internet (B-31b): ZIM-Dateien nur lesend einbinden und in ~/.freedom/mcp.json nennen, z. B.
+      #   - ./zim:/daten/zim:ro      und  { "server": { "wiki": { "kiwix": ["/daten/zim/wikipedia_de_all_nopic.zim"] } } }
     ports:
       - "127.0.0.1:3602:3602"
       - "127.0.0.1:3601:3601"   # LNURL (8.2b), nur für den Reverse-Proxy

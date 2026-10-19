@@ -5,6 +5,8 @@
  *
  * - Welche Server, sagt nur der Betreiber: `~/.freedom/mcp.json` (`mcpAusDatei()`). Sie laufen ohne Netz; was sie
  *   brauchen (etwa ZIM-Dateien für Kiwix), kommt nur lesbar hinein – nie die Wurzel, das Home oder ein Ordner darüber.
+ * - Kiwix (B-31b) ist eingebaut: `"kiwix": ["/daten/zim/wikipedia.zim"]` statt `befehl` startet die eigene Brücke
+ *   (`mcp/kiwix-bruecke.mjs`, nur Node) mit `kiwix-serve` aus Debian (`kiwix-tools`, GPL-3.0+, eigenes Programm).
  * - Das Modell sieht ihre Werkzeuge als `mcp__<server>__<werkzeug>` (`McpWerkzeuge.schemas()`), in den Grenzen jedes
  *   Werkzeugs (`WERKZEUG_GRENZEN`): Eingabe als JSON höchstens `eingabeZeichen`, Zeit `zeitMs`, Ausgabe gekürzt.
  * - Was durchfließt, ist Inhalt einer KI-Anfrage: nie ins Log (Kein Klartext im Knoten). Fehler nach außen nur feste
@@ -13,6 +15,7 @@
 import { existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Stream } from "@agentclientprotocol/sdk";
 import { MCP_FASSUNGEN } from "./freedom-mcp.js";
 import { sandboxMotor } from "./sandbox.js";
@@ -43,7 +46,14 @@ export interface McpServerEinstellung {
   befehl: string[];
   /** Nur lesbar eingebunden, unter demselben Pfad. */
   nurLesbar: string[];
+  /** Ein Programm, ohne das der Server nicht startet (Kiwix: `kiwix-serve`) – fehlt es, startet er nicht (`ProgrammFehlt`). */
+  braucht?: string;
 }
+
+/** Die Kiwix-Brücke (B-31b) – reines JavaScript, damit sie in der Sandbox ohne tsx läuft. */
+export const KIWIX_BRUECKE = fileURLToPath(new URL("../mcp/kiwix-bruecke.mjs", import.meta.url));
+/** `kiwix-serve` aus Debian (Paket `kiwix-tools`). */
+export const KIWIX_SERVE = "/usr/bin/kiwix-serve";
 
 const NAME = /^[a-z][a-z0-9-]{0,19}$/;
 /** Werkzeugnamen, wie Ollama und OpenAI-kompatible Dienste sie annehmen. */
@@ -58,7 +68,9 @@ export function mcpDatei(heim = homedir()): string {
  * `mcp.json` lesen: `{ "server": { "<name>": { "befehl": ["/abs/programm", "arg"], "nurLesbar": ["/abs/ordner"] } } }`.
  * Keine Datei → keine Server. Eine kaputte oder unzulässige Datei → `ungueltig` (kein Start).
  */
-export function mcpAusDatei(datei = mcpDatei(), heim = homedir()): { server: McpServerEinstellung[] } | { ungueltig: string } {
+export function mcpAusDatei(
+  datei = mcpDatei(), heim = homedir(), o: { node?: string; kiwixServe?: string } = {},
+): { server: McpServerEinstellung[] } | { ungueltig: string } {
   if (!existsSync(datei)) return { server: [] };
   let roh: unknown;
   try {
@@ -73,6 +85,19 @@ export function mcpAusDatei(datei = mcpDatei(), heim = homedir()): { server: Mcp
   const aus: McpServerEinstellung[] = [];
   for (const [name, e] of eintraege) {
     if (!NAME.test(name)) return { ungueltig: "mcp.json: Servernamen nur aus a–z, 0–9 und -, höchstens 20 Zeichen" };
+    const kiwix = (e as { kiwix?: unknown })?.kiwix;
+    if (kiwix !== undefined) {
+      // Kiwix (B-31b): ZIM-Dateien statt Befehl – die Brücke und kiwix-serve setzt der Knoten selbst ein
+      if ((e as { befehl?: unknown }).befehl !== undefined) return { ungueltig: `mcp.json: „${name}“ – entweder „kiwix“ oder „befehl“` };
+      if (!Array.isArray(kiwix) || kiwix.length === 0 || kiwix.length > 8 || kiwix.some((p) => typeof p !== "string" || !absolut(p) || !p.endsWith(".zim"))) {
+        return { ungueltig: `mcp.json: „${name}“ – „kiwix“ braucht 1 bis 8 ZIM-Dateien mit absolutem Pfad` };
+      }
+      const ordner = [...new Set((kiwix as string[]).map((p) => dirname(p)))];
+      if (ordner.some((p) => zuWeit(p, heim) || zuWeitEcht(p, heim))) return { ungueltig: `mcp.json: „${name}“ – nie die Wurzel, das Home oder ~/.freedom einbinden` };
+      const kiwixServe = o.kiwixServe ?? KIWIX_SERVE;
+      aus.push({ name, befehl: [o.node ?? process.execPath, KIWIX_BRUECKE, kiwixServe, ...(kiwix as string[])], nurLesbar: [dirname(KIWIX_BRUECKE), ...ordner], braucht: kiwixServe });
+      continue;
+    }
     const befehl = (e as { befehl?: unknown })?.befehl;
     const nurLesbar = (e as { nurLesbar?: unknown })?.nurLesbar ?? [];
     if (!Array.isArray(befehl) || befehl.length === 0 || befehl.length > 32 || befehl.some((t) => typeof t !== "string" || t === "" || t.includes("\0"))) {
@@ -289,6 +314,7 @@ export class McpWerkzeuge {
  * Wirft mit Namen (`McpZeit`, `McpFassung`, `McpBeendet`, `SandboxFehlt`), nie mit Text des Servers.
  */
 export async function starteMcpServer(e: McpServerEinstellung, o: { bwrap?: string } = {}): Promise<{ verbindung: McpVerbindung; werkzeuge: McpWerkzeug[] }> {
+  if (e.braucht && !existsSync(e.braucht)) throw Object.assign(new Error("Programm fehlt"), { name: "ProgrammFehlt" });
   const arbeit = mkdtempSync(join(tmpdir(), `freedom-mcp-${e.name}-`));
   const start = sandboxMotor(e.befehl, {
     nurLesbar: [

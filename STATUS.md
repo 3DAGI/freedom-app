@@ -11733,3 +11733,26 @@ Verbindung zum SFU stellt im Smoke-Test eine Hülle um WebSocket nach – `WebSo
 an (Fallstrick in `scripts/CLAUDE.md`).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-31b – Kiwix als MCP-Server: Wikipedia ohne Internet
+
+Spur B, Sammlung B-31 (MC1 A, MC1-Größe B). Damit ist B-31 fertig.
+
+- **Brücke:** `packages/node/mcp/kiwix-bruecke.mjs` – reines JavaScript ohne Pakete, läuft so in der Sandbox (ohne tsx).
+  Sie startet `kiwix-serve` auf 127.0.0.1 (in der Sandbox: nur dort erreichbar) mit `--blockexternal` und
+  `--attachToProcess`, beantwortet MCP über stdio und bietet `search` (Volltextsuche, höchstens 10 Treffer mit Pfad) und
+  `read` (Artikel als Text, ohne Skripte und Stile). Gelesen wird nur ein Pfad aus der Suche (`<buch>/<eintrag>`, ohne
+  `..` und Abfrage), Umleitungen nur auf denselben Ursprung, Antworten begrenzt. Nichts nach stderr.
+- **Knoten:** `mcp.json` kennt `"kiwix": [ZIM-Dateien]` statt `befehl` (`mcpAusDatei()`: 1 bis 8 Dateien, absolut,
+  `.zim`, Ordner nie zu weit) – Brücke, Node und `kiwix-serve` setzt der Knoten selbst ein; fehlt `kiwix-serve`, startet
+  der Server nicht (`ProgrammFehlt`, Log und `npm run pruefen` nennen das Paket).
+- **Einrichtung:** Docker-Bild mit `kiwix-tools` (GPL-3.0+, eigenes Programm, rund 5 MB), Installer mit
+  `KIWIX_ZIM=/pfad/a.zim[,…]` (installiert `kiwix-tools`, legt `mcp.json` an, nie über eine vorhandene; Pfade nur als
+  Argument an node), docker-compose mit Hinweis zum Einbinden, `docs/PROVIDER.md` „Wikipedia ohne Internet“. Die CI
+  installiert `kiwix-tools` und `zim-tools`.
+
+**Tests:** node +9 (Pfade, Text ohne Skripte, Treffer der Suche, `mcp.json` mit `kiwix`, Verdrahtung, ohne `kiwix-serve`,
+die Brücke gegen echtes `kiwix-serve` mit einem ZIM aus `zimwriterfs`, initialize ohne `kiwix-serve`, Kiwix in der Sandbox
+über `mcp.json`).
+
+Knoten-Stand: wer Kiwix nutzen will, braucht den Knoten ab diesem Stand und `kiwix-tools`; sonst unverändert.
