@@ -63,7 +63,14 @@ W1 **A** (nicht als Motor im Knoten, Hermes bleibt), W2 **A** (unter „Dieses G
 - Damit trägt W2 A („wie jeder lokale Server“) nicht. Ollama (`OLLAMA_ORIGINS`) und LM Studio (CORS-Schalter) lassen
   sich freigeben, Atomic Agent nicht. Frage AG-W5 in `OFFEN.md` 1.5; B-30a wartet darauf.
 
-## Aufteilung (nach Freigabe, Empfehlung)
+## Entscheidung AG-W5 (19.10.2026, MENSCH)
+
+AG-W5 **A** – B-30 ist geschlossen, B-30a entfällt. Atomic Agent wird nur erwähnt: Er braucht einen eigenen Vermittler,
+weil `atomic-agent serve` keine CORS-Kopfzeilen sendet (Befund oben); die App bekommt keinen eigenen Weg dafür. Sendet
+eine spätere Fassung CORS, geht er wie jeder lokale Server unter „Dieses Gerät“ (OpenAI-kompatibel, `ki-lokal.ts`).
+Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
+
+## Aufteilung (nach Freigabe, Empfehlung – mit AG-W5 A entfallen)
 
 | Schritt | Inhalt | Umfang |
 |---|---|---|

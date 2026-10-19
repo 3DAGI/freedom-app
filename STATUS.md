@@ -11903,3 +11903,21 @@ Spur B, nur Dokumente. Sammlung B-38 ist nach B-31 frei; wie bei B-30 bis B-37 e
 **Tests:** kein Code geändert.
 
 Knoten-Stand: unverändert.
+
+## Schritt Entscheidungen 19.10. (Spur B) eingetragen
+
+Spur B, nur Dokumente. Der MENSCH hat die offenen Fragen von Spur B nach den Empfehlungen entschieden („Die offenen
+Entscheidungen alle nach deinen Empfehlungen“):
+
+- **AG-W5 A:** B-30 geschlossen, B-30a entfällt – Atomic Agent nur erwähnt (braucht einen eigenen Vermittler, kein CORS).
+- **LK5 A:** Der eigene Knoten reicht die Signalverbindung zum fremden SFU weiter – neuer Schritt B-34e.
+- **SP-W1–W6:** A, A, A, C, A, A – B-38 frei: a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App; d (Piper)
+  entfällt vorerst.
+- **RN-W6 A:** Funkparameter der RNode je Region, vor dem ersten Senden bestätigt – B-32b frei.
+
+Eingetragen in den Entwürfen (ATOMIC-AGENT, GRUPPENANRUF, SPRACHE, RETICULUM), in `OFFEN.md` (Fragen 1.5–1.8 raus,
+Bauschritte frei), Sammlung und FORTSCHRITT. Offen bleiben die Fragen anderer Spuren (T1–T5, W4, OR1).
+
+**Tests:** kein Code geändert.
+
+Knoten-Stand: unverändert.

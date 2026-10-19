@@ -79,6 +79,13 @@ Weitere Befunde:
 | SP-W5 | Ton wandeln | **A** im Browser (16-kHz-PCM) · **B** ffmpeg im Knoten (in der Sandbox) | **A** – kleinere Angriffsfläche |
 | SP-W6 | Whisper auch als MCP-Werkzeug für den Agenten (Tondateien im Projekt) | **A** später · **B** gleich mit | **A** |
 
+## Entscheidungen vom 19.10.2026 (MENSCH)
+
+SP-W1 **A** (eigener Knoten und „Dieses Gerät“; fremde Provider mit A-11), SP-W2 **A** (Vorlesen nur mit den lokalen
+Stimmen des Geräts), SP-W3 **A** (Piper als eigenes Programm – wirkt erst, wenn Piper später doch kommt), SP-W4 **C**
+(large-v3-turbo-q5_0 auf dem GX10, base ohne GPU), SP-W5 **A** (Ton im Browser wandeln), SP-W6 **A** (MCP später).
+Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
+
 ## Aufteilung (nach Freigabe, Empfehlungen)
 
 | Schritt | Inhalt | Umfang |
@@ -86,7 +93,7 @@ Weitere Befunde:
 | B-38a | Vorlesen auf dem Gerät: Knopf an Antworten und Nachrichten, nur lokale Stimmen, Sprache passend, Smoke-Test mit Attrappe | ~150 |
 | B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
-| B-38d | (nur mit SP-W2 B/C) Piper auf dem eigenen Knoten | ~250 |
+| B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
 Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENSCH.
 
