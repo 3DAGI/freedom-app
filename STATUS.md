@@ -11938,3 +11938,21 @@ Smoke-Teil „lokal“: Attrappe mit „Google Deutsch“ als Vorgabe und einer 
 ausgelassen, „Stopp“ bricht ab.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-34e1 – Signalverbindung über den eigenen Knoten (Knoten)
+
+Spur B, LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`, `docs/PROTOCOL.md` §41). B-34e geteilt: e1 Knoten und Protokoll, e2 App.
+
+- **Protokoll `signal-weiterleitung.ts`:** Kind 5082 (`baueSignalAnfrage()`, versiegelt mit Nachweis; Ziel nur wie
+  `istLivekitUrl()`), Antwort 6082 (`leseSignalZugang()`: Zeichen 64 Hex, Ablauf höchstens einen Tag), Pfad
+  `/signal/<zeichen>/rtc[/v1]` (`leseSignalPfad()`). Status-Rolle `signal` (App: „Weg zu fremden Gruppenanrufen“).
+- **Knoten `signal-weiterleitung.ts`:** Zeichen nur für den Besitzer (`handleSignal()`, zählt nicht als Auftrag), nur im
+  Speicher; der Relay reicht `/signal/…` zum SFU weiter (`noServer` + eigener `upgrade`-Handler), mit Tor über den Proxy
+  (`torWsVerbindung()`), ohne Tor nur öffentliche Ziele. Nur Pfad und Anfrage gehen weiter, Rahmen unverändert, was der
+  SFU sofort schickt, wird aufgehoben; Ablehnungen mit festem Status (404/403/502/503), am Ablauf endet die Verbindung.
+- **`main.ts`:** nur mit `RELAY_ENABLED=1`, an Provider und Relay; Rolle `signal` nach dem Start des Relays.
+
+**Tests:** protocol +3 (Anfrage, Antwort, Pfad), node +7 (Zeichen, Weiterleitung über den Relay ohne Kopfzeilen des
+Browsers, Ablehnungen, Tor, Besitzer, Fremde, Verdrahtung). Zwei Exporte für die App in `wiring-ausnahmen.txt` (B-34e2).
+
+Knoten-Stand: neu – die App nutzt den Weg ab B-34e2; bis dahin ändert sich für Nutzer nichts.

@@ -1461,7 +1461,8 @@ Mitglieder sehen alle Zugänge – sie sind ohnehin in der Gruppe; die Kennungen
 **Beitreten** (seit B-34c2, B-34d): `livekit-client` mit E2EE, Schlüssel je MLS-Epoche im Ring unter `epoche % 16`. Die
 Signalverbindung (WebSocket zu `<url>/rtc/v1`) geht immer direkt zum SFU – der Knoten der anrufenden Person sieht die
 IP-Adresse jedes Teilnehmenden; die App tritt einem fremden Anruf nur nach Rückfrage bei. Mit eigenem Vermittler (§26) gehen
-Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`).
+Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`). Seit B-34e1 kann der eigene Knoten die Signalverbindung
+weiterreichen (§41); die App nutzt das ab B-34e2.
 
 ## 40. Umschläge über Reticulum (LXMF, seit B-32a)
 
@@ -1485,3 +1486,35 @@ der Python-Referenz:
 Gelesen wird nur eine Nachricht, deren Ziel am Anfang die eigene Adresse ist (`entpackeAusReticulum()`), nur mit dieser
 Art und nur, was `pruefeMeshInhalt()` durchlässt. Die Signatur des Absenders prüft die App ab B-32b aus seiner
 Bekanntgabe; der Umschlag darin ist ohnehin signiert. Reticulum verschlüsselt auf dem Weg zusätzlich an den Empfänger.
+
+## 41. Signalverbindung zum Gruppenanruf über den eigenen Knoten (Kind 5082, seit B-34e1)
+
+Entscheidung LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`): `livekit-client` öffnet für die Signalisierung einen WebSocket zur
+Adresse des SFU (§39). Damit der Knoten der anrufenden Person die IP-Adresse nicht sieht, reicht der eigene Knoten diese
+Verbindung weiter – nur für den Besitzer, nur zu dem Ziel, das er nennt.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, `baueSignalAnfrage()`):
+`i` = `{"ziel": "wss://host[:port]", "bis": <Unix-Sekunden>}` – Ziel und Ablauf aus der Einladung (`url`, `bis`, §39),
+`bid` = 0, `p` = Schlüssel des Knotens, `besitzer` = Nachweis nach §21. Gelesen nur mit `leseSignalAnfrage()`: das Ziel
+wie `istLivekitUrl()` (nur `wss://`, kein Pfad, keine Zugangsdaten), der Ablauf eine ganze Zahl. Der Knoten antwortet nur
+aus einem Umschlag mit gültigem Nachweis; Zeichen zählen nicht als Aufträge.
+
+**Antwort** (6082, versiegelt an den Sitzungsschlüssel), gelesen nur mit `leseSignalZugang()`:
+
+| Feld | Inhalt |
+|---|---|
+| `zeichen` | 64 Zeichen Hex, zufällig (32 Byte) – gilt nur für dieses Ziel |
+| `bis` | der Ablauf aus der Anfrage, höchstens einen Tag ab jetzt; in der Zukunft (fünf Minuten Spielraum für die Uhren) |
+
+Liegt der Ablauf schon zurück, gibt es kein Zeichen (Rückmeldung „Anruf vorbei“). Zeichen sind Geheimnisse: nur
+versiegelt, nie im Log; der Knoten hält sie nur im Speicher (höchstens 16, nach einem Neustart fragt die App neu).
+
+**Verbindung:** Die App gibt `livekit-client` als Adresse `<Relay des Knotens>/signal/<zeichen>`; der Client hängt
+`/rtc/v1` (bzw. `/rtc` als Rückfall) und die Anfrage an. Der Relay des Knotens (Rolle `relay`, Status-Rolle `signal`)
+nimmt nur `/signal/<zeichen>/rtc` und `/signal/<zeichen>/rtc/v1` an (`leseSignalPfad()`), prüft das Ziel (ohne Tor nur
+öffentliche Adressen) und verbindet sich mit `<ziel>/rtc[/v1]?<anfrage>` – mit Tor über den Proxy, der den Namen
+auflöst. Weitergereicht werden nur Pfad und Anfrage, keine Kopfzeilen des Browsers; die Rahmen gehen unverändert in
+beide Richtungen (höchstens 1 MiB je Nachricht, zwei Verbindungen je Zeichen, acht insgesamt). Ein unbekanntes oder
+abgelaufenes Zeichen ergibt 404, ein verbotenes Ziel 403, ein SFU, der nicht antwortet oder ablehnt, 502 – nie Text vom
+SFU. Mit dem Ablauf endet auch eine offene Verbindung. Der SFU sieht die Adresse des eigenen Knotens (oder des
+Tor-Ausgangs), nicht die des Geräts; Bild und Ton gehen weiter über den eigenen Vermittler (§26).

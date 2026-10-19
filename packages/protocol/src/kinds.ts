@@ -58,6 +58,7 @@ export const KIND_DVM_WECKEN = 5078;        // Wecken: Push-Adresse beim eigenen
 export const KIND_DVM_TURN = 5079;          // Zugang zum TURN des eigenen Knotens (nur Besitzer, versiegelt, B-13a)
 export const KIND_DVM_KNOTEN_CODE = 5080;   // Vibecoden auf dem eigenen Knoten (nur Besitzer, versiegelt, A-31/VKa)
 export const KIND_DVM_LIVEKIT = 5081;       // Zugänge zum Gruppenanruf (LiveKit) des eigenen Knotens (nur Besitzer, versiegelt, B-34a)
+export const KIND_DVM_SIGNAL = 5082;        // Signalverbindung zum Gruppenanruf über den eigenen Knoten (nur Besitzer, versiegelt, B-34e)
 
 export function isDvmRequest(kind: number): boolean {
   return kind >= KIND_DVM_REQUEST_MIN && kind <= KIND_DVM_REQUEST_MAX;

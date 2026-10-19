@@ -32,13 +32,18 @@
  *   (Umschlaege nur an ihn). So erreichen ihn Anfragen, die nur ueber sein
  *   Relay kommen, und seine Antworten liegen dort fuer den Sitzungsschluessel.
  *   Seit B-23 auch als Dauer-Abo – Anfragen kommen ohne Abfragetakt an.
+ * - Signalverbindung zum Gruppenanruf (seit B-34e1, LK5 A): Verbindungen auf
+ *   `/signal/…` reicht `SignalWeiterleitung` zum SFU weiter – nur mit einem
+ *   Zeichen, das der Besitzer versiegelt bekam; alle anderen sind Nostr.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { KasseFehler, type RelayKasse, type Schiene } from "./relay-kasse.js";
 import { appKopfzeilen, istAppPfad, type App } from "./app-auslieferung.js";
+import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   ablaufVon, baueRelayInfo, brauchtAnmeldung, relayNimmtAn, darfAusliefern, ersetzSchluessel, hasValidEventShape, istFluechtig,
@@ -68,6 +73,8 @@ export interface RelayConfig {
   flutschutz?: Partial<Flutschutz>;
   /** Die App auf demselben Port (B-10) – nur aus `ladeApp()`, also mit gepruefter Summe. */
   app?: App;
+  /** Signalverbindungen zum Gruppenanruf weiterreichen (B-34e1) – Pfad `/signal/…`. */
+  signal?: SignalWeiterleitung;
   /** Unix-Sekunden (Tests). */
   jetzt?: () => number;
 }
@@ -203,7 +210,13 @@ export class RelayRole {
       if (!res.headersSent) res.statusCode = 500;
       res.end();
     }));
-    this.wss = new WebSocketServer({ server: this.http, maxPayload: Math.max(2 * this.cfg.maxEventBytes, 65_536) });
+    this.wss = new WebSocketServer({ noServer: true, maxPayload: Math.max(2 * this.cfg.maxEventBytes, 65_536) });
+    // Signalverbindungen zum Gruppenanruf (B-34e1) übernimmt die Weiterleitung, alle anderen sind Nostr
+    this.http.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+      const signal = this.cfg.signal;
+      if (signal?.istSignal(req)) return void signal.weiter(req, socket, head);
+      this.wss!.handleUpgrade(req, socket, head, (ws) => this.wss!.emit("connection", ws, req));
+    });
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       if (this.verbindungen.size >= this.flut.verbindungen) {
         this.gedrosselt++;
@@ -243,6 +256,7 @@ export class RelayRole {
     clearInterval(this.sicherer);
     this.sichereEvents();
     for (const ws of this.verbindungen.keys()) ws.terminate();
+    this.cfg.signal?.stop();
     this.interneAbos.clear();
     this.wss?.close();
     this.http?.close();

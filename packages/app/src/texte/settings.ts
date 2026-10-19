@@ -184,6 +184,7 @@ export const settings: Texte = {
   "set.rolleTurn": { de: "Vermittler für Anrufe (TURN)", en: "relay for calls (TURN)" },
   "set.rolleCode": { de: "Projekte zum Vibecoden", en: "projects for vibe coding" },
   "set.rolleLivekit": { de: "Gruppenanrufe (LiveKit)", en: "group calls (LiveKit)" },
+  "set.rolleSignal": { de: "Weg zu fremden Gruppenanrufen", en: "route to other group calls" },
   "set.statusEinrichtung": { de: "Einrichtung (Prüfung beim Start):", en: "Setup (check at start):" },
   "set.statusEinrichtungFehlt": { de: "Einrichtung: noch nicht geprüft – oder der Knoten ist älter als B-11c", en: "Setup: not checked yet – or the node is older than B-11c" },
   "set.einUnbekannt": { de: "Befund {fall} – diese App kennt ihn noch nicht", en: "Finding {fall} – this app does not know it yet" },

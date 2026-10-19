@@ -53,6 +53,7 @@ import {
   buildBlob, generateKeypair, verschluesseleDatei,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText, KIND_DVM_LIVEKIT, leseLivekitAnfrage, livekitZugaengeText,
+  KIND_DVM_SIGNAL, leseSignalAnfrage, signalZugangText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
@@ -60,6 +61,7 @@ import {
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
 import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
+import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
@@ -155,6 +157,8 @@ export interface ProviderConfig {
   turn?: TurnDienst;
   /** SFU für Gruppenanrufe (B-34a, LK2–LK4 A) – ohne: keine Zugänge. */
   livekit?: LivekitDienst;
+  /** Signalverbindung zum Gruppenanruf weiterreichen (B-34e1, LK5 A) – nur mit eigenem Relay; ohne: keine Zeichen. */
+  signal?: SignalWeiterleitung;
   /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
   projekte?: ProjektAblage;
   /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
@@ -259,9 +263,10 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN- und LiveKit-Zugänge und Code-Aufträge des Besitzers nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN- und LiveKit-Zugänge, Weiterleitungen und Code-Aufträge des Besitzers nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
     if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE || request.kind === KIND_DVM_LIVEKIT) return;
+    if (request.kind === KIND_DVM_SIGNAL) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -1079,6 +1084,43 @@ export class DvmProvider {
   }
 
   /**
+   * Signalverbindung zum Gruppenanruf weiterreichen (5082, seit B-34e1, LK5 A): nur aus einem Umschlag und mit Nachweis
+   * (`istBesitzer()`), ein Zeichen für genau das genannte Ziel bis zu dessen Ablauf (`SignalWeiterleitung.vergib()`).
+   * Das Zeichen reist nur versiegelt und geht nie ins Log; nach außen nur feste Texte.
+   */
+  private async handleSignal(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Weiterleitung nur für den Besitzer");
+    if (!this.cfg.signal) throw new Error("keine Weiterleitung");
+    const anfrage = leseSignalAnfrage(getTag(request, "i") ?? "");
+    if (!anfrage) throw new Error("Anfrage ungültig");
+    const zugang = this.cfg.signal.vergib(anfrage.ziel, anfrage.bis);
+    if (!zugang) throw new Error("Anruf vorbei");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: signalZugangText(zugang),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "Weiterleitung zum Gruppenanruf an den Besitzer",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Solana-Deposit-Session validieren (Provider-Seite):
    *   1. Deposit-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein, nicht abgelaufen (Timelock)
@@ -1158,6 +1200,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_KNOTEN_CODE) return this.handleCode(request, privat);
     // Zugänge zum Gruppenanruf (5081, B-34a): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_LIVEKIT) return this.handleLivekit(request, privat);
+    // Signalverbindung zum Gruppenanruf weiterreichen (5082, B-34e1): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_SIGNAL) return this.handleSignal(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");
