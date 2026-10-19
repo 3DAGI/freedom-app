@@ -15,7 +15,7 @@ test("drei Gruppen, jede Zeile mit Titel und einem Satz", () => {
   assert.deepEqual([...teil.matchAll(/<h3 class="einst-gruppe-titel" data-i18n="(set\.[a-zA-Z]+)">/g)].map((m) => m[1]),
     ["set.gruppeNetz", "set.gruppeDaten", "set.gruppeNachrichten"]);
   const zeilen = [...teil.matchAll(/class="einst-zeile">([\s\S]*?)<\/(label|div)>/g)].map((m) => m[1]);
-  assert.equal(zeilen.length, 8);
+  assert.equal(zeilen.length, 10); // B-33c: Brücke und eigene Brücken im Block der Hülle
   for (const z of zeilen) {
     assert.match(z, /<span class="einst-titel" data-i18n="set\.[a-zA-Z]+">/);
     assert.match(z, /<span class="einst-satz"/);
@@ -24,7 +24,7 @@ test("drei Gruppen, jede Zeile mit Titel und einem Satz", () => {
 
 test("Schalter statt Häkchen – mit role=switch, Ids wie bisher", () => {
   const schalter = [...teil.matchAll(/<input type="checkbox" id="([a-z-]+)" class="schalter" role="switch" \/>/g)].map((m) => m[1]);
-  assert.deepEqual(schalter, ["huelle-tor", "kontakte-sichern", "ki-platzhalter", "ruf-teilen"]);
+  assert.deepEqual(schalter, ["huelle-tor", "huelle-bruecke", "kontakte-sichern", "ki-platzhalter", "ruf-teilen"]);
   assert.doesNotMatch(teil, /<input type="checkbox"(?![^>]*class="schalter")/, "kein Häkchen mehr ohne Schalter");
   for (const id of ["net-mode", "ki-verlauf", "versand-verzoegerung", "onion-pruefen", "onion-pruefrelay", "privacy-report", "ruf-stand", "huelle-tor-stand"]) {
     assert.equal(teil.split(`id="${id}"`).length, 2, id);

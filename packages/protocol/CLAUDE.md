@@ -128,3 +128,7 @@ Fallstricke dieses Bereichs unten anhängen.
   über `neuerKontoSchluessel()`. `messageBytes` ist für kit nur lesbar – `@noble/curves` und `Buffer` bekommen
   `Uint8Array.from(…)`. Gelesen wird nur über `leseNachricht()` (legacy, Rollen aus dem Kopf), geschickt die Bytes aus
   `alsDraht()`.
+- **Gegenproben mit Zufall nie an einem einzigen Fall** (gefunden 19.10.2026, `succession.test.ts`): „Diese Bytes mit der
+  falschen Rechnung ergeben nicht das Geheimnis“ hing an einem zufälligen Dreier – ob er passt, hängt nur an den x-Werten
+  der Bibliothek, für alle Bytes zugleich: etwa jeder 250. Lauf passte (in der CI rot). Was nur „meistens“ gilt, über alle
+  Möglichkeiten prüfen (hier: nicht alle zehn Dreier) und die Rate einmal messen, bevor man sich auf sie verlässt.
