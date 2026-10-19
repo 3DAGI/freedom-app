@@ -51,7 +51,8 @@ lizenzen() { # <gopath> <goos> <goarch> <modul@version> <paket> <ausgabe>
     for datei in "$ordner"/LICENSE* "$ordner"/LICENCE* "$ordner"/COPYING* "$ordner"/NOTICE*; do
       [ -f "$datei" ] || continue
       mkdir -p "$aus/lizenzen/$pfad"
-      cp "$datei" "$aus/lizenzen/$pfad/"
+      # Im Modul-Cache sind Dateien nur lesbar – `cp` übernähme das, und das zweite Programm (gleiches Modul) scheiterte
+      install -m 0644 "$datei" "$aus/lizenzen/$pfad/${datei##*/}"
       gefunden=1
     done
     # Ohne Lizenztext dürfen wir das Programm nicht weitergeben – dann lieber kein Bau
