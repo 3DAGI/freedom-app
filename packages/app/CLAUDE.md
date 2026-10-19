@@ -659,6 +659,10 @@ Fallstricke dieses Bereichs unten anhängen.
   In der App (seit 6.1b1b) nur über `shell/netz-huelle.ts`: Schalter `#huelle-tor` nur in der
   Hülle (`huellenArt()`, seit 6.1b2b auch Android) und nur mit `verfuegbar`, umschalten nur nach
   `bestaetige(torRueckfrage())` mit Neustart (`setzeTor()`; Android: „App schließen“); Texte sagen „es geht nichts hinaus“ statt Ausweichen, Anrufe nicht über Tor.
+  Brücken (seit B-33c) nur über `wireBruecken()`: sichtbar nur mit `brueckenMoeglich`, umgeschaltet nur nach
+  `bestaetige(brueckeRueckfrage())` (mit Brücke auch Tor), eigene Zeilen nur über `setzeBruecken()` an `netz_setzen` –
+  nie in `localStorage` oder `geheim`, die App erfährt nur ihre Zahl. Fehler der Hülle nur über `brueckenFehlerText()`
+  (Kennung aus `ZEILEN_GRUND`, nie ihr Wortlaut). Texte nennen, was Snowflake hinausschickt (Proxys sehen die IP, DNS für CDN und STUN).
   *(Weitere Teile: `packages/launcher/CLAUDE.md`, Wurzel (`CLAUDE.md`).)*
 - **Meshtastic nur über `meshtastic.ts`** – USB (seit 7.5b) nur über `erkenneSerielleStrecke()` (`meshtastic-strecke.ts`, aus
   `connectSerial()`): Meshtastic erst nach `want_config` erkannt (alle 2 s neu, 10 s Frist),

@@ -165,6 +165,8 @@ bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
   die Namen von Broker-Front und STUN-Servern auf (gemessen mit dem Paket: nur dieses
   Programm, sonst nichts außer 127.0.0.1) und spricht danach WebRTC mit freiwilligen Proxys –
   so arbeitet es auch im Tor Browser. Texte der Oberfläche sagen das (V5, B-33c).
+- In der App (seit B-33c): Settings › Datenschutz › „Über eine Brücke“ und „Eigene Brücken“ (einfügen oder per
+  QR-Code), nur wenn `bruecken_moeglich`.
 - Geprüft ist der Weg bis zur Brücke mit einer Attrappe des Programms (arti startet es und
   verbindet sich mit Adresse und Parametern der Zeile); ins Tor-Netz kommt arti hier nicht –
   den Live-Test macht der MENSCH, am besten aus einem Netz mit Sperre.

@@ -76,7 +76,7 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
 | B-33a ✓ | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf – `scripts/pt-bauen.sh`, Workflow „Tor-Brücken“ | ~150 |
 | B-33b1 ✓ | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe – `bruecken.rs` | ~300 |
 | B-33b2 ✓ | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
-| B-33c | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
+| B-33c ✓ | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
 | B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
 
 ## Stand B-33a (19.10.2026)
@@ -124,6 +124,18 @@ PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), 
   Systems (Broker-Front, STUN) –, Hülle, arti und Fenster nur zu 127.0.0.1. Für V5 heißt das: Wer das DNS des Rechners
   sieht, sieht die Namen von CDN und STUN-Servern, nicht Tor – wie beim Tor Browser.
 - **Offen:** Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH, mit einem Paket aus dem Lauf).
+
+## Stand B-33c (19.10.2026)
+
+- **Oberfläche** (Settings › Datenschutz, `shell/netz-huelle.ts`): unter „Tor in dieser App“ der Schalter „Über eine
+  Brücke – wo Tor gesperrt ist“ und „Eigene Brücken“, nur wenn die Hülle `brueckenMoeglich` meldet (Desktop mit den
+  Programmen). Der Schalter fragt erst (mit Brücke auch Tor, Neustart); eigene Zeilen gehen per Textfeld oder QR-Code
+  (auch in der Form von bridges.torproject.org) nur an `netz_setzen` – die App merkt sie nie. Fehler der Hülle
+  (`zeile:<stelle>:<kennung>`) zeigt sie als eigenen Text mit Zeilennummer; der Dialog bleibt mit dem Text offen.
+- **Texte (V5):** langsamer; Brücken verbergen, dass man Tor nutzt, nicht vor jedem Netzbetreiber gleich gut;
+  Snowflake: freiwillige Proxys sehen die IP-Adresse, nicht, was man tut, und der Rechner fragt sein DNS nach CDN und
+  STUN-Servern (gemessen in B-33b2); geht die Brücke nicht, geht nichts hinaus.
+- **Offen:** Android (B-33d), Live-Test (MENSCH).
 
 ## Quellen
 

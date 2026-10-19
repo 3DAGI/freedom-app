@@ -11839,4 +11839,25 @@ Spur B (gefunden in der CI von #529, Bereich von SH1/Spur A, nur ein Test).
 
 **Tests:** Anzahl gleich (protocol 1342); `succession.test.ts` 40-mal hintereinander grün.
 
+## Schritt B-33c – Tor-Brücken in der Oberfläche
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V3–V5). Oberfläche für die Hülle aus B-33b.
+
+- **`shell/netz-huelle.ts`:** `leseNetzStand()` liest die Felder der Brücken (ältere Hüllen ohne sie: aus) und den Fehler
+  `bruecke`; `netzZeilen()` sagt, ob die Sitzung über eine Brücke läuft, was ab dem Start gilt und wie viele eigene Zeilen
+  gemerkt sind. Neu: `brueckeRueckfrage()`, `zeilenAusText()` (je Zeile eine, auch `['…', '…']` von
+  bridges.torproject.org und ihrem QR-Code), `brueckenFehlerText()` (Kennungen aus `bruecken.rs`, nie Wortlaut der Hülle),
+  `setzeBruecken()`, `wireBruecken()`: Schalter „Über eine Brücke“ nur mit `brueckenMoeglich`, erst Rückfrage, dann
+  `netz_setzen` mit Brücke und Tor und Neustart; „Eigene Brücken“: Textfeld mit QR-Scan, Zeilen nur an die Hülle, bei einem
+  Fehler bleibt der Dialog mit dem Text und der Zeilennummer offen.
+- **Texte** (Deutsch und Englisch, V5): langsamer; verbirgt, dass man Tor nutzt, nicht vor jedem Netzbetreiber gleich gut;
+  Snowflake-Proxys sehen die IP-Adresse, nicht, was man tut; der Rechner fragt sein DNS nach CDN und STUN-Servern; geht
+  die Brücke nicht, geht nichts hinaus.
+
+**Tests:** app +6 (1258 mit Test-Mint): Stand streng (auch ohne die neuen Felder), Zeilen des Status, eingefügte Zeilen,
+Fehlertexte (auch `constructor`), Setzen nur über die Hülle, Verdrahtung. Smoke-Test neu „huelle_bruecke“: eine Attrappe
+der Hülle (`__FREEDOM_NATIVE__`, `__TAURI_INTERNALS__`) – Schalter sichtbar, falsche Zeile meldet „Zeile 2: …“ und der
+Dialog bleibt offen, die Form von bridges.torproject.org geht als eine Zeile an `netz_setzen`, der Schalter fragt und setzt
+Brücke und Tor mit Neustart; nichts davon im Speicher der App.
+
 Knoten-Stand: unverändert.

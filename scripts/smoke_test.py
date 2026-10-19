@@ -2184,6 +2184,74 @@ def einst_zeilen_pruefen(browser, url: str) -> dict:
     return erg
 
 
+HUELLE_BRUECKE = """window.__FREEDOM_NATIVE__ = { huelle: "desktop" };
+window.__HUELLE_AUFRUFE__ = [];
+window.__TAURI_INTERNALS__ = { invoke: async (befehl, argumente) => {
+  window.__HUELLE_AUFRUFE__.push([befehl, argumente ?? null]);
+  if (befehl === "netz_stand") return { verfuegbar: true, tor: true, aktiv: true, bereit: false, fehler: null,
+    bruecken: false, brueckenAktiv: false, brueckenMoeglich: true, eigeneZeilen: 0 };
+  if (befehl === "netz_setzen") {
+    const falsch = (argumente.zeilen ?? []).findIndex((z) => !z.startsWith("webtunnel "));
+    if (falsch >= 0) throw "zeile:" + falsch + ":transport";
+    return null;
+  }
+  throw "unbekannt";
+} };"""
+
+
+def huelle_bruecke_pruefen(browser, url: str) -> dict:
+    """Tor über Brücken in der Hülle (B-33c): Mit einer Attrappe der Hülle (Programme liegen bei) zeigt Settings ›
+    Datenschutz den Schalter „Über eine Brücke“ und „Eigene Brücken“. Eine falsche Zeile meldet die Hülle mit Stelle und
+    Kennung – der Dialog bleibt mit dem Text offen; die Form von bridges.torproject.org geht als Zeilen an `netz_setzen`,
+    ohne Neustart. Der Schalter fragt erst und setzt dann Brücke und Tor mit Neustart. Die Zeilen bleiben nicht in der App."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=HUELLE_BRUECKE)
+    ev, s = seite.ev, seite.s
+    ev("() => { location.hash = '#/settings'; }")
+    s.wait_for_selector("[data-subtab-group=settings] [data-subtab=privacy]", state="attached", timeout=30000)
+    ev("() => document.querySelector('[data-subtab-group=settings] [data-subtab=privacy]').click()")
+    s.wait_for_function("() => !!document.getElementById('huelle-bruecke').offsetParent", timeout=10000)
+    erg["stand"] = ev("() => document.getElementById('huelle-tor-stand').textContent")
+    ev("() => document.getElementById('huelle-bruecken-zeilen').click()")
+    seite.warte_dialog("Eigene Brücken")
+    w = "webtunnel [2001:db8::1]:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01 url=https://bruecke.example.org/a ver=0.0.1"
+    ev("(v) => { const f = document.querySelector('[role=dialog] textarea'); f.value = v; f.dispatchEvent(new Event('input')); }",
+       f"{w}\nobfs4 192.0.2.7:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01")
+    dialog_ok(seite, "Merken")
+    s.wait_for_function("() => document.querySelector('[role=dialog] .dlg-text')?.textContent.startsWith('Zeile 2')", timeout=10000)
+    erg["falsch"] = seite.stand()
+    ev("(v) => { const f = document.querySelector('[role=dialog] textarea'); f.value = v; f.dispatchEvent(new Event('input')); }", f"['{w}']")
+    dialog_ok(seite, "Merken")
+    erg["gemerkt"] = seite.warte_dialog("Eigene Brücken")
+    dialog_ok(seite, "Schließen")
+    seite.warte_zu()
+    ev("() => document.getElementById('huelle-bruecke').click()")
+    erg["rueckfrage"] = seite.warte_dialog("Über eine Brücke verbinden?")
+    dialog_ok(seite, "Neu starten")
+    s.wait_for_function("() => window.__HUELLE_AUFRUFE__.filter(a => a[0] === 'netz_setzen').length === 3", timeout=10000)
+    erg["aufrufe"] = ev("() => window.__HUELLE_AUFRUFE__.filter(a => a[0] === 'netz_setzen').map(a => a[1])")
+    erg["gespeichert"] = ev("() => [...Object.keys(localStorage), ...Object.values(localStorage)].some(x => x.includes('webtunnel'))")
+    if "verbindet" not in (erg["stand"] or ""):
+        erg["fehler"].append(f"Stand {erg['stand']!r}")
+    if not erg["falsch"] or erg["falsch"]["text"] != "Zeile 2: nur webtunnel oder snowflake – nichts gemerkt." or not erg["falsch"]["werte"][0].startswith("webtunnel "):
+        erg["fehler"].append(f"falsche Zeile {erg['falsch']}")
+    if not erg["gemerkt"] or not (erg["gemerkt"]["text"] or "").startswith("Eigene Brücken gemerkt: 1 – "):
+        erg["fehler"].append(f"gemerkt {erg['gemerkt']}")
+    if not erg["rueckfrage"] or "Geht die Brücke nicht, geht nichts hinaus." not in (erg["rueckfrage"]["text"] or ""):
+        erg["fehler"].append(f"Rückfrage {erg['rueckfrage']}")
+    soll = [{"tor": True, "neustart": False, "zeilen": [w, "obfs4 192.0.2.7:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01"]},
+            {"tor": True, "neustart": False, "zeilen": [w]}, {"tor": True, "neustart": True, "bruecken": True}]
+    if erg["aufrufe"] != soll:
+        erg["fehler"].append(f"Aufrufe {erg['aufrufe']}")
+    if erg["gespeichert"]:
+        erg["fehler"].append("Brücken-Zeilen im Speicher der App")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def einstellungen_pruefen(browser, url: str) -> dict:
     """Settings (C-1c): Widerruf, Nachfolge und „für jemanden melden“ über Dialoge statt prompt()/confirm() –
     Fehler melden sich im Dialog, der private Ersatzschlüssel steht verdeckt, abgebrochen geht nichts hinaus.
@@ -6379,6 +6447,10 @@ def main() -> int:
             except Exception as e:
                 erg["einst_zeilen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["huelle_bruecke"] = huelle_bruecke_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["huelle_bruecke"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["stil_abdruck"] = stil_abdruck_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["stil_abdruck"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6543,6 +6615,7 @@ def main() -> int:
           and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("einst_zeilen", {}).get("bestanden") is True
+          and erg.get("huelle_bruecke", {}).get("bestanden") is True
           and erg.get("stil_abdruck", {}).get("bestanden") is True
           and erg.get("thema", {}).get("bestanden") is True
           and erg.get("rueckmeldung", {}).get("bestanden") is True
