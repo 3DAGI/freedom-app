@@ -446,6 +446,32 @@ du fest: in `~/.freedom/mcp.json`.
 - **Was durchfließt,** ist Inhalt einer KI-Anfrage: Der Knoten schreibt es nie
   ins Log, nach außen gehen nur feste Fehlertexte.
 
+### Wikipedia ohne Internet (Kiwix, B-31b)
+
+Kiwix ist eingebaut: Statt `befehl` nennst du nur die ZIM-Dateien (Archive von
+[download.kiwix.org](https://download.kiwix.org/zim/), etwa Wikipedia ohne Bilder).
+
+```json
+{ "server": { "wiki": { "kiwix": ["/daten/zim/wikipedia_de_all_nopic.zim"] } } }
+```
+
+- **Was läuft:** `kiwix-serve` aus Debian (Paket `kiwix-tools`, GPL-3.0+, ein
+  eigenes Programm, rund 5 MB) und eine kleine Brücke des Knotens
+  (`packages/node/mcp/kiwix-bruecke.mjs`, nur Node) – beide in der Sandbox, ohne
+  Netz; `kiwix-serve` hört nur auf 127.0.0.1 in der Sandbox.
+- **Für das Modell:** `mcp__wiki__search` (Volltextsuche, höchstens 10 Treffer mit
+  Pfad) und `mcp__wiki__read` (ein Artikel als Text, ohne Skripte). Gelesen wird
+  nur ein Pfad aus der Suche (`<buch>/<eintrag>`), nie eine andere Adresse.
+- **Einrichten:** `apt-get install kiwix-tools` (im Docker-Bild schon dabei), ZIM
+  ablegen, `mcp.json` wie oben. Der Installer tut beides mit
+  `KIWIX_ZIM=/pfad/a.zim[,/pfad/b.zim]` – eine vorhandene `mcp.json` lässt er
+  stehen. Unter Docker den Ordner nur lesend einbinden (`./zim:/daten/zim:ro`).
+- **Ohne `kiwix-serve`** startet der Server nicht, der Knoten läuft ohne ihn
+  weiter (Log `[werkzeuge] MCP wiki startet nicht (ProgrammFehlt) – … (Paket
+  kiwix-tools)`).
+- **Ohne Internet:** Die Suche verlässt den Rechner nicht – passend zu einem
+  Funk-Gateway (7.4), das ohne Netz antwortet.
+
 ## Agent auf dem Knoten (11.3d1a, im Aufbau)
 
 Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn

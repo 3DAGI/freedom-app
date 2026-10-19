@@ -15,7 +15,9 @@ RUN useradd -m -u 1001 -s /bin/bash freedom || true
 # eigenes Programm (GPL-2.0), als getrennter Prozess aufgerufen.
 # bubblewrap für die Sandbox (VKb, LGPL-2.0+, getrennter Prozess) – unter Docker sperrt
 # das Standard-Seccomp meist Nutzer-Namensräume: dann meldet es die Selbstprüfung, Code läuft nicht.
-RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewrap git \
+# kiwix-serve für Wissen ohne Internet (B-31b, Paket kiwix-tools, GPL-3.0+, rund 5 MB mit Bibliotheken) – eigenes
+# Programm, nur in der Sandbox gestartet, nur mit einem Server „kiwix“ in ~/.freedom/mcp.json.
+RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewrap git kiwix-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut

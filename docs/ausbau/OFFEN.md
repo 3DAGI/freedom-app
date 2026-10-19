@@ -150,6 +150,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Geld | Phantom-Abgleich, Devnet senden und empfangen; Swaps auf Devnet mit Polar; NWC mit zwei Wallets; LP mit zwei Testnet-LND; echte Relay-Zahlung; Verdienen in SOL; Kopfgeld mit Test-Wallet bezahlen (Lightning an eine Adresse, SOL versiegelt erfragt); KI-Frage mit Gebot in SOL über einen offenen Kanal (nach M-2) | 1.1, 4.2, 4.6, 6.3, 8.3, 8.4, 4.5, E10b2, 12.4b |
 | Provider | echter Provider in unter 30 Minuten, beide Schienen; echte KI-Anfrage in der Live-App | 8.2, 3.1 |
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
+| Wissen | Kiwix mit einer echten Wikipedia (ZIM von download.kiwix.org) am GX10: `KIWIX_ZIM` im Installer, eine Frage, die das Modell mit `mcp__wiki__search`/`read` beantwortet | B-31b |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
 | Gruppenanruf | LiveKit am GX10 (`scripts/livekit-einrichten.sh`, Profil „livekit“), drei Geräte im privaten Raum: anrufen, beitreten mit und ohne eigenen TURN, Bild und Ton, jemand verlässt die Gruppe (neuer Schlüssel) | B-34 |
 | Native Apps | Tor in Desktop und Android (`IsTor: true`) | 6.1 |
@@ -195,7 +196,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-30a | Atomic Agent: Hinweis unter „Dieses Gerät“ (Adresse, Schlüssel, Werkzeuge und Analyse ehrlich genannt) | wartet auf AG-W5 (1.5): `atomic-agent serve` kennt kein CORS ([`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) |
-| B-31 | Werkzeuge über MCP, Kiwix – eigener schlanker MCP-Client im Knoten (stdio, JSON-RPC) – a ✓ (`mcp-client.ts`: Server aus `~/.freedom/mcp.json`, nur in der Sandbox, Werkzeuge `mcp__<server>__<werkzeug>` in der Agenten-Schleife) | frei – B-31b Kiwix als Nächstes (`kiwix-serve` aus Debian in der Sandbox, eigene Brücke als MCP-Server; Docker, Installer) |
 | B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – b als Nächstes |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop, c Oberfläche, d Android) | frei (PT2 A, PT3 A, 18.10.; [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |

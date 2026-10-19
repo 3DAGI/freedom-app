@@ -50,6 +50,10 @@ jobs:
       - name: aria2c fuer die Schwarm-Tests
         run: sudo apt-get install -y --no-install-recommends aria2 && aria2c --version | head -1
 
+      # B-31b: Kiwix als MCP-Server läuft gegen echtes kiwix-serve, das Test-ZIM baut zimwriterfs
+      - name: kiwix-serve und zimwriterfs fuer die Kiwix-Tests
+        run: sudo apt-get install -y --no-install-recommends kiwix-tools zim-tools && kiwix-serve --version | head -1
+
       # VKb: die Sandbox läuft gegen echtes bubblewrap – ohne es übersprängen sich die Tests.
       # Ubuntu 24.04 sperrt Nutzer-Namensräume per AppArmor; nur hier, im Wegwerf-Runner, freigeben
       - name: bubblewrap fuer die Sandbox-Tests

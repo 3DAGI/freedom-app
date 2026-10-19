@@ -293,6 +293,23 @@ if [ "${TORRENT:-0}" = "1" ] && ! command -v aria2c >/dev/null; then
   fi
 fi
 [ "${TORRENT:-0}" != "1" ] || warn "Schwarm: TORRENT_PORT (Vorgabe 6881, TCP und UDP) freigeben – wer teilt, zeigt seine IP im Schwarm."
+# Wissen ohne Internet (B-31b): KIWIX_ZIM=/pfad/a.zim[,/pfad/b.zim] – kiwix-serve als eigenes Programm (kiwix-tools,
+# GPL-3.0+), der Server „wiki“ in mcp.json; die Pfade gehen nur als Argument an node, nie in den Code
+if [ -n "${KIWIX_ZIM:-}" ]; then
+  if ! command -v kiwix-serve >/dev/null; then
+    if command -v apt-get >/dev/null && { [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ]; }; then
+      $SUDO apt-get install -y kiwix-tools >/dev/null || warn "kiwix-tools nicht installiert – bitte selbst: apt-get install kiwix-tools"
+    else
+      warn "kiwix-serve fehlt – bitte installieren (Paket kiwix-tools), sonst startet der Server wiki nicht."
+    fi
+  fi
+  if [ -e "$STATE_DIR/mcp.json" ]; then
+    warn "$STATE_DIR/mcp.json gibt es schon – Kiwix dort selbst eintragen: \"wiki\": { \"kiwix\": [\"/pfad/datei.zim\"] }"
+  else
+    (umask 077; node -e "const z=process.argv[1].split(',').map((s)=>s.trim()).filter(Boolean); process.stdout.write(JSON.stringify({ server: { wiki: { kiwix: z } } }, null, 2) + '\n')" "$KIWIX_ZIM" > "$STATE_DIR/mcp.json")
+    ok "Wissen ohne Internet: Server wiki in $STATE_DIR/mcp.json"
+  fi
+fi
 
 # ------------------------------------------------ 8. Dienst
 step "8/8  Dienst einrichten"

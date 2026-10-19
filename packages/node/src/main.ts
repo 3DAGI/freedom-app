@@ -43,7 +43,7 @@ import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
-import { McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
+import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
@@ -228,7 +228,9 @@ async function main(): Promise<void> {
           kasten.nimm(s.name, verbindung, werkzeuge);
           console.log(`[werkzeuge] MCP ${s.name}: ${werkzeuge.length} Werkzeuge, in der Sandbox`);
         } catch (e) {
-          console.warn(`[werkzeuge] MCP ${s.name} startet nicht (${(e as Error).name})`);
+          // Kiwix (B-31b): ohne kiwix-serve sagt das Log, welches Paket fehlt
+          const fehlt = (e as Error).name === "ProgrammFehlt" ? ` – ${s.braucht} fehlt${s.braucht === KIWIX_SERVE ? " (Paket kiwix-tools)" : ""}` : "";
+          console.warn(`[werkzeuge] MCP ${s.name} startet nicht (${(e as Error).name})${fehlt}`);
         }
       }
       if (kasten.anzahl > 0) backend.mcp = kasten;
