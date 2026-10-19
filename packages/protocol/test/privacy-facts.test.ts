@@ -32,6 +32,7 @@ import { KIND_ANRUF, baueAnrufNachricht, neueAnrufKennung } from "../src/anruf.j
 import { giftUnwrapMitSigner } from "../src/gift-wrap.js";
 import { regelAnrufNurRelay } from "../src/leak-rules.js";
 import { baueWeckAnmeldung } from "../src/wecken.js";
+import { baueSignalAnfrage } from "../src/signal-weiterleitung.js";
 import { versiegleSwapAnfrage, versiegleSwapAntwort } from "../src/swap-versiegelt.js";
 import { buildAdressAnfrage, buildAdressAntwort } from "../src/trinkgeld-adresse.js";
 import { regelKeinBolt11, regelSolAdresseFrisch } from "../src/leak-rules.js";
@@ -657,14 +658,22 @@ test("B-13d3: Anrufe – die IP vor dem Gegenüber belegt, der Vermittler als Gr
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ein Anruf läuft immer über einen Vermittler \(TURN\) .*die App sagt dir das vor dem Annehmen\./);
 });
 
-test("B-34d: Gruppenanrufe stehen als Grenze im Bericht – IP beim Knoten der anrufenden Person, Einladung nur in der Gruppe; das Szenario hält sie ein", async () => {
+test("B-34d/B-34e2: Gruppenanrufe stehen als Grenze im Bericht – IP beim Knoten der anrufenden Person außer mit eigenem Knoten, Einladung nur in der Gruppe; das Szenario hält sie ein", async () => {
   assert.equal(await SZENARIEN.gruppenanruf!(), 0, "Zugänge, Kennungen und Adresse nur als MLS-Chiffrat");
   const f = PRIVACY_FACTS.find((x) => x.id === "gruppenanruf");
   assert.equal(f?.status, "grenze");
   assert.equal(f?.regel, "mls-gruppe");
-  assert.match(f?.grund ?? "", /ein eigener Vermittler \(TURN\) verbirgt die IP-Adresse davor nicht/, "Befund B-34d: die Signalverbindung geht direkt");
+  assert.match(f?.grund ?? "", /ein eigener Vermittler allein nicht/, "Befund B-34d: ohne Weiterleitung geht die Signalverbindung direkt");
   const t = privacyFactsText();
-  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Gruppenanrufe in privaten Räumen laufen über den Knoten der anrufenden Person \(LiveKit\).*die App fragt dich vor dem Beitritt\./);
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Gruppenanrufe in privaten Räumen laufen über den Knoten der anrufenden Person \(LiveKit\).*Bei ihnen sieht er nur die Adresse ihres Knotens\. Ohne das fragt die App dich vor dem Beitritt\./);
+  // Szenario B-34e2: den Weg über den eigenen Knoten fragt die App nur versiegelt mit Nachweis – das Ziel (der SFU des
+  // Anrufenden) steht nur im Kern
+  const knoten = generateKeypair();
+  const ziel = "wss://sfu.geheimknoten.example.org";
+  const { wrap } = await baueSignalAnfrage({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: neueKopplung(knoten.pk), ziel, bis: Math.floor(Date.now() / 1000) + 600 });
+  assert.deepEqual(regelBesitzerVersiegelt([wrap]), []);
+  assert.deepEqual(regelKeinKlartext([wrap], ["geheimknoten"]), []);
+  assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der eigene Knoten als Empfänger");
 });
 
 test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {

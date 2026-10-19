@@ -5,16 +5,19 @@
  * - Schlüssel nur aus der Gruppe (`anrufSchluessel()`, B-34b): je MLS-Epoche einer, im Ring unter `schluesselIndex()`;
  *   nach jedem Abgleich der Gruppe zieht `schluesselNachziehen()` den der neuen Epoche nach. Die Bytes werden nach dem
  *   Übergeben genullt; gemerkt wird nichts.
- * - Nur nach Zustimmung (`"warnung"`, `zustimmungNoetig()`): Die Signalverbindung zeigt dem SFU die IP-Adresse immer.
- *   Bild und Ton danach nach `beitrittsWeg()` – über den eigenen TURN nur relay, sonst direkt.
+ * - Weg über den eigenen Knoten (B-34e, LK5 A): bei einem fremden Anruf erst Vermittler (5079) und Weiterleitung des
+ *   Signals (5082, `signalWegVomKnoten()`) holen – nur mit beidem ohne Rückfrage (`zustimmungNoetig()`), sonst erst nach
+ *   Zustimmung (`"warnung"`). Bild und Ton nach `beitrittsWeg()` – über den eigenen TURN nur relay, sonst direkt; das
+ *   Signal über den Knoten, sonst direkt zum SFU.
  * - Der E2EE-Worker kommt als Text aus dem Bundle (`freedom:e2ee-worker`) und startet aus einer blob:-Adresse.
  *
  * Die Oberfläche bekommt Bild und Ton nur als Spuren über `beiMedien()` (B-34d, `gruppenanruf-ui.ts`).
  */
 import type { RaumGruppenanruf } from "@freedomstack/protocol";
 import type { Room } from "livekit-client";
-import { beitrittsWeg, SCHLUESSEL_RING, schluesselIndex } from "../gruppenanruf-ablauf.js";
+import { beitrittsWeg, SCHLUESSEL_RING, schluesselIndex, zustimmungNoetig, type BeitrittsWeg } from "../gruppenanruf-ablauf.js";
 import { eigenerTurnZugang } from "./anruf.js";
+import { signalWegVomKnoten } from "./gruppenanruf.js";
 import { mlsKonto } from "./mls-konto.js";
 
 export type Beitritt = "beigetreten" | "warnung" | "kein-zugang" | "kein-schluessel" | "besetzt" | "fehler";
@@ -40,6 +43,9 @@ interface Laufend {
 }
 
 let laufend: Laufend | null = null;
+/** Der zuletzt geholte Weg – nur für das Beitreten gleich nach der Rückfrage, damit der Knoten nicht zweimal gefragt wird. */
+let gemerkterWeg: { anruf: string; weg: BeitrittsWeg; bis: number } | null = null;
+const WEG_MERKEN_MS = 120_000;
 let beobachter: ((spuren: AnrufSpur[] | null) => void) | null = null;
 
 /** Wer Bild und Ton zeigt (die Oberfläche): bei jeder Änderung alle Spuren, nach dem Ende `null`. */
@@ -90,15 +96,30 @@ async function neuerRing(lk: typeof import("livekit-client")): Promise<Schluesse
 }
 
 /**
- * Beitreten: `zugestimmt` erst nach der Warnung, dass der Knoten des Anrufenden die IP sieht (nur ohne eigenen TURN).
- * `medien`: was man selbst sendet; empfangen wird alles im Anruf.
+ * Der eigene Weg: Vermittler und – nur bei einem fremden Anruf – die Weiterleitung des Signals, beides beim eigenen Knoten.
+ * Gemerkt nur bis zum nächsten Aufruf: gleich nach der Rückfrage gilt er noch, jeder andere Versuch fragt neu (etwa nach
+ * dem Koppeln eines Knotens).
  */
-export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugestimmt?: boolean; medien?: ("audio" | "video")[] } = {}): Promise<Beitritt> {
+async function wegFuer(a: RaumGruppenanruf, fremd: boolean, nachRueckfrage: boolean): Promise<BeitrittsWeg> {
+  const g = gemerkterWeg;
+  gemerkterWeg = null;
+  if (nachRueckfrage && g?.anruf === a.anruf && g.bis > Date.now()) return g.weg;
+  const [turn, signal] = await Promise.all([eigenerTurnZugang(), fremd ? signalWegVomKnoten(a.url, a.bis) : null]);
+  const weg = beitrittsWeg(turn, signal);
+  gemerkterWeg = { anruf: a.anruf, weg, bis: Date.now() + WEG_MERKEN_MS };
+  return weg;
+}
+
+/**
+ * Beitreten: bei einem fremden Anruf ohne Rückfrage nur, wenn Signal und Bild und Ton über den eigenen Knoten gehen;
+ * sonst `"warnung"`, und `zugestimmt` erst nach der Rückfrage, dass der Knoten des Anrufenden die IP sieht.
+ * `ich` ist der eigene MLS-Schlüssel, `medien`, was man selbst sendet; empfangen wird alles im Anruf.
+ */
+export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { ich: string; zugestimmt?: boolean; medien?: ("audio" | "video")[] }): Promise<Beitritt> {
   if (laufend) return "besetzt";
   if (!a.zugang) return "kein-zugang";
-  // Erst fragen, dann den eigenen Vermittler holen – die Signalverbindung zeigt dem SFU die IP-Adresse in jedem Fall
-  if (p.zugestimmt !== true) return "warnung";
-  const weg = beitrittsWeg(await eigenerTurnZugang());
+  const weg = await wegFuer(a, zustimmungNoetig(a, p.ich), p.zugestimmt === true);
+  if (zustimmungNoetig(a, p.ich, weg) && p.zugestimmt !== true) return "warnung";
   const schluessel = await schluesselJetzt(gruppe, a.anruf);
   if (!schluessel) return "kein-schluessel";
 
@@ -117,7 +138,7 @@ export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugesti
   room.on("disconnected", () => void (laufend?.room === room ? verlasse() : undefined));
   try {
     await room.setE2EEEnabled(true);
-    await room.connect(a.url, a.zugang.token, { rtcConfig: weg.rtc, autoSubscribe: true });
+    await room.connect(weg.signal ?? a.url, a.zugang.token, { rtcConfig: weg.rtc, autoSubscribe: true });
     const medien = p.medien ?? ["audio"];
     await room.localParticipant.setMicrophoneEnabled(medien.includes("audio"));
     if (medien.includes("video")) await room.localParticipant.setCameraEnabled(true);
@@ -127,6 +148,7 @@ export async function trittBei(gruppe: string, a: RaumGruppenanruf, p: { zugesti
     return "fehler";
   }
   laufend = { room, worker, ring, gruppe, anruf: a.anruf, epoche: schluessel.epoche };
+  gemerkterWeg = null;
   melde();
   return "beigetreten";
 }

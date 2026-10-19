@@ -882,15 +882,20 @@ Fallstricke dieses Bereichs unten anhängen.
   (Plugin „e2ee-worker“), gestartet aus einer blob:-Adresse – keine neue Lockerung der CSP. Schlüssel nur aus
   `anrufSchluessel()` je MLS-Epoche, im Ring unter `schluesselIndex()` (die vorige bleibt lesbar), die Bytes nach dem
   Übergeben nullen; nach jedem Abgleich des privaten Raums `schluesselNachziehen()`. Einem fremden Anruf nur nach
-  Zustimmung (seit B-34d, `zustimmungNoetig()`): Die Signalverbindung (WebSocket) geht immer direkt zum SFU – auch mit
-  eigenem TURN sieht der Knoten des Anrufenden die IP; nie „über deinen Vermittler sieht er sie nicht“ versprechen. Bild und
+  Zustimmung (seit B-34d, `zustimmungNoetig()`): Die Signalverbindung (WebSocket) geht sonst direkt zum SFU – auch mit
+  eigenem TURN sieht der Knoten des Anrufenden die IP; nie „über deinen Vermittler sieht er sie nicht“ versprechen. Ohne
+  Rückfrage (seit B-34e2, LK5 A) nur, wenn beides über den eigenen Knoten geht: TURN (5079) und Weiterleitung des Signals
+  (`signalWegVomKnoten()`, 5082 – nur mit Relay des Knotens und Rolle `signal` im Status, ein älterer Knoten läse 5082 als
+  gewöhnlichen Auftrag); `room.connect()` dann mit `weg.signal`. Den Weg holt `trittBei()` vor der Rückfrage (nur beim eigenen
+  Knoten); gemerkt nur für den Versuch gleich nach ihr. Bild und
   Ton nach `beitrittsWeg()`: mit eigenem TURN nur relay. Nie `setLogLevel()`/`setLogExtension()` von
   livekit-client aufrufen: `loglevel` schriebe dann `loglevel:…` in localStorage (ohne Präfix `freedom.`).
   Oberfläche (seit B-34d) nur über `shell/gruppenanruf-ui.ts`: Knopf `#raum-anruf` und Zeilen `#raum-anrufe` nur im
   privaten Raum, die Leiste im Anruf über allem; Bild und Ton nur als Spuren aus `beiMedien()`, der eigene Ton nie. Im Anruf
   keine Namen – alle Eingeladenen sehen alle Zugänge, wer welchen nutzt, prüft niemand. Im Smoke-Test („privatraum“)
   liefert `scripts/gruppenanruf-probe.mts` die Zugänge, eine Hülle um WebSocket schließt die Verbindung zum SFU
-  (`GRUPPENANRUF_ZAEHLER`).
+  (`GRUPPENANRUF_ZAEHLER`); seit B-34e2 koppelt Bo einen zweiten Probe-Knoten (`knoten-bo`, mit Relay-Liste) und tritt ohne
+  Rückfrage bei.
 - **Vorlesen nur über `vorlesen.ts`** (seit B-38a, SP-W2 A): Stimmen nur über `waehleStimme()` – `localService === true` und
   die Sprache der App; Chrome bietet „Google …“-Stimmen als Vorgabe an, die den Text an Google schicken. Jede Äußerung
   bekommt ausdrücklich `voice` (`browserSprecher()`), sonst spricht der Browser mit seiner Vorgabe. Ohne passende lokale

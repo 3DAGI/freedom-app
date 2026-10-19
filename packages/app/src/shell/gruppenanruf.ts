@@ -5,15 +5,17 @@
  * Gelesen werden laufende Anrufe nur über `raumGruppenanrufe()` aus den inneren Events des Raums.
  *
  * Beitreten (livekit-client, Schlüssel aus `anrufSchluessel()`, nur über TURN oder nach der IP-Warnung) und die
- * Oberfläche kommen mit B-34c2.
+ * Oberfläche kommen mit B-34c2. Seit B-34e holt `signalWegVomKnoten()` den Weg des Signals über den eigenen Knoten.
  */
 import {
-  KIND_DVM_LIVEKIT, LIVEKIT_GRENZEN, LocalSigner, baueLivekitAnfrage, generateKeypair, leseLivekitZugaenge, raumGruppenanruf,
-  raumGruppenanrufe, raumGruppenanrufEnde, toHex, type InneresSenden, type LivekitAnfrage, type LivekitZugaenge, type RaumGruppenanruf,
+  KIND_DVM_LIVEKIT, KIND_DVM_SIGNAL, LIVEKIT_GRENZEN, LocalSigner, baueLivekitAnfrage, baueSignalAnfrage, generateKeypair, leseLivekitZugaenge,
+  leseSignalZugang, raumGruppenanruf, raumGruppenanrufe, raumGruppenanrufEnde, toHex, type InneresSenden, type LivekitAnfrage, type LivekitZugaenge,
+  type RaumGruppenanruf,
 } from "@freedomstack/protocol";
+import { signalAdresse } from "../gruppenanruf-ablauf.js";
 import { STATUS_TAKT_MS, STATUS_ZEIT_MS } from "../knoten-status-ansicht.js";
-import { powFuerKnoten } from "./knoten-status-ui.js";
-import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
+import { frageKnotenStatus, powFuerKnoten } from "./knoten-status-ui.js";
+import { knotenRelay, warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
 import { mlsSendeEvent } from "./mls-konto.js";
 import type { PrivaterRaum } from "./raum-mls.js";
@@ -40,6 +42,31 @@ export async function livekitZugaengeVomKnoten(anfrage: LivekitAnfrage): Promise
     await weg.publish(wrap);
     const a = await warteAufKnoten(weg, sitzung, requestId, KIND_DVM_LIVEKIT + 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS);
     return a && "ergebnis" in a ? leseLivekitZugaenge(a.ergebnis, anfrage) : null;
+  } finally {
+    weg.schliesse();
+  }
+}
+
+/**
+ * Der Weg des Signals zu einem fremden Anruf über den eigenen Knoten (B-34e, LK5 A): nur mit Relay des Knotens und nur,
+ * wenn sein Status die Rolle `signal` nennt – ein älterer Knoten läse 5082 als gewöhnlichen Auftrag. Dann ein Zeichen
+ * für genau dieses Ziel bis zum Ablauf der Einladung; zurück die Adresse für livekit-client, sonst null.
+ */
+export async function signalWegVomKnoten(ziel: string, bis: number): Promise<string | null> {
+  const k = meineKopplung();
+  if (!k) return null;
+  const [relay, status] = await Promise.all([knotenRelay(k.knoten), frageKnotenStatus(k)]);
+  if (!relay || !("status" in status) || !status.status.rollen.includes("signal")) return null;
+  const powBits = await powFuerKnoten(k.knoten);
+  const sitzung = new LocalSigner(generateKeypair().sk);
+  const weg = await wegZumKnoten(k.knoten, sitzung);
+  if (!weg) return null;
+  try {
+    const { wrap, requestId } = await baueSignalAnfrage({ sitzung, kopplung: k, ziel, bis, powBits });
+    await weg.publish(wrap);
+    const a = await warteAufKnoten(weg, sitzung, requestId, KIND_DVM_SIGNAL + 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS);
+    const z = a && "ergebnis" in a ? leseSignalZugang(a.ergebnis) : null;
+    return z ? signalAdresse(relay, z.zeichen) : null;
   } finally {
     weg.schliesse();
   }

@@ -8,12 +8,12 @@ import { readFileSync } from "node:fs";
 
 const lies = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
-test("B-34d: beitreten – fremd nur nach der Rückfrage zur IP, der eigene Anruf ohne; danach erst trittBei()", () => {
+test("B-34d/B-34e2: beitreten – fremd ohne Weg über den eigenen Knoten nur nach der Rückfrage zur IP, der eigene Anruf ohne", () => {
   const q = lies("src/shell/gruppenanruf-ui.ts");
   const rumpf = q.slice(q.indexOf("async function beitreten("), q.indexOf("/** Je laufendem Anruf"));
-  assert.match(rumpf, /let zugestimmt = !zustimmungNoetig\(a, raum\.ich\);\n\s+if \(!zugestimmt\) \{\n\s+zugestimmt = await bestaetige\(\{ titel: t\("gruppenanruf\.ipTitel"\), text: t\("gruppenanruf\.ipText", \{ name \}\)/);
-  assert.ok(rumpf.indexOf("bestaetige(") < rumpf.indexOf("trittBei("), "erst fragen, dann beitreten");
-  assert.match(rumpf, /if \(!zugestimmt\) return;/, "abgebrochen geht nichts hinaus");
+  assert.match(rumpf, /let r = await trittBei\(raum\.gruppe, a, \{ ich: raum\.ich, medien: art \}\)/, "erst ohne Zustimmung – trittBei() sucht den eigenen Weg");
+  assert.match(rumpf, /if \(r === "warnung"\) \{\n\s+if \(!\(await bestaetige\(\{ titel: t\("gruppenanruf\.ipTitel"\), text: t\("gruppenanruf\.ipText", \{ name \}\), ok: t\("gruppenanruf\.trotzdem"\) \}\)\)\) return;\n\s+r = await trittBei\(raum\.gruppe, a, \{ ich: raum\.ich, zugestimmt: true, medien: art \}\)/,
+    "abgebrochen geht nichts hinaus; zugestimmt erst nach der Rückfrage");
   // Anrufen nur gekoppelt, dann gleich dem eigenen Anruf beitreten (ohne Rückfrage – der SFU läuft beim eigenen Knoten)
   assert.match(q, /if \(!meineKopplung\(\)\) return toast\(t\("gruppenanruf\.ohneKnoten"\), true\);/);
   assert.match(q, /laufend\.find\(\(a\) => a\.von === raum\.ich && a\.zugang\)/);

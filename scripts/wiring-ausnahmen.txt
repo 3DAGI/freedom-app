@@ -210,5 +210,3 @@ repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag
 repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
 repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
-signal-weiterleitung.ts|baueSignalAnfrage|Weiterleitung anfragen – der Knoten nimmt sie seit B-34e1 an, die App fragt ab B-34e2
-signal-weiterleitung.ts|leseSignalZugang|Antwort des Knotens lesen – die App liest sie ab B-34e2 (Knoten seit B-34e1)
