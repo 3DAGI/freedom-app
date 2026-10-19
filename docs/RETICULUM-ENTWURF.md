@@ -106,6 +106,9 @@ Was erlaubt ist, hängt von der Region ab (Frequenzbereich, höchste Sendeleistu
 |---|---|---|---|
 | RN-W6 | Woher kommen die Funkparameter der RNode? | **A** Vorgaben je Region (Bereich, Leistung, Sendezeit aus einer Tabelle im Code, mit Quelle), die man vor dem ersten Senden bestätigt; Abweichen nur innerhalb der Grenzen der Region · **B** man trägt alles selbst ein, die App schlägt nichts vor · **C** wie A, aber ohne Grenzen (Funkamateure) | **A** – niemand muss Frequenzpläne kennen, und die App sendet nie außerhalb dessen, was die gewählte Region erlaubt |
 
+**Entschieden 19.10.2026 (MENSCH):** RN-W6 **A** – Vorgaben je Region (Tabelle im Code mit Quelle), vor dem ersten Senden
+bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
+
 ## Quellen
 
 - reticulum-js, README und Changelog im npm-Paket `@reticulum/core` 0.9.8 (gelesen 15.10.2026)

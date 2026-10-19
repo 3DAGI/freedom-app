@@ -73,6 +73,7 @@ LK2 **A** (`livekit-client` ins Bundle), LK3 **A** (Schlüssel aus dem MLS-Expor
 | B-34c1 ✓ | Einladung als inneres Event der Gruppe (`raum-gruppenanruf.ts`, Art 25041), anrufen und beenden in der App (`shell/gruppenanruf.ts`: Zugänge vom eigenen Knoten, je Mitglied einer), Leak-Szenario | ~250 |
 | B-34c2 ✓ | App: Beitreten mit `livekit-client` 2.22.4 (`shell/gruppenanruf-verbindung.ts`): je MLS-Epoche ein Schlüssel im Ring (`schluesselIndex()`), Weg nur über den eigenen TURN oder nach Zustimmung (`beitrittsWeg()`, V4), E2EE-Worker als Text im Bundle; `livekit-client` vorab minifiziert (gemessen: `freedom.html` +0,92 MB, gepackt +0,20 MB, sobald B-34d ihn aufruft) | ~300 |
 | B-34d ✓ | Oberfläche im privaten Raum (`shell/gruppenanruf-ui.ts`: anrufen, beitreten mit Rückfrage zur IP, Bild und Ton, stumm, verlassen, beenden), Grenze „gruppenanruf“ im Datenschutzbericht, Smoke-Teil „privatraum“ mit Knoten-Attrappe (`scripts/gruppenanruf-probe.mts`) | ~400 |
+| B-34e | Signalverbindung über den eigenen Knoten (LK5 A): Weiterleitung im Relay des Knotens, nur für den Besitzer (Nachweis), nur `wss://` zu öffentlichen Adressen aus einer Einladung; die App verbindet `livekit-client` dorthin, die Rückfrage vor fremden Anrufen entfällt dann | ~300 |
 
 ## Befund B-34d (18.10.2026): die Signalverbindung geht direkt
 
@@ -88,6 +89,12 @@ soll, fragt LK5 (`docs/ausbau/OFFEN.md` 1.6).
 
 Außerdem: Alle Eingeladenen sehen alle Zugänge der Einladung (V2) – wer im Anruf welchen nutzt, prüft niemand. Die App
 nennt im Anruf deshalb keine Namen.
+
+## Entscheidung LK5 (19.10.2026, MENSCH)
+
+LK5 **A** – der eigene Knoten reicht die Signalverbindung zum fremden SFU weiter (nur für den Besitzer, nur `wss://` zu
+öffentlichen Adressen aus einer Einladung). Erst dann hält der Weg über den eigenen Knoten, was LK4 A wollte. Bis B-34e
+fragt die App weiter vor jedem fremden Anruf. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
 
 ## Quellen
 
