@@ -223,6 +223,16 @@ mod tests {
     }
 
     #[test]
+    fn die_pakete_legen_genau_diese_programme_bei() {
+        let cfg: serde_json::Value = serde_json::from_str(include_str!("../tauri.bruecken.conf.json")).unwrap();
+        let beigelegt: Vec<&str> = cfg["bundle"]["externalBin"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let erwartet: Vec<String> = TRANSPORTE.iter().map(|(_, name)| format!("binaries/{name}")).collect();
+        assert_eq!(beigelegt, erwartet, "tauri.bruecken.conf.json und TRANSPORTE nennen dieselben Programme");
+        let skript = include_str!("../../../scripts/pt-beilegen.sh");
+        assert!(skript.contains("binaries/freedom-$n-$TRIPEL$ENDUNG") && skript.contains("for n in snowflake webtunnel"));
+    }
+
+    #[test]
     fn programme_nur_mit_festem_namen_im_ordner() {
         let o = std::env::temp_dir().join(format!("freedom-bruecken-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&o);
