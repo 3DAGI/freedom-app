@@ -12278,3 +12278,30 @@ und einen Pool-Endpunkt als Attrappe, unverändert; `solana-privat` prüft, dass
 Pool und keine `Connection` mehr bauen.
 
 Knoten-Stand: nicht berührt.
+
+## Schritt A-21d3b – HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen über den Pool
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). Nach A-21d3a (Baustein, Zahlschienen) senden und bestätigen jetzt
+alle übrigen Wege der App über kit und den RpcPool – die App baut kein `Connection` mehr.
+
+**Geändert:**
+- Protokoll (`kit-rpc.ts`): `programmFehlerCode()` liest den Code eines Programmfehlers aus dem Fehler der Kette (kit
+  liefert BigInt), aus der Ursache des `SolanaError` der Vorabsimulation und aus altem Text; `leseSignaturStand()` nennt
+  den Stand einer Signatur (bestätigt samt Fehler, sonst null) und prüft eine fremde Signatur vorher.
+  `warteAufBestaetigung()` fragt darüber nach.
+- App: `signiertVonWallet(rpc, …)` fragt den Blockhash über den Pool, `sendeUndWarte()` sendet mit Vorabsimulation und
+  wartet. Darüber laufen HTLC sperren (Deposit, Rück-Swap), einlösen (`claimSwap()`), zurückholen, die Einlösung über einen
+  Relayer (Blockhash über den Pool, ihr Stand über `leseSignaturStand()`), Zahlkanal öffnen, aufstocken und erstatten
+  (`sendeMitWallet()`, `kanalAufKette()` über `leseKonto()`), der Rückhol-Wächter (`walletRefundRunner(wallet, rpc,
+  vorgang)`: lesen über den Pool, je Rückholung ein Vorgang), die Quittungen und das Guthaben vor dem Einlösen – je
+  Transaktion `solRpc({ einVorgang: true })`. `describeHtlcError()` nimmt `programmFehlerCode()`: Bisher übersah es
+  Codes als BigInt.
+- In der App bleibt web3.js nur für `swapAddress()` (PDA synchron, ohne `crypto.subtle`) und die Brücke `ueberWeb3()` (W4).
+
+**Tests:** protocol 1351 → 1353 (`kit-rpc.test.ts`: Programmfehler aus Kette, Ursache und Text, nichts aus anderem,
+eine Ursache auf sich selbst endet; Stand einer Signatur, eine kaputte fragt nicht erst). App: neue Attrappe der Kette
+(`test/kette-attrappe.ts`, ein Endpunkt hinter einem echten `RpcPool`) statt Attrappen von `Connection`; die Vektoren
+unverändert; neu: lehnt die Vorabsimulation eine Einlösung ab, nennt die App den Grund des Programms, und nichts ging
+hinaus; `claim-guard` mit BigInt und `SolanaError`-Ursache.
+
+Knoten-Stand: nicht berührt.

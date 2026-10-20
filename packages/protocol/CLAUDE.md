@@ -140,3 +140,6 @@ Fallstricke dieses Bereichs unten anhängen.
   Fehler des Programms steht in `cause` (`context.code`), und der Pool reicht ihn nicht an den nächsten Endpunkt.
   Senden und Nachfragen einer Transaktion nur über `RpcPool.einVorgang()` (App: `solRpc({ einVorgang: true })`): Mit
   `verteilen` zieht der Pool je Anfrage neu – sonst sähen alle Anbieter die Signatur samt IP (4.9).
+  Programmfehler (seit A-21d3b) nur über `programmFehlerCode()` – `typeof x === "number"` übersieht kits BigInt, und
+  in der Vorabsimulation steht der Code nur in `cause`. Den Stand einer fremden Signatur nur über
+  `leseSignaturStand()` (prüft die Form, bevor gefragt wird).

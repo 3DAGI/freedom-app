@@ -11,6 +11,7 @@ import { pruefeRelayAuftrag, MAX_ERSTATTUNG_LAMPORTS, signiereMit } from "@freed
 import { GEBUEHR_PUFFER_LAMPORTS, baueRelayEinloesung, brauchtRelayer, waehleRelayer } from "../src/relay-einloesung.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "../src/sol-htlc.js";
 import { setLang } from "../src/i18n.js";
+import { ketteAttrappe } from "./kette-attrappe.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
 setLang("de");
@@ -50,13 +51,14 @@ function wallet(k: Keypair, signiert = true): WalletSigner {
     },
   };
 }
-const conn = { getLatestBlockhash: async () => ({ blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 1 }) };
+// Seit A-21d3b fragt die Einlösung den Blockhash über kit und den Pool
+const kette = ketteAttrappe();
 
 test("Gebaute Einloesung besteht die Pruefung des Relayers: Einloesung + Erstattung, Relayer zahlt die Gebuehr", async () => {
   const kunde = Keypair.generate();
   const relayer = { pubkey: "a".repeat(64), solAdresse: r1, erstattungLamports: 10_000 };
   const roh = await baueRelayEinloesung({
-    connection: conn as never, wallet: wallet(kunde), swapId: "swap-abc", preimage: new Uint8Array(32).fill(3), initiator: LP_SOL, relayer,
+    rpc: kette.rpc, wallet: wallet(kunde), swapId: "swap-abc", preimage: new Uint8Array(32).fill(3), initiator: LP_SOL, relayer,
   });
   assert.deepEqual(pruefeRelayAuftrag(roh, { relayer: r1, programmId: HTLC_PROGRAM_ID, erstattungMin: 10_000 }), { ok: true, empfaenger: kunde.publicKey.toBase58(), erstattung: 10_000 });
   const tx = Transaction.from(roh);
@@ -66,7 +68,7 @@ test("Gebaute Einloesung besteht die Pruefung des Relayers: Einloesung + Erstatt
 
 test("Ohne Signatur der Wallet geht der Auftrag gar nicht erst raus", async () => {
   await assert.rejects(() => baueRelayEinloesung({
-    connection: conn as never, wallet: wallet(Keypair.generate(), false), swapId: "swap-abc", preimage: new Uint8Array(32),
+    rpc: kette.rpc, wallet: wallet(Keypair.generate(), false), swapId: "swap-abc", preimage: new Uint8Array(32),
     initiator: LP_SOL, relayer: { pubkey: "a".repeat(64), solAdresse: r1, erstattungLamports: 10_000 },
   }), /unvollständig: Empfänger hat nicht signiert/);
 });
@@ -80,6 +82,8 @@ test("Verdrahtung (4.6f): ohne SOL ueber den Relayer, Auftrag versiegelt vom Weg
   assert.match(f, /claimAllowed\(p\.swap\.timelockUnix - 300\)/, "Frist mit Abstand fuer Relayer und Kette");
   assert.match(f, /new LocalSigner\(generateKeypair\(\)\.sk\)/);
   assert.match(f, /buildRelayAuftrag\(\{ tx: roh, kunde: einmal, relayerPk: k\.pubkey \}\)/);
-  assert.match(f, /confirmationStatus === "confirmed"/, "erst die Kette gilt als Beleg");
+  // Erst die Kette gilt als Beleg: bestätigt (confirmed oder finalized) und ohne Fehler – seit A-21d3b über
+  // `leseSignaturStand()` (Protokoll, „nur verarbeitet“ ergibt dort null)
+  assert.match(f, /const s0 = await leseSignaturStand\(p\.rpc, a\.signatur\)\.catch\(\(\) => null\);\s*if \(s0 && !s0\.fehler\) return \{ signature: a\.signatur \};/, "erst die Kette gilt als Beleg");
   assert.doesNotMatch(f, /sendRawTransaction|skipPreflight/);
 });

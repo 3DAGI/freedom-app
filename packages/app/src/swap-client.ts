@@ -31,9 +31,10 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import { anchorSighash, signiertVonWallet, swapAddress, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
+import { anchorSighash, sendeUndWarte, signiertVonWallet, swapAddress, HTLC_PROGRAM_ID, WalletSigner } from "./sol-htlc.js";
 import {
   AccountRole, type AddressUsage, anweisung, checkAmount, checkReuse, checkTiming, type Instruction, leseBolt11,
+  programmFehlerCode, type SolRpc, txFehlerText,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
@@ -235,22 +236,18 @@ const HTLC_ERRORS: Record<number, string> = {
 const htlcFehler = (code: number): string | undefined => (code in HTLC_ERRORS ? t(HTLC_ERRORS[code]!) : undefined);
 
 /**
- * Uebersetzt einen Fehler des HTLC-Programms in einen verstaendlichen Satz.
- * Versteht das Objekt aus confirmTransaction ({ InstructionError: [i, { Custom }] })
- * und Fehlertexte aus der Vorabsimulation ("custom program error: 0x1777").
+ * Uebersetzt einen Fehler des HTLC-Programms in einen verstaendlichen Satz. Den Code liest seit A-21d3b
+ * `programmFehlerCode()`: aus dem Fehler der Kette ({ InstructionError: [i, { Custom }] }, kit liefert BigInt),
+ * aus dem `SolanaError` der Vorabsimulation und aus Fehlertexten ("custom program error: 0x1777").
  */
 export function describeHtlcError(err: unknown): string | undefined {
-  const ie = (err as { InstructionError?: [number, unknown] } | null)?.InstructionError;
-  const custom = (ie?.[1] as { Custom?: number } | undefined)?.Custom;
-  if (typeof custom === "number") return htlcFehler(custom);
-  const text = typeof err === "string" ? err : err instanceof Error ? err.message : "";
-  const hex = /custom program error: 0x([0-9a-f]+)/i.exec(text);
-  if (hex) return htlcFehler(parseInt(hex[1], 16));
-  return undefined;
+  const code = programmFehlerCode(err);
+  return code === undefined ? undefined : htlcFehler(code);
 }
 
 export interface ClaimParams {
-  connection: import("@solana/web3.js").Connection;
+  /** Aus `solRpc({ einVorgang: true })` (A-21d3b). */
+  rpc: SolRpc;
   wallet: WalletSigner;
   swapId: string;
   preimage: Uint8Array;
@@ -277,34 +274,26 @@ export async function claimSwap(p: ClaimParams): Promise<{ signature: string }> 
   const ix = await buildClaimInstruction(p.swapId, p.preimage, recipient, p.initiator);
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, [ix]);
+  const { roh, letzteHoehe } = await signiertVonWallet(p.rpc, p.wallet, [ix]);
 
-  p.onProgress?.(t("zahl.wirdGesendet"));
   // Zweite Pruefung: Die Bestaetigung in der Wallet kann Minuten dauern.
   const nachher = claimAllowed(p.timelockUnix);
   if (!nachher.ok) throw new Error(nachher.reason);
 
-  // Vorabsimulation bleibt an: Eine abgelehnte Einloesung soll gar nicht erst
+  // Vorabsimulation bleibt an (`sendeTransaktion()`): Eine abgelehnte Einloesung soll gar nicht erst
   // in einen Block gelangen, weil sie das Preimage offenlegen wuerde.
-  let signature: string;
+  let gesendet: { signature: string; fehler: unknown };
   try {
-    signature = await p.connection.sendRawTransaction(roh, {
-      skipPreflight: false,
-      preflightCommitment: "confirmed",
-    });
+    gesendet = await sendeUndWarte(p.rpc, roh, letzteHoehe, p.onProgress);
   } catch (e) {
     throw new Error(describeHtlcError(e) ?? t("zahl.einloesungAbgelehnt", { fehler: fehlerText(e) }));
   }
-  const conf = await p.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
-  if (conf.value.err) {
+  if (gesendet.fehler) {
     throw new Error(
-      describeHtlcError(conf.value.err) ?? t("zahl.einloesungAbgelehntMeist", { fehler: JSON.stringify(conf.value.err) }),
+      describeHtlcError(gesendet.fehler) ?? t("zahl.einloesungAbgelehntMeist", { fehler: txFehlerText(gesendet.fehler) }),
     );
   }
-  return { signature };
+  return { signature: gesendet.signature };
 }
 
 /**

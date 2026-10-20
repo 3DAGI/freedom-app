@@ -6,8 +6,8 @@
  * bestätigen durch Nachfragen (`warteAufBestaetigung()`), ohne Websocket.
  */
 import {
-  address, createSolanaRpcFromTransport, getBase64Decoder, signature, type Base58EncodedBytes, type Base64EncodedWireTransaction,
-  type Rpc, type RpcTransport, type SolanaRpcApi, type TransactionError,
+  address, createSolanaRpcFromTransport, getBase64Decoder, isSolanaError, signature, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
+  type Base58EncodedBytes, type Base64EncodedWireTransaction, type Rpc, type RpcTransport, type SolanaRpcApi, type TransactionError,
 } from "@solana/kit";
 import type { RpcPool } from "./rpc-pool.js";
 import { ProtokollFehler } from "./fehler.js";
@@ -108,6 +108,15 @@ const bestaetigt = (s: { confirmationStatus: string | null } | null): boolean =>
   s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized";
 
 /**
+ * Stand einer Signatur: bestätigt (confirmed oder finalized) samt Fehler der Kette – oder null, solange die Kette sie
+ * nicht bestätigt hat. Eine Signatur aus Fremddaten (etwa von einem Relayer) prüft `signature()` vorher.
+ */
+export async function leseSignaturStand(rpc: SolRpc, signatur: string): Promise<{ fehler: TransactionError | null } | null> {
+  const s = (await rpc.getSignatureStatuses([signature(signatur)]).send()).value[0] ?? null;
+  return bestaetigt(s) ? { fehler: s!.err } : null;
+}
+
+/**
  * Wartet, bis die Kette die Transaktion bestätigt (confirmed oder finalized), und liefert ihren Fehler –
  * `null` heißt gelungen. Ohne Websocket: fragt in Abständen nach dem Stand. Liegt die Blockhöhe über
  * `letzteHoehe` und kennt die Kette die Signatur noch immer nicht, kommt sie nie mehr in einen Block –
@@ -118,14 +127,13 @@ export async function warteAufBestaetigung(
   opts: { abstandMs?: number; warte?: (ms: number) => Promise<void> } = {},
 ): Promise<TransactionError | null> {
   const warte = opts.warte ?? ((ms: number) => new Promise<void>((weiter) => setTimeout(weiter, ms)));
-  const stand = async () => (await rpc.getSignatureStatuses([signature(signatur)]).send()).value[0] ?? null;
   for (;;) {
-    const s = await stand();
-    if (bestaetigt(s)) return s!.err;
+    const s = await leseSignaturStand(rpc, signatur);
+    if (s) return s.fehler;
     if ((await rpc.getBlockHeight({ commitment: "confirmed" }).send()) > letzteHoehe) {
       // Zwischen beiden Fragen kann sie noch bestätigt worden sein
-      const spaet = await stand();
-      if (bestaetigt(spaet)) return spaet!.err;
+      const spaet = await leseSignaturStand(rpc, signatur);
+      if (spaet) return spaet.fehler;
       throw new ProtokollFehler("tx-abgelaufen", "Die Transaktion kam nicht rechtzeitig in einen Block – gebucht wurde nichts");
     }
     await warte(opts.abstandMs ?? 1000);
@@ -135,4 +143,24 @@ export async function warteAufBestaetigung(
 /** Ein Fehler der Kette als Text – kit liefert Zahlen darin als BigInt, die `JSON.stringify()` sonst nicht kann. */
 export function txFehlerText(fehler: unknown): string {
   return JSON.stringify(fehler, (_k, v: unknown) => (typeof v === "bigint" ? Number(v) : v)) ?? String(fehler);
+}
+
+/**
+ * Code eines Programmfehlers (Anchor: `#[error_code]` ab 6000) – oder undefined. Versteht den Fehler der Kette aus
+ * `warteAufBestaetigung()` (`{ InstructionError: [i, { Custom }] }`, kit liefert die Zahl als BigInt), den
+ * `SolanaError` der Vorabsimulation (der Programmfehler steht in `cause`, `context.code`) und den Text älterer
+ * Meldungen („custom program error: 0x1777“).
+ */
+export function programmFehlerCode(fehler: unknown, tiefe = 0): number | undefined {
+  if (tiefe > 4 || fehler === null || fehler === undefined) return undefined;
+  if (isSolanaError(fehler, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM)) return Number(fehler.context.code);
+  const custom = ((fehler as { InstructionError?: [unknown, unknown] }).InstructionError?.[1] as { Custom?: unknown } | undefined)?.Custom;
+  if (typeof custom === "number" || typeof custom === "bigint") return Number(custom);
+  if (fehler instanceof Error && fehler.cause !== undefined) {
+    const aus = programmFehlerCode(fehler.cause, tiefe + 1);
+    if (aus !== undefined) return aus;
+  }
+  const text = typeof fehler === "string" ? fehler : fehler instanceof Error ? fehler.message : "";
+  const hex = /custom program error: 0x([0-9a-f]+)/i.exec(text);
+  return hex ? parseInt(hex[1]!, 16) : undefined;
 }

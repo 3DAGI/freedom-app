@@ -780,7 +780,10 @@ Fallstricke dieses Bereichs unten anhängen.
   mit `window.solana` über `ueberWeb3()` (bis W4). Nie wieder `signTransaction(web3Tx)` als Schnittstelle. Gesendet wird
   seit A-21d3a über den Pool: Überweisung, Zahlschienen, Nonce-Konto und SOL ohne Internet über `sendeTransaktion()` und
   `warteAufBestaetigung()` (`kit-rpc.ts`), Senden und Nachfragen einer Transaktion mit `solRpc({ einVorgang: true })`;
-  HTLC, Tausch, Relayer und Zahlkanal bis A-21d3b noch über `Connection.sendRawTransaction(alsDraht(…))`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
+  seit A-21d3b ebenso HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen – mit der Wallet über
+  `signiertVonWallet(rpc, …)` und `sendeUndWarte()` (`sol-htlc.ts`), Programmfehler nur über `describeHtlcError()` →
+  `programmFehlerCode()` (kit liefert BigInt und `SolanaError`). Kein `new Connection` mehr in der App; web3.js bleibt
+  nur für `swapAddress()` und die Brücke `ueberWeb3()`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
   und wird gleich danach genullt. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
@@ -835,7 +838,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `begleiche()`. Kein Budget, keine Fenster, kein Vorziehen eines Providers wegen offener Sitzung – nicht wieder
   einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.
 - **Attrappen für kit-Transaktionen** (seit A-21d2): kit prüft den Blockhash streng – 32 Byte, base58 (`blockhash()`);
-  web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Wer in Tests liest, was die
+  web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Seit A-21d3b ist die
+  Kette in Tests nur `ketteAttrappe()` (`test/kette-attrappe.ts`): ein Endpunkt hinter einem echten `RpcPool`, Signatur
+  die erste aus dem Draht, `fehler` (bestätigt abgelehnt) und `vorab` (Vorabsimulation lehnt ab) – keine Attrappen von
+  `Connection` mehr. Wer in Tests liest, was die
   Wallet bekam, nimmt `leseNachricht()` – das ist die fertige Nachricht: Der Gebührenzahler unterschreibt dort immer, auch wo
   die Anweisung selbst keine Unterschrift verlangt (Z1: das an der Anweisung prüfen, `erstatteKanalAnweisung().accounts`).
 - **Projekte-Seite nur über `shell/knoten-projekt-ui.ts`** (seit VKe1): Der Lauf gehört dem Knoten – die Seite gibt den

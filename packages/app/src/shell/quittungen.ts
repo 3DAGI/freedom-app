@@ -15,7 +15,7 @@ import { OffeneAntworten, QuittungsBuch, reklamationenJeProvider } from "../quit
 import { RufVonKontakten } from "../ruf-teilen.js";
 import { LS_REKLAMATIONEN, leseReklamationen } from "../streitfall.js";
 import { kanalBuch } from "./ki-zahlung.js";
-import { solRpcUrl } from "./state.js";
+import { solRpc } from "./state.js";
 import { geheim } from "./tresor.js";
 import { ankereQuittung } from "./zeitanker-takt.js";
 
@@ -62,11 +62,10 @@ export async function quittungNachKanal(provider: string, requestId: string, pre
 export async function hebeKanalQuittungen(): Promise<void> {
   const kanaele = quittungsBuch.offeneKanaele();
   if (kanaele.length === 0) return;
-  const { Connection } = await import("@solana/web3.js");
   const { kanalAufKette } = await import("../zahlkanal.js");
-  const conn = new Connection(await solRpcUrl(), "confirmed");
+  const rpc = await solRpc();
   for (const k of kanaele) {
-    const stand = await kanalAufKette(conn, k).catch(() => null);
+    const stand = await kanalAufKette(rpc, k).catch(() => null);
     if (stand) await quittungsBuch.hebe(k, stand.ausgezahlt).catch(() => 0);
   }
 }

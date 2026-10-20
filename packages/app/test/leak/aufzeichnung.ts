@@ -3,7 +3,8 @@
  * wie der Relay-Pool der App (`publish`, `query`, `subscribe`) – jedes
  * gesendete Event wird festgehalten, auch ein ungueltiges.
  */
-import { MemoryRelay, OutboxPool, type NostrEvent, type RelayFilter } from "@freedomstack/protocol";
+import { MemoryRelay, OutboxPool, type NostrEvent, type RelayFilter, type SolRpc } from "@freedomstack/protocol";
+import { ketteAttrappe } from "../kette-attrappe.js";
 
 export class AufzeichnungsRelay extends MemoryRelay {
   readonly gesendet: NostrEvent[] = [];
@@ -41,24 +42,18 @@ export function aufzeichnung(): { pool: OutboxPool; relay: AufzeichnungsRelay } 
  * Transaktion baut, signieren laesst und sendet. Festgehalten wird jede
  * gesendete Transaktion samt Gebuehrenzahler – ohne Netz, ohne Geld.
  */
-export async function aufzeichnungsRpc(): Promise<{ connection: unknown; gesendet: { feePayer: string; konten: string[] }[] }> {
+export async function aufzeichnungsRpc(): Promise<{ rpc: SolRpc; gesendet: { feePayer: string; konten: string[] }[] }> {
   const { Transaction } = await import("@solana/web3.js");
   const gesendet: { feePayer: string; konten: string[] }[] = [];
-  const connection = {
-    async getLatestBlockhash() {
-      return { blockhash: "11111111111111111111111111111111", lastValidBlockHeight: 1 };
-    },
-    async sendRawTransaction(roh: Uint8Array) {
+  // Seit A-21d3b über kit und den Pool; gelesen wird, was hinausging, wie es eine andere Software läse (web3.js)
+  const { rpc } = ketteAttrappe({
+    beimSenden: (roh) => {
       const tx = Transaction.from(roh);
       gesendet.push({
         feePayer: tx.feePayer?.toBase58() ?? "",
         konten: tx.instructions.flatMap((i) => i.keys.map((k) => k.pubkey.toBase58())),
       });
-      return `aufgezeichnet${gesendet.length}`;
     },
-    async confirmTransaction() {
-      return { value: { err: null } };
-    },
-  };
-  return { connection, gesendet };
+  });
+  return { rpc, gesendet };
 }

@@ -14,7 +14,8 @@ import {
 } from "@solana/kit";
 import { Keypair } from "@solana/web3.js";
 import {
-  leseGuthaben, leseKonto, leseProgrammKonten, neuesterBlockhash, poolRpc, sendeTransaktion, txFehlerText, warteAufBestaetigung,
+  leseGuthaben, leseKonto, leseProgrammKonten, leseSignaturStand, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion,
+  txFehlerText, warteAufBestaetigung,
 } from "../src/kit-rpc.js";
 import { alsDraht, baueTransaktion, neuerKontoSchluessel, signiereMit } from "../src/kit-transaktion.js";
 import { erstatteKanalAnweisung } from "../src/channel.js";
@@ -136,6 +137,7 @@ test("A-21d3a: lehnt die Vorabsimulation ab, wirft kit – mit dem Fehler der Ke
   assert.ok(isSolanaError(f, SOLANA_ERROR__JSON_RPC__SERVER_ERROR_SEND_TRANSACTION_PREFLIGHT_FAILURE), String(f));
   assert.ok(isSolanaError((f as Error).cause, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM), String((f as Error).cause));
   assert.equal(((f as Error).cause as { context: { code: number } }).context.code, 6002);
+  assert.equal(programmFehlerCode(f), 6002, "A-21d3b: der Code aus der Ursache");
   assert.deepEqual(log.map((x) => x.url), [E(1)], "eine Ablehnung der Kette nicht an den nächsten Endpunkt");
 });
 
@@ -187,4 +189,36 @@ test("A-21d3a: Über der letzten Höhe ohne Bestätigung – tx-abgelaufen; kam 
   const g = await warteAufBestaetigung(knapp, sig, 150n, { warte: async () => {} }).then(() => undefined, (e: unknown) => e);
   assert.ok(g instanceof ProtokollFehler && g.kennung === "tx-abgelaufen");
   assert.equal(hoehe, 152, "erst bei 151 aufgegeben");
+});
+
+test("A-21d3b: Programmfehler aus dem Fehler der Kette (BigInt oder Zahl), aus der Ursache und aus altem Text – sonst nichts", () => {
+  assert.equal(programmFehlerCode({ InstructionError: [1n, { Custom: 6004n }] }), 6004);
+  assert.equal(programmFehlerCode({ InstructionError: [0, { Custom: 6007 }] }), 6007);
+  assert.equal(programmFehlerCode(new Error("Simulation: custom program error: 0x1777")), 6007);
+  assert.equal(programmFehlerCode("custom program error: 0x1773"), 6003);
+  assert.equal(programmFehlerCode(new Error("außen", { cause: { InstructionError: [0, { Custom: 6001n }] } })), 6001);
+  for (const kein of [null, undefined, "irgendwas", { InstructionError: [0, "InvalidAccountData"] }, { Custom: 6000 }, new Error("nichts")]) {
+    assert.equal(programmFehlerCode(kein), undefined, String(kein));
+  }
+  const kreis = new Error("a") as Error & { cause?: unknown };
+  kreis.cause = kreis;
+  assert.equal(programmFehlerCode(kreis), undefined, "eine Ursache, die auf sich zeigt, endet");
+});
+
+test("A-21d3b: Stand einer Signatur – bestätigt mit Fehler der Kette, sonst null; eine kaputte Signatur fragt gar nicht erst", async () => {
+  const sig = getBase58Decoder().decode(new Uint8Array(64).fill(5));
+  const log: Aufruf[] = [];
+  let antwort: unknown = null;
+  const rpc = poolRpc(pool({ [E(1)]: () => stand(antwort) }, log));
+  assert.equal(await leseSignaturStand(rpc, sig), null, "unbekannt");
+  antwort = { slot: 9, confirmations: 0, err: null, confirmationStatus: "processed" };
+  assert.equal(await leseSignaturStand(rpc, sig), null, "nur verarbeitet");
+  antwort = { slot: 9, confirmations: 1, err: null, confirmationStatus: "confirmed" };
+  assert.deepEqual(await leseSignaturStand(rpc, sig), { fehler: null });
+  antwort = { slot: 9, confirmations: null, err: { InstructionError: [0, { Custom: 6003 }] }, confirmationStatus: "finalized" };
+  const s = await leseSignaturStand(rpc, sig);
+  assert.equal(programmFehlerCode(s?.fehler), 6003);
+  assert.equal(log.length, 4);
+  await assert.rejects(leseSignaturStand(rpc, "keine-signatur"));
+  assert.equal(log.length, 4, "keine Anfrage mit kaputter Signatur");
 });
