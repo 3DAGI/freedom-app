@@ -2225,6 +2225,11 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .projekt-vorschau-link { align-self: flex-start; font-weight: 600; padding: 6px 0; }
 .projekt-vorschau-adresse { overflow-wrap: anywhere; user-select: all; }
 .projekt-vorschau-kopieren { align-self: flex-start; }
+.projekt-bild { display: flex; flex-direction: column; gap: 8px; }
+.projekt-bild-video { width: 100%; max-height: 70vh; background: #000; border-radius: 6px; object-fit: contain; touch-action: none; }
+.projekt-bild:fullscreen .projekt-bild-video { max-height: none; height: 100%; border-radius: 0; }
+.projekt-bild-leiste { display: flex; gap: 8px; align-items: center; }
+.projekt-bild-tastatur { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .projekt-commit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding: 6px 0; }
 .projekt-commit-text { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
 .projekt-commit button { width: auto; padding: 6px 10px; }

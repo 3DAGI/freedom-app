@@ -12144,3 +12144,27 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar�
 - Unsinn (zu lang, außerhalb, unbekannt), der nichts tut.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2b – App: Bild ansehen und bedienen
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a3.
+
+**Neu:**
+- `shell/bild-ui.ts`: Knopf „Bild“ auf dem Blatt des Projekts (`knoten-projekt-ui.ts`, zwischen „Vorschau“ und „Zum Auftrag“).
+  - Zugang zum eigenen TURN (5079), `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, Video zum Empfangen und
+    Datenkanal `eingabe`; das Angebot nur mit Relay-Kandidaten (`nurRelaySdp()`, `istBildSdp()`) versiegelt als `bild`.
+  - Maus, Finger, Rad und Tasten gehen über den Datenkanal; am Handy über ein verstecktes Eingabefeld („Tastatur“), dazu
+    „Vollbild“.
+  - Das Bild endet (`bild-ende`, Verbindung zu), sobald das Blatt etwas anderes zeigt oder zugeht.
+- `bild-ablauf.ts`: Größe des Bildschirms aus der Fläche in Gerätepixeln, eingepasst in den Rahmen des Protokolls, gerade;
+  die Stelle im eingepassten Bild (Ränder zählen nicht); nur Nachrichten im Format des Knotens (`eingabeText()`).
+- Texte in beiden Sprachen; `PROTOCOL.md` §34 nennt die App-Seite, `PROVIDER.md` den Knopf.
+
+**Tests:**
+- `bild-ablauf.test.ts` (3): Größe, Stelle im Bild, Format und Negativfälle.
+- Smoke-Test „bild“: echtes coturn auf 127.0.0.1, `knoten-code-probe.mts` gibt den Zugang (TURN-REST wie der Knoten), eine
+  zweite Seite antwortet als Knoten mit einer Leinwand. Geprüft: Angebot nur mit Relay-Kandidaten, Bild 320×240 „verbunden“,
+  Klick in die Mitte kommt als `d`/`u` bei 0,5/0,5 an, „a“ und Enter als `kd`/`ku`, „Zum Auftrag“ schickt `bild-ende`.
+  Fünfmal hintereinander grün, je 16 s. Die CI installiert coturn auch im Smoke-Job.
+
+Knoten-Stand: nur die App (der Knoten seit VKg2a3).

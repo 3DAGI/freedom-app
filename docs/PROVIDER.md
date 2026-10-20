@@ -687,7 +687,8 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Log, und die App bekommt `code-bild-aus`. Höchstens zwei Bilder laufen zugleich,
   eines endet spätestens mit dem Zugang zum TURN (`TURN_GUELTIG_SEK`, Standard eine
   Stunde). Maus, Berührung und Tasten aus der App gehen nur an diesen Bildschirm
-  (seit VKg2a3, dafür `python3-xlib`); die Ansicht in der App kommt mit VKg2b.
+  (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
+  Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

@@ -6,7 +6,8 @@
  * ihre Änderungen über die Patch-Ansicht der Repos (`zeigePatch()`) und setzt nach Rückfrage auf einen zurück – als neuen
  * Commit, nichts geht verloren. „Vorschau“ (VKg1b, wie Replit) holt die Adresse, unter der der Knoten das Projekt live
  * ausliefert (eigener Ursprung, `vorschau.ts` im Knoten), und öffnet sie in einem neuen Tab – in der Hülle, die keine
- * Fenster öffnet, nur zum Kopieren und als QR-Code. Gezeigt wird nur Text, der
+ * Fenster öffnet, nur zum Kopieren und als QR-Code. „Bild“ (VKg2b) zeigt Programme ohne Web als Bildstrom über den eigenen TURN
+ * und schickt Zeiger und Tasten zurück (`bild-ui.ts`); es endet, sobald das Blatt etwas anderes zeigt. Gezeigt wird nur Text, der
  * Abschluss über `markdownDom()`. Der Lauf gehört dem Knoten: Schließt man das Blatt, läuft er weiter; solange die App
  * offen ist, folgt sie ihm und zeigt ihn beim nächsten Öffnen wieder – nur im Speicher, nie gemerkt.
  */
@@ -15,6 +16,7 @@ import { gebietsschema, t } from "../i18n.js";
 import { LAUF_ZEIT_MS, codeText, endeText, neuerLauf, nimmSchritt, wartetAufMich, type LaufStand, type SchrittAnzeige } from "../knoten-lauf.js";
 import { CODE_TAKT_MS, CODE_ZEIT_MS, codeAblehnungText, vorschauUnverschluesselt } from "../knoten-projekte.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { zeigeBild } from "./bild-ui.js";
 import { alsModal, bestaetige } from "./dialog.js";
 import type { frageKnotenCode } from "./knoten-code-ui.js";
 import { powFuerKnoten } from "./knoten-status-ui.js";
@@ -116,7 +118,8 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
   const kopf = el("div", undefined, "projekt-kopf");
   const kopfKnoepfe = el("div", undefined, "projekt-kopf-knoepfe");
   const vorschauKnopf = knopf(t("set.projektVorschau"), "ghost projekt-vorschau-knopf", t("set.projektVorschauAria", { name: projekt }));
-  kopfKnoepfe.append(vorschauKnopf, verlaufKnopf, zu);
+  const bildKnopf = knopf(t("set.projektBild"), "ghost projekt-bild-knopf", t("set.projektBildAria", { name: projekt }));
+  kopfKnoepfe.append(vorschauKnopf, bildKnopf, verlaufKnopf, zu);
   kopf.append(el("h3", t("set.projektTitel", { name: projekt })), kopfKnoepfe);
   /** Verlauf und Änderungen (VKe2) stehen hier statt Schritten und Auftrag. */
   const neben = el("div", undefined, "projekt-neben");
@@ -174,7 +177,11 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
     stopp.hidden = !aktiv;
   }
 
+  /** Ein laufendes Bild (VKg2b) – endet, sobald das Blatt etwas anderes zeigt oder zugeht. */
+  let bildStopp: (() => void) | null = null;
   const lauf = (an: boolean): void => {
+    bildStopp?.();
+    bildStopp = null;
     neben.hidden = an;
     for (const x of [schritte, ende, fuss]) x.hidden = !an;
     verlaufKnopf.textContent = t(an ? "set.projektVerlauf" : "set.projektZumAuftrag");
@@ -248,8 +255,14 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
     neben.replaceChildren(...teile);
   }
   vorschauKnopf.addEventListener("click", () => void zeigeVorschau());
+  bildKnopf.addEventListener("click", () => {
+    lauf(false);
+    bildStopp = zeigeBild(neben, projekt, k, frage);
+  });
 
   const schliesse = (): void => {
+    bildStopp?.();
+    bildStopp = null;
     huelle.remove();
     if (offen?.projekt === projekt) offen = null;
     document.removeEventListener("keydown", taste);
