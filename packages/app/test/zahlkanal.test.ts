@@ -20,6 +20,7 @@ import {
   KANAL_NUTZBAR_SEK, KanalBuch, LS_KANAELE, bedarfLamports, erstatteKanaele, kanalAufKette, planeKanal, programmBereit, type KanalEintrag,
 } from "../src/zahlkanal.js";
 import { setzeSperrSpeicher, sweepPendingRefunds, walletRefundRunner, type PendingKind } from "../src/refund-watcher.js";
+import { ketteAttrappe } from "./kette-attrappe.js";
 
 const JETZT = 1_900_000_000;
 const kunde = Keypair.generate().publicKey.toBase58();
@@ -154,21 +155,14 @@ function kontoDaten(k: string, eingezahlt = 1_000_000n): Buffer {
 
 function kette(konten: Map<string, { owner: string; data: Buffer }>) {
   const gesendet: GeleseneNachricht[] = [];
-  const conn = {
-    getAccountInfo: async (p: PublicKey) => {
-      const k = konten.get(p.toBase58());
-      return k ? { owner: new PublicKey(k.owner), data: k.data, executable: false, lamports: 1, rentEpoch: 0 } : null;
-    },
-    getLatestBlockhash: async () => ({ blockhash: Keypair.generate().publicKey.toBase58(), lastValidBlockHeight: 100 }),
-    sendRawTransaction: async () => `sig${gesendet.length}`,
-    confirmTransaction: async () => ({ value: { err: null } }),
-  };
+  // Seit A-21d3b über kit und den Pool: Konten lesen, senden und bestätigen an der Attrappe der Kette
+  const k = ketteAttrappe({ konten });
   const wallet = {
     publicKey: { toBase58: () => kunde },
     // Seit A-21d2 eine Transaktion aus kit – die Attrappe merkt, was sie lesen kann
     signiereTransaktion: async (tx: SolTransaktion) => { gesendet.push(leseNachricht(tx)); return tx; },
   };
-  return { conn: conn as unknown as import("@solana/web3.js").Connection, wallet, gesendet };
+  return { rpc: k.rpc, wallet, gesendet, signaturen: k.signaturen };
 }
 
 test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; refund ohne Unterschrift des Kunden (Z1)", async () => {
@@ -179,12 +173,12 @@ test("Rückholen: offen ist ein Kanal, solange sein Konto beim Programm liegt; r
     [offen, { owner: KANAL_PROGRAMM_ID, data: kontoDaten(kunde) }],
     [fremdesProgramm, { owner: Keypair.generate().publicKey.toBase58(), data: kontoDaten(kunde) }],
   ]));
-  assert.equal((await kanalAufKette(k.conn, offen))?.kunde, kunde);
-  assert.equal(await kanalAufKette(k.conn, fremdesProgramm), null);
-  const runner = walletRefundRunner(k.conn, k.wallet, {} as import("@freedomstack/protocol").SolRpc);
+  assert.equal((await kanalAufKette(k.rpc, offen))?.kunde, kunde);
+  assert.equal(await kanalAufKette(k.rpc, fremdesProgramm), null);
+  const runner = walletRefundRunner(k.wallet, k.rpc);
   assert.deepEqual(await runner.offen!([offen, fremdesProgramm, weg], "kanal"), [offen]);
   const r = await runner.refund([offen], "kanal");
-  assert.deepEqual(r, { signature: "sig1", refunded: [offen], failed: [] });
+  assert.deepEqual(r, { signature: k.signaturen[0], refunded: [offen], failed: [] });
   const [ix] = k.gesendet[0]!.anweisungen;
   assert.equal(ix!.programm, KANAL_PROGRAMM_ID);
   // Seit A-21d2 liest die Attrappe die fertige Nachricht: Hier zahlt der Kunde selbst die Gebühr und
@@ -197,8 +191,8 @@ test("Rückholen (Z1): Kanal einer anderen Wallet – das Geld geht an deren Adr
   const fremd = Keypair.generate().publicKey.toBase58();
   const kanalFremd = Keypair.generate().publicKey.toBase58();
   const k = kette(new Map([[kanalFremd, { owner: KANAL_PROGRAMM_ID, data: kontoDaten(fremd) }]]));
-  const r = await erstatteKanaele(k.conn, k.wallet, [kanalFremd]);
-  assert.deepEqual(r, { signature: "sig1", refunded: [kanalFremd], failed: [] });
+  const r = await erstatteKanaele(k.rpc, k.wallet, [kanalFremd]);
+  assert.deepEqual(r, { signature: k.signaturen[0], refunded: [kanalFremd], failed: [] });
   const tx = k.gesendet[0]!;
   const [ix] = tx.anweisungen;
   assert.deepEqual(ix!.konten.map((x) => [x.adresse, x.signiert, x.schreibbar]), [[fremd, false, true], [kanalFremd, false, true]], "Empfänger ist der Kunde auf der Kette");
@@ -310,7 +304,8 @@ test("4.3d2 Verdrahtung: Programm und Angebot prüfen, Tresor, merken, dann einz
   i("kanalEmpfaenger(await empfaengerFuer(providerPk), [angebot.kanal.adresse, kunde])");
   assert.ok(i("await verlangeTresor(") < i("await kanalBuch.merke(plan.eintrag);"));
   assert.ok(i("await kanalBuch.merke(plan.eintrag);") < i("await rememberLock({"));
-  assert.ok(i("await rememberLock({") < i("await sendeMitWallet(conn, signer, [plan.ix]"));
+  assert.ok(i("await rememberLock({") < i("await sendeMitWallet(rpc, signer, [plan.ix]"));
+  i("const rpc = await solRpc({ einVorgang: true });");
   i('kind: "kanal", reference: plan.eintrag.kanal, swapIds: [plan.eintrag.kanal]');
   i("=== null) await kanalBuch.entferne(kanal)");
   assert.doesNotMatch(ui, /innerHTML/, "Übersicht nur über textContent");

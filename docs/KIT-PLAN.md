@@ -131,7 +131,15 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
       `sol-transfer.ts` fällt. Senden und Nachfragen einer Transaktion gehen an denselben
       Anbieter (`RpcPool.einVorgang()`) – sonst sähen beim Verteilen alle die Signatur;
     - **A-21d3b** HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen der App
-      über `solRpc()`; Fehler des HTLC-Programms aus `SolanaError` (Code als BigInt);
+      über `solRpc()` – **fertig** (20.10.2026): `signiertVonWallet()` fragt den Blockhash über
+      den Pool, `sendeUndWarte()` (`sol-htlc.ts`) sendet mit Vorabsimulation und wartet über
+      `warteAufBestaetigung()`; sperren, einlösen, zurückholen, die Einlösung über einen Relayer
+      (deren Stand liest `leseSignaturStand()`), Zahlkanal öffnen, aufstocken und erstatten, der
+      Wächter und die Quittungen laufen über den Pool, je Transaktion ein Vorgang
+      (`einVorgang()`). Programmfehler liest `programmFehlerCode()` (Protokoll) – aus dem Fehler
+      der Kette (BigInt), aus der Ursache des `SolanaError` und aus altem Text. In der App
+      bleibt web3.js nur für `swapAddress()` (PDA synchron, ohne `crypto.subtle`) und die
+      Brücke `ueberWeb3()` (W4);
     - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
   `relayer-dienst.ts`, `sol-auszahlung.ts`.

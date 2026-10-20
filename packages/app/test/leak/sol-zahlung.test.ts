@@ -16,7 +16,7 @@ import { lockDeposit } from "../../src/sol-htlc.js";
 import { aufzeichnung, aufzeichnungsRpc } from "./aufzeichnung.js";
 
 async function zweiDeposits() {
-  const { connection, gesendet: transaktionen } = await aufzeichnungsRpc();
+  const { rpc, gesendet: transaktionen } = await aufzeichnungsRpc();
   const { pool, relay } = aufzeichnung();
   const walletKp = Keypair.generate();
   const wallet = {
@@ -30,7 +30,7 @@ async function zweiDeposits() {
   const frist = Math.floor(Date.now() / 1000) + 7200;
   for (const n of [1, 2]) {
     await lockDeposit({
-      connection: connection as never, wallet: wallet as never, providerSolAddress: providerSol,
+      rpc, wallet: wallet as never, providerSolAddress: providerSol,
       spendSwapId: `spend-${n}`, refundSwapId: `refund-${n}`, spendLamports: 1_000_000, refundLamports: 500_000,
       timelockUnix: frist,
     });
@@ -63,6 +63,8 @@ test("SOL-Zahlung: jede Zahlung von einer frischen Adresse", { todo: "bewusste G
 test("Verdrahtung: startDeposit() sperrt mit lockDeposit und kuendigt mit buildSolDepositOpen an", () => {
   const w = readFileSync(new URL("../../src/shell/tabs/hinterlegen.ts", import.meta.url), "utf8");
   // Seit 4.6c mit dem Signierer aus der Verbindung (auch Wallet-Standard-Wallets)
-  assert.match(w, /await lockDeposit\(\{\s*connection: conn,\s*wallet: signer,/);
+  assert.match(w, /await lockDeposit\(\{\s*rpc,\s*wallet: signer,/);
+  // Seit A-21d3b über den Pool, Senden und Nachfragen beim selben Anbieter
+  assert.match(w, /const rpc = await solRpc\(\{ einVorgang: true \}\);/);
   assert.match(w, /signiere\(buildSolDepositOpen\(\{\s*customerPubkey: state\.keypair\.pk,/);
 });

@@ -234,27 +234,31 @@ export function startRefundWatcher(
   };
 }
 
-/** Erzeugt einen Runner auf Basis der Wallet-Anbindung; Sperren liest er über kit auf dem Pool (`rpc`, A-21c). */
+/**
+ * Erzeugt einen Runner auf Basis der Wallet-Anbindung; Sperren liest er über kit auf dem Pool (`rpc`, A-21c).
+ * Zurückgeholt wird seit A-21d3b ebenso über den Pool, je Transaktion ein Vorgang (`vorgang()`, sonst `rpc`) –
+ * Senden und Nachfragen beim selben Anbieter.
+ */
 export function walletRefundRunner(
-  connection: import("@solana/web3.js").Connection,
   wallet: WalletSigner,
   rpc: import("@freedomstack/protocol").SolRpc,
+  vorgang: () => Promise<import("@freedomstack/protocol").SolRpc> = async () => rpc,
 ): RefundRunner {
   return {
     async refund(swapIds: string[], kind?: PendingKind) {
       if (kind === "kanal") {
         const { erstatteKanaele } = await import("./zahlkanal.js");
-        return erstatteKanaele(connection, wallet, swapIds);
+        return erstatteKanaele(await vorgang(), wallet, swapIds);
       }
       const { refundDepositOnChain } = await import("./sol-htlc.js");
-      return refundDepositOnChain({ connection, wallet, swapIds });
+      return refundDepositOnChain({ rpc: await vorgang(), wallet, swapIds });
     },
     async offen(swapIds: string[], kind?: PendingKind) {
       if (kind === "kanal") {
         // Ein Kanal ist offen, solange sein Konto besteht – refund schließt es
         const { kanalAufKette } = await import("./zahlkanal.js");
         const offen: string[] = [];
-        for (const kanal of swapIds) if (await kanalAufKette(connection, kanal)) offen.push(kanal);
+        for (const kanal of swapIds) if (await kanalAufKette(rpc, kanal)) offen.push(kanal);
         return offen;
       }
       const { AnchorSolanaHtlc } = await import("@freedomstack/protocol");

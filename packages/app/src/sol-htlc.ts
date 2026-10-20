@@ -26,7 +26,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import {
-  AccountRole, alsDraht, anweisung, baueTransaktion, SYSTEM_PROGRAMM, type Instruction, type SolTransaktion,
+  AccountRole, alsDraht, anweisung, baueTransaktion, neuesterBlockhash, sendeTransaktion, SYSTEM_PROGRAMM, txFehlerText,
+  warteAufBestaetigung, type Instruction, type SolRpc, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
@@ -53,13 +54,29 @@ export interface WalletSigner {
   signiereTransaktion(tx: SolTransaktion): Promise<SolTransaktion>;
 }
 
-/** Bauen und signieren lassen – der Zahler ist die Wallet (A-21d2, kit statt web3.js). */
+/**
+ * Bauen und signieren lassen – der Zahler ist die Wallet (A-21d2, kit statt web3.js); den Blockhash fragt sie seit
+ * A-21d3b über den Pool. `rpc` aus `solRpc({ einVorgang: true })`: Blockhash, Senden und Nachfragen beim selben Anbieter.
+ */
 export async function signiertVonWallet(
-  connection: Pick<import("@solana/web3.js").Connection, "getLatestBlockhash">, wallet: WalletSigner, anweisungen: Instruction[],
-): Promise<{ roh: Uint8Array; blockhash: string; lastValidBlockHeight: number }> {
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-  const tx = baueTransaktion({ zahler: wallet.publicKey.toBase58(), anweisungen, lebensdauer: { blockhash, letzteHoehe: BigInt(lastValidBlockHeight) } });
-  return { roh: alsDraht(await wallet.signiereTransaktion(tx)), blockhash, lastValidBlockHeight };
+  rpc: SolRpc, wallet: WalletSigner, anweisungen: Instruction[],
+): Promise<{ roh: Uint8Array; letzteHoehe: bigint }> {
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const tx = baueTransaktion({ zahler: wallet.publicKey.toBase58(), anweisungen, lebensdauer });
+  return { roh: alsDraht(await wallet.signiereTransaktion(tx)), letzteHoehe: lebensdauer.letzteHoehe };
+}
+
+/**
+ * Senden (immer mit Vorabsimulation) und warten, bis die Kette bestätigt (A-21d3b). Liefert die Signatur und den
+ * Fehler der Kette – `null` heißt gelungen; lehnt schon die Vorabsimulation ab, wirft es (nichts kam in einen Block).
+ */
+export async function sendeUndWarte(
+  rpc: SolRpc, roh: Uint8Array, letzteHoehe: bigint, fortschritt?: (schritt: string) => void,
+): Promise<{ signature: string; fehler: unknown }> {
+  fortschritt?.(t("zahl.wirdGesendet"));
+  const signature = await sendeTransaktion(rpc, roh);
+  fortschritt?.(t("zahl.warteKette"));
+  return { signature, fehler: await warteAufBestaetigung(rpc, signature, letzteHoehe) };
 }
 
 export interface LockParams {
@@ -138,7 +155,8 @@ export interface DepositLockResult {
 }
 
 export interface DepositLockParams {
-  connection: import("@solana/web3.js").Connection;
+  /** Aus `solRpc({ einVorgang: true })` (A-21d3b). */
+  rpc: SolRpc;
   wallet: WalletSigner;
   providerSolAddress: string;
   spendSwapId: string;
@@ -192,18 +210,10 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
   }
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, anweisungen);
-
-  p.onProgress?.(t("zahl.wirdGesendet"));
-  const signature = await p.connection.sendRawTransaction(roh);
-
-  p.onProgress?.(t("zahl.warteKette"));
-  const conf = await p.connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
-  if (conf.value.err) {
-    throw new Error(t("zahl.txAbgelehnt", { fehler: JSON.stringify(conf.value.err) }));
+  const { roh, letzteHoehe } = await signiertVonWallet(p.rpc, p.wallet, anweisungen);
+  const { signature, fehler } = await sendeUndWarte(p.rpc, roh, letzteHoehe, p.onProgress);
+  if (fehler) {
+    throw new Error(t("zahl.txAbgelehnt", { fehler: txFehlerText(fehler) }));
   }
 
   return {
@@ -222,7 +232,7 @@ export async function lockDeposit(p: DepositLockParams): Promise<DepositLockResu
  * zurueck, falls der LP nicht einloest.
  */
 export async function lockRueckSwap(p: {
-  connection: import("@solana/web3.js").Connection;
+  rpc: SolRpc;
   wallet: WalletSigner;
   swapId: string;
   paymentHashHex: string;
@@ -239,12 +249,9 @@ export async function lockRueckSwap(p: {
     initiator,
   );
   p.onProgress?.(t("zahl.warteWallet"));
-  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, [ix]);
-  p.onProgress?.(t("zahl.wirdGesendet"));
-  const signature = await p.connection.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" });
-  p.onProgress?.(t("zahl.warteKette"));
-  const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-  if (conf.value.err) throw new Error(t("zahl.sperreAbgelehnt", { fehler: JSON.stringify(conf.value.err) }));
+  const { roh, letzteHoehe } = await signiertVonWallet(p.rpc, p.wallet, [ix]);
+  const { signature, fehler } = await sendeUndWarte(p.rpc, roh, letzteHoehe, p.onProgress);
+  if (fehler) throw new Error(t("zahl.sperreAbgelehnt", { fehler: txFehlerText(fehler) }));
   return { signature };
 }
 
@@ -265,7 +272,7 @@ export async function buildRefundInstruction(swapId: string, initiator: string):
  * statt bei der ersten Ablehnung abzubrechen.
  */
 export async function refundDepositOnChain(p: {
-  connection: import("@solana/web3.js").Connection;
+  rpc: SolRpc;
   wallet: WalletSigner;
   swapIds: string[];
   onProgress?: (step: string) => void;
@@ -291,10 +298,9 @@ export async function refundDepositOnChain(p: {
   }
 
   p.onProgress?.(t("zahl.warteWallet"));
-  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(p.connection, p.wallet, anweisungen);
-  const signature = await p.connection.sendRawTransaction(roh);
-  const conf = await p.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
-  if (conf.value.err) {
+  const { roh, letzteHoehe } = await signiertVonWallet(p.rpc, p.wallet, anweisungen);
+  const { signature, fehler } = await sendeUndWarte(p.rpc, roh, letzteHoehe);
+  if (fehler) {
     // Eine atomare Transaktion scheitert ganz: ein bereits eingelöstes HTLC
     // reißt die anderen mit. Der Nutzer soll wissen, warum.
     return {

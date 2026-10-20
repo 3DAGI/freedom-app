@@ -316,18 +316,18 @@ export async function claimActiveSwap(): Promise<void> {
       return;
     }
 
-    const { Connection, PublicKey } = await import("@solana/web3.js");
-    const { fromHex: fh } = await import("@freedomstack/protocol");
+    const { fromHex: fh, leseGuthaben } = await import("@freedomstack/protocol");
     const rpcUrl = await solRpcUrl();
-    const connection = new Connection(rpcUrl, "confirmed");
+    // Über den Pool, Blockhash, Senden und Nachfragen beim selben Anbieter (A-21d3b)
+    const rpc = await solRpc({ einVorgang: true });
 
     // Kein SOL fuer die Gebuehr? Dann ueber einen Relayer (4.6f).
     const { brauchtRelayer } = await import("../../relay-einloesung.js");
-    const guthaben = await connection.getBalance(new PublicKey(signer.publicKey.toBase58()));
+    const guthaben = Number(await leseGuthaben(rpc, signer.publicKey.toBase58()));
     const r = brauchtRelayer(guthaben)
-      ? await einloesenUeberRelayer({ connection, rpcUrl, signer, guthaben, preimage: fh(secret.preimageHex), swap: activeSwap, statusEl })
+      ? await einloesenUeberRelayer({ rpc, rpcUrl, signer, guthaben, preimage: fh(secret.preimageHex), swap: activeSwap, statusEl })
       : await claimSwap({
-        connection,
+        rpc,
         wallet: signer,
         swapId: activeSwap.swapId,
         preimage: fh(secret.preimageHex),
@@ -358,11 +358,11 @@ export async function claimActiveSwap(): Promise<void> {
  * die Einloesung aus, rechtzeitig der naechste.
  */
 async function einloesenUeberRelayer(p: {
-  connection: import("@solana/web3.js").Connection; rpcUrl: string; signer: import("../../sol-htlc.js").WalletSigner;
+  rpc: import("@freedomstack/protocol").SolRpc; rpcUrl: string; signer: import("../../sol-htlc.js").WalletSigner;
   guthaben: number; preimage: Uint8Array; swap: NonNullable<typeof activeSwap>; statusEl: HTMLElement;
 }): Promise<{ signature: string } | undefined> {
   const {
-    KIND_GIFT_WRAP, KIND_RELAYER_ANGEBOT, buildRelayAuftrag, mieteReicht, oeffneRelayAntwort, parseRelayerAngebot,
+    KIND_GIFT_WRAP, KIND_RELAYER_ANGEBOT, buildRelayAuftrag, leseSignaturStand, mieteReicht, oeffneRelayAntwort, parseRelayerAngebot,
   } = await import("@freedomstack/protocol");
   const [{ waehleRelayer, baueRelayEinloesung }, { claimAllowed }, { ketteAusRpc }] = await Promise.all([
     import("../../relay-einloesung.js"), swapClient(), import("../../wallet-standard.js"),
@@ -384,7 +384,7 @@ async function einloesenUeberRelayer(p: {
     const erlaubt = claimAllowed(p.swap.timelockUnix - 300);
     if (!erlaubt.ok) throw new Error(erlaubt.reason);
     p.statusEl.textContent = t("zahl.warteWallet");
-    const roh = await baueRelayEinloesung({ connection: p.connection, wallet: p.signer, swapId: p.swap.swapId, preimage: p.preimage, initiator: p.swap.initiator, relayer: k });
+    const roh = await baueRelayEinloesung({ rpc: p.rpc, wallet: p.signer, swapId: p.swap.swapId, preimage: p.preimage, initiator: p.swap.initiator, relayer: k });
     const einmal = new LocalSigner(generateKeypair().sk);
     const { wrap, auftragId } = await buildRelayAuftrag({ tx: roh, kunde: einmal, relayerPk: k.pubkey });
     await pool.publish(wrap);
@@ -395,9 +395,9 @@ async function einloesenUeberRelayer(p: {
       for (const w of await pool.query({ kinds: [KIND_GIFT_WRAP], "#p": [einmal.publicKey()] })) {
         const a = await oeffneRelayAntwort(w, einmal, { relayerPk: k.pubkey, auftragId });
         if (a?.status === "GESENDET" && a.signatur) {
-          const st = await p.connection.getSignatureStatuses([a.signatur]).catch(() => undefined);
-          const s0 = st?.value[0];
-          if (s0 && !s0.err && (s0.confirmationStatus === "confirmed" || s0.confirmationStatus === "finalized")) return { signature: a.signatur };
+          // Die Signatur kommt vom Relayer – geprüft wird sie auf der Kette (`leseSignaturStand()` prüft auch ihre Form)
+          const s0 = await leseSignaturStand(p.rpc, a.signatur).catch(() => null);
+          if (s0 && !s0.fehler) return { signature: a.signatur };
         }
         if (a?.status === "ABGELEHNT") {
           p.statusEl.textContent = t("waehr.relayerLehntAb", { grund: a.grund });
@@ -430,9 +430,9 @@ let waechterStop: (() => void) | undefined;
 export async function starteRueckholWaechter(): Promise<void> {
   const signer = htlcSigner();
   if (waechterStop || !signer) return;
-  const [{ startRefundWatcher, walletRefundRunner }, { Connection }] = await Promise.all([sperren(), import("@solana/web3.js")]);
-  const conn = new Connection(await solRpcUrl(), "confirmed");
-  waechterStop = startRefundWatcher(walletRefundRunner(conn, signer, await solRpc()), (r) => {
+  const { startRefundWatcher, walletRefundRunner } = await sperren();
+  // Lesen über den gemeinsamen Pool, jede Rückholung ein eigener Vorgang (A-21d3b)
+  waechterStop = startRefundWatcher(walletRefundRunner(signer, await solRpc(), () => solRpc({ einVorgang: true })), (r) => {
     if (!r.zurueckgeholt) return;
     toast(t("waehr.sperrenZurueck", { n: r.zurueckgeholt, betrag: solText(r.lamports) }));
     updateSidebarBalances();
@@ -500,8 +500,8 @@ export async function startRueckSwap(lpPubkey: string, offer: LpOffer, betrag?: 
   const { rememberLock } = await sperren();
   await rememberLock({ kind: "swap", reference: plan.swapId, swapIds: [plan.swapId], timelockUnix: plan.timelockUnix, amountLamports: plan.lamports, createdAt: Math.floor(Date.now() / 1000) });
   try {
-    const [{ Connection }, { lockRueckSwap }] = await Promise.all([import("@solana/web3.js"), import("../../sol-htlc.js")]);
-    await lockRueckSwap({ connection: new Connection(await solRpcUrl(), "confirmed"), wallet: signer, ...plan, onProgress: (x) => melde(x) });
+    const { lockRueckSwap } = await import("../../sol-htlc.js");
+    await lockRueckSwap({ rpc: await solRpc({ einVorgang: true }), wallet: signer, ...plan, onProgress: (x) => melde(x) });
   } catch (e) {
     return melde(t("waehr.sperreNichtAngelegt", { fehler: fehlerText(e) }), "err");
   }

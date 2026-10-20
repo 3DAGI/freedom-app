@@ -17,12 +17,12 @@
  * Der Sitzungsschlüssel signiert die Gutschriften – ein Geld-Geheimnis, nur im
  * Tresor (`freedom.kanaele`), nie in der Sicherung.
  */
-import type { Connection } from "@solana/web3.js";
 import {
   KANAL_PROGRAMM_ID, erstatteKanalAnweisung, fromHex, gutschriftTags, kanalAdresse, leseKanal, leseKonto, msatZuLamports,
-  neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, type Instruction, type KanalEmpfaenger, type KanalStand, type SolRpc,
+  neuerSitzungsSchluessel, oeffneKanalAnweisung, signiereGutschrift, toHex, txFehlerText, type Instruction, type KanalEmpfaenger,
+  type KanalStand, type SolRpc,
 } from "@freedomstack/protocol";
-import { signiertVonWallet, type WalletSigner } from "./sol-htlc.js";
+import { sendeUndWarte, signiertVonWallet, type WalletSigner } from "./sol-htlc.js";
 import { t } from "./i18n.js";
 import { fehlerText } from "./protokoll-texte.js";
 
@@ -189,28 +189,25 @@ export function planeKanal(p: {
 
 /**
  * Anweisungen (kit, A-21b2) mit der Wallet signieren und senden – mit Vorabsimulation,
- * bis bestätigt. Die Transaktion baut seit A-21d2 kit (`signiertVonWallet()`).
+ * bis bestätigt. Die Transaktion baut seit A-21d2 kit (`signiertVonWallet()`), gesendet wird seit
+ * A-21d3b über den Pool – `rpc` aus `solRpc({ einVorgang: true })`.
  */
 export async function sendeMitWallet(
-  conn: Connection, wallet: WalletSigner, ixs: Instruction[], fortschritt?: (schritt: string) => void,
+  rpc: SolRpc, wallet: WalletSigner, ixs: Instruction[], fortschritt?: (schritt: string) => void,
 ): Promise<string> {
   fortschritt?.(t("zahl.warteWallet"));
-  const { roh, blockhash, lastValidBlockHeight } = await signiertVonWallet(conn, wallet, ixs);
-  fortschritt?.(t("zahl.wirdGesendet"));
-  const signatur = await conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" });
-  fortschritt?.(t("zahl.warteKette"));
-  const best = await conn.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
-  if (best.value.err) throw new Error(t("zahl.txAbgelehnt", { fehler: JSON.stringify(best.value.err) }));
-  return signatur;
+  const { roh, letzteHoehe } = await signiertVonWallet(rpc, wallet, ixs);
+  const { signature, fehler } = await sendeUndWarte(rpc, roh, letzteHoehe, fortschritt);
+  if (fehler) throw new Error(t("zahl.txAbgelehnt", { fehler: txFehlerText(fehler) }));
+  return signature;
 }
 
-/** Der Kanal auf der Kette – oder null (nie angelegt, schon zurückgeholt, fremdes Konto). */
-export async function kanalAufKette(conn: Connection, kanal: string): Promise<KanalStand | null> {
-  const { PublicKey } = await import("@solana/web3.js");
-  const i = await conn.getAccountInfo(new PublicKey(kanal), "confirmed");
-  if (!i || i.owner.toBase58() !== KANAL_PROGRAMM_ID) return null;
+/** Der Kanal auf der Kette – oder null (nie angelegt, schon zurückgeholt, fremdes Konto). Seit A-21d3b über kit. */
+export async function kanalAufKette(rpc: SolRpc, kanal: string): Promise<KanalStand | null> {
+  const i = await leseKonto(rpc, kanal);
+  if (!i || i.eigentuemer !== KANAL_PROGRAMM_ID) return null;
   try {
-    return leseKanal(i.data);
+    return leseKanal(i.daten);
   } catch {
     return null;
   }
@@ -228,20 +225,20 @@ export async function programmBereit(rpc: SolRpc): Promise<boolean> {
  * (z. B. eine, die gerade nicht verbunden ist). Alles in einer Transaktion.
  */
 export async function erstatteKanaele(
-  conn: Connection, wallet: WalletSigner, kanaele: string[],
+  rpc: SolRpc, wallet: WalletSigner, kanaele: string[],
 ): Promise<{ signature?: string; refunded: string[]; failed: { swapId: string; reason: string }[] }> {
   const ixs: Instruction[] = [];
   const dabei: string[] = [];
   const failed: { swapId: string; reason: string }[] = [];
   for (const kanal of kanaele) {
     // Empfänger ist der Kunde auf der Kette – nie diese Wallet einsetzen, sonst lehnte das Programm ab
-    const kunde = (await kanalAufKette(conn, kanal))?.kunde ?? wallet.publicKey.toBase58();
+    const kunde = (await kanalAufKette(rpc, kanal))?.kunde ?? wallet.publicKey.toBase58();
     ixs.push(erstatteKanalAnweisung({ kunde, kanal }));
     dabei.push(kanal);
   }
   if (ixs.length === 0) return { refunded: [], failed };
   try {
-    return { signature: await sendeMitWallet(conn, wallet, ixs), refunded: dabei, failed };
+    return { signature: await sendeMitWallet(rpc, wallet, ixs), refunded: dabei, failed };
   } catch (e) {
     return { refunded: [], failed: [...failed, ...dabei.map((swapId) => ({ swapId, reason: fehlerText(e) }))] };
   }

@@ -26,6 +26,7 @@ import {
   WalletSigner,
 } from "../src/sol-htlc.js";
 import { setLang } from "../src/i18n.js";
+import { ketteAttrappe } from "./kette-attrappe.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16e über Schlüssel in der Sprache der Oberfläche)
 setLang("de");
@@ -133,27 +134,16 @@ function fakeWallet(onSign?: (g: GeleseneNachricht) => void): WalletSigner & { s
   };
 }
 
-function fakeConnection(err: unknown = null) {
-  return {
-    calls: [] as string[],
-    async getLatestBlockhash() {
-      return { blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 100 };
-    },
-    async sendRawTransaction() {
-      return "sig1111111111111111111111111111111111111111";
-    },
-    async confirmTransaction() {
-      return { value: { err } };
-    },
-  } as unknown as import("@solana/web3.js").Connection;
-}
+/** Seit A-21d3b über kit und den Pool: die Kette als Attrappe, `fehler` bestätigt sie abgelehnt. */
+const kette = (fehler?: unknown) => ketteAttrappe({ fehler }).rpc;
 
 test("Deposit-Lock: beide HTLCs in EINER Transaktion", async () => {
   let gesehen: GeleseneNachricht | undefined;
   const wallet = fakeWallet((g) => { gesehen = g; });
+  const k = ketteAttrappe();
 
   const r = await lockDeposit({
-    connection: fakeConnection(),
+    rpc: k.rpc,
     wallet,
     providerSolAddress: PROVIDER,
     spendSwapId: "d1-spend",
@@ -167,7 +157,8 @@ test("Deposit-Lock: beide HTLCs in EINER Transaktion", async () => {
   // Geld beim Provider gesperrt und den Rest ungeschuetzt.
   assert.equal(wallet.signed.length, 1, "genau eine Signatur");
   assert.equal(gesehen!.anweisungen.length, 2, "spend und refund zusammen");
-  assert.match(r.signature, /^sig/);
+  assert.equal(k.gesendet.length, 1);
+  assert.equal(r.signature, k.signaturen[0], "die Signatur, die die Kette nennt");
   assert.match(r.preimageHex, /^[0-9a-f]{64}$/);
   assert.match(r.hashlockHex, /^[0-9a-f]{64}$/);
 });
@@ -175,7 +166,7 @@ test("Deposit-Lock: beide HTLCs in EINER Transaktion", async () => {
 test("Deposit-Lock: Hashlock ist der SHA-256 des Preimage", async () => {
   const preimage = new Uint8Array(32).fill(9);
   const r = await lockDeposit({
-    connection: fakeConnection(),
+    rpc: kette(),
     wallet: fakeWallet(),
     providerSolAddress: PROVIDER,
     spendSwapId: "d2-spend",
@@ -192,7 +183,7 @@ test("Deposit-Lock: Hashlock ist der SHA-256 des Preimage", async () => {
 test("Deposit-Lock: ohne Restanteil nur eine Instruktion", async () => {
   let gesehen: GeleseneNachricht | undefined;
   await lockDeposit({
-    connection: fakeConnection(),
+    rpc: kette(),
     wallet: fakeWallet((g) => { gesehen = g; }),
     providerSolAddress: PROVIDER,
     spendSwapId: "d3-spend",
@@ -209,7 +200,7 @@ test("Deposit-Lock: zu kurzer Timelock wird vorher abgefangen", async () => {
   // Transaktionsgebuehren gezahlt und nichts davon.
   await assert.rejects(
     () => lockDeposit({
-      connection: fakeConnection(),
+      rpc: kette(),
       wallet: fakeWallet(),
       providerSolAddress: PROVIDER,
       spendSwapId: "d4-spend",
@@ -225,7 +216,7 @@ test("Deposit-Lock: zu kurzer Timelock wird vorher abgefangen", async () => {
 test("Deposit-Lock: abgelehnte Transaktion meldet den Fehler", async () => {
   await assert.rejects(
     () => lockDeposit({
-      connection: fakeConnection({ InstructionError: [0, "Custom"] }),
+      rpc: kette({ InstructionError: [0, "Custom"] }),
       wallet: fakeWallet(),
       providerSolAddress: PROVIDER,
       spendSwapId: "d5-spend",
@@ -245,7 +236,7 @@ test("Deposit-Lock: abgebrochene Wallet-Signatur reicht durch", async () => {
   };
   await assert.rejects(
     () => lockDeposit({
-      connection: fakeConnection(),
+      rpc: kette(),
       wallet,
       providerSolAddress: PROVIDER,
       spendSwapId: "d6-spend",
@@ -260,7 +251,7 @@ test("Deposit-Lock: abgebrochene Wallet-Signatur reicht durch", async () => {
 
 test("Refund: beide Swaps in einer Transaktion, Ergebnis wird gemeldet", async () => {
   const r = await refundDepositOnChain({
-    connection: fakeConnection(),
+    rpc: kette(),
     wallet: fakeWallet(),
     swapIds: ["d1-spend", "d1-refund"],
   });
@@ -270,7 +261,7 @@ test("Refund: beide Swaps in einer Transaktion, Ergebnis wird gemeldet", async (
 
 test("Refund: Ablehnung erklaert den wahrscheinlichen Grund", async () => {
   const r = await refundDepositOnChain({
-    connection: fakeConnection({ InstructionError: [0, "Custom"] }),
+    rpc: kette({ InstructionError: [0, "Custom"] }),
     wallet: fakeWallet(),
     swapIds: ["d1-spend"],
   });
@@ -280,7 +271,7 @@ test("Refund: Ablehnung erklaert den wahrscheinlichen Grund", async () => {
 
 test("Refund: leere Liste fuehrt zu keiner Transaktion", async () => {
   const r = await refundDepositOnChain({
-    connection: fakeConnection(),
+    rpc: kette(),
     wallet: fakeWallet(),
     swapIds: [],
   });
@@ -292,16 +283,14 @@ test("Refund: leere Liste fuehrt zu keiner Transaktion", async () => {
 
 test("Rueck-Swap-Sperre: Hashlock = Hash der Rechnung, Empfaenger = LP, Vorabsimulation an", async () => {
   let gesehen: GeleseneNachricht | undefined;
-  let optionen: unknown;
-  const conn = fakeConnection() as unknown as { sendRawTransaction: (raw: unknown, o: unknown) => Promise<string> };
-  conn.sendRawTransaction = async (_raw, o) => { optionen = o; return "sig1111111111111111111111111111111111111111"; };
+  const k = ketteAttrappe();
   const hash = "ab".repeat(32);
   const frist = Math.floor(Date.now() / 1000) + 50 * 3600;
   const r = await lockRueckSwap({
-    connection: conn as never, wallet: fakeWallet((g) => { gesehen = g; }),
+    rpc: k.rpc, wallet: fakeWallet((g) => { gesehen = g; }),
     swapId: "c".repeat(64), paymentHashHex: hash, lamports: 1_010_000, timelockUnix: frist, lpSol: PROVIDER,
   });
-  assert.match(r.signature, /^sig/);
+  assert.equal(r.signature, k.signaturen[0]);
   const ix = gesehen!.anweisungen[0]!;
   assert.equal(gesehen!.anweisungen.length, 1);
   assert.equal(bytesToHex(ix.daten.slice(8 + 32, 8 + 64)), hash, "Hashlock");
@@ -309,12 +298,14 @@ test("Rueck-Swap-Sperre: Hashlock = Hash der Rechnung, Empfaenger = LP, Vorabsim
   assert.equal(Buffer.from(ix.daten).readBigInt64LE(8 + 64), BigInt(frist), "Frist");
   assert.equal(ix.konten[0]!.adresse, KUNDE, "Kunde sperrt");
   assert.equal(ix.konten[1]!.adresse, PROVIDER, "fuer den LP");
-  assert.deepEqual(optionen, { skipPreflight: false, preflightCommitment: "confirmed" });
+  // Seit A-21d3b über den Pool: senden mit Vorabsimulation, dann bis zur Bestätigung nachfragen
+  assert.deepEqual(k.anfragen.map((a) => a.method), ["getLatestBlockhash", "sendTransaction", "getSignatureStatuses"]);
+  assert.deepEqual(k.anfragen[1]!.params[1], { encoding: "base64", preflightCommitment: "confirmed" });
 });
 
 test("Rueck-Swap-Sperre: kaputter Hash, zu kurze Frist oder abgelehnte Transaktion", async () => {
   const basis = { wallet: fakeWallet(), swapId: "x", lamports: 1, lpSol: PROVIDER, timelockUnix: Math.floor(Date.now() / 1000) + 50 * 3600 };
-  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection(), paymentHashHex: "ab" }), /Hash der Rechnung/);
-  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection(), paymentHashHex: "ab".repeat(32), timelockUnix: Math.floor(Date.now() / 1000) + 600 }), /Frist/);
-  await assert.rejects(() => lockRueckSwap({ ...basis, connection: fakeConnection({ InstructionError: [0, { Custom: 0 }] }), paymentHashHex: "ab".repeat(32) }), /Sperre abgelehnt/);
+  await assert.rejects(() => lockRueckSwap({ ...basis, rpc: kette(), paymentHashHex: "ab" }), /Hash der Rechnung/);
+  await assert.rejects(() => lockRueckSwap({ ...basis, rpc: kette(), paymentHashHex: "ab".repeat(32), timelockUnix: Math.floor(Date.now() / 1000) + 600 }), /Frist/);
+  await assert.rejects(() => lockRueckSwap({ ...basis, rpc: kette({ InstructionError: [0, { Custom: 0 }] }), paymentHashHex: "ab".repeat(32) }), /Sperre abgelehnt/);
 });

@@ -23,7 +23,7 @@ import { pkShort } from "../shell-logic.js";
 import { solZuLamports } from "../zahlungs-anforderung.js";
 import { KANAL_NUTZBAR_SEK, kanalAufKette, planeKanal, programmBereit, sendeMitWallet } from "../zahlkanal.js";
 import { empfaengerFuer, kanalBuch } from "./ki-zahlung.js";
-import { angebotVon, solRpc, solRpcUrl, state } from "./state.js";
+import { angebotVon, solRpc, state } from "./state.js";
 import { htlcSigner } from "./tabs/waehrung.js";
 import { setzeKanalEinzahlung } from "./tabs/hinterlegen.js";
 import { sperren, starteRueckholWaechter } from "./tabs/tausch.js";
@@ -48,8 +48,8 @@ export async function oeffneZahlkanal(): Promise<void> {
   oeffnet = true;
   setzeKanalEinzahlung(true);
   let gemerkt: string | undefined;
-  const { Connection } = await import("@solana/web3.js");
-  const conn = new Connection(await solRpcUrl(), "confirmed");
+  // Einzahlen über den Pool, Senden und Nachfragen beim selben Anbieter (A-21d3b)
+  const rpc = await solRpc({ einVorgang: true });
   try {
     const angebot = await angebotVon(providerPk).catch(() => undefined);
     if (!angebot?.kanal) return melde(t("waehr.kanalNichtAngeboten"), "warn");
@@ -75,7 +75,7 @@ export async function oeffneZahlkanal(): Promise<void> {
       amountLamports: Number(lamports), createdAt: jetzt,
     });
     void starteRueckholWaechter();
-    await sendeMitWallet(conn, signer, [plan.ix], (schritt) => melde(schritt));
+    await sendeMitWallet(rpc, signer, [plan.ix], (schritt) => melde(schritt));
     gemerkt = undefined;
     melde(t("waehr.kanalOffen", { betrag: solText(Number(lamports)), bis }), "ok");
   } catch (e) {
@@ -83,7 +83,7 @@ export async function oeffneZahlkanal(): Promise<void> {
     // Nicht angelegt? Dann weg aus dem Kanal-Buch. Unklar (Kette nicht erreichbar): bleibt – der Wächter klärt es nach Ablauf.
     if (gemerkt) {
       const kanal = gemerkt;
-      if ((await kanalAufKette(conn, kanal).catch(() => "unklar" as const)) === null) await kanalBuch.entferne(kanal).catch(() => {});
+      if ((await kanalAufKette(rpc, kanal).catch(() => "unklar" as const)) === null) await kanalBuch.entferne(kanal).catch(() => {});
     }
   } finally {
     oeffnet = false;
@@ -143,9 +143,7 @@ export async function stockeKanalAuf(kanal: string): Promise<void> {
   oeffnet = true;
   setzeKanalEinzahlung(true);
   try {
-    const { Connection } = await import("@solana/web3.js");
-    const conn = new Connection(await solRpcUrl(), "confirmed");
-    await sendeMitWallet(conn, signer, [stockeKanalAufAnweisung({ kunde: e.kunde, kanal, betrag: lamports })], (schritt) => melde(schritt));
+    await sendeMitWallet(await solRpc({ einVorgang: true }), signer, [stockeKanalAufAnweisung({ kunde: e.kunde, kanal, betrag: lamports })], (schritt) => melde(schritt));
     await kanalBuch.aufgestockt(kanal, lamports);
     melde(t("waehr.kanalAufgestockt", { betrag: solText(Number(lamports)) }), "ok");
   } catch (err) {
