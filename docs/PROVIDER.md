@@ -683,10 +683,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   öffentlicher Name von innen nicht erreichbar, nennt `TURN_INTERN` die Adresse für
   den Knoten (etwa `127.0.0.1:3478`). Gebraucht werden Xvfb, GStreamer mit
   `webrtcbin` und PyGObject (`xvfb gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
-  gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi`); fehlt etwas, sagt es das
+  gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib`); fehlt etwas, sagt es das
   Log, und die App bekommt `code-bild-aus`. Höchstens zwei Bilder laufen zugleich,
   eines endet spätestens mit dem Zugang zum TURN (`TURN_GUELTIG_SEK`, Standard eine
-  Stunde). Bedienen per Maus und Tasten kommt mit VKg2a3, die App mit VKg2b.
+  Stunde). Maus, Berührung und Tasten aus der App gehen nur an diesen Bildschirm
+  (seit VKg2a3, dafür `python3-xlib`); die Ansicht in der App kommt mit VKg2b.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

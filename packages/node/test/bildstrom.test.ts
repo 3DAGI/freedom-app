@@ -178,17 +178,16 @@ test("VKg2a2: über den Knoten – Angebot und Antwort nur versiegelt, ohne Bild
 
 const pruefung = await pruefeSandbox();
 const hat = (p: string) => new Promise<boolean>((r) => execFile(p, ["-h"], (e) => r(!e || (e as NodeJS.ErrnoException).code !== "ENOENT")));
-/** Ein Python mit PyGObject und GStreamer – je nach Rechner nicht `python3` (hier 3.11 ohne gi); das Testprogramm braucht python-xlib. */
-const mitXlib = (p: string) => new Promise<boolean>((r) => execFile(p, ["-c", "import Xlib"], (e) => r(!e)));
+/** Ein Python mit PyGObject, GStreamer und python-xlib – je nach Rechner nicht `python3` (hier 3.11 ohne gi). */
 let python: string | undefined;
 for (const p of ["/usr/bin/python3", "/usr/bin/python3.12", "/usr/bin/python3.11"]) {
-  if (existsSync(p) && (await bildFehlt(p)) === null && (await mitXlib(p))) {
+  if (existsSync(p) && (await bildFehlt(p)) === null) {
     python = p;
     break;
   }
 }
 const ohne = !pruefung.ok ? `Sandbox geht hier nicht (${pruefung.fall})`
-  : !python ? "GStreamer, PyGObject, Xvfb oder (fürs Testprogramm) python-xlib fehlen"
+  : !python ? "GStreamer, PyGObject, python-xlib oder Xvfb fehlen"
   : !((await hat("turnserver"))) ? "coturn fehlt" : false;
 
 const freierPort = async (): Promise<number> => {
@@ -199,7 +198,7 @@ const freierPort = async (): Promise<number> => {
   return p;
 };
 
-test("VKg2a2: Ende zu Ende – das Programm läuft in der eigenen Sandbox, sein Bild kommt über den TURN an", { skip: ohne, timeout: 90_000 }, async () => {
+test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen im Programm an, nur aus der eigenen Sandbox", { skip: ohne, timeout: 90_000 }, async () => {
   const ordner = tmp("e2e");
   const geheimnis = "b".repeat(64);
   const turnPort = await freierPort();
@@ -223,7 +222,12 @@ test("VKg2a2: Ende zu Ende – das Programm läuft in der eigenen Sandbox, sein 
       await new Promise((r) => setTimeout(r, 100));
     }
     const z = turnZugang(turn);
-    const eingaben: unknown[] = [];
+    // Buchstabe, Großbuchstabe ohne Umschalttaste (Handy), Zeichen ohne Taste, Enter, Klick; dann Unsinn, der nichts tut
+    const eingaben = [
+      { t: "kd", s: "h" }, { t: "ku", s: "h" }, { t: "kd", s: "A" }, { t: "ku", s: "A" }, { t: "kd", s: "ä" }, { t: "ku", s: "ä" },
+      { t: "kd", s: "Enter" }, { t: "ku", s: "Enter" }, { t: "d", x: 0.5, y: 0.25, k: 1 }, { t: "u", x: 0.5, y: 0.25, k: 1 },
+      { t: "kd", s: "<script>" }, { t: "d", x: 2, y: -1, k: 9 }, { t: "x" }, "kein objekt", { t: "kd", s: "x".repeat(300) },
+    ];
     const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
       `turn://${encodeURIComponent(z.nutzer)}:${encodeURIComponent(z.passwort)}@127.0.0.1:${turnPort}`, JSON.stringify(eingaben)], { stdio: ["pipe", "pipe", "ignore"] });
     const zeilen: Array<Record<string, unknown>> = [];
@@ -246,7 +250,8 @@ test("VKg2a2: Ende zu Ende – das Programm läuft in der eigenen Sandbox, sein 
     const fertig = (await warteAuf("fertig")).fertig as number;
     console.log(`[bild] Antwort nach ${antwortMs} ms, ${fertig} Bilder empfangen`);
     assert.ok(fertig >= 20, `Bilder angekommen (${fertig})`);
-    assert.equal(readFileSync(join(a.ort("spiel"), "tasten.txt"), "utf8"), "bereit\n", "das Programm lief im Projekt, am Bildschirm der Bild-Sandbox");
+    const tasten = readFileSync(join(a.ort("spiel"), "tasten.txt"), "utf8");
+    assert.match(tasten, /^bereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
     assert.equal(b.beende("spiel"), true);
   } finally {
     b.beendeAlle();
