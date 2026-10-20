@@ -12305,3 +12305,20 @@ unverändert; neu: lehnt die Vorabsimulation eine Einlösung ab, nennt die App d
 hinaus; `claim-guard` mit BigInt und `SolanaError`-Ursache.
 
 Knoten-Stand: nicht berührt.
+
+## Schritt A-21d3c – Relayer-Prüfung über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). Der letzte Teil von A-21d: `pruefeRelayAuftrag()` – die Prüfung,
+die der Relayer vor dem Mitsignieren macht und die App vorher an ihrem eigenen Auftrag.
+
+**Geändert:** `protocol/src/relayer.ts` liest den Auftrag über `ausDraht()`/`leseNachricht()` (nur legacy, Rollen aus dem
+Kopf der Nachricht) statt `Transaction.from()` und prüft die Signaturen über Ed25519 aus `@noble/curves`: jede vorhandene
+muss zur Nachricht passen, fehlende zählen nicht (der Platz des Relayers ist leer) – wie bisher `verifySignatures(false)`.
+Regeln, Reihenfolge und Fälle (`RelayFehler`) unverändert; die Datei braucht web3.js nicht mehr. Damit ist A-21d fertig.
+
+**Tests:** protocol 1353 → 1354 (`relayer.test.ts`: alle bisherigen Fälle unverändert grün – die Aufträge baut dort weiter
+web3.js, wie eine andere Software sie schicken könnte; neu: v0 ist unlesbar, eine falsche Signatur an einem anderen Platz
+fällt auf, ein schon mitsignierter Auftrag gilt, `relayer.ts` ohne web3.js). Knoten (`relayer-dienst`) und App
+(`relay-einloesung`, Vektoren) unverändert grün.
+
+Knoten-Stand: nicht berührt (der Knoten prüft mit derselben Funktion – gleiche Regeln).

@@ -23,7 +23,10 @@
  * ausbleibender Einloesung rechtzeitig den naechsten.
  */
 import { createHash } from "node:crypto";
-import { SystemProgram, Transaction } from "@solana/web3.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { address, getAddressEncoder } from "@solana/kit";
+import { SYSTEM_PROGRAMM } from "./kit-bruecke.js";
+import { ausDraht, leseNachricht, type GeleseneNachricht, type SolTransaktion } from "./kit-transaktion.js";
 import { computeEventId, type NostrEvent, type UnsignedEvent } from "./event.js";
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import type { Signer } from "./signer.js";
@@ -84,34 +87,49 @@ export function pruefeRelayAuftrag(
   roh: Uint8Array,
   erwartet: { relayer: string; programmId: string; erstattungMin: number },
 ): RelayPruefung {
-  let tx: Transaction;
+  // Seit A-21d3c über kit: nur legacy, Rollen aus dem Kopf der Nachricht (`leseNachricht()`)
+  let tx: SolTransaktion;
+  let n: GeleseneNachricht;
   try {
-    tx = Transaction.from(roh);
+    tx = ausDraht(roh);
+    n = leseNachricht(tx);
   } catch {
     return { ok: false, grund: "keine lesbare Transaktion", fall: "unlesbar" };
   }
-  if (tx.feePayer?.toBase58() !== erwartet.relayer) return { ok: false, grund: "Relayer ist nicht Gebührenzahler", fall: "gebuehrenzahler" };
-  if (tx.instructions.length !== 2) return { ok: false, grund: "erwartet: Einlösung und Erstattung, sonst nichts", fall: "anweisungen" };
-  const [einl, erst] = tx.instructions;
-  if (einl.programId.toBase58() !== erwartet.programmId) return { ok: false, grund: "erste Anweisung ist keine Einlösung beim HTLC-Programm", fall: "programm" };
-  if (einl.data.length !== 40 || !Buffer.from(einl.data.subarray(0, 8)).equals(sighash("claim"))) return { ok: false, grund: "erste Anweisung ist keine Einlösung", fall: "keine-einloesung" };
-  const empfaenger = einl.keys[0]?.pubkey;
-  if (!empfaenger || !einl.keys[0].isSigner) return { ok: false, grund: "Einlösung ohne signierenden Empfänger", fall: "ohne-empfaenger" };
-  if (einl.keys.some((k) => k.pubkey.toBase58() === erwartet.relayer)) return { ok: false, grund: "Relayer-Konto in der Einlösung", fall: "relayer-konto" };
+  if (n.zahler !== erwartet.relayer) return { ok: false, grund: "Relayer ist nicht Gebührenzahler", fall: "gebuehrenzahler" };
+  if (n.anweisungen.length !== 2) return { ok: false, grund: "erwartet: Einlösung und Erstattung, sonst nichts", fall: "anweisungen" };
+  const [einl, erst] = n.anweisungen as [GeleseneNachricht["anweisungen"][number], GeleseneNachricht["anweisungen"][number]];
+  if (einl.programm !== erwartet.programmId) return { ok: false, grund: "erste Anweisung ist keine Einlösung beim HTLC-Programm", fall: "programm" };
+  if (einl.daten.length !== 40 || !Buffer.from(einl.daten.subarray(0, 8)).equals(sighash("claim"))) return { ok: false, grund: "erste Anweisung ist keine Einlösung", fall: "keine-einloesung" };
+  const empfaenger = einl.konten[0];
+  if (!empfaenger || !empfaenger.signiert) return { ok: false, grund: "Einlösung ohne signierenden Empfänger", fall: "ohne-empfaenger" };
+  if (einl.konten.some((k) => k.adresse === erwartet.relayer)) return { ok: false, grund: "Relayer-Konto in der Einlösung", fall: "relayer-konto" };
   // DataView statt Buffer-Methoden: Die App prueft ihren Auftrag im Browser selbst,
   // und dem Buffer-Polyfill dort fehlen die BigInt-Methoden.
-  const daten = new DataView(erst.data.buffer, erst.data.byteOffset, erst.data.byteLength);
-  if (!erst.programId.equals(SystemProgram.programId) || erst.data.length !== 12 || daten.getUint32(0, true) !== 2) {
+  const daten = new DataView(erst.daten.buffer, erst.daten.byteOffset, erst.daten.byteLength);
+  if (erst.programm !== SYSTEM_PROGRAMM || erst.daten.length !== 12 || daten.getUint32(0, true) !== 2) {
     return { ok: false, grund: "zweite Anweisung ist keine Überweisung", fall: "keine-ueberweisung" };
   }
-  const [von, an] = erst.keys;
-  if (!von?.pubkey.equals(empfaenger) || !an || an.pubkey.toBase58() !== erwartet.relayer) return { ok: false, grund: "Erstattung nicht vom Empfänger an den Relayer", fall: "erstattung-weg" };
+  const [von, an] = erst.konten;
+  if (von?.adresse !== empfaenger.adresse || !an || an.adresse !== erwartet.relayer) return { ok: false, grund: "Erstattung nicht vom Empfänger an den Relayer", fall: "erstattung-weg" };
   const erstattung = Number(daten.getBigUint64(4, true));
   if (erstattung < erwartet.erstattungMin) return { ok: false, grund: `Erstattung ${erstattung} unter ${erwartet.erstattungMin} Lamports`, fall: "erstattung-klein", erstattung, mindest: erwartet.erstattungMin };
-  const sig = tx.signatures.find((s) => s.publicKey.equals(empfaenger))?.signature;
-  if (!sig) return { ok: false, grund: "Empfänger hat nicht signiert", fall: "unsigniert" };
-  if (!tx.verifySignatures(false)) return { ok: false, grund: "Signatur des Empfängers ungültig", fall: "signatur" };
-  return { ok: true, empfaenger: empfaenger.toBase58(), erstattung };
+  if (!tx.signatures[address(empfaenger.adresse)]) return { ok: false, grund: "Empfänger hat nicht signiert", fall: "unsigniert" };
+  if (!signaturenGueltig(tx)) return { ok: false, grund: "Signatur des Empfängers ungültig", fall: "signatur" };
+  return { ok: true, empfaenger: empfaenger.adresse, erstattung };
+}
+
+/** Jede vorhandene Signatur passt zur Nachricht (fehlende zählen nicht – der Platz des Relayers ist leer), wie `verifySignatures(false)`. */
+function signaturenGueltig(tx: SolTransaktion): boolean {
+  const nachricht = Uint8Array.from(tx.messageBytes);
+  return Object.entries(tx.signatures).every(([adresse, sig]) => {
+    if (!sig) return true;
+    try {
+      return ed25519.verify(Uint8Array.from(sig), nachricht, Uint8Array.from(getAddressEncoder().encode(address(adresse))));
+    } catch {
+      return false;
+    }
+  });
 }
 
 /** Mindestmiete eines leeren Kontos (0 Byte Daten) – darunter scheitert eine Einzahlung auf ein neues Konto. */

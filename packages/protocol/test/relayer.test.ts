@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { readFileSync } from "node:fs";
+import { Keypair, MessageV0, PublicKey, SystemProgram, Transaction, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
 import {
   KIND_RELAYER_ANGEBOT, MIETE_LEERES_KONTO, buildRelayAntwort, buildRelayAuftrag, buildRelayerAngebot, mieteReicht,
   oeffneRelayAntwort, oeffneRelayAuftrag, parseRelayerAngebot, pruefeRelayAuftrag, type RelayFehler,
@@ -81,6 +82,19 @@ test("Relayer signiert NICHT mit, wenn …", () => {
   }
   const klein = pruefeRelayAuftrag(auftrag({ ixs: [einloesung(), erstattung(9_999)] }), erwartet);
   assert.deepEqual(!klein.ok && [klein.erstattung, klein.mindest], [9_999, 10_000]);
+});
+
+test("A-21d3c: geprüft über kit – v0 ist unlesbar, jede vorhandene Signatur muss passen, web3.js ist raus", () => {
+  // Eine Transaktion mit Version (v0) liest die Prüfung nicht – nur legacy, wie bisher
+  const v0 = new VersionedTransaction(MessageV0.compile({ payerKey: relayer.publicKey, instructions: [einloesung(), erstattung()], recentBlockhash: BLOCKHASH }));
+  v0.sign([kunde]);
+  assert.deepEqual(pruefeRelayAuftrag(v0.serialize(), erwartet), { ok: false, grund: "keine lesbare Transaktion", fall: "unlesbar" });
+  // Auch eine fremde Signatur an einem anderen Platz (hier dem des Relayers) muss passen – wie verifySignatures(false)
+  const r = pruefeRelayAuftrag(auftrag({ nachher: (tx) => tx.addSignature(relayer.publicKey, Buffer.alloc(64, 9)) }), erwartet);
+  assert.equal(!r.ok && r.fall, "signatur");
+  // Passt sie, ist es ein gültiger Auftrag (ein Relayer, der schon mitsigniert hat)
+  assert.equal(pruefeRelayAuftrag(auftrag({ signierer: [kunde, relayer] }), erwartet).ok, true);
+  assert.doesNotMatch(readFileSync(new URL("../src/relayer.ts", import.meta.url), "utf8"), /@solana\/web3\.js/);
 });
 
 test("Angebot: SOL-Konto, Erstattung, Kette – sonst ungueltig", () => {

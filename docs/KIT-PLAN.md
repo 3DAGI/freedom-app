@@ -140,7 +140,13 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
       der Kette (BigInt), aus der Ursache des `SolanaError` und aus altem Text. In der App
       bleibt web3.js nur für `swapAddress()` (PDA synchron, ohne `crypto.subtle`) und die
       Brücke `ueberWeb3()` (W4);
-    - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit.
+    - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit – **fertig** (20.10.2026): gelesen
+      über `ausDraht()`/`leseNachricht()` (nur legacy, Rollen aus dem Kopf), Signaturen über
+      Ed25519 aus `@noble/curves` (jede vorhandene muss passen, fehlende zählen nicht – wie
+      `verifySignatures(false)`); dieselben Regeln und Fälle wie bisher. `relayer.ts` ohne
+      web3.js; A-21d ist damit fertig. Im Protokoll bleibt web3.js für den Knoten
+      (`solana-adapter.ts`, `adapters.ts`), die synchrone PDA (`channel.ts`) und die Brücke
+      (`kit-bruecke.ts`) – A-21e und A-21f.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
   `relayer-dienst.ts`, `sol-auszahlung.ts`.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle
