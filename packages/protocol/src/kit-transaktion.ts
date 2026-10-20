@@ -44,6 +44,22 @@ function adresseVon(oeffentlich: Uint8Array): string {
 }
 
 /**
+ * Ein Schlüssel im Format von solana-keygen (64 Byte: geheimer Teil, dann der öffentliche) – seit A-21e1
+ * ohne web3.js. Der öffentliche Teil muss zum geheimen passen, sonst wirft es (wie `Keypair.fromSecretKey()`).
+ * Zurück kommt eine Kopie des geheimen Teils; den hält der Aufrufer und nullt ihn, wenn er ihn nicht mehr braucht.
+ */
+export function solSchluesselAus(bytes: Uint8Array): { geheim: Uint8Array; adresse: string } {
+  if (bytes.length !== 64) throw new Error("Solana-Schlüssel braucht 64 Byte");
+  const geheim = Uint8Array.from(bytes.subarray(0, 32));
+  const oeffentlich = ed25519.getPublicKey(geheim);
+  if (!oeffentlich.every((b, i) => b === bytes[32 + i])) {
+    geheim.fill(0);
+    throw new Error("Solana-Schlüssel passt nicht zu sich selbst");
+  }
+  return { geheim, adresse: adresseVon(oeffentlich) };
+}
+
+/**
  * Ein frischer Schlüssel für ein Konto, das eine Transaktion neu anlegt (Nonce-Konto): Er
  * unterschreibt nur diese eine; der Aufrufer nullt `geheim` gleich danach.
  */

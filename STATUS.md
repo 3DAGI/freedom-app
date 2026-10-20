@@ -12322,3 +12322,25 @@ fällt auf, ein schon mitsignierter Auftrag gilt, `relayer.ts` ohne web3.js). Kn
 (`relay-einloesung`, Vektoren) unverändert grün.
 
 Knoten-Stand: nicht berührt (der Knoten prüft mit derselben Funktion – gleiche Regeln).
+
+## Schritt A-21e1 – Zahlkanal-Kasse, Auszahlung und Einrichtung des Knotens über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21e; W1, W2 vom 11.10.). A-21e ist geteilt: e1 Zahlkanal-Kasse, Auszahlung und
+Einrichtung; e2 Relayer-Dienst, Senden im `main.ts`, HTLC-Adapter des LP.
+
+**Geändert:** Neue Bausteine im Protokoll: `solSchluesselAus()`/`ladeSolanaSchluessel()` (Schlüsseldatei von
+solana-keygen ohne web3.js, der öffentliche Teil muss passen), `sendeMitSchluessel()` (bauen, mit dem eigenen
+Schlüssel signieren, mit Vorabsimulation senden, bestätigen – wirft bei Ablehnung) und `istSolAdresse()`. Im Knoten
+liest `kanalKasseAusUmgebung()` Kanäle über `leseKonto()` und löst über `rechneKanalAbAnweisungen()` und
+`sendeMitSchluessel()` ein; die Auszahlung liest das Guthaben über `leseGuthaben()` und überweist mit
+`ueberweisungAnweisung()`; `kettenBlick()` liest über kit – alles über `poolRpc(new RpcPool([{ url }]))`.
+`kanal-kasse.ts`, `sol-auszahlung.ts` und `einrichtung.ts` brauchen web3.js nicht mehr. Die Validator-Tests des
+Zahlkanals bauen die Kasse jetzt wie der Knoten (`kanalKasseAusUmgebung()`, Gebühr zahlt der Provider).
+`rechneKanalAbIxs()` und `alsWeb3()` stehen bis A-21f in `wiring-ausnahmen.txt` (nur noch Validator-Tests und Vektoren).
+
+**Tests:** protocol 1354 → 1359 (Schlüssel aus 64 Byte und aus der Datei, Adressprüfung, Senden mit dem eigenen
+Schlüssel gegen eine JSON-RPC-Attrappe hinter einem echten Pool); node +3 (Kasse und Auszahlung aus der Umgebung
+gegen einen JSON-RPC-Server auf 127.0.0.1 – Kanal lesen, einlösen, auszahlen, Ablehnung der Kette; Blick auf die
+Kette); Zahlkanal 7 grün gegen den Validator (Agave 3.1.10), die Kasse jetzt über kit und den Pool.
+
+Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.

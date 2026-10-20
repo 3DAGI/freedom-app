@@ -12,10 +12,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair } from "@solana/web3.js";
-import { generatePreimage } from "@freedomstack/protocol";
+import { generatePreimage, KANAL_PROGRAMM_ID } from "@freedomstack/protocol";
 import { knotenSchluessel, rechnung } from "../../protocol/test/bolt11-hilfe.js";
 import { befundeText, kettenBlick, pruefeEinrichtung, pruefeLightning, pruefeSol, type Antwort } from "../src/einrichtung.js";
 import { kanalKasseAusUmgebung } from "../src/kanal-kasse.js";
+import { ketteAufPort } from "./kette-attrappe.js";
 
 const knoten = knotenSchluessel();
 
@@ -149,6 +150,30 @@ test("Bericht: beide Schienen, Zeichen je Stufe; verdrahtet beim Start und als n
   await assert.rejects(kettenBlick(""), "leerer Endpunkt");
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
   assert.equal(pkg.scripts.pruefen, "node --import tsx src/pruefen.ts");
+});
+
+test("A-21e1: Blick auf die Kette über kit – Programm, Guthaben, Programm-Adresse; ohne http(s) gar nicht erst", async () => {
+  const [adresse, programm] = [Keypair.generate().publicKey.toBase58(), Keypair.generate().publicKey.toBase58()];
+  const kette = await ketteAufPort({
+    konten: new Map([
+      [KANAL_PROGRAMM_ID, { owner: "BPFLoaderUpgradeab1e11111111111111111111111", executable: true }],
+      [programm, { owner: "BPFLoaderUpgradeab1e11111111111111111111111", executable: true }],
+      [adresse, { owner: "11111111111111111111111111111111", lamports: 2_500_000n }],
+    ]),
+  });
+  try {
+    const blick = await kettenBlick(kette.url);
+    assert.equal(await blick.programmBereit(), true);
+    assert.equal(await blick.guthaben(adresse), 2_500_000n);
+    assert.equal(await blick.istProgramm(programm), true);
+    assert.equal(await blick.istProgramm(adresse), false);
+    assert.equal(await blick.istProgramm(Keypair.generate().publicKey.toBase58()), false, "unbekanntes Konto");
+    assert.deepEqual(kette.anfragen.map((x) => x.method), ["getAccountInfo", "getBalance", "getAccountInfo", "getAccountInfo", "getAccountInfo"]);
+    assert.ok(kette.anfragen.every((x) => (x.params[1] as { commitment?: string }).commitment === "confirmed"));
+  } finally {
+    await kette.schliesse();
+  }
+  for (const kaputt of ["", "ftp://rpc.test", "rpc.test"]) await assert.rejects(kettenBlick(kaputt), /kein Solana-Endpunkt/, kaputt);
 });
 
 test("Installer: beide Schienen, SOL-Schlüssel nur mit 600, Prüfung am Ende, keine veralteten Versprechen", () => {

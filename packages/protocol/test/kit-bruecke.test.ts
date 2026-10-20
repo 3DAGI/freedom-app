@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { AccountRole } from "@solana/kit";
 import { Ed25519Program, PublicKey, SystemProgram } from "@solana/web3.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { alsWeb3, anweisung, ed25519Anweisung, ED25519_PROGRAMM, konto, SYSTEM_PROGRAMM, ueberweisungAnweisung } from "../src/kit-bruecke.js";
+import { alsWeb3, anweisung, ed25519Anweisung, ED25519_PROGRAMM, istSolAdresse, konto, SYSTEM_PROGRAMM, ueberweisungAnweisung } from "../src/kit-bruecke.js";
 import { solReferenz } from "../src/relay-zugang.js";
 import { erstatteKanalAnweisung, KANAL_PROGRAMM_ID, oeffneKanalAnweisung, stockeKanalAufAnweisung } from "../src/channel.js";
 import { adresse } from "./sol-vektoren-faelle.js";
@@ -91,4 +91,15 @@ test("A-21b2: Referenz nach Solana Pay ohne web3.js – dieselbe Adresse wie Pub
     assert.equal(solReferenz(zufall), new PublicKey(zufall).toBase58());
   }
   assert.throws(() => solReferenz(new Uint8Array(31)), /32 Zufallsbytes/);
+});
+
+test("A-21e1: istSolAdresse – base58 mit 32 Byte, sonst nein; dasselbe Urteil wie new PublicKey() für Adressen", () => {
+  for (const a of [adresse(1), SYSTEM_PROGRAMM, ED25519_PROGRAMM, KANAL_PROGRAMM_ID]) {
+    assert.equal(istSolAdresse(a), true, a);
+    assert.equal(new PublicKey(a).toBase58(), a);
+  }
+  // „Fake111…“ hat 31 Byte, 0/O/I/l gibt es in base58 nicht, Hex ist keine Adresse
+  for (const a of ["", "keine-adresse", "Fake11111111111111111111111111111", `${adresse(1)}1`, "0".repeat(44), "ab".repeat(32), ` ${adresse(1)}`]) {
+    assert.equal(istSolAdresse(a), false, a);
+  }
 });

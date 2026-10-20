@@ -16,7 +16,7 @@
  * Das ist keine Auszahlung an andere: Der Knoten verteilt nichts (5.1.2), er
  * bringt nur eigenes Geld vom heißen Schlüssel weg.
  */
-import type { TransactionInstruction } from "@solana/web3.js";
+import type { Instruction } from "@freedomstack/protocol";
 
 /** Mindestens so viel bleibt: Mietbefreiung (890.880 Lamports) plus Gebühren. */
 export const MIN_RUECKLAGE = 1_000_000n;
@@ -33,9 +33,9 @@ export interface AuszahlungOpts {
   guthaben(): Promise<bigint>;
   /** Ist die Zieladresse ein Programm? Dorthin geht nichts. */
   istProgramm(adresse: string): Promise<boolean>;
-  /** Signiert als `von`, mit Vorabsimulation. */
-  sende(ixs: TransactionInstruction[]): Promise<string>;
-  ueberweisung(von: string, an: string, lamports: bigint): TransactionInstruction;
+  /** Signiert als `von`, mit Vorabsimulation (seit A-21e1 kit-Anweisungen). */
+  sende(ixs: Instruction[]): Promise<string>;
+  ueberweisung(von: string, an: string, lamports: bigint): Instruction;
   jetzt?: () => number;
   ruecklage?: bigint;
   schwelle?: bigint;

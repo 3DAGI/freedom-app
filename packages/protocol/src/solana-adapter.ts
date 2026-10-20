@@ -36,6 +36,7 @@ import { address, getBase58Encoder } from "@solana/kit";
 import { createHash } from "node:crypto";
 import { SolanaHtlcAdapter, SolanaLock } from "./adapters.js";
 import { leseKonto, poolRpc, type SolRpc } from "./kit-rpc.js";
+import { solSchluesselAus } from "./kit-transaktion.js";
 import { RpcPool } from "./rpc-pool.js";
 
 /** Anchor-Sighash: SHA256("global:<name>")[0..8] */
@@ -252,6 +253,22 @@ function claimPreimage(msg: {
     if (daten.length === 8 + 32 && daten.subarray(0, 8).equals(claim)) return new Uint8Array(daten.subarray(8));
   }
   return undefined;
+}
+
+/**
+ * Laedt einen Solana-Schluessel aus einer JSON-Datei (solana-keygen Format) – seit A-21e1 ohne web3.js:
+ * geheimer Teil (32 Byte) und Adresse, geprueft ueber `solSchluesselAus()`.
+ */
+export async function ladeSolanaSchluessel(path: string): Promise<{ geheim: Uint8Array; adresse: string }> {
+  const { readFile } = await import("node:fs/promises");
+  const zahlen = JSON.parse(await readFile(path, "utf8")) as unknown;
+  if (!Array.isArray(zahlen) || !zahlen.every((z) => Number.isInteger(z) && z >= 0 && z <= 255)) throw new Error("Solana-Schlüsseldatei unlesbar");
+  const bytes = Uint8Array.from(zahlen as number[]);
+  try {
+    return solSchluesselAus(bytes);
+  } finally {
+    bytes.fill(0);
+  }
 }
 
 /** Laedt ein Solana-Keypair aus einer JSON-Datei (solana-keygen Format). */

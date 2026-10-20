@@ -70,7 +70,7 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
     dazu `anweisung()` und `ueberweisungAnweisung()`) – eine eigene Abhängigkeit legte eine
     zweite Kopie von kit 8.4.0 neben die des Protokolls (im Wurzelordner liegt 5.x), und das
     Bundle trüge beide. Die `…Ix`-Fassungen von öffnen, aufstocken, erstatten fielen weg; der
-    Knoten nutzt bis A-21e nur `rechneKanalAbIxs()`. Die Referenz nach Solana Pay
+    Knoten nutzte bis A-21e1 nur `rechneKanalAbIxs()`. Die Referenz nach Solana Pay
     (`solReferenz()`) entsteht ohne web3.js. Unverändert: die HTLC-PDA (`swapAddress()`) über
     web3.js – kit rechnet sie nur mit `crypto.subtle`, und das fehlt der App über http im
     Heimnetz; ebenso das Lesen eines Relay-Auftrags in `pruefeRelayAuftrag()` (Transaktion,
@@ -148,7 +148,20 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
       (`solana-adapter.ts`, `adapters.ts`), die synchrone PDA (`channel.ts`) und die Brücke
       (`kit-bruecke.ts`) – A-21e und A-21f.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
-  `relayer-dienst.ts`, `sol-auszahlung.ts`.
+  `relayer-dienst.ts`, `sol-auszahlung.ts`. Geteilt (20.10.2026):
+  - **A-21e1** Zahlkanal-Kasse, Auszahlung und Einrichtung – **fertig** (20.10.2026): Bausteine im
+    Protokoll `solSchluesselAus()` (64 Byte von solana-keygen, der öffentliche Teil muss passen),
+    `ladeSolanaSchluessel()` (Datei ohne web3.js), `sendeMitSchluessel()` (bauen, signieren, senden mit
+    Vorabsimulation, bestätigen; wirft, wenn die Kette ablehnt) und `istSolAdresse()`. Die Kasse
+    (`kanalKasseAusUmgebung()`) liest Kanäle über `leseKonto()`, löst über `rechneKanalAbAnweisungen()`
+    und `sendeMitSchluessel()` ein; die Auszahlung liest das Guthaben über `leseGuthaben()` und
+    überweist mit `ueberweisungAnweisung()`; der Blick der Einrichtung (`kettenBlick()`) liest über
+    kit – alles über `poolRpc(new RpcPool([{ url }]))`. Die Validator-Tests bauen die Kasse jetzt aus
+    der Umgebung wie der Knoten (Schlüsseldatei, kit, Gebühr zahlt der Provider). `dvm-provider.ts`
+    las schon seit A-21c über kit;
+  - **A-21e2** Relayer-Dienst (`relayer-dienst.ts`: signiert und sendet eine fremde Transaktion),
+    das Senden im `main.ts` und der HTLC-Adapter des LP (`AnchorSolanaHtlc` in `solana-adapter.ts`,
+    `loadSolanaKeypair()` in `main.ts` und `lp-abnahme-lauf.ts`).
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle
   messen, `check-wiring` laufen lassen und die Fallstricke anpassen. Die Regel „kein
   `readBigInt64LE`“ bleibt.

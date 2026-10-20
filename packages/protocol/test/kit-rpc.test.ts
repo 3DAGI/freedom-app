@@ -14,10 +14,12 @@ import {
 } from "@solana/kit";
 import { Keypair } from "@solana/web3.js";
 import {
-  leseGuthaben, leseKonto, leseProgrammKonten, leseSignaturStand, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion,
-  txFehlerText, warteAufBestaetigung,
+  leseGuthaben, leseKonto, leseProgrammKonten, leseSignaturStand, neuesterBlockhash, poolRpc, programmFehlerCode, sendeMitSchluessel,
+  sendeTransaktion, txFehlerText, warteAufBestaetigung,
 } from "../src/kit-rpc.js";
-import { alsDraht, baueTransaktion, neuerKontoSchluessel, signiereMit } from "../src/kit-transaktion.js";
+import { alsDraht, ausDraht, baueTransaktion, leseNachricht, neuerKontoSchluessel, signiereMit } from "../src/kit-transaktion.js";
+import { ueberweisungAnweisung } from "../src/kit-bruecke.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import { erstatteKanalAnweisung } from "../src/channel.js";
 import { RpcPool } from "../src/rpc-pool.js";
 import { ProtokollFehler } from "../src/fehler.js";
@@ -221,4 +223,59 @@ test("A-21d3b: Stand einer Signatur – bestätigt mit Fehler der Kette, sonst n
   assert.equal(log.length, 4);
   await assert.rejects(leseSignaturStand(rpc, "keine-signatur"));
   assert.equal(log.length, 4, "keine Anfrage mit kaputter Signatur");
+});
+
+test("A-21e1: sendeMitSchluessel – Zahler ist der Schlüssel, Blockhash vom Pool, gesendet mit Vorabsimulation, dann bestätigt", async () => {
+  const ich = neuerKontoSchluessel();
+  const an = adr();
+  const log: Aufruf[] = [];
+  let fehler: unknown = null;
+  const rpc = poolRpc(pool({
+    [E(1)]: (method, params) => {
+      if (method === "getLatestBlockhash") return { context: { slot: 1 }, value: { blockhash: "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", lastValidBlockHeight: 812 } };
+      if (method === "sendTransaction") return getBase58Decoder().decode(Buffer.from(String(params[0]), "base64").subarray(1, 65));
+      if (method === "getBlockHeight") return 100;
+      return stand({ slot: 9, confirmations: 1, err: fehler, confirmationStatus: "confirmed" });
+    },
+  }, log));
+  const ix = ueberweisungAnweisung({ von: ich.adresse, an, lamports: 5_000n });
+  const sig = await sendeMitSchluessel(rpc, ich, [ix], { warte: async () => assert.fail("gleich bestätigt") });
+
+  assert.deepEqual(log.map((x) => x.method), ["getLatestBlockhash", "sendTransaction", "getSignatureStatuses"]);
+  const sendung = log[1]!;
+  assert.deepEqual(sendung.params[1], { encoding: "base64", preflightCommitment: "confirmed" });
+  assert.ok(!JSON.stringify(log).includes("skipPreflight"));
+  const tx = ausDraht(new Uint8Array(Buffer.from(String(sendung.params[0]), "base64")));
+  const n = leseNachricht(tx);
+  assert.equal(n.zahler, ich.adresse);
+  assert.equal(n.lebensdauer, "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM");
+  assert.deepEqual(n.anweisungen[0]!.konten.map((k) => k.adresse), [ich.adresse, an]);
+  const unterschrift = tx.signatures[ich.adresse as never]!;
+  assert.ok(ed25519.verify(unterschrift, Uint8Array.from(tx.messageBytes), ed25519.getPublicKey(ich.geheim)));
+  assert.equal(sig, getBase58Decoder().decode(unterschrift));
+  assert.deepEqual(log[2]!.params, [[sig]], "nachgefragt wird nach genau dieser Signatur");
+
+  // Bestätigt die Kette mit Fehler, wirft es – mit dem Fehler als Text (BigInt als Zahl)
+  fehler = { InstructionError: [0, { Custom: 6004 }] };
+  await assert.rejects(sendeMitSchluessel(rpc, ich, [ix], { warte: async () => {} }), /Transaktion abgelehnt: \{"InstructionError":\[0,\{"Custom":6004\}\]\}/);
+});
+
+test("A-21e1: sendeMitSchluessel – ein Schlüssel, der nicht zur Adresse passt, sendet nichts; die Vorabsimulation wirft durch", async () => {
+  const ich = neuerKontoSchluessel(), fremd = neuerKontoSchluessel();
+  const log: Aufruf[] = [];
+  const rpc = poolRpc(pool({
+    [E(1)]: () => ({ context: { slot: 1 }, value: { blockhash: "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", lastValidBlockHeight: 812 } }),
+  }, log));
+  const ix = ueberweisungAnweisung({ von: ich.adresse, an: adr(), lamports: 1n });
+  await assert.rejects(sendeMitSchluessel(rpc, { geheim: fremd.geheim, adresse: ich.adresse }, [ix]), /passt nicht/);
+  assert.deepEqual(log.map((x) => x.method), ["getLatestBlockhash"], "nichts gesendet");
+
+  const abgelehnt = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const { id, method } = JSON.parse(String(init!.body)) as { id: number; method: string };
+    return new Response(JSON.stringify(method === "getLatestBlockhash"
+      ? { jsonrpc: "2.0", id, result: { context: { slot: 1 }, value: { blockhash: "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM", lastValidBlockHeight: 812 } } }
+      : { jsonrpc: "2.0", id, error: { code: -32002, message: "Transaction simulation failed", data: { err: { InstructionError: [0, { Custom: 1 }] }, logs: [], accounts: null, unitsConsumed: 0 } } }));
+  }) as typeof fetch;
+  const f = await sendeMitSchluessel(poolRpc(new RpcPool([{ url: E(1) }], { fetchImpl: abgelehnt })), ich, [ix]).then(() => undefined, (e: unknown) => e);
+  assert.ok(isSolanaError(f, SOLANA_ERROR__JSON_RPC__SERVER_ERROR_SEND_TRANSACTION_PREFLIGHT_FAILURE), String(f));
 });

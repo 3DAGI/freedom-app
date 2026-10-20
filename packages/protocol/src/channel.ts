@@ -11,8 +11,8 @@
  * Buffer-Polyfill kennt `readBigInt64LE` & Co. nicht).
  *
  * Anweisungen seit A-21b1 als kit-`Instruction` (`…Anweisung`); web3.js bekommt sie über
- * `alsWeb3()` (`kit-bruecke.ts`) – die App seit A-21b2 selbst, der Knoten über
- * `rechneKanalAbIxs()` bis A-21e.
+ * `alsWeb3()` (`kit-bruecke.ts`). App (A-21d) und Knoten (A-21e1) senden kit-Transaktionen;
+ * `rechneKanalAbIxs()` brauchen nur noch die Validator-Tests und die Vektoren, bis A-21f.
  */
 import { AccountRole, address, type Instruction } from "@solana/kit";
 import { PublicKey, type TransactionInstruction } from "@solana/web3.js";
