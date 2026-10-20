@@ -43,7 +43,7 @@ import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
-import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
+import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
@@ -506,10 +506,17 @@ async function main(): Promise<void> {
       const fehlt = await bildFehlt();
       if (fehlt) console.log(`[bild] aus – ${fehlt}`);
       else {
-        const b = new BildStrom(projekte, { turn, ziel });
+        // Web-Projekte (VKg2c1) zeigt derselbe Chromium wie beim Motor – ohne ihn zeigt das Bild nur Programme
+        let browser = browserAusUmgebung(process.env);
+        try {
+          if (browser) browserLesbar(browser);
+        } catch {
+          browser = null;
+        }
+        const b = new BildStrom(projekte, { turn, ziel, ...(browser ? { browser } : {}) });
         process.on("exit", () => b.beendeAlle());
         bild = b;
-        console.log("[bild] Bildstrom für Programme ohne Web an (über den eigenen TURN)");
+        console.log(`[bild] Bildstrom an (über den eigenen TURN${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

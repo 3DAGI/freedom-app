@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,9 @@ import {
   KIND_DVM_KNOTEN_CODE, LocalSigner, MemoryRelay, OutboxPool, baueCodeAuftrag, generateKeypair, getTag, istBildSdp,
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
-import { BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, bildBefehl, bildFehlt } from "../src/bildstrom.js";
+import { BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, WEB_DEV_START, bildBefehl, bildFehlt, browserArgumente } from "../src/bildstrom.js";
+import { DEV_PORT } from "../src/dev-server.js";
+import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 import { DvmProvider } from "../src/dvm-provider.js";
 import { CodeAbgelehnt, ProjektAblage } from "../src/projekte.js";
 import { pruefeSandbox, type sandboxDienst } from "../src/sandbox.js";
@@ -54,6 +56,44 @@ test("VKg2a2: Programm – .freedom/start, sonst main.py (mit .venv), nur echte 
   assert.equal(bildBefehl(a.ort("verweis")), null, "ein Verweis zählt nicht");
   symlinkSync(join(a.ort("start"), ".freedom"), join(a.ort("ordner-verweis"), ".freedom"));
   assert.equal(bildBefehl(a.ort("ordner-verweis")), null, "auch kein Ordner hinter einem Verweis");
+});
+
+test("VKg2c1: Web-Projekte mit Browser – Dev-Server, sonst index.html; Programme gehen vor, ohne Browser kein Web", () => {
+  const a = ablage("dev", "seite", "beides", "py", "leer", "verweis");
+  const web = { browser: "/usr/lib/chromium/chromium", breite: 800, hoehe: 600 };
+  writeFileSync(join(a.ort("dev"), "package.json"), JSON.stringify({ scripts: { dev: "vite" } }));
+  writeFileSync(join(a.ort("dev"), "index.html"), "<p>");
+  assert.deepEqual(bildBefehl(a.ort("dev"), web),
+    ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)]);
+  writeFileSync(join(a.ort("seite"), "index.html"), "<p>");
+  writeFileSync(join(a.ort("seite"), "package.json"), JSON.stringify({ scripts: { build: "vite build" } }));
+  assert.deepEqual(bildBefehl(a.ort("seite"), web), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")]);
+  writeFileSync(join(a.ort("py"), "main.py"), "");
+  writeFileSync(join(a.ort("py"), "index.html"), "<p>");
+  assert.deepEqual(bildBefehl(a.ort("py"), web), ["python3", "/arbeit/main.py"], "ein Programm geht vor");
+  assert.equal(bildBefehl(a.ort("seite")), null, "ohne Browser kein Web");
+  assert.equal(bildBefehl(a.ort("leer"), web), null);
+  symlinkSync(join(a.ort("seite"), "index.html"), join(a.ort("verweis"), "index.html"));
+  assert.equal(bildBefehl(a.ort("verweis"), web), null, "ein Verweis zählt nicht");
+  const arg = browserArgumente(web, "file:///arbeit/index.html");
+  for (const x of ["--no-sandbox", "--kiosk", "--window-size=800,600", "--user-data-dir=/tmp/chromium", "--disable-background-networking"]) assert.ok(arg.includes(x), x);
+  assert.equal(arg.at(-1), "file:///arbeit/index.html");
+});
+
+test("VKg2c1: Dev-Server im Bild – erst `npm run dev` mit PORT und HOST, Chromium erst, wenn er antwortet", { timeout: 30_000 }, async () => {
+  const d = tmp("devstart");
+  // ein npm, das wie Vite nach einer Weile auf PORT lauscht, und ein Browser, der nur aufschreibt, womit er kam
+  writeFileSync(join(d, "npm"), `#!/bin/sh\necho "$PORT $HOST $*" > "${d}/npm.txt"\nsleep 1\nexec python3 -m http.server "$PORT" --bind "$HOST"\n`);
+  writeFileSync(join(d, "browser"), `#!/bin/sh\npython3 -c 'import urllib.request,sys; urllib.request.urlopen(sys.argv[1], timeout=5)' "$2" && echo "$*" > "${d}/browser.txt"\nkill 0\n`);
+  for (const f of ["npm", "browser"]) chmodSync(join(d, f), 0o755);
+  const sh = spawn("/bin/sh", ["-c", WEB_DEV_START, join(d, "browser"), "--kiosk", `http://127.0.0.1:${DEV_PORT}/`],
+    { env: { PATH: `${d}:/usr/bin:/bin` }, stdio: "ignore", detached: true });
+  await new Promise((r) => sh.once("close", r));
+  try {
+    process.kill(-sh.pid!);
+  } catch { /* schon zu */ }
+  assert.equal(readFileSync(join(d, "npm.txt"), "utf8"), `${DEV_PORT} 127.0.0.1 run dev\n`);
+  assert.equal(readFileSync(join(d, "browser.txt"), "utf8"), `--kiosk http://127.0.0.1:${DEV_PORT}/\n`, "der Browser kam erst, als der Server antwortete");
 });
 
 /** Statt bubblewrap: merkt sich, was gestartet würde, und spielt die Bild-Sandbox nach (`antworte`). */
@@ -198,9 +238,10 @@ const freierPort = async (): Promise<number> => {
   return p;
 };
 
-test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen im Programm an, nur aus der eigenen Sandbox", { skip: ohne, timeout: 90_000 }, async () => {
+/** Ein echtes coturn auf 127.0.0.1 mit freien Ports – `fn` bekommt Zugang und Ziel, danach endet es. */
+async function mitCoturn(fn: (turn: { urls: string[]; geheimnis: string; gueltigSek: number }, port: number) => Promise<void>): Promise<void> {
   const ordner = tmp("e2e");
-  const geheimnis = "b".repeat(64);
+  const geheimnis = randomBytes(32).toString("hex");
   const turnPort = await freierPort();
   const relay = 49_300 + Math.floor(Math.random() * 500) * 10;
   writeFileSync(join(ordner, "turnserver.conf"), [
@@ -209,52 +250,142 @@ test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen i
     "allow-loopback-peers", "log-file=/dev/null", "",
   ].join("\n"));
   const coturn = spawn("turnserver", ["-c", join(ordner, "turnserver.conf"), "--no-stdout-log"], { stdio: "ignore" });
-  const a = ablage("spiel");
-  copyFileSync(new URL("./fixtures/bild/taster.py", import.meta.url), join(a.ort("spiel"), "taster.py"));
-  const turn = { urls: [`turn:127.0.0.1:${turnPort}?transport=tcp`], geheimnis, gueltigSek: 600 };
-  const b = new BildStrom(a, {
-    turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python,
-    befehl: () => [python!, "/arbeit/taster.py", "/arbeit/tasten.txt"],
-  });
   try {
     for (let i = 0; i < 50; i++) {
       if (await new Promise<boolean>((r) => { const s = connect(turnPort, "127.0.0.1", () => { s.destroy(); r(true); }); s.once("error", () => r(false)); })) break;
       await new Promise((r) => setTimeout(r, 100));
     }
-    const z = turnZugang(turn);
-    // Buchstabe, Großbuchstabe ohne Umschalttaste (Handy), Zeichen ohne Taste, Enter, Klick; dann Unsinn, der nichts tut
-    const eingaben = [
-      { t: "kd", s: "h" }, { t: "ku", s: "h" }, { t: "kd", s: "A" }, { t: "ku", s: "A" }, { t: "kd", s: "ä" }, { t: "ku", s: "ä" },
-      { t: "kd", s: "Enter" }, { t: "ku", s: "Enter" }, { t: "d", x: 0.5, y: 0.25, k: 1 }, { t: "u", x: 0.5, y: 0.25, k: 1 },
-      { t: "kd", s: "<script>" }, { t: "d", x: 2, y: -1, k: 9 }, { t: "x" }, "kein objekt", { t: "kd", s: "x".repeat(300) },
-    ];
-    const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
-      `turn://${encodeURIComponent(z.nutzer)}:${encodeURIComponent(z.passwort)}@127.0.0.1:${turnPort}`, JSON.stringify(eingaben)], { stdio: ["pipe", "pipe", "ignore"] });
-    const zeilen: Array<Record<string, unknown>> = [];
-    let rest = "";
-    const warteAuf = (schluessel: string) => new Promise<Record<string, unknown>>((r) => {
-      const sieh = () => { const z = zeilen.find((x) => schluessel in x); if (z) r(z); else setTimeout(sieh, 50); };
-      sieh();
-    });
-    app.stdout.on("data", (d: Buffer) => {
-      rest += d.toString();
-      for (let i = rest.indexOf("\n"); i >= 0; i = rest.indexOf("\n")) { zeilen.push(JSON.parse(rest.slice(0, i))); rest = rest.slice(i + 1); }
-    });
-    const angebot = (await warteAuf("angebot")).angebot as string;
-    assert.ok(istBildSdp(angebot));
-    const t0 = Date.now();
-    const antwort = await b.starte("spiel", angebot, { breite: 640, hoehe: 480 });
-    const antwortMs = Date.now() - t0;
-    assert.ok(istBildSdp(antwort), "die Antwort nur mit Relay-Kandidaten");
-    app.stdin.write(`${JSON.stringify({ antwort })}\n`);
-    const fertig = (await warteAuf("fertig")).fertig as number;
-    console.log(`[bild] Antwort nach ${antwortMs} ms, ${fertig} Bilder empfangen`);
-    assert.ok(fertig >= 20, `Bilder angekommen (${fertig})`);
-    const tasten = readFileSync(join(a.ort("spiel"), "tasten.txt"), "utf8");
-    assert.match(tasten, /^bereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
-    assert.equal(b.beende("spiel"), true);
+    await fn({ urls: [`turn:127.0.0.1:${turnPort}?transport=tcp`], geheimnis, gueltigSek: 600 }, turnPort);
   } finally {
-    b.beendeAlle();
     coturn.kill();
   }
+}
+
+/**
+ * Die App spielt `fixtures/bild/empfaenger.py`: Angebot, Antwort vom Knoten (`starte`), Bilder zählen, Eingaben schicken
+ * (mit `farbe` erst, wenn das Bild sie zeigt). Bis `gewirkt()` gilt, wartet der Test – mit Frist, nie eine feste Pause;
+ * unter Last kommen Eingaben später an. Zurück die Bilder, die Farbe am Ende und die Zeit bis zur Antwort.
+ */
+async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: number }, turnPort: number, eingaben: unknown[],
+  starte: (angebot: string) => Promise<string>, gewirkt: (farbe: number[] | null) => boolean, farbe?: number[]):
+  Promise<{ bilder: number; farbe: number[] | null; antwortMs: number }> {
+  const z = turnZugang(turn);
+  const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
+    `turn://${encodeURIComponent(z.nutzer)}:${encodeURIComponent(z.passwort)}@127.0.0.1:${turnPort}`, JSON.stringify(eingaben),
+    ...(farbe ? [JSON.stringify(farbe)] : [])], { stdio: ["pipe", "pipe", "ignore"] });
+  const zeilen: Array<Record<string, unknown>> = [];
+  let rest = "";
+  const warteAuf = (schluessel: string) => new Promise<Record<string, unknown>>((r) => {
+    const sieh = () => { const z = zeilen.find((x) => schluessel in x); if (z) r(z); else setTimeout(sieh, 50); };
+    sieh();
+  });
+  app.stdout.on("data", (d: Buffer) => {
+    rest += d.toString();
+    for (let i = rest.indexOf("\n"); i >= 0; i = rest.indexOf("\n")) { zeilen.push(JSON.parse(rest.slice(0, i))); rest = rest.slice(i + 1); }
+  });
+  const angebot = (await warteAuf("angebot")).angebot as string;
+  assert.ok(istBildSdp(angebot));
+  const t0 = Date.now();
+  const antwort = await starte(angebot);
+  const antwortMs = Date.now() - t0;
+  assert.ok(istBildSdp(antwort), "die Antwort nur mit Relay-Kandidaten");
+  app.stdin.write(`${JSON.stringify({ antwort })}\n`);
+  const letzteFarbe = () => ([...zeilen].reverse().find((z) => "farbe" in z)?.farbe ?? null) as number[] | null;
+  for (const bis = Date.now() + 40_000; !gewirkt(letzteFarbe()) && !zeilen.some((z) => "fertig" in z) && Date.now() < bis;) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  app.stdin.write(`${JSON.stringify({ ende: true })}\n`);
+  const ende = await warteAuf("fertig");
+  return { bilder: ende.fertig as number, farbe: ende.farbe as number[] | null, antwortMs };
+}
+
+test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen im Programm an, nur aus der eigenen Sandbox", { skip: ohne, timeout: 90_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("spiel");
+    copyFileSync(new URL("./fixtures/bild/taster.py", import.meta.url), join(a.ort("spiel"), "taster.py"));
+    const b = new BildStrom(a, {
+      turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python,
+      befehl: () => [python!, "/arbeit/taster.py", "/arbeit/tasten.txt"],
+    });
+    try {
+      // Buchstabe, Großbuchstabe ohne Umschalttaste (Handy), Zeichen ohne Taste, Enter, Klick; dann Unsinn, der nichts tut
+      const eingaben = [
+        { t: "kd", s: "h" }, { t: "ku", s: "h" }, { t: "kd", s: "A" }, { t: "ku", s: "A" }, { t: "kd", s: "ä" }, { t: "ku", s: "ä" },
+        { t: "kd", s: "Enter" }, { t: "ku", s: "Enter" }, { t: "d", x: 0.5, y: 0.25, k: 1 }, { t: "u", x: 0.5, y: 0.25, k: 1 },
+        { t: "kd", s: "<script>" }, { t: "d", x: 2, y: -1, k: 9 }, { t: "x" }, "kein objekt", { t: "kd", s: "x".repeat(300) },
+      ];
+      const datei = join(a.ort("spiel"), "tasten.txt");
+      const e = await empfange(turn, turnPort, eingaben, (angebot) => b.starte("spiel", angebot, { breite: 640, hoehe: 480 }),
+        () => existsSync(datei) && readFileSync(datei, "utf8").includes("klick"), [255, 255, 255]); // weiß: das Fenster des Programms steht
+      console.log(`[bild] Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder empfangen, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
+      const tasten = readFileSync(datei, "utf8");
+      assert.match(tasten, /^bereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
+      assert.equal(b.beende("spiel"), true);
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+/** Ein Chromium für den echten Test: wie der Knoten, dazu das von Playwright, wo es installiert ist. */
+function testBrowser(): string | undefined {
+  const pw = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  const vonPlaywright = pw && existsSync(pw)
+    ? readdirSync(pw).filter((d) => /^chromium-\d+$/.test(d)).map((d) => join(pw, d, "chrome-linux", "chrome"))
+    : [];
+  return [process.env.MCP_TEST_BROWSER, ...BROWSER_ORTE, ...vonPlaywright].find((p) => p && existsSync(p));
+}
+const browser = testBrowser();
+
+test("VKg2c1: Ende zu Ende – eine Web-Seite in Chromium im Bild, ein Klick über den Datenkanal ändert sie", { skip: ohne || (!browser && "kein Chromium"), timeout: 90_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("seite");
+    writeFileSync(join(a.ort("seite"), "index.html"),
+      "<!doctype html><body style='margin:0;height:100vh;background:#00c000' onclick=\"document.body.style.background='#c00000'\"></body>");
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, browser: browser! });
+    try {
+      const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
+      // vorher grün (darauf wartet der Empfänger), nach dem Klick rot
+      const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("seite", angebot, { breite: 640, hoehe: 480 }), rot, [0, 192, 0]);
+      console.log(`[bild] Chromium: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
+      assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+/**
+ * npm und node sieht die Sandbox nur, wenn sie wirklich unter `/usr` liegen (im Docker-Bild `/usr/local`) – ein Verweis
+ * nach `/opt` zählt nicht. Auf Rechnern mit Node anderswo überspringt sich der Test.
+ */
+const unterUsr = (namen: string[]) => namen.some((p) => existsSync(p) && realpathSync(p).startsWith("/usr/"));
+const npmInSandbox = unterUsr(["/usr/local/bin/npm", "/usr/bin/npm"]) && unterUsr(["/usr/local/bin/node", "/usr/bin/node"]);
+
+test("VKg2c1: Ende zu Ende – ein Web-Projekt mit Dev-Server in Chromium im Bild, ein Klick ändert es", {
+  skip: ohne || (!browser && "kein Chromium") || (!npmInSandbox && "npm nicht unter /usr (in der Sandbox nicht sichtbar)"), timeout: 120_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("app");
+    // wie Vite: lauscht auf PORT und HOST aus der Umgebung
+    writeFileSync(join(a.ort("app"), "package.json"), JSON.stringify({ scripts: { dev: "node server.mjs" } }));
+    writeFileSync(join(a.ort("app"), "server.mjs"), [
+      "import { createServer } from 'node:http';",
+      "createServer((_q, a) => a.end(\"<!doctype html><body style='margin:0;height:100vh;background:#00c000' onclick=\\\"document.body.style.background='#c00000'\\\"></body>\"))",
+      "  .listen(Number(process.env.PORT), process.env.HOST);",
+    ].join("\n"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, browser: browser! });
+    try {
+      const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
+      const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("app", angebot, { breite: 640, hoehe: 480 }), rot, [0, 192, 0]);
+      console.log(`[bild] Dev-Server: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
+    } finally {
+      b.beendeAlle();
+    }
+  });
 });

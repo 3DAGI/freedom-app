@@ -675,7 +675,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   (Python mit pygame oder tkinter, später Godot und andere) zeigt der Knoten als
   Bildstrom in der App – auch unterwegs ohne `VORSCHAU_URL`. Das Programm nennt
   `.freedom/start` im Projekt (ein Befehl für `sh`), sonst startet der Knoten
-  `main.py`. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
+  `main.py`. Web-Projekte zeigt Chromium im Bild (seit VKg2c1, derselbe wie für den
+  Motor: `MCP_BROWSER`, sonst Chromium aus Debian) – mit Skript `dev` in
+  `package.json` der Dev-Server wie in der Vorschau, sonst `index.html`; WebGL rechnet
+  dort SwiftShader in Software. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
   eine zweite Sandbox kodiert das Bild (VP8, in Software) und schickt es über
   WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN
   erreicht nur diese zweite Sandbox, über einen Tunnel des Knotens, der nur die
@@ -689,6 +692,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Stunde). Maus, Berührung und Tasten aus der App gehen nur an diesen Bildschirm
   (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
   Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
+  Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
+  270 MB);
+  läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
+  dort `host.docker.internal:3478`.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

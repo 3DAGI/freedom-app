@@ -12168,3 +12168,48 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar�
   Fünfmal hintereinander grün, je 16 s. Die CI installiert coturn auch im Smoke-Job.
 
 Knoten-Stand: nur die App (der Knoten seit VKg2a3).
+
+## Schritt VKg2c1 – Web-Projekte in Chromium im Bild, Pakete im Docker-Bild
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: „virtueller Bildschirm und Chromium ins Bild“), gebaut von Spur C. Auf VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: Ohne `.freedom/start` und ohne `main.py` zeigt das Bild ein Web-Projekt in Chromium (`bildBefehl(…, web)`).
+  - Mit Skript `dev` in `package.json` läuft der Dev-Server wie in der Vorschau, und Chromium öffnet, sobald er antwortet
+    (`WEB_DEV_START`).
+  - Sonst öffnet Chromium `index.html`.
+  - Alles läuft in der Sandbox des Programms, ohne Netz.
+- Chromium (`browserArgumente()`):
+  - ganzer Bildschirm, ohne eigene Sandbox, Profil in `/tmp`, ohne Dienste im Hintergrund;
+  - WebGL über SwiftShader in Software.
+  - Den Browser liest die Sandbox nur über `browserLesbar()` (`mcp-katalog.ts`, wie beim Motor).
+  - `main.ts` nimmt denselben Browser wie der Motor (`browserAusUmgebung()`).
+  - So geht auch eine Web-App unterwegs nur über den TURN.
+- Docker:
+  - Mit `VIBECODEN=1` kommen Xvfb, GStreamer mit `webrtcbin` und libnice, PyGObject und python-xlib ins Bild.
+  - `docker-compose.vibecoden.yml` reicht `TURN_INTERN` durch und kennt `host.docker.internal`; coturn läuft dort im Netz
+    des Rechners.
+- Text `code-bild-kein-programm` nennt jetzt auch `index.html` und das Skript `dev`.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - `bildBefehl` mit Browser (Reihenfolge, Verweise, ohne Browser kein Web);
+  - `WEB_DEV_START` mit einem nachgemachten npm: Chromium erst, wenn der Server antwortet;
+  - Docker-Pakete;
+  - Ende zu Ende mit echtem Chromium: Eine grüne Seite kommt über den TURN an, ein Klick über den Datenkanal macht sie rot.
+  - Ebenso mit Dev-Server (`npm run dev`). Er läuft nur, wo npm und node wirklich unter `/usr` liegen, wie im Docker-Bild;
+    sonst überspringt er sich.
+- Die Ende-zu-Ende-Tests warten jetzt, bis die Eingaben wirken, mit Frist. Bis VKg2c1 endete der Empfänger nach zwei
+  Sekunden; unter Last war das zu kurz (im vollen Lauf für VKg2b einmal rot, während daneben Chromium lief).
+- Eingaben schickt der Empfänger erst, wenn das Bild das Fenster des Programms zeigt.
+- Die Farbe misst er bei einem Viertel des Bildes: In der Mitte steht der Zeiger von Xvfb.
+
+**Gemessen unter Docker (20.10., Docker 29.3.1):**
+- Bild mit `VIBECODEN=1`, Debian bookworm: GStreamer 1.22, Python 3.11, Chromium 155. Im Container meldet `bildFehlt()`
+  nichts, `browserAusUmgebung()` findet `/usr/lib/chromium/chromium`.
+- Die Pakete des Bildes kosten rund 270 MB: 164 Pakete mehr, 1042 statt 770 MB für den Vibecoden-Teil (apt).
+- `bildstrom.test.ts` im Container mit dem Seccomp-Profil aus `docker-compose.vibecoden.yml`, dazu coturn nur für den Test:
+  9 von 9 grün. Die Antwort kam nach 0,8–0,9 s, für Programm, `index.html` und Dev-Server.
+
+Knoten-Stand: nur der Knoten.

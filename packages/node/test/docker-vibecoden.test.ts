@@ -43,7 +43,8 @@ test("VKc3b: Seccomp – das Standardprofil plus genau eine Regel für Namensrä
 test("VKc3b: docker-compose.vibecoden.yml – Bild mit Hermes, Sandbox-Freigaben nur hier, nie im Standard", () => {
   const ergaenzung = lies("docker-compose.vibecoden.yml");
   for (const z of ['VIBECODEN: "1"', "- seccomp=docker/seccomp-vibecoden.json", "- systempaths=unconfined", "- apparmor=unconfined", 'CODE_MODELL: "${CODE_MODELL:-}"',
-    'VORSCHAU_URL: "${VORSCHAU_URL:-}"', '- "${VORSCHAU_BIND:-0.0.0.0}:3603:3603"']) {
+    'VORSCHAU_URL: "${VORSCHAU_URL:-}"', '- "${VORSCHAU_BIND:-0.0.0.0}:3603:3603"', 'TURN_INTERN: "${TURN_INTERN:-}"',
+    '- "host.docker.internal:host-gateway"']) {
     assert.ok(ergaenzung.includes(z), z);
   }
   assert.match(ergaenzung, /build:\n\s+args:\n\s+VIBECODEN: "1"/);
@@ -57,7 +58,9 @@ test("VKk1: Chromium, Schriften und Playwright nur mit VIBECODEN=1 – das schla
   const docker = lies("docker/node.Dockerfile");
   const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/);
   const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^\\\n]+)/.exec(docker));
-  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^\\\n]+)/.exec(docker));
+  // alle Zeilen des Aufrufs bis zum nächsten `&&`
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker))
+    .filter((p) => p !== "\\");
   assert.ok(immer.includes("bubblewrap") && !immer.includes("chromium"), immer.join(" "));
   for (const p of ["chromium", "fonts-liberation"]) assert.ok(vibecoden.includes(p), p);
   // optionale Pakete (Playwright, ohne Browser-Download) nur mit Vibecoden
@@ -66,4 +69,18 @@ test("VKk1: Chromium, Schriften und Playwright nur mit VIBECODEN=1 – das schla
   assert.match(docker, /ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1\n/);
   // den Chromium aus Debian findet der Knoten von selbst
   assert.equal(BROWSER_ORTE[0], "/usr/lib/chromium/chromium");
+});
+
+test("VKg2c1: Bildstrom im Bild nur mit VIBECODEN=1 – Xvfb, GStreamer mit webrtcbin, PyGObject, python-xlib", () => {
+  const docker = lies("docker/node.Dockerfile");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  // was bildFehlt() prüft (BILD_TEXT nennt dieselben Pakete)
+  for (const p of ["xvfb", "gstreamer1.0-plugins-base", "gstreamer1.0-plugins-good", "gstreamer1.0-plugins-bad", "gstreamer1.0-nice",
+    "gir1.2-gst-plugins-base-1.0", "gir1.2-gst-plugins-bad-1.0", "python3-gi", "python3-xlib"]) {
+    assert.ok(vibecoden.includes(p), p);
+    assert.ok(!immer.includes(p), `${p} nicht im schlanken Bild`);
+  }
+  assert.ok(vibecoden.includes("chromium"), "Chromium zeigt Web-Projekte im Bild");
 });

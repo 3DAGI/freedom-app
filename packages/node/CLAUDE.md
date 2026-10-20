@@ -461,3 +461,8 @@ Bereichs unten anhängen.
   `add-local-ip-address 127.0.0.1` sammelt libnice nichts.
   Eingaben (seit VKg2a3) nur über `Eingabe` in `freedom_bild.py`: XTest an den eigenen Bildschirm, feste Nachrichten
   (`PROTOCOL.md` §34), begrenzt – nie etwas aus dem Datenkanal an eine Shell, eine Datei oder den Knoten.
+  Web-Projekte (seit VKg2c1) zeigt nur Chromium in der Sandbox des Programms (`bildBefehl(…, web)`, `browserArgumente()`):
+  ohne eigene Sandbox, Profil in `/tmp`, der Dev-Server über `WEB_DEV_START` dort selbst – nie ein Weg aus der Sandbox zum
+  Dev-Server der Vorschau. Den Browser liest nur `browserLesbar()` ein (wie beim Motor, nie Home oder Wurzel). Im Test die
+  Farbe nie in der Bildmitte messen – dort steht der Zeiger von Xvfb; und nie eine feste Pause nach den Eingaben (bis
+  VKg2c1 endete der Empfänger nach 2 s, unter Last kamen die Tasten später an): warten, bis sie wirken, mit Frist.
