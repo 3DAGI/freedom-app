@@ -49,7 +49,7 @@ import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt } from "./bildstrom.js";
+import { BildStrom, bildFehlt, bildKodierer, nvencDa } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -513,10 +513,17 @@ async function main(): Promise<void> {
         } catch {
           browser = null;
         }
-        const b = new BildStrom(projekte, { turn, ziel, ...(browser ? { browser } : {}) });
+        // Kodierer (VKg2c2): H.264 über NVENC, wo es geht – nur dann bekommt die Bild-Sandbox die GPU
+        const nvenc = await nvencDa();
+        const kodierer = bildKodierer(process.env, nvenc);
+        if (!kodierer) {
+          console.error("[bild] BILD_KODIERER ungültig (vp8, auto oder leer) – der Knoten startet nicht");
+          process.exit(1);
+        }
+        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}) });
         process.on("exit", () => b.beendeAlle());
         bild = b;
-        console.log(`[bild] Bildstrom an (über den eigenen TURN${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

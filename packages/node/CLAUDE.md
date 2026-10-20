@@ -466,3 +466,7 @@ Bereichs unten anhängen.
   Dev-Server der Vorschau. Den Browser liest nur `browserLesbar()` ein (wie beim Motor, nie Home oder Wurzel). Im Test die
   Farbe nie in der Bildmitte messen – dort steht der Zeiger von Xvfb; und nie eine feste Pause nach den Eingaben (bis
   VKg2c1 endete der Empfänger nach 2 s, unter Last kamen die Tasten später an): warten, bis sie wirken, mit Frist.
+  Kodiert wird (seit VKg2c2) nur im Format und mit der Nummer aus dem Angebot (`formate()`, `pipeline_text()` in
+  `freedom_bild.py`) – nie eine feste Nummer: Firefox nennt VP8 120, bis VKg2c2 kam dort kein Bild an. H.264 nur über
+  NVENC (`nvh264enc`), nie in Software (openh264 scheitert auf Ubuntu 24.04, x264 ist GPL). Die GPU bekommt nur die
+  Bild-Sandbox (`gpu` in `BildStrom`), nie das Programm oder der Motor.

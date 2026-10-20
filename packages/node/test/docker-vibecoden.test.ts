@@ -84,3 +84,14 @@ test("VKg2c1: Bildstrom im Bild nur mit VIBECODEN=1 – Xvfb, GStreamer mit webr
   }
   assert.ok(vibecoden.includes("chromium"), "Chromium zeigt Web-Projekte im Bild");
 });
+
+test("VKg2c2: NVENC nur über docker-compose.nvenc.yml – GPU mit Video-Kodierer für den Knoten, nie im Standard", () => {
+  const nvenc = lies("docker-compose.nvenc.yml");
+  assert.match(nvenc, /services:\n  node:\n    deploy:\n      resources:\n        reservations:\n          devices:\n            - driver: nvidia\n/);
+  assert.match(nvenc, /capabilities: \[gpu, compute, utility, video\]/);
+  // im Standard bekommt nur Ollama eine GPU, der Knoten nie
+  const standard = lies("docker-compose.yml");
+  const knoten = standard.slice(standard.indexOf("\n  node:"), standard.indexOf("\n  coturn:"));
+  assert.ok(knoten.length > 0 && !/driver: nvidia/.test(knoten), "der Knoten ohne GPU im Standard");
+  assert.ok(!/nvidia/.test(lies("docker-compose.vibecoden.yml")), "Vibecoden ohne NVIDIA – läuft auch auf einem Raspberry Pi");
+});

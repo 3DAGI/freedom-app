@@ -679,7 +679,8 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Motor: `MCP_BROWSER`, sonst Chromium aus Debian) – mit Skript `dev` in
   `package.json` der Dev-Server wie in der Vorschau, sonst `index.html`; WebGL rechnet
   dort SwiftShader in Software. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
-  eine zweite Sandbox kodiert das Bild (VP8, in Software) und schickt es über
+  eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
+  NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
   WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN
   erreicht nur diese zweite Sandbox, über einen Tunnel des Knotens, der nur die
   Adressen der App erlaubt. Liegt coturn auf demselben Rechner und ist sein
@@ -695,7 +696,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
   270 MB);
   läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
-  dort `host.docker.internal:3478`.
+  dort `host.docker.internal:3478`. NVENC unter Docker (seit VKg2c2) nur mit
+  NVIDIA Container Toolkit und der dritten Datei: `docker compose -f
+  docker-compose.yml -f docker-compose.vibecoden.yml -f docker-compose.nvenc.yml
+  up -d --build`. Die GPU bekommt dann nur die Bild-Sandbox, nie der Code des
+  Projekts; das Log sagt beim Start „H.264 über NVENC“ und je Bild den Kodierer.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

@@ -12213,3 +12213,40 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: „virtueller Bildschirm und Chromi
   9 von 9 grün. Die Antwort kam nach 0,8–0,9 s, für Programm, `index.html` und Dev-Server.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2c2 – Kodierer nach dem Angebot, NVENC
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2c1. VKg2 ist damit im Code fertig; NVENC prüft der
+MENSCH auf dem GX10.
+
+**Befund:** Bis hierher kodierte das Bild VP8 immer mit der Nummer 96 – so nennt es Chromium. Firefox nennt VP8 120.
+Gemessen mit dem Skript aus VKg2c1 und einem Angebot mit 120: Die Verbindung steht, aber es kommt kein einziges Bild an.
+
+**Neu:**
+- `motor/freedom_bild.py`:
+  - `formate()` liest die Formate des Videos aus dem Angebot: VP8 mit seiner Nummer und H.264 nur mit
+    `packetization-mode=1` und Baseline. Constrained Baseline geht vor, alles andere zählt nicht.
+  - `pipeline_text()` baut die Kette mit genau dieser Nummer. Die Antwort nennt den Kodierer (`kodierer`); der Knoten
+    schreibt nur feste Namen ins Log.
+  - H.264 nur über NVENC (`nvh264enc`), wenn gewünscht und angeboten. Scheitert NVENC beim Start, kommt VP8.
+  - Kein H.264 in Software: openh264 scheitert auf Ubuntu 24.04 schon in der einfachsten Kette (`cmInitParaError`),
+    x264 ist GPL, und H.264 trägt Patente.
+- `bildstrom.ts`:
+  - `bildKodierer()`: `BILD_KODIERER` leer oder `auto` heißt H.264 über NVENC, wo es ihn gibt; `vp8` heißt immer VP8.
+  - `nvencDa()`: Gerät `/dev/nvidiactl` und `nvh264enc` in GStreamer.
+  - Mit H.264 bekommt nur die Bild-Sandbox die GPU (`gpu`), nie das Programm.
+- `docker-compose.nvenc.yml` (neu): die GPU mit Video-Kodierer für den Knoten, nur auf Rechnern mit NVIDIA Container
+  Toolkit. Vibecoden bleibt ohne NVIDIA lauffähig, etwa auf einem Raspberry Pi.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - Wahl des Kodierers samt Negativfällen; die GPU nur für die Bild-Sandbox;
+  - Formate aus Angeboten wie von Chromium und Firefox;
+  - die Kette für NVENC als Text, die für VP8 baut GStreamer wirklich;
+  - Ende zu Ende: VP8 mit 120 kommt an, und H.264 ohne NVENC wird VP8 mit der Nummer des Angebots;
+  - `docker-compose.nvenc.yml`.
+- Mit dem alten Skript ist der Fall mit 120 rot (0 Bilder), mit dem neuen grün.
+- `empfange()` wartet jetzt auch auf genug Bilder.
+
+Knoten-Stand: nur der Knoten.

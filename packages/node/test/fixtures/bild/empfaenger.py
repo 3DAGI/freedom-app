@@ -2,7 +2,8 @@
 Sandbox, nur ueber den TURN (UDP, ice-transport-policy=relay), Angebot mit Video zum Empfangen und
 Datenkanal "eingabe" - wie die App in VKg2b.
 
-Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<Farbe als JSON [r, g, b]>]
+Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<JSON {"farbe": [r, g, b], "pt": n}>]
+Es bietet VP8 an, ohne Angabe mit 96 (wie Chromium); "pt" aendert die Nummer (VKg2c2: Firefox nennt VP8 120).
 stdout: {"angebot": SDP}, dann je Sekunde {"bilder": n, "farbe": [r, g, b]}, am Ende {"fertig": n, "farbe": [r, g, b]}
 stdin: {"antwort": SDP}, dann {"ende": true}. Sind 20 Bilder da (und, mit Farbe, zeigt das Bild diese Farbe),
 schickt es die Eingaben; es endet erst mit "ende" (der Test wartet vorher, bis die Eingaben wirken - keine feste Pause)
@@ -31,7 +32,9 @@ def melde(obj):
 
 def main(argv):
     turn, eingaben = argv[1], json.loads(argv[2])
-    warte_auf = json.loads(argv[3]) if len(argv) > 3 else None
+    optionen = json.loads(argv[3]) if len(argv) > 3 else {}
+    warte_auf = optionen.get("farbe")
+    pt = int(optionen.get("pt", 96))
     Gst.init(None)
     pipe = Gst.Pipeline.new("empfaenger")
     w = Gst.ElementFactory.make("webrtcbin", "w")
@@ -66,7 +69,7 @@ def main(argv):
         pad.link(dec.get_static_pad("sink"))
 
     w.connect("pad-added", pad_neu)
-    caps = Gst.Caps.from_string("application/x-rtp,media=video,encoding-name=VP8,payload=96,clock-rate=90000")
+    caps = Gst.Caps.from_string(f"application/x-rtp,media=video,encoding-name=VP8,payload={pt},clock-rate=90000")
     w.emit("add-transceiver", GstWebRTC.WebRTCRTPTransceiverDirection.RECVONLY, caps)
 
     def gesammelt(el, _p):
