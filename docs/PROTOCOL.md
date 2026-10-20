@@ -1251,7 +1251,7 @@ Tag, nie am Text:
 | `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
 | `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
 | `code-bild-aus` | `bild`: der Knoten hat keinen Bildstrom (keine Sandbox, kein eigener TURN, oder GStreamer fehlt) |
-| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` |
+| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` – und, wo der Knoten Chromium hat (seit VKg2c1), weder ein Skript `dev` in `package.json` noch `index.html` |
 | `code-bild-fehler` | `bild`: das Angebot passt nicht, das Programm endete gleich, oder es gab keine Antwort |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
@@ -1278,7 +1278,8 @@ Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehle
 **Bild** (seit VKg2a2, für Programme ohne Web): Die App schickt ein Angebot mit Video zum Empfangen und dem
 Datenkanal `eingabe`, ohne Trickle – alle Kandidaten stehen im Angebot, alle vom Typ „relay“ über den eigenen
 TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Projekts (`.freedom/start` mit `sh`,
-sonst `main.py`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert (VP8). Den
+sonst `main.py`; seit VKg2c1 sonst ein Web-Projekt in Chromium – mit Skript `dev` der Dev-Server wie in der Vorschau, sonst
+`index.html`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert (VP8). Den
 TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
 erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
 mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).

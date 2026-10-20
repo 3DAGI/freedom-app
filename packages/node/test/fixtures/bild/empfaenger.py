@@ -2,9 +2,12 @@
 Sandbox, nur ueber den TURN (UDP, ice-transport-policy=relay), Angebot mit Video zum Empfangen und
 Datenkanal "eingabe" - wie die App in VKg2b.
 
-Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste>
-stdout: {"angebot": SDP}, dann je Sekunde {"bilder": n}, am Ende {"fertig": n}
-stdin: {"antwort": SDP}. Sind 20 Bilder da, schickt es die Eingaben, wartet zwei Sekunden und endet.
+Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<Farbe als JSON [r, g, b]>]
+stdout: {"angebot": SDP}, dann je Sekunde {"bilder": n, "farbe": [r, g, b]}, am Ende {"fertig": n, "farbe": [r, g, b]}
+stdin: {"antwort": SDP}, dann {"ende": true}. Sind 20 Bilder da (und, mit Farbe, zeigt das Bild diese Farbe),
+schickt es die Eingaben; es endet erst mit "ende" (der Test wartet vorher, bis die Eingaben wirken - keine feste Pause)
+oder nach 40 Sekunden. "farbe" ist die Farbe des letzten Bildes bei einem Viertel von Breite und Hoehe - nicht in der
+Mitte, dort steht der Zeiger (VKg2c1: Chromium im Bild).
 """
 
 import json
@@ -28,6 +31,7 @@ def melde(obj):
 
 def main(argv):
     turn, eingaben = argv[1], json.loads(argv[2])
+    warte_auf = json.loads(argv[3]) if len(argv) > 3 else None
     Gst.init(None)
     pipe = Gst.Pipeline.new("empfaenger")
     w = Gst.ElementFactory.make("webrtcbin", "w")
@@ -37,16 +41,25 @@ def main(argv):
     BEHALTEN.append(w.get_property("ice-agent"))
     BEHALTEN[-1].emit("add-local-ip-address", "127.0.0.1")
     w.emit("add-turn-server", turn)
-    zustand = {"bilder": 0, "kanal": None, "gesendet": False, "angeboten": False}
+    zustand = {"bilder": 0, "kanal": None, "gesendet": False, "angeboten": False, "farbe": None}
     schleife = GLib.MainLoop()
 
-    def bild(_sink, _puffer, _pad):
+    def bild(_sink, puffer, pad):
         zustand["bilder"] += 1
+        if zustand["bilder"] % 5:
+            return
+        s = pad.get_current_caps().get_structure(0)
+        breite, hoehe = s.get_value("width"), s.get_value("height")
+        ok, info = puffer.map(Gst.MapFlags.READ)
+        if ok:
+            stelle = (hoehe // 4) * ((breite * 3 + 3) & ~3) + (breite // 4) * 3
+            zustand["farbe"] = list(info.data[stelle:stelle + 3])
+            puffer.unmap(info)
 
     def pad_neu(_el, pad):
         if pad.direction != Gst.PadDirection.SRC:
             return
-        dec = Gst.parse_bin_from_description("rtpvp8depay ! vp8dec ! fakesink name=s signal-handoffs=true", True)
+        dec = Gst.parse_bin_from_description("rtpvp8depay ! vp8dec ! videoconvert ! video/x-raw,format=RGB ! fakesink name=s signal-handoffs=true", True)
         pipe.add(dec)
         dec.sync_state_with_parent()
         dec.get_by_name("s").connect("handoff", bild)
@@ -77,6 +90,9 @@ def main(argv):
 
     def lies():
         for zeile in sys.stdin:
+            if json.loads(zeile).get("ende"):
+                GLib.idle_add(schleife.quit)
+                return
             antwort = json.loads(zeile)["antwort"]
             _, msg = GstSdp.SDPMessage.new_from_text(antwort)
             beschr = GstWebRTC.WebRTCSessionDescription.new(GstWebRTC.WebRTCSDPType.ANSWER, msg)
@@ -84,20 +100,23 @@ def main(argv):
 
     threading.Thread(target=lies, daemon=True).start()
 
+    def passt():
+        f = zustand["farbe"]
+        return warte_auf is None or (f is not None and all(abs(a - b) < 60 for a, b in zip(f, warte_auf)))
+
     def takt():
-        melde({"bilder": zustand["bilder"]})
+        melde({"bilder": zustand["bilder"], "farbe": zustand["farbe"]})
         k = zustand["kanal"]
-        if zustand["bilder"] >= 20 and not zustand["gesendet"] and k.get_property("ready-state") == GstWebRTC.WebRTCDataChannelState.OPEN:
+        if zustand["bilder"] >= 20 and passt() and not zustand["gesendet"] and k.get_property("ready-state") == GstWebRTC.WebRTCDataChannelState.OPEN:
             zustand["gesendet"] = True
             for e in eingaben:
                 k.emit("send-string", json.dumps(e))
-            GLib.timeout_add_seconds(2, schleife.quit)
         return True
 
     GLib.timeout_add_seconds(1, takt)
     GLib.timeout_add_seconds(40, schleife.quit)
     schleife.run()
-    melde({"fertig": zustand["bilder"]})
+    melde({"fertig": zustand["bilder"], "farbe": zustand["farbe"]})
     pipe.set_state(Gst.State.NULL)
     return 0
 

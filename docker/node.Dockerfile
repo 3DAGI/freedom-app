@@ -26,10 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewra
 # (MIT) läuft nur in der Sandbox (hermes-motor.ts); python3 und ripgrep sind eigene Programme.
 # Chromium (BSD-3 u. a., aus Debian) und Schriften für den Browser des Motors (VKk1, VKg-W2) – ebenfalls nur in
 # der Sandbox, gesteuert von Playwright MCP aus playwright-core (mcp-katalog.ts).
+# Bildstrom (VKg2c1, VKg-W2): Xvfb (MIT/X11), GStreamer mit webrtcbin und libnice (LGPL-2.1+), PyGObject und
+# python-xlib (LGPL-2.1+) – eigene Programme, nur in der Bild-Sandbox (bildstrom.ts); Chromium zeigt dort Web-Projekte.
 ARG VIBECODEN=0
 COPY docker/hermes-requirements.txt /tmp/hermes-requirements.txt
 RUN if [ "$VIBECODEN" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep chromium fonts-liberation \
+        xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice \
+        gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib \
       && rm -rf /var/lib/apt/lists/* \
       && python3 -m venv /opt/hermes \
       && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \

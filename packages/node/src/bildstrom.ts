@@ -9,6 +9,9 @@
  *   Bildschirms – nie den Zugang zum TURN, nie den Tunnel, nie die Ausgabe, aus der der Knoten die Antwort an die App liest
  *   (eine untergeschobene Antwort ließe die App sonst einen fremden Rechner anrufen und trüge Daten in ICE-Feldern hinaus).
  *
+ * Web-Projekte (VKg2c1) zeigt Chromium im Bild – mit dem Dev-Server wie in der Vorschau (VKg1c) oder `index.html`, beides in
+ * der Sandbox des Programms. So geht auch eine Web-App unterwegs nur über den TURN, ohne Adresse des Knotens.
+ *
  * Angebot und Antwort reisen nur versiegelt in der Code-Aktion `bild` (PROTOCOL.md §34), beide nur mit Relay-Kandidaten.
  * Je Projekt ein Bild, auf dem Knoten höchstens `BILD_GRENZEN.gesamt`; ein neues Angebot ersetzt das alte. Es endet mit der
  * Verbindung, mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft. Ins Log nur Zahlen.
@@ -20,7 +23,9 @@ import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { istBildSdp } from "@freedomstack/protocol";
+import { DEV_GRENZEN, DEV_PORT, devBefehl } from "./dev-server.js";
 import { STARTSKRIPT } from "./hermes-motor.js";
+import { browserLesbar } from "./mcp-katalog.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import { sandboxDienst } from "./sandbox.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
@@ -58,10 +63,43 @@ export async function bildFehlt(python = "python3"): Promise<string | null> {
 }
 
 /**
- * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), sonst `main.py` (mit dem Python
- * aus `.venv`, wo es eins gibt). Sonst null – dann sagt die App, wie man ein Programm nennt.
+ * Chromium im Bild (VKg2c1): der ganze Bildschirm ohne Leisten, ohne eigene Sandbox (es läuft in unserer und dürfte darin
+ * keine Namensräume anlegen), Profil nur im `/tmp` der Sandbox, ohne Dienste im Hintergrund. WebGL rechnet SwiftShader in
+ * Software – Spiele im Browser laufen so auch ohne GPU; diesen Rechenweg trägt nur die Sandbox des Projekts.
  */
-export function bildBefehl(projektOrdner: string): string[] | null {
+export function browserArgumente(groesse: { breite: number; hoehe: number }, adresse: string): string[] {
+  return [
+    "--no-sandbox", "--test-type", "--kiosk", `--window-size=${groesse.breite},${groesse.hoehe}`, "--window-position=0,0",
+    "--user-data-dir=/tmp/chromium", "--no-first-run", "--no-default-browser-check", "--disable-dev-shm-usage", "--password-store=basic",
+    "--disable-background-networking", "--disable-component-update", "--disable-sync", "--noerrdialogs",
+    "--use-angle=swiftshader", "--enable-unsafe-swiftshader", adresse,
+  ];
+}
+
+/**
+ * Web-Projekt mit Dev-Server: `npm run dev` wie in der Vorschau (VKg1c), Chromium (`$0`, Argumente `$@`), sobald er auf
+ * `127.0.0.1:5173` antwortet – höchstens `DEV_GRENZEN.startMs`. Ohne Netz, alles in der Sandbox des Programms.
+ */
+export const WEB_DEV_START = [
+  `/usr/bin/env PORT=${DEV_PORT} HOST=127.0.0.1 npm run dev >/dev/null 2>&1 &`,
+  `python3 -c 'import socket, time`,
+  `for _ in range(${DEV_GRENZEN.startMs / 100}):`,
+  `    try:`,
+  `        socket.create_connection(("127.0.0.1", ${DEV_PORT}), 1).close()`,
+  `        break`,
+  `    except OSError:`,
+  `        time.sleep(0.1)`,
+  `else:`,
+  `    raise SystemExit(1)' || exit 1`,
+  `exec "$0" "$@"`,
+].join("\n");
+
+/**
+ * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), sonst `main.py` (mit dem Python
+ * aus `.venv`, wo es eins gibt). Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in `package.json` der
+ * Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
+ */
+export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number }): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -71,9 +109,13 @@ export function bildBefehl(projektOrdner: string): string[] | null {
     }
   };
   if (ist(".freedom", "ordner") && ist(".freedom/start", "datei")) return ["/bin/sh", "/arbeit/.freedom/start"];
-  if (!ist("main.py", "datei")) return null;
-  const venv = ist(".venv", "ordner") && existsSync(join(projektOrdner, ".venv", "bin", "python3"));
-  return [venv ? "/arbeit/.venv/bin/python3" : "python3", "/arbeit/main.py"];
+  if (ist("main.py", "datei")) {
+    const venv = ist(".venv", "ordner") && existsSync(join(projektOrdner, ".venv", "bin", "python3"));
+    return [venv ? "/arbeit/.venv/bin/python3" : "python3", "/arbeit/main.py"];
+  }
+  if (!web) return null;
+  if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
+  return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
 }
 
 /** Die erste Zeile eines Stroms – höchstens `max` Byte, bis `ms`; sonst null. */
@@ -101,17 +143,24 @@ type Starte = typeof sandboxDienst;
 export class BildStrom {
   private readonly laufend = new Map<string, Laufend>();
   private readonly sandbox: Starte;
+  /** Was das Programm außer dem Bildschirm lesen darf – mit Browser dessen Ordner und die Schriften. */
+  private readonly programmLesbar: ReadonlyArray<{ quelle: string; ziel: string }>;
 
   constructor(private readonly ablage: Pick<ProjektAblage, "ort">, private readonly o: {
     turn: TurnDienst; ziel: TurnZiel;
     /** Python mit PyGObject und GStreamer in der Sandbox (Vorgabe `python3`). */
     python?: string; bwrap?: string;
+    /** Chromium für Web-Projekte (VKg2c1, `browserAusUmgebung()`) – ohne zeigt das Bild nur Programme. */
+    browser?: string;
+    /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
+    nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
     /** Nur für Tests: statt `bildBefehl()`. */
     befehl?: (projektOrdner: string) => readonly string[] | null;
     /** Nur für Tests: statt `sandboxDienst()`. */
     starte?: Starte;
   }) {
     this.sandbox = o.starte ?? ((befehl, ort) => sandboxDienst(befehl, { ...ort, ...(o.bwrap ? { bwrap: o.bwrap } : {}) }));
+    this.programmLesbar = [...(o.browser ? browserLesbar(o.browser) : []), ...(o.nurLesbar ?? [])];
   }
 
   /** Läuft für das Projekt ein Bild? */
@@ -126,7 +175,8 @@ export class BildStrom {
     if (!istBildSdp(angebot) || erlaubt.length === 0) throw new CodeAbgelehnt("code-bild-fehler");
     this.beende(projekt);
     if (this.laufend.size >= BILD_GRENZEN.gesamt) throw new CodeAbgelehnt("code-zu-viele");
-    const befehl = (this.o.befehl ?? bildBefehl)(ort);
+    const browser = this.o.browser;
+    const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
 
     // Den Platz gleich belegen – zwei Starts zugleich kämen sonst beide an der Grenze vorbei
@@ -183,7 +233,10 @@ export class BildStrom {
     const bis = Date.now() + BILD_GRENZEN.startMs;
     while (!vorbei && !existsSync(join(x11, "X99")) && Date.now() < bis) await new Promise((r) => setTimeout(r, 50));
     if (!vorbei && existsSync(join(x11, "X99"))) {
-      programm = this.sandbox(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, ...befehl], { arbeit: ort, nurLesbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }] });
+      programm = this.sandbox(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, ...befehl], {
+        arbeit: ort,
+        nurLesbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }, ...this.programmLesbar],
+      });
       void programm.ende.then(eintrag.beende);
     }
     // endet die Bild-Sandbox (oder das Programm, das sie mitnimmt), nicht bis zur Frist warten
