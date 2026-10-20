@@ -67,6 +67,13 @@ jobs:
       - name: coturn fuer die Tunnel-Tests
         run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
 
+      # VKg2a2: der Bildstrom läuft Ende zu Ende gegen echtes Xvfb und GStreamer (webrtcbin) in bubblewrap; python-xlib fürs Testprogramm
+      - name: Xvfb und GStreamer fuer den Bildstrom-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib
+          /usr/bin/python3 -c "import gi; gi.require_version('GstWebRTC', '1.0'); import Xlib"
+
       - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.

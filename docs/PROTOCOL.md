@@ -1189,6 +1189,8 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `diff` (seit VKe2) | `projekt`, `commit` | `commit`, `text` (wie `git format-patch`, ohne Diff-Programme des Projekts, als JSON-Text höchstens 30 000 Zeichen), `gekuerzt` |
 | `zurueck` (seit VKe2) | `projekt`, `commit` | `commit`: der neue Commit „Zurück auf <kurz>“ mit dem Baum des genannten – leer, wenn sich nichts änderte |
 | `vorschau` (seit VKg1a) | `projekt` | `url`: Adresse der Vorschau – http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<zeichen>/` (64 Hex), höchstens 300 Zeichen (`istVorschauAdresse()`) |
+| `bild` (seit VKg2a2) | `projekt`, `sdp` (Angebot der App), `breite` (320–1920), `hoehe` (240–1080), beide gerade | `sdp`: Antwort des Knotens. Beide SDP nur mit Relay-Kandidaten, mit Fingerabdruck und mindestens einem Kandidaten (`istBildSdp()`) |
+| `bild-ende` (seit VKg2a2) | `projekt` | `ok`: ob ein Bild lief |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
   auf dem Knoten, ohne Punkt und Schrägstrich.
@@ -1248,6 +1250,9 @@ Tag, nie am Text:
 | `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
 | `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
 | `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
+| `code-bild-aus` | `bild`: der Knoten hat keinen Bildstrom (keine Sandbox, kein eigener TURN, oder GStreamer fehlt) |
+| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` |
+| `code-bild-fehler` | `bild`: das Angebot passt nicht, das Programm endete gleich, oder es gab keine Antwort |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
@@ -1269,6 +1274,15 @@ Projekt. Ausgeliefert wird nur gelesen, live (`Cache-Control: no-store`) und nur
 `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt selbst. Namen mit Punkt am
 Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehlen, bekommen die
 `index.html`.
+
+**Bild** (seit VKg2a2, für Programme ohne Web): Die App schickt ein Angebot mit Video zum Empfangen und dem
+Datenkanal `eingabe`, ohne Trickle – alle Kandidaten stehen im Angebot, alle vom Typ „relay“ über den eigenen
+TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Projekts (`.freedom/start` mit `sh`,
+sonst `main.py`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert (VP8). Den
+TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
+erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
+mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`). Eingaben über den
+Datenkanal kommen mit VKg2a3.
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 

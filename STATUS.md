@@ -12090,3 +12090,37 @@ den Tunnel, Chromium nur über Relay – erstes Bild nach 1,45 s, danach 30 Bild
   andere kein Byte.
 
 Knoten-Stand: nur der Knoten (noch nicht verdrahtet).
+
+## Schritt VKg2a2 – Bildstrom im Knoten
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2a1 (Tunnel). Programme ohne Web als Bild über den
+eigenen TURN; bedienen mit VKg2a3, die App mit VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: `BildStrom.starte()` nimmt das Angebot der App und gibt die Antwort des Knotens zurück. Zwei Sandboxen
+  ohne Netz:
+  - Bild: `motor/freedom_bild.py` (Xvfb, GStreamer `webrtcbin`, VP8). Den TURN erreicht es nur durch den Tunnel aus
+    VKg2a1, den Zugang bekommt es über stdin. stdin bleibt offen, solange das Bild läuft.
+  - Programm: `.freedom/start` (mit `sh`), sonst `main.py` (`bildBefehl()`), mit `/arbeit` wie der Motor. Mit dem Bild teilt
+    es nur den Socket des Bildschirms.
+  - Getrennt, damit der Code des Projekts nie an Zugang, Tunnel oder die Antwort an die App kommt: Eine untergeschobene
+    Antwort ließe die App einen fremden Rechner anrufen.
+  - Je Projekt ein Bild, höchstens zwei; Ende mit der Verbindung, dem Programm, `bild-ende` oder dem Ablauf des Zugangs.
+- `bildFehlt()`: Prüfung beim Start (Xvfb, GStreamer mit `webrtcbin`, PyGObject); `main.ts` baut den Bildstrom nur mit
+  Sandbox und eigenem TURN, `TURN_INTERN` neu.
+- Protokoll: Code-Aktionen `bild` (SDP nur mit Relay-Kandidaten, `istBildSdp()`, Größe gerade) und `bild-ende`;
+  Kennungen `code-bild-aus`, `code-bild-kein-programm`, `code-bild-fehler` mit Texten in der App.
+- `sandbox.ts` (Spur B, klein): `sandboxDienst(…, { mitEinAusgabe })` – stdin und stdout nur für eigenen Code des Knotens.
+- `PROTOCOL.md` §34, `PROVIDER.md` (Bild), Fallstrick in `packages/node/CLAUDE.md`, CI installiert Xvfb und GStreamer.
+
+**Tests:** protocol +1 (Aktionen, SDP-Regeln, Größe); node +5:
+- Programmwahl.
+- Zwei Sandboxen (Attrappe): was wohin eingebunden wird.
+- Ablehnungen und Grenze.
+- Über den Knoten, nur versiegelt.
+- Ende zu Ende mit echtem bubblewrap, Xvfb, GStreamer und coturn: Antwort nach rund 1 s, gut 100 Bilder in 3 s.
+
+Nebenbei: Gegenproben in `knoten-code.test.ts` (VKg1a, VKe2) bauten den Kern mit `["param", …]` doppelt und waren aus dem
+falschen Grund `null` – jetzt mit Paaren und einer Positivprobe.
+
+Knoten-Stand: nur der Knoten.

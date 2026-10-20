@@ -271,17 +271,25 @@ export function sandboxMotor(befehl: readonly string[], o: {
 /**
  * Ein Dienst in der Sandbox, der lange läuft (VKg1c: der Dev-Server der Vorschau) – wie der Motor ohne Grenze der
  * Rechenzeit, aber ohne Ein- und Ausgabe: Was er schreibt, ist Fremdtext und geht nirgends hin. `ende` erfüllt sich,
- * wenn er endet; `beende()` beendet ihn samt allem darin.
+ * wenn er endet; `beende()` beendet ihn samt allem darin. Mit `mitEinAusgabe` (VKg2a2: der Bildstrom, eigener Code des
+ * Knotens) gibt es stdin und stdout – nie für Code des Projekts; stderr geht auch dann nirgends hin.
  */
-export function sandboxDienst(befehl: readonly string[], o: SandboxOrt): { ende: Promise<void>; beende: () => void } {
+export function sandboxDienst(befehl: readonly string[], o: SandboxOrt & { mitEinAusgabe?: boolean }): {
+  ende: Promise<void>; beende: () => void; ein?: Writable; aus?: Readable;
+} {
   if (befehl.length === 0 || befehl.some((t) => t === "" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
   const etc = eigenesEtc();
+  const ea = o.mitEinAusgabe ? "pipe" : "ignore";
   const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
-    stdio: ["ignore", "ignore", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
+    stdio: [ea, ea, "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
   });
   const ende = new Promise<void>((fertig) => {
     kind.on("error", () => { etc.weg(); fertig(); });
     kind.on("close", () => { etc.weg(); fertig(); });
   });
-  return { ende, beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); } };
+  kind.stdin?.on("error", () => undefined);
+  return {
+    ende, beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
+    ...(o.mitEinAusgabe ? { ein: kind.stdin!, aus: kind.stdout! } : {}),
+  };
 }
