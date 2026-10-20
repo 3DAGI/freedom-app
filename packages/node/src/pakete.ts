@@ -263,9 +263,23 @@ export interface PaketOptionen {
 
 /** Ein GET von der Liste – Status 200, sonst `paket-netz`; Fehler des Netzes nur als Kennung. */
 async function hole(url: string, registry: PaketRegistry, max: number, o: PaketOptionen): Promise<Uint8Array> {
+  const bytes = await holeOderFehlt(url, registry, max, o);
+  if (bytes === null) throw new PaketAbgelehnt("paket-netz");
+  return bytes;
+}
+
+/**
+ * Wie `hole()`, aber 404 als null – für den Spiegel der Brücke (VKd3, `paket-spiegel.ts`): npm und pip sagen dem
+ * Agenten dann „gibt es nicht“ statt „Registry nicht erreichbar“.
+ */
+export async function holeOderFehlt(url: string, registry: PaketRegistry, max: number, o: PaketOptionen): Promise<Uint8Array | null> {
   if (!aufDerListe(url, registry)) throw new PaketAbgelehnt("paket-quelle");
   try {
     const res = await (o.abruf ?? (o.tor ? torAbruf(o.tor) : direktAbruf))(url, registry);
+    if (res.status === 404) {
+      await res.body?.cancel().catch(() => undefined);
+      return null;
+    }
     if (res.status !== 200) {
       await res.body?.cancel().catch(() => undefined);
       throw new PaketAbgelehnt("paket-netz");

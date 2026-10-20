@@ -45,9 +45,10 @@ import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
-import { oeffneModellBruecke } from "./modell-bruecke.js";
+import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
+import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
@@ -502,7 +503,12 @@ async function main(): Promise<void> {
       werkzeuge.register(new WebSearchExecutor());
       werkzeuge.register(new BrowserExecutor());
       const freigaben = new LeseFreigaben();
-      const bruecke = await oeffneModellBruecke(antrieb, { mcp: (n) => mcpAntwort(n, werkzeuge, freigaben) });
+      // Pakete (VKd3): npm und PyPI nur von der festen Liste, über die Brücke – mit Tor durch Tor
+      const spiegelKonto = new SpiegelKonto();
+      const bruecke = await oeffneModellBruecke(antrieb, {
+        mcp: (n) => mcpAntwort(n, werkzeuge, freigaben),
+        spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
+      });
       process.on("exit", () => bruecke.schliesse());
       code = new CodeLaeufe({
         ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
