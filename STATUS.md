@@ -12030,3 +12030,34 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VK4: „Pakete holt der Knoten“, W6a). Oh
 - `.npmrc` und `pip.conf` im Motor, nie durch einen Verweis.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKg1c – Vorschau mit Dev-Server und Hot Reload
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a/b (Vorschau) und VKd3 (Pakete). Damit ist VKg1 fertig.
+
+**Neu:**
+- `dev-server.ts`: Nennt `package.json` ein Skript `dev`, startet der Knoten beim ersten Aufruf der Vorschau `npm run dev`
+  in der Sandbox (`sandboxDienst()`, ohne Netz, mit `PORT=5173`).
+  - Erreichbar nur über `freedom_motor.py --zurueck`: Das Skript lauscht an einem Socket in einem Ordner, den der Knoten
+    anlegt und nur dieser Sandbox schreibbar gibt, und reicht an `127.0.0.1:5173` in der Sandbox weiter.
+  - Höchstens drei zugleich; nach 30 Minuten ohne Aufruf beendet.
+- `vorschau.ts`: Mit Dev-Server leitet die Vorschau jede Anfrage weiter, jede Methode, auch WebSocket für Hot Reload.
+  - Host und Origin wie auf dem Rechner selbst (`devKopf()`) – Vite lässt sonst nichts durch.
+  - Ohne das eigene Cookie und ohne Referer.
+  - Ohne Dev-Server bleibt alles wie in VKg1a: nur Dateien, nur lesen.
+- `sandbox.ts` (Spur B, klein): `schreibbar` für weitere Orte, `sandboxDienst()` für lange laufende Dienste.
+- `main.ts`: Dev-Server nur, wenn die Sandbox geht.
+
+**Gemessen** (Sandbox, echte Registry über den Spiegel, Chromium):
+- Vite 6 installiert über die Brücke.
+- Erste Seite nach 1,5 s, Start des Dev-Servers eingeschlossen.
+- Eine Änderung an `main.js` erscheint nach 45 ms, ohne Neuladen.
+
+**Tests:** node +5:
+- Befehl nur mit Skript `dev` in einer echten `package.json`.
+- `schreibbar` nie über `/arbeit`.
+- Höchstens drei, je Projekt einer, Leerlauf.
+- Ein Dienst in bubblewrap, erreichbar nur über den Socket.
+- Weiterleitung: Methode, Kopfzeilen, Cookie, WebSocket mit Echo; ohne Cookie oder ohne Dev-Server zu.
+
+Knoten-Stand: nur der Knoten.

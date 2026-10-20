@@ -48,6 +48,7 @@ import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-c
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
+import { DevServer } from "./dev-server.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
@@ -484,6 +485,13 @@ async function main(): Promise<void> {
   if (projekte) {
     const sandbox = await pruefeSandbox();
     console.log(`[code] ${sandboxText(sandbox)}`);
+    // Dev-Server der Vorschau (VKg1c): `npm run dev` nur in der Sandbox – ohne sie zeigt die Vorschau nur die Dateien
+    if (vorschau && sandbox.ok) {
+      const dev = new DevServer(projekte);
+      vorschau.nutzeDev(dev);
+      setInterval(() => dev.raeumeAuf(), 5 * 60_000).unref();
+      process.on("exit", () => dev.beendeAlle());
+    }
     const hermesWahl = hermesAusUmgebung(process.env);
     if ("ungueltig" in hermesWahl) {
       console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);

@@ -664,7 +664,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   ändert sich bei jedem Start. Über http im Heimnetz kann mitlesen, wer im selben
   Netz ist – für unterwegs `.onion` oder https. Ausgeliefert wird nur gelesen:
   `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt, nie
-  `.git`, `.env` oder Verweise hinaus.
+  `.git`, `.env` oder Verweise hinaus. Nennt `package.json` ein Skript `dev` (seit
+  VKg1c), startet der Knoten beim ersten Aufruf der Vorschau `npm run dev` in der
+  Sandbox – ohne Netz, wie jeden Code des Projekts – und leitet die Vorschau dorthin
+  weiter, auch Hot Reload: Änderungen des Agenten erscheinen ohne Neuladen. Der
+  Server muss in der Sandbox auf `127.0.0.1:5173` lauschen; Vite tut das von selbst,
+  andere nehmen `PORT`. Höchstens drei laufen zugleich, nach 30 Minuten ohne Aufruf
+  endet einer; ohne Sandbox zeigt die Vorschau nur die Dateien.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem
