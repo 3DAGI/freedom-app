@@ -222,6 +222,34 @@ test("Verteilen (4.9): fremde Anbieter abwechselnd statt immer derselbe – eige
   assert.equal(gefragt, 0);
 });
 
+test("Ein Vorgang (A-21d3a): alle Anfragen beim selben Anbieter, der Pool verteilt weiter; Ausfälle teilen beide", async () => {
+  const alleOk = { [E(1)]: "ok", [E(2)]: "ok", [E(3)]: "ok" } as const;
+  const log: string[] = [];
+  const zahlen = [0.9, 0.1, 0.5, 0.2, 0.8, 0.4, 0.3, 0.7, 0.6];
+  let i = 0;
+  const pool = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk, log), verteilen: true, zufall: () => zahlen[i++ % zahlen.length] });
+  const vorgang = pool.einVorgang();
+  for (let n = 0; n < 6; n++) await vorgang.getBalance("x");
+  assert.deepEqual(log, Array(6).fill(E(2)), "einmal gezogen: 0.9, 0.1, 0.5 – rpc2 vorn, bei jeder Nachfrage");
+  log.length = 0;
+  for (let n = 0; n < 3; n++) await pool.getBalance("x");
+  assert.ok(new Set(log).size > 1, "der Pool selbst zieht weiter je Anfrage neu");
+
+  // Fällt der gezogene aus, weicht der Vorgang aus – und der Pool kennt den Ausfall
+  const log2: string[] = [];
+  let j = 0;
+  const halb = new RpcPool(endpoints, { fetchImpl: fakeFetch({ [E(1)]: "ok", [E(2)]: "tot", [E(3)]: "ok" }, log2), verteilen: true, zufall: () => [0.9, 0.1, 0.5][j++ % 3] });
+  const v2 = halb.einVorgang();
+  await v2.getBalance("x");
+  await v2.getBalance("x");
+  assert.deepEqual(log2, [E(2), E(3), E(3)], "nach dem Ausfall bleibt er beim nächsten der gezogenen Reihenfolge");
+  assert.equal(halb.status().find((s) => s.url === E(2))!.failures, 1);
+
+  // Ohne Verteilen gibt es nichts zu ziehen
+  const fest = new RpcPool(endpoints, { fetchImpl: fakeFetch(alleOk) });
+  assert.equal(fest.einVorgang(), fest);
+});
+
 // ------------------------------------------------------------- Stichprobe (5.8)
 
 const G_MAIN = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";

@@ -2,10 +2,15 @@
  * Solana-RPC über `@solana/kit` auf dem `RpcPool` (A-21c, `docs/KIT-PLAN.md`): kit baut die
  * Anfragen und liest die Antworten, gesendet wird nur über den Pool – mit Ausweichen, Sperrfrist
  * und eigenen Endpunkten zuerst; die Stichprobe (5.8) bleibt beim Pool. Lesepfade (Sperren,
- * Deposits, Kanäle) nehmen eine `SolRpc`; die Schreibpfade folgen mit A-21d/e.
+ * Deposits, Kanäle) nehmen eine `SolRpc`; geschrieben wird seit A-21d3a ebenso – senden mit Vorabsimulation,
+ * bestätigen durch Nachfragen (`warteAufBestaetigung()`), ohne Websocket.
  */
-import { address, createSolanaRpcFromTransport, type Base58EncodedBytes, type Rpc, type RpcTransport, type SolanaRpcApi } from "@solana/kit";
+import {
+  address, createSolanaRpcFromTransport, getBase64Decoder, signature, type Base58EncodedBytes, type Base64EncodedWireTransaction,
+  type Rpc, type RpcTransport, type SolanaRpcApi, type TransactionError,
+} from "@solana/kit";
 import type { RpcPool } from "./rpc-pool.js";
+import { ProtokollFehler } from "./fehler.js";
 
 export type SolRpc = Rpc<SolanaRpcApi>;
 
@@ -82,4 +87,52 @@ export async function leseProgrammKonten(
 /** Guthaben in Lamports (bestätigt). */
 export async function leseGuthaben(rpc: SolRpc, adresse: string): Promise<bigint> {
   return (await rpc.getBalance(address(adresse), { commitment: "confirmed" }).send()).value;
+}
+
+/** Der neueste Blockhash (bestätigt) und die letzte Blockhöhe, bis zu der eine Transaktion damit gilt. */
+export async function neuesterBlockhash(rpc: SolRpc): Promise<{ blockhash: string; letzteHoehe: bigint }> {
+  const { value } = await rpc.getLatestBlockhash({ commitment: "confirmed" }).send();
+  return { blockhash: value.blockhash, letzteHoehe: value.lastValidBlockHeight };
+}
+
+/**
+ * Schickt eine signierte Transaktion (Drahtformat, `alsDraht()`) und liefert ihre Signatur – immer mit
+ * Vorabsimulation: Was die Kette ablehnen würde, gelangt gar nicht erst in einen Block (nie `skipPreflight`).
+ */
+export async function sendeTransaktion(rpc: SolRpc, roh: Uint8Array): Promise<string> {
+  const draht = getBase64Decoder().decode(roh) as Base64EncodedWireTransaction;
+  return rpc.sendTransaction(draht, { encoding: "base64", preflightCommitment: "confirmed" }).send();
+}
+
+const bestaetigt = (s: { confirmationStatus: string | null } | null): boolean =>
+  s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized";
+
+/**
+ * Wartet, bis die Kette die Transaktion bestätigt (confirmed oder finalized), und liefert ihren Fehler –
+ * `null` heißt gelungen. Ohne Websocket: fragt in Abständen nach dem Stand. Liegt die Blockhöhe über
+ * `letzteHoehe` und kennt die Kette die Signatur noch immer nicht, kommt sie nie mehr in einen Block –
+ * dann `tx-abgelaufen` (nur für Transaktionen mit Blockhash, nicht mit Durable Nonce).
+ */
+export async function warteAufBestaetigung(
+  rpc: SolRpc, signatur: string, letzteHoehe: bigint,
+  opts: { abstandMs?: number; warte?: (ms: number) => Promise<void> } = {},
+): Promise<TransactionError | null> {
+  const warte = opts.warte ?? ((ms: number) => new Promise<void>((weiter) => setTimeout(weiter, ms)));
+  const stand = async () => (await rpc.getSignatureStatuses([signature(signatur)]).send()).value[0] ?? null;
+  for (;;) {
+    const s = await stand();
+    if (bestaetigt(s)) return s!.err;
+    if ((await rpc.getBlockHeight({ commitment: "confirmed" }).send()) > letzteHoehe) {
+      // Zwischen beiden Fragen kann sie noch bestätigt worden sein
+      const spaet = await stand();
+      if (bestaetigt(spaet)) return spaet!.err;
+      throw new ProtokollFehler("tx-abgelaufen", "Die Transaktion kam nicht rechtzeitig in einen Block – gebucht wurde nichts");
+    }
+    await warte(opts.abstandMs ?? 1000);
+  }
+}
+
+/** Ein Fehler der Kette als Text – kit liefert Zahlen darin als BigInt, die `JSON.stringify()` sonst nicht kann. */
+export function txFehlerText(fehler: unknown): string {
+  return JSON.stringify(fehler, (_k, v: unknown) => (typeof v === "bigint" ? Number(v) : v)) ?? String(fehler);
 }

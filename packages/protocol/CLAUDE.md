@@ -132,3 +132,11 @@ Fallstricke dieses Bereichs unten anhängen.
   falschen Rechnung ergeben nicht das Geheimnis“ hing an einem zufälligen Dreier – ob er passt, hängt nur an den x-Werten
   der Bibliothek, für alle Bytes zugleich: etwa jeder 250. Lauf passte (in der CI rot). Was nur „meistens“ gilt, über alle
   Möglichkeiten prüfen (hier: nicht alle zehn Dreier) und die Rate einmal messen, bevor man sich auf sie verlässt.
+- **Senden und Bestätigen nur über `kit-rpc.ts`** (seit A-21d3a): `sendeTransaktion()` schickt immer mit Vorabsimulation
+  (nie `skipPreflight`), bestätigt wird nur über `warteAufBestaetigung()` – sie fragt nach, bis „confirmed“, und gibt den
+  Fehler der Kette zurück (`null` heißt gelungen), statt zu werfen; über der letzten Blockhöhe ohne Bestätigung wirft sie
+  `tx-abgelaufen` (nur für Blockhash, nie für Durable Nonce). kit liefert Zahlen in Fehlern als BigInt – `JSON.stringify()`
+  wirft dann; als Text nur über `txFehlerText()`. Lehnt die Vorabsimulation ab, wirft kit einen `SolanaError` (-32002), der
+  Fehler des Programms steht in `cause` (`context.code`), und der Pool reicht ihn nicht an den nächsten Endpunkt.
+  Senden und Nachfragen einer Transaktion nur über `RpcPool.einVorgang()` (App: `solRpc({ einVorgang: true })`): Mit
+  `verteilen` zieht der Pool je Anfrage neu – sonst sähen alle Anbieter die Signatur samt IP (4.9).

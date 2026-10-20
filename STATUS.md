@@ -12250,3 +12250,31 @@ Gemessen mit dem Skript aus VKg2c1 und einem Angebot mit 120: Die Verbindung ste
 - `empfange()` wartet jetzt auch auf genug Bilder.
 
 Knoten-Stand: nur der Knoten.
+## Schritt A-21d3a – Senden und Bestätigen über den Pool: Baustein und Zahlschienen
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). A-21d3 berührt rund zehn Dateien der App – deshalb drei Teile:
+a Baustein und Zahlschienen, b HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen, c
+`pruefeRelayAuftrag()`.
+
+**Geändert:**
+- `protocol/src/kit-rpc.ts`: `neuesterBlockhash()` (letzte Höhe als BigInt), `sendeTransaktion()` (Base64, immer mit
+  Vorabsimulation), `warteAufBestaetigung()` (fragt nach, bis „confirmed“, gibt den Fehler der Kette zurück; über der
+  letzten Blockhöhe ohne Bestätigung `tx-abgelaufen`, ohne Websocket) und `txFehlerText()` (Fehler mit BigInt als Text).
+- App: `buildSolTransfer()` nimmt eine `SolRpc` und fragt den Blockhash über den Pool; ihr eigener zweiter Pool in
+  `sol-transfer.ts` fällt. `shell/zahlschienen.ts` sendet, legt das Nonce-Konto an, liest und schließt es, reicht
+  Offline-Überweisungen ein und wählt den Absender über `solRpc()` – kein `Connection` mehr. Lehnt die Kette das Anlegen
+  oder Schließen ab, sagt die App es (bisher blieb ein Fehler nach `confirmTransaction()` unbemerkt).
+- `RpcPool.einVorgang()`: Mit `verteilen` (4.9) zieht der Pool die Reihenfolge der fremden Anbieter je Anfrage neu –
+  beim Nachfragen bis zur Bestätigung sähen sonst alle Anbieter die Signatur samt IP. Ein Vorgang zieht einmal und
+  bleibt dabei; Ausfälle teilt er mit dem Pool. Die App nimmt ihn für Nonce-Konto anlegen und schließen
+  (`solRpc({ einVorgang: true })`).
+- Text `pf.txAbgelaufen` (de/en).
+
+**Tests:** protocol 1331 → 1336 (`rpc-pool.test.ts`: ein Vorgang bleibt beim selben Anbieter, der Pool verteilt weiter,
+nach einem Ausfall weicht er aus und der Pool kennt ihn; ohne Verteilen derselbe Pool. `kit-rpc.test.ts`: Blockhash und Senden mit Vorabsimulation; Ablehnung der
+Vorabsimulation als `SolanaError` mit dem Fehler des Programms, nur ein Endpunkt; Bestätigen mit und ohne Fehler, BigInt
+im Text; abgelaufen, spät doch bestätigt, genau auf der letzten Höhe noch gültig). App: Vektoren der Überweisung über kit
+und einen Pool-Endpunkt als Attrappe, unverändert; `solana-privat` prüft, dass Überweisung und Zahlschienen keinen eigenen
+Pool und keine `Connection` mehr bauen.
+
+Knoten-Stand: nicht berührt.

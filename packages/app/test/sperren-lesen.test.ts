@@ -48,9 +48,11 @@ test("Rückhol-Wächter: offen sind nur Sperren auf der Kette, die weder eingel�
 test("verdrahtet: Sperren und Kanäle nur über solRpc() lesen – der gemeinsame Pool", () => {
   const src = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   const state = src("shell/state.ts");
-  const f = state.slice(state.indexOf("export async function solRpc()"), state.indexOf("export async function solRpcUrl()"));
+  const f = state.slice(state.indexOf("export async function solRpc("), state.indexOf("export async function solRpcUrl()"));
+  assert.ok(f.length > 0, "solRpc() gefunden");
   assert.match(f, /ensureRpcPool\(\)/);
-  assert.match(f, /return poolRpc\(pool\);/);
+  // Ohne Angabe der gemeinsame Pool; ein Vorgang (A-21d3a) bleibt bei einem Anbieter desselben Pools
+  assert.match(f, /return poolRpc\(opts\.einVorgang \? pool\.einVorgang\(\) : pool\);/);
   const tausch = src("shell/tabs/tausch.ts");
   assert.match(tausch, /const reader = AnchorSolanaHtlc\.reader\(await solRpc\(\)\);/);
   assert.match(tausch, /walletRefundRunner\(conn, signer, await solRpc\(\)\)/);

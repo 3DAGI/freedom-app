@@ -5,7 +5,7 @@
  * merkt, was gesendet wird; die Wallet signiert mit einem festen Schlüssel.
  */
 import { Keypair, VersionedTransaction } from "@solana/web3.js";
-import { kanalAdresse, oeffneKanalAnweisung, signiereMit, stockeKanalAufAnweisung } from "@freedomstack/protocol";
+import { RpcPool, kanalAdresse, oeffneKanalAnweisung, poolRpc, signiereMit, stockeKanalAufAnweisung, type SolRpc } from "@freedomstack/protocol";
 import { lockDeposit, lockRueckSwap, refundDepositOnChain, type WalletSigner } from "../src/sol-htlc.js";
 import { claimSwap } from "../src/swap-client.js";
 import { baueRelayEinloesung } from "../src/relay-einloesung.js";
@@ -30,6 +30,16 @@ function attrappe(): { connection: never; gesendet: Uint8Array[] } {
     confirmTransaction: async () => ({ value: { err: null } }),
   };
   return { connection: connection as never, gesendet };
+}
+
+/** Seit A-21d3a fragt die Überweisung den Blockhash über kit und den Pool – hier ein Endpunkt als Attrappe. */
+function kette(): SolRpc {
+  const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const { id, method } = JSON.parse(String(init!.body)) as { id: number; method: string };
+    if (method !== "getLatestBlockhash") throw new TypeError(`unerwartet: ${method}`);
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id, result: { context: { slot: 1 }, value: { blockhash: BLOCKHASH, lastValidBlockHeight: 1_000 } } }));
+  }) as typeof fetch;
+  return poolRpc(new RpcPool([{ url: "https://rpc.test" }], { fetchImpl }));
 }
 
 /** Seit A-21d2 bekommt die Wallet eine Transaktion aus kit und signiert über `signiereMit()`. */
@@ -73,8 +83,8 @@ export async function appFaelle(): Promise<Record<string, string>> {
     })])),
     "kanal-aufstocken": await gesendet(({ connection }) => sendeMitWallet(connection, wallet(1), [stockeKanalAufAnweisung({ kunde: KUNDE, kanal, betrag: 10_000_000n })])),
     // Seit A-21d2 baut kit die Überweisung – die Nachricht steht in `messageBytes`
-    "ueberweisung": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, undefined, attrappe().connection)).messageBytes)),
-    "ueberweisung-referenz": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, adresse(12), attrappe().connection)).messageBytes)),
+    "ueberweisung": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, undefined, kette())).messageBytes)),
+    "ueberweisung-referenz": alsText(Uint8Array.from((await buildSolTransfer(KUNDE, adresse(11), 2_500_000, adresse(12), kette())).messageBytes)),
   };
 }
 

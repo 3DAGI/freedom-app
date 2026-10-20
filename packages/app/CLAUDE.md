@@ -777,8 +777,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `@freedomstack/protocol` (`kit-bruecke.ts`); seit A-21d2 baut kit auch jede Transaktion der App (`baueTransaktion()`,
   `signiertVonWallet()` in `sol-htlc.ts`), Wallets bekommen nur kit-Transaktionen über `WalletSigner.signiereTransaktion()` –
   die eingebaute über ihr `signiereTransaktion()` (Kopien genullt), Wallet Standard als Bytes (`alsAnbieter()`), Wallets nur
-  mit `window.solana` über `ueberWeb3()` (bis W4). Nie wieder `signTransaction(web3Tx)` als Schnittstelle. Gesendet wird bis
-  A-21d3 über `Connection.sendRawTransaction(alsDraht(…))`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
+  mit `window.solana` über `ueberWeb3()` (bis W4). Nie wieder `signTransaction(web3Tx)` als Schnittstelle. Gesendet wird
+  seit A-21d3a über den Pool: Überweisung, Zahlschienen, Nonce-Konto und SOL ohne Internet über `sendeTransaktion()` und
+  `warteAufBestaetigung()` (`kit-rpc.ts`), Senden und Nachfragen einer Transaktion mit `solRpc({ einVorgang: true })`;
+  HTLC, Tausch, Relayer und Zahlkanal bis A-21d3b noch über `Connection.sendRawTransaction(alsDraht(…))`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
   und wird gleich danach genullt. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der

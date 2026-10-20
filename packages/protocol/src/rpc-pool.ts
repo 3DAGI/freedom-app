@@ -160,6 +160,8 @@ export class RpcPool {
   private readonly fetchImpl: typeof fetch;
   private readonly verteilen: boolean;
   private readonly zufall: () => number;
+  /** Fest gezogene Reihenfolge eines Vorgangs (`einVorgang()`); sonst je Anfrage neu. */
+  private readonly festesLos?: Map<EndpointState, number>;
 
   constructor(endpoints: RpcEndpoint[] = DEFAULT_MAINNET_RPCS, opts: RpcPoolOptions = {}) {
     // Eigene Endpunkte zuerst: Wer einen eigenen Knoten betreibt, soll ihn
@@ -208,10 +210,23 @@ export class RpcPool {
     const liste = frei.length > 0 ? frei : [...this.states];
     if (this.verteilen) {
       // Eigene vorn, dann die fremden in zufaelliger Reihenfolge (weniger Fehler zuerst).
-      const los = new Map(liste.map((s) => [s, this.zufall()]));
+      const los = this.festesLos ?? new Map(liste.map((s) => [s, this.zufall()]));
       return liste.sort((a, b) => Number(!!b.eigen) - Number(!!a.eigen) || a.failures - b.failures || los.get(a)! - los.get(b)!);
     }
     return liste.sort((a, b) => a.failures - b.failures || (a.lastLatencyMs ?? 0) - (b.lastLatencyMs ?? 0));
+  }
+
+  /**
+   * Derselbe Pool für einen Vorgang (A-21d3a), etwa eine Transaktion senden und bis zur Bestätigung
+   * nachfragen: Die Reihenfolge der fremden Anbieter wird einmal gezogen und gilt für alle Anfragen
+   * des Vorgangs – sonst fragte jede Nachfrage einen anderen, und am Ende sähen alle Anbieter die
+   * Signatur samt IP (4.9). Ausfälle und Sperrfristen teilt er mit dem Pool; fällt der gezogene aus,
+   * weicht er wie gewohnt aus.
+   */
+  einVorgang(): RpcPool {
+    if (!this.verteilen) return this;
+    const festesLos = new Map(this.states.map((s) => [s, this.zufall()]));
+    return Object.assign(Object.create(this) as RpcPool, { festesLos });
   }
 
   /**
