@@ -130,3 +130,5 @@ Fallstricke dieses Bereichs unten anhängen.
   `tx-abgelaufen` (nur für Blockhash, nie für Durable Nonce). kit liefert Zahlen in Fehlern als BigInt – `JSON.stringify()`
   wirft dann; als Text nur über `txFehlerText()`. Lehnt die Vorabsimulation ab, wirft kit einen `SolanaError` (-32002), der
   Fehler des Programms steht in `cause` (`context.code`), und der Pool reicht ihn nicht an den nächsten Endpunkt.
+  Senden und Nachfragen einer Transaktion nur über `RpcPool.einVorgang()` (App: `solRpc({ einVorgang: true })`): Mit
+  `verteilen` zieht der Pool je Anfrage neu – sonst sähen alle Anbieter die Signatur samt IP (4.9).

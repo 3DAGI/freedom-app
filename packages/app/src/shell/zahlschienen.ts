@@ -53,7 +53,10 @@ async function sende(signiert: SolTransaktion): Promise<string> {
   return sendeTransaktion(await solRpc(), alsDraht(signiert));
 }
 
-/** Senden und warten, bis die Kette bestaetigt; lehnt sie ab, mit ihrem Fehler (Nonce-Konto anlegen, schliessen). */
+/**
+ * Senden und warten, bis die Kette bestaetigt; lehnt sie ab, mit ihrem Fehler (Nonce-Konto anlegen, schliessen).
+ * `rpc` aus `solRpc({ einVorgang: true })` – die Nachfragen gehen an denselben Anbieter wie das Senden.
+ */
 async function sendeUndBestaetige(rpc: SolRpc, signiert: SolTransaktion, letzteHoehe: bigint): Promise<void> {
   const fehler = await warteAufBestaetigung(rpc, await sendeTransaktion(rpc, alsDraht(signiert)), letzteHoehe);
   if (fehler) throw new Error(t("zahl.txAbgelehnt", { fehler: txFehlerText(fehler) }));
@@ -157,7 +160,7 @@ async function legeStandAb(konto: string): Promise<NonceAblage> {
  */
 export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr: number; gesamt: number }) => Promise<boolean>): Promise<NonceAblage> {
   const e = offlineWallet();
-  const rpc = await solRpc();
+  const rpc = await solRpc({ einVorgang: true });
   const miete = Number(await rpc.getMinimumBalanceForRentExemption(BigInt(NONCE_KONTO_BYTES), { commitment: "confirmed" }).send());
   if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
   const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);
@@ -187,7 +190,7 @@ export async function schliesseNonceKonto(): Promise<number> {
   const e = offlineWallet();
   const a = leseAblage(geheim);
   if (!a) throw new Error(t("zahl.keinNonceAngelegt"));
-  const rpc = await solRpc();
+  const rpc = await solRpc({ einVorgang: true });
   const guthaben = Number(await leseGuthaben(rpc, a.konto));
   if (guthaben > 0) {
     const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);

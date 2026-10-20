@@ -128,7 +128,8 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
       BigInt). Über den Pool laufen jetzt die Überweisung (`buildSolTransfer()` nimmt eine
       `SolRpc`), das Senden der Schienen, Nonce-Konto anlegen, lesen und schließen, das
       Einreichen einer Offline-Überweisung und die Wahl des Absenders. Der zweite Pool in
-      `sol-transfer.ts` fällt;
+      `sol-transfer.ts` fällt. Senden und Nachfragen einer Transaktion gehen an denselben
+      Anbieter (`RpcPool.einVorgang()`) – sonst sähen beim Verteilen alle die Signatur;
     - **A-21d3b** HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen der App
       über `solRpc()`; Fehler des HTLC-Programms aus `SolanaError` (Code als BigInt);
     - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit.

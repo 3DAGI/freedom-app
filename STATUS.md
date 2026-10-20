@@ -11226,9 +11226,14 @@ a Baustein und Zahlschienen, b HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quitt
   `sol-transfer.ts` fällt. `shell/zahlschienen.ts` sendet, legt das Nonce-Konto an, liest und schließt es, reicht
   Offline-Überweisungen ein und wählt den Absender über `solRpc()` – kein `Connection` mehr. Lehnt die Kette das Anlegen
   oder Schließen ab, sagt die App es (bisher blieb ein Fehler nach `confirmTransaction()` unbemerkt).
+- `RpcPool.einVorgang()`: Mit `verteilen` (4.9) zieht der Pool die Reihenfolge der fremden Anbieter je Anfrage neu –
+  beim Nachfragen bis zur Bestätigung sähen sonst alle Anbieter die Signatur samt IP. Ein Vorgang zieht einmal und
+  bleibt dabei; Ausfälle teilt er mit dem Pool. Die App nimmt ihn für Nonce-Konto anlegen und schließen
+  (`solRpc({ einVorgang: true })`).
 - Text `pf.txAbgelaufen` (de/en).
 
-**Tests:** protocol 1331 → 1335 (`kit-rpc.test.ts`: Blockhash und Senden mit Vorabsimulation; Ablehnung der
+**Tests:** protocol 1331 → 1336 (`rpc-pool.test.ts`: ein Vorgang bleibt beim selben Anbieter, der Pool verteilt weiter,
+nach einem Ausfall weicht er aus und der Pool kennt ihn; ohne Verteilen derselbe Pool. `kit-rpc.test.ts`: Blockhash und Senden mit Vorabsimulation; Ablehnung der
 Vorabsimulation als `SolanaError` mit dem Fehler des Programms, nur ein Endpunkt; Bestätigen mit und ohne Fehler, BigInt
 im Text; abgelaufen, spät doch bestätigt, genau auf der letzten Höhe noch gültig). App: Vektoren der Überweisung über kit
 und einen Pool-Endpunkt als Attrappe, unverändert; `solana-privat` prüft, dass Überweisung und Zahlschienen keinen eigenen
