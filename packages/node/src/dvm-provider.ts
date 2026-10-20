@@ -66,6 +66,7 @@ import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-ag
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
 import type { VorschauServer } from "./vorschau.js";
+import type { BildStrom } from "./bildstrom.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { PfandKasse } from "./pfand-kasse.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -165,6 +166,8 @@ export interface ProviderConfig {
   code?: CodeLaeufe;
   /** Vorschau der Projekte unter eigenem Ursprung (VKg1a, `VORSCHAU_URL`) – ohne: `code-vorschau-aus`. */
   vorschau?: Pick<VorschauServer, "adresse">;
+  /** Bildstrom für Programme ohne Web (VKg2a2) – nur mit Sandbox, eigenem TURN und GStreamer; ohne: `code-bild-aus`. */
+  bild?: Pick<BildStrom, "starte" | "beende">;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -932,7 +935,11 @@ export class DvmProvider {
     } else if (a.aktion === "vorschau") {
       if (!this.cfg.vorschau) throw new CodeAbgelehnt("code-vorschau-aus");
       antwort = { aktion: "vorschau", url: this.cfg.vorschau.adresse(a.projekt) };
-    } else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
+    } else if (a.aktion === "bild") {
+      if (!this.cfg.bild) throw new CodeAbgelehnt("code-bild-aus");
+      antwort = { aktion: "bild", sdp: await this.cfg.bild.starte(a.projekt, a.sdp, { breite: a.breite, hoehe: a.hoehe }) };
+    } else if (a.aktion === "bild-ende") antwort = { aktion: "bild-ende", ok: this.cfg.bild?.beende(a.projekt) ?? false };
+    else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
       ? { aktion: "freigabe", ok: this.cfg.code.freigabe(a.lauf, a.schritt, a.ja) }

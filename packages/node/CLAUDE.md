@@ -451,3 +451,11 @@ Bereichs unten anhängen.
   nur eine UDP-Allokation durch und Gegenstellen nur aus `relayAdressen()` des Angebots der App; neue STUN-Methoden nur mit
   Blick darauf, wohin sie vermitteln. ChannelData mit Nummern bis 0x7FFF: coturn vergibt sie wie RFC 5766, nicht nur bis
   0x4FFF wie RFC 8656 – so verlor der erste Test mit `turnutils_uclient` alle Pakete.
+- **Bildstrom nur über `BildStrom`** (seit VKg2a2, `bildstrom.ts`): zwei Sandboxen – das Bild (`motor/freedom_bild.py`,
+  `mitEinAusgabe`, Tunnel aus `turn-tunnel.ts`) und das Programm des Projekts (`bildBefehl()`, ohne Ein- und Ausgabe);
+  gemeinsam nur der Ordner mit dem Socket des Bildschirms (`/tmp/.X11-unix`). Nie das Programm in der Bild-Sandbox
+  starten: Es könnte den Zugang zum TURN lesen oder eine Antwort an die App unterschieben (andere Gegenstelle, Daten in
+  ICE-Feldern). stdin der Bild-Sandbox bleibt offen – `end()` beendet das Bild sofort (so hing der erste Ende-zu-Ende-Test).
+  PyGObject: den ICE-Agenten (`get_property("ice-agent")`) in einer Liste halten, sonst gibt die Hülle ihn frei; die Antwort
+  eines Promise samt Wert in Namen halten, bevor man ihn weitergibt. In der Sandbox gibt es nur `lo`: ohne
+  `add-local-ip-address 127.0.0.1` sammelt libnice nichts.

@@ -23,6 +23,9 @@ export const CODE_FALL_TEXT: Record<string, string> = {
   "code-zu-gross": "set.codeZuGross",
   "code-commit": "set.codeCommit",
   "code-vorschau-aus": "set.codeVorschauAus",
+  "code-bild-aus": "set.codeBildAus",
+  "code-bild-kein-programm": "set.codeBildKeinProgramm",
+  "code-bild-fehler": "set.codeBildFehler",
 };
 
 /** Warum der Knoten ablehnte – bekannte Kennung als Text, sonst nur, dass er ablehnte (seine Meldung bleibt draußen). */

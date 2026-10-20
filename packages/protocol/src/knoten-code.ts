@@ -19,6 +19,7 @@ import { buildPrivateJobRequest } from "./private-job.js";
 import type { NostrEvent } from "./event.js";
 import type { Signer } from "./signer.js";
 import { type DateiSchluessel, istDateiSchluessel } from "./datei-krypto.js";
+import { istRelayKandidat, pruefeSdpNurRelay } from "./anruf.js";
 
 /** Grenzen – was darüber liegt, baut und liest dieses Modul nicht. */
 export const CODE_GRENZEN = {
@@ -49,6 +50,8 @@ export const CODE_GRENZEN = {
   diff: 30_000,
   /** Adresse der Vorschau (VKg1a), in Zeichen. */
   vorschau: 300,
+  /** Bildschirm des Bildstroms (VKg2a2), in Pixeln – gerade Zahlen, die Kodierer brauchen sie. */
+  bild: { breite: [320, 1920], hoehe: [240, 1080] },
 } as const;
 
 /** Name eines Projekts: zugleich Name seines Ordners auf dem Knoten – klein, ohne Punkt und Schrägstrich. */
@@ -77,9 +80,15 @@ export type CodeAktion =
   | { aktion: "diff"; projekt: string; commit: string }
   | { aktion: "zurueck"; projekt: string; commit: string }
   /** Adresse der Vorschau des Projekts (VKg1a) – der Knoten liefert es live unter eigenem Ursprung aus. */
-  | { aktion: "vorschau"; projekt: string };
+  | { aktion: "vorschau"; projekt: string }
+  /**
+   * Bildstrom (VKg2a2): das Angebot der App (SDP mit allen Kandidaten, nur vom Typ „relay“) und die Größe des
+   * Bildschirms; die Antwort trägt das SDP des Knotens. `bild-ende` beendet das Bild des Projekts.
+   */
+  | { aktion: "bild"; projekt: string; sdp: string; breite: number; hoehe: number }
+  | { aktion: "bild-ende"; projekt: string };
 
-export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle", "verlauf", "diff", "zurueck", "vorschau"] as const;
+export const CODE_AKTIONEN = ["liste", "neu", "auftrag", "freigabe", "stopp", "bundle", "verlauf", "diff", "zurueck", "vorschau", "bild", "bild-ende"] as const;
 
 /** Je Aktion die erlaubten Parameter, jeder genau einmal. */
 const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
@@ -93,9 +102,22 @@ const PARAMETER: Record<CodeAktion["aktion"], readonly string[]> = {
   diff: ["projekt", "commit"],
   zurueck: ["projekt", "commit"],
   vorschau: ["projekt"],
+  bild: ["projekt", "sdp", "breite", "hoehe"],
+  "bild-ende": ["projekt"],
 };
 
 const istSchrittNr = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= CODE_GRENZEN.schritte;
+const imBereich = (n: unknown, [von, bis]: readonly [number, number]): n is number =>
+  Number.isSafeInteger(n) && (n as number) >= von && (n as number) <= bis && (n as number) % 2 === 0;
+
+/**
+ * SDP für den Bildstrom (VKg2a2): wie beim Anruf nur Relay-Kandidaten samt Fingerabdruck (`pruefeSdpNurRelay()`), und
+ * mindestens einer – ohne Trickle kommen alle mit dem Angebot, und der Knoten erlaubt nur ihre Adressen.
+ */
+export function istBildSdp(sdp: unknown): sdp is string {
+  return typeof sdp === "string" && pruefeSdpNurRelay(sdp)
+    && sdp.split(/\r?\n/).some((z) => z.startsWith("a=candidate:") && istRelayKandidat(z.slice(2)));
+}
 
 /** Aktion prüfen – dieselben Regeln beim Bauen (App) und Lesen (Knoten); sonst null. */
 function gepruefteAktion(a: CodeAktion): CodeAktion | null {
@@ -118,7 +140,12 @@ function gepruefteAktion(a: CodeAktion): CodeAktion | null {
       return istProjektName(a.projekt) ? { aktion: "bundle", projekt: a.projekt } : null;
     case "verlauf":
     case "vorschau":
+    case "bild-ende":
       return istProjektName(a.projekt) ? { aktion: a.aktion, projekt: a.projekt } : null;
+    case "bild":
+      if (!istProjektName(a.projekt) || !istBildSdp(a.sdp)) return null;
+      if (!imBereich(a.breite, CODE_GRENZEN.bild.breite) || !imBereich(a.hoehe, CODE_GRENZEN.bild.hoehe)) return null;
+      return { aktion: "bild", projekt: a.projekt, sdp: a.sdp, breite: a.breite, hoehe: a.hoehe };
     case "diff":
     case "zurueck":
       return istProjektName(a.projekt) && istCommit(a.commit) ? { aktion: a.aktion, projekt: a.projekt, commit: a.commit } : null;
@@ -136,7 +163,9 @@ function parameterVon(a: CodeAktion): string[][] {
     case "stopp": return [["lauf", a.lauf]];
     case "bundle": return [["projekt", a.projekt]];
     case "verlauf":
-    case "vorschau": return [["projekt", a.projekt]];
+    case "vorschau":
+    case "bild-ende": return [["projekt", a.projekt]];
+    case "bild": return [["projekt", a.projekt], ["sdp", a.sdp], ["breite", String(a.breite)], ["hoehe", String(a.hoehe)]];
     case "diff":
     case "zurueck": return [["projekt", a.projekt], ["commit", a.commit]];
   }
@@ -185,7 +214,12 @@ export function leseCodeAuftrag(request: Pick<NostrEvent, "kind" | "tags">): Cod
     }
     case "bundle": return gepruefteAktion({ aktion: "bundle", projekt: w.projekt! });
     case "verlauf":
-    case "vorschau": return gepruefteAktion({ aktion, projekt: w.projekt! });
+    case "vorschau":
+    case "bild-ende": return gepruefteAktion({ aktion, projekt: w.projekt! });
+    case "bild": {
+      if (!/^[1-9][0-9]{2,3}$/.test(w.breite!) || !/^[1-9][0-9]{2,3}$/.test(w.hoehe!)) return null;
+      return gepruefteAktion({ aktion: "bild", projekt: w.projekt!, sdp: w.sdp!, breite: Number(w.breite), hoehe: Number(w.hoehe) });
+    }
     case "diff":
     case "zurueck": return gepruefteAktion({ aktion, projekt: w.projekt!, commit: w.commit! });
     default: return gepruefteAktion({ aktion: "stopp", lauf: w.lauf! });
@@ -276,7 +310,10 @@ export type CodeAntwort =
   /** Der neue Commit – leer, wenn das Projekt schon so aussah. */
   | { aktion: "zurueck"; commit: string }
   /** Adresse der Vorschau: Ursprung des Vorschau-Servers, im Pfad das Zeichen des Projekts (64 Hex). */
-  | { aktion: "vorschau"; url: string };
+  | { aktion: "vorschau"; url: string }
+  /** Antwort des Knotens auf das Angebot (VKg2a2) – nur Relay-Kandidaten; ob ein Bild lief, sagt `bild-ende`. */
+  | { aktion: "bild"; sdp: string }
+  | { aktion: "bild-ende"; ok: boolean };
 
 /**
  * Adresse einer Vorschau (VKg1a): http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<64 Hex>/`.
@@ -322,7 +359,10 @@ function gepruefteAntwort(roh: unknown): CodeAntwort | null {
       return { aktion: "auftrag", ende: a.ende as CodeEnde, schritte: a.schritte as number, abschluss: a.abschluss };
     case "freigabe":
     case "stopp":
+    case "bild-ende":
       return felder === 2 && typeof a.ok === "boolean" ? { aktion: a.aktion, ok: a.ok } : null;
+    case "bild":
+      return felder === 2 && istBildSdp(a.sdp) ? { aktion: "bild", sdp: a.sdp } : null;
     case "bundle": {
       if (felder !== 5 || typeof a.blob !== "string" || !HEX64.test(a.blob) || typeof a.manifest !== "string" || !HEX64.test(a.manifest)) return null;
       if (!istDateiSchluessel(a.schluessel) || Object.keys(a.schluessel as object).length !== 4) return null;

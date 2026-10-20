@@ -49,6 +49,8 @@ import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
+import { BildStrom, bildFehlt } from "./bildstrom.js";
+import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
@@ -482,6 +484,7 @@ async function main(): Promise<void> {
   // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log. Der Motor (VKc3) nur
   // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
   let code: CodeLaeufe | undefined;
+  let bild: BildStrom | undefined;
   if (projekte) {
     const sandbox = await pruefeSandbox();
     console.log(`[code] ${sandboxText(sandbox)}`);
@@ -491,6 +494,23 @@ async function main(): Promise<void> {
       vorschau.nutzeDev(dev);
       setInterval(() => dev.raeumeAuf(), 5 * 60_000).unref();
       process.on("exit", () => dev.beendeAlle());
+    }
+    // Bildstrom für Programme ohne Web (VKg2a2): nur mit Sandbox, eigenem TURN und GStreamer – sonst `code-bild-aus`.
+    // TURN_INTERN (host:port): wie der Knoten selbst den TURN erreicht, wenn der öffentliche Name von innen nicht geht
+    if (sandbox.ok && turn) {
+      const ziel = turnZiel(turn.urls, process.env.TURN_INTERN);
+      if (!ziel) {
+        console.error("[bild] TURN_INTERN ungültig (host:port) – der Knoten startet nicht");
+        process.exit(1);
+      }
+      const fehlt = await bildFehlt();
+      if (fehlt) console.log(`[bild] aus – ${fehlt}`);
+      else {
+        const b = new BildStrom(projekte, { turn, ziel });
+        process.on("exit", () => b.beendeAlle());
+        bild = b;
+        console.log("[bild] Bildstrom für Programme ohne Web an (über den eigenen TURN)");
+      }
     }
     const hermesWahl = hermesAusUmgebung(process.env);
     if ("ungueltig" in hermesWahl) {
@@ -576,6 +596,7 @@ async function main(): Promise<void> {
       projekte,
       agent: knotenAgent,
       ...(code ? { code } : {}),
+      ...(bild ? { bild } : {}),
       ...(vorschau ? { vorschau } : {}),
       livekit,
       signal,
