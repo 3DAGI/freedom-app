@@ -17,10 +17,9 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { SolAuszahlung } from "./sol-auszahlung.js";
-import type { TransactionInstruction } from "@solana/web3.js";
 import {
-  KANAL_PROGRAMM_ID, leseKanal, pruefeGutschrift, rechneKanalAbIxs,
-  type Gutschrift, type KanalEmpfaenger, type KanalStand,
+  KANAL_PROGRAMM_ID, leseKanal, pruefeGutschrift, rechneKanalAbAnweisungen,
+  type Gutschrift, type Instruction, type KanalEmpfaenger, type KanalStand,
 } from "@freedomstack/protocol";
 
 export interface KanalKonto {
@@ -45,8 +44,8 @@ export interface KanalKasseOpts {
   /** Eigene Solana-Adresse – der Provider des Kanals. */
   provider: string;
   lese(adresse: string): Promise<KanalKonto | null>;
-  /** Sendet die Einlösung, signiert als Provider, mit Vorabsimulation. */
-  sende(ixs: TransactionInstruction[]): Promise<string>;
+  /** Sendet die Einlösung, signiert als Provider, mit Vorabsimulation (seit A-21e1 kit-Anweisungen). */
+  sende(ixs: Instruction[]): Promise<string>;
   speicher?: { lade(): KanalEintrag[]; speichere(e: KanalEintrag[]): void };
   programmId?: string;
   /** Unix-Sekunden. */
@@ -165,7 +164,7 @@ export class KanalKasse {
       if (offen <= 0n || (ablauf - jetzt > vorlauf && offen < schwelle)) continue;
       const g: Gutschrift = { kanal: e.kanal, betrag, ablauf, signatur: e.beste.signatur };
       try {
-        const signatur = await this.o.sende(rechneKanalAbIxs({
+        const signatur = await this.o.sende(rechneKanalAbAnweisungen({
           provider: this.o.provider, gutschrift: g, sitzungsSchluessel: e.sitzungsSchluessel, empfaenger: e.empfaenger,
         }));
         e.eingeloest = betrag.toString();
@@ -255,26 +254,30 @@ export async function kanalKasseAusUmgebung(
 ): Promise<{ kasse?: KanalKasse; grund?: string; fall?: KanalAusFall; auszahlung?: SolAuszahlung; auszahlungGrund?: string }> {
   if (env.ZAHLKANAL !== "1") return { grund: "aus (ZAHLKANAL=1 setzen)", fall: "aus" };
   if (!env.NODE_SOL_ADDRESS) return { grund: "NODE_SOL_ADDRESS fehlt", fall: "adresseFehlt" };
-  const { Connection, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
-  const { loadSolanaKeypair } = await import("@freedomstack/protocol");
-  let schluessel;
+  const {
+    istSolAdresse, ladeSolanaSchluessel, leseGuthaben, leseKonto, poolRpc, RpcPool, sendeMitSchluessel, ueberweisungAnweisung,
+  } = await import("@freedomstack/protocol");
+  let schluessel: { geheim: Uint8Array; adresse: string };
   try {
-    schluessel = await loadSolanaKeypair(env.SOLANA_KEYPAIR ?? o.standardSchluessel);
+    schluessel = await ladeSolanaSchluessel(env.SOLANA_KEYPAIR ?? o.standardSchluessel);
   } catch (e) {
     return { grund: `Solana-Schlüssel nicht lesbar (${(e as Error).name})`, fall: "schluesselUnlesbar" };
   }
-  if (schluessel.publicKey.toBase58() !== env.NODE_SOL_ADDRESS) {
+  if (schluessel.adresse !== env.NODE_SOL_ADDRESS) {
+    schluessel.geheim.fill(0);
     return { grund: "Schlüssel aus SOLANA_KEYPAIR passt nicht zu NODE_SOL_ADDRESS", fall: "schluesselPasstNicht" };
   }
-  const conn = new Connection(o.rpcUrl, "confirmed");
+  // Seit A-21e1 über kit und den RpcPool (ein Endpunkt) – lesen, senden und bestätigen wie in der App
+  const rpc = poolRpc(new RpcPool([{ url: o.rpcUrl }]));
+  const sende = (ixs: Instruction[]) => sendeMitSchluessel(rpc, schluessel, ixs);
   const zahl = (w: string | undefined): number | undefined => (w && /^\d{1,12}$/.test(w) ? Number(w) : undefined);
   const kasse = new KanalKasse({
     provider: env.NODE_SOL_ADDRESS,
     lese: async (a) => {
-      const i = await conn.getAccountInfo(new PublicKey(a), "confirmed");
-      return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
+      const k = await leseKonto(rpc, a);
+      return k ? { owner: k.eigentuemer, daten: k.daten } : null;
     },
-    sende: (ixs) => sendAndConfirmTransaction(conn, new Transaction().add(...ixs), [schluessel], { commitment: "confirmed" }),
+    sende,
     speicher: kanalSpeicher(o.datei),
     mindestRestSek: zahl(env.KANAL_MINDEST_REST_SEK),
     einloesVorlaufSek: zahl(env.KANAL_EINLOES_VORLAUF_SEK),
@@ -287,14 +290,15 @@ export async function kanalKasseAusUmgebung(
   }
   const lamports = (w: string | undefined): bigint | undefined => (zahl(w) !== undefined ? BigInt(w!) : undefined);
   try {
-    const an = new PublicKey(env.NODE_SOL_PAYOUT).toBase58();
+    const an = env.NODE_SOL_PAYOUT;
+    if (!istSolAdresse(an)) throw new Error("keine Solana-Adresse");
     const von = env.NODE_SOL_ADDRESS;
     const auszahlung = new SolAuszahlung({
       von, an,
-      guthaben: async () => BigInt(await conn.getBalance(new PublicKey(von), "confirmed")),
-      istProgramm: async (a) => (await conn.getAccountInfo(new PublicKey(a), "confirmed"))?.executable === true,
-      sende: (ixs) => sendAndConfirmTransaction(conn, new Transaction().add(...ixs), [schluessel], { commitment: "confirmed" }),
-      ueberweisung: (v, z, l) => SystemProgram.transfer({ fromPubkey: new PublicKey(v), toPubkey: new PublicKey(z), lamports: l }),
+      guthaben: () => leseGuthaben(rpc, von),
+      istProgramm: async (a) => (await leseKonto(rpc, a))?.ausfuehrbar === true,
+      sende,
+      ueberweisung: (v, z, l) => ueberweisungAnweisung({ von: v, an: z, lamports: l }),
       schwelle: lamports(env.KANAL_AUSZAHLUNG_SCHWELLE_LAMPORTS),
       ruecklage: lamports(env.KANAL_AUSZAHLUNG_RUECKLAGE_LAMPORTS),
       abstandSek: zahl(env.KANAL_AUSZAHLUNG_ABSTAND_SEK),

@@ -20,6 +20,10 @@ Bereichs unten anhängen.
   Validator, wartet web3.js sonst endlos (`getBlockHeight` zählt als -1).
   Den Websocket am Ende mit `setAutoReconnect(false)` schließen – sonst
   verbindet er endlos neu, und der Job läuft bis zu seinem Limit.
+  Die Kasse des Knotens baut der Test seit A-21e1 wie der Knoten
+  (`kanalKasseAusUmgebung()`: Schlüsseldatei, kit über den RpcPool) – dann zahlt
+  der Provider die Gebühr seiner Einlösung; Beträge um `meta.fee` der
+  Transaktion bereinigen, nie eine feste Gebühr annehmen.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/node/CLAUDE.md`, `packages/app/CLAUDE.md`.)*
 - **`declare_id!` ist die Adresse auf der Kette** (seit 4.3e): Anchor vergleicht
   sie bei jedem Aufruf mit der Adresse, an der das Programm liegt – eine Binary

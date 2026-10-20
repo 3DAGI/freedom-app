@@ -7,7 +7,7 @@
  * Die Bytes jeder Nachricht halten die Vektoren aus A-21a fest
  * (`test/fixtures/solana-vektoren.json`) – die Brücke ändert keine.
  */
-import { AccountRole, address, createNoopSigner, isSignerRole, isWritableRole, type Instruction } from "@solana/kit";
+import { AccountRole, address, createNoopSigner, isAddress, isSignerRole, isWritableRole, type Instruction } from "@solana/kit";
 import { getTransferSolInstruction } from "@solana-program/system";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 
@@ -19,6 +19,11 @@ export { AccountRole, type Instruction };
 export const SYSTEM_PROGRAMM = "11111111111111111111111111111111";
 export const ED25519_PROGRAMM = "Ed25519SigVerify111111111111111111111111111";
 export const SYSVAR_ANWEISUNGEN = "Sysvar1nstructions1111111111111111111111111";
+
+/** Ist das eine Solana-Adresse (base58, 32 Byte)? Seit A-21e1 über kit statt `new PublicKey()`. */
+export function istSolAdresse(a: string): boolean {
+  return isAddress(a);
+}
 
 /** Ein Konto einer Anweisung – die Adresse prüft `address()` (base58, 32 Byte). */
 export function konto(adresse: string, rolle: AccountRole): { address: ReturnType<typeof address>; role: AccountRole } {

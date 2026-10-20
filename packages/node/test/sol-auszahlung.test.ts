@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Keypair, PublicKey, SystemProgram, type TransactionInstruction } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
+import { SYSTEM_PROGRAMM, ueberweisungAnweisung, type Instruction } from "@freedomstack/protocol";
 import { AUSZAHLUNG_SCHWELLE, RUECKLAGE, SolAuszahlung } from "../src/sol-auszahlung.js";
 import { kanalKasseAusUmgebung } from "../src/kanal-kasse.js";
 
@@ -18,7 +19,7 @@ const von = Keypair.generate().publicKey.toBase58();
 const an = Keypair.generate().publicKey.toBase58();
 
 function aufbau(p: { guthaben?: bigint; programm?: boolean; fehler?: Error } = {}) {
-  const gesendet: TransactionInstruction[][] = [];
+  const gesendet: Instruction[][] = [];
   const uhr = { jetzt: 1_900_000_000 };
   const konto = { guthaben: p.guthaben ?? 0n };
   const a = new SolAuszahlung({
@@ -26,7 +27,7 @@ function aufbau(p: { guthaben?: bigint; programm?: boolean; fehler?: Error } = {
     guthaben: async () => konto.guthaben,
     istProgramm: async () => p.programm === true,
     sende: async (ixs) => { if (p.fehler) throw p.fehler; gesendet.push(ixs); konto.guthaben = RUECKLAGE; return `sig${gesendet.length}`; },
-    ueberweisung: (v, z, l) => SystemProgram.transfer({ fromPubkey: new PublicKey(v), toPubkey: new PublicKey(z), lamports: l }),
+    ueberweisung: (v, z, l) => ueberweisungAnweisung({ von: v, an: z, lamports: l }),
     jetzt: () => uhr.jetzt,
   });
   return { a, gesendet, uhr, konto };
@@ -39,9 +40,9 @@ test("unter der Schwelle: nichts; darüber: alles über der Rücklage an die eig
   k.konto.guthaben = RUECKLAGE + 250_000_000n;
   assert.deepEqual(await k.a.pruefe(), { betrag: 250_000_000n, signatur: "sig1" });
   const [ix] = k.gesendet[0]!;
-  assert.equal(ix!.programId.toBase58(), SystemProgram.programId.toBase58());
-  assert.deepEqual(ix!.keys.map((x) => x.pubkey.toBase58()), [von, an]);
-  assert.equal(Buffer.from(ix!.data).readBigUInt64LE(4), 250_000_000n, "Rücklage bleibt");
+  assert.equal(ix!.programAddress, SYSTEM_PROGRAMM);
+  assert.deepEqual(ix!.accounts!.map((x) => x.address), [von, an]);
+  assert.equal(Buffer.from(ix!.data!).readBigUInt64LE(4), 250_000_000n, "Rücklage bleibt");
 });
 
 test("höchstens einmal je Abstand – auch nach einem Fehlversuch", async () => {
@@ -61,7 +62,7 @@ test("nie an ein Programm, nie an sich selbst, nie unter der Mietbefreiung", asy
   const p = aufbau({ guthaben: RUECKLAGE + 500_000_000n, programm: true });
   assert.deepEqual(await p.a.pruefe(), { betrag: 500_000_000n, fehler: "Auszahlungsadresse ist ein Programm" });
   assert.equal(p.gesendet.length, 0);
-  const basis = { guthaben: async () => 0n, istProgramm: async () => false, sende: async () => "", ueberweisung: () => ({}) as TransactionInstruction };
+  const basis = { guthaben: async () => 0n, istProgramm: async () => false, sende: async () => "", ueberweisung: () => ({}) as Instruction };
   assert.throws(() => new SolAuszahlung({ ...basis, von, an: von }), /Adresse des Knotens/);
   assert.throws(() => new SolAuszahlung({ ...basis, von, an, ruecklage: 890_880n }), /Mietbefreiung/);
   assert.throws(() => new SolAuszahlung({ ...basis, von, an, schwelle: 1n }), /Schwelle/);

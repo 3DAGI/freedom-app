@@ -9,13 +9,16 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Ed25519Program, Keypair, PublicKey, type TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import { createHash } from "node:crypto";
 import {
-  KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, kanalAdresse, neuerSitzungsSchluessel, signiereGutschrift,
-  type KanalEmpfaenger,
+  ausDraht, ED25519_PROGRAMM, KANAL_KONTO_BYTES, KANAL_PROGRAMM_ID, kanalAdresse, leseNachricht, neuerSitzungsSchluessel, signiereGutschrift,
+  SYSTEM_PROGRAMM, type Instruction, type KanalEmpfaenger,
 } from "@freedomstack/protocol";
 import { EINLOES_SCHWELLE, KanalKasse, kanalKasseAusUmgebung, kanalSpeicher, type KanalKonto } from "../src/kanal-kasse.js";
+import { RUECKLAGE } from "../src/sol-auszahlung.js";
+import { ATTRAPPE_BLOCKHASH, ketteAufPort } from "./kette-attrappe.js";
 
 const JETZT = 1_900_000_000;
 const provider = Keypair.generate().publicKey.toBase58();
@@ -44,12 +47,12 @@ function aufbau(p: { eingezahlt?: bigint; laufzeit?: number; owner?: string; and
     owner: p.owner ?? KANAL_PROGRAMM_ID,
     daten: konto({ sitzung: sitzung.oeffentlich, eingezahlt: p.eingezahlt ?? 1_000_000n, ablauf, provider: p.anderer, nonce }),
   }]]);
-  const gesendet: TransactionInstruction[][] = [];
+  const gesendet: Instruction[][] = [];
   const uhr = { jetzt: JETZT };
   const opts = {
     provider,
     lese: async (a: string) => kette.get(a) ?? null,
-    sende: async (ixs: TransactionInstruction[]) => { gesendet.push(ixs); return "sig" + gesendet.length; },
+    sende: async (ixs: Instruction[]) => { gesendet.push(ixs); return "sig" + gesendet.length; },
     jetzt: () => uhr.jetzt,
   };
   const g = (betrag: bigint, schluessel = sitzung.geheim) => signiereGutschrift(schluessel, kanal, betrag, ablauf);
@@ -108,11 +111,11 @@ test("Einlösen: ab der Schwelle oder kurz vor Ablauf, mit Ed25519-Anweisung und
   assert.equal((await k.nimmAn(a.g(1_200n), 100n)).ok, true);
   const r = await k.loeseFaelligeEin();
   assert.deepEqual(r, [{ kanal: a.kanal, betrag: 1_200n, signatur: "sig1" }]);
-  const [ed, settle] = a.gesendet[0];
-  assert.equal(ed.programId.toBase58(), Ed25519Program.programId.toBase58());
-  assert.equal(settle.programId.toBase58(), KANAL_PROGRAMM_ID);
-  assert.equal(settle.data.readBigUInt64LE(8), 1_200n);
-  assert.deepEqual(settle.keys.slice(3).map((x) => x.pubkey.toBase58()), empfaenger.map((e) => e.adresse));
+  const [ed, settle] = a.gesendet[0]!;
+  assert.equal(ed!.programAddress, ED25519_PROGRAMM);
+  assert.equal(settle!.programAddress, KANAL_PROGRAMM_ID);
+  assert.equal(Buffer.from(settle!.data!).readBigUInt64LE(8), 1_200n);
+  assert.deepEqual(settle!.accounts!.slice(3).map((x) => x.address), empfaenger.map((e) => e.adresse));
   assert.deepEqual(await k.loeseFaelligeEin(), [], "schon eingelöst");
   // Kurz vor Ablauf wird auch ein kleiner Rest eingelöst
   assert.equal((await k.nimmAn(a.g(1_300n), 50n)).ok, true);
@@ -181,4 +184,90 @@ test("4.3c2: Kasse nur mit ZAHLKANAL=1 und einem Schlüssel, der zu NODE_SOL_ADD
   assert.match(main, /solanaAddress: process\.env\.NODE_SOL_ADDRESS \|\| undefined,\s*kanalKasse,/, "an den Provider");
   assert.match(main, /kanal: kanalKasse && process\.env\.NODE_SOL_ADDRESS \? \{ adresse: process\.env\.NODE_SOL_ADDRESS, programm: KANAL_PROGRAMM_ID \} : undefined,/, "Angebot nur mit Kasse");
   assert.match(main, /kanalKasse\.loeseFaelligeEin\(\)/, "Einlösen im Takt");
+});
+
+test("A-21e1: Kasse und Auszahlung aus der Umgebung über kit – Kanal lesen, als Provider einlösen, Rest an die eigene Adresse", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "kanal-kit-"));
+  const schluessel = Keypair.generate();
+  const ich = schluessel.publicKey.toBase58();
+  const payout = Keypair.generate().publicKey.toBase58();
+  const sitzung = neuerSitzungsSchluessel();
+  const nonce = 42n;
+  const kanal = kanalAdresse(kunde, ich, nonce).adresse;
+  // Frist einmal aus der Uhr: Kasse und Konto rechnen mit derselben
+  const ablauf = BigInt(Math.floor(Date.now() / 1000) + 2 * 86_400);
+  const kette = await ketteAufPort({
+    konten: new Map([
+      [kanal, { owner: KANAL_PROGRAMM_ID, data: konto({ sitzung: sitzung.oeffentlich, eingezahlt: 1_000_000n, ablauf, provider: ich, nonce }) }],
+      [ich, { owner: SYSTEM_PROGRAMM, lamports: RUECKLAGE + 300_000_000n }],
+    ]),
+  });
+  try {
+    const pfad = join(dir, "id.json");
+    writeFileSync(pfad, JSON.stringify([...schluessel.secretKey]));
+    const r = await kanalKasseAusUmgebung({
+      ZAHLKANAL: "1", NODE_SOL_ADDRESS: ich, SOLANA_KEYPAIR: pfad, KANAL_EINLOES_SCHWELLE_LAMPORTS: "1", NODE_SOL_PAYOUT: payout,
+    }, { rpcUrl: kette.url, datei: join(dir, "kanaele.json"), standardSchluessel: join(dir, "fehlt.json") });
+    assert.ok(r.kasse && r.auszahlung, r.grund ?? r.auszahlungGrund ?? "");
+
+    // Annehmen liest den Kanal über den Pool
+    assert.equal((await r.kasse.nimmAn(signiereGutschrift(sitzung.geheim, kanal, 700n, ablauf), 100n)).ok, true);
+    assert.deepEqual(kette.anfragen.map((x) => [x.method, x.params[0]]), [["getAccountInfo", kanal]]);
+
+    // Einlösen: signiert als Provider, gesendet mit Vorabsimulation, dann bestätigt
+    const [ein] = await r.kasse.loeseFaelligeEin();
+    assert.equal(ein!.betrag, 700n);
+    assert.equal(ein!.fehler, undefined);
+    assert.equal(kette.gesendet.length, 1);
+    const tx = ausDraht(kette.gesendet[0]!);
+    const n = leseNachricht(tx);
+    assert.equal(n.zahler, ich);
+    assert.equal(n.lebensdauer, ATTRAPPE_BLOCKHASH);
+    assert.deepEqual(n.anweisungen.map((x) => x.programm), [ED25519_PROGRAMM, KANAL_PROGRAMM_ID]);
+    assert.equal(Buffer.from(n.anweisungen[1]!.daten).readBigUInt64LE(8), 700n);
+    assert.ok(ed25519.verify(tx.signatures[ich as never]!, Uint8Array.from(tx.messageBytes), schluessel.publicKey.toBytes()), "der Schlüssel des Knotens");
+    const senden = kette.anfragen.find((x) => x.method === "sendTransaction")!;
+    assert.deepEqual(senden.params[1], { encoding: "base64", preflightCommitment: "confirmed" });
+    assert.ok(!JSON.stringify(kette.anfragen).includes("skipPreflight"));
+    assert.equal(r.kasse.eintrag(kanal)!.eingeloest, "700");
+
+    // Auszahlung: Guthaben über der Rücklage an NODE_SOL_PAYOUT, kein Programm
+    const aus = await r.auszahlung.pruefe();
+    assert.ok(aus && "signatur" in aus, JSON.stringify(aus, (_k, v) => (typeof v === "bigint" ? String(v) : v)));
+    assert.equal(aus.betrag, 300_000_000n);
+    const ueber = leseNachricht(ausDraht(kette.gesendet[1]!));
+    assert.equal(ueber.zahler, ich);
+    assert.equal(ueber.anweisungen[0]!.programm, SYSTEM_PROGRAMM);
+    assert.deepEqual(ueber.anweisungen[0]!.konten.map((k) => k.adresse), [ich, payout]);
+    assert.equal(Buffer.from(ueber.anweisungen[0]!.daten).readBigUInt64LE(4), 300_000_000n, "die Rücklage bleibt");
+    assert.ok(kette.anfragen.some((x) => x.method === "getAccountInfo" && x.params[0] === payout), "erst gefragt, ob das Ziel ein Programm ist");
+  } finally {
+    await kette.schliesse();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("A-21e1: lehnt die Kette die Einlösung ab, bleibt die Gutschrift offen – nach außen nur der Fehlername", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "kanal-kit-"));
+  const schluessel = Keypair.generate();
+  const ich = schluessel.publicKey.toBase58();
+  const sitzung = neuerSitzungsSchluessel();
+  const kanal = kanalAdresse(kunde, ich, 7n).adresse;
+  const ablauf = BigInt(Math.floor(Date.now() / 1000) + 2 * 86_400);
+  const kette = await ketteAufPort({
+    konten: new Map([[kanal, { owner: KANAL_PROGRAMM_ID, data: konto({ sitzung: sitzung.oeffentlich, eingezahlt: 1_000_000n, ablauf, provider: ich, nonce: 7n }) }]]),
+    fehler: { InstructionError: [1, { Custom: 6003 }] },
+  });
+  try {
+    const pfad = join(dir, "id.json");
+    writeFileSync(pfad, JSON.stringify([...schluessel.secretKey]));
+    const r = await kanalKasseAusUmgebung({ ZAHLKANAL: "1", NODE_SOL_ADDRESS: ich, SOLANA_KEYPAIR: pfad, KANAL_EINLOES_SCHWELLE_LAMPORTS: "1" },
+      { rpcUrl: kette.url, datei: join(dir, "kanaele.json"), standardSchluessel: pfad });
+    assert.equal((await r.kasse!.nimmAn(signiereGutschrift(sitzung.geheim, kanal, 500n, ablauf), 100n)).ok, true);
+    assert.deepEqual(await r.kasse!.loeseFaelligeEin(), [{ kanal, betrag: 500n, fehler: "Error" }]);
+    assert.equal(r.kasse!.eintrag(kanal)!.eingeloest, "0", "bleibt offen für den nächsten Takt");
+  } finally {
+    await kette.schliesse();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

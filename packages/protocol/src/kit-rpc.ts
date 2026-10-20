@@ -7,9 +7,10 @@
  */
 import {
   address, createSolanaRpcFromTransport, getBase64Decoder, isSolanaError, signature, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
-  type Base58EncodedBytes, type Base64EncodedWireTransaction, type Rpc, type RpcTransport, type SolanaRpcApi, type TransactionError,
+  type Base58EncodedBytes, type Base64EncodedWireTransaction, type Instruction, type Rpc, type RpcTransport, type SolanaRpcApi, type TransactionError,
 } from "@solana/kit";
 import type { RpcPool } from "./rpc-pool.js";
+import { alsDraht, baueTransaktion, signiereMit } from "./kit-transaktion.js";
 import { ProtokollFehler } from "./fehler.js";
 
 export type SolRpc = Rpc<SolanaRpcApi>;
@@ -163,4 +164,22 @@ export function programmFehlerCode(fehler: unknown, tiefe = 0): number | undefin
   const text = typeof fehler === "string" ? fehler : fehler instanceof Error ? fehler.message : "";
   const hex = /custom program error: 0x([0-9a-f]+)/i.exec(text);
   return hex ? parseInt(hex[1]!, 16) : undefined;
+}
+
+/**
+ * Bauen, mit dem eigenen Schlüssel signieren, senden und bestätigen (A-21e1, Knoten): Zahler ist die Adresse
+ * des Schlüssels. Wirft, wenn die Kette ablehnt (Fehler nur als Text über `txFehlerText()`) oder die Transaktion
+ * nicht rechtzeitig in einen Block kam; liefert sonst die Signatur. Den Schlüssel hält der Aufrufer.
+ */
+export async function sendeMitSchluessel(
+  rpc: SolRpc, schluessel: { geheim: Uint8Array; adresse: string }, anweisungen: readonly Instruction[],
+  opts: { abstandMs?: number; warte?: (ms: number) => Promise<void> } = {},
+): Promise<string> {
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const signiert = signiereMit(baueTransaktion({ zahler: schluessel.adresse, anweisungen, lebensdauer }), schluessel.geheim);
+  if (!signiert) throw new Error("Schlüssel passt nicht zum Zahler");
+  const signatur = await sendeTransaktion(rpc, alsDraht(signiert));
+  const fehler = await warteAufBestaetigung(rpc, signatur, lebensdauer.letzteHoehe, opts);
+  if (fehler) throw new Error(`Transaktion abgelehnt: ${txFehlerText(fehler)}`);
+  return signatur;
 }

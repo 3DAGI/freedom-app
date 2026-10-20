@@ -143,3 +143,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Programmfehler (seit A-21d3b) nur über `programmFehlerCode()` – `typeof x === "number"` übersieht kits BigInt, und
   in der Vorabsimulation steht der Code nur in `cause`. Den Stand einer fremden Signatur nur über
   `leseSignaturStand()` (prüft die Form, bevor gefragt wird).
+  Mit dem eigenen Schlüssel (Knoten, seit A-21e1) nur über `sendeMitSchluessel()` – bauen, signieren, senden, bestätigen;
+  es wirft, wenn die Kette ablehnt (die Kasse gibt nur den Fehlernamen weiter). Schlüsseldateien von solana-keygen nur über
+  `ladeSolanaSchluessel()` bzw. `solSchluesselAus()`: 64 Byte, der öffentliche Teil muss zum geheimen passen, zurück kommen
+  der geheime Teil (32 Byte, hält der Aufrufer) und die Adresse – nie das ganze Array weiterreichen.
