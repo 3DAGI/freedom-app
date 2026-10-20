@@ -62,6 +62,11 @@ jobs:
           bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --unshare-all --ro-bind / / true
 
+      # VKg2a1: der Tunnel zum TURN läuft gegen echtes coturn (turnserver, turnutils_uclient, turnutils_peer) –
+      # ohne es überspränge sich der Test; der Test startet coturn selbst auf 127.0.0.1 mit freien Ports
+      - name: coturn fuer die Tunnel-Tests
+        run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
+
       - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.

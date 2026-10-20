@@ -445,3 +445,9 @@ Bereichs unten anhängen.
   `localhost:5173`, sonst lässt Vite nichts durch, ohne das eigene Cookie) und ohne Agent (`agent: false` – ein Pool hielte
   Verbindungen offen). WebSocket: Sockets des HTTP-Servers bleiben halb offen; endet eine Seite, beide beenden – sonst
   wartet `close()` ewig (so hing der erste Test).
+- **TURN für die Sandbox nur über `turn-tunnel.ts`** (seit VKg2a1): Die Sandbox bekommt einen Zugang zum TURN nur zusammen
+  mit dem Tunnel (`oeffneTurnTunnel()`, Socket in einem eigenen Ordner) – nie Netz und nie den TURN direkt. Ein Zugang ist
+  sonst ein Weg ins Internet (UDP), auch für den Code des Projekts, der ihn in derselben Sandbox lesen kann. Der Filter lässt
+  nur eine UDP-Allokation durch und Gegenstellen nur aus `relayAdressen()` des Angebots der App; neue STUN-Methoden nur mit
+  Blick darauf, wohin sie vermitteln. ChannelData mit Nummern bis 0x7FFF: coturn vergibt sie wie RFC 5766, nicht nur bis
+  0x4FFF wie RFC 8656 – so verlor der erste Test mit `turnutils_uclient` alle Pakete.

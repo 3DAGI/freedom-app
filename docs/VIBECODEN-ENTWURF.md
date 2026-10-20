@@ -292,7 +292,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 – **VKd1 fertig** (`freedom-mcp.ts`: Websuche und Seite lesen als MCP-Server hinter der Brücke, `POST /mcp`; Hermes findet ihn über `config.yaml`, nicht über `session/new` – Hermes 0.19 kündigt MCP über HTTP in `initialize` nicht an; Netz-Werkzeuge fragen nicht vorher); **VKd1b fertig** (18.10., VKd-W1: wie Claude – `read_page` liest nur Adressen aus dem Auftrag und aus Ergebnissen von `web_search`, `LeseFreigaben`); **VKd3 fertig** (18.10., VK4/W6a „Pakete holt der Knoten“: npm und PyPI über die Brücke, `paket-spiegel.ts` – nur die feste Liste der Registries, Adressen in Paketlisten und Index auf die Brücke umgeschrieben; gemessen: `npm install vite vue` und `vite build` in der Sandbox ohne Netz, 11 s); VKd2: Bilder, Sprache, Kiwix, Seiten-Bedienung |
 | VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 – **VKe1 fertig** (`knoten-projekt-ui.ts`, `knoten-lauf.ts`: Auftrag, Schritte live, Ja/Nein, Stopp, Abschluss); **VKe2a fertig** (Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten, `PROTOCOL.md` §34); **VKe2b fertig** (Verlauf, Änderungen über `zeigePatch()`, „hierher zurück“ nach Rückfrage) – VKe fertig, die Vorschau gehört zu VKg |
 | VKf | Kopplung mit Code zum Eintippen (K1) | A | ~250 – **fertig** (`kurzcode.ts`, Kind 38076, `npm run koppeln -- --code`, `PROTOCOL.md` §35) |
-| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400 je Teil – entschieden 18.10. (unten): **VKg1** Vorschau wie Replit über eigene Adresse des Knotens (a Server und Code-Aktion, b App, c Dev-Server aus der Sandbox) – **VKg1a fertig** (`vorschau.ts`: eigener Port, Zeichen je Projekt, Cookie, nur Dateien im Projekt; Code-Aktion `vorschau`, `VORSCHAU_URL`), **VKg1b fertig** (Knopf „Vorschau“ auf dem Blatt des Projekts, neuer Tab; in der Hülle Adresse und QR), **VKg1c fertig** (Dev-Server: `npm run dev` in der Sandbox, Rückweg über einen Socket, die Vorschau leitet weiter samt WebSocket; gemessen mit Vite: erste Seite nach 1,5 s, Hot Reload nach 45 ms ohne Neuladen) – VKg1 fertig; **VKg2** Bildstrom für Programme ohne Web. Die Vorschau über die Relays (VK5) liefe nicht – ein `blob:`-Rahmen erbt die CSP der App, Chromium verweigert seine Skripte (gemessen 17.10.) |
+| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400 je Teil – entschieden 18.10. (unten): **VKg1** Vorschau wie Replit über eigene Adresse des Knotens (a Server und Code-Aktion, b App, c Dev-Server aus der Sandbox) – **VKg1a fertig** (`vorschau.ts`: eigener Port, Zeichen je Projekt, Cookie, nur Dateien im Projekt; Code-Aktion `vorschau`, `VORSCHAU_URL`), **VKg1b fertig** (Knopf „Vorschau“ auf dem Blatt des Projekts, neuer Tab; in der Hülle Adresse und QR), **VKg1c fertig** (Dev-Server: `npm run dev` in der Sandbox, Rückweg über einen Socket, die Vorschau leitet weiter samt WebSocket; gemessen mit Vite: erste Seite nach 1,5 s, Hot Reload nach 45 ms ohne Neuladen) – VKg1 fertig; **VKg2** Bildstrom für Programme ohne Web (Teile unten: a1 Tunnel, a2 Knoten, b App, c Docker und NVENC) – **VKg2a1 fertig** (`turn-tunnel.ts`: die Sandbox erreicht den TURN nur über einen Socket des Knotens, der nur eine UDP-Allokation zu den Relay-Adressen der App durchlässt). Die Vorschau über die Relays (VK5) liefe nicht – ein `blob:`-Rahmen erbt die CSP der App, Chromium verweigert seine Skripte (gemessen 17.10.) |
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
@@ -410,6 +410,31 @@ Browser echt gerendert und sofort neu nach jeder Änderung; dazu gibt es „im n
   - Virtueller Bildschirm, GStreamer `webrtcbin`, NVENC auf dem GX10 (sonst Kodierung in
     Software), über den eigenen TURN (B-13).
   - Nur mit `VIBECODEN=1`.
+  - **Gemessen 20.10.** (Ubuntu 24.04, GStreamer 1.24, coturn 4.6, Chromium): `xeyes` auf Xvfb
+    1280×720 in bubblewrap ohne Netz, `webrtcbin` mit `ice-transport-policy=relay`, TURN über TCP
+    durch den Tunnel des Knotens; Chromium mit `iceTransportPolicy: "relay"` über UDP. Erstes Bild
+    1,45 s nach dem Angebot, danach 30 Bilder je Sekunde.
+  - Zwei Befunde: In der Sandbox gibt es nur `lo`, und libnice lässt Loopback aus – ohne
+    `add-local-ip-address 127.0.0.1` am ICE-Agenten sammelt `webrtcbin` gar nichts. Chromium meldet
+    das Ende der Sammlung oft erst nach Sekunden; die App wartet nur, bis ein Relay-Kandidat da ist.
+  - Teile:
+    - **VKg2a1 (Knoten, fertig):** Tunnel zum TURN (`turn-tunnel.ts`). Ein Zugang zum TURN ist
+      sonst ein Weg ins Internet (UDP) – auch für den Code des Projekts, der in derselben Sandbox
+      läuft. Der Knoten liest mit: nur Binding, Allocate mit UDP, Refresh, CreatePermission,
+      ChannelBind, Send und ChannelData, Gegenstellen nur die Relay-Adressen aus dem Angebot der App;
+      TCP-Allokationen (RFC 6062) nie.
+    - **VKg2a2 (Knoten):** `motor/freedom_bild.py` in `sandboxDienst()`: Xvfb, das Programm,
+      `webrtcbin`, Eingaben aus dem Datenkanal über XTest. Das Programm: `.freedom/start`, sonst
+      `main.py`, sonst eine Web-Seite in Chromium. Code-Aktionen `bild` (Angebot der App rein,
+      Antwort raus, beide nur mit Relay-Kandidaten) und `bild-ende`.
+    - **VKg2b (App):** Knopf „Bild“ auf dem Blatt des Projekts, Verbindung nur über den eigenen
+      TURN (5079), Maus, Berührung und Tasten über den Datenkanal.
+    - **VKg2c:** Pakete im Docker-Bild (nur `VIBECODEN=1`), NVENC auf dem GX10, Messung.
+  - Befund für Spur B (B-13b): Liegt der TURN hinter NAT, sind seine Relay-Adressen privat, und
+    `denied-peer-ip` sperrt Relay zu Relay auf demselben TURN – Anrufe zweier Geräte über denselben
+    TURN und der Bildstrom. Vorschlag: `allowed-peer-ip=<eigene Relay-Adresse>` und `no-tcp-relay`
+    (coturn erlaubt sonst TCP-Allokationen nach RFC 6062) in `turn-einrichten.sh`; prüft der MENSCH
+    mit dem GX10.
 
 **Sandbox auf anderen Geräten** (Frage MENSCH 18.10.: „Freedom soll ja nicht nur auf DGX Spark
 laufen“):
