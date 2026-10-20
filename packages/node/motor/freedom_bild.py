@@ -7,9 +7,13 @@ eigenen Sandbox; mit dieser teilt es nur den Socket des Bildschirms (/tmp/.X11-u
 und Tasten kommen ueber den Datenkanal "eingabe" zurueck (VKg2a3) und gehen per XTest an den Bildschirm -
 an nichts sonst.
 
-Aufruf: python3 freedom_bild.py <breite> <hoehe>
+Kodiert wird nach dem Angebot der App (VKg2c2): die Nummer des Formats (payload type) aus dem Angebot - Firefox nennt
+VP8 120, Chromium 96 -, mit "h264" H.264 ueber NVENC, wo es das Angebot nennt und GStreamer nvh264enc hat, sonst VP8.
+
+Aufruf: python3 freedom_bild.py <breite> <hoehe> [vp8|h264]
 stdin, eine Zeile JSON: {"turn": "<turn://...?transport=tcp>", "angebot": "<SDP der App>"}
-stdout, eine Zeile JSON: {"antwort": "<SDP>"} oder {"fehler": "<kennung>"} - danach nichts mehr.
+stdout, eine Zeile JSON: {"antwort": "<SDP>", "kodierer": "<vp8enc|nvh264enc>"} oder {"fehler": "<kennung>"} -
+danach nichts mehr.
 Es laeuft, bis stdin endet oder die Verbindung abbricht. Nur die Standardbibliothek, PyGObject
 (GStreamer) und python-xlib.
 """
@@ -28,6 +32,13 @@ NACHRICHT_MAX = 200
 # PyGObject gibt den ICE-Agenten beim Aufraeumen seiner Huelle frei, ohne ihn genommen zu haben -
 # die Huelle lebt deshalb so lange wie das Skript
 BEHALTEN = []
+
+# Kodierer: VP8 in Software; H.264 nur ueber NVENC (nur, wo der Knoten der Sandbox die GPU gibt) - kein H.264 in
+# Software (openh264 scheitert auf Ubuntu 24.04 mit cmInitParaError, x264 ist GPL, und H.264 traegt Patente)
+KODIERER = {
+    "vp8enc": "vp8enc deadline=1 cpu-used=8 threads=4 target-bitrate=3000000 end-usage=cbr keyframe-max-dist=120",
+    "nvh264enc": "nvh264enc preset=low-latency-hq rc-mode=cbr bitrate=6000 gop-size=60 zerolatency=true bframes=0",
+}
 
 # Tasten wie KeyboardEvent.key -> Name des Keysyms in X
 TASTEN = {
@@ -142,6 +153,47 @@ class Eingabe:
         self.d.sync()
 
 
+def formate(angebot):
+    """Formate des Videos im Angebot: {"VP8": pt} und {"H264": (pt, profile-level-id)} - H.264 nur mit
+    packetization-mode=1 und Baseline (profile-level-id 42..), Constrained Baseline (42e0..) vorn."""
+    namen, fmtp, im_video = {}, {}, False
+    for zeile in angebot.splitlines():
+        if zeile.startswith("m="):
+            im_video = zeile.startswith("m=video ")
+        elif im_video and zeile.startswith("a=rtpmap:"):
+            pt, _, rest = zeile[9:].partition(" ")
+            if pt.isdigit() and 0 <= int(pt) <= 127:
+                namen[int(pt)] = rest.split("/")[0].upper()
+        elif im_video and zeile.startswith("a=fmtp:"):
+            pt, _, rest = zeile[7:].partition(" ")
+            if pt.isdigit():
+                fmtp[int(pt)] = dict(t.strip().split("=", 1) for t in rest.split(";") if "=" in t)
+    erg = {}
+    for pt, name in namen.items():
+        if name == "VP8" and "VP8" not in erg:
+            erg["VP8"] = pt
+        f = fmtp.get(pt, {})
+        plid = f.get("profile-level-id", "").lower()
+        if name == "H264" and f.get("packetization-mode") == "1" and len(plid) == 6 and plid.startswith("42"):
+            if "H264" not in erg or (plid.startswith("42e0") and not erg["H264"][1].startswith("42e0")):
+                erg["H264"] = (pt, plid)
+    return erg
+
+
+def pipeline_text(kodierer, pt, plid=None):
+    """Bildschirm -> Kodierer -> RTP mit der Nummer aus dem Angebot -> webrtcbin (nur ueber den TURN)."""
+    quelle = (f"ximagesrc display-name={ANZEIGE} use-damage=false show-pointer=true ! video/x-raw,framerate=30/1 "
+              "! videoconvert ! queue leaky=downstream max-size-buffers=2 ")
+    if kodierer == "vp8enc":
+        rtp = (f"! rtpvp8pay pt={pt} ! application/x-rtp,media=video,encoding-name=VP8,payload={pt},clock-rate=90000 ")
+    else:
+        rtp = ("! video/x-h264,profile=constrained-baseline ! h264parse config-interval=-1 "
+               f"! rtph264pay pt={pt} config-interval=-1 aggregate-mode=zero-latency "
+               f"! application/x-rtp,media=video,encoding-name=H264,payload={pt},clock-rate=90000,"
+               f"packetization-mode=(string)1,profile-level-id=(string){plid} ")
+    return quelle + "! " + KODIERER[kodierer] + " " + rtp + "! webrtcbin name=w bundle-policy=max-bundle ice-transport-policy=relay"
+
+
 def warte_auf_anzeige(xvfb):
     for _ in range(200):
         if os.path.exists(SOCKEL_X):
@@ -153,10 +205,11 @@ def warte_auf_anzeige(xvfb):
 
 
 def main(argv):
-    if len(argv) != 3 or not argv[1].isdigit() or not argv[2].isdigit():
+    if len(argv) not in (3, 4) or not argv[1].isdigit() or not argv[2].isdigit() or argv[3:] not in ([], ["vp8"], ["h264"]):
         melde({"fehler": "aufruf"})
         return 2
     breite, hoehe = int(argv[1]), int(argv[2])
+    wunsch = argv[3] if len(argv) == 4 else "vp8"
     try:
         auftrag = json.loads(sys.stdin.readline())
         turn, angebot = auftrag["turn"], auftrag["angebot"]
@@ -193,14 +246,31 @@ def main(argv):
         return 3
 
     Gst.init(None)
-    try:
-        pipe = Gst.parse_launch(
-            f"ximagesrc display-name={ANZEIGE} use-damage=false show-pointer=true ! video/x-raw,framerate=30/1 "
-            "! videoconvert ! queue leaky=downstream max-size-buffers=2 "
-            "! vp8enc deadline=1 cpu-used=8 threads=4 target-bitrate=3000000 end-usage=cbr keyframe-max-dist=120 "
-            "! rtpvp8pay pt=96 ! application/x-rtp,media=video,encoding-name=VP8,payload=96,clock-rate=90000 "
-            "! webrtcbin name=w bundle-policy=max-bundle ice-transport-policy=relay")
-    except GLib.Error:
+    ok, msg = GstSdp.SDPMessage.new_from_text(angebot)
+    da = formate(angebot)
+    if ok != GstSdp.SDPResult.OK or not da:
+        aufraeumen()
+        melde({"fehler": "angebot"})
+        return 3
+    # Versuche in dieser Reihenfolge: H.264 ueber NVENC (wenn gewuenscht, angeboten und da), dann VP8
+    versuche = []
+    if wunsch == "h264" and "H264" in da and Gst.ElementFactory.find("nvh264enc"):
+        versuche.append(("nvh264enc", *da["H264"]))
+    if "VP8" in da:
+        versuche.append(("vp8enc", da["VP8"], None))
+    pipe, gewaehlt = None, None
+    for kodierer, pt, plid in versuche:
+        try:
+            pipe = Gst.parse_launch(pipeline_text(kodierer, pt, plid))
+        except GLib.Error:
+            continue
+        # erst hier oeffnet NVENC das Geraet - scheitert es, der naechste Versuch
+        if pipe.set_state(Gst.State.PLAYING) != Gst.StateChangeReturn.FAILURE:
+            gewaehlt = kodierer
+            break
+        pipe.set_state(Gst.State.NULL)
+        pipe = None
+    if pipe is None:
         aufraeumen()
         melde({"fehler": "gstreamer"})
         return 3
@@ -227,7 +297,7 @@ def main(argv):
             GLib.idle_add(ende_mit, "antwort")
             return
         zustand["gemeldet"] = True
-        melde({"antwort": beschr.sdp.as_text()})
+        melde({"antwort": beschr.sdp.as_text(), "kodierer": gewaehlt})
 
     def verbindung(el, _p):
         z = el.get_property("connection-state")
@@ -268,11 +338,6 @@ def main(argv):
     bus.add_signal_watch()
     bus.connect("message", fehler_im_bus)
 
-    ok, msg = GstSdp.SDPMessage.new_from_text(angebot)
-    if ok != GstSdp.SDPResult.OK or pipe.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
-        aufraeumen()
-        melde({"fehler": "angebot" if ok != GstSdp.SDPResult.OK else "gstreamer"})
-        return 3
     beschr = GstWebRTC.WebRTCSessionDescription.new(GstWebRTC.WebRTCSDPType.OFFER, msg)
     w.emit("set-remote-description", beschr, Gst.Promise.new_with_change_func(angebot_gesetzt, None))
 

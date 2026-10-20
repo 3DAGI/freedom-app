@@ -12,6 +12,9 @@
  * Web-Projekte (VKg2c1) zeigt Chromium im Bild – mit dem Dev-Server wie in der Vorschau (VKg1c) oder `index.html`, beides in
  * der Sandbox des Programms. So geht auch eine Web-App unterwegs nur über den TURN, ohne Adresse des Knotens.
  *
+ * Kodiert wird nach dem Angebot der App (VKg2c2): mit der Nummer des Formats aus dem Angebot, H.264 über NVENC, wo der Knoten
+ * es hat (nur die Bild-Sandbox bekommt dann die GPU), sonst VP8 in Software (`bildKodierer()`).
+ *
  * Angebot und Antwort reisen nur versiegelt in der Code-Aktion `bild` (PROTOCOL.md §34), beide nur mit Relay-Kandidaten.
  * Je Projekt ein Bild, auf dem Knoten höchstens `BILD_GRENZEN.gesamt`; ein neues Angebot ersetzt das alte. Es endet mit der
  * Verbindung, mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft. Ins Log nur Zahlen.
@@ -54,6 +57,26 @@ export const BILD_TEXT = {
 const PRUEFUNG = "import gi; gi.require_version('Gst','1.0'); gi.require_version('GstWebRTC','1.0'); gi.require_version('GstSdp','1.0'); "
   + "from gi.repository import Gst, GstWebRTC, GstSdp; Gst.init(None); import Xlib.ext.xtest; "
   + "assert all(Gst.ElementFactory.find(e) for e in ('webrtcbin','nicesrc','ximagesrc','videoconvert','vp8enc','rtpvp8pay'))";
+
+/** Kodierer der Bild-Sandbox – mit Namen fürs Log (nur diese, nie Text aus der Sandbox). */
+export const KODIERER_NAME: Record<string, string> = { vp8enc: "VP8", nvh264enc: "H.264 über NVENC" };
+
+/**
+ * Kodierer aus der Umgebung: `BILD_KODIERER` leer oder `auto` – H.264 über NVENC, wo es ihn gibt, sonst VP8; `vp8` –
+ * immer VP8 in Software. H.264 nur über NVENC und nur, wenn das Angebot der App es nennt – sonst VP8. null: ungültig.
+ */
+export function bildKodierer(env: { BILD_KODIERER?: string }, nvenc: boolean): "vp8" | "h264" | null {
+  const wahl = env.BILD_KODIERER?.trim().toLowerCase();
+  if (!wahl || wahl === "auto") return nvenc ? "h264" : "vp8";
+  return wahl === "vp8" ? "vp8" : null;
+}
+
+/** Kann die Bild-Sandbox mit NVENC kodieren? GStreamer kennt `nvh264enc` (nvcodec meldet ihn nur mit einer GPU) und es gibt die Geräte. */
+export async function nvencDa(python = "python3", geraet = "/dev/nvidiactl"): Promise<boolean> {
+  if (!existsSync(geraet)) return false;
+  const pruefung = "import gi; gi.require_version('Gst','1.0'); from gi.repository import Gst; Gst.init(None); assert Gst.ElementFactory.find('nvh264enc')";
+  return new Promise<boolean>((r) => execFile(python, ["-c", pruefung], { timeout: 30_000 }, (e) => r(!e)));
+}
 
 /** Gibt es hier alles für das Bild? null, sonst ein Satz aus `BILD_TEXT`. Geprüft beim Start, außerhalb der Sandbox (dasselbe `/usr`). */
 export async function bildFehlt(python = "python3"): Promise<string | null> {
@@ -150,6 +173,8 @@ export class BildStrom {
     turn: TurnDienst; ziel: TurnZiel;
     /** Python mit PyGObject und GStreamer in der Sandbox (Vorgabe `python3`). */
     python?: string; bwrap?: string;
+    /** Kodierer (VKg2c2, `bildKodierer()`), Vorgabe `vp8`; `gpu`: die Bild-Sandbox bekommt die GPU (nur mit NVENC). */
+    kodierer?: "vp8" | "h264"; gpu?: boolean;
     /** Chromium für Web-Projekte (VKg2c1, `browserAusUmgebung()`) – ohne zeigt das Bild nur Programme. */
     browser?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -211,9 +236,10 @@ export class BildStrom {
     const turn = `turn://${encodeURIComponent(z.nutzer)}:${encodeURIComponent(z.passwort)}@127.0.0.1:${BILD_IN_SANDBOX.port}?transport=tcp`;
     const py = this.o.python ?? "python3";
     const b = this.sandbox(
-      [py, "/freedom/motor.py", BILD_IN_SANDBOX.sockel, String(BILD_IN_SANDBOX.port), "--", py, "/freedom/bild.py", String(groesse.breite), String(groesse.hoehe)],
+      [py, "/freedom/motor.py", BILD_IN_SANDBOX.sockel, String(BILD_IN_SANDBOX.port), "--", py, "/freedom/bild.py", String(groesse.breite), String(groesse.hoehe),
+        this.o.kodierer ?? "vp8"],
       {
-        arbeit: leer, mitEinAusgabe: true,
+        arbeit: leer, mitEinAusgabe: true, ...(this.o.gpu ? { gpu: true } : {}),
         nurLesbar: [{ quelle: STARTSKRIPT, ziel: "/freedom/motor.py" }, { quelle: BILDSKRIPT, ziel: "/freedom/bild.py" }, { quelle: ordner, ziel: BILD_IN_SANDBOX.ordner }],
         schreibbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }],
       },
@@ -242,15 +268,17 @@ export class BildStrom {
     // endet die Bild-Sandbox (oder das Programm, das sie mitnimmt), nicht bis zur Frist warten
     const zeile = await Promise.race([ersteZeile(b.aus!, BILD_GRENZEN.antwortBytes, Math.max(0, bis - Date.now())), b.ende.then(() => null)]);
     let antwort: unknown;
+    let kodierer: unknown;
     try {
-      antwort = zeile === null ? null : (JSON.parse(zeile) as { antwort?: unknown }).antwort;
+      ({ antwort, kodierer } = zeile === null ? {} : (JSON.parse(zeile) as { antwort?: unknown; kodierer?: unknown }));
     } catch {
       antwort = null;
     }
     if (vorbei || !istBildSdp(antwort)) return abgelehnt();
     // Mit dem Zugang zum TURN endet auch das Bild – ohne ihn erneuert der TURN die Allokation nicht
     setTimeout(eintrag.beende, Math.max(0, z.bis * 1000 - Date.now())).unref();
-    console.log(`[bild] gestartet (${this.laufend.size} von ${BILD_GRENZEN.gesamt})`);
+    const name = typeof kodierer === "string" && Object.hasOwn(KODIERER_NAME, kodierer) ? KODIERER_NAME[kodierer] : "?";
+    console.log(`[bild] gestartet, ${name} (${this.laufend.size} von ${BILD_GRENZEN.gesamt})`);
     return antwort;
   }
 

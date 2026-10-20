@@ -1,0 +1,14 @@
+# NVENC für den Bildstrom (VKg2c2, docs/PROVIDER.md „Vibecoden“) – nur auf Rechnern mit NVIDIA-GPU und NVIDIA Container
+# Toolkit (etwa dem GX10), zusätzlich zu docker-compose.vibecoden.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.vibecoden.yml -f docker-compose.nvenc.yml up -d --build
+# Der Knoten bekommt die GPU samt Video-Kodierer („video“: libnvidia-encode) und reicht sie nur an die Bild-Sandbox
+# weiter – nie an den Code des Projekts, nie an den Motor. Ohne diese Datei kodiert das Bild VP8 in Software.
+services:
+  node:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility, video]

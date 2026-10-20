@@ -16,7 +16,9 @@ import {
   KIND_DVM_KNOTEN_CODE, LocalSigner, MemoryRelay, OutboxPool, baueCodeAuftrag, generateKeypair, getTag, istBildSdp,
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
-import { BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, WEB_DEV_START, bildBefehl, bildFehlt, browserArgumente } from "../src/bildstrom.js";
+import {
+  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, WEB_DEV_START, bildBefehl, bildFehlt, bildKodierer, browserArgumente, nvencDa,
+} from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 import { DvmProvider } from "../src/dvm-provider.js";
@@ -136,8 +138,9 @@ test("VKg2a2: zwei Sandboxen – Zugang, Tunnel und Antwort nur im Bild, das Pro
   assert.equal(await b.starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
   assert.equal(starts.length, 2);
   const [bild, programm] = starts as [typeof starts[0], typeof starts[0]];
-  assert.deepEqual(bild.befehl, ["python3", "/freedom/motor.py", "/bild/turn.sock", "3478", "--", "python3", "/freedom/bild.py", "640", "480"]);
+  assert.deepEqual(bild.befehl, ["python3", "/freedom/motor.py", "/bild/turn.sock", "3478", "--", "python3", "/freedom/bild.py", "640", "480", "vp8"]);
   assert.equal(bild.ort.mitEinAusgabe, true);
+  assert.equal(bild.ort.gpu, undefined, "ohne NVENC keine GPU");
   assert.ok(bild.ort.nurLesbar!.some((s) => s.ziel === BILD_IN_SANDBOX.ordner && existsSync(join(s.quelle, "turn.sock"))), "der Tunnel nur in der Bild-Sandbox");
   assert.notEqual(bild.ort.arbeit, a.ort("spiel"), "das Projekt nicht in der Bild-Sandbox");
   assert.match(eingabe!.turn, /^turn:\/\/\d+%3A[A-Za-z0-9_-]+:[A-Za-z0-9%]+@127\.0\.0\.1:3478\?transport=tcp$/);
@@ -151,6 +154,26 @@ test("VKg2a2: zwei Sandboxen – Zugang, Tunnel und Antwort nur im Bild, das Pro
   assert.equal(b.beende("spiel"), true);
   assert.equal(bild.beendet && programm.beendet, true);
   assert.equal(b.beende("spiel"), false);
+});
+
+test("VKg2c2: Kodierer – H.264 über NVENC nur, wo es ihn gibt; die GPU nur für die Bild-Sandbox, nie für das Programm", async () => {
+  assert.equal(bildKodierer({}, false), "vp8");
+  assert.equal(bildKodierer({}, true), "h264", "mit NVENC von selbst H.264");
+  assert.equal(bildKodierer({ BILD_KODIERER: "vp8" }, true), "vp8");
+  assert.equal(bildKodierer({ BILD_KODIERER: " Auto " }, true), "h264");
+  assert.equal(bildKodierer({ BILD_KODIERER: "auto" }, false), "vp8");
+  for (const falsch of ["h264", "av1", "nvenc"]) assert.equal(bildKodierer({ BILD_KODIERER: falsch }, true), null, falsch);
+  assert.equal(await nvencDa("python3", "/dev/gibt-es-nicht"), false, "ohne Gerät nie NVENC");
+  const a = ablage("spiel");
+  writeFileSync(join(a.ort("spiel"), "main.py"), "");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT, kodierer: "nvh264enc" }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, kodierer: "h264", gpu: true });
+  assert.equal(await b.starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+  const [bild, programm] = starts as [typeof starts[0], typeof starts[0]];
+  assert.equal(bild.befehl.at(-1), "h264");
+  assert.equal(bild.ort.gpu, true);
+  assert.equal(programm.ort.gpu, undefined, "der Code des Projekts bekommt die GPU nie");
+  b.beendeAlle();
 });
 
 test("VKg2a2: Ablehnungen – fremde Kandidaten, kein Programm, Fehler im Bild, Programm endet, zu viele", async () => {
@@ -267,12 +290,13 @@ async function mitCoturn(fn: (turn: { urls: string[]; geheimnis: string; gueltig
  * unter Last kommen Eingaben später an. Zurück die Bilder, die Farbe am Ende und die Zeit bis zur Antwort.
  */
 async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: number }, turnPort: number, eingaben: unknown[],
-  starte: (angebot: string) => Promise<string>, gewirkt: (farbe: number[] | null) => boolean, farbe?: number[]):
+  starte: (angebot: string) => Promise<string>, gewirkt: (farbe: number[] | null, bilder: number) => boolean,
+  optionen: { farbe?: number[]; pt?: number } = {}):
   Promise<{ bilder: number; farbe: number[] | null; antwortMs: number }> {
   const z = turnZugang(turn);
   const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
     `turn://${encodeURIComponent(z.nutzer)}:${encodeURIComponent(z.passwort)}@127.0.0.1:${turnPort}`, JSON.stringify(eingaben),
-    ...(farbe ? [JSON.stringify(farbe)] : [])], { stdio: ["pipe", "pipe", "ignore"] });
+    JSON.stringify(optionen)], { stdio: ["pipe", "pipe", "ignore"] });
   const zeilen: Array<Record<string, unknown>> = [];
   let rest = "";
   const warteAuf = (schluessel: string) => new Promise<Record<string, unknown>>((r) => {
@@ -290,8 +314,9 @@ async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: n
   const antwortMs = Date.now() - t0;
   assert.ok(istBildSdp(antwort), "die Antwort nur mit Relay-Kandidaten");
   app.stdin.write(`${JSON.stringify({ antwort })}\n`);
-  const letzteFarbe = () => ([...zeilen].reverse().find((z) => "farbe" in z)?.farbe ?? null) as number[] | null;
-  for (const bis = Date.now() + 40_000; !gewirkt(letzteFarbe()) && !zeilen.some((z) => "fertig" in z) && Date.now() < bis;) {
+  const letzte = () => [...zeilen].reverse().find((z) => "farbe" in z) ?? {};
+  for (const bis = Date.now() + 40_000; !gewirkt((letzte().farbe ?? null) as number[] | null, (letzte().bilder ?? 0) as number)
+    && !zeilen.some((z) => "fertig" in z) && Date.now() < bis;) {
     await new Promise((r) => setTimeout(r, 100));
   }
   app.stdin.write(`${JSON.stringify({ ende: true })}\n`);
@@ -316,7 +341,7 @@ test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen i
       ];
       const datei = join(a.ort("spiel"), "tasten.txt");
       const e = await empfange(turn, turnPort, eingaben, (angebot) => b.starte("spiel", angebot, { breite: 640, hoehe: 480 }),
-        () => existsSync(datei) && readFileSync(datei, "utf8").includes("klick"), [255, 255, 255]); // weiß: das Fenster des Programms steht
+        () => existsSync(datei) && readFileSync(datei, "utf8").includes("klick"), { farbe: [255, 255, 255] }); // weiß: das Fenster des Programms steht
       console.log(`[bild] Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder empfangen, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       const tasten = readFileSync(datei, "utf8");
@@ -348,7 +373,7 @@ test("VKg2c1: Ende zu Ende – eine Web-Seite in Chromium im Bild, ein Klick üb
       const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
       // vorher grün (darauf wartet der Empfänger), nach dem Klick rot
       const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
-      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("seite", angebot, { breite: 640, hoehe: 480 }), rot, [0, 192, 0]);
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("seite", angebot, { breite: 640, hoehe: 480 }), rot, { farbe: [0, 192, 0] });
       console.log(`[bild] Chromium: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
@@ -381,11 +406,71 @@ test("VKg2c1: Ende zu Ende – ein Web-Projekt mit Dev-Server in Chromium im Bil
     try {
       const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
       const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
-      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("app", angebot, { breite: 640, hoehe: 480 }), rot, [0, 192, 0]);
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("app", angebot, { breite: 640, hoehe: 480 }), rot, { farbe: [0, 192, 0] });
       console.log(`[bild] Dev-Server: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
     } finally {
       b.beendeAlle();
+    }
+  });
+});
+
+/** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */
+function imSkript(code: string): Promise<unknown> {
+  const motor = new URL("../motor/", import.meta.url).pathname;
+  return new Promise((r, f) => execFile(python ?? "python3", ["-c", `import sys, json; sys.path.insert(0, ${JSON.stringify(motor)}); import freedom_bild as b; ${code}`],
+    (e, aus) => (e ? f(e) : r(JSON.parse(aus)))));
+}
+
+test("VKg2c2: Formate aus dem Angebot – VP8 und H.264 mit ihren Nummern, H.264 nur mit packetization-mode=1 und Baseline", { skip: !python && "kein Python mit GStreamer" }, async () => {
+  // wie Chromium: VP8 96, VP9 98, H.264 in mehreren Profilen, dazu ein Datenkanal mit eigenem rtpmap, der nicht zählt
+  const chromium = ["v=0", "m=video 9 UDP/TLS/RTP/SAVPF 96 97 98 102 104 106 108", "a=rtpmap:96 VP8/90000", "a=rtpmap:97 rtx/90000",
+    "a=rtpmap:98 VP9/90000", "a=rtpmap:102 H264/90000", "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+    "a=rtpmap:104 H264/90000", "a=fmtp:104 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f",
+    "a=rtpmap:106 H264/90000", "a=fmtp:106 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+    "a=rtpmap:108 H264/90000", "a=fmtp:108 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=640034",
+    "m=application 9 UDP/DTLS/SCTP webrtc-datachannel", "a=rtpmap:120 VP8/90000", ""].join("\r\n");
+  assert.deepEqual(await imSkript(`print(json.dumps(b.formate(${JSON.stringify(chromium)})))`),
+    { VP8: 96, H264: [106, "42e01f"] }, "Constrained Baseline mit Paketen vor Baseline; ohne packetization-mode=1 und High nie");
+  const firefox = ["v=0", "m=video 9 UDP/TLS/RTP/SAVPF 120 124 121 126 97", "a=rtpmap:120 VP8/90000", "a=rtpmap:121 VP9/90000",
+    "a=rtpmap:126 H264/90000", "a=fmtp:126 profile-level-id=42e01f;level-asymmetry-allowed=1;packetization-mode=1", ""].join("\r\n");
+  assert.deepEqual(await imSkript(`print(json.dumps(b.formate(${JSON.stringify(firefox)})))`), { VP8: 120, H264: [126, "42e01f"] });
+  assert.deepEqual(await imSkript(`print(json.dumps(b.formate("v=0\\r\\nm=video 9 X 96\\r\\na=rtpmap:96 VP9/90000\\r\\n")))`), {}, "nur VP9: nichts");
+  // die Kette für NVENC: Nummer und Profil aus dem Angebot, Constrained Baseline, SPS und PPS vor jedem Schlüsselbild
+  const nv = await imSkript(`print(json.dumps(b.pipeline_text("nvh264enc", 106, "42e01f")))`) as string;
+  for (const teil of ["nvh264enc ", "video/x-h264,profile=constrained-baseline", "rtph264pay pt=106 config-interval=-1", "payload=106",
+    "packetization-mode=(string)1,profile-level-id=(string)42e01f", "ice-transport-policy=relay"]) assert.ok(nv.includes(teil), teil);
+  // die Kette für VP8 baut GStreamer hier wirklich
+  assert.equal(await imSkript(`import gi; gi.require_version("Gst", "1.0"); from gi.repository import Gst; Gst.init(None); `
+    + `print(json.dumps(Gst.parse_launch(b.pipeline_text("vp8enc", 120)).get_by_name("w") is not None))`), true);
+});
+
+
+test("VKg2c2: Ende zu Ende – die Nummer des Formats aus dem Angebot (VP8 mit 120 wie Firefox); H.264 ohne NVENC wird VP8", {
+  skip: ohne, timeout: 150_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("spiel");
+    copyFileSync(new URL("./fixtures/bild/taster.py", import.meta.url), join(a.ort("spiel"), "taster.py"));
+    const befehl = () => [python!, "/arbeit/taster.py", "/arbeit/tasten.txt"];
+    const weiss = (f: number[] | null) => !!f && f.every((x) => x > 200);
+    const genug = (f: number[] | null, bilder: number) => weiss(f) && bilder >= 20;
+    const faelle: Array<{ kodierer: "vp8" | "h264"; pt: number; im: RegExp }> = [
+      { kodierer: "vp8", pt: 120, im: /^m=video \d+ \S+ 120\r?$/m },
+      { kodierer: "h264", pt: 98, im: /^m=video \d+ \S+ 98\r?$/m }, // H.264 gewünscht, ohne NVENC (hier): VP8
+    ];
+    for (const f of faelle) {
+      const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, befehl, kodierer: f.kodierer });
+      try {
+        let antwort = "";
+        const e = await empfange(turn, turnPort, [], async (angebot) => (antwort = await b.starte("spiel", angebot, { breite: 640, hoehe: 480 })),
+          genug, { pt: f.pt });
+        console.log(`[bild] VP8 mit ${f.pt}: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+        assert.match(antwort, f.im, `die Antwort nennt ${f.pt}`);
+        assert.ok(e.bilder >= 20 && weiss(e.farbe), `${f.pt}: Bild angekommen (${e.bilder}, ${JSON.stringify(e.farbe)})`);
+      } finally {
+        b.beendeAlle();
+      }
     }
   });
 });

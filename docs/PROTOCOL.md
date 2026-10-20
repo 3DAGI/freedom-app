@@ -1279,7 +1279,9 @@ Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehle
 Datenkanal `eingabe`, ohne Trickle – alle Kandidaten stehen im Angebot, alle vom Typ „relay“ über den eigenen
 TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Projekts (`.freedom/start` mit `sh`,
 sonst `main.py`; seit VKg2c1 sonst ein Web-Projekt in Chromium – mit Skript `dev` der Dev-Server wie in der Vorschau, sonst
-`index.html`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert (VP8). Den
+`index.html`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert – seit VKg2c2 im Format und
+mit der Nummer aus dem Angebot: H.264 (Constrained Baseline, `packetization-mode=1`) über NVENC, wo der Knoten es hat, sonst
+VP8 (Firefox nennt VP8 120, Chromium 96). Den
 TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
 erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
 mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).
