@@ -12061,3 +12061,32 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a/b (Vorschau)
 - Weiterleitung: Methode, Kopfzeilen, Cookie, WebSocket mit Echo; ohne Cookie oder ohne Dev-Server zu.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a1 – Tunnel zum TURN für den Bildstrom
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: Bildstrom mit GStreamer `webrtcbin` über den eigenen TURN), gebaut von Spur C.
+Erster Teil von VKg2 – Baustein, verdrahtet mit VKg2a2.
+
+**Gemessen vorab** (Versuch, nicht im Repo): `xeyes` auf Xvfb in bubblewrap ohne Netz, `webrtcbin` mit TURN über TCP durch
+den Tunnel, Chromium nur über Relay – erstes Bild nach 1,45 s, danach 30 Bilder je Sekunde in 1280×720.
+
+**Neu:**
+- `turn-tunnel.ts`: Die Sandbox erreicht den TURN nur über einen Unix-Socket des Knotens (0600); der Knoten verbindet über
+  TCP oder TLS (`turnZiel()`: `TURN_INTERN`, sonst die erste Adresse aus `TURN_URLS`, die TCP spricht).
+  - Der Filter (`TurnFilter`) lässt nur durch, was eine UDP-Allokation braucht: Binding, Allocate mit UDP, Refresh,
+    CreatePermission, ChannelBind, Send, ChannelData. Nie TCP-Allokationen (RFC 6062).
+  - Gegenstellen nur die Relay-Adressen aus dem Angebot der App (`relayAdressen()`).
+  - Was nicht passt, schließt beide Seiten; zur Sandbox geht alles unverändert. Höchstens vier Verbindungen je Tunnel.
+- CI: coturn für den Test gegen den echten TURN.
+
+**Befund für Spur B:** Hinter NAT sperrt `denied-peer-ip` Relay zu Relay auf demselben TURN (Entwurf, VKg2) – Vorschlag
+`allowed-peer-ip` für die eigene Relay-Adresse und `no-tcp-relay` in `turn-einrichten.sh`.
+
+**Tests:** node +6:
+- Ziel und Relay-Adressen.
+- Filter: Erlaubtes geht durch, auch zerteilt; 16 verbotene Fälle schließen den Tunnel.
+- Tunnel: Socket 0600, Verbotenes erreicht den TURN nie, Grenze der Verbindungen.
+- Echter coturn (`turnutils_uclient` über den Tunnel): Kanäle und Send an die erlaubte Gegenstelle ohne Verlust, an eine
+  andere kein Byte.
+
+Knoten-Stand: nur der Knoten (noch nicht verdrahtet).
