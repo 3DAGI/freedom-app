@@ -11979,3 +11979,23 @@ Datenschutz-Test. Smoke („privatraum“): Bo koppelt einen eigenen Probe-Knote
 das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`.
 
 Knoten-Stand: B-34e1 (Weiterleitung); ohne ihn fragt die App wie bisher.
+## Schritt VKg1b – Projekte-Seite: Vorschau öffnen
+
+Spur C, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a (Vorschau-Server im Knoten).
+
+**Neu:**
+- Auf dem Blatt eines Projekts „Vorschau“: Die App holt die Adresse versiegelt vom Knoten (`vorschau`).
+  - Im Browser öffnet „Vorschau öffnen“ sie im neuen Tab, ohne Verweis zurück (`noopener noreferrer`).
+  - In der Hülle, die keine Fenster öffnet, gibt es die Adresse zum Kopieren.
+  - Der QR-Code für ein anderes Gerät kommt nur auf Klick und verschwindet wieder (`geheim`) – die Adresse ist ein Zugang.
+  - Über http (außer `.onion`) steht der Hinweis, dass im selben Netz mitlesen kann, wer will (`vorschauUnverschluesselt()`).
+- Texte in beiden Sprachen; Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:**
+- app +1: Hinweis bei http, Link ohne Verweis zurück, in der Hülle kein Link, QR geheim, Texte.
+- Browser-Test „projekt“: Vorschau mit Adresse, Ziel, `rel`, Kopieren, QR und Hinweis – 9 Umschläge an den Knoten, alle versiegelt.
+- Browser-Test „projekt“ wartet jetzt auch auf die Ausgabe des Schritts, nicht nur auf den Abschluss. Die Umschläge kommen
+  in beliebiger Reihenfolge (NIP-59); im vollen Lauf war die Ausgabe einmal noch nicht da (`null` beim Lesen) – ein Wettlauf
+  im Test seit VKe1, kein Fehler der App.
+
+Knoten-Stand: VKg1a (Code-Aktion `vorschau`) – ein älterer Knoten lehnt die Vorschau ab.

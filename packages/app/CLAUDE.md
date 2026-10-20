@@ -902,3 +902,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Stimme nicht vorlesen, nie auf eine Netzstimme ausweichen. Die Spracherkennung des Browsers (`…Recognition`) schickt in
   Chrome den Ton an Google – nie benutzen, ein Test sucht danach. Im Smoke-Test („lokal“) spielt `SPRACHE_ATTRAPPE`
   `speechSynthesis` mit einer Netzstimme als Vorgabe.
+- **Vorschau nur aus der versiegelten Antwort** (seit VKg1b, `knoten-projekt-ui.ts`): Die Adresse kommt nur aus
+  `leseCodeAntwort(…, "vorschau")` (`istVorschauAdresse()`: http oder https, Pfad genau das Zeichen) und wird nur als Link mit
+  `target="_blank"` und `rel="noopener noreferrer"` geöffnet – die Vorschau ist Code des Agenten und bekommt keinen Griff auf
+  das Fenster der App. Nie in einen Rahmen der App laden (er erbte die CSP, VKe2b) und nie die CSP dafür lockern. Die Hülle
+  verweigert neue Fenster (`on_new_window`) – dort nur Adresse, Kopieren und QR. Der QR-Code trägt einen Zugang: nur mit
+  `geheim: true`.

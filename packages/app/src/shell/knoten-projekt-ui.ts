@@ -4,14 +4,16 @@
  * des Agenten. Der Auftrag geht über `wegZumKnoten()` mit frischem Sitzungsschlüssel; Freigabe und Stopp sind eigene
  * Aufträge (`frageKnotenCode()`, hereingereicht – das Modul bleibt frei von Kreisen). „Verlauf“ (VKe2) zeigt die Commits,
  * ihre Änderungen über die Patch-Ansicht der Repos (`zeigePatch()`) und setzt nach Rückfrage auf einen zurück – als neuen
- * Commit, nichts geht verloren. Gezeigt wird nur Text, der
+ * Commit, nichts geht verloren. „Vorschau“ (VKg1b, wie Replit) holt die Adresse, unter der der Knoten das Projekt live
+ * ausliefert (eigener Ursprung, `vorschau.ts` im Knoten), und öffnet sie in einem neuen Tab – in der Hülle, die keine
+ * Fenster öffnet, nur zum Kopieren und als QR-Code. Gezeigt wird nur Text, der
  * Abschluss über `markdownDom()`. Der Lauf gehört dem Knoten: Schließt man das Blatt, läuft er weiter; solange die App
  * offen ist, folgt sie ihm und zeigt ihn beim nächsten Öffnen wieder – nur im Speicher, nie gemerkt.
  */
 import { CODE_GRENZEN, LocalSigner, baueCodeAuftrag, generateKeypair, leseCodeAntwort, type CodeCommit, type CodeModus } from "@freedomstack/protocol";
 import { gebietsschema, t } from "../i18n.js";
 import { LAUF_ZEIT_MS, codeText, endeText, neuerLauf, nimmSchritt, wartetAufMich, type LaufStand, type SchrittAnzeige } from "../knoten-lauf.js";
-import { CODE_TAKT_MS, CODE_ZEIT_MS, codeAblehnungText } from "../knoten-projekte.js";
+import { CODE_TAKT_MS, CODE_ZEIT_MS, codeAblehnungText, vorschauUnverschluesselt } from "../knoten-projekte.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { alsModal, bestaetige } from "./dialog.js";
 import type { frageKnotenCode } from "./knoten-code-ui.js";
@@ -19,6 +21,8 @@ import { powFuerKnoten } from "./knoten-status-ui.js";
 import { folgeLauf, wegZumKnoten } from "./knoten-weg-ui.js";
 import { markdownDom } from "./markdown-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
+import { huellenArt } from "./oberflaeche-huelle.js";
+import { qrKnopf } from "./qr-ui.js";
 import { zeigePatch } from "./tabs/patch-seite.js";
 import { el, ladend, toast } from "./ui.js";
 
@@ -111,7 +115,8 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
   const verlaufKnopf = knopf(t("set.projektVerlauf"), "ghost projekt-verlauf-knopf", t("set.projektVerlaufAria", { name: projekt }));
   const kopf = el("div", undefined, "projekt-kopf");
   const kopfKnoepfe = el("div", undefined, "projekt-kopf-knoepfe");
-  kopfKnoepfe.append(verlaufKnopf, zu);
+  const vorschauKnopf = knopf(t("set.projektVorschau"), "ghost projekt-vorschau-knopf", t("set.projektVorschauAria", { name: projekt }));
+  kopfKnoepfe.append(vorschauKnopf, verlaufKnopf, zu);
   kopf.append(el("h3", t("set.projektTitel", { name: projekt })), kopfKnoepfe);
   /** Verlauf und Änderungen (VKe2) stehen hier statt Schritten und Auftrag. */
   const neben = el("div", undefined, "projekt-neben");
@@ -217,6 +222,32 @@ export function oeffneProjekt(projekt: string, frage: Frage): void {
     }) : [el("p", t("set.projektVerlaufLeer"), "mono-sm")]));
   }
   verlaufKnopf.addEventListener("click", () => (neben.hidden ? void zeigeVerlauf() : lauf(true)));
+
+  /** Vorschau (VKg1b): die Adresse nur aus der versiegelten Antwort; geöffnet ohne Verweis zurück auf die App. */
+  async function zeigeVorschau(): Promise<void> {
+    lauf(false);
+    ladend(neben);
+    const r = await frage(k, { aktion: "vorschau", projekt }, CODE_ZEIT_MS);
+    if ("grund" in r) return void neben.replaceChildren(el("p", r.grund, "mono-sm"));
+    if (r.antwort.aktion !== "vorschau") return;
+    const url = r.antwort.url;
+    const teile: HTMLElement[] = [el("p", t("set.vorschauText"))];
+    if (huellenArt()) teile.push(el("p", t("set.vorschauHuelle"), "mono-sm"));
+    else {
+      const link = el("a", t("set.vorschauOeffnen"), "projekt-vorschau-link");
+      link.setAttribute("href", url);
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer"); // kein UI-Text
+      teile.push(link);
+    }
+    const adresse = el("div", url, "mono-sm projekt-vorschau-adresse");
+    const kopieren = knopf(t("set.vorschauKopieren"), "ghost projekt-vorschau-kopieren");
+    kopieren.addEventListener("click", () => void navigator.clipboard?.writeText(url).then(() => toast(t("dlg.kopiert"))));
+    teile.push(adresse, kopieren, qrKnopf(url, { beschriftung: t("set.vorschauQr"), geheim: true }), el("p", t("set.vorschauGeheim"), "mono-sm"));
+    if (vorschauUnverschluesselt(url)) teile.push(el("p", t("set.vorschauHttp"), "mono-sm projekt-vorschau-http"));
+    neben.replaceChildren(...teile);
+  }
+  vorschauKnopf.addEventListener("click", () => void zeigeVorschau());
 
   const schliesse = (): void => {
     huelle.remove();
