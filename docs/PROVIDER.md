@@ -411,6 +411,67 @@ sich nicht verbergen. Deshalb ist `TORRENT` aus, bis du es einschaltest.
   mit einem Geheimnis je Start, das nur in einer Datei steht (0600).
 - aria2c endet mit dem Knoten.
 
+## Werkzeuge über MCP (B-31a)
+
+Der Knoten kann dem Modell Werkzeuge aus MCP-Servern anbieten, die auf diesem
+Rechner laufen – etwa Wikipedia ohne Internet (Kiwix, B-31b). Welche, legst nur
+du fest: in `~/.freedom/mcp.json`.
+
+```json
+{
+  "server": {
+    "wiki": {
+      "befehl": ["/usr/bin/python3", "/opt/mcp/wiki/server.py"],
+      "nurLesbar": ["/opt/mcp/wiki", "/daten/zim"]
+    }
+  }
+}
+```
+
+- **Nur in der Sandbox:** Jeder Server läuft in bubblewrap wie der Motor (VKb):
+  ohne Netz, Wurzel nur lesbar, leere Umgebung, begrenzte Prozesse und
+  Speicher. Ohne Sandbox startet kein Server (Log `[werkzeuge] MCP-Server aus`).
+- **`befehl`:** Programm mit absolutem Pfad und seine Argumente.
+- **`nurLesbar`:** Ordner, die der Server braucht, nur lesbar unter demselben
+  Pfad (höchstens 8). Der Ordner des Programms kommt dazu, wenn er nicht unter
+  `/usr` liegt. Nie die Wurzel, dein Home, einen Ordner darüber oder
+  `~/.freedom` – dort liegt der Schlüssel des Knotens.
+- **Grenzen:** höchstens 4 Server, je Server 32 Werkzeuge. Für das Modell heißen
+  sie `mcp__<server>__<werkzeug>` und haben dieselben Grenzen wie die
+  eingebauten Werkzeuge (Eingabe 2000 Zeichen, 20 Sekunden, Ausgabe gekürzt auf
+  4000 Zeichen). Gratis-Antworten bekommen keine Werkzeuge.
+- **Ungültige Datei** hält den Knoten an (`[werkzeuge] … – der Knoten startet
+  nicht`); `npm run pruefen` zeigt dasselbe. Startet ein Server nicht, läuft der
+  Knoten ohne ihn weiter.
+- **Was durchfließt,** ist Inhalt einer KI-Anfrage: Der Knoten schreibt es nie
+  ins Log, nach außen gehen nur feste Fehlertexte.
+
+### Wikipedia ohne Internet (Kiwix, B-31b)
+
+Kiwix ist eingebaut: Statt `befehl` nennst du nur die ZIM-Dateien (Archive von
+[download.kiwix.org](https://download.kiwix.org/zim/), etwa Wikipedia ohne Bilder).
+
+```json
+{ "server": { "wiki": { "kiwix": ["/daten/zim/wikipedia_de_all_nopic.zim"] } } }
+```
+
+- **Was läuft:** `kiwix-serve` aus Debian (Paket `kiwix-tools`, GPL-3.0+, ein
+  eigenes Programm, rund 5 MB) und eine kleine Brücke des Knotens
+  (`packages/node/mcp/kiwix-bruecke.mjs`, nur Node) – beide in der Sandbox, ohne
+  Netz; `kiwix-serve` hört nur auf 127.0.0.1 in der Sandbox.
+- **Für das Modell:** `mcp__wiki__search` (Volltextsuche, höchstens 10 Treffer mit
+  Pfad) und `mcp__wiki__read` (ein Artikel als Text, ohne Skripte). Gelesen wird
+  nur ein Pfad aus der Suche (`<buch>/<eintrag>`), nie eine andere Adresse.
+- **Einrichten:** `apt-get install kiwix-tools` (im Docker-Bild schon dabei), ZIM
+  ablegen, `mcp.json` wie oben. Der Installer tut beides mit
+  `KIWIX_ZIM=/pfad/a.zim[,/pfad/b.zim]` – eine vorhandene `mcp.json` lässt er
+  stehen. Unter Docker den Ordner nur lesend einbinden (`./zim:/daten/zim:ro`).
+- **Ohne `kiwix-serve`** startet der Server nicht, der Knoten läuft ohne ihn
+  weiter (Log `[werkzeuge] MCP wiki startet nicht (ProgrammFehlt) – … (Paket
+  kiwix-tools)`).
+- **Ohne Internet:** Die Suche verlässt den Rechner nicht – passend zu einem
+  Funk-Gateway (7.4), das ohne Netz antwortet.
+
 ## Agent auf dem Knoten (11.3d1a, im Aufbau)
 
 Ein Agent ist ein eigenes Mitglied in offenen Räumen und antwortet, wenn ihn
@@ -496,6 +557,28 @@ der Knoten vergibt dafür nur kurzlebige Zugänge an deine Geräte.
 - **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt.
   Der Zugang steht nie im Log.
 
+## Gruppenanrufe über den eigenen Knoten (B-34, im Aufbau)
+
+Ab drei Personen läuft ein Anruf über einen SFU auf deinem Knoten: LiveKit als eigener Dienst (wie coturn). Der Knoten
+vergibt nur Zugänge – je Teilnehmer einen, mit einer zufälligen Kennung, nur für diesen Anruf und kurz gültig. Bild und
+Ton verschlüsselt die App (B-34b/c); der SFU sieht, wer wann spricht und wie viel, aber nicht was.
+
+- **Einrichten (Docker):** einmal
+  `bash scripts/livekit-einrichten.sh ./livekit.yaml <name> --docker >> .env`, dann
+  `docker compose --profile livekit up -d`. Die Datei (0600, in `.gitignore`) hat zufälligen Schlüssel und Geheimnis,
+  höchstens 25 Teilnehmer je Raum, keinen eigenen TURN, kein Redis, Protokoll erst ab „warn“.
+- **Erreichbar machen:**
+  - Das Signal hört nur auf `127.0.0.1:7880`. Davor gehört ein Reverse-Proxy mit TLS, der `wss://<name>` dorthin
+    weiterreicht.
+  - An Firewall und Router freigeben: TCP 7881 und UDP 50000–50100.
+- **Umgebung des Knotens:** `LIVEKIT_URL` (`wss://…`), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (mindestens 32 Zeichen) –
+  die drei Zeilen aus dem Skript; optional `LIVEKIT_GUELTIG_SEK` (Standard 3600, höchstens 86400).
+- **Nie halb:** Fehlt eines oder ist es ungültig, vergibt der Knoten keine Zugänge. Im Log steht `[livekit] …`; die
+  Rolle „Gruppenanrufe“ zeigt der Status in der App.
+- **Wer einen Zugang bekommt:** nur gekoppelte Geräte des Besitzers, versiegelt (Kind 5081). Zugänge stehen nie im Log.
+- **Noch nicht:** der Schlüssel aus der Gruppe (B-34b), Beitreten in der App (B-34c), Oberfläche (B-34d); der Installer
+  richtet LiveKit noch nicht ein.
+
 ## Vibecoden auf dem eigenen Knoten (A-31, im Aufbau)
 
 Vom Handy aus Programme auf deinem Knoten bauen lassen
@@ -516,15 +599,123 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   leere Umgebung; dein Home und `~/.freedom` sieht der Code nicht. Grenzen je
   Befehl: 60 s, 120 s Rechenzeit, Dateien bis 512 MB, 1024 offene Dateien,
   `/tmp` mit 512 MB, seit 11.5s3 4 GB Arbeitsspeicher je Prozess (ein Befehl mit
-  vielen Prozessen kann zusammen mehr belegen – das begrenzt die Sandbox noch nicht).
+  vielen Prozessen kann zusammen mehr belegen – das begrenzt die Sandbox noch nicht),
+  seit 11.5s4a höchstens 1024 Prozesse und Threads je Befehl (gegen Fork-Bomben).
+  Diese Grenze zählt der Kernel nicht, wenn der Knoten als root läuft – betreib ihn
+  als eigenen Nutzer (das Docker-Bild tut das); sonst warnt das Log beim Start.
   Seit 11.5s2 sperrt ein seccomp-Filter Kernaufrufe, die kein Werkzeug braucht
   (`io_uring`, Schlüsselbund, eBPF, neue Namensräume) – auf x86_64 und arm64.
   Ob sie geht, steht beim Start im Log (`[code] Sandbox …`) und in
   `npm run pruefen`. Ohne bubblewrap oder ohne Nutzer-Namensräume läuft kein
   Code – nie direkt auf dem Rechner. **Unter Docker** sperrt das
-  Standard-Seccomp meist Nutzer-Namensräume; dann meldet die Prüfung das. Ubuntu ab 24.04
+  Standard-Seccomp Nutzer-Namensräume; dann meldet die Prüfung das (Abhilfe unten). Ubuntu ab 24.04
   kann sie per AppArmor sperren (`kernel.apparmor_restrict_unprivileged_userns`).
-  Den Agenten startet der Knoten darin erst mit VKc3.
+- **Agent (seit VKc3a):** Hermes Agent (Nous Research, MIT) über ACP, nur in der
+  Sandbox. Der Knoten sucht ihn als venv in `HERMES_ORDNER` (Vorgabe `/opt/hermes`,
+  mit `bin/python` und `bin/hermes-acp`). Ohne Docker: `python3 -m venv /opt/hermes &&
+  /opt/hermes/bin/pip install --require-hashes --only-binary :all: --no-deps -r
+  docker/hermes-requirements.txt` (Hermes 0.19.0, jedes Paket mit Prüfsumme; das Python
+  dazu muss unter `/usr` liegen). Das Modell erreicht
+  Hermes nur über eine Brücke des Knotens zum eigenen Antrieb (Ollama oder `KI_URL`) –
+  kein Nous Portal, kein Dienst im Internet. Welches Modell: `CODE_MODELL`, sonst das
+  erste im Angebot; es muss Werkzeuge aufrufen können (Tool-Calling), und Ollama
+  braucht langen Kontext (`OLLAMA_CONTEXT_LENGTH=65536`). Gedächtnis und Skills von
+  Hermes liegen je Projekt in `~/.freedom/hermes/<projekt>`, nie im Repo. Fehlt
+  Hermes, steht es im Log, und Aufträge werden mit `code-ohne-motor` abgelehnt.
+- **Werkzeuge (seit VKd1):** Hermes kann über deinen Knoten im Netz suchen
+  (DuckDuckGo, nur Kurzantworten) und öffentliche Seiten als Text lesen (Freedom-MCP,
+  `POST /mcp` an derselben Brücke). Die Sandbox selbst bleibt ohne Netz; es gehen nur
+  diese zwei Werkzeuge hinaus (Pakete gehen seit VKd3 eigene Wege, unten), mit den Grenzen der Werkzeuge des Knotens (http und
+  https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
+  Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
+  Aufrufen nicht; in der App erscheinen sie als Schritt. Gelesen werden nur Seiten,
+  deren Adresse im Auftrag oder in einem Suchergebnis steht (seit VKd1b, wie bei
+  Claude) – keine Adresse, die der Agent selbst baut, kein Link aus einer gelesenen
+  Seite. Die Suchanfrage selbst ist frei.
+- **Browser (seit VKk1):** Hermes kann durchklicken, was er baut – Playwright MCP
+  (Microsoft, Apache-2.0, aus `playwright-core`) steuert Chromium ohne Kopf, beide in
+  der Sandbox des Motors und ohne Netz: Der Browser sieht nur Seiten, die der Agent in
+  derselben Sandbox ausliefert (etwa `python3 -m http.server`), nie das Internet oder
+  deinen Rechner. Ausgeführt werden nur die Werkzeuge zum Sehen, Klicken und Tippen,
+  nicht `browser_run_code_unsafe` (beliebiger Code im Server). Unter Docker bringt das
+  Bild mit `VIBECODEN=1` Chromium und Schriften aus Debian mit (einige hundert MB); sonst
+  sucht der Knoten `/usr/lib/chromium/chromium` und `/opt/google/chrome/chrome`, oder
+  du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
+  oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
+  sagt es.
+- **Pakete (seit VKd3):** `npm install` und `pip install` im Projekt gehen über
+  dieselbe Brücke. Der Knoten holt nur von registry.npmjs.org, pypi.org und
+  files.pythonhosted.org, nur lesend, ohne Weiterleitung, mit `TOR_SOCKS` durch Tor,
+  je Datei bis 50 MB, je Stunde höchstens 20 000 Abrufe und 4 GB. Prüfsummen rechnen
+  npm und pip selbst. Die Registry sieht die IP deines Knotens (oder den Ausgang von
+  Tor) und die Namen der Pakete. Andere Adressen (GitHub, CDNs) gehen aus der
+  Sandbox nicht.
+- **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
+  Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
+  Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der
+  dein Handy den Knoten erreicht, etwa `http://192.168.1.20:3603` im Heimnetz, eine
+  eigene Domain mit https über einen Reverse-Proxy oder eine `.onion`-Adresse
+  (Tor auf `127.0.0.1:3603`). Der Port ist `VORSCHAU_PORT` (Standard 3603) – nie der
+  Port von Relay und App, und hinter einem Reverse-Proxy nie dieselbe Domain wie die
+  App, sonst käme die Vorschau an deren Speicher. Der Knoten lauscht auf
+  `VORSCHAU_HOST` (Standard alle Adressen). Ohne `VORSCHAU_URL` gibt es keine
+  Vorschau, ein ungültiger Wert hält den Start an. Wer die Adresse samt Zeichen
+  kennt, sieht das Projekt; das Zeichen bekommt nur der Besitzer, versiegelt, und es
+  ändert sich bei jedem Start. Über http im Heimnetz kann mitlesen, wer im selben
+  Netz ist – für unterwegs `.onion` oder https. Ausgeliefert wird nur gelesen:
+  `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt, nie
+  `.git`, `.env` oder Verweise hinaus. Nennt `package.json` ein Skript `dev` (seit
+  VKg1c), startet der Knoten beim ersten Aufruf der Vorschau `npm run dev` in der
+  Sandbox – ohne Netz, wie jeden Code des Projekts – und leitet die Vorschau dorthin
+  weiter, auch Hot Reload: Änderungen des Agenten erscheinen ohne Neuladen. Der
+  Server muss in der Sandbox auf `127.0.0.1:5173` lauschen; Vite tut das von selbst,
+  andere nehmen `PORT`. Höchstens drei laufen zugleich, nach 30 Minuten ohne Aufruf
+  endet einer; ohne Sandbox zeigt die Vorschau nur die Dateien.
+- **Bild (seit VKg2a2, für Programme ohne Web):** Spiele und Programme mit Fenster
+  (Python mit pygame oder tkinter, später Godot und andere) zeigt der Knoten als
+  Bildstrom in der App – auch unterwegs ohne `VORSCHAU_URL`. Das Programm nennt
+  `.freedom/start` im Projekt (ein Befehl für `sh`), sonst startet der Knoten
+  `main.py`. Web-Projekte zeigt Chromium im Bild (seit VKg2c1, derselbe wie für den
+  Motor: `MCP_BROWSER`, sonst Chromium aus Debian) – mit Skript `dev` in
+  `package.json` der Dev-Server wie in der Vorschau, sonst `index.html`; WebGL rechnet
+  dort SwiftShader in Software. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
+  eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
+  NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
+  WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN
+  erreicht nur diese zweite Sandbox, über einen Tunnel des Knotens, der nur die
+  Adressen der App erlaubt. Liegt coturn auf demselben Rechner und ist sein
+  öffentlicher Name von innen nicht erreichbar, nennt `TURN_INTERN` die Adresse für
+  den Knoten (etwa `127.0.0.1:3478`). Gebraucht werden Xvfb, GStreamer mit
+  `webrtcbin` und PyGObject (`xvfb gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+  gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib`); fehlt etwas, sagt es das
+  Log, und die App bekommt `code-bild-aus`. Höchstens zwei Bilder laufen zugleich,
+  eines endet spätestens mit dem Zugang zum TURN (`TURN_GUELTIG_SEK`, Standard eine
+  Stunde). Maus, Berührung und Tasten aus der App gehen nur an diesen Bildschirm
+  (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
+  Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
+  Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
+  270 MB);
+  läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
+  dort `host.docker.internal:3478`. NVENC unter Docker (seit VKg2c2) nur mit
+  NVIDIA Container Toolkit und der dritten Datei: `docker compose -f
+  docker-compose.yml -f docker-compose.vibecoden.yml -f docker-compose.nvenc.yml
+  up -d --build`. Die GPU bekommt dann nur die Bild-Sandbox, nie der Code des
+  Projekts; das Log sagt beim Start „H.264 über NVENC“ und je Bild den Kodierer.
+- **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
+  docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
+  (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem
+  Container, was bubblewrap braucht: das Seccomp-Profil `docker/seccomp-vibecoden.json`
+  (das Standardprofil von Docker plus Namensräume: `clone`, `unshare`, `mount`,
+  `umount2`, `pivot_root`, `setns`, `sethostname`), `systempaths=unconfined` (sonst
+  verdeckt Docker Teile von `/proc`, und die Sandbox bekommt kein eigenes) und
+  `apparmor=unconfined` (das Profil `docker-default` auf Ubuntu und DGX OS verbietet
+  `mount`). Der Knoten läuft weiter als Nutzer ohne Fähigkeiten; die Sandbox legt
+  darin ihren eigenen, engeren Filter an. Ohne die Ergänzung bleibt das Bild schlank,
+  und die Selbstprüfung meldet, dass keine Sandbox geht. Gemessen mit Docker 29: ohne
+  Ergänzung keine Sandbox, mit ihr laufen die Sandbox-Tests im Container grün.
+  Die Ergänzung gibt außerdem den Port der Vorschau frei (3603, auf allen Adressen;
+  für Tor oder einen Reverse-Proxy auf demselben Rechner `VORSCHAU_BIND=127.0.0.1`)
+  und reicht `VORSCHAU_URL` durch.
 
 ## Gratis-Start (A-14)
 

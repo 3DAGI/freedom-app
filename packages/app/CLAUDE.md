@@ -659,6 +659,10 @@ Fallstricke dieses Bereichs unten anhängen.
   In der App (seit 6.1b1b) nur über `shell/netz-huelle.ts`: Schalter `#huelle-tor` nur in der
   Hülle (`huellenArt()`, seit 6.1b2b auch Android) und nur mit `verfuegbar`, umschalten nur nach
   `bestaetige(torRueckfrage())` mit Neustart (`setzeTor()`; Android: „App schließen“); Texte sagen „es geht nichts hinaus“ statt Ausweichen, Anrufe nicht über Tor.
+  Brücken (seit B-33c) nur über `wireBruecken()`: sichtbar nur mit `brueckenMoeglich`, umgeschaltet nur nach
+  `bestaetige(brueckeRueckfrage())` (mit Brücke auch Tor), eigene Zeilen nur über `setzeBruecken()` an `netz_setzen` –
+  nie in `localStorage` oder `geheim`, die App erfährt nur ihre Zahl. Fehler der Hülle nur über `brueckenFehlerText()`
+  (Kennung aus `ZEILEN_GRUND`, nie ihr Wortlaut). Texte nennen, was Snowflake hinausschickt (Proxys sehen die IP, DNS für CDN und STUN).
   *(Weitere Teile: `packages/launcher/CLAUDE.md`, Wurzel (`CLAUDE.md`).)*
 - **Meshtastic nur über `meshtastic.ts`** – USB (seit 7.5b) nur über `erkenneSerielleStrecke()` (`meshtastic-strecke.ts`, aus
   `connectSerial()`): Meshtastic erst nach `want_config` erkannt (alle 2 s neu, 10 s Frist),
@@ -832,3 +836,81 @@ Fallstricke dieses Bereichs unten anhängen.
   web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Wer in Tests liest, was die
   Wallet bekam, nimmt `leseNachricht()` – das ist die fertige Nachricht: Der Gebührenzahler unterschreibt dort immer, auch wo
   die Anweisung selbst keine Unterschrift verlangt (Z1: das an der Anweisung prüfen, `erstatteKanalAnweisung().accounts`).
+- **Projekte-Seite nur über `shell/knoten-projekt-ui.ts`** (seit VKe1): Der Lauf gehört dem Knoten – die Seite gibt den
+  Auftrag über `wegZumKnoten()` mit frischem Sitzungsschlüssel und folgt ihm nur über `folgeLauf()` (`knoten-weg-ui.ts`:
+  jeder Umschlag einmal, Schritte nur über `leseCodeSchritt()`, eine Ablehnung nur mit Kennung). Schritte nur über
+  `nimmSchritt()` (`knoten-lauf.ts`) – geordnet nach `nr` und Art, nie nach Ankunft (Umschläge tragen zufällige
+  Zeitstempel); „Ja“ und „Nein“ nur, solange `wartetAufMich()` es sagt, gesendet nur über `frageKnotenCode()` wie der
+  Stopp. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
+  stehen nur im Speicher (`laeufe`), nie in `localStorage` oder `geheim` – Aufträge und Ausgaben sind Inhalt des Projekts.
+  „fragen“ nie als „vor jedem Befehl“ beschreiben: Hermes fragt vor Änderungen an Dateien und riskanten Befehlen.
+  Im Smoke-Test („projekt“) antwortet `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe.
+  Verlauf, Änderungen und „hierher zurück“ (seit VKe2b) nur über `frageKnotenCode()` mit den Aktionen `verlauf`,
+  `diff`, `zurueck`; der Diff nur über `zeigePatch()` (dieselbe Ansicht wie bei Repos, nur Text), zurück nur nach
+  `bestaetige()` – der Knoten legt einen neuen Commit an, nichts geht verloren, und Texte sagen nichts anderes.
+  Eine Vorschau der gebauten App nie in einem `blob:`- oder `srcdoc`-Rahmen versprechen: er erbt die CSP der App, und
+  ihr `script-src` verweigert jedes fremde Skript (gemessen 17.10., Frage VKg-W1).
+
+- **Posteingang mit dem eigenen Knoten nur über `posteingang-abgleich.ts`** (seit B-35c, NG2 A): eine Runde nur aus
+  `syncDmInbox()` über `abgleichMitKnoten()` (`shell/posteingang-knoten.ts`) und nur, wenn sie fällig ist (Start,
+  `online`, länger als `pauseSek` verborgen – kein eigener Takt), nur gekoppelt, nur mit dem Relay des Knotens im eigenen
+  Satz (sonst dürfte die App sich dort nicht anmelden), als Gerät nie. Der Stand ist, was beim Knoten liegt; von den
+  anderen Posteingängen nur Ids aus `brauche` holen (Stücke von `jeAbfrage`, höchstens `hoechstens` je Runde – unter dem
+  Flutschutz des Knotens) und nur Umschläge an den eigenen Schlüssel ab `seit`. Ein Posteingang ohne NIP-77 bleibt aus –
+  nie stattdessen alles laden. Die Zeit der Runde (`freedom.posteingang.knotenRunde`, im Tresor) erst merken, wenn alles
+  Geholte beim Knoten liegt (`vollstaendig`). NIP-77 nur über `gleicheAbAn()` (`state.ts`): im Pool über dessen
+  Verbindung, sonst Nebenverbindung – den Fehler an `neben.mit()` vorbei, sonst wäre der Relay ausgesetzt (A-26).
+- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40): `@reticulum/core` und
+  `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, geladen erst bei Bedarf. Die Identität je Gerät nur über
+  `reticulumIdentitaet()` – zufällig, nie aus dem Nostr-Schlüssel, nur in `geheim` (`freedom.reticulum.identitaet`; alles
+  unter `freedom.reticulum.` in `SICHERUNG_NIE`); einen kaputten Eintrag nie ersetzen. Fehler nur als `ReticulumFehler`
+  mit Kennung (`fall`, bei `inhalt` dazu die Prüfung) – nie Text, der i18n-Test findet ihn; Texte dazu ab B-32b. Hinaus nur über
+  `verpackeFuerReticulum()` (vorher `pruefeMeshInhalt()` mit den eigenen Schlüsseln), herein nur über
+  `entpackeAusReticulum()` (nur die direkte Form mit der eigenen Adresse am Anfang – sonst setzt `Message.deserialize()`
+  die erwartete Adresse selbst ein). LXMF-Felder nur als `Map` mit Zahlen als Schlüssel – ein Objekt machte Text daraus,
+  und die Python-Referenz fände das Feld nicht. Die Nachricht kommt aus `@reticulum/lxmf/src/message.js` (Typen über
+  `src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
+- **Gruppenanrufe nur über `shell/gruppenanruf.ts`** (seit B-34c1, LK2–LK4 A, `docs/PROTOCOL.md` §39): anrufen nur über
+  `starteGruppenanruf()` – Zugänge nur vom gekoppelten Knoten (`livekitZugaengeVomKnoten()`: frischer Sitzungsschlüssel,
+  `wegZumKnoten()`, Antwort nur über `leseLivekitZugaenge()`), je Mitglied der Gruppe einer (auch für sich), die Kennung
+  zufällig, nie die Gruppe; die Einladung nur als inneres Event (`raumGruppenanruf()` über `mlsSendeEvent()`) – sie trägt
+  Zugänge, nie offen veröffentlichen, nie merken (Leak-Szenario `leak/gruppenanruf.test.ts`). Laufende Anrufe nur aus
+  den inneren Events über `laufendeGruppenanrufe()`; beenden nur den eigenen (`beendeGruppenanruf()`).
+- **Gruppenanrufen beitreten nur über `shell/gruppenanruf-verbindung.ts`** (seit B-34c2, LK2–LK4 A): `livekit-client`
+  (2.22.4, exakt gepinnt) nur dort und nur dynamisch; im Build vorab minifiziert (Plugin „livekit-klein“ in `build.mjs` –
+  nur die Namen, die das Modul nutzt; ein Test vergleicht die Listen), der E2EE-Worker als Text aus `freedom:e2ee-worker`
+  (Plugin „e2ee-worker“), gestartet aus einer blob:-Adresse – keine neue Lockerung der CSP. Schlüssel nur aus
+  `anrufSchluessel()` je MLS-Epoche, im Ring unter `schluesselIndex()` (die vorige bleibt lesbar), die Bytes nach dem
+  Übergeben nullen; nach jedem Abgleich des privaten Raums `schluesselNachziehen()`. Einem fremden Anruf nur nach
+  Zustimmung (seit B-34d, `zustimmungNoetig()`): Die Signalverbindung (WebSocket) geht sonst direkt zum SFU – auch mit
+  eigenem TURN sieht der Knoten des Anrufenden die IP; nie „über deinen Vermittler sieht er sie nicht“ versprechen. Ohne
+  Rückfrage (seit B-34e2, LK5 A) nur, wenn beides über den eigenen Knoten geht: TURN (5079) und Weiterleitung des Signals
+  (`signalWegVomKnoten()`, 5082 – nur mit Relay des Knotens und Rolle `signal` im Status, ein älterer Knoten läse 5082 als
+  gewöhnlichen Auftrag); `room.connect()` dann mit `weg.signal`. Den Weg holt `trittBei()` vor der Rückfrage (nur beim eigenen
+  Knoten); gemerkt nur für den Versuch gleich nach ihr. Bild und
+  Ton nach `beitrittsWeg()`: mit eigenem TURN nur relay. Nie `setLogLevel()`/`setLogExtension()` von
+  livekit-client aufrufen: `loglevel` schriebe dann `loglevel:…` in localStorage (ohne Präfix `freedom.`).
+  Oberfläche (seit B-34d) nur über `shell/gruppenanruf-ui.ts`: Knopf `#raum-anruf` und Zeilen `#raum-anrufe` nur im
+  privaten Raum, die Leiste im Anruf über allem; Bild und Ton nur als Spuren aus `beiMedien()`, der eigene Ton nie. Im Anruf
+  keine Namen – alle Eingeladenen sehen alle Zugänge, wer welchen nutzt, prüft niemand. Im Smoke-Test („privatraum“)
+  liefert `scripts/gruppenanruf-probe.mts` die Zugänge, eine Hülle um WebSocket schließt die Verbindung zum SFU
+  (`GRUPPENANRUF_ZAEHLER`); seit B-34e2 koppelt Bo einen zweiten Probe-Knoten (`knoten-bo`, mit Relay-Liste) und tritt ohne
+  Rückfrage bei.
+- **Vorlesen nur über `vorlesen.ts`** (seit B-38a, SP-W2 A): Stimmen nur über `waehleStimme()` – `localService === true` und
+  die Sprache der App; Chrome bietet „Google …“-Stimmen als Vorgabe an, die den Text an Google schicken. Jede Äußerung
+  bekommt ausdrücklich `voice` (`browserSprecher()`), sonst spricht der Browser mit seiner Vorgabe. Ohne passende lokale
+  Stimme nicht vorlesen, nie auf eine Netzstimme ausweichen. Die Spracherkennung des Browsers (`…Recognition`) schickt in
+  Chrome den Ton an Google – nie benutzen, ein Test sucht danach. Im Smoke-Test („lokal“) spielt `SPRACHE_ATTRAPPE`
+  `speechSynthesis` mit einer Netzstimme als Vorgabe.
+- **Vorschau nur aus der versiegelten Antwort** (seit VKg1b, `knoten-projekt-ui.ts`): Die Adresse kommt nur aus
+  `leseCodeAntwort(…, "vorschau")` (`istVorschauAdresse()`: http oder https, Pfad genau das Zeichen) und wird nur als Link mit
+  `target="_blank"` und `rel="noopener noreferrer"` geöffnet – die Vorschau ist Code des Agenten und bekommt keinen Griff auf
+  das Fenster der App. Nie in einen Rahmen der App laden (er erbte die CSP, VKe2b) und nie die CSP dafür lockern. Die Hülle
+  verweigert neue Fenster (`on_new_window`) – dort nur Adresse, Kopieren und QR. Der QR-Code trägt einen Zugang: nur mit
+  `geheim: true`.
+- **Bild vom Knoten nur über den eigenen TURN** (seit VKg2b, `shell/bild-ui.ts`, `bild-ablauf.ts`): Zugang nur aus
+  `eigenerTurnZugang()`, `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, das Angebot nur nach `nurRelaySdp()` und
+  `istBildSdp()` in der versiegelten Code-Aktion `bild` – wie Anrufe (B-13); ohne eigenen TURN kein Bild, nie ohne Relay.
+  Auf den Datenkanal `eingabe` nur, was `eingabeText()` durchlässt (Format `PROTOCOL.md` §34), nie freien Text. Das Bild
+  endet (`bild-ende`), sobald das Blatt etwas anderes zeigt (`lauf()`) oder zugeht. Im Smoke-Test („bild“) startet der Test
+  ein echtes coturn auf 127.0.0.1, eine zweite Seite spielt den Knoten (Leinwand) – in der CI installiert der Smoke-Job coturn.

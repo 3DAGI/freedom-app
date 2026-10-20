@@ -1576,6 +1576,316 @@ def anruf_pruefen(browser, url: str) -> dict:
     return erg
 
 
+
+def projekt_pruefen(browser, url: str) -> dict:
+    """Projekte-Seite (VKe): gekoppelt (Code vorab im Speicher) listet „Projekte“ die Projekte des Knotens, „Öffnen“
+    zeigt das Blatt; ein Auftrag geht versiegelt an den Knoten, der Schritt, der wartet, zeigt „Ja“ und „Nein“, „Ja“
+    geht als eigener Auftrag hinaus, danach kommen Ausgabe und Abschluss (Markdown nur als Text). Der Knoten ist
+    `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059). Seit VKe2: „Verlauf“
+    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann. Seit VKg1b:
+    „Vorschau“ holt die Adresse vom Knoten und öffnet sie im neuen Tab ohne Verweis zurück."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
+    code = f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}"
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=f"localStorage.setItem('freedom.knoten.kopplung', {json.dumps(code)});")
+    s, ev = seite.s, seite.ev
+    beantwortet: set[str] = set()
+
+    def an_knoten() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+    def antworte(n: int) -> int:
+        """Warten, bis n Umschläge beim Knoten sind, dann die neuen beantworten – zurück die Zahl der Umschläge."""
+        for _ in range(150):
+            if len(an_knoten()) >= n:
+                break
+            s.wait_for_timeout(200)
+        alle = an_knoten()
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts", "antworte", probe["sk"], probe["geheimnis"]],
+                                        cwd=wurzel, input=json.dumps(alle), capture_output=True, text=True, timeout=180, check=True).stdout)
+        for a in aus:
+            if a["fuer"] not in beantwortet:
+                beantwortet.add(a["fuer"])
+                relay.events.extend(a["events"])
+        return len(alle)
+    ev("() => { location.hash = '#/settings'; }")
+    s.click("[data-subtab-group=settings] [data-subtab=devices]")
+    s.wait_for_selector("#knoten-projekte", state="visible", timeout=15000)
+    s.click("#knoten-projekte")
+    erg["liste_umschlaege"] = antworte(1)
+    s.wait_for_selector("#knoten-projekte-liste .knoten-projekt", timeout=20000)
+    erg["liste"] = ev("""() => [...document.querySelectorAll('#knoten-projekte-liste .knoten-projekt')].map(z =>
+      [z.querySelector('span').textContent.split(' – ')[0], [...z.querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? b.textContent)])""")
+    erg["neu_knopf"] = ev("() => document.querySelector('#knoten-projekte-liste > button')?.textContent ?? ''")
+    s.click("#knoten-projekte-liste .knoten-projekt button")
+    s.wait_for_selector(".projekt-blatt", timeout=10000)
+    erg["blatt"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { titel: b.querySelector('h3').textContent, rolle: [b.getAttribute('role'), b.getAttribute('aria-modal')],
+        leer: b.querySelector('.projekt-schritte').textContent, modus: [...b.querySelectorAll('select option')].map(o => o.value),
+        stopp: b.querySelector('.projekt-stopp').hidden }; }""")
+    # leer abschicken: nur ein Hinweis, nichts hinaus
+    vorher = len(an_knoten())
+    s.click(".projekt-los")
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Schreib zuerst')", timeout=5000)
+    erg["leer_hinaus"] = len(an_knoten()) - vorher
+    s.fill(".projekt-wunsch", "Lege index.html an.")
+    s.click(".projekt-los")
+    antworte(vorher + 1)
+    s.wait_for_selector(".projekt-freigabe button", timeout=20000)
+    erg["wartet"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { auftrag: b.querySelector('.projekt-auftrag').textContent, nr: b.querySelector('.projekt-nr').textContent,
+        gedanke: b.querySelector('.projekt-gedanke').textContent, befehl: b.querySelector('.projekt-befehl').textContent,
+        knoepfe: [...b.querySelectorAll('.projekt-freigabe button')].map(x => x.getAttribute('aria-label')),
+        laeuft: b.querySelector('.projekt-ende').textContent, stopp: b.querySelector('.projekt-stopp').hidden,
+        los: b.querySelector('.projekt-los').disabled }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-freigabe button")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-ende .projekt-abschluss", timeout=20000)
+    # die Umschläge kommen in beliebiger Reihenfolge (NIP-59) – auch auf die Ausgabe des Schritts warten
+    s.wait_for_selector(".projekt-ausgabe summary", timeout=20000)
+    erg["fertig"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { ende: b.querySelector('.projekt-ende-zeile').textContent, abschluss: b.querySelector('.projekt-abschluss').textContent,
+        fett: b.querySelector('.projekt-abschluss strong')?.textContent ?? '', ausgabe: b.querySelector('.projekt-ausgabe summary').textContent,
+        text: b.querySelector('.projekt-ausgabe pre').textContent, knoepfe: b.querySelectorAll('.projekt-freigabe button').length,
+        los: b.querySelector('.projekt-los').disabled, stopp: b.querySelector('.projekt-stopp').hidden }; }""")
+    # Verlauf (VKe2): ein Commit, seine Änderungen in der Patch-Ansicht, zurück nach Rückfrage
+    # Titel des obersten Dialogs – das Blatt selbst ist auch einer (`alsModal()`)
+    letzter = "() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop()?.querySelector('h3')?.textContent ?? ''"
+    n = len(an_knoten())
+    s.click(".projekt-verlauf-knopf")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-commit", timeout=20000)
+    erg["verlauf"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
+      return { zeilen: [...b.querySelectorAll('.projekt-commit')].map(z => [z.querySelector('.projekt-commit-text div').textContent,
+        [...z.querySelectorAll('button')].map(x => x.getAttribute('aria-label'))]), auftrag_weg: b.querySelector('.projekt-fuss').hidden,
+        knopf: b.querySelector('.projekt-verlauf-knopf').textContent }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-commit button")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-neben .diff-datei", timeout=20000)
+    erg["aenderungen"] = ev("""() => { const b = document.querySelector('.projekt-neben');
+      return { datei: b.querySelector('.diff-datei-kopf .mono').textContent, neu: [...b.querySelectorAll('.diff-neu .diff-text')].map(z => z.textContent) }; }""")
+    n = len(an_knoten())
+    s.click(".projekt-neben .patch-zurueck")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-commit", timeout=20000)
+    n = len(an_knoten())
+    ev("() => document.querySelectorAll('.projekt-commit button')[1].click()")
+    s.wait_for_function(f"() => ({letzter})() === 'Projekt zurücksetzen?'", timeout=10000)
+    erg["zurueck_frage"] = ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop().querySelector('p')?.textContent ?? ''")
+    erg["zurueck_vorher"] = len(an_knoten()) - n
+    ev("() => [...document.querySelectorAll('[role=dialog][aria-modal=true]')].pop().querySelector('.dlg-knoepfe button:last-child').click()")
+    antworte(n + 1)
+    s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('Zurückgesetzt')", timeout=20000)
+    erg["zurueck"] = ev("() => document.getElementById('toast').textContent")
+    antworte(n + 2)
+    s.click(".projekt-verlauf-knopf")
+    erg["zurueck_zum_auftrag"] = ev("() => [document.querySelector('.projekt-neben').hidden, document.querySelector('.projekt-fuss').hidden]")
+    # Vorschau (VKg1b): die Adresse vom Knoten, geöffnet im neuen Tab ohne Verweis zurück, dazu Kopieren, QR und Hinweis
+    n = len(an_knoten())
+    s.click(".projekt-vorschau-knopf")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-vorschau-link", timeout=20000)
+    erg["vorschau"] = ev("""() => { const b = document.querySelector('.projekt-neben'), a = b.querySelector('.projekt-vorschau-link');
+      return { href: a.getAttribute('href'), target: a.target, rel: a.rel, text: a.textContent,
+        adresse: b.querySelector('.projekt-vorschau-adresse').textContent, kopieren: !!b.querySelector('.projekt-vorschau-kopieren'),
+        qr: !!b.querySelector('.qr-zeigen'), http: !!b.querySelector('.projekt-vorschau-http'), auftrag_weg: document.querySelector('.projekt-fuss').hidden }; }""")
+    # Schließen mit Esc – das Blatt ist weg, die Liste bleibt
+    s.keyboard.press("Escape")
+    s.wait_for_function("() => !document.querySelector('.projekt-blatt')", timeout=5000)
+    erg["umschlaege"] = len(an_knoten())
+    if erg["liste"] != [["app", ["Projekt app öffnen", "app als Repo in einen Raum stellen"]]] or erg["neu_knopf"] != "Neues Projekt":
+        erg["fehler"].append(f"Liste {erg['liste']} {erg['neu_knopf']}")
+    if erg["blatt"] != {"titel": "Projekt app", "rolle": ["dialog", "true"], "leer": erg["blatt"]["leer"], "modus": ["fragen", "frei"], "stopp": True} \
+            or not erg["blatt"]["leer"].startswith("Schreib, was gebaut"):
+        erg["fehler"].append(f"Blatt {erg['blatt']}")
+    if erg["leer_hinaus"] != 0:
+        erg["fehler"].append(f"leer abgeschickt: {erg['leer_hinaus']} Umschläge")
+    if erg["wartet"] != {"auftrag": "Lege index.html an.", "nr": "Schritt 1", "gedanke": "Ich lege index.html an.", "befehl": "echo hallo > index.html",
+                         "knoepfe": ["Schritt 1 freigeben", "Schritt 1 ablehnen"], "laeuft": "Mein Knoten arbeitet …", "stopp": False, "los": True}:
+        erg["fehler"].append(f"wartet {erg['wartet']}")
+    if erg["fertig"] != {"ende": "Fertig (Schritte: 1)", "abschluss": "Fertig: index.html angelegt.", "fett": "index.html", "ausgabe": "Ausgabe – Rückgabe 0",
+                         "text": "hallo", "knoepfe": 0, "los": False, "stopp": True}:
+        erg["fehler"].append(f"fertig {erg['fertig']}")
+    if erg["verlauf"] != {"zeilen": [["Schritt 1", ["Änderungen von „Schritt 1“ zeigen", "Projekt auf „Schritt 1“ zurücksetzen"]]], "auftrag_weg": True, "knopf": "Zum Auftrag"}:
+        erg["fehler"].append(f"Verlauf {erg['verlauf']}")
+    if erg["aenderungen"] != {"datei": "index.html", "neu": ["hallo"]}:
+        erg["fehler"].append(f"Änderungen {erg['aenderungen']}")
+    if not erg["zurueck_frage"].startswith("Der Stand nach „Schritt 1“ wird ein neuer Schritt") or erg["zurueck_vorher"] != 0:
+        erg["fehler"].append(f"Rückfrage {erg['zurueck_frage']} – vorher hinaus: {erg['zurueck_vorher']}")
+    if erg["zurueck"] != "Zurückgesetzt – neuer Schritt 2b2b2b2" or erg["zurueck_zum_auftrag"] != [True, False]:
+        erg["fehler"].append(f"zurück {erg['zurueck']} {erg['zurueck_zum_auftrag']}")
+    vorschau = f"http://192.168.1.20:3603/{'5c' * 32}/"
+    if erg["vorschau"] != {"href": vorschau, "target": "_blank", "rel": "noopener noreferrer", "text": "Vorschau öffnen", "adresse": vorschau,
+                           "kopieren": True, "qr": True, "http": True, "auftrag_weg": True}:
+        erg["fehler"].append(f"Vorschau {erg['vorschau']}")
+    if erg["umschlaege"] != 9:
+        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf, Vorschau")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+# Gegenstelle für „bild“ (VKg2b): spielt den Knoten – eine Leinwand mit Bewegung als Bild, nur über den TURN, und merkt sich,
+# was über den Datenkanal „eingabe“ ankommt
+BILD_GEGENSTELLE = """async ([angebot, turn]) => {
+  const pc = new RTCPeerConnection({ iceServers: [turn], iceTransportPolicy: 'relay' });
+  window.__pc = pc; window.__eingaben = [];
+  pc.ondatachannel = (e) => { e.channel.onmessage = (m) => window.__eingaben.push(JSON.parse(m.data)); };
+  const c = document.createElement('canvas'); c.width = 320; c.height = 240; document.body.append(c);
+  const g = c.getContext('2d'); let i = 0;
+  setInterval(() => { g.fillStyle = '#0a0'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.fillRect((i += 7) % 300, 100, 20, 20); }, 33);
+  const strom = c.captureStream(30);
+  await pc.setRemoteDescription({ type: 'offer', sdp: angebot });
+  pc.getTransceivers()[0].direction = 'sendonly';
+  await pc.getTransceivers()[0].sender.replaceTrack(strom.getVideoTracks()[0]);
+  await pc.setLocalDescription(await pc.createAnswer());
+  await new Promise((r) => { setTimeout(r, 5000); pc.onicecandidate = (e) => e.candidate && / typ relay /.test(e.candidate.candidate) && setTimeout(r, 300); });
+  return pc.localDescription.sdp.split('\\r\\n').filter((z) => !z.startsWith('a=candidate:') || / typ relay /.test(z)).join('\\r\\n');
+}"""
+
+
+def bild_pruefen(browser, url: str) -> dict:
+    """Bild vom eigenen Knoten (VKg2b): „Bild“ auf dem Blatt eines Projekts holt den Zugang zum eigenen TURN (5079), schickt ein
+    Angebot nur mit Relay-Kandidaten versiegelt als Code-Aktion `bild` und zeigt das Bild der Antwort; Klick und Taste gehen
+    über den Datenkanal `eingabe`. Der TURN ist ein echtes coturn auf 127.0.0.1, die Gegenstelle eine zweite Seite (Leinwand),
+    der Knoten `scripts/knoten-code-probe.mts`. „Zum Auftrag“ beendet das Bild (`bild-ende`)."""
+    import base64, hashlib, hmac, shutil, tempfile, time
+    erg = {"fehler": []}
+    if not shutil.which("turnserver"):
+        return {"bestanden": False, "fehler": ["coturn fehlt (turnserver) – der Bild-Test braucht einen echten TURN"]}
+    wurzel = Path(__file__).resolve().parent.parent
+    geheimnis = os.urandom(32).hex()
+    with socket.socket() as fp:
+        fp.bind(("127.0.0.1", 0))
+        turn_port = fp.getsockname()[1]
+    relay_von = 49_500 + (os.getpid() % 40) * 10
+    ordner = tempfile.mkdtemp(prefix="smoke-bild-")
+    conf = os.path.join(ordner, "turnserver.conf")
+    with open(conf, "w") as f:
+        f.write("\n".join(["listening-ip=127.0.0.1", f"listening-port={turn_port}", "relay-ip=127.0.0.1", f"min-port={relay_von}",
+                           f"max-port={relay_von + 9}", "realm=freedom", "use-auth-secret", f"static-auth-secret={geheimnis}", "fingerprint",
+                           "no-cli", "no-tls", "no-dtls", "allow-loopback-peers", "log-file=/dev/null", ""]))
+    coturn = subprocess.Popen(["turnserver", "-c", conf, "--no-stdout-log"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    gegen_ctx = None
+    try:
+        turn_url = f"turn:127.0.0.1:{turn_port}?transport=udp"
+        umgebung = dict(os.environ, PROBE_TURN=turn_url, PROBE_TURN_SECRET=geheimnis, PROBE_BILD_ANTWORT=os.path.join(ordner, "antwort.sdp"))
+        probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                          timeout=180, check=True).stdout)
+        code = f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}"
+        relay = ProbeRelay()
+        seite = DialogSeite(browser, url, relay, erg, init=f"localStorage.setItem('freedom.knoten.kopplung', {json.dumps(code)});")
+        s, ev = seite.s, seite.ev
+        beantwortet: dict[str, str] = {}
+
+        def an_knoten() -> list[dict]:
+            return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+        def probe_lauf(art: str) -> list[dict]:
+            return json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts", art, probe["sk"], probe["geheimnis"]], cwd=wurzel,
+                                             input=json.dumps(an_knoten()), capture_output=True, text=True, timeout=180, check=True, env=umgebung).stdout)
+
+        def warte(n: int) -> None:
+            for _ in range(150):
+                if len(an_knoten()) >= n:
+                    return
+                s.wait_for_timeout(200)
+
+        def antworte() -> None:
+            for a in probe_lauf("antworte"):
+                if a["fuer"] not in beantwortet:
+                    beantwortet[a["fuer"]] = a["aktion"]
+                    relay.events.extend(a["events"])
+        ev("() => { location.hash = '#/settings'; }")
+        s.click("[data-subtab-group=settings] [data-subtab=devices]")
+        s.wait_for_selector("#knoten-projekte", state="visible", timeout=15000)
+        n = len(an_knoten())
+        s.click("#knoten-projekte")
+        warte(n + 1)
+        antworte()
+        s.wait_for_selector("#knoten-projekte-liste .knoten-projekt", timeout=20000)
+        s.click("#knoten-projekte-liste .knoten-projekt button")
+        s.wait_for_selector(".projekt-bild-knopf", timeout=10000)
+        erg["knopf"] = ev("() => { const b = document.querySelector('.projekt-bild-knopf'); return [b.textContent, b.getAttribute('aria-label')]; }")
+        # erst der Zugang zum TURN (5079), dann das Angebot als `bild`
+        n = len(an_knoten())
+        s.click(".projekt-bild-knopf")
+        warte(n + 1)
+        antworte()
+        warte(n + 2)
+        angebote = probe_lauf("angebot")
+        if not angebote:
+            raise RuntimeError("kein Angebot beim Knoten")
+        angebot = angebote[-1]["sdp"]
+        kandidaten = [z for z in angebot.split("\r\n") if z.startswith("a=candidate:")]
+        erg["angebot"] = {"kandidaten": len(kandidaten), "nur_relay": all(" typ relay " in z for z in kandidaten), "kanal": "m=application" in angebot}
+        # die Gegenstelle antwortet wie der Knoten – mit eigenem Zugang zu demselben TURN
+        nutzer = f"{int(time.time()) + 600}:gegenstelle"
+        passwort = base64.b64encode(hmac.new(geheimnis.encode(), nutzer.encode(), hashlib.sha1).digest()).decode()
+        gegen_ctx = browser.new_context()
+        gegen = gegen_ctx.new_page()
+        antwort = gegen.evaluate(BILD_GEGENSTELLE, [angebot, {"urls": [turn_url], "username": nutzer, "credential": passwort}])
+        with open(umgebung["PROBE_BILD_ANTWORT"], "w") as f:
+            f.write(antwort)
+        antworte()
+        s.wait_for_function("() => (document.querySelector('.projekt-bild-video')?.videoWidth ?? 0) > 0", timeout=30000)
+        s.wait_for_function("() => document.querySelector('.projekt-bild-status')?.textContent === 'verbunden'", timeout=20000)
+        erg["bild"] = ev("""() => { const v = document.querySelector('.projekt-bild-video');
+          return { breite: v.videoWidth, hoehe: v.videoHeight, status: document.querySelector('.projekt-bild-status').textContent,
+            text: document.querySelector('.projekt-neben > p').textContent.startsWith('Das Programm läuft auf deinem Knoten'),
+            auftrag_weg: document.querySelector('.projekt-fuss').hidden, tastatur: !!document.querySelector('.projekt-bild-tastatur') }; }""")
+        # Klick in die Mitte und eine Taste – sie kommen bei der Gegenstelle an
+        kasten = s.locator(".projekt-bild-video").bounding_box()
+        mitte = (kasten["x"] + kasten["width"] / 2, kasten["y"] + kasten["height"] / 2)
+        s.mouse.move(*mitte)
+        s.mouse.down()
+        s.mouse.up()
+        s.keyboard.press("a")
+        s.keyboard.press("Enter")
+        gegen.wait_for_function("() => window.__eingaben.filter((e) => e.t === 'ku').length >= 2", timeout=10000)
+        eingaben = gegen.evaluate("() => window.__eingaben")
+        knoepfe = [e for e in eingaben if e["t"] in ("d", "u")]
+        erg["eingaben"] = {"knopf": [[e["t"], e["k"], round(e["x"], 1), round(e["y"], 1)] for e in knoepfe],
+                           "tasten": [[e["t"], e["s"]] for e in eingaben if e["t"] in ("kd", "ku")]}
+        # „Zum Auftrag“ beendet das Bild: die Verbindung zu, `bild-ende` an den Knoten
+        n = len(an_knoten())
+        s.click(".projekt-verlauf-knopf")
+        warte(n + 1)
+        antworte()
+        erg["ende"] = {"aktionen": sorted(set(beantwortet.values())), "auftrag_zurueck": ev("() => !document.querySelector('.projekt-fuss').hidden"),
+                       "video_weg": ev("() => !document.querySelector('.projekt-bild-video')?.srcObject")}
+        erg["umschlaege"] = len(an_knoten())
+        if erg["knopf"] != ["Bild", "Bild von app – das Programm aus dem Projekt, live von meinem Knoten, mit Maus, Finger und Tastatur"]:
+            erg["fehler"].append(f"Knopf {erg['knopf']}")
+        if not (erg["angebot"]["kandidaten"] >= 1 and erg["angebot"]["nur_relay"] and erg["angebot"]["kanal"]):
+            erg["fehler"].append(f"Angebot {erg['angebot']}")
+        if not (erg["bild"]["breite"] == 320 and erg["bild"]["hoehe"] == 240 and erg["bild"]["status"] == "verbunden" and erg["bild"]["text"]
+                and erg["bild"]["auftrag_weg"] and erg["bild"]["tastatur"]):
+            erg["fehler"].append(f"Bild {erg['bild']}")
+        if erg["eingaben"]["knopf"] != [["d", 1, 0.5, 0.5], ["u", 1, 0.5, 0.5]] or erg["eingaben"]["tasten"] != [["kd", "a"], ["ku", "a"], ["kd", "Enter"], ["ku", "Enter"]]:
+            erg["fehler"].append(f"Eingaben {erg['eingaben']}")
+        if erg["ende"] != {"aktionen": ["bild", "bild-ende", "liste", "turn"], "auftrag_zurueck": True, "video_weg": True}:
+            erg["fehler"].append(f"Ende {erg['ende']}")
+        erg["browser_dialoge"] = seite.browser_dialoge
+        if seite.browser_dialoge:
+            erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+        seite.ctx.close()
+    finally:
+        if gegen_ctx:
+            gegen_ctx.close()
+        coturn.terminate()
+        shutil.rmtree(ordner, ignore_errors=True)
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
     """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
     ev = seite.ev
@@ -1710,6 +2020,162 @@ def privatraum_repo(ada: "DialogSeite", bo: "DialogSeite", relay: "ProbeRelay", 
         erg["fehler"].append(f"Patch im privaten Raum {erg['patch']}")
 
 
+# Gruppenanrufe (seit B-34d): zählt Worker (der E2EE-Worker kommt aus einer blob:-Adresse) und Verstöße gegen die CSP; die
+# Verbindung zum SFU (`…/rtc`) merkt eine Hülle um WebSocket nur (ohne Zugang) und schließt sie gleich – Relays gehen weiter
+# an die Attrappe. Nicht in `ProbeRelay.verbinde()`: `WebSocketRoute.close()` wartet in der synchronen API auf Antwort und
+# hielte dort den ganzen Test an (gefunden in B-34d).
+GRUPPENANRUF_ZAEHLER = """
+(() => {
+  const st = window.__gruppenanruf = { worker: 0, csp: [], sfu: [] };
+  const W = window.Worker;
+  window.Worker = function (u, o) { if (String(u).startsWith('blob:')) st.worker++; return new W(u, o); };
+  document.addEventListener('securitypolicyviolation', (e) => st.csp.push(e.violatedDirective));
+  let innen = window.WebSocket;
+  function Huelle(u, p) {
+    if (!String(u).includes('/rtc')) return p === undefined ? new innen(u) : new innen(u, p);
+    st.sfu.push(String(u).split('?')[0]);
+    const f = new EventTarget();
+    Object.assign(f, { readyState: 3, url: String(u), protocol: '', extensions: '', bufferedAmount: 0, binaryType: 'blob', send() {}, close() {} });
+    setTimeout(() => {
+      const fehler = new Event('error'), zu = new CloseEvent('close', { code: 1006, wasClean: false });
+      f.onerror?.(fehler); f.dispatchEvent(fehler); f.onclose?.(zu); f.dispatchEvent(zu);
+    }, 20);
+    return f;
+  }
+  Object.assign(Huelle, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 });
+  Huelle.prototype = innen.prototype;
+  Object.defineProperty(window, 'WebSocket', { configurable: true, get: () => Huelle, set: (w) => { innen = w; Huelle.prototype = w.prototype; } });
+})();
+"""
+
+
+def privatraum_anruf(ada: "DialogSeite", bo: "DialogSeite", ra: "ProbeRelay", rb: "ProbeRelay", pille: str, erg: dict) -> None:
+    """B-34d: Ada koppelt ihren Knoten (`scripts/gruppenanruf-probe.mts` hinter der Relay-Attrappe) und ruft im Raum an – die
+    Zugänge kommen versiegelt (5081), die Einladung geht nur als Chiffrat in die Gruppe, ihrem eigenen Anruf tritt sie ohne
+    Rückfrage bei (über ihren Vermittler, 5079). Bo sieht den Anruf; „Beitreten“ fragt erst nach der IP – abgebrochen geht
+    nichts hinaus, danach startet der E2EE-Worker und die App verbindet sich nur mit der Adresse aus der Einladung (die
+    Hülle aus `GRUPPENANRUF_ZAEHLER` schließt sie: „Beitreten ging nicht“). B-34e2: Bo koppelt seinen eigenen Knoten (mit
+    Relay-Liste) – dann fragt die App Status, Vermittler und Weiterleitung (5077, 5079, 5082) und tritt ohne Rückfrage bei,
+    das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`. Ada beendet, bei Bo ist der Anruf danach weg."""
+    wurzel = Path(__file__).resolve().parent.parent
+
+    def neue_probe(name: str) -> dict:
+        return json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", name], cwd=wurzel, capture_output=True, text=True,
+                                         timeout=180, check=True).stdout)
+    probe = neue_probe("knoten")
+    beantwortet: set[str] = set()
+
+    def an_knoten(p: dict, relay: "ProbeRelay") -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", p["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+    def beantworte(p: dict, relay: "ProbeRelay") -> list[int]:
+        """Alle Umschläge an den Knoten beantworten, die er lesen kann – zurück die Kinds der neu beantworteten."""
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/gruppenanruf-probe.mts", "antworte", p["sk"], p["geheimnis"]],
+                                        cwd=wurzel, input=json.dumps(an_knoten(p, relay)), capture_output=True, text=True, timeout=180, check=True).stdout)
+        kinds = []
+        for a in aus:
+            if a["fuer"] not in beantwortet:
+                beantwortet.add(a["fuer"])
+                kinds.append(a["kind"])
+                ra.events.extend(a["events"])
+        return kinds
+
+    def antworte(n: int) -> list[int]:
+        """Warten, bis n Umschläge bei Adas Knoten sind, dann die neuen beantworten – zurück deren Kinds."""
+        for _ in range(300):
+            if len(an_knoten(probe, ra)) >= n:
+                break
+            ada.s.wait_for_timeout(200)
+        return beantworte(probe, ra)
+
+    def koppeln(seite: "DialogSeite", p: dict) -> None:
+        seite.ev("() => { location.hash = '#/settings'; }")
+        seite.s.click("[data-subtab-group=settings] [data-subtab=devices]")
+        seite.s.wait_for_selector("#knoten-koppeln", state="visible", timeout=15000)
+        seite.ev("() => document.getElementById('knoten-koppeln').click()")
+        seite.warte_dialog("Mein Knoten koppeln")
+        seite.tippe(f"freedom-kopplung:1:{p['knoten']}:{p['geheimnis']}")
+        seite.warte_zu()
+        seite.ev("() => { location.hash = '#/chat'; }")
+    toast = "() => document.getElementById('toast')?.textContent ?? ''"
+    # Ada koppelt ihren Knoten (Settings › Geräte), dann zurück in den Raum
+    koppeln(ada, probe)
+    ada.ev(f"() => document.querySelector(\"{pille}\").click()")
+    ada.s.wait_for_function("() => document.getElementById('raum-anruf')?.classList.contains('hidden') === false", timeout=60000)
+    ada.ev("() => document.getElementById('raum-anruf').click()")
+    anfragen = antworte(1) + antworte(2)
+    ada.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+    ada.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile')", timeout=30000)
+    erg["anruf_ada"] = {"anfragen": anfragen, "sfu": sorted(set(ada.ev("() => window.__gruppenanruf.sfu"))),
+                        "zeile": ada.ev("() => [...document.querySelectorAll('#raum-anrufe .gruppenanruf-zeile')].map(z => [z.querySelector('strong').textContent,"
+                                        " [...z.querySelectorAll('button')].map(b => b.textContent)])"),
+                        "zaehler": ada.ev("() => [window.__gruppenanruf.worker, window.__gruppenanruf.csp]")}
+    # Bo öffnet den Raum: der Anruf steht dort; „Beitreten“ fragt erst – abgebrochen geht nichts hinaus
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    bo.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile button')", timeout=60000)
+    zeile = bo.ev("() => { const z = document.querySelector('#raum-anrufe .gruppenanruf-zeile');"
+                  " return [z.querySelector('strong').textContent, z.querySelector('span').textContent, [...z.querySelectorAll('button')].map(b => b.textContent)]; }")
+    bo.ev("() => document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click()")
+    frage = bo.warte_dialog("Gruppenanruf beitreten?")
+    bo.s.keyboard.press("Escape")
+    bo.warte_zu()
+    bo.s.wait_for_timeout(1000)
+    abgebrochen = bo.ev("() => [window.__gruppenanruf.sfu.length, window.__gruppenanruf.worker]")
+    bo.ev("() => document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click()")
+    bo.warte_dialog("Gruppenanruf beitreten?")
+    dialog_ok(bo, "Beitreten")
+    bo.warte_zu()
+    bo.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+    erg["anruf_bo"] = {"zeile": zeile, "frage": frage["text"] if frage else None, "abgebrochen": abgebrochen,
+                       "sfu": sorted(set(bo.ev("() => window.__gruppenanruf.sfu"))),
+                       "zaehler": bo.ev("() => [window.__gruppenanruf.worker, window.__gruppenanruf.csp]")}
+    # B-34e2: Bo koppelt seinen eigenen Knoten (Relay-Liste im Relay) – dann ohne Rückfrage, das Signal nur über ihn
+    probe_bo = neue_probe("knoten-bo")
+    ra.events.append(probe_bo["relayliste"])
+    koppeln(bo, probe_bo)
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    bo.s.wait_for_function("() => !!document.querySelector('#raum-anrufe .gruppenanruf-zeile button')", timeout=60000)
+    vorher = len(bo.ev("() => window.__gruppenanruf.sfu"))
+    bo.ev("() => { document.getElementById('toast').textContent = ''; document.querySelector('#raum-anrufe .gruppenanruf-zeile button').click(); }")
+    weg: list[int] = []
+    for _ in range(120):
+        weg += beantworte(probe_bo, rb)
+        if 5082 in weg or bo.ev("() => !!document.querySelector('[role=dialog][aria-modal=true]')"):
+            break
+        bo.s.wait_for_timeout(500)
+    try:
+        bo.s.wait_for_function(f"() => ({toast})().startsWith('Beitreten ging nicht')", timeout=60000)
+        ohne_frage = not bo.ev("() => !!document.querySelector('[role=dialog][aria-modal=true]')")
+    except Exception:
+        ohne_frage = False
+    erg["anruf_bo"]["eigener_knoten"] = {"weg": sorted(set(weg)), "ohne_frage": ohne_frage,
+                                         "sfu": sorted(set(bo.ev("() => window.__gruppenanruf.sfu")[vorher:]))}
+    # Ada beendet – bei Bo ist der Anruf nach dem nächsten Öffnen weg
+    ada.ev("() => [...document.querySelectorAll('#raum-anrufe .gruppenanruf-zeile button')].find(b => b.textContent === 'Beenden').click()")
+    ada.s.wait_for_function("() => document.getElementById('raum-anrufe').classList.contains('hidden')", timeout=60000)
+    bo.ev(f"() => document.querySelector(\"{pille}\").click()")
+    try:
+        bo.s.wait_for_function("() => document.getElementById('raum-anrufe').classList.contains('hidden')", timeout=60000)
+        erg["anruf_bo"]["beendet"] = True
+    except Exception:
+        erg["anruf_bo"]["beendet"] = False
+    a, b = erg["anruf_ada"], erg["anruf_bo"]
+    # livekit-client fragt erst …/rtc/v1, dann …/rtc – beides nur beim SFU aus der Einladung
+    sfu_ok = bool(a["sfu"]) and all(u.startswith("wss://sfu.probe.test/rtc") for u in a["sfu"])
+    if not sfu_ok or {k: v for k, v in a.items() if k != "sfu"} != {
+            "anfragen": [5081, 5079], "zeile": [["Dein Gruppenanruf", ["Beitreten", "Mit Bild", "Beenden"]]], "zaehler": [1, []]}:
+        erg["fehler"].append(f"Gruppenanruf Ada {a}")
+    if not (b["zeile"][0].startswith("Gruppenanruf von ") and b["zeile"][1:] == ["2 eingeladen", ["Beitreten", "Mit Bild"]]
+            and "sieht deine IP-Adresse" in (b["frage"] or "") and b["abgebrochen"] == [0, 0] and b["sfu"] == a["sfu"]
+            and b["zaehler"] == [1, []] and b["beendet"] is True):
+        erg["fehler"].append(f"Gruppenanruf Bo {b}")
+    # Mit eigenem Knoten: Status, Vermittler, Weiterleitung – dann ohne Rückfrage, das Signal nur über den eigenen Knoten
+    e = b.get("eigener_knoten", {})
+    if not (e.get("weg") == [5077, 5079, 5082] and e.get("ohne_frage") is True and e.get("sfu")
+            and all(re.fullmatch(r"wss://knoten-bo\.probe\.test/signal/[0-9a-f]{64}/rtc(/v1)?", u) for u in e["sfu"])):
+        erg["fehler"].append(f"Gruppenanruf Bo mit eigenem Knoten {e}")
+
+
 def privatraum_pruefen(browser, url: str) -> dict:
     """Privater Raum (C-12) mit echter MLS-Engine: zwei Browser hinter derselben Relay-Attrappe. Ada legt den Raum an
     und lädt Bo ein (KeyPackage, Einladung versiegelt an seinen Posteingang), Bo nimmt beim nächsten Start an,
@@ -1718,8 +2184,8 @@ def privatraum_pruefen(browser, url: str) -> dict:
     erg = {"fehler": []}
     ra, rb = ProbeRelay(), ProbeRelay()
     rb.events = ra.events  # ein Relay für beide, jeder Browser mit eigener Verbindung (der eigene Schlüssel je Attrappe)
-    ada = DialogSeite(browser, url, ra, erg)
-    bo = DialogSeite(browser, url, rb, erg)
+    ada = DialogSeite(browser, url, ra, erg, init=GRUPPENANRUF_ZAEHLER)
+    bo = DialogSeite(browser, url, rb, erg, init=GRUPPENANRUF_ZAEHLER)
     for seite, pw in ((ada, "ada tresor 1"), (bo, "bo tresor 1")):
         tresor_an(seite, pw)
         # Die Liste der Unterhaltungen gleicht den Posteingang ab – dabei fragt die App ihre eigenen Relay-Listen
@@ -1809,9 +2275,10 @@ def privatraum_pruefen(browser, url: str) -> dict:
     if erg.get("ada_liest") is True:
         privatraum_moderation(ada, bo, ra, pk_bo, pille, gruss, antwort, erg)
         privatraum_repo(ada, bo, ra, pille, repo_id, betreff, erg)
+        privatraum_anruf(ada, bo, ra, rb, pille, erg)
     # Auf dem Relay nur Chiffrat: weder Name noch Text des Raums im Klartext
     roh = json.dumps(ra.events, ensure_ascii=False)
-    erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff) if x in roh]
+    erg["klartext"] = [x for x in ("Probe privat", gruss, antwort, repo_id, betreff, "sfu.probe.test") if x in roh]
     erg["kinds"] = sorted({e.get("kind") for e in ra.events})
     if not erg["keypackage"]:
         erg["fehler"].append("Bo hat kein KeyPackage veröffentlicht")
@@ -1921,6 +2388,74 @@ def einst_zeilen_pruefen(browser, url: str) -> dict:
         if seite.browser_dialoge:
             erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
         seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
+HUELLE_BRUECKE = """window.__FREEDOM_NATIVE__ = { huelle: "desktop" };
+window.__HUELLE_AUFRUFE__ = [];
+window.__TAURI_INTERNALS__ = { invoke: async (befehl, argumente) => {
+  window.__HUELLE_AUFRUFE__.push([befehl, argumente ?? null]);
+  if (befehl === "netz_stand") return { verfuegbar: true, tor: true, aktiv: true, bereit: false, fehler: null,
+    bruecken: false, brueckenAktiv: false, brueckenMoeglich: true, eigeneZeilen: 0 };
+  if (befehl === "netz_setzen") {
+    const falsch = (argumente.zeilen ?? []).findIndex((z) => !z.startsWith("webtunnel "));
+    if (falsch >= 0) throw "zeile:" + falsch + ":transport";
+    return null;
+  }
+  throw "unbekannt";
+} };"""
+
+
+def huelle_bruecke_pruefen(browser, url: str) -> dict:
+    """Tor über Brücken in der Hülle (B-33c): Mit einer Attrappe der Hülle (Programme liegen bei) zeigt Settings ›
+    Datenschutz den Schalter „Über eine Brücke“ und „Eigene Brücken“. Eine falsche Zeile meldet die Hülle mit Stelle und
+    Kennung – der Dialog bleibt mit dem Text offen; die Form von bridges.torproject.org geht als Zeilen an `netz_setzen`,
+    ohne Neustart. Der Schalter fragt erst und setzt dann Brücke und Tor mit Neustart. Die Zeilen bleiben nicht in der App."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=HUELLE_BRUECKE)
+    ev, s = seite.ev, seite.s
+    ev("() => { location.hash = '#/settings'; }")
+    s.wait_for_selector("[data-subtab-group=settings] [data-subtab=privacy]", state="attached", timeout=30000)
+    ev("() => document.querySelector('[data-subtab-group=settings] [data-subtab=privacy]').click()")
+    s.wait_for_function("() => !!document.getElementById('huelle-bruecke').offsetParent", timeout=10000)
+    erg["stand"] = ev("() => document.getElementById('huelle-tor-stand').textContent")
+    ev("() => document.getElementById('huelle-bruecken-zeilen').click()")
+    seite.warte_dialog("Eigene Brücken")
+    w = "webtunnel [2001:db8::1]:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01 url=https://bruecke.example.org/a ver=0.0.1"
+    ev("(v) => { const f = document.querySelector('[role=dialog] textarea'); f.value = v; f.dispatchEvent(new Event('input')); }",
+       f"{w}\nobfs4 192.0.2.7:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01")
+    dialog_ok(seite, "Merken")
+    s.wait_for_function("() => document.querySelector('[role=dialog] .dlg-text')?.textContent.startsWith('Zeile 2')", timeout=10000)
+    erg["falsch"] = seite.stand()
+    ev("(v) => { const f = document.querySelector('[role=dialog] textarea'); f.value = v; f.dispatchEvent(new Event('input')); }", f"['{w}']")
+    dialog_ok(seite, "Merken")
+    erg["gemerkt"] = seite.warte_dialog("Eigene Brücken")
+    dialog_ok(seite, "Schließen")
+    seite.warte_zu()
+    ev("() => document.getElementById('huelle-bruecke').click()")
+    erg["rueckfrage"] = seite.warte_dialog("Über eine Brücke verbinden?")
+    dialog_ok(seite, "Neu starten")
+    s.wait_for_function("() => window.__HUELLE_AUFRUFE__.filter(a => a[0] === 'netz_setzen').length === 3", timeout=10000)
+    erg["aufrufe"] = ev("() => window.__HUELLE_AUFRUFE__.filter(a => a[0] === 'netz_setzen').map(a => a[1])")
+    erg["gespeichert"] = ev("() => [...Object.keys(localStorage), ...Object.values(localStorage)].some(x => x.includes('webtunnel'))")
+    if "verbindet" not in (erg["stand"] or ""):
+        erg["fehler"].append(f"Stand {erg['stand']!r}")
+    if not erg["falsch"] or erg["falsch"]["text"] != "Zeile 2: nur webtunnel oder snowflake – nichts gemerkt." or not erg["falsch"]["werte"][0].startswith("webtunnel "):
+        erg["fehler"].append(f"falsche Zeile {erg['falsch']}")
+    if not erg["gemerkt"] or not (erg["gemerkt"]["text"] or "").startswith("Eigene Brücken gemerkt: 1 – "):
+        erg["fehler"].append(f"gemerkt {erg['gemerkt']}")
+    if not erg["rueckfrage"] or "Geht die Brücke nicht, geht nichts hinaus." not in (erg["rueckfrage"]["text"] or ""):
+        erg["fehler"].append(f"Rückfrage {erg['rueckfrage']}")
+    soll = [{"tor": True, "neustart": False, "zeilen": [w, "obfs4 192.0.2.7:443 B04AA0C0F1E2D3C4B5A6978869504132ABCDEF01"]},
+            {"tor": True, "neustart": False, "zeilen": [w]}, {"tor": True, "neustart": True, "bruecken": True}]
+    if erg["aufrufe"] != soll:
+        erg["fehler"].append(f"Aufrufe {erg['aufrufe']}")
+    if erg["gespeichert"]:
+        erg["fehler"].append("Brücken-Zeilen im Speicher der App")
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
 
@@ -3307,6 +3842,31 @@ def meshtastic_pruefen(browser, url: str) -> dict:
 
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
+# B-38a: Stimmen wie in Chrome – die Vorgabe ist eine Netzstimme („Google …“), daneben eine lokale. Die App darf nur die
+# lokale nehmen; `cancel()` bricht wie im Browser die laufende Äußerung mit `onerror` ab.
+SPRACHE_ATTRAPPE = r"""(() => {
+  const stimmen = [
+    { name: 'Google Deutsch', lang: 'de-DE', localService: false, default: true, voiceURI: 'Google Deutsch' },
+    { name: 'Anna (lokal)', lang: 'de-DE', localService: true, default: false, voiceURI: 'Anna' },
+  ];
+  const gesagt = [];
+  let abbrueche = 0, laufend = null;
+  class Aeusserung { constructor(text) { this.text = text; this.voice = null; this.lang = ''; this.onend = null; this.onerror = null; } }
+  const synth = {
+    getVoices: () => stimmen,
+    speak: (u) => {
+      gesagt.push({ text: u.text, stimme: u.voice ? u.voice.name : null });
+      laufend = u;
+      setTimeout(() => { if (laufend === u) { laufend = null; u.onend && u.onend(); } }, 1500);
+    },
+    cancel: () => { abbrueche++; const u = laufend; laufend = null; if (u && u.onerror) u.onerror(); },
+    addEventListener: () => {}, removeEventListener: () => {},
+  };
+  Object.defineProperty(window, 'speechSynthesis', { configurable: true, get: () => synth });
+  Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, get: () => Aeusserung, set: () => {} });
+  window.__vorlesen = { gesagt, abbrueche: () => abbrueche };
+})();"""
+
 
 def gratis_auto_pruefen(browser, url: str) -> dict:
     """Tarif „Automatisch“ (A-14b2): Vorgabe im Agenten. Ohne Gratis-Anbieter und ohne Wallet geht
@@ -4067,6 +4627,7 @@ def lokal_pruefen(browser, url: str) -> dict:
         else:
             route.fulfill(status=404, headers=cors)
     ctx.route("http://localhost:11434/**", modell_dienst)  # später registriert → zuerst gefragt
+    ctx.add_init_script(SPRACHE_ATTRAPPE)
     s = ctx.new_page()
     s.on("pageerror", lambda e: erg["fehler"].append(str(e)[:300]))
     ev = s.evaluate
@@ -4120,6 +4681,27 @@ def lokal_pruefen(browser, url: str) -> dict:
     if erg["antwort_md"] != [0, "fett <img src=x onerror=alert(1)>", "fett", "ts",
                              ["tok-kw:const", 'tok-str:"<b>"', "tok-com:// x"], "✓ kopiert", 'const a = "<b>"; // x']:
         erg["fehler"].append(f"Antwort mit Markdown {erg['antwort_md']}")
+    # B-38a: „Vorlesen“ unter der Antwort – nur mit der lokalen Stimme, Code ausgelassen; ein zweiter Klick hält an
+    knopf_v = "[...document.querySelectorAll('#ai-thread .bubble.ai .antwort-vorlesen')].at(-1)"
+    erg["vorlesen"] = {"knoepfe": ev("() => document.querySelectorAll('#ai-thread .bubble.ai .antwort-vorlesen').length"),
+                       "fragen": ev("() => document.querySelectorAll('#ai-thread .bubble.user .antwort-vorlesen').length")}
+    ev(f"() => {knopf_v}.click()")
+    try:
+        s.wait_for_function("() => window.__vorlesen.gesagt.length > 0", timeout=5000)
+    except Exception:
+        pass
+    erg["vorlesen"]["waehrend"] = ev(f"() => ({{ text: {knopf_v}.textContent.trim(), gedrueckt: {knopf_v}.getAttribute('aria-pressed') }})")
+    ev(f"() => {knopf_v}.click()")
+    erg["vorlesen"]["danach"] = ev(f"() => ({{ text: {knopf_v}.textContent.trim(), gedrueckt: {knopf_v}.getAttribute('aria-pressed'),"
+                                   " abbrueche: window.__vorlesen.abbrueche(), gesagt: window.__vorlesen.gesagt })")
+    gesagt_v = erg["vorlesen"]["danach"]["gesagt"]
+    if erg["vorlesen"]["knoepfe"] < 2 or erg["vorlesen"]["fragen"] != 0 \
+            or erg["vorlesen"]["waehrend"] != {"text": "Stopp", "gedrueckt": "true"} \
+            or erg["vorlesen"]["danach"]["text"] != "Vorlesen" or erg["vorlesen"]["danach"]["gedrueckt"] != "false" \
+            or erg["vorlesen"]["danach"]["abbrueche"] < 1 or len(gesagt_v) != 1 \
+            or any(g["stimme"] != "Anna (lokal)" for g in gesagt_v) \
+            or "fett" not in gesagt_v[0]["text"] or "Code ausgelassen." not in gesagt_v[0]["text"] or "const a" in gesagt_v[0]["text"]:
+        erg["fehler"].append(f"Vorlesen {erg['vorlesen']}")
     # D2: privat – mit der Wahl „Netz“ geht nichts hinaus (kein Umschlag, keine Frage an localhost), die Frage bleibt
     # im Feld; mit „Dieses Gerät“ antwortet das Gerät wie bisher
     ev("() => document.getElementById('ai-privat').click()")
@@ -6120,6 +6702,10 @@ def main() -> int:
             except Exception as e:
                 erg["einst_zeilen"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["huelle_bruecke"] = huelle_bruecke_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["huelle_bruecke"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["stil_abdruck"] = stil_abdruck_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["stil_abdruck"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6139,6 +6725,14 @@ def main() -> int:
                 erg["anruf"] = anruf_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["anruf"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["projekt"] = projekt_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["projekt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["bild"] = bild_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["bild"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
                 erg["post_live"] = post_live_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
@@ -6280,11 +6874,14 @@ def main() -> int:
           and erg.get("chat_liste", {}).get("bestanden") is True
           and erg.get("relay_liste", {}).get("bestanden") is True
           and erg.get("einst_zeilen", {}).get("bestanden") is True
+          and erg.get("huelle_bruecke", {}).get("bestanden") is True
           and erg.get("stil_abdruck", {}).get("bestanden") is True
           and erg.get("thema", {}).get("bestanden") is True
           and erg.get("rueckmeldung", {}).get("bestanden") is True
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
+          and erg.get("projekt", {}).get("bestanden") is True
+          and erg.get("bild", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("agent_abo", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True

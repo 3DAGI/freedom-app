@@ -17,7 +17,7 @@
  * ein Filter in `.git/config` liefe dort. Ins Log nur Kennung, Zahlen und
  * Fehlernamen – Befehle, Ausgaben und Gedanken sind Inhalt.
  */
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   client, ndJsonStream, PROTOCOL_VERSION, type AgentApp, type PermissionOptionKind, type RequestPermissionRequest,
@@ -27,8 +27,8 @@ import { CODE_GRENZEN, type CodeEnde, type CodeModus, type CodeSchritt } from "@
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 
 export const LAUF_GRENZEN = {
-  /** Ohne Antwort auf eine Freigabe abgelehnt – wie Hermes. */
-  freigabeMs: 300_000,
+  /** Ohne Antwort auf eine Freigabe abgelehnt – wie Hermes über ACP (60 s, `make_approval_callback`, VKc3). */
+  freigabeMs: 60_000,
   /** Höchstens so lange je Lauf, dann bricht der Knoten ab (`grenze`). */
   laufMs: 60 * 60_000,
   /** Nach `stopp` oder Grenze so lange auf den Motor warten, dann beenden. */
@@ -41,9 +41,18 @@ export const LAUF_GRENZEN = {
 export interface MotorVerbindung {
   strom: Stream | AgentApp;
   beende(): void;
+  /** Der Projektordner, wie der Motor ihn sieht – in der Sandbox `/arbeit` (VKc3); sonst der Ordner selbst. */
+  ort?: string;
 }
 /** Startet den Motor im Ordner des Projekts – nur in der Sandbox (VK4). */
 export type MotorStart = (ordner: string) => MotorVerbindung;
+
+/**
+ * Läuft der Prozess noch? Nur dann `kill()`. Scheitert `spawn` (Programm fehlt), hat er keine pid – bis zum Ereignis
+ * „error“ hält Node aber noch den Griff und schickt `kill()` an eine nie gesetzte Nummer. Steht dort 0 oder -1, trifft
+ * SIGTERM die ganze Prozessgruppe oder jeden Prozess des Nutzers: In der CI beendete das den Runner (VKc3b).
+ */
+export const lebt = (kind: ChildProcess): boolean => kind.pid !== undefined && kind.exitCode === null && kind.signalCode === null;
 
 /**
  * Motor als eigener Prozess: ACP als JSON-Zeilen über stdin/stdout, ohne Shell,
@@ -60,7 +69,7 @@ export function prozessMotor(befehl: readonly string[]): MotorStart {
     kind.on("error", () => { /* ein fehlender Motor beendet den Strom – der Lauf endet mit „fehler“ */ });
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
-      beende: () => { if (kind.exitCode === null && kind.signalCode === null) kind.kill("SIGTERM"); },
+      beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
     };
   };
 }
@@ -134,7 +143,8 @@ export class CodeLaeufe {
   private readonly laeufe = new Map<string, Lauf>();
   private readonly g: typeof LAUF_GRENZEN;
 
-  constructor(private readonly o: { ablage: ProjektAblage; motor: MotorStart; grenzen?: Partial<typeof LAUF_GRENZEN> }) {
+  /** `beimAuftrag` sieht den Text jedes Auftrags vor dem Start – für die Lese-Freigaben von Freedom-MCP (VKd-W1). */
+  constructor(private readonly o: { ablage: ProjektAblage; motor: MotorStart; grenzen?: Partial<typeof LAUF_GRENZEN>; beimAuftrag?: (text: string) => void }) {
     this.g = { ...LAUF_GRENZEN, ...o.grenzen };
   }
 
@@ -148,10 +158,16 @@ export class CodeLaeufe {
       offen: new Map(), sicherung: Promise.resolve(), gestoppt: false, grenze: false,
     };
     this.laeufe.set(id, lauf);
+    this.o.beimAuftrag?.(a.text);
     return this.fuehre(lauf, a.text).finally(() => {
       this.laeufe.delete(id);
       for (const f of [...lauf.offen.values()]) f(null);
     });
+  }
+
+  /** Läuft in diesem Projekt gerade ein Lauf? (VKe2: „zurück“ nur ohne Lauf) */
+  laeuftIn(projekt: string): boolean {
+    return [...this.laeufe.values()].some((l) => l.projekt === projekt);
   }
 
   /** Antwort auf eine wartende Freigabe – false, wenn dieser Schritt nicht wartet. */
@@ -196,7 +212,7 @@ export class CodeLaeufe {
           clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
           clientInfo: { name: "freedom-knoten", version: "1" },
         });
-        const { sessionId } = await ctx.request("session/new", { cwd: ordner, mcpServers: [] });
+        const { sessionId } = await ctx.request("session/new", { cwd: motor.ort ?? ordner, mcpServers: [] });
         lauf.abbrechen = () => void ctx.notify("session/cancel", { sessionId }).catch(() => {});
         if (lauf.gestoppt || lauf.grenze) lauf.abbrechen();
         const { stopReason } = await ctx.request("session/prompt", { sessionId, prompt: [{ type: "text", text }] });

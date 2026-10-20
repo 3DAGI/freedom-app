@@ -11212,6 +11212,1044 @@ der Anweisung geprüft – in der fertigen Nachricht unterschreibt der Gebühren
 Knoten-Stand: nicht berührt. MENSCH: einmal mit Phantom oder Solflare auf Devnet sperren, einlösen, zurückholen und den
 Zahlkanal öffnen.
 
+## Schritt VKc3a – Hermes als Motor in der Sandbox: Brücke zum Modell und Start
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C, VK4, „Seit VKb“). Übernommen von Spur C am 17.10. (MENSCH: Spur A im
+Nutzungslimit, „Arbeite alle Punkte ab“). VKc3 ist in zwei Teile geteilt: a Knoten (Brücke, Start, Konfiguration),
+b Hermes ins Docker-Bild.
+
+**Neu:**
+- `node/src/modell-bruecke.ts` – `oeffneModellBruecke()`: ein Unix-Socket in einem eigenen Ordner (0700), dahinter nur
+  `GET /v1/models` und `POST /v1/chat/completions` des eigenen Antriebs (Ollama über `/v1`, sonst `KI_URL`); der Schlüssel
+  (`KI_SCHLUESSEL`) kommt erst hier dazu, Kopfzeilen aus der Sandbox gehen nicht weiter, Anfragen bis 16 MiB, Antworten
+  als Strom, nach außen feste Texte, nichts ins Log.
+- `node/motor/freedom_motor.py` – Startskript in der Sandbox (nur Standardbibliothek): reicht `127.0.0.1:8080` im
+  eigenen Netz-Namensraum an den Socket weiter und startet den Motor mit stdin/stdout des Knotens (ACP).
+- `node/src/hermes-motor.ts` – `hermesAusUmgebung()` (`HERMES_ORDNER`, Vorgabe `/opt/hermes`; `CODE_MODELL`),
+  `hermesKonfiguration()` (Modell `custom` über die Brücke, Freigaben `manual`, keine Nachinstallation),
+  `hermesMotor()`: vor jedem Start `config.yaml` ins Home des Projekts (`~/.freedom/hermes/<projekt>`, nie ins Repo,
+  ohne Verweisen zu folgen), dann Hermes über das Startskript in der Sandbox – venv, Skript und Socket nur lesbar.
+- `sandbox.ts`: `nurLesbar` (weitere Orte nur lesbar, nie unter `/arbeit`), `sandboxMotor()` nennt seinen Ort
+  (`/arbeit`); `code-motor.ts` gibt ihn in `session/new` weiter, Freigaben ohne Antwort nach 60 s abgelehnt (wie Hermes
+  über ACP, vorher 300 s).
+- **Verdrahtet:** `main.ts` baut `CodeLaeufe` mit `hermesMotor()`, sobald `VIBECODEN=1`, die Sandbox geht und Hermes da
+  ist (`[code] Motor Hermes in der Sandbox an`); sonst bleibt es bei `code-ohne-motor`. Ungültige Werte halten den Start
+  an. `npm run pruefen` nennt Hermes.
+
+**Befund aus dem Quelltext von Hermes 0.19.0** (PyPI, MIT, Nous Research; hier nicht ausgeführt – die Umgebung lässt
+Fremdcode nicht laufen): Über ACP fragt Hermes vor Änderungen an Dateien und vor Befehlen, die er für riskant hält, nicht
+vor jedem Befehl; Freigaben tragen eigene Kennungen (`perm-check-N`, `edit-approval-N`) und gelten nach 60 s als
+abgelehnt. `PROTOCOL.md` §34 sagt das jetzt.
+
+**Tests:** node +8 (`hermes-motor.test.ts`: Brücke nur zwei Wege, Schlüssel erst im Knoten, 413 und 502 mit festem
+Text; Umgebung; Konfiguration; Verweis statt `config.yaml` bzw. statt des Homes; `nurLesbar` nie unter `/arbeit`; mit
+echtem bubblewrap durch Startskript und Brücke zum Modell, der Antrieb direkt nicht erreichbar, der Ordner des Sockets
+nicht beschreibbar; `session/new` mit `/arbeit`).
+
+Knoten-Stand: neu für den Motor; ohne `VIBECODEN=1` ändert sich nichts. MENSCH: auf dem GX10 Hermes 0.19.0 als venv in
+`/opt/hermes` (oder mit VKc3b das Docker-Bild), ein Coding-Modell mit Tool-Calling (`CODE_MODELL`,
+`OLLAMA_CONTEXT_LENGTH=65536`), dann vom Handy einen Auftrag geben.
+
+## Schritt VKc3b – Hermes im Docker-Bild, Sandbox unter Docker
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W1n C), dazu die Frage „Sandbox unter Docker“ aus `OFFEN.md` 1.1 nach der
+Empfehlung dort. Ebenfalls von Spur C übernommen (17.10., Spur A im Nutzungslimit).
+
+**Neu:**
+- `docker/node.Dockerfile`: mit `VIBECODEN=1` (Build-Argument) ein venv `/opt/hermes` mit Hermes 0.19.0 –
+  `docker/hermes-requirements.txt` (67 Pakete, jedes mit sha256, erzeugt mit `uv pip compile` aus `docker/hermes.in`),
+  installiert mit `--require-hashes --only-binary :all: --no-deps`; dazu python3, python3-venv und ripgrep. Ohne das
+  Argument bleibt das Bild wie bisher. Lizenzen der Pakete: MIT, BSD, Apache-2.0, ISC, PSF; MPL-2.0 bei certifi,
+  pathspec, tqdm – kein GPL. Hermes ist ein eigener Prozess in der Sandbox.
+- `docker/seccomp-vibecoden.json`: das Standardprofil von Docker (moby/profiles, Apache-2.0, Herkunft im Feld
+  `_herkunft`) plus eine Regel: `clone`, `unshare`, `mount`, `umount2`, `pivot_root`, `setns`, `sethostname`.
+- `docker-compose.vibecoden.yml`: Ergänzung zu `docker-compose.yml` – Build-Argument und `VIBECODEN=1`,
+  `CODE_MODELL`, `security_opt` mit dem Profil, `systempaths=unconfined`, `apparmor=unconfined`.
+
+**Gemessen** (Docker 29.3.1 hier, Bild gebaut mit `VIBECODEN=1`): Ohne Ergänzung meldet `npm run pruefen` im Container
+`sandbox.namensraum`. Nur mit dem Profil scheitert bubblewrap an `/proc` (`systempaths` nötig). Zuerst fehlte
+`sethostname` („Can't set hostname“), jetzt im Profil. Mit allen dreien laufen `sandbox.test.ts` und
+`hermes-motor.test.ts` im Container grün (16 von 16, keiner übersprungen), und `npm run pruefen` nennt „Motor Hermes in
+/opt/hermes“. `apparmor=unconfined` ließ sich hier nicht messen (kein AppArmor); es steht für Ubuntu und DGX OS drin.
+
+**Runner beendet (CI zweimal abgebrochen):** Im Schritt „Tests node“ kam nach 13 s „The runner has received a shutdown
+signal“, beide Male direkt nach dem ersten Test in `hermes-motor.test.ts`. Ursache: Der Test startet einen Motor mit
+fehlendem bubblewrap und ruft sofort `beende()`. Node hält bis zum Ereignis „error“ noch den Griff des Prozesses und
+schickt `kill()` an eine nie gesetzte pid. Hier stand dort 858994020 (strace, ESRCH). Steht dort 0 oder -1, trifft SIGTERM
+die ganze Prozessgruppe oder jeden Prozess des Nutzers, in der CI also den Runner. `lebt()` (`code-motor.ts`) prüft jetzt die
+pid vor jedem `kill()` (beide Motoren), `fuehreAus()` ebenso. Die Tests zählen `kill()` ohne pid, statt ihn zu senden.
+
+**Tests:** node +4:
+- `docker-vibecoden.test.ts`, 3 Tests: Hermes nur mit `VIBECODEN=1`, Hash je Paket, nur Wheels, in `HERMES_ORDNER`; Profil =
+  Standard plus genau die eine Regel; Freigaben nur in der Ergänzung, nie im Standard.
+- 1 Test: kein `kill()` ohne pid. Ohne die Prüfung sind 2 Tests rot.
+
+Knoten-Stand: Bild neu nur mit `VIBECODEN=1`. MENSCH: auf dem GX10 `docker compose -f docker-compose.yml -f
+docker-compose.vibecoden.yml up -d --build`, dann im Log `[code] Sandbox geht …` und `[code] Motor Hermes …`.
+
+## Schritt VKd1 – Freedom-MCP: Websuche und Seite lesen für Hermes
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` („Freedom statt Nous Portal“, VK-W1n C). Von Spur C übernommen (17.10., Spur A
+im Nutzungslimit).
+
+**Neu:**
+- `node/src/freedom-mcp.ts`: `mcpAntwort()` – ein MCP-Server ohne Abhängigkeit (Streamable HTTP, Fassungen 2024-11-05
+  bis 2025-06-18). Er kennt `initialize`, `ping`, `tools/list` und `tools/call`; Benachrichtigungen bekommen keine
+  Antwort. Werkzeuge: `web_search` (DuckDuckGo, nur Kurzantworten) und `read_page` (Seite als Text). Ausgeführt wird nur
+  über die `ToolRegistry`, Fehler eines Werkzeugs stehen nur mit dem Fehlernamen im Ergebnis.
+- `modell-bruecke.ts`: `POST /mcp` beantwortet der Knoten selbst, nie der Antrieb. JSON-Antworten,
+  Benachrichtigungen 202, GET und DELETE 405, kaputtes JSON 400, höchstens 1 MiB.
+- `hermes-motor.ts`: `config.yaml` nennt `mcp_servers.freedom` an derselben Brücke. Über `session/new` ginge es nur, wenn
+  Hermes `mcpCapabilities.http` ankündigte – 0.19 tut das nicht (Quelltext gelesen). Er nimmt MCP-Server aber aus der
+  Konfiguration, die der Knoten vor jedem Lauf neu schreibt.
+- `main.ts`: die Brücke bekommt Freedom-MCP mit Websuche und Seite lesen.
+- `docker/hermes.in`: `hermes-agent[acp,mcp]`; die Sperrdatei hat 10 Pakete mehr (mcp 1.26.0 und seine Kette, starlette
+  1.0.1 statt 1.8.0, wie Hermes es für MCP pinnt). Lizenzen: MIT und BSD-3, pywin32 (PSF) nur unter Windows. In ein
+  Wegwerf-venv installiert mit `--require-hashes`, `pip check` ohne Befund; das venv wächst um 7 MB.
+
+**Gegen den Client geprüft:** Der MCP-Client von Hermes (mcp 1.26.0, Quelltext gelesen, nicht ausgeführt) öffnet ohne
+`Mcp-Session-Id` keinen GET-Strom und sendet kein DELETE. Er liest JSON-Antworten und nimmt 202 für Benachrichtigungen.
+Der Server vergibt deshalb keine Sitzungskennung.
+
+**Ehrlich:** Hermes fragt vor MCP-Aufrufen nicht – nur vor Änderungen an Dateien und riskanten Befehlen. In der App
+erscheint ein Aufruf als Schritt. Die Suchmaschine und die Seiten sehen die IP des Knotens (die Werkzeuge gehen wie beim
+Provider nicht über Tor) und, was in Suchanfrage oder Adresse steht. Frage VKd-W1 in `OFFEN.md`: im Modus „fragen“
+Netz-Aufrufe erst nach Ja (Empfehlung B, ohne neues Format).
+
+**Tests:** node +6 (`freedom-mcp.test.ts`: Aushandeln, Werkzeugliste, Aufrufe nur über die Registry, Fehler nur mit
+Namen, Ablehnungen ohne Ausführung, Brücke mit allen Antworten, Konfiguration und Verdrahtung, aus der echten Sandbox über
+das Startskript). `docker-vibecoden.test.ts` prüft MCP in der Sperrdatei.
+
+Knoten-Stand: Bild neu mit `VIBECODEN=1` (Sperrdatei geändert). MENSCH: im Echttest eine Aufgabe stellen, die eine Suche
+braucht, und im Log oder in der App den Schritt `web_search` sehen.
+
+## Schritt VKe1 – Projekte-Seite: Auftrag, Schritte, Freigabe, Stopp
+
+Spur C mit Bausteinen der Spur A, `docs/VIBECODEN-ENTWURF.md` (VK6, Aufteilung VKe). Gebaut am 17.10., während Spur A im
+Nutzungslimit ist – nach VKc3 läuft ein Auftrag jetzt bis zum Motor, also braucht er eine Seite.
+
+**Neu:**
+- „Mein Knoten“ › Projekte: „Öffnen“ an jeder Zeile und „Neues Projekt“ (Name nach `istProjektName()`, angelegt auf dem
+  Knoten, dann gleich geöffnet).
+- `shell/knoten-projekt-ui.ts`: das Projekt als Blatt – Auftrag schreiben, Modus „fragen“ oder „frei“, Schritte live
+  (Gedanke, Befehl, Ausgabe aufklappbar, gekürzt markiert), an einem wartenden Schritt „Ja“ und „Nein“, „Stopp“, am Ende
+  wie der Lauf endete und der Abschluss des Agenten als Markdown. Der Auftrag geht über `wegZumKnoten()` mit frischem
+  Sitzungsschlüssel; Freigabe und Stopp sind eigene Aufträge über `frageKnotenCode()`. Schließt man das Blatt, läuft der
+  Lauf auf dem Knoten weiter; solange die App offen ist, folgt sie ihm und zeigt ihn beim nächsten Öffnen – nur im Speicher.
+- `knoten-lauf.ts` (ohne DOM): `nimmSchritt()` ordnet nach `nr` und Art (Umschläge kommen in beliebiger Reihenfolge,
+  doppelte zählen nicht), `wartetAufMich()`, Texte für jedes Ende (`CODE_ENDE_TEXT`) und jede Rückgabe.
+- `knoten-weg-ui.ts`: `folgeLauf()` – Schritte (7000 `partial`) bis zum Ergebnis oder einer Ablehnung, jeder Umschlag
+  einmal. Damit ist `leseCodeSchritt()` verdrahtet (Zeile aus `wiring-ausnahmen.txt` entfernt).
+- Texte in beiden Sprachen; „fragen“ heißt ehrlich „fragt vor Änderungen an Dateien und riskanten Befehlen“ (VKc3a).
+
+**Browser-Test:** neuer Teil „projekt“ im Smoke-Test – gekoppelt, Liste, Blatt, ein Auftrag geht versiegelt an den Knoten
+(`scripts/knoten-code-probe.mts` hinter der Relay-Attrappe), der wartende Schritt zeigt „Ja“/„Nein“, „Ja“ geht als
+eigener Auftrag hinaus, danach Ausgabe und Abschluss; alles an den Knoten ist ein Umschlag.
+
+**Tests:** app +4 (`knoten-lauf.test.ts`: Ordnung und Dubletten, wann ein Schritt wartet, Texte je Ende in beiden
+Sprachen, Seite nur als Text und Wege nur über `wegZumKnoten()`/`frageKnotenCode()`).
+
+Umfang: rund 415 Zeilen Code, dazu Test, Smoke-Teil und Probe (643 insgesamt) – Verlauf, Diff und Zurück folgen als VKe2.
+Knoten-Stand: unverändert (Code-Aufträge seit VKc2, Motor seit VKc3).
+
+## Schritt VKe2a – Code-Aktionen: Verlauf, Diff, Zurück
+
+Spur A (Bausteine für die Projekte-Seite, VK6 „Diff …, Rückgängig“), `PROTOCOL.md` §34. Am 17.10. von Spur C gebaut.
+
+**Neu:**
+- Protokoll (`knoten-code.ts`): Aktionen `verlauf` (Projekt), `diff` und `zurueck` (Projekt und Commit, `istCommit()`:
+  40 oder 64 Hex). Antworten sind `commits` (höchstens 50, neueste zuerst, Nachricht höchstens 200 Zeichen, Zahl der
+  Dateien), `text` und `gekuerzt` beim Diff (JSON-Länge höchstens 30 000) und der neue Commit beim Zurück (leer, wenn sich
+  nichts änderte). Neue Kennung `code-commit`.
+- Knoten (`projekte.ts`):
+  - `verlauf()` über `git log` mit Trennzeichen.
+  - `diff()` über `git format-patch` ohne Diff-Programme und Umwandlungen des Projekts; die App liest ihn mit `leseDiff()`
+    wie jeden Patch.
+  - `zurueck()` über `read-tree -u --reset` und einen neuen Commit.
+  - Commits nur, wenn sie zu `HEAD` führen.
+- `dvm-provider.ts` beantwortet die drei Aktionen nur für den Besitzer, wie alle Code-Aufträge. `zurueck` lehnt er mit
+  `code-belegt` ab, solange im Projekt ein Lauf geht (`CodeLaeufe.laeuftIn()`).
+- App: Text für `code-commit` in beiden Sprachen (die Seite folgt mit VKe2b).
+
+**Tests:**
+- protocol +2: Aktionen lesen und bauen, Grenzen, falsche Commits.
+- node +5:
+  - Verlauf mit Dateizahl.
+  - Diff als Patch, ohne `textconv` aus dem Projekt, gekürzt.
+  - Zurück als neuer Commit, auch ein zweites Mal.
+  - Fremde und abseitige Commits.
+  - `code-belegt` während eines Laufs.
+
+Knoten-Stand: Die Aktionen braucht erst die App mit VKe2b; ein älterer Knoten kennt sie nicht und lehnt den Auftrag ab.
+
+## Schritt VKe2b – Projekte-Seite: Verlauf, Änderungen, hierher zurück
+
+Spur C, `docs/VIBECODEN-ENTWURF.md` (VK6). Auf VKe2a (Code-Aktionen im Knoten). Damit ist VKe fertig.
+
+**Neu:**
+- Auf dem Blatt eines Projekts „Verlauf“: die Commits, neueste zuerst, mit Datum und Zahl der Dateien.
+- „Änderungen“ zeigt den Commit über `zeigePatch()`, dieselbe Ansicht wie bei Patches in Repos. Ein gekürzter Diff ist
+  markiert.
+- „Hierher zurück“ fragt erst nach (`bestaetige()`). Danach legt der Knoten einen neuen Commit mit dem alten Stand an,
+  nichts geht verloren. Läuft gerade ein Lauf, sagt die App das (`code-belegt`).
+- Texte in beiden Sprachen.
+- Fallstrick in `packages/app/CLAUDE.md`.
+
+**Vorschau (VKg) – gemessen statt gebaut:** Die Vorschau über die Relays (VK5: die gebaute App in einem `blob:`-Rahmen,
+CSP `frame-src blob:`) liefe nicht. Ein `blob:`- oder `srcdoc`-Rahmen erbt die CSP der App, und deren `script-src` erlaubt
+nur das eigene Skript. Chromium meldet „Refused to execute inline script“, gemessen mit Playwright am 17.10. Fragen
+VKg-W1 (Weg: live wie ein Anruf oder eigene Adresse des Knotens) und VKg-W2 (GStreamer, virtueller Bildschirm, Chromium
+im Bild) stehen in `OFFEN.md` 1.6.
+
+**Browser-Test:** Der Teil „projekt“ prüft dazu Verlauf, Änderungen und „hierher zurück“. Das sind 8 Umschläge an den
+Knoten, alle versiegelt; die Probe beantwortet `verlauf`, `diff` und `zurueck`.
+
+**Tests:** app unverändert (die Seite prüft der Browser-Test).
+
+Knoten-Stand: VKe2a (die Code-Aktionen) – ein älterer Knoten lehnt „Verlauf“ ab.
+
+
+## Schritt VKd1b – Seiten lesen nur aus Auftrag und Suche (wie Claude)
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (Entscheidungen vom 18.10.2026). MENSCH zu VKd-W1: „Wie macht Claude und OpenAI das?
+Mach es genauso, ohne fragen.“
+
+**So machen es die anderen:**
+- Claude (`web_fetch`) baut keine Adressen selbst. Es ruft nur ab, was in der Nachricht des Nutzers steht oder aus
+  Suchergebnissen kommt. Links aus abgerufenen Seiten zählen seit Juli 2026 nicht mehr.
+- ChatGPT ruft ohne Rückfrage nur Adressen ab, die ein unabhängiger Index kennt. Codex nutzt eine Liste erlaubter Domains.
+- Keiner fragt vor dem Lesen.
+
+**Neu:**
+- `freedom-mcp.ts`:
+  - `LeseFreigaben` merkt sich die Adressen aus dem Text des Auftrags und aus Ergebnissen von `web_search` (höchstens
+    `LESE_FREIGABEN_MAX`, die ältesten fallen heraus).
+  - `read_page` liest nur diese. Eine andere Adresse lehnt der Knoten mit festem Text ab, ohne sie abzurufen.
+  - `adressenIn()` findet http- und https-Adressen in Text (Klammern wie bei Wikipedia, Satzzeichen am Ende).
+- `code-motor.ts`: `CodeLaeufe` meldet den Auftrag über `beimAuftrag`; `main.ts` verbindet das mit den Freigaben.
+- Gefragt wird nicht. Die Suchanfrage bleibt frei, wie bei Claude und OpenAI – `PROVIDER.md` sagt, was die Suchmaschine sieht.
+- Entscheidungen VKd-W1, VKg-W1 (Vorschau wie Replit: VKg1a–c) und VKg-W2 (ja: VKg2) im Entwurf, dazu die Sandbox auf
+  anderen Geräten. Fragen 1.5 und 1.6 in `OFFEN.md` gelöscht; Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** node +3:
+- Adressen in Text finden.
+- `read_page` nur mit Freigabe: aus dem Auftrag ja, aus der Suche ja, selbst gebaut, abgewandelt oder aus einer
+  gelesenen Seite nein; die älteste fällt beim Höchststand heraus.
+- `CodeLaeufe` meldet den Auftrag, auch wenn der Motor scheitert.
+
+Knoten-Stand: nur der Knoten; die App ändert sich nicht.
+
+## Schritt VKg1a – Vorschau wie Replit: der Knoten liefert das Projekt aus
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (Entscheidung VKg-W1 vom 18.10.2026: „Genauso wie bei Replit, schnelles Live-Rendern in
+Originalqualität, direkt spielbar/durchklickbar“). Erster Teil: der Server im Knoten und die Code-Aktion. Die App bekommt
+den Knopf mit VKg1b.
+
+**Neu:**
+- `vorschau.ts`: `VorschauServer` auf eigenem Port (`VORSCHAU_PORT`, Standard 3603) – nie der Port von Relay und App, also
+  ein anderer Ursprung als freedom.html.
+  - Je Projekt ein Zeichen aus 32 Zufallsbyte, neu bei jedem Start (`adresse()`).
+  - `/<zeichen>/…` setzt ein Cookie (HttpOnly, SameSite=Lax) und leitet auf `/…` – Seiten mit Pfaden ab `/` laufen.
+  - Nur lesen, live (`no-store`), mit echten Inhaltstypen (auch `wasm`), `nosniff`, kein Referrer.
+  - `dist/` oder `build/` vor den Quellen; Pfade ohne Endung, die fehlen, bekommen die `index.html`.
+  - Nichts mit Punkt am Anfang (`.git`, `.env`), keine Verweise: jeder Teil mit `lstat`, geöffnet mit `O_NOFOLLOW`, unter
+    Linux danach der echte Ort über `/proc/self/fd`.
+- `vorschauAusUmgebung()`: `VORSCHAU_URL` (Ursprung ohne Pfad), `VORSCHAU_PORT`, `VORSCHAU_HOST`; ungültig hält den Start an.
+- Code-Aktion `vorschau` (`knoten-code.ts`, `PROTOCOL.md` §34): Antwort `url`, nur in der Form von `istVorschauAdresse()`;
+  ohne Vorschau `code-vorschau-aus` (Text in der App in beiden Sprachen).
+- `docker-compose.vibecoden.yml`: Port 3603 und `VORSCHAU_URL`; `PROVIDER.md` erklärt Heimnetz, Domain und `.onion`.
+- Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:**
+- protocol +1: Aktion und Antwort; keine Adresse mit `javascript:`, Zugangsdaten, Suche, Anker oder anderem Pfad.
+- node +4:
+  - Umgebung.
+  - Zeichen und Weiterleitung, auch nie auf `//host`.
+  - Nur Dateien im Projekt: `.git`, `.env`, `..`, `%2e%2e`, Verweise, ein Verweis mitten im Pfad; live und `dist/`.
+  - Über den Knoten versiegelt; ohne `VORSCHAU_URL` `code-vorschau-aus`.
+
+Knoten-Stand: nur der Knoten; die App ruft `vorschau` erst mit VKg1b auf.
+
+## Schritt 11.5s4a – Prozesse je Befehl begrenzen
+
+Spur B, `docs/REPO-AGENTEN-ENTWURF.md` (Tabelle 11.5s). Erster Teil von 11.5s4: Bisher begrenzte die Sandbox Speicher,
+Rechenzeit und Dateien je Prozess, aber nicht die Zahl der Prozesse – eine Fork-Bombe im Repo eines Auftrags hätte den
+Rechner des Providers gefüllt.
+
+**Neu:**
+- `SANDBOX_GRENZEN.prozesse` = 1024: Prozesse und Threads aller Programme eines Befehls zusammen, gesetzt in der Sandbox
+  über `ulimit` (`mitGrenzen()`, für Befehle und den Motor).
+  - `RLIMIT_NPROC` zählt seit Linux 5.14 je Nutzer-Namensraum, also je Sandbox; die Prozesse des Knotens zählen nicht mit.
+  - bash nennt die Grenze `-u`, dash `-p` – die Sandbox nimmt `{ ulimit -u N 2>/dev/null || ulimit -p N; }`.
+- `pruefeSandbox()` meldet `root`, wenn der Knoten als root läuft: Dann zählt der Kern keine Prozesse. `sandboxText()`
+  hängt den Satz `sandbox.root` an (Log beim Start, `npm run pruefen`).
+- `PROVIDER.md`: die Grenze und der Rat, den Knoten als eigenen Nutzer zu betreiben (das Docker-Bild tut das).
+- Fallstrick in `packages/node/CLAUDE.md`.
+
+**Tests:** node +1 (Fork-Bombe endet an der Grenze, mehr als die Hälfte der Kinder startet, ein Befehl danach läuft
+normal; als root übersprungen). Die Grenzen-Probe liest zusätzlich „Max processes“ aus `/proc/self/limits`, die
+Selbstprüfung prüft `root`. Als `nobody` grün; ohne die Grenze rot (gegengeprüft).
+
+Rest von 11.5s4 (Speicher aller Prozesse zusammen über cgroups v2) → 11.5s4b, später.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKk1 – Browser für den Motor: Playwright MCP in der Sandbox
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk „MCP-Katalog“, Tabelle „MCP für gängige Programme“: Web/Test – Playwright MCP,
+Apache-2.0, ARM64 ✓; VKg-W2: Chromium ins Bild). Der Agent soll durchklicken können, was er baut – wie ein Mensch im
+Browser, bevor er „fertig“ sagt.
+
+**Neu:**
+- `mcp-katalog.ts`: MCP-Server für Hermes, je Server gepinnt und nur in der Sandbox des Motors.
+  - Erster Server: der Browser – Playwright MCP, wie er in `playwright-core` steckt (`lib/entry/mcp.js`). Das Paket hat
+    der Knoten schon (optional, für die Web-Werkzeuge aus 8.7); jetzt exakt gepinnt auf 1.62.1. Keine neue Abhängigkeit.
+  - Ohne Kopf, Profil nur im Speicher (`--isolated`), Chromium ohne eigene Sandbox (in unserer dürfte es keine
+    Namensräume anlegen), Ausgaben ohne Namen nach `/tmp` statt ins Projekt.
+  - `PLAYWRIGHT_WERKZEUGE`: die Grundausstattung außer `browser_run_code_unsafe` (beliebiger Code im Server, nach
+    Playwright „RCE-equivalent“) – an Hermes als `tools.include`.
+  - `mcpAusUmgebung()`: `MCP_BROWSER` (Pfad zu Chromium, `aus`), sonst Chromium aus Debian, sonst Google Chrome;
+    ein falscher Pfad hält den Start an, fehlt etwas, läuft der Motor ohne Browser (Log `MCP_TEXT`).
+  - Nur lesbar in die Sandbox: `playwright-core`, der Ordner des Browsers und das Präfix von Node, wo sie außerhalb von
+    `/usr` liegen, dazu `/etc/fonts` (ohne zeigten Bildschirmfotos keine Buchstaben).
+- `hermes-motor.ts`: `hermesKonfiguration(modell, mcp)` und `hermesMotor({ mcp })`; `main.ts` gibt die Server weiter.
+- Docker (`VIBECODEN=1`): Chromium und Schriften aus Debian, die optionalen Pakete des Knotens (Playwright ohne
+  Browser-Download).
+
+**Tests:** node +6 (Umgebung, Server-Argumente, Hermes-Konfiguration, der Motor bindet ein und schreibt `config.yaml`,
+das Docker-Bild, echt in bubblewrap: Seite aus der Sandbox mit JavaScript und Klick, die Liste zum Erlauben gleich der
+gepinnten Fassung bis auf `browser_run_code_unsafe`, weder der Rechner noch das Internet erreichbar). Die CI prüft vorher,
+dass Chrome im Runner liegt – sonst übersprünge sich der echte Test still.
+
+Knoten-Stand: nur der Knoten (mit `VIBECODEN=1`).
+
+## Schritt Entscheidungen Spur B – 18 Fragen beantwortet (18.10.2026)
+
+Spur B, nur Doku. Die offenen Fragen aus `OFFEN.md` 1.0b standen auf einer Entscheidungsvorlage (Seite „Entscheidungen
+Spur B“, je Frage Optionen und Empfehlung). Der MENSCH hat am 18.10.2026 geantwortet – überall wie empfohlen, bis auf
+MCO-W1:
+
+- **B-31:** MC1-Größe **B** – eigener schlanker MCP-Client im Knoten statt des SDK (29 MB, 95 Pakete).
+- **B-35c:** NG2 **A** – die App gleicht nach einer Pause den eigenen Posteingang mit dem eigenen Knoten ab.
+- **B-30:** AG-W1–W4 **A** – Atomic Agent nicht als Motor; Hinweis unter „Dieses Gerät“ (B-30a).
+- **B-33:** PT2 **A** (Snowflake und WebTunnel, kein lyrebird), PT3 **A** (eingebaute Snowflake-Zeilen, Rest zum Einfügen).
+- **B-32:** RN-W1–W5 **A** – `@reticulum/core` + `@reticulum/lxmf`, Adresse versiegelt an Kontakte, zuerst die App.
+- **B-34:** LK2–LK4 **A** – `livekit-client` ins Bundle, Schlüssel aus dem MLS-Exporter, IP nur über den eigenen TURN.
+- **B-37:** MCO-W2 **B** – erst mit einem Gerät vor Ort; MCO-W1 (Datentyp) zurückgestellt bis dahin (`OFFEN.md` 1.2).
+
+**Doku:** Abschnitt „Entscheidungen vom 18.10.2026“ in den fünf Entwürfen, `OFFEN.md` (1.0b entfällt, Spur-B-Zeilen
+frei, MCO-W1 unter 1.2), Sammlung (B-30 bis B-37), FORTSCHRITT.
+
+Keine Code-Änderung, kein Knoten-Stand nötig.
+
+## Schritt B-31a – Eigener MCP-Client im Knoten
+
+Spur B, Entscheidung MC1-Größe B (18.10.2026): statt des MCP-SDK (29 MB, 95 Pakete) ein schlanker Client ohne
+Abhängigkeit. Der Knoten bietet dem Modell damit Werkzeuge aus MCP-Servern an, die der Betreiber festlegt – als Grundlage
+für Kiwix (B-31b) und Sprache (B-38).
+
+- `mcp-client.ts`: MCP über stdio (JSON-RPC 2.0, eine Nachricht je Zeile) – `initialize` mit der neuesten Fassung aus
+  `MCP_FASSUNGEN`, `tools/list` über alle Seiten, `tools/call`; Anfragen des Servers nur `ping`, sonst „Method not found“.
+  - Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`): Name, Programm mit absolutem Pfad, Ordner nur lesbar – nie
+    die Wurzel, das Home, ein Ordner darüber oder `~/.freedom`, auch nicht hinter einem Verweis. Eine kaputte Datei
+    hält den Start an.
+  - Jeder Server nur in der Sandbox (`sandboxMotor()`: ohne Netz, seccomp, Grenzen für Speicher und Prozesse), mit
+    eigenem Arbeitsordner, der mit ihm verschwindet.
+  - `McpWerkzeuge`: Werkzeuge als `mcp__<server>__<werkzeug>`, unzulässige Namen und zu große Schemas weg, höchstens 32
+    je Server, Namen höchstens 64 Zeichen (OpenAI-kompatibel); Grenzen wie die eingebauten Werkzeuge
+    (`WERKZEUG_GRENZEN`); Fehler nur als feste Texte.
+- `inference.ts`: `OllamaBackend.mcp` – die Agenten-Schleife bietet die Werkzeuge an und führt sie aus; ohne Werkzeuge
+  (gratis) auch keine von MCP.
+- `main.ts` startet die Server nach dem Antrieb, ins Log nur Namen und Zahlen; `npm run pruefen` zeigt die Datei.
+
+**Tests:** node +5 (`mcp.json` mit 15 unzulässigen Fällen und Verweisen auf `~/.freedom`, Grenzen samt Namen über
+64 Zeichen und feste Texte, Agenten-Schleife mit Werkzeug-Aufruf,
+Verdrahtung, echt in bubblewrap mit einer Attrappe in Python: zwei Seiten, unzulässiger Name weg, kein Netz, Zeitlimit,
+nach dem Schließen nicht mehr erreichbar).
+
+Knoten-Stand: nur der Knoten, und nur mit `~/.freedom/mcp.json`.
+
+## Schritt B-35c – Posteingang nach einer Pause mit dem eigenen Knoten abgleichen
+
+Spur B, Entscheidung NG2 A (18.10.2026): Nur die App darf sich als Empfänger ihrer Umschläge anmelden – also gleicht
+sie ab, nicht der Knoten. Nach einer Pause holt sie, was an ihren Posteingängen liegt und dem Knoten fehlt, und legt es
+auch beim Knoten ab. Was fehlt, findet Negentropy (B-35a/b), ohne alle Umschläge zu laden.
+
+- **Protokoll:** `WebSocketRelay.abgleiche(filter, speicher)` – der Client zu NIP-77: `NEG-OPEN`, Runden bis zum Ende,
+  `NEG-CLOSE`; bei `auth-required` einmal anmelden (nur über `anmelden`) und neu beginnen; Grenzen `NEG_CLIENT`
+  (Rahmen 60 000 Byte, 50 Runden), Fehler nur als `NegFehler` (`neg.anmeldung`, `neg.abgelehnt`, `neg.zeit`,
+  `neg.runden`). `Relay.abgleiche?` und `OutboxPool.abgleicheAn()` für die Verbindung des Pools.
+- **App:** `posteingang-abgleich.ts` rechnet eine Runde: Stand = die Umschläge beim Knoten (seit der letzten Runde minus
+  zwei Tage, NIP-59), Negentropy mit jedem anderen Posteingang, nur das Fehlende in Stücken holen (höchstens 500 je
+  Runde), nur Umschläge an den eigenen Schlüssel, beim Knoten ablegen. Ein Posteingang ohne NIP-77 bleibt aus.
+  `shell/posteingang-knoten.ts` startet sie aus `syncDmInbox()`, wenn sie fällig ist (Start, wieder online, länger als
+  zehn Minuten verborgen), nur gekoppelt, nur mit dem Relay des Knotens im eigenen Satz, als Gerät nie; die Zeit der
+  Runde merkt sie im Tresor erst, wenn alles Geholte beim Knoten liegt. `gleicheAbAn()` (`state.ts`): im Pool über
+  dessen Verbindung, sonst über eine Nebenverbindung, ohne den Relay auszusetzen.
+- Text beim Übernehmen des Knoten-Relays (Settings) nennt, dass die App dort nach einer Pause ablegt.
+
+**Tests:** node +3 (echt gegen die Relay-Rolle: in beide Richtungen über mehrere Runden, Filter, Pool; Umschläge nur nach
+Anmeldung, einmal je Verbindung, als Fremder nie; Relay ohne NIP-77, Ablehnung, kaputte Antworten, endlose Runden – nur
+Kennungen), app +4 (eine Runde mit echtem Negentropy im Speicher, Knoten nicht erreichbar und untergeschobene Events,
+Grenzen und `seit`, Verdrahtung).
+
+**Befund zu B-30a (Atomic Agent), nur Doku:** `atomic-agent serve` sendet keine CORS-Kopfzeilen und beantwortet
+`OPTIONS` mit 404 (Quelltext, Commit `7899d17`) – die App kann seine Antworten im Browser nicht lesen, W2 A trägt so nicht.
+Frage AG-W5 in `OFFEN.md` 1.5, Befund in `ATOMIC-AGENT-ENTWURF.md`; B-30a wartet.
+
+Knoten-Stand: keiner nötig – die Relay-Rolle kann NIP-77 seit B-35b.
+
+## Schritt B-34a – Gruppenanrufe: SFU als Dienst und Zugänge im Knoten
+
+Spur B, Entscheidungen LK2–LK4 A (18.10.2026, `docs/GRUPPENANRUF-ENTWURF.md`): Ab drei Personen läuft ein Anruf über
+einen SFU (LiveKit) neben dem Knoten – wie coturn für 1:1-Anrufe. Der Knoten vergibt nur Zugänge.
+
+- **Protokoll:** `livekit-zugang.ts` – Anfrage (Kind 5081) versiegelt mit Besitzer-Nachweis über
+  `baueLivekitAnfrage()` (zufälliger Raum, 1 bis 25 Zugänge), Antwort streng über `leseLivekitZugaenge()` (derselbe
+  Raum, genau so viele Zugänge, Kennungen verschieden, JWT-Form, höchstens ein Tag). `PROTOCOL.md` §39.
+- **Knoten:** `livekit.ts` – `livekitAusUmgebung()` (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, nie halb),
+  `livekitToken()` (JWT HS256 mit `node:crypto`, keine Abhängigkeit), `livekitZugaenge()`; der Provider antwortet nur
+  dem Besitzer aus einem Umschlag (`handleLivekit()`), Zugänge zählen nicht als Aufträge; Rolle „livekit“ im Status, die
+  App zeigt sie als „Gruppenanrufe (LiveKit)“.
+- **Dienst:** `scripts/livekit-einrichten.sh` (Datei 0600 mit zufälligem Schlüssel und Geheimnis, Signal nur auf
+  127.0.0.1, kein eigener TURN, kein Redis, höchstens 25 je Raum, Protokoll ab „warn“) und das Profil „livekit“ in
+  `docker-compose.yml` (`livekit/livekit-server:v1.13.10`); `livekit.yaml` in `.gitignore`.
+
+**Tests:** protocol +3 (Adresse, Anfrage versiegelt mit Nachweis, Antwort mit elf unzulässigen Fällen), node +7
+(Umgebung, JWT so geprüft wie livekit-server, Provider: der Besitzer bekommt Zugänge, nie im Log, nie offen, zählt nicht;
+fremd, ohne Nachweis, zu viele und ohne SFU abgelehnt; Verdrahtung; Skript; Docker). Der Test der Status-Rollen zählt jetzt
+13 Rollen.
+
+Knoten-Stand: nur der Knoten, und nur mit den drei `LIVEKIT_*`-Werten.
+
+## Schritt B-32a – Reticulum: Bibliothek, Identität je Gerät, Umschlag in LXMF
+
+Spur B, Entscheidungen RN-W1–W5 A (18.10.2026, `docs/RETICULUM-ENTWURF.md`): Reticulum wird der zweite Funkweg neben
+Meshtastic. B-32a legt die Bausteine ohne Netz und ohne Gerät.
+
+- **Abhängigkeit:** `@reticulum/core` und `@reticulum/lxmf` 0.9.12 in der App, exakt gepinnt (EUPL-1.2 wie Freedom, core
+  ohne Abhängigkeiten, lxmf nur mit core). Gebündelt 163 KB, gepackt 48 KB – unter der Grenze aus W5 (etwa 150 KB);
+  noch nicht in `freedom.html`, die App lädt den Baustein erst mit B-32b.
+- **Identität:** `reticulumIdentitaet()` – je Gerät zufällig (64 Byte), nur in `geheim` (`freedom.reticulum.identitaet`
+  in `GEHEIM_FEST`, alles unter `freedom.reticulum.` in `SICHERUNG_NIE`, also auch nicht im Export); ein kaputter
+  Eintrag wird nie ersetzt. `lxmfAdresse()` nennt die Adresse (`lxmf.delivery`, 16 Byte).
+- **Umschlag:** `verpackeFuerReticulum()` nur nach `pruefeMeshInhalt()` mit den eigenen Schlüsseln, als LXMF-Nachricht
+  mit den Feldern `0xFB` = `"freedom/mesh-1"` und `0xFC` = Art + Nutzlast (Schlüssel als Zahlen); `entpackeAusReticulum()`
+  nur in direkter Form an die eigene Adresse, nur diese Art, nur was `pruefeMeshInhalt()` durchlässt. `PROTOCOL.md` §40.
+
+**Tests:** app +8 (Identität: zufällig, gemerkt, nie in Sicherung oder Export, kaputt nie ersetzt; hin und zurück mit
+Signatur; Feldschlüssel als Zahlen im msgpack; hinaus kein Klartext, keine eigene Kopie, keine kurze Adresse, nichts zu
+Großes; heraus nichts an andere, nichts ohne Ziel, nichts Abgeschnittenes, keine fremde Art, kein Klartext; Grenze auf
+dem Draht; Bibliothek exakt gepinnt, EUPL-1.2, nur in diesem Modul und nur dynamisch geladen).
+
+Knoten-Stand: unverändert.
+
+## Schritt B-34b – Gruppenanrufe: Schlüssel je Epoche aus dem MLS-Exporter
+
+Spur B, Entscheidung LK3 A (18.10.2026, `docs/GRUPPENANRUF-ENTWURF.md`): Der Schlüssel für Bild und Ton kommt aus der
+MLS-Gruppe des privaten Raums – kein Geheimnis, das reisen muss.
+
+- **MDK** (`mdk.patch`): `Engine::freedom_export_secret()` – MLS-Exporter (RFC 9420 §8.5) mit beliebigem Label und
+  Kontext, wie `group_context()` (lebende Gruppe, bei ausstehendem eigenem Commit dessen Epoche). Die Engine rechnet sonst
+  nur ihre eigenen Labels vorab.
+- **Crate:** `anrufSchluessel(gruppe, anruf, epoche)` – Label `freedom/anruf`, Kontext `livekit:<raum>`, 32 Byte, direkt
+  aus dem Speicher der Engine als `Uint8Array` (danach genullt); eine andere Epoche als die genannte ist ein Fehler.
+  `Mls.anrufSchluessel()` im Paket, `PROTOCOL.md` §39.
+- Erst `bauen.sh --pruefen` am alten Stand (bitgleich), dann neu gebaut und erneut geprüft (bitgleich).
+
+**Tests:** mls +3 (alle Mitglieder einer Epoche denselben, beliebig oft, auch nach Neuladen, je Anruf und Gruppe ein
+anderer; nach dem Commit ein neuer, den das entfernte Mitglied nicht ableiten kann; falsche Epoche, ungültiger Anruf,
+fremde Gruppe und Nicht-Mitglied: Fehler).
+
+Knoten-Stand: unverändert.
+
+## Schritt B-34c1 – Gruppenanrufe: Einladung in der Gruppe, anrufen und beenden
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). B-34c ist geteilt: c1 bringt die Einladung und das
+Anrufen ohne neue Abhängigkeit, c2 das Beitreten mit `livekit-client` samt Oberfläche.
+
+- **Protokoll:** `raum-gruppenanruf.ts` – Einladung als inneres Event (Art 25041, `["anruf", <kennung>]`, Inhalt wie die
+  Antwort des Knotens plus `mitglieder`), Ende nur vom Anrufenden; gelesen nur über `raumGruppenanrufe()` (Zugänge wie
+  `leseLivekitZugaenge()`, Abgelaufenes und Beendetes fällt weg, die neueste Einladung gilt, zwei Anrufende mit derselben
+  Kennung: keiner). `PROTOCOL.md` §39.
+- **App:** `shell/gruppenanruf.ts` – `livekitZugaengeVomKnoten()` (wie der eigene TURN: gekoppelt, frischer
+  Sitzungsschlüssel, `wegZumKnoten()`), `starteGruppenanruf()` (zufällige Kennung, je Mitglied ein Zugang, Einladung über
+  `mlsSendeEvent()`), `beendeGruppenanruf()`, `laufendeGruppenanrufe()`. Fehlertext `pf.gruppenanrufUngueltig`.
+
+**Tests:** protocol +4 (Einladung je Mitglied, bauen nur mit passenden Mitgliedern, Ende nur vom Anrufenden, Ablauf,
+neueste gilt, zwei Anrufe; doppelte Kennung, acht kaputte Fälle), app +3 (anrufen: Kennung zufällig, auch für mich, nur
+in die Gruppe, jeder seinen Zugang, beenden; zu viele, kein Zugang; Verdrahtung wie TURN), Leak +1 (durch die echte
+MLS-Engine: nur Kind 445, kein Zugang, keine Adresse, keine Kennung, keine Identität).
+
+Knoten-Stand: unverändert (Zugänge seit B-34a).
+
+## Schritt B-34c2 – Gruppenanrufe: Beitreten mit livekit-client, Ende-zu-Ende verschlüsselt
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). Die Oberfläche (anrufen, beitreten, Bild und Ton)
+und die Grenze im Datenschutzbericht kommen mit B-34d – erst dann kann man einem Anruf wirklich beitreten.
+
+- **Abhängigkeit:** `livekit-client` 2.22.4 (Apache-2.0, Unterabhängigkeiten MIT/Apache/BSD, LK2 A), exakt gepinnt. Im
+  Build vorab minifiziert (das App-Bundle ist es nicht; unminifiziert wären es +1,46 MB), der E2EE-Worker als Text im
+  einen Skript. Gemessen mit einem Probe-Verweis: `freedom.html` +0,92 MB (+9,8 %), gepackt +0,20 MB – im Bundle erst,
+  wenn B-34d `trittBei()` aufruft; bis dahin +1 KB.
+- **App:** `gruppenanruf-ablauf.ts` (ohne Browser: `beitrittsWeg()` – mit eigenem TURN nur relay, sonst `"warnung"` bis
+  zur Zustimmung; `schluesselIndex()` – Epoche modulo 16), `shell/gruppenanruf-verbindung.ts` (`trittBei()`,
+  `schluesselNachziehen()`, `verlasse()`, `imGruppenanruf()`): eigener Schlüsselring auf `BaseKeyProvider` (gemeinsamer
+  Schlüssel, kein Weiterdrehen), erst verschlüsseln, dann verbinden. Nach jedem Abgleich eines privaten Raums
+  (`tabs/raeume.ts`) zieht ein laufender Anruf den Schlüssel der neuen Epoche nach.
+
+**Tests:** app +5 (Weg mit und ohne TURN, Zustimmung; Schlüssel-Index; Beitreten: Schlüssel nur aus der Gruppe und
+genullt, Weg, Worker, livekit-client nur dynamisch, nichts gemerkt, die genutzten Namen gleich denen des Builds; Build:
+Plugins, CSP unverändert, Fassung und Lizenz; Verdrahtung in `raeume.ts`).
+
+Knoten-Stand: unverändert.
+
+## Schritt B-34d – Gruppenanrufe: Oberfläche im privaten Raum, Datenschutzbericht, Smoke-Test
+
+Spur B, Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`). Damit ist B-34 im Code fertig; der Test mit Geräten
+und LiveKit am GX10 steht beim MENSCHEN (OFFEN 2.3).
+
+- **Befund:** `livekit-client` baut die Signalverbindung (WebSocket zu `<url>/rtc/v1`) immer direkt zum SFU auf – der
+  Knoten der anrufenden Person sieht die IP-Adresse jedes Teilnehmenden, auch wenn Bild und Ton über den eigenen TURN
+  laufen. B-34c2 ließ mit eigenem TURN ohne Rückfrage beitreten; seit B-34d fragt die App vor jedem fremden Anruf
+  (`zustimmungNoetig()`), der eigene TURN trägt weiter Bild und Ton. Ob der eigene Knoten die Signalverbindung
+  weiterreichen soll: Frage LK5 (OFFEN 1.6, Empfehlung A).
+- **Oberfläche:** `shell/gruppenanruf-ui.ts` – Knopf 📞 im Kopf des Kanals (nur privat; ohne gekoppelten Knoten ein
+  Hinweis), über dem Verlauf je laufendem Anruf eine Zeile („Beitreten“, „Mit Bild“, beim eigenen „Beenden“); wer anruft,
+  tritt gleich bei. Im Anruf eine Leiste über allem (auch auf anderen Seiten): Bild und Ton als Spuren aus `beiMedien()`,
+  „Stumm“, „Verlassen“. Ist der Anruf beendet, verlässt die App ihn beim nächsten Abgleich. Keine Namen im Anruf – alle
+  Eingeladenen sehen alle Zugänge.
+- **Datenschutzbericht:** Grenze „gruppenanruf“ (Regel `mls-gruppe`, Szenario mit echter MLS-Engine: Zugänge, Kennungen
+  und Adresse nur als Chiffrat), Texte in beiden Sprachen.
+- **Größe:** `freedom.html` 9,32 → 10,26 MB (+0,93 MB, +10,0 %), gepackt 4,47 MB – wie in B-34c2 gemessen.
+- **Smoke-Test** („privatraum“): Ada koppelt ihren Knoten (`scripts/gruppenanruf-probe.mts` antwortet auf 5081 und 5079),
+  ruft an, tritt bei (über ihren TURN); Bo sieht den Anruf, „Beitreten“ fragt erst nach der IP – abgebrochen geht nichts
+  hinaus –, danach E2EE-Worker aus blob: ohne CSP-Verstoß und eine Verbindung nur zur Adresse aus der Einladung (die
+  Attrappe schließt sie). Ada beendet, bei Bo ist der Anruf weg. Die Adresse des SFU steht nie im Klartext auf dem Relay.
+
+**Tests:** protocol +1 (Grenze mit Szenario), app +4 (UI: Rückfrage vor `trittBei()`, eigener Anruf ohne, beenden
+verlässt; Spuren, nichts gemerkt; Verdrahtung; der Smoke-Teil prüft, was er soll), Smoke-Teil „privatraum“ erweitert. Die
+Verbindung zum SFU stellt im Smoke-Test eine Hülle um WebSocket nach – `WebSocketRoute.close()` im Handler hielt den Test
+an (Fallstrick in `scripts/CLAUDE.md`).
+
+Knoten-Stand: unverändert.
+
+## Schritt B-31b – Kiwix als MCP-Server: Wikipedia ohne Internet
+
+Spur B, Sammlung B-31 (MC1 A, MC1-Größe B). Damit ist B-31 fertig.
+
+- **Brücke:** `packages/node/mcp/kiwix-bruecke.mjs` – reines JavaScript ohne Pakete, läuft so in der Sandbox (ohne tsx).
+  Sie startet `kiwix-serve` auf 127.0.0.1 (in der Sandbox: nur dort erreichbar) mit `--blockexternal` und
+  `--attachToProcess`, beantwortet MCP über stdio und bietet `search` (Volltextsuche, höchstens 10 Treffer mit Pfad) und
+  `read` (Artikel als Text, ohne Skripte und Stile). Gelesen wird nur ein Pfad aus der Suche (`<buch>/<eintrag>`, ohne
+  `..` und Abfrage), Umleitungen nur auf denselben Ursprung, Antworten begrenzt. Nichts nach stderr.
+- **Knoten:** `mcp.json` kennt `"kiwix": [ZIM-Dateien]` statt `befehl` (`mcpAusDatei()`: 1 bis 8 Dateien, absolut,
+  `.zim`, Ordner nie zu weit) – Brücke, Node und `kiwix-serve` setzt der Knoten selbst ein; fehlt `kiwix-serve`, startet
+  der Server nicht (`ProgrammFehlt`, Log und `npm run pruefen` nennen das Paket).
+- **Einrichtung:** Docker-Bild mit `kiwix-tools` (GPL-3.0+, eigenes Programm, rund 5 MB), Installer mit
+  `KIWIX_ZIM=/pfad/a.zim[,…]` (installiert `kiwix-tools`, legt `mcp.json` an, nie über eine vorhandene; Pfade nur als
+  Argument an node), docker-compose mit Hinweis zum Einbinden, `docs/PROVIDER.md` „Wikipedia ohne Internet“. Die CI
+  installiert `kiwix-tools` und `zim-tools`.
+
+**Tests:** node +9 (Pfade, Text ohne Skripte, Treffer der Suche, `mcp.json` mit `kiwix`, Verdrahtung, ohne `kiwix-serve`,
+die Brücke gegen echtes `kiwix-serve` mit einem ZIM aus `zimwriterfs`, initialize ohne `kiwix-serve`, Kiwix in der Sandbox
+über `mcp.json`).
+
+Knoten-Stand: wer Kiwix nutzen will, braucht den Knoten ab diesem Stand und `kiwix-tools`; sonst unverändert.
+
+## Schritt B-33a – Tor-Brücken: Snowflake und WebTunnel aus den Quellen bauen
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V1).
+
+- **`scripts/pt-bauen.sh`:** baut `snowflake-client` (Snowflake 2.14.1, BSD-3-Clause) und den WebTunnel-Client (0.0.7,
+  MIT) für Linux x86_64 und arm64, Windows x86_64 und Android arm64 – mit `go install` aus den Modulen (deren go.mod und
+  go.sum, geprüft gegen sum.golang.org), Go 1.24.7, ohne cgo, `-trimpath -buildvcs=false`, ohne Build-Id; Snowflake für
+  Android mit `-checklinkname=0`. Je Plattform die Lizenztexte aller eingehenden Module (fehlt einer, kein Bau), dazu
+  `SHA256SUMS`. `--pruefen` baut zweimal an zwei Pfaden – lokal reproduzierbar.
+- **Workflow „Tor-Brücken“** (`tor-bruecken.yml`): bei Änderungen am Skript und von Hand; Artefakt `tor-bruecken`
+  (14 Tage), kein Release. Beigelegt werden die Programme erst mit B-33b (Desktop) und B-33d (Android).
+- **Größe:** je Plattform rund 22 MB entpackt, etwa 8 MB gepackt (Tabelle im Entwurf, „Stand B-33a“).
+
+**Tests:** der Workflow selbst (zweimal bauen, Summen vergleichen); Paket-Tests unverändert.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-33b1 – Tor-Brücken in der Hülle (Desktop)
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V3, V4). B-33b ist geteilt: b1 die Logik der
+Hülle, b2 die Programme in den Paketen.
+
+- **arti mit `pt-client`:** neu im Bau ist nur die Crate `tor-ptmgr` 0.46.0 (Tor-Projekt, MIT oder Apache-2.0).
+- **`bruecken.rs`** (neu): `pruefe_zeile()` (V4: Transport `snowflake` oder `webtunnel`, IP mit Port, Fingerabdruck
+  40 Hex, Parameter `schlüssel=wert`, nur sichtbare ASCII-Zeichen, feste Form ohne „Bridge“, zuletzt der Leser von
+  arti), höchstens 16 Zeilen, alle oder keine. Eingebaut die zwei Zeilen aus `client/torrc` von Snowflake 2.14.1 (ein
+  Test bindet sie an die Fassung in `pt-bauen.sh`). Programme nur mit festem Namen neben der Hülle
+  (`freedom-snowflake`, `freedom-webtunnel`); `konfiguriere()` schaltet Brücken fest an und legt je genutztem
+  Transport ein verwaltetes Programm an – fehlt eines, gilt nichts.
+- **`netz.rs`:** `netz.json` trägt `bruecken` und `zeilen` (alte Dateien bleiben lesbar). Mit Brücken startet arti nur
+  mit ihnen; gilt eine gemerkte Zeile nicht oder fehlt ein Programm, startet arti nicht (`fehler: "bruecke"`, das
+  Fenster bekommt trotzdem den toten Proxy) – nie still ohne Brücke, kaputte eigene Zeilen nie still durch die
+  eingebauten ersetzt. `netz_setzen` nimmt `bruecken` und `zeilen` (Fehler `zeile:<stelle>:<kennung>`,
+  `bruecken-fehlen`), `netz_stand` nennt `bruecken`, `brueckenAktiv`, `brueckenMoeglich`, `eigeneZeilen` – die Zeilen
+  selbst bleiben in der Hülle. Kein neues Kommando, keine neue Erlaubnis.
+
+**Tests:** Hülle +9 (54): Zeilen (gültig, jede Art Fehler), alle oder keine, Programme nur mit festem Namen, arti nimmt
+Zeilen und Programme an, alte `netz.json`, neue Wahl, eingebaute Zeilen zur Fassung – und eine Attrappe des Programms:
+arti startet sie nach der PT-Spezifikation und verbindet sich über ihren SOCKS-Zugang mit Adresse und Parametern der
+Snowflake-Brücke. Ins Tor-Netz kommt arti hier nicht; den Live-Test macht der MENSCH.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-33b2 – Tor-Brücken in den Paketen der Hülle
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V1, V2).
+
+- **`launcher.yml`:** neuer Job „bruecken“ baut `snowflake-client` und WebTunnel-Client einmal aus den Quellen
+  (`pt-bauen.sh`, Go 1.24.7). Jeder Job der Matrix (Linux x86_64 und arm64, Windows x86_64) legt die Programme seiner
+  Plattform bei und baut mit `cargo tauri build --config tauri.bruecken.conf.json`; danach vergleicht er die Programme im
+  fertigen Paket (deb, AppImage, NSIS-Installer) Byte für Byte mit dem Bau und sucht die Lizenztexte.
+- **`scripts/pt-beilegen.sh`** (neu): nimmt nur, was `SHA256SUMS` des Baus für die Plattform nennt, und nur unverändert;
+  legt die Programme unter den festen Namen aus `bruecken.rs` ab (`binaries/freedom-<name>-<ziel-tripel>`), dazu die
+  Lizenztexte (`bruecken-lizenzen/`). Unbekanntes Ziel oder abweichende Summe: nichts.
+- **`tauri.bruecken.conf.json`** (neu): `externalBin` und die Lizenztexte als Ressource – getrennt von `tauri.conf.json`,
+  damit `cargo test` und `cargo build` ohne die Programme laufen. `binaries/` und `bruecken-lizenzen/` stehen in
+  `.gitignore`.
+
+**Tests:** Hülle +1 (55): `tauri.bruecken.conf.json`, `pt-beilegen.sh` und `TRANSPORTE` nennen dieselben Programme.
+`pt-beilegen.sh` lokal: Linux und Windows richtig benannt, unbekanntes Ziel und eine veränderte Datei abgelehnt. Lokal
+gebaut (deb, AppImage, x86_64): beide Programme liegen in `usr/bin` bitgleich mit dem Bau, die Lizenztexte unter
+`usr/lib/FreedomStack/bruecken-lizenzen/`. Das deb unter Xvfb mit `{"tor":true,"bruecken":true}`: die Hülle startet das
+beigelegte `freedom-snowflake`; hinaus geht nur dieses Programm (DNS für Broker-Front und STUN), Hülle, arti und Fenster
+nur zu 127.0.0.1 – im README und im Entwurf vermerkt (für die Texte in B-33c). Die Prüfung im Paket läuft in der CI je
+Plattform (NSIS nur dort).
+
+Knoten-Stand: unverändert.
+
+## Schritt SH1-Test – Gegenprobe ohne Zufallstreffer
+
+Spur B (gefunden in der CI von #529, Bereich von SH1/Spur A, nur ein Test).
+
+- **Befund:** `succession.test.ts` › „SH1: alte Anteile (Fassung 1) bleiben lesbar – gemischt nie“ war gelegentlich rot.
+  Die Gegenprobe rechnete einen zufälligen Dreier von Anteilen der Fassung 2 (Privy: zufällige x-Werte, Körper 0x11b) mit
+  der Rechnung der Fassung 1 (x = Nummer, Körper 0x11d) und verlangte, dass nicht das Geheimnis herauskommt. Ob das zufällig
+  doch passt, hängt nur an den x-Werten, für alle 32 Byte zugleich. Gemessen in 100 000 Läufen: in 795 passte einer der zehn
+  Dreier, in 2 zwei, nie mehr; der feste erste Dreier allein etwa jeder 250. Lauf.
+- **Fix:** Die Gegenprobe prüft alle zehn Dreier und verlangt, dass nicht alle passen. „Gemischt nie“ prüft weiter die
+  Zeile davor (Fassungen werden nie gemischt). Fallstrick in `packages/protocol/CLAUDE.md`.
+
+**Tests:** Anzahl gleich (protocol 1342); `succession.test.ts` 40-mal hintereinander grün.
+
+## Schritt B-33c – Tor-Brücken in der Oberfläche
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V3–V5). Oberfläche für die Hülle aus B-33b.
+
+- **`shell/netz-huelle.ts`:** `leseNetzStand()` liest die Felder der Brücken (ältere Hüllen ohne sie: aus) und den Fehler
+  `bruecke`; `netzZeilen()` sagt, ob die Sitzung über eine Brücke läuft, was ab dem Start gilt und wie viele eigene Zeilen
+  gemerkt sind. Neu: `brueckeRueckfrage()`, `zeilenAusText()` (je Zeile eine, auch `['…', '…']` von
+  bridges.torproject.org und ihrem QR-Code), `brueckenFehlerText()` (Kennungen aus `bruecken.rs`, nie Wortlaut der Hülle),
+  `setzeBruecken()`, `wireBruecken()`: Schalter „Über eine Brücke“ nur mit `brueckenMoeglich`, erst Rückfrage, dann
+  `netz_setzen` mit Brücke und Tor und Neustart; „Eigene Brücken“: Textfeld mit QR-Scan, Zeilen nur an die Hülle, bei einem
+  Fehler bleibt der Dialog mit dem Text und der Zeilennummer offen.
+- **Texte** (Deutsch und Englisch, V5): langsamer; verbirgt, dass man Tor nutzt, nicht vor jedem Netzbetreiber gleich gut;
+  Snowflake-Proxys sehen die IP-Adresse, nicht, was man tut; der Rechner fragt sein DNS nach CDN und STUN-Servern; geht
+  die Brücke nicht, geht nichts hinaus.
+
+**Tests:** app +6 (1258 mit Test-Mint): Stand streng (auch ohne die neuen Felder), Zeilen des Status, eingefügte Zeilen,
+Fehlertexte (auch `constructor`), Setzen nur über die Hülle, Verdrahtung. Smoke-Test neu „huelle_bruecke“: eine Attrappe
+der Hülle (`__FREEDOM_NATIVE__`, `__TAURI_INTERNALS__`) – Schalter sichtbar, falsche Zeile meldet „Zeile 2: …“ und der
+Dialog bleibt offen, die Form von bridges.torproject.org geht als eine Zeile an `netz_setzen`, der Schalter fragt und setzt
+Brücke und Tor mit Neustart; nichts davon im Speicher der App.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-33d – Tor-Brücken unter Android
+
+Spur B, Entscheidungen PT2 A, PT3 A (`docs/TOR-BRUECKEN-ENTWURF.md`, V2). Letzter Teil von B-33.
+
+- **Befund:** Ohne cgo fragt Go unter Android 127.0.0.1:53 nach Namen (kein `/etc/resolv.conf`; Go: „DNS requests don't
+  work on Android, so prefer the cgo resolver“) – Snowflake und WebTunnel fänden ihr Ziel nie. `pt-bauen.sh` baut die
+  Android-Programme darum mit cgo gegen das NDK 27.3.13750724 (dasselbe wie das APK, API 24, Abschnitte auf 16 KB); die
+  übrigen Plattformen bleiben ohne cgo und bitgleich (lokal verglichen). Ohne NDK bricht der Bau ab.
+- **APK:** `pt-beilegen.sh … aarch64-linux-android` legt `libfreedom_snowflake.so` und `libfreedom_webtunnel.so` nach
+  `jniLibs/arm64-v8a/`, Lizenztexte nach `assets/bruecken-lizenzen/`; `scripts/android-bruecken.py` (neu) schaltet in
+  `build.gradle.kts` das Entpacken beim Installieren ein (`useLegacyPackaging`) und das Strippen für beide aus.
+- **Hülle:** `bruecken::programm()` sucht unter Android im Ordner der eigenen Bibliothek (`/proc/self/maps`, ohne JNI);
+  `dateiname()`, `bibliotheksordner()`.
+- **CI:** Job „Android-APK“ braucht jetzt „bruecken“ und prüft die Programme im APK (Byte für Byte, komprimiert,
+  `extractNativeLibs` nicht aus, Ausrichtung ab 16 KB, Lizenzen); beide Bau-Jobs holen das NDK.
+- **Oberfläche:** Rückfrage unter Android „Die App schließt sich …“ (`set.brueckeAnTextAndroid`,
+  `set.brueckeAusTextAndroid`), „Gerät“ statt „Rechner“ im Text zur Brücke.
+
+**Tests:** Hülle +2 (57): Namen und Ordner unter Android (auch: nur im APK → keine Brücken), dasselbe NDK in Skript und
+Workflows; app gleich (1258, Rückfrage unter Android im bestehenden Test). Das NDK ist aus der Entwicklungsumgebung nicht
+erreichbar – den cgo-Bau zeigt die CI.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-38-Entwurf – Sprache lokal (und Frage RN-W6 vor B-32b)
+
+Spur B, nur Dokumente. Sammlung B-38 ist nach B-31 frei; wie bei B-30 bis B-37 erst ein Entwurf.
+
+- **`docs/SPRACHE-ENTWURF.md`:** whisper.cpp v1.9.5 (MIT; Modelle base 142 MiB bis large-v3-turbo-q5_0 547 MiB),
+  `whisper-server` sendet selbst `Access-Control-Allow-Origin: *` – „Dieses Gerät“ geht ohne Umweg; mit `--convert` ruft er
+  ffmpeg auf fremde Dateien auf, ohne Größengrenze. Piper ist seit dem Umzug nach `piper1-gpl` GPL-3 (bettet espeak-ng
+  ein), 34 MB plus onnxruntime – als eigenes Programm wie `kiwix-serve`. Im Browser nie `SpeechRecognition` (Chrome
+  schickt den Ton an Google), beim Vorlesen nur Stimmen mit `localService`. Vorschläge V1–V6, Fragen SP-W1–W6, Aufteilung
+  B-38a–d.
+- **`docs/RETICULUM-ENTWURF.md`:** Frage RN-W6 vor B-32b – eine RNode sendet nur mit den Funkparametern der App; Vorschlag:
+  Vorgaben je Region mit Bestätigung. Bisher stand die Frage nur im Chat.
+- **`OFFEN.md`:** 1.7 (SP-W1–W6) und 1.8 (RN-W6); B-32b und B-38 warten darauf.
+
+**Tests:** kein Code geändert.
+
+Knoten-Stand: unverändert.
+
+## Schritt Entscheidungen 19.10. (Spur B) eingetragen
+
+Spur B, nur Dokumente. Der MENSCH hat die offenen Fragen von Spur B nach den Empfehlungen entschieden („Die offenen
+Entscheidungen alle nach deinen Empfehlungen“):
+
+- **AG-W5 A:** B-30 geschlossen, B-30a entfällt – Atomic Agent nur erwähnt (braucht einen eigenen Vermittler, kein CORS).
+- **LK5 A:** Der eigene Knoten reicht die Signalverbindung zum fremden SFU weiter – neuer Schritt B-34e.
+- **SP-W1–W6:** A, A, A, C, A, A – B-38 frei: a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App; d (Piper)
+  entfällt vorerst.
+- **RN-W6 A:** Funkparameter der RNode je Region, vor dem ersten Senden bestätigt – B-32b frei.
+
+Eingetragen in den Entwürfen (ATOMIC-AGENT, GRUPPENANRUF, SPRACHE, RETICULUM), in `OFFEN.md` (Fragen 1.5–1.8 raus,
+Bauschritte frei), Sammlung und FORTSCHRITT. Offen bleiben die Fragen anderer Spuren (T1–T5, W4, OR1).
+
+**Tests:** kein Code geändert.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-38a – Vorlesen auf dem Gerät
+
+Spur B, SP-W2 A (`docs/SPRACHE-ENTWURF.md`, V1 und V5).
+
+- **`vorlesen.ts`:** `waehleStimme()` (nur `localService === true`, Sprache der App, unter ihnen die Vorgabe des Systems),
+  `vorleseStuecke()` (Satzenden, bis 220 Zeichen, höchstens 8000), `Vorleser` (ein Text zugleich, Abbruch, wartet bis
+  1,5 s auf `voiceschanged`), `browserSprecher()` (setzt jeder Äußerung die lokale Stimme; ohne `speechSynthesis` keiner).
+- **`shell/vorlesen-ui.ts`:** „Vorlesen“ neben „Kopieren“ unter jeder Antwort, ein zweiter Klick hält an, Code-Blöcke als
+  „Code ausgelassen.“; ohne lokale Stimme ein Hinweis. Symbol `volume`, fünf Texte in beiden Sprachen.
+- **Nie:** Netzstimmen (Chrome „Google …“) und die Spracherkennung des Browsers – ein Test sucht in allen Quellen danach.
+
+**Tests:** app +8 (Stimmenwahl, Stücke, Vorleser mit Abbruch und spätem `voiceschanged`, Sprecher des Browsers, Verdrahtung).
+Smoke-Teil „lokal“: Attrappe mit „Google Deutsch“ als Vorgabe und einer lokalen Stimme – gesprochen nur mit der lokalen, Code
+ausgelassen, „Stopp“ bricht ab.
+
+Knoten-Stand: unverändert.
+
+## Schritt B-34e1 – Signalverbindung über den eigenen Knoten (Knoten)
+
+Spur B, LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`, `docs/PROTOCOL.md` §41). B-34e geteilt: e1 Knoten und Protokoll, e2 App.
+
+- **Protokoll `signal-weiterleitung.ts`:** Kind 5082 (`baueSignalAnfrage()`, versiegelt mit Nachweis; Ziel nur wie
+  `istLivekitUrl()`), Antwort 6082 (`leseSignalZugang()`: Zeichen 64 Hex, Ablauf höchstens einen Tag), Pfad
+  `/signal/<zeichen>/rtc[/v1]` (`leseSignalPfad()`). Status-Rolle `signal` (App: „Weg zu fremden Gruppenanrufen“).
+- **Knoten `signal-weiterleitung.ts`:** Zeichen nur für den Besitzer (`handleSignal()`, zählt nicht als Auftrag), nur im
+  Speicher; der Relay reicht `/signal/…` zum SFU weiter (`noServer` + eigener `upgrade`-Handler), mit Tor über den Proxy
+  (`torWsVerbindung()`), ohne Tor nur öffentliche Ziele. Nur Pfad und Anfrage gehen weiter, Rahmen unverändert, was der
+  SFU sofort schickt, wird aufgehoben; Ablehnungen mit festem Status (404/403/502/503), am Ablauf endet die Verbindung.
+- **`main.ts`:** nur mit `RELAY_ENABLED=1`, an Provider und Relay; Rolle `signal` nach dem Start des Relays.
+
+**Tests:** protocol +3 (Anfrage, Antwort, Pfad), node +7 (Zeichen, Weiterleitung über den Relay ohne Kopfzeilen des
+Browsers, Ablehnungen, Tor, Besitzer, Fremde, Verdrahtung). Zwei Exporte für die App in `wiring-ausnahmen.txt` (B-34e2).
+
+Knoten-Stand: neu – die App nutzt den Weg ab B-34e2; bis dahin ändert sich für Nutzer nichts.
+
+## Schritt B-34e2 – Gruppenanrufe über den eigenen Knoten (App)
+
+Spur B, LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`, `docs/PROTOCOL.md` §39, §41). Zweiter Teil von B-34e – B-34 ist damit im
+Code fertig.
+
+- **`gruppenanruf-ablauf.ts`:** `beitrittsWeg(turn, signal)` trägt die Adresse des Signals; `zustimmungNoetig(a, ich, weg)`
+  fragt nicht mehr, wenn TURN und Signal beide über den eigenen Knoten gehen; `signalAdresse()` (Relay ohne Pfad plus
+  `/signal/<zeichen>`).
+- **`shell/gruppenanruf.ts`:** `signalWegVomKnoten()` – nur mit Relay des Knotens und Rolle `signal` im Status (ein älterer
+  Knoten läse 5082 als Auftrag), dann 5082 versiegelt, Antwort streng gelesen.
+- **`shell/gruppenanruf-verbindung.ts`:** `trittBei()` holt bei einem fremden Anruf erst den Weg (TURN und Signal parallel),
+  meldet ohne ihn `"warnung"`; nach der Rückfrage gilt der gerade geholte Weg; `room.connect()` mit `weg.signal`.
+- **Oberfläche:** erst `trittBei()`, bei `"warnung"` die Rückfrage, dann mit Zustimmung; Hinweis „Frage deinen Knoten nach
+  dem Weg …“; Text der Rückfrage nennt den Weg ohne Frage.
+- **Datenschutzbericht:** Grenze „gruppenanruf“ mit der Ausnahme (eigener Knoten mit Relay und Vermittler), Szenario: 5082
+  nur versiegelt, das Ziel nicht offen.
+
+**Tests:** app +2 (Weg und Rückfrage, Adresse), angepasst: Verdrahtung von Beitreten und Oberfläche; protocol: Szenario im
+Datenschutz-Test. Smoke („privatraum“): Bo koppelt einen eigenen Probe-Knoten mit Relay-Liste und tritt ohne Rückfrage bei –
+das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`.
+
+Knoten-Stand: B-34e1 (Weiterleitung); ohne ihn fragt die App wie bisher.
+## Schritt VKg1b – Projekte-Seite: Vorschau öffnen
+
+Spur C, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a (Vorschau-Server im Knoten).
+
+**Neu:**
+- Auf dem Blatt eines Projekts „Vorschau“: Die App holt die Adresse versiegelt vom Knoten (`vorschau`).
+  - Im Browser öffnet „Vorschau öffnen“ sie im neuen Tab, ohne Verweis zurück (`noopener noreferrer`).
+  - In der Hülle, die keine Fenster öffnet, gibt es die Adresse zum Kopieren.
+  - Der QR-Code für ein anderes Gerät kommt nur auf Klick und verschwindet wieder (`geheim`) – die Adresse ist ein Zugang.
+  - Über http (außer `.onion`) steht der Hinweis, dass im selben Netz mitlesen kann, wer will (`vorschauUnverschluesselt()`).
+- Texte in beiden Sprachen; Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:**
+- app +1: Hinweis bei http, Link ohne Verweis zurück, in der Hülle kein Link, QR geheim, Texte.
+- Browser-Test „projekt“: Vorschau mit Adresse, Ziel, `rel`, Kopieren, QR und Hinweis – 9 Umschläge an den Knoten, alle versiegelt.
+- Browser-Test „projekt“ wartet jetzt auch auf die Ausgabe des Schritts, nicht nur auf den Abschluss. Die Umschläge kommen
+  in beliebiger Reihenfolge (NIP-59); im vollen Lauf war die Ausgabe einmal noch nicht da (`null` beim Lesen) – ein Wettlauf
+  im Test seit VKe1, kein Fehler der App.
+
+Knoten-Stand: VKg1a (Code-Aktion `vorschau`) – ein älterer Knoten lehnt die Vorschau ab.
+
+## Schritt VKd3 – Pakete über die Brücke (npm, PyPI)
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK4: „Pakete holt der Knoten“, W6a). Ohne diesen Schritt ging in der Sandbox kein
+`npm install` – also keine React- oder Vite-App, die die Vorschau (VKg1) zeigen könnte.
+
+**Neu:**
+- `paket-spiegel.ts`: Die Brücke beantwortet `GET /npm/…` (registry.npmjs.org) und `/pypi/simple/…`, `/pypi/files/…`
+  (pypi.org, files.pythonhosted.org).
+  - Nur diese Pfade (`spiegelZiel()`), nur lesend, über `holeOderFehlt()` aus `pakete.ts`: feste Liste, ohne Weiterleitung,
+    SSRF-Wächter oder Tor, je Abruf höchstens 50 MB.
+  - Adressen in Paketlisten und Index zeigen danach auf die Brücke (`aufDieBruecke()`); Archive bleiben unverändert.
+  - Je Stunde höchstens 20 000 Abrufe und 4 GB (`SpiegelKonto`), sonst 429.
+  - Antworten nur mit festen Texten; ins Log nichts.
+- `hermes-motor.ts`: `.npmrc` und `pip.conf` im Home des Motors (`paketKonfiguration()`), vor jedem Start neu und nie durch
+  einen Verweis (`schreibeInsHeim()`, auch für `config.yaml`).
+- `pakete.ts`: `holeOderFehlt()` – wie `hole()`, 404 als „gibt es nicht“.
+- `PROVIDER.md` sagt, was die Registry sieht; Fallstrick in `packages/node/CLAUDE.md`.
+
+**Gemessen** (Sandbox ohne Netz, echte Registries):
+- `npm install vite@6 vue@3` (33 Pakete, mit den nativen Programmen von Rollup und esbuild) und `vite build` in 11 s.
+- `pip install six` in einem venv.
+- `curl https://registry.npmjs.org/` direkt aus der Sandbox geht nicht.
+
+**Tests:** node +4:
+- Ziele des Spiegels.
+- Über die Brücke: umgeschrieben, Archive unverändert, 404, 413, 502, andere Methoden und Pfade nie zur Registry.
+- Grenze je Stunde.
+- `.npmrc` und `pip.conf` im Motor, nie durch einen Verweis.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg1c – Vorschau mit Dev-Server und Hot Reload
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a/b (Vorschau) und VKd3 (Pakete). Damit ist VKg1 fertig.
+
+**Neu:**
+- `dev-server.ts`: Nennt `package.json` ein Skript `dev`, startet der Knoten beim ersten Aufruf der Vorschau `npm run dev`
+  in der Sandbox (`sandboxDienst()`, ohne Netz, mit `PORT=5173`).
+  - Erreichbar nur über `freedom_motor.py --zurueck`: Das Skript lauscht an einem Socket in einem Ordner, den der Knoten
+    anlegt und nur dieser Sandbox schreibbar gibt, und reicht an `127.0.0.1:5173` in der Sandbox weiter.
+  - Höchstens drei zugleich; nach 30 Minuten ohne Aufruf beendet.
+- `vorschau.ts`: Mit Dev-Server leitet die Vorschau jede Anfrage weiter, jede Methode, auch WebSocket für Hot Reload.
+  - Host und Origin wie auf dem Rechner selbst (`devKopf()`) – Vite lässt sonst nichts durch.
+  - Ohne das eigene Cookie und ohne Referer.
+  - Ohne Dev-Server bleibt alles wie in VKg1a: nur Dateien, nur lesen.
+- `sandbox.ts` (Spur B, klein): `schreibbar` für weitere Orte, `sandboxDienst()` für lange laufende Dienste.
+- `main.ts`: Dev-Server nur, wenn die Sandbox geht.
+
+**Gemessen** (Sandbox, echte Registry über den Spiegel, Chromium):
+- Vite 6 installiert über die Brücke.
+- Erste Seite nach 1,5 s, Start des Dev-Servers eingeschlossen.
+- Eine Änderung an `main.js` erscheint nach 45 ms, ohne Neuladen.
+
+**Tests:** node +5:
+- Befehl nur mit Skript `dev` in einer echten `package.json`.
+- `schreibbar` nie über `/arbeit`.
+- Höchstens drei, je Projekt einer, Leerlauf.
+- Ein Dienst in bubblewrap, erreichbar nur über den Socket.
+- Weiterleitung: Methode, Kopfzeilen, Cookie, WebSocket mit Echo; ohne Cookie oder ohne Dev-Server zu.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a1 – Tunnel zum TURN für den Bildstrom
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: Bildstrom mit GStreamer `webrtcbin` über den eigenen TURN), gebaut von Spur C.
+Erster Teil von VKg2 – Baustein, verdrahtet mit VKg2a2.
+
+**Gemessen vorab** (Versuch, nicht im Repo): `xeyes` auf Xvfb in bubblewrap ohne Netz, `webrtcbin` mit TURN über TCP durch
+den Tunnel, Chromium nur über Relay – erstes Bild nach 1,45 s, danach 30 Bilder je Sekunde in 1280×720.
+
+**Neu:**
+- `turn-tunnel.ts`: Die Sandbox erreicht den TURN nur über einen Unix-Socket des Knotens (0600); der Knoten verbindet über
+  TCP oder TLS (`turnZiel()`: `TURN_INTERN`, sonst die erste Adresse aus `TURN_URLS`, die TCP spricht).
+  - Der Filter (`TurnFilter`) lässt nur durch, was eine UDP-Allokation braucht: Binding, Allocate mit UDP, Refresh,
+    CreatePermission, ChannelBind, Send, ChannelData. Nie TCP-Allokationen (RFC 6062).
+  - Gegenstellen nur die Relay-Adressen aus dem Angebot der App (`relayAdressen()`).
+  - Was nicht passt, schließt beide Seiten; zur Sandbox geht alles unverändert. Höchstens vier Verbindungen je Tunnel.
+- CI: coturn für den Test gegen den echten TURN.
+
+**Befund für Spur B:** Hinter NAT sperrt `denied-peer-ip` Relay zu Relay auf demselben TURN (Entwurf, VKg2) – Vorschlag
+`allowed-peer-ip` für die eigene Relay-Adresse und `no-tcp-relay` in `turn-einrichten.sh`.
+
+**Tests:** node +6:
+- Ziel und Relay-Adressen.
+- Filter: Erlaubtes geht durch, auch zerteilt; 16 verbotene Fälle schließen den Tunnel.
+- Tunnel: Socket 0600, Verbotenes erreicht den TURN nie, Grenze der Verbindungen.
+- Echter coturn (`turnutils_uclient` über den Tunnel): Kanäle und Send an die erlaubte Gegenstelle ohne Verlust, an eine
+  andere kein Byte.
+
+Knoten-Stand: nur der Knoten (noch nicht verdrahtet).
+
+## Schritt VKg2a2 – Bildstrom im Knoten
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2a1 (Tunnel). Programme ohne Web als Bild über den
+eigenen TURN; bedienen mit VKg2a3, die App mit VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: `BildStrom.starte()` nimmt das Angebot der App und gibt die Antwort des Knotens zurück. Zwei Sandboxen
+  ohne Netz:
+  - Bild: `motor/freedom_bild.py` (Xvfb, GStreamer `webrtcbin`, VP8). Den TURN erreicht es nur durch den Tunnel aus
+    VKg2a1, den Zugang bekommt es über stdin. stdin bleibt offen, solange das Bild läuft.
+  - Programm: `.freedom/start` (mit `sh`), sonst `main.py` (`bildBefehl()`), mit `/arbeit` wie der Motor. Mit dem Bild teilt
+    es nur den Socket des Bildschirms.
+  - Getrennt, damit der Code des Projekts nie an Zugang, Tunnel oder die Antwort an die App kommt: Eine untergeschobene
+    Antwort ließe die App einen fremden Rechner anrufen.
+  - Je Projekt ein Bild, höchstens zwei; Ende mit der Verbindung, dem Programm, `bild-ende` oder dem Ablauf des Zugangs.
+- `bildFehlt()`: Prüfung beim Start (Xvfb, GStreamer mit `webrtcbin`, PyGObject); `main.ts` baut den Bildstrom nur mit
+  Sandbox und eigenem TURN, `TURN_INTERN` neu.
+- Protokoll: Code-Aktionen `bild` (SDP nur mit Relay-Kandidaten, `istBildSdp()`, Größe gerade) und `bild-ende`;
+  Kennungen `code-bild-aus`, `code-bild-kein-programm`, `code-bild-fehler` mit Texten in der App.
+- `sandbox.ts` (Spur B, klein): `sandboxDienst(…, { mitEinAusgabe })` – stdin und stdout nur für eigenen Code des Knotens.
+- `PROTOCOL.md` §34, `PROVIDER.md` (Bild), Fallstrick in `packages/node/CLAUDE.md`, CI installiert Xvfb und GStreamer.
+
+**Tests:** protocol +1 (Aktionen, SDP-Regeln, Größe); node +5:
+- Programmwahl.
+- Zwei Sandboxen (Attrappe): was wohin eingebunden wird.
+- Ablehnungen und Grenze.
+- Über den Knoten, nur versiegelt.
+- Ende zu Ende mit echtem bubblewrap, Xvfb, GStreamer und coturn: Antwort nach rund 1 s, gut 100 Bilder in 3 s.
+
+Nebenbei: Gegenproben in `knoten-code.test.ts` (VKg1a, VKe2) bauten den Kern mit `["param", …]` doppelt und waren aus dem
+falschen Grund `null` – jetzt mit Paaren und einer Positivprobe.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a3 – Eingaben über XTest
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a2.
+
+**Neu:**
+- `motor/freedom_bild.py`: Nachrichten auf dem Datenkanal `eingabe` gehen per XTest an den Bildschirm der Bild-Sandbox – an
+  nichts sonst (`Eingabe`).
+  - Zeiger, Knöpfe 1–3, Rad.
+  - Tasten nach `KeyboardEvent.key`. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu (Tastatur am Handy).
+    Zeichen ohne Taste bekommen eine freie.
+  - Höchstens 200 Zeichen je Nachricht; Unbekanntes tut nichts. Schließt der Kanal, gehen alle Tasten los.
+- `bildFehlt()` verlangt python-xlib. `PROTOCOL.md` §34 nennt das Format, `PROVIDER.md` das Paket.
+
+**Tests:** Der Ende-zu-Ende-Test schickt Eingaben und liest, was das Programm in seiner Sandbox bekam:
+- „h“, „A“ ohne Umschalttaste, „ä“ auf einer frei belegten Taste, Enter;
+- einen Klick an der richtigen Stelle;
+- Unsinn (zu lang, außerhalb, unbekannt), der nichts tut.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2b – App: Bild ansehen und bedienen
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a3.
+
+**Neu:**
+- `shell/bild-ui.ts`: Knopf „Bild“ auf dem Blatt des Projekts (`knoten-projekt-ui.ts`, zwischen „Vorschau“ und „Zum Auftrag“).
+  - Zugang zum eigenen TURN (5079), `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, Video zum Empfangen und
+    Datenkanal `eingabe`; das Angebot nur mit Relay-Kandidaten (`nurRelaySdp()`, `istBildSdp()`) versiegelt als `bild`.
+  - Maus, Finger, Rad und Tasten gehen über den Datenkanal; am Handy über ein verstecktes Eingabefeld („Tastatur“), dazu
+    „Vollbild“.
+  - Das Bild endet (`bild-ende`, Verbindung zu), sobald das Blatt etwas anderes zeigt oder zugeht.
+- `bild-ablauf.ts`: Größe des Bildschirms aus der Fläche in Gerätepixeln, eingepasst in den Rahmen des Protokolls, gerade;
+  die Stelle im eingepassten Bild (Ränder zählen nicht); nur Nachrichten im Format des Knotens (`eingabeText()`).
+- Texte in beiden Sprachen; `PROTOCOL.md` §34 nennt die App-Seite, `PROVIDER.md` den Knopf.
+
+**Tests:**
+- `bild-ablauf.test.ts` (3): Größe, Stelle im Bild, Format und Negativfälle.
+- Smoke-Test „bild“: echtes coturn auf 127.0.0.1, `knoten-code-probe.mts` gibt den Zugang (TURN-REST wie der Knoten), eine
+  zweite Seite antwortet als Knoten mit einer Leinwand. Geprüft: Angebot nur mit Relay-Kandidaten, Bild 320×240 „verbunden“,
+  Klick in die Mitte kommt als `d`/`u` bei 0,5/0,5 an, „a“ und Enter als `kd`/`ku`, „Zum Auftrag“ schickt `bild-ende`.
+  Fünfmal hintereinander grün, je 16 s. Die CI installiert coturn auch im Smoke-Job.
+
+Knoten-Stand: nur die App (der Knoten seit VKg2a3).
+
+## Schritt VKg2c1 – Web-Projekte in Chromium im Bild, Pakete im Docker-Bild
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: „virtueller Bildschirm und Chromium ins Bild“), gebaut von Spur C. Auf VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: Ohne `.freedom/start` und ohne `main.py` zeigt das Bild ein Web-Projekt in Chromium (`bildBefehl(…, web)`).
+  - Mit Skript `dev` in `package.json` läuft der Dev-Server wie in der Vorschau, und Chromium öffnet, sobald er antwortet
+    (`WEB_DEV_START`).
+  - Sonst öffnet Chromium `index.html`.
+  - Alles läuft in der Sandbox des Programms, ohne Netz.
+- Chromium (`browserArgumente()`):
+  - ganzer Bildschirm, ohne eigene Sandbox, Profil in `/tmp`, ohne Dienste im Hintergrund;
+  - WebGL über SwiftShader in Software.
+  - Den Browser liest die Sandbox nur über `browserLesbar()` (`mcp-katalog.ts`, wie beim Motor).
+  - `main.ts` nimmt denselben Browser wie der Motor (`browserAusUmgebung()`).
+  - So geht auch eine Web-App unterwegs nur über den TURN.
+- Docker:
+  - Mit `VIBECODEN=1` kommen Xvfb, GStreamer mit `webrtcbin` und libnice, PyGObject und python-xlib ins Bild.
+  - `docker-compose.vibecoden.yml` reicht `TURN_INTERN` durch und kennt `host.docker.internal`; coturn läuft dort im Netz
+    des Rechners.
+- Text `code-bild-kein-programm` nennt jetzt auch `index.html` und das Skript `dev`.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - `bildBefehl` mit Browser (Reihenfolge, Verweise, ohne Browser kein Web);
+  - `WEB_DEV_START` mit einem nachgemachten npm: Chromium erst, wenn der Server antwortet;
+  - Docker-Pakete;
+  - Ende zu Ende mit echtem Chromium: Eine grüne Seite kommt über den TURN an, ein Klick über den Datenkanal macht sie rot.
+  - Ebenso mit Dev-Server (`npm run dev`). Er läuft nur, wo npm und node wirklich unter `/usr` liegen, wie im Docker-Bild;
+    sonst überspringt er sich.
+- Die Ende-zu-Ende-Tests warten jetzt, bis die Eingaben wirken, mit Frist. Bis VKg2c1 endete der Empfänger nach zwei
+  Sekunden; unter Last war das zu kurz (im vollen Lauf für VKg2b einmal rot, während daneben Chromium lief).
+- Eingaben schickt der Empfänger erst, wenn das Bild das Fenster des Programms zeigt.
+- Die Farbe misst er bei einem Viertel des Bildes: In der Mitte steht der Zeiger von Xvfb.
+
+**Gemessen unter Docker (20.10., Docker 29.3.1):**
+- Bild mit `VIBECODEN=1`, Debian bookworm: GStreamer 1.22, Python 3.11, Chromium 155. Im Container meldet `bildFehlt()`
+  nichts, `browserAusUmgebung()` findet `/usr/lib/chromium/chromium`.
+- Die Pakete des Bildes kosten rund 270 MB: 164 Pakete mehr, 1042 statt 770 MB für den Vibecoden-Teil (apt).
+- `bildstrom.test.ts` im Container mit dem Seccomp-Profil aus `docker-compose.vibecoden.yml`, dazu coturn nur für den Test:
+  9 von 9 grün. Die Antwort kam nach 0,8–0,9 s, für Programm, `index.html` und Dev-Server.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2c2 – Kodierer nach dem Angebot, NVENC
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2c1. VKg2 ist damit im Code fertig; NVENC prüft der
+MENSCH auf dem GX10.
+
+**Befund:** Bis hierher kodierte das Bild VP8 immer mit der Nummer 96 – so nennt es Chromium. Firefox nennt VP8 120.
+Gemessen mit dem Skript aus VKg2c1 und einem Angebot mit 120: Die Verbindung steht, aber es kommt kein einziges Bild an.
+
+**Neu:**
+- `motor/freedom_bild.py`:
+  - `formate()` liest die Formate des Videos aus dem Angebot: VP8 mit seiner Nummer und H.264 nur mit
+    `packetization-mode=1` und Baseline. Constrained Baseline geht vor, alles andere zählt nicht.
+  - `pipeline_text()` baut die Kette mit genau dieser Nummer. Die Antwort nennt den Kodierer (`kodierer`); der Knoten
+    schreibt nur feste Namen ins Log.
+  - H.264 nur über NVENC (`nvh264enc`), wenn gewünscht und angeboten. Scheitert NVENC beim Start, kommt VP8.
+  - Kein H.264 in Software: openh264 scheitert auf Ubuntu 24.04 schon in der einfachsten Kette (`cmInitParaError`),
+    x264 ist GPL, und H.264 trägt Patente.
+- `bildstrom.ts`:
+  - `bildKodierer()`: `BILD_KODIERER` leer oder `auto` heißt H.264 über NVENC, wo es ihn gibt; `vp8` heißt immer VP8.
+  - `nvencDa()`: Gerät `/dev/nvidiactl` und `nvh264enc` in GStreamer.
+  - Mit H.264 bekommt nur die Bild-Sandbox die GPU (`gpu`), nie das Programm.
+- `docker-compose.nvenc.yml` (neu): die GPU mit Video-Kodierer für den Knoten, nur auf Rechnern mit NVIDIA Container
+  Toolkit. Vibecoden bleibt ohne NVIDIA lauffähig, etwa auf einem Raspberry Pi.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - Wahl des Kodierers samt Negativfällen; die GPU nur für die Bild-Sandbox;
+  - Formate aus Angeboten wie von Chromium und Firefox;
+  - die Kette für NVENC als Text, die für VP8 baut GStreamer wirklich;
+  - Ende zu Ende: VP8 mit 120 kommt an, und H.264 ohne NVENC wird VP8 mit der Nummer des Angebots;
+  - `docker-compose.nvenc.yml`.
+- Mit dem alten Skript ist der Fall mit 120 rot (0 Bilder), mit dem neuen grün.
+- `empfange()` wartet jetzt auch auf genug Bilder.
+
+Knoten-Stand: nur der Knoten.
 ## Schritt A-21d3a – Senden und Bestätigen über den Pool: Baustein und Zahlschienen
 
 Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). A-21d3 berührt rund zehn Dateien der App – deshalb drei Teile:

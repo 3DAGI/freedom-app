@@ -18,3 +18,10 @@ anhängen.
   ablegen. Aufrufe eines Kontos nicht verschränken – ein zweiter während eines
   laufenden wird mit „MLS beschäftigt“ abgewiesen.
   *(Weitere Teile: `packages/app/CLAUDE.md`.)*
+- **Schlüssel für Gruppenanrufe nur über `anrufSchluessel()`** (seit B-34b, LK3 A, `docs/PROTOCOL.md` §39): MLS-Exporter
+  mit Label `ANRUF_LABEL` („freedom/anruf“) und Kontext `livekit:<raum>` über `Engine::freedom_export_secret()` aus
+  `mdk.patch` – nie ein anderes Label oder einen Exporter der Engine wiederverwenden (`marmot`/`encrypted-media` gehört
+  den Dateien von Marmot). Der Aufrufer nennt die Epoche; ist die Gruppe woanders, gibt es einen Fehler statt eines
+  anderen Schlüssels. Der Schlüssel geht als `Uint8Array` direkt aus dem Speicher der Engine hinaus (`SecretBytes` wird
+  danach genullt) – nie als Hex-Text, nie ins Log, nie speichern. `mdk.patch` nur mit `git -c core.abbrev=7 diff
+  --abbrev=7 -- . ':!Cargo.lock'` im gepatchten MDK-Stand neu schreiben (sonst ändern sich alle Index-Zeilen).

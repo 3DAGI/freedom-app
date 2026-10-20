@@ -1185,6 +1185,12 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `freigabe` | `lauf` (Id des Auftrags, 64 Hex), `schritt` (1–200), `antwort` (`ja` oder `nein`) | `ok` |
 | `bundle` (seit VKl) | `projekt` | `blob`, `manifest` (Id des Manifest-Events, 64 Hex), `schluessel` (`alg`, `key`, `nonce`, `ox` wie bei Anhängen, §2.4), `bytes` (1 bis 32 MiB) |
 | `stopp` | `lauf` | `ok` |
+| `verlauf` (seit VKe2) | `projekt` | `commits`: höchstens 50 × `{ id, nachricht, zeit, dateien }`, neueste zuerst (`id` 40 oder 64 Hex, `nachricht` erste Zeile, höchstens 200 Zeichen) |
+| `diff` (seit VKe2) | `projekt`, `commit` | `commit`, `text` (wie `git format-patch`, ohne Diff-Programme des Projekts, als JSON-Text höchstens 30 000 Zeichen), `gekuerzt` |
+| `zurueck` (seit VKe2) | `projekt`, `commit` | `commit`: der neue Commit „Zurück auf <kurz>“ mit dem Baum des genannten – leer, wenn sich nichts änderte |
+| `vorschau` (seit VKg1a) | `projekt` | `url`: Adresse der Vorschau – http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<zeichen>/` (64 Hex), höchstens 300 Zeichen (`istVorschauAdresse()`) |
+| `bild` (seit VKg2a2) | `projekt`, `sdp` (Angebot der App), `breite` (320–1920), `hoehe` (240–1080), beide gerade | `sdp`: Antwort des Knotens. Beide SDP nur mit Relay-Kandidaten, mit Fingerabdruck und mindestens einem Kandidaten (`istBildSdp()`) |
+| `bild-ende` (seit VKg2a2) | `projekt` | `ok`: ob ein Bild lief |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
   auf dem Knoten, ohne Punkt und Schrägstrich.
@@ -1218,8 +1224,11 @@ Kennungen.
   vorliegt. Die Reihenfolge der Umschläge sagt nichts (Zeitstempel nach NIP-59):
   die App ordnet nach `nr`, `befehl` vor `ausgabe`.
 - `freigabe` wählt beim Motor „einmal erlauben“ bzw. „einmal ablehnen“, nie „immer“.
-  Ohne Antwort nach 300 s gilt „nein“. Im Modus `frei` erlaubt der Knoten jeden
-  Befehl einzeln selbst.
+  Ohne Antwort nach 60 s gilt „nein“ (wie Hermes über ACP). Im Modus `frei` erlaubt der
+  Knoten jeden Befehl einzeln selbst.
+- Wann ein Schritt wartet, entscheidet der Motor: Hermes (seit VKc3) fragt vor jeder
+  Änderung an Dateien und vor Befehlen, die er für riskant hält – nicht vor jedem Befehl.
+  Eine Freigabe kann ein eigener Schritt sein, ohne `ausgabe`.
 - `stopp` bricht den Lauf ab (`gestoppt`); nach 60 min bricht der Knoten selbst ab
   (`grenze`), ebenso nach 200 Schritten.
 - `freigabe` und `stopp` antworten `ok: false`, wenn der Schritt nicht wartet bzw.
@@ -1233,12 +1242,17 @@ Tag, nie am Text:
 |---|---|
 | `code-aus` | Vibecoden ist auf dem Knoten aus (`VIBECODEN=1` fehlt, oder git fehlt) |
 | `code-ohne-motor` | `auftrag`, `freigabe`, `stopp`: der Knoten hat keinen Motor – er startet ihn nur in der Sandbox (VKb, VKc3) |
-| `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei |
+| `code-belegt` | `auftrag`: in diesem Projekt läuft schon ein Lauf, oder auf dem Knoten laufen schon drei; `zurueck`: im Projekt läuft ein Lauf |
 | `code-zu-viele` | `neu`: schon 100 Projekte |
 | `code-git` | `neu`: git konnte das Projekt nicht anlegen; `bundle`: git konnte das Bundle nicht bauen |
 | `code-ablage` | der Ordner der Projekte ist nicht lesbar oder nicht beschreibbar |
 | `code-leer` | `bundle`: das Projekt hat noch keinen Commit |
 | `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
+| `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
+| `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
+| `code-bild-aus` | `bild`: der Knoten hat keinen Bildstrom (keine Sandbox, kein eigener TURN, oder GStreamer fehlt) |
+| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` – und, wo der Knoten Chromium hat (seit VKg2c1), weder ein Skript `dev` in `package.json` noch `index.html` |
+| `code-bild-fehler` | `bild`: das Angebot passt nicht, das Programm endete gleich, oder es gab keine Antwort |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
@@ -1249,6 +1263,41 @@ ins Blob-Netz – signiert von einem **Wegwerfschlüssel**, nie vom Schlüssel d
 ein Repo im Raum den Besitzer mit seinem Knoten. Mit Speicher-Rolle hält der Knoten die Stücke selbst
 (ohne Verdrängung, wie §B-9b). Den Schlüssel zum Blob bekommt nur der Besitzer, versiegelt in der Antwort;
 die App stellt das Repo damit in einen Raum (VKl2).
+
+**Vorschau** (seit VKg1a, wie Replit): Der Knoten liefert die Projekte über einen eigenen Port aus
+(`VORSCHAU_PORT`, Standard 3603) – ein anderer Ursprung als Relay und App, die Vorschau kommt nie an
+deren Speicher. Je Projekt gilt ein Zeichen aus 32 Zufallsbyte, neu bei jedem Start; nur der Besitzer
+bekommt es, in der versiegelten Antwort auf `vorschau`. Der Aufruf `/<zeichen>/…` setzt das Cookie
+`freedom_vorschau` (HttpOnly, SameSite=Lax) und leitet auf `/…` weiter; danach gilt das Cookie. Die
+Seiten laufen also mit Pfaden ab `/`; in einem Browser zeigt `/` immer das zuletzt geöffnete
+Projekt. Ausgeliefert wird nur gelesen, live (`Cache-Control: no-store`) und nur aus dem Projekt:
+`dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt selbst. Namen mit Punkt am
+Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehlen, bekommen die
+`index.html`.
+
+**Bild** (seit VKg2a2, für Programme ohne Web): Die App schickt ein Angebot mit Video zum Empfangen und dem
+Datenkanal `eingabe`, ohne Trickle – alle Kandidaten stehen im Angebot, alle vom Typ „relay“ über den eigenen
+TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Projekts (`.freedom/start` mit `sh`,
+sonst `main.py`; seit VKg2c1 sonst ein Web-Projekt in Chromium – mit Skript `dev` der Dev-Server wie in der Vorschau, sonst
+`index.html`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert – seit VKg2c2 im Format und
+mit der Nummer aus dem Angebot: H.264 (Constrained Baseline, `packetization-mode=1`) über NVENC, wo der Knoten es hat, sonst
+VP8 (Firefox nennt VP8 120, Chromium 96). Den
+TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
+erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
+mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).
+Die App (seit VKg2b) holt den Zugang zum eigenen TURN (5079), verbindet nur mit `iceTransportPolicy: "relay"`,
+nennt die Größe der Fläche in Gerätepixeln (eingepasst in den Rahmen oben) und schickt `bild-ende`, sobald das Blatt
+des Projekts etwas anderes zeigt oder zugeht.
+
+**Eingaben** (seit VKg2a3): über den Datenkanal `eingabe`, je Nachricht ein JSON-Objekt, höchstens 200 Zeichen.
+Die Bild-Sandbox gibt sie per XTest nur an ihren Bildschirm; was nicht passt, tut nichts.
+
+| `t` | Felder | Wirkung |
+|---|---|---|
+| `b` | `x`, `y` (0 bis 1, Anteil an Breite und Höhe) | Zeiger bewegen |
+| `d`, `u` | `x`, `y` wie oben, `k` (1 links, 2 Mitte, 3 rechts, Vorgabe 1) | Knopf drücken, loslassen (Berührung: `d` und `u` an derselben Stelle) |
+| `r` | `dy` (Pixel wie `WheelEvent.deltaY`) | Rad: je 50 einen Schritt, höchstens fünf |
+| `kd`, `ku` | `s`: `KeyboardEvent.key` – ein Zeichen oder ein Name (`Enter`, `Backspace`, `ArrowLeft`, `Shift`, `F1` …) | Taste drücken, loslassen. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu; Zeichen ohne Taste (Umlaute auf der US-Belegung) bekommen eine freie Taste |
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 
@@ -1329,7 +1378,18 @@ ohne Netz, zwischen dem eigenen Relay und anderen, über ein Funk-Gateway. Verfa
   Filter auf Umschläge ohne Anmeldung ergibt `blocked: … auth-required`). Höchstens 50 000 Events je Abgleich, Rahmen
   60 000 Byte, offene Abgleiche zählen wie Abos, jede Nachricht wie eine Abfrage. `NEG-ERR` nur mit festen Texten
   (`blocked:`, `closed:`, `error:`); NIP-11 nennt 77.
-- **Noch nicht:** der Abgleich nach Funkstille (B-35c: eigenes Relay mit anderen, Gateway).
+- **Client (seit B-35c):** `WebSocketRelay.abgleiche(filter, speicher)` beginnt (`NEG-OPEN`), führt die Runden bis zum
+  Ende und schließt (`NEG-CLOSE`); `brauche` hat der Relay, `habe` nur wir. Rahmen 60 000 Byte, höchstens 50 Runden
+  (`NEG_CLIENT`), je Nachricht die Zeitgrenze der Verbindung. Verlangt der Relay eine Anmeldung (`auth-required:` oder
+  `blocked: … (auth-required)`), meldet sich die Verbindung einmal an – nur über `anmelden` – und beginnt neu. Fehler nur
+  als `NegFehler`: `neg.anmeldung`, `neg.abgelehnt` (`NEG-ERR`), `neg.zeit` (keine Antwort – der Relay kennt NIP-77
+  vielleicht nicht), `neg.runden`, dazu die des Kerns. Im Pool über `OutboxPool.abgleicheAn()`.
+- **Abgleich nach einer Pause (seit B-35c, Entscheidung NG2 A):** Die App gleicht ihren Posteingang (Kind 1059 an den
+  eigenen Schlüssel, `since` = letzte Runde minus zwei Tage wegen der Rückdatierung nach NIP-59) mit dem eigenen Knoten
+  ab – nur gekoppelt und nur, wenn sein Relay im eigenen Satz steht. Die Umschläge beim Knoten sind der eigene Stand,
+  Negentropy mit jedem anderen Posteingang findet, was dem Knoten fehlt; geholt wird nur das, in Stücken (höchstens 500
+  je Runde), und beim Knoten abgelegt. Ein Posteingang ohne NIP-77 bleibt aus – nie alles laden.
+- **Noch nicht:** der Abgleich über ein Funk-Gateway und der Knoten mit seinen eigenen Events (NG2 B, später).
 
 ## 38. Cashu-Pfand für Lightning-Sitzungen (seit RM2a)
 
@@ -1381,3 +1441,113 @@ sie ohne Mint und löst sie vor der Frist ein. Rechnungen nach [NUT-00](https://
   mehr (`stream.ts`, `buildPrivateSessionEvent()`); `openPrivateKundenEvent()` nimmt versiegelte Sitzungen und Belege nicht
   mehr an.
 - **Noch nicht:** „Guthaben laden“ und die Wahl der Mint bringt RM2d (Oberfläche).
+
+## 39. Zugänge zum Gruppenanruf des eigenen Knotens (Kind 5081, seit B-34a)
+
+Entscheidungen LK2–LK4 A (`docs/GRUPPENANRUF-ENTWURF.md`): Ab drei Personen läuft ein Anruf über einen SFU – LiveKit
+als eigener Dienst neben dem Knoten (wie coturn, §26). Der Knoten vergibt nur Zugänge: je Teilnehmer ein JWT nach
+LiveKit, signiert mit dem API-Geheimnis des Dienstes.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, `baueLivekitAnfrage()`):
+`i` = `{"raum": <32 Zeichen Hex, zufällig>, "anzahl": 1–25}`, `bid` = 0, `p` = Schlüssel des Knotens, `besitzer` =
+Nachweis nach §21. Der Raum ist eine zufällige Kennung des Anrufs – nie die Gruppe, nie ein Schlüssel. Der Knoten
+antwortet nur aus einem Umschlag mit gültigem Nachweis; Zugänge zählen nicht als Aufträge.
+
+**Antwort** (6081, versiegelt an den Sitzungsschlüssel), gelesen nur mit `leseLivekitZugaenge()` (derselbe Raum, genau
+so viele Zugänge wie gefragt):
+
+| Feld | Inhalt |
+|---|---|
+| `url` | Adresse des SFU, `wss://host[:port]` |
+| `raum` | die Kennung aus der Anfrage |
+| `zugaenge` | je Teilnehmer `{ kennung, token }`: Kennung 16 Zeichen Hex (zufällig, verschieden), Token ein JWT (HS256): `iss` = API-Schlüssel, `sub` = `jti` = Kennung, `nbf`, `exp`, `video` = `{ room, roomJoin, canPublish, canSubscribe, canPublishData }` – nur dieser Raum, keine Verwaltung |
+| `bis` | Ablauf, in der Zukunft, höchstens einen Tag entfernt |
+
+Zugänge sind Geheimnisse: nur versiegelt, nie offen, nie im Log. An die Teilnehmer gehen sie als inneres Event der
+MLS-Gruppe (B-34c), Bild und Ton verschlüsselt mit einem Schlüssel aus der Gruppe (B-34b).
+
+**Schlüssel für Bild und Ton** (seit B-34b, LK3 A): MLS-Exporter (RFC 9420 §8.5) der Gruppe des privaten Raums –
+Label `freedom/anruf`, Kontext `livekit:<raum>` (ASCII, der Raum aus der Anfrage), 32 Byte; in der App nur über
+`Mls.anrufSchluessel(gruppe, raum, epoche)`. Alle Mitglieder derselben Epoche leiten denselben ab, nach jedem Commit gibt
+es einen neuen – wer entfernt wurde, kennt ihn nicht. Ist die Gruppe nicht in der genannten Epoche, gibt es keinen
+Schlüssel (kein stiller Wechsel). Er reist nie; die App setzt ihn als Schlüssel des Anrufs (B-34c).
+
+**Einladung in der Gruppe** (seit B-34c1, `raum-gruppenanruf.ts`): Wer anruft, fragt seinen Knoten nach je einem Zugang je
+MLS-Mitglied (auch für sich) und schickt sie als **inneres Event** des privaten Raums – nie offen:
+
+| Teil | Inhalt |
+|---|---|
+| Art | `25041` (`ART_GRUPPENANRUF`) |
+| Tags | `["space", <raum>]`, `["anruf", <kennung>]` – die Kennung aus der Anfrage (32 Zeichen Hex) |
+| Inhalt | JSON wie die Antwort des Knotens (`url`, `raum`, `zugaenge`, `bis`) plus `mitglieder`: je Zugang das MLS-Mitglied, dem er gehört, in derselben Reihenfolge |
+| Ende | dieselbe Art mit `["ende", "1"]` und leerem Inhalt – zählt nur vom Anrufenden |
+
+Gelesen wird nur über `raumGruppenanrufe()`: die Zugänge wie `leseLivekitZugaenge()`, die Mitglieder als 64 Zeichen Hex,
+verschieden und so viele wie Zugänge; Abgelaufenes und Beendetes fällt weg, bei mehreren Einladungen desselben Anrufenden
+gilt die neueste. Nennen zwei Anrufende dieselbe Kennung, gilt keiner (die Zeit setzt der Absender selbst). Alle
+Mitglieder sehen alle Zugänge – sie sind ohnehin in der Gruppe; die Kennungen sind zufällig, nie Schlüssel.
+
+**Beitreten** (seit B-34c2, B-34d): `livekit-client` mit E2EE, Schlüssel je MLS-Epoche im Ring unter `epoche % 16`. Die
+Signalverbindung (WebSocket zu `<url>/rtc/v1`) geht ohne eigenen Knoten direkt zum SFU – der Knoten der anrufenden Person
+sieht die IP-Adresse; die App tritt einem fremden Anruf dann nur nach Rückfrage bei. Mit eigenem Vermittler (§26) gehen
+Bild und Ton nur über ihn (`iceTransportPolicy: "relay"`). Seit B-34e reicht der eigene Knoten die Signalverbindung weiter
+(§41): Gehen Signal und Bild und Ton beide über ihn, tritt die App ohne Rückfrage bei.
+
+## 40. Umschläge über Reticulum (LXMF, seit B-32a)
+
+Entscheidungen RN1/RN2 A und RN-W1–W5 A (`docs/RETICULUM-ENTWURF.md`): Reticulum ist der zweite Funkweg neben
+Meshtastic (`docs/MESHTASTIC.md`). Über ihn geht dasselbe: nur, was `pruefeMeshInhalt()` durchlässt – Umschläge (1059) und voll
+signierte Solana-Transaktionen, nie die eigene DM-Kopie.
+
+**Identität:** je Gerät eine eigene Reticulum-Identität (64 Byte: X25519 und Ed25519, zufällig, nie aus dem
+Nostr-Schlüssel), nur in `geheim` (`freedom.reticulum.identitaet`), nie in Sicherung oder Export. Die Adresse ist das
+Ziel `lxmf.delivery` dieser Identität (16 Byte).
+
+**Nachricht:** eine LXMF-Nachricht in direkter Form (Ziel 16, Absender 16, Signatur 64, msgpack), signiert mit der
+Identität des Absenders. Titel und Inhalt bleiben leer; die Daten stehen in den Feldern, Schlüssel als Zahlen wie in
+der Python-Referenz:
+
+| Feld | Inhalt |
+|---|---|
+| `0xFB` (`FIELD_CUSTOM_TYPE`) | `"freedom/mesh-1"` – eine andere Form hieße eine neue Fassung |
+| `0xFC` (`FIELD_CUSTOM_DATA`) | ein Byte Art (`MeshKind`) + Nutzlast, höchstens 65 535 Byte |
+
+Gelesen wird nur eine Nachricht, deren Ziel am Anfang die eigene Adresse ist (`entpackeAusReticulum()`), nur mit dieser
+Art und nur, was `pruefeMeshInhalt()` durchlässt. Die Signatur des Absenders prüft die App ab B-32b aus seiner
+Bekanntgabe; der Umschlag darin ist ohnehin signiert. Reticulum verschlüsselt auf dem Weg zusätzlich an den Empfänger.
+
+## 41. Signalverbindung zum Gruppenanruf über den eigenen Knoten (Kind 5082, seit B-34e1)
+
+Entscheidung LK5 A (`docs/GRUPPENANRUF-ENTWURF.md`): `livekit-client` öffnet für die Signalisierung einen WebSocket zur
+Adresse des SFU (§39). Damit der Knoten der anrufenden Person die IP-Adresse nicht sieht, reicht der eigene Knoten diese
+Verbindung weiter – nur für den Besitzer, nur zu dem Ziel, das er nennt.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, `baueSignalAnfrage()`):
+`i` = `{"ziel": "wss://host[:port]", "bis": <Unix-Sekunden>}` – Ziel und Ablauf aus der Einladung (`url`, `bis`, §39),
+`bid` = 0, `p` = Schlüssel des Knotens, `besitzer` = Nachweis nach §21. Gelesen nur mit `leseSignalAnfrage()`: das Ziel
+wie `istLivekitUrl()` (nur `wss://`, kein Pfad, keine Zugangsdaten), der Ablauf eine ganze Zahl. Der Knoten antwortet nur
+aus einem Umschlag mit gültigem Nachweis; Zeichen zählen nicht als Aufträge.
+
+**Antwort** (6082, versiegelt an den Sitzungsschlüssel), gelesen nur mit `leseSignalZugang()`:
+
+| Feld | Inhalt |
+|---|---|
+| `zeichen` | 64 Zeichen Hex, zufällig (32 Byte) – gilt nur für dieses Ziel |
+| `bis` | der Ablauf aus der Anfrage, höchstens einen Tag ab jetzt; in der Zukunft (fünf Minuten Spielraum für die Uhren) |
+
+Liegt der Ablauf schon zurück, gibt es kein Zeichen (Rückmeldung „Anruf vorbei“). Zeichen sind Geheimnisse: nur
+versiegelt, nie im Log; der Knoten hält sie nur im Speicher (höchstens 16, nach einem Neustart fragt die App neu).
+
+**In der App** (seit B-34e2): nur bei einem fremden Anruf, nur mit Relay des Knotens und nur, wenn sein Status (§24) die
+Rolle `signal` nennt – ein Knoten vor B-34e1 läse 5082 als gewöhnlichen Auftrag. Das Zeichen hält die App nur für diesen
+Beitritt.
+
+**Verbindung:** Die App gibt `livekit-client` als Adresse `<Relay des Knotens>/signal/<zeichen>`; der Client hängt
+`/rtc/v1` (bzw. `/rtc` als Rückfall) und die Anfrage an. Der Relay des Knotens (Rolle `relay`, Status-Rolle `signal`)
+nimmt nur `/signal/<zeichen>/rtc` und `/signal/<zeichen>/rtc/v1` an (`leseSignalPfad()`), prüft das Ziel (ohne Tor nur
+öffentliche Adressen) und verbindet sich mit `<ziel>/rtc[/v1]?<anfrage>` – mit Tor über den Proxy, der den Namen
+auflöst. Weitergereicht werden nur Pfad und Anfrage, keine Kopfzeilen des Browsers; die Rahmen gehen unverändert in
+beide Richtungen (höchstens 1 MiB je Nachricht, zwei Verbindungen je Zeichen, acht insgesamt). Ein unbekanntes oder
+abgelaufenes Zeichen ergibt 404, ein verbotenes Ziel 403, ein SFU, der nicht antwortet oder ablehnt, 502 – nie Text vom
+SFU. Mit dem Ablauf endet auch eine offene Verbindung. Der SFU sieht die Adresse des eigenen Knotens (oder des
+Tor-Ausgangs), nicht die des Geräts; Bild und Ton gehen weiter über den eigenen Vermittler (§26).

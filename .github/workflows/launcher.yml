@@ -10,15 +10,22 @@
 # Herunterladen: nur ueber „Run workflow“ mit Haken „veroeffentlichen“ auf main
 # (Job unten). Feste Dateinamen, auf die die Website zeigt; Desktop unsigniert,
 # das APK nur mit dem festen Schluessel aus den Secrets – ohne ihn kein APK.
+# Seit B-33b2 liegen den Desktop-Paketen die Tor-Bruecken bei (snowflake-client und
+# WebTunnel-Client als freedom-snowflake, freedom-webtunnel): einmal gebaut aus den
+# Quellen (scripts/pt-bauen.sh, Job „bruecken“), je Plattform gegen SHA256SUMS geprueft
+# beigelegt (scripts/pt-beilegen.sh) und im fertigen Paket noch einmal verglichen.
+# Seit B-33d auch dem APK: als Bibliotheken libfreedom_snowflake.so, libfreedom_webtunnel.so (nur aus
+# nativeLibraryDir darf eine App Programme starten), gebaut mit cgo gegen dasselbe NDK wie das APK
+# (DNS geht unter Android nur so); im APK byte-gleich mit dem Bau und beim Installieren entpackt.
 
 name: Desktop-Hülle
 
 on:
   push:
     branches: [main]
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
   pull_request:
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
   workflow_dispatch:
     inputs:
       veroeffentlichen:
@@ -29,9 +36,42 @@ on:
 permissions:
   contents: read
 
+# Ein NDK für APK und Tor-Brücken (gleich NDK_FASSUNG in scripts/pt-bauen.sh – ein Test der Hülle vergleicht)
+env:
+  NDK_VERSION: "27.3.13750724"
+
 jobs:
+  bruecken:
+    name: Tor-Bruecken bauen (aus den Quellen)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dieselbe Fassung wie GO_FASSUNG in scripts/pt-bauen.sh (reproduzierbar geprueft im Workflow „Tor-Brücken“)
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.7"
+          cache: false
+
+      # Android-Programme mit cgo (B-33d) – pt-bauen.sh nimmt nur diese Fassung
+      - name: Android-NDK (fester Stand)
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null'
+
+      - name: Bauen
+        run: bash scripts/pt-bauen.sh tor-bruecken
+
+      - name: Fuer die Pakete ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+          retention-days: 1
+          if-no-files-found: error
+
   bauen:
     name: Hülle bauen und testen (${{ matrix.os }})
+    needs: bruecken
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -99,12 +139,50 @@ jobs:
             cargo install tauri-cli --version "^2" --locked
           fi
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+
+      - name: Tor-Bruecken beilegen (nur geprueft)
+        shell: bash
+        run: bash scripts/pt-beilegen.sh tor-bruecken packages/launcher
+
       - name: Pakete bauen
         working-directory: packages/launcher
         shell: bash
+        # Entpacktes aus der Prüfung gehört nicht in den Cache von target/ – ältere Läufe ließen es dort liegen.
+        # Unter Linux mit --verbose: Scheitert linuxdeploy, steht der Grund im Log (sonst nur „failed to run linuxdeploy“).
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then B=deb,appimage; else B=nsis; fi
-          cargo tauri build --bundles "$B" -- --locked
+          rm -rf target/release/pruef-deb target/release/squashfs-root target/release/pruef-nsis
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            df -h . | tail -1
+            cargo tauri build --verbose --bundles deb,appimage --config tauri.bruecken.conf.json -- --locked
+          else
+            cargo tauri build --bundles nsis --config tauri.bruecken.conf.json -- --locked
+          fi
+
+      - name: Pruefen – Tor-Bruecken im Paket, bitgleich mit dem Bau
+        working-directory: packages/launcher/target/release/bundle
+        shell: bash
+        # kein `grep -q` hinter einer Pipe: mit pipefail endet `find` dann gelegentlich mit SIGPIPE (141)
+        run: |
+          T=$(rustc -vV | sed -n 's/^host: //p')
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            mkdir -p ../pruef-deb && dpkg-deb -x deb/*.deb ../pruef-deb
+            (cd ../pruef-deb && find . -path '*bruecken-lizenzen*' -name 'LICENSE*' | grep snowflake > /dev/null)
+            for n in snowflake webtunnel; do cmp ../pruef-deb/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
+            A=$(ls appimage/*.AppImage) && chmod +x "$A" && (cd .. && "bundle/$A" --appimage-extract > /dev/null)
+            for n in snowflake webtunnel; do cmp ../squashfs-root/usr/bin/freedom-$n ../../../binaries/freedom-$n-$T; done
+            rm -rf ../pruef-deb ../squashfs-root
+          else
+            7z x -y -o../pruef-nsis nsis/*-setup.exe > /dev/null
+            for n in snowflake webtunnel; do
+              F=$(find ../pruef-nsis -name "freedom-$n.exe") && [ "$(echo "$F" | wc -l)" = 1 ] && cmp "$F" ../../../binaries/freedom-$n-$T.exe
+            done
+            find ../pruef-nsis -path '*bruecken-lizenzen*' -name 'LICENSE*' | grep snowflake > /dev/null
+            rm -rf ../pruef-nsis
+          fi
 
       - name: Pruefsummen
         working-directory: packages/launcher/target/release/bundle
@@ -129,10 +207,9 @@ jobs:
 
   android:
     name: Android-APK bauen (Test)
+    needs: bruecken
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    env:
-      NDK_VERSION: "27.3.13750724"
 
     steps:
       - uses: actions/checkout@v4
@@ -175,13 +252,20 @@ jobs:
             cargo install tauri-cli --version "^2" --locked
           fi
 
-      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon
+      - uses: actions/download-artifact@v4
+        with:
+          name: tor-bruecken-huelle
+          path: tor-bruecken
+
+      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon, Tor-Bruecken
         working-directory: packages/launcher
         run: |
           cargo tauri android init --ci
           python3 ../../scripts/launcher-symbole.py --android
           cp proguard-tor.pro gen/android/app/freedom-tor.pro
           python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
+          bash ../../scripts/pt-beilegen.sh ../../tor-bruecken . aarch64-linux-android
+          python3 ../../scripts/android-bruecken.py gen/android/app
 
       - name: APK bauen (arm64)
         working-directory: packages/launcher
@@ -205,6 +289,30 @@ jobs:
             grep -q "android.permission.$r'" rechte.txt || { echo "fehlt im APK: $r"; exit 1; }
           done
           rm -f rechte.txt
+
+      # B-33d: die Programme byte-gleich mit dem Bau (nicht gestrippt), komprimiert und mit Entpacken beim Installieren
+      # (sonst gibt es kein nativeLibraryDir mit ihnen), Seiten bis 16 KB, die Lizenztexte dabei
+      - name: Pruefen – Tor-Bruecken im APK (B-33d)
+        working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=app-universal-release-unsigned.apk
+          BAU="$GITHUB_WORKSPACE/tor-bruecken/android-arm64"
+          rm -rf bruecken && mkdir bruecken
+          for n in snowflake webtunnel; do
+            unzip -p "$APK" "lib/arm64-v8a/libfreedom_$n.so" > "bruecken/$n"
+            cmp "bruecken/$n" "$BAU/$n-client" || { echo "im APK anders als im Bau: $n"; exit 1; }
+            unzip -v "$APK" "lib/arm64-v8a/libfreedom_$n.so" > bruecken/eintrag.txt
+            grep -E ' Defl:' bruecken/eintrag.txt > /dev/null || { echo "nicht komprimiert – Android entpackt es nicht: $n"; exit 1; }
+            readelf -lW "bruecken/$n" | awk '$1 == "LOAD" { print $NF }' > bruecken/ausrichtung.txt
+            [ -s bruecken/ausrichtung.txt ] || { echo "keine LOAD-Abschnitte gelesen: $n"; exit 1; }
+            while read -r a; do [ $((a)) -ge 16384 ] || { echo "Abschnitte nur auf $a ausgerichtet: $n"; exit 1; }; done < bruecken/ausrichtung.txt
+          done
+          "$BT/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > bruecken/manifest.txt
+          if grep -E 'extractNativeLibs.*=(false|0x0)' bruecken/manifest.txt > /dev/null; then echo "extractNativeLibs=false im APK"; exit 1; fi
+          unzip -l "$APK" > bruecken/inhalt.txt
+          grep -E 'assets/bruecken-lizenzen/.*/snowflake/v2/LICENSE' bruecken/inhalt.txt > /dev/null || { echo "Lizenztexte fehlen im APK"; exit 1; }
+          rm -rf bruecken
 
       - name: Signieren mit Wegwerf-Schluessel (nur dieser Lauf)
         working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release

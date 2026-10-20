@@ -130,6 +130,7 @@ export const fehler: Texte = {
   "pf.selbstwerbung": { de: "Selbstwerbung ist nicht möglich.", en: "You cannot refer yourself." },
   "pf.keinModerator": { de: "kein Moderator außer dir", en: "no moderator besides you" },
   "pf.planungUngueltig": { de: "Umfrage oder Termin ungültig: {was}", en: "Poll or event invalid: {was}" },
+  "pf.gruppenanrufUngueltig": { de: "Gruppenanruf ungültig: {was}", en: "Group call invalid: {was}" },
   "pf.raumKanal": { de: "Kanal ungültig", en: "Channel invalid" },
   "pf.kopplungKnoten": { de: "Kopplung: kein gültiger Schlüssel des Knotens", en: "Pairing: not a valid node key" },
   "pf.kopplungGeheimnis": { de: "Kopplung: kein gültiges Geheimnis", en: "Pairing: not a valid secret" },

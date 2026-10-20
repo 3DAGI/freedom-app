@@ -65,14 +65,100 @@ Weitere Befunde:
 | **PT2** – Welche Programme? (Befund: lyrebird ist in Teilen GPL-3) | **A** `snowflake-client` und WebTunnel-Client – beide frei lizenziert, kein obfs4 · **B** lyrebird als eigenes Programm neben der Hülle (getrennte Programme, die nur über die PT-Schnittstelle reden, gelten üblicherweise als bloße Zusammenstellung; Pflichten: GPL-Text und Quelltext-Angebot beilegen) – mit obfs4 und meek · **C** eigenes kleines Go-Programm aus Snowflake-Bibliothek und WebTunnel (frei, etwa 17 MB, aber Go-Code im Projekt) | **A** – deckt PT1 A ganz ab (Snowflake und WebTunnel), keine Copyleft-Frage, kein Go-Code bei uns. obfs4 war nur „kommt mit“. |
 | **PT3** – Woher kommen Brücken? | **A** Snowflake mit den eingebauten Zeilen, WebTunnel (und weitere Snowflake-Zeilen) zum Einfügen · **B** dazu Moat (Brücken aus der Hülle über den Dienst von BridgeDB holen) | **A** – Moat später, wenn A trägt |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+PT2 **A** (`snowflake-client` und WebTunnel-Client, kein lyrebird, kein obfs4), PT3 **A** (Snowflake mit den eingebauten Zeilen, WebTunnel und weitere Snowflake-Zeilen zum Einfügen; Moat später). Damit ist B-33 frei; B-33a als Nächstes. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe, Variante A)
 
 | Schritt | Inhalt | Umfang |
 |---|---|---|
-| B-33a | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf | ~150 |
-| B-33b | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe | ~300 |
-| B-33c | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
-| B-33d | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
+| B-33a ✓ | CI baut `snowflake-client` und WebTunnel-Client je Plattform (V1), Prüfsummen, Lizenzen, Größe im Lauf – `scripts/pt-bauen.sh`, Workflow „Tor-Brücken“ | ~150 |
+| B-33b1 ✓ | Hülle Desktop: arti mit `pt-client`, Brücken in der Wahl-Datei, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen (V4), Tests mit Attrappe – `bruecken.rs` | ~300 |
+| B-33b2 ✓ | Pakete: `launcher.yml` baut die Programme der eigenen Plattform (`pt-bauen.sh`) und legt sie bei (Tauri `externalBin` als `freedom-snowflake`, `freedom-webtunnel`, Lizenztexte), Prüfung im Paket | ~100 |
+| B-33c ✓ | Oberfläche: Schalter „Tor über Brücke“, Zeilen einfügen (auch per QR), ehrliche Texte (V5) | ~200 |
+| B-33d ✓ | Android: Programme als `lib<name>.so`, Start aus `nativeLibraryDir` | ~150 |
+
+## Stand B-33a (19.10.2026)
+
+- **Bau:** `scripts/pt-bauen.sh` baut beide Programme mit `go install <modul>/<paket>@<version>` – go.mod und go.sum der
+  Projekte gelten unverändert, geprüft gegen sum.golang.org. Go 1.24.7 (`GOTOOLCHAIN`), ohne cgo, `-trimpath
+  -buildvcs=false`, ohne Build-Id; Snowflake für Android mit `-checklinkname=0`. `--pruefen` baut zweimal an zwei
+  Pfaden und vergleicht die Summen – reproduzierbar (lokal und im Workflow „Tor-Brücken“, Artefakt `tor-bruecken`,
+  14 Tage).
+- **Lizenzen:** Je Plattform liegen in `lizenzen/` die Texte jedes Moduls, das in ein Programm eingeht (`go list -deps`,
+  31 Module samt NOTICE-Dateien); fehlt einem Modul der Text, bricht der Bau ab.
+- **Größe** (entpackt, mit gzip -9):
+
+| Plattform | `snowflake-client` | WebTunnel-Client |
+|---|---|---|
+| Linux x86_64 | 16,8 MB (6,2 MB) | 5,0 MB (2,1 MB) |
+| Linux arm64 | 15,1 MB (5,6 MB) | 4,8 MB (1,9 MB) |
+| Windows x86_64 | 17,2 MB (6,3 MB) | 5,2 MB (2,1 MB) |
+| Android arm64 | 16,9 MB (5,9 MB) | 5,2 MB (2,0 MB) |
+
+  Je Paket der Hülle kommen damit rund 22 MB entpackt (etwa 8 MB gepackt) dazu – wie im Entwurf geschätzt.
+
+## Stand B-33b1 (19.10.2026)
+
+- **arti:** Feature `pt-client` (bringt `bridge-client` mit). Neu im Bau ist nur die Crate `tor-ptmgr` 0.46.0 – vom
+  Tor-Projekt wie arti, MIT oder Apache-2.0, rund 2400 Zeilen Rust.
+- **Hülle:** `bruecken.rs` prüft Zeilen (V4), kennt die eingebauten Snowflake-Zeilen und sucht die Programme neben dem
+  eigenen Programm (`freedom-snowflake`, `freedom-webtunnel`). `netz.json` trägt `bruecken` und `zeilen`; `netz_setzen`
+  nimmt beides, `netz_stand` nennt `bruecken`, `bruecken_aktiv`, `bruecken_moeglich` und die Zahl der eigenen Zeilen.
+  Mit Brücken startet arti nur mit ihnen; fehlt ein Programm oder gilt eine Zeile nicht, gar nicht (`fehler: "bruecke"`).
+- **Geprüft:** Ein Test startet arti mit einer Attrappe des Programms – arti startet sie nach der PT-Spezifikation und
+  verbindet sich über ihren SOCKS-Zugang mit Adresse und Parametern der Brücke (`url`, `fronts`).
+- **Offen:** beilegen (B-33b2), Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH).
+
+## Stand B-33b2 (19.10.2026)
+
+- **Pakete:** `launcher.yml` baut die Programme einmal aus den Quellen (Job „bruecken“, `pt-bauen.sh`); jeder Job der
+  Matrix legt die seiner Plattform über `scripts/pt-beilegen.sh` bei – nur, was `SHA256SUMS` nennt, unverändert, als
+  `binaries/freedom-<name>-<ziel-tripel>` für Tauris `externalBin`, dazu die Lizenztexte als Ressource
+  (`bruecken-lizenzen/`). Gebaut wird mit `--config tauri.bruecken.conf.json`; danach vergleicht die CI die Programme in
+  deb, AppImage und NSIS-Installer Byte für Byte mit dem Bau.
+- **Ohne Brücken** baut die Hülle wie bisher (`cargo test`, `cargo build` brauchen die Programme nicht).
+- **Gemessen mit dem gebauten deb** (Xvfb, `strace -f -e trace=execve,connect`, `{"tor":true,"bruecken":true}`): die Hülle
+  startet `usr/bin/freedom-snowflake` neben sich; hinaus geht nur dieses Programm – DNS-Anfragen an den Resolver des
+  Systems (Broker-Front, STUN) –, Hülle, arti und Fenster nur zu 127.0.0.1. Für V5 heißt das: Wer das DNS des Rechners
+  sieht, sieht die Namen von CDN und STUN-Servern, nicht Tor – wie beim Tor Browser.
+- **Offen:** Oberfläche (B-33c), Android (B-33d), Live-Test (MENSCH, mit einem Paket aus dem Lauf).
+
+## Stand B-33c (19.10.2026)
+
+- **Oberfläche** (Settings › Datenschutz, `shell/netz-huelle.ts`): unter „Tor in dieser App“ der Schalter „Über eine
+  Brücke – wo Tor gesperrt ist“ und „Eigene Brücken“, nur wenn die Hülle `brueckenMoeglich` meldet (Desktop mit den
+  Programmen). Der Schalter fragt erst (mit Brücke auch Tor, Neustart); eigene Zeilen gehen per Textfeld oder QR-Code
+  (auch in der Form von bridges.torproject.org) nur an `netz_setzen` – die App merkt sie nie. Fehler der Hülle
+  (`zeile:<stelle>:<kennung>`) zeigt sie als eigenen Text mit Zeilennummer; der Dialog bleibt mit dem Text offen.
+- **Texte (V5):** langsamer; Brücken verbergen, dass man Tor nutzt, nicht vor jedem Netzbetreiber gleich gut;
+  Snowflake: freiwillige Proxys sehen die IP-Adresse, nicht, was man tut, und der Rechner fragt sein DNS nach CDN und
+  STUN-Servern (gemessen in B-33b2); geht die Brücke nicht, geht nichts hinaus.
+- **Offen:** Android (B-33d), Live-Test (MENSCH).
+
+## Stand B-33d (19.10.2026)
+
+- **Befund – DNS unter Android nur mit cgo:** Ohne cgo nimmt Go seinen eigenen Resolver, und der liest
+  `/etc/resolv.conf` – die gibt es unter Android nicht, also fragt er 127.0.0.1:53 (Go selbst, `net/conf.go`: „DNS requests
+  don't work on Android, so prefer the cgo resolver“). Snowflake erreichte so weder CDN noch STUN-Server, WebTunnel nicht
+  seine Domain. Deshalb baut `pt-bauen.sh` die Android-Programme **mit cgo** gegen ein festes NDK (27.3.13750724, dasselbe
+  wie das APK; API 24, Abschnitte auf 16 KB ausgerichtet) – abweichend von V1 nur für Android. Sie fragen dann das System
+  wie jede App (auch „Privates DNS“). Desktop bleibt ohne cgo, die Summen sind unverändert. Fehlt das NDK, bricht der Bau ab.
+- **Im APK:** `pt-beilegen.sh … aarch64-linux-android` legt die Programme als `jniLibs/arm64-v8a/libfreedom_snowflake.so`
+  und `libfreedom_webtunnel.so` ab, die Lizenztexte nach `assets/bruecken-lizenzen/`. `scripts/android-bruecken.py` trägt
+  in `build.gradle.kts` ein: `useLegacyPackaging = true` (Android entpackt sie beim Installieren nach `nativeLibraryDir` –
+  nur von dort darf eine App Programme starten) und `keepDebugSymbols` für beide (sonst strippt das Release sie).
+- **Hülle:** `bruecken::programm()` sucht unter Android im Ordner der eigenen Bibliothek (`libfreedom_launcher_lib.so`,
+  aus `/proc/self/maps` – ohne JNI, schon beim Start von Tor); liegt sie nur im APK, gibt es keine Brücken.
+- **CI (`launcher.yml`, Job „Android-APK“):** beide Programme im APK Byte für Byte wie im Bau, komprimiert (also beim
+  Installieren entpackt), `extractNativeLibs` nicht aus, Abschnitte ab 16 KB ausgerichtet, Lizenztexte dabei.
+- **Oberfläche:** Die Rückfrage sagt unter Android „Die App schließt sich“ statt „startet neu“; die Texte sagen „Gerät“
+  statt „Rechner“.
+- **Nicht geprüft hier:** Das NDK ist aus der Entwicklungsumgebung nicht erreichbar – den cgo-Bau und seine
+  Reproduzierbarkeit zeigt erst die CI (Workflow „Tor-Brücken“ mit `--pruefen`). Ob Snowflake auf einem Gerät ins Tor-Netz
+  kommt, zeigt nur der Live-Test (MENSCH).
+- **Offen:** Live-Test auf Desktop und Android (MENSCH).
 
 ## Quellen
 

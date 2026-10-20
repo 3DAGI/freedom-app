@@ -26,7 +26,7 @@ import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { ndJsonStream } from "@agentclientprotocol/sdk";
 import { CODE_GRENZEN } from "@freedomstack/protocol";
-import { kuerzeAusgabe, type MotorStart } from "./code-motor.js";
+import { kuerzeAusgabe, lebt, type MotorStart } from "./code-motor.js";
 import { seccompFilter } from "./seccomp.js";
 
 /** Grenzen je Befehl (Vorgabe; der Betreiber kann sie senken). */
@@ -44,6 +44,12 @@ export const SANDBOX_GRENZEN = {
    * privaten, beschreibbaren Speicher – nicht reservierten Adressraum. `ulimit -v` bräche Node und WASM.
    */
   speicherKiB: 4 * 1024 * 1024,
+  /**
+   * Prozesse und Threads aller Programme eines Befehls zusammen (11.5s4a) – gegen Fork-Bomben. `RLIMIT_NPROC` zählt seit
+   * Linux 5.14 je Nutzer-Namensraum, also je Sandbox; gesetzt erst darin, damit die Prozesse des Knotens nicht mitzählen.
+   * Für den globalen root zählt der Kern nicht (`pruefeSandbox()` sagt das).
+   */
+  prozesse: 1024,
 } as const;
 
 export interface SandboxOrt {
@@ -51,6 +57,13 @@ export interface SandboxOrt {
   arbeit: string;
   /** Ein eigenes Home (z. B. `~/.hermes` je Projekt, VKc3) – als `/home/agent` schreibbar; sonst ein tmpfs. */
   home?: string;
+  /**
+   * Weitere Orte nur lesbar (VKc3): der Motor (Hermes außerhalb von `/usr`), sein Startskript und der Ordner
+   * mit dem Socket der Brücke zum Modell – verbinden geht auch nur lesbar. Ziele absolut, nie unter `/arbeit`.
+   */
+  nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
+  /** Weitere Orte schreibbar (VKg1c: der Ordner mit dem Socket des Dev-Servers) – Regeln wie `nurLesbar`. */
+  schreibbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
   /** GPU (NVIDIA, DRI) einbinden – nur auf Wunsch (VKb). */
   gpu?: boolean;
   /** Programm für bubblewrap (Test). */
@@ -58,19 +71,23 @@ export interface SandboxOrt {
 }
 
 /** `seccomp`: ob der Filter aus 11.5s2 mitläuft (nur x86_64 und arm64). */
-export type SandboxPruefung = { ok: true; seccomp: boolean } | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" };
+export type SandboxPruefung =
+  | { ok: true; seccomp: boolean; /** Knoten läuft als root (11.5s4a): Dann zählt der Kern keine Prozesse. */ root?: boolean }
+  | { ok: false; fall: "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" };
 
 /** Feste Sätze für Log und `npm run pruefen` – nie Text von bubblewrap. */
-export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp", string> = {
+export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sandbox.fehlt" | "sandbox.namensraum" | "sandbox.seccomp" | "sandbox.root", string> = {
   "sandbox.ok": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar, seccomp)",
   "sandbox.ok-ohne-seccomp": "Sandbox geht (bubblewrap, ohne Netz, Wurzel nur lesbar) – seccomp gibt es für diese Architektur nicht",
   "sandbox.fehlt": "Sandbox fehlt: bubblewrap ist nicht installiert (apt install bubblewrap) – ohne Sandbox führt der Knoten keinen Code aus",
   "sandbox.namensraum": "Sandbox geht nicht: bubblewrap darf keine Nutzer-Namensräume anlegen (Docker-Seccomp, AppArmor ab Ubuntu 24.04) – ohne Sandbox führt der Knoten keinen Code aus",
   "sandbox.seccomp": "Sandbox geht nicht: bubblewrap lädt den seccomp-Filter nicht – ohne Sandbox führt der Knoten keinen Code aus",
+  "sandbox.root": "Der Knoten läuft als root: Die Grenze für Prozesse je Befehl greift dann nicht – den Knoten als eigenen Nutzer betreiben",
 };
 
 export function sandboxText(p: SandboxPruefung): string {
-  return SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
+  const satz = SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
+  return p.ok && p.root ? `${satz}. ${SANDBOX_TEXT["sandbox.root"]}` : satz;
 }
 
 const PATH_INNEN = "/usr/local/bin:/usr/bin:/bin";
@@ -106,6 +123,12 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
   ];
   // .git nur lesbar: ein Filter oder fsmonitor aus `.git/config` liefe sonst beim Commit im Knoten (VKc2)
   if (existsSync(join(o.arbeit, ".git"))) a.push("--ro-bind", join(o.arbeit, ".git"), "/arbeit/.git");
+  for (const [art, liste] of [["--ro-bind", o.nurLesbar], ["--bind", o.schreibbar]] as const) {
+    for (const { quelle, ziel } of liste ?? []) {
+      if (!ziel.startsWith("/") || ziel === "/arbeit" || ziel.startsWith("/arbeit/") || ziel.split("/").includes("..")) throw new Error("Ziel ungültig");
+      a.push(art, quelle, ziel);
+    }
+  }
   if (o.gpu) {
     for (const g of ["/dev/nvidiactl", "/dev/nvidia-uvm", "/dev/nvidia0", "/dev/dri"]) if (existsSync(g)) a.push("--dev-bind", g, g);
   }
@@ -120,7 +143,9 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
  */
 function mitGrenzen(befehl: readonly string[], rechenzeit = true): string[] {
   const g = SANDBOX_GRENZEN;
-  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`];
+  // Prozesse: bash und zsh nennen die Grenze `-u`, dash `-p` (bei bash heißt `-p` Pipe-Größe und scheitert – dann läuft nichts)
+  const prozesse = `{ ulimit -u ${g.prozesse} 2>/dev/null || ulimit -p ${g.prozesse}; }`;
+  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`, prozesse];
   return ["/bin/sh", "-c", `${grenzen.join(" && ")} && exec "$@"`, "sandbox", ...befehl];
 }
 
@@ -182,7 +207,7 @@ export function fuehreAus(befehl: readonly string[], o: SandboxOrt & { ohneSecco
     let zeitUm = false;
     const uhr = setTimeout(() => {
       zeitUm = true;
-      try { process.kill(-kind.pid!, "SIGKILL"); } catch { /* schon weg */ }
+      if (kind.pid !== undefined) try { process.kill(-kind.pid, "SIGKILL"); } catch { /* schon weg */ }
     }, zeitMs);
     kind.on("error", (e) => { clearTimeout(uhr); etc.weg(); scheitern(Object.assign(new Error("Sandbox startet nicht"), { name: "SandboxFehlt", cause: e })); });
     kind.on("close", (code) => {
@@ -203,7 +228,7 @@ export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
   try {
     const seccomp = seccompFilter() !== null;
     const r = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap }, 10_000);
-    if (r.code === 0) return { ok: true, seccomp };
+    if (r.code === 0) return { ok: true, seccomp, root: process.getuid?.() === 0 };
     if (!seccomp) return { ok: false, fall: "sandbox.namensraum" };
     const ohne = await fuehreAus(["/bin/sh", "-c", "exit 0"], { arbeit, bwrap, ohneSeccomp: true }, 10_000);
     return { ok: false, fall: ohne.code === 0 ? "sandbox.seccomp" : "sandbox.namensraum" };
@@ -220,11 +245,16 @@ export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
  * `home(ordner)` nennt ein eigenes Home außerhalb des Repos (VKc3: `~/.hermes` je Projekt).
  * stderr des Motors geht nirgends hin – er kann Fremdtext tragen.
  */
-export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: string) => string; gpu?: boolean; bwrap?: string } = {}): MotorStart {
+export function sandboxMotor(befehl: readonly string[], o: {
+  home?: (ordner: string) => string; nurLesbar?: SandboxOrt["nurLesbar"]; gpu?: boolean; bwrap?: string;
+} = {}): MotorStart {
   if (befehl.length === 0 || befehl.some((t) => t === "")) throw new Error("Motor-Befehl leer");
   return (ordner) => {
     const etc = eigenesEtc();
-    const ort: SandboxOrt = { arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}) };
+    const ort: SandboxOrt = {
+      arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.nurLesbar ? { nurLesbar: o.nurLesbar } : {}),
+      ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}),
+    };
     const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
       stdio: ["pipe", "pipe", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
     });
@@ -232,7 +262,34 @@ export function sandboxMotor(befehl: readonly string[], o: { home?: (ordner: str
     kind.on("close", () => etc.weg());
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
-      beende: () => { if (kind.exitCode === null && kind.signalCode === null) kind.kill("SIGTERM"); },
+      beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
+      ort: "/arbeit",
     };
+  };
+}
+
+/**
+ * Ein Dienst in der Sandbox, der lange läuft (VKg1c: der Dev-Server der Vorschau) – wie der Motor ohne Grenze der
+ * Rechenzeit, aber ohne Ein- und Ausgabe: Was er schreibt, ist Fremdtext und geht nirgends hin. `ende` erfüllt sich,
+ * wenn er endet; `beende()` beendet ihn samt allem darin. Mit `mitEinAusgabe` (VKg2a2: der Bildstrom, eigener Code des
+ * Knotens) gibt es stdin und stdout – nie für Code des Projekts; stderr geht auch dann nirgends hin.
+ */
+export function sandboxDienst(befehl: readonly string[], o: SandboxOrt & { mitEinAusgabe?: boolean }): {
+  ende: Promise<void>; beende: () => void; ein?: Writable; aus?: Readable;
+} {
+  if (befehl.length === 0 || befehl.some((t) => t === "" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
+  const etc = eigenesEtc();
+  const ea = o.mitEinAusgabe ? "pipe" : "ignore";
+  const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
+    stdio: [ea, ea, "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
+  });
+  const ende = new Promise<void>((fertig) => {
+    kind.on("error", () => { etc.weg(); fertig(); });
+    kind.on("close", () => { etc.weg(); fertig(); });
+  });
+  kind.stdin?.on("error", () => undefined);
+  return {
+    ende, beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
+    ...(o.mitEinAusgabe ? { ein: kind.stdin!, aus: kind.stdout! } : {}),
   };
 }

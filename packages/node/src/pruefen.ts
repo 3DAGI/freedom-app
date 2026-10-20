@@ -4,6 +4,7 @@
  * Installer ruft sie am Ende auf. Endet mit 1, wenn etwas fehlt, womit der
  * Knoten nicht verdienen kann.
  */
+import { existsSync } from "node:fs";
 import { DEFAULT_MAINNET_RPCS, RpcPool } from "@freedomstack/protocol";
 import { befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -11,6 +12,9 @@ import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-laden.js";
 import { ordnerAbdruck } from "./modell-hf.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
+import { hermesAusUmgebung } from "./hermes-motor.js";
+import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
+import { KIWIX_SERVE, mcpAusDatei } from "./mcp-client.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
 
 const rpcUrl = process.env.SOLANA_RPC_URL || new RpcPool(DEFAULT_MAINNET_RPCS).bestUrl();
@@ -31,5 +35,21 @@ if (modelle.length) console.log(modellBefundeText(modelle));
 if (process.env.VIBECODEN?.trim() === "1") {
   const sandbox = await pruefeSandbox();
   console.log(`${sandbox.ok ? "✓" : "✗"} Code: ${sandboxText(sandbox)}`);
+  // Motor (VKc3): Hermes im venv – nur ob er da ist, ausgeführt wird er nur in der Sandbox
+  const hermes = hermesAusUmgebung(process.env);
+  console.log("hermes" in hermes ? `✓ Code: Motor Hermes in ${hermes.hermes.ordner}` : `✗ Code: ${"fehlt" in hermes ? hermes.fehlt : hermes.ungueltig}`);
+  // MCP-Katalog (VKk1): nur ob Programm und Server da sind – ausgeführt nur in der Sandbox des Motors
+  const mcp = mcpAusUmgebung(process.env);
+  if ("ungueltig" in mcp) console.log(`✗ Code: ${mcp.ungueltig}`);
+  else {
+    for (const s of mcp.server) console.log(`✓ Code: für den Motor ${s.name} (MCP)`);
+    for (const f of mcp.fehlt) console.log(`✗ Code: ${MCP_TEXT[f]}`);
+  }
 }
-process.exit(!antrieb || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);
+// Werkzeuge über MCP (B-31a): nur ob mcp.json stimmt – gestartet werden die Server nur im laufenden Knoten, in der Sandbox
+const mcpServer = mcpAusDatei();
+if ("ungueltig" in mcpServer) console.log(`✗ Werkzeuge: ${mcpServer.ungueltig} – der Knoten startet so nicht`);
+else if (mcpServer.server.length > 0) console.log(`✓ Werkzeuge: ${mcpServer.server.length} MCP-Server in mcp.json (${mcpServer.server.map((s) => s.name).join(", ")}), laufen nur in der Sandbox`);
+// Kiwix (B-31b): ohne kiwix-serve startet der Server nicht – hier schon sagen, welches Paket fehlt
+if ("server" in mcpServer) for (const s of mcpServer.server) if (s.braucht && !existsSync(s.braucht)) console.log(`✗ Werkzeuge: ${s.name} braucht ${s.braucht}${s.braucht === KIWIX_SERVE ? " (Paket kiwix-tools)" : ""}`);
+process.exit(!antrieb || "ungueltig" in mcpServer || befunde.some((b) => b.stufe === "fehler") ? 1 : 0);

@@ -37,11 +37,25 @@ import { pfandKasseAusUmgebung, pfandOrt, rechnungVon } from "./pfand-kasse.js";
 import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } from "./einrichtung.js";
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
+import { livekitAusUmgebung } from "./livekit.js";
+import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
+import { CodeLaeufe } from "./code-motor.js";
+import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
+import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
+import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
+import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
+import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
+import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
+import { DevServer } from "./dev-server.js";
+import { BildStrom, bildFehlt, bildKodierer, nvencDa } from "./bildstrom.js";
+import { turnZiel } from "./turn-tunnel.js";
+import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
+import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
-import { torAnfrage, torAusUmgebung, torWebSocket } from "./tor.js";
+import { torAnfrage, torAusUmgebung, torWebSocket, torWsVerbindung } from "./tor.js";
 import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
@@ -200,6 +214,34 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log(`Inference-Backend bereit: ${backend.name()}`);
+
+  // Werkzeuge über MCP (B-31a, MC1-Größe B): Server nur aus ~/.freedom/mcp.json, nur in der Sandbox – ungültig → kein
+  // Start; ohne Sandbox oder wenn ein Server nicht startet, rechnet der Knoten ohne ihn (das Log sagt es)
+  const mcpServerWahl = mcpAusDatei();
+  if ("ungueltig" in mcpServerWahl) {
+    console.error(`[werkzeuge] ${mcpServerWahl.ungueltig} – der Knoten startet nicht`);
+    process.exit(1);
+  }
+  if (mcpServerWahl.server.length > 0) {
+    const sandbox = await pruefeSandbox();
+    if (!sandbox.ok) console.log(`[werkzeuge] MCP-Server aus – ${sandboxText(sandbox)}`);
+    else {
+      const kasten = new McpWerkzeuge();
+      for (const s of mcpServerWahl.server) {
+        try {
+          const { verbindung, werkzeuge } = await starteMcpServer(s);
+          kasten.nimm(s.name, verbindung, werkzeuge);
+          console.log(`[werkzeuge] MCP ${s.name}: ${werkzeuge.length} Werkzeuge, in der Sandbox`);
+        } catch (e) {
+          // Kiwix (B-31b): ohne kiwix-serve sagt das Log, welches Paket fehlt
+          const fehlt = (e as Error).name === "ProgrammFehlt" ? ` – ${s.braucht} fehlt${s.braucht === KIWIX_SERVE ? " (Paket kiwix-tools)" : ""}` : "";
+          console.warn(`[werkzeuge] MCP ${s.name} startet nicht (${(e as Error).name})${fehlt}`);
+        }
+      }
+      if (kasten.anzahl > 0) backend.mcp = kasten;
+      process.on("exit", () => kasten.schliesse());
+    }
+  }
 
   // Relays: aus env, sonst oeffentliche Defaults. Offline-Relays werden beim
   // ersten Publish sichtbar; OutboxPool toleriert Teilausfaelle (minAcks).
@@ -395,6 +437,18 @@ async function main(): Promise<void> {
   const { dienst: turn, grund: turnGrund } = turnAusUmgebung(process.env);
   console.log(turn ? `[turn] Zugänge für den Besitzer an (${turn.urls.length} Adresse(n), je ${turn.gueltigSek} s)` : `[turn] ${turnGrund}`);
   if (turn) statusRollen.add("turn");
+  // Gruppenanrufe (B-34a, LK2–LK4 A): livekit-server läuft als eigener Dienst, der Knoten vergibt nur Zugänge
+  const { dienst: livekit, grund: livekitGrund } = livekitAusUmgebung(process.env);
+  console.log(livekit ? `[livekit] Zugänge für den Besitzer an (je ${livekit.gueltigSek} s)` : `[livekit] ${livekitGrund}`);
+  if (livekit) statusRollen.add("livekit");
+  // Signalverbindung zu fremden Gruppenanrufen (B-34e1, LK5 A): nur mit eigenem Relay – die App erreicht den Knoten über
+  // dessen Port. Zum SFU über Tor, wenn der Knoten Tor nutzt; ohne Tor nur zu öffentlichen Adressen.
+  const signal = process.env.RELAY_ENABLED === "1"
+    ? new SignalWeiterleitung({
+      verbinde: torProxy ? torWsVerbindung(torProxy) : direktVerbinden,
+      pruefeZiel: async (ziel) => !!torProxy || (await checkUrlSafe(ziel.replace(/^wss:/, "https:"))).allowed,
+    })
+    : undefined;
   // Vibecoden auf dem eigenen Knoten (A-31, VKc1): Projekte nur mit VIBECODEN=1 und git – ungültig → kein Start
   const projekteWahl = projekteAusUmgebung(process.env);
   if (projekteWahl?.grund) {
@@ -408,8 +462,105 @@ async function main(): Promise<void> {
   }
   if (projekte) statusRollen.add("code");
   console.log(projekte ? "[code] Vibecoden für den Besitzer an (~/.freedom/projekte)" : "[code] aus (VIBECODEN=1 setzen)");
-  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log; den Motor startet erst VKc3 darin
-  if (projekte) console.log(`[code] ${sandboxText(await pruefeSandbox())}`);
+  // Vorschau wie Replit (VKg1a): die Projekte live unter eigenem Port – nur mit VORSCHAU_URL, ungültig → kein Start
+  let vorschau: VorschauServer | undefined;
+  if (projekte) {
+    const wahl = vorschauAusUmgebung(process.env);
+    if (wahl?.grund) {
+      console.error(`[vorschau] ${wahl.grund} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    if (wahl?.einstellung) {
+      vorschau = new VorschauServer(projekte, wahl.einstellung);
+      await vorschau.starte().then(
+        (port) => console.log(`[vorschau] an, Port ${port}`),
+        (e) => {
+          console.warn(`[vorschau] Port ${wahl.einstellung!.port} nicht frei (${(e as NodeJS.ErrnoException).code ?? "Fehler"}) – Vorschau aus`);
+          vorschau = undefined;
+        },
+      );
+    } else console.log("[vorschau] aus (VORSCHAU_URL setzen)");
+  }
+  // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log. Der Motor (VKc3) nur
+  // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
+  let code: CodeLaeufe | undefined;
+  let bild: BildStrom | undefined;
+  if (projekte) {
+    const sandbox = await pruefeSandbox();
+    console.log(`[code] ${sandboxText(sandbox)}`);
+    // Dev-Server der Vorschau (VKg1c): `npm run dev` nur in der Sandbox – ohne sie zeigt die Vorschau nur die Dateien
+    if (vorschau && sandbox.ok) {
+      const dev = new DevServer(projekte);
+      vorschau.nutzeDev(dev);
+      setInterval(() => dev.raeumeAuf(), 5 * 60_000).unref();
+      process.on("exit", () => dev.beendeAlle());
+    }
+    // Bildstrom für Programme ohne Web (VKg2a2): nur mit Sandbox, eigenem TURN und GStreamer – sonst `code-bild-aus`.
+    // TURN_INTERN (host:port): wie der Knoten selbst den TURN erreicht, wenn der öffentliche Name von innen nicht geht
+    if (sandbox.ok && turn) {
+      const ziel = turnZiel(turn.urls, process.env.TURN_INTERN);
+      if (!ziel) {
+        console.error("[bild] TURN_INTERN ungültig (host:port) – der Knoten startet nicht");
+        process.exit(1);
+      }
+      const fehlt = await bildFehlt();
+      if (fehlt) console.log(`[bild] aus – ${fehlt}`);
+      else {
+        // Web-Projekte (VKg2c1) zeigt derselbe Chromium wie beim Motor – ohne ihn zeigt das Bild nur Programme
+        let browser = browserAusUmgebung(process.env);
+        try {
+          if (browser) browserLesbar(browser);
+        } catch {
+          browser = null;
+        }
+        // Kodierer (VKg2c2): H.264 über NVENC, wo es geht – nur dann bekommt die Bild-Sandbox die GPU
+        const nvenc = await nvencDa();
+        const kodierer = bildKodierer(process.env, nvenc);
+        if (!kodierer) {
+          console.error("[bild] BILD_KODIERER ungültig (vp8, auto oder leer) – der Knoten startet nicht");
+          process.exit(1);
+        }
+        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}) });
+        process.on("exit", () => b.beendeAlle());
+        bild = b;
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
+      }
+    }
+    const hermesWahl = hermesAusUmgebung(process.env);
+    if ("ungueltig" in hermesWahl) {
+      console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    // MCP-Katalog (VKk): Programme für den Motor, nur in seiner Sandbox – VKk1 der Browser (Playwright MCP)
+    const mcpWahl = mcpAusUmgebung(process.env);
+    if ("ungueltig" in mcpWahl) {
+      console.error(`[code] ${mcpWahl.ungueltig} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
+    else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
+    else {
+      // Freedom-MCP (VKd): Websuche und Seite lesen aus dem Knoten, nur über die Brücke; lesen nur, was Auftrag oder Suche nennen
+      const werkzeuge = new ToolRegistry();
+      werkzeuge.register(new WebSearchExecutor());
+      werkzeuge.register(new BrowserExecutor());
+      const freigaben = new LeseFreigaben();
+      // Pakete (VKd3): npm und PyPI nur von der festen Liste, über die Brücke – mit Tor durch Tor
+      const spiegelKonto = new SpiegelKonto();
+      const bruecke = await oeffneModellBruecke(antrieb, {
+        mcp: (n) => mcpAntwort(n, werkzeuge, freigaben),
+        spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
+      });
+      process.on("exit", () => bruecke.schliesse());
+      code = new CodeLaeufe({
+        ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
+        motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server }),
+      });
+      console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
+      for (const s of mcpWahl.server) console.log(`[code] für den Motor: ${s.name} (MCP, in der Sandbox)`);
+      for (const f of mcpWahl.fehlt) console.log(`[code] ${MCP_TEXT[f]}`);
+    }
+  }
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
   const agentWahl = agentAusUmgebung(process.env);
   if (agentWahl?.grund) {
@@ -458,6 +609,11 @@ async function main(): Promise<void> {
       turn,
       projekte,
       agent: knotenAgent,
+      ...(code ? { code } : {}),
+      ...(bild ? { bild } : {}),
+      ...(vorschau ? { vorschau } : {}),
+      livekit,
+      signal,
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
@@ -642,9 +798,14 @@ async function main(): Promise<void> {
       eventDatei: join(process.env.HOME ?? ".", ".freedom", "relay-events.json"),
       maxEvents: Number(process.env.RELAY_MAX_EVENTS ?? 100_000),
       app: appGeladen?.ok ? appGeladen.app : undefined,
+      signal,
     });
     await relayRole.start();
     statusRollen.add("relay");
+    if (signal) {
+      statusRollen.add("signal");
+      console.log(`[signal] Weg zu fremden Gruppenanrufen für den Besitzer an (${torProxy ? "über Tor" : "direkt"})`);
+    }
     if (appGeladen?.ok) statusRollen.add("app");
     // Der Knoten liest und schreibt auch im eigenen Relay (B-9c, L5 A) – im Prozess, ohne WebSocket. Eine
     // Verbindung zu sich selbst aus RELAYS ersetzt dieser Weg: ohne Anmeldung sähe sie keine Umschläge.

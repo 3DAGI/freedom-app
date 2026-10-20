@@ -81,3 +81,25 @@ dieses Bereichs unten anhängen.
   zurücksetzen (`_advanceNow()` ohne Sperre) – der Timer, auf den man wartet, läuft dann nicht. Uhr vor der Handlung
   anhalten, die Startzeit in derselben Aufgabe messen (`() => { const t = Date.now(); …click(); return t; }`) und bis zu
   einer festen Zeit der Seite vorstellen, mit Nachsehen (`uhr_bis()` im Smoke-Teil „qr“) – nie nur Dauern addieren.
+- **`WebSocketRoute.close()` nie im Handler von `route_web_socket`** (gefunden in B-34d): In der synchronen API wartet
+  `close()` auf eine Antwort (anders als `send()`) – im Handler aufgerufen, hält es den ganzen Test an, ohne Fehler und
+  ohne dass eine Frist greift. Eine Verbindung, die gleich scheitern soll, im Browser nachstellen: eine Hülle um
+  `window.WebSocket` per `Object.defineProperty` (Getter und Setter – Playwright setzt seine eigene Fassung danach), wie
+  `GRUPPENANRUF_ZAEHLER` für den SFU.
+- **Tor-Brücken nur aus den Quellen** (seit B-33a, `pt-bauen.sh`): `snowflake-client` und WebTunnel-Client nur über
+  `go install <modul>/<paket>@<version>` – go.mod und go.sum der Projekte gelten, nie ein eigenes go.mod mit `go get`
+  (MVS könnte andere Fassungen wählen), nie Programme herunterladen. Go nur über `GO_FASSUNG` (`GOTOOLCHAIN`) und
+  `setup-go` mit derselben Zahl; ändern nur zusammen und mit `--pruefen`. Mit `GOBIN` baut Go nicht für andere
+  Plattformen – die Programme liegen dann unter `$GOPATH/bin/<os>_<arch>/`. Der Modul-Cache ist nur lesbar: vor dem
+  Löschen `chmod -R u+w`, Dateien daraus nur mit `install -m 0644` kopieren – `cp` übernimmt den Schreibschutz, und das
+  zweite Programm mit demselben Modul scheitert (CI rot, als root lokal nicht zu sehen; prüfen mit
+  `setpriv --reuid=65534`). Ohne Lizenztext eines Moduls bricht der Bau ab.
+  Android (seit B-33d) nur mit cgo gegen das NDK `NDK_FASSUNG` (gleich `NDK_VERSION` in `launcher.yml` und der Fassung in
+  `tor-bruecken.yml` – ein Test der Hülle vergleicht): Ohne cgo fragt Go unter Android 127.0.0.1:53 (kein
+  `/etc/resolv.conf`), und keine Brücke fände ihr Ziel – der Bau läuft trotzdem durch, man sieht es nur auf dem Gerät.
+  Abschnitte mit `-z max-page-size=16384` (16-KB-Seiten). Ohne NDK bricht der Bau ab; zum Ausprobieren ohne NDK
+  `PT_PLATTFORMEN="linux/amd64 windows/amd64"`. dl.google.com ist aus der Entwicklungsumgebung gesperrt – den Android-Bau
+  zeigt erst die CI.
+- **Im Browser-Test auf jedes Ergebnis einzeln warten** (seit VKg1b, Teil „projekt“): Antworten des Knotens kommen als
+  Umschläge in beliebiger Reihenfolge (NIP-59) – wer nur auf den Abschluss wartet und danach die Ausgabe des Schritts liest,
+  liest gelegentlich `null`. Vor jedem `evaluate` auf genau die Elemente warten, die es liest.

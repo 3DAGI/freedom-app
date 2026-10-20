@@ -116,6 +116,10 @@ Fallstricke dieses Bereichs unten anhängen.
   SHA-256) nur mit `scripts/negentropy-referenz.mjs` neu erzeugen (Referenz auf Commit und Prüfsumme gepinnt, in einer VM nur
   mit `crypto`). Der Port in nostr-tools (`nip77`) ist keine Referenz für die antwortende Seite – sie antwortet nie mit
   einer Id-Liste. Nachrichten von außen nur in `NEG_GRENZEN`, Fehler nur als `NegFehler` mit Kennung.
+  Mit einem Relay (seit B-35c) nur über `WebSocketRelay.abgleiche()` bzw. `OutboxPool.abgleicheAn()`: je Abgleich eine
+  neue `Negentropy` (sie merkt sich, wer begann – nach der Anmeldung neu beginnen), höchstens `NEG_CLIENT.runden`,
+  `NEG-CLOSE` auch nach Fehlern. Ein Relay ohne NIP-77 antwortet oft gar nicht – das ist `neg.zeit`, kein Fehler des
+  Relays (die App setzt ihn dafür nicht aus).
 - **Transaktionen nur über `kit-transaktion.ts`** (seit A-21d1, `docs/KIT-PLAN.md`): bauen mit `baueTransaktion()` (Blockhash
   samt `letzteHoehe` oder Durable Nonce – kit setzt das Weiterschalten selbst an den Anfang, nie zusätzlich von Hand),
   signieren nur mit `signiereMit()` (`@noble/curves`, liefert `null` für eine Adresse, die die Nachricht nicht verlangt; eine
@@ -124,6 +128,10 @@ Fallstricke dieses Bereichs unten anhängen.
   über `neuerKontoSchluessel()`. `messageBytes` ist für kit nur lesbar – `@noble/curves` und `Buffer` bekommen
   `Uint8Array.from(…)`. Gelesen wird nur über `leseNachricht()` (legacy, Rollen aus dem Kopf), geschickt die Bytes aus
   `alsDraht()`.
+- **Gegenproben mit Zufall nie an einem einzigen Fall** (gefunden 19.10.2026, `succession.test.ts`): „Diese Bytes mit der
+  falschen Rechnung ergeben nicht das Geheimnis“ hing an einem zufälligen Dreier – ob er passt, hängt nur an den x-Werten
+  der Bibliothek, für alle Bytes zugleich: etwa jeder 250. Lauf passte (in der CI rot). Was nur „meistens“ gilt, über alle
+  Möglichkeiten prüfen (hier: nicht alle zehn Dreier) und die Rate einmal messen, bevor man sich auf sie verlässt.
 - **Senden und Bestätigen nur über `kit-rpc.ts`** (seit A-21d3a): `sendeTransaktion()` schickt immer mit Vorabsimulation
   (nie `skipPreflight`), bestätigt wird nur über `warteAufBestaetigung()` – sie fragt nach, bis „confirmed“, und gibt den
   Fehler der Kette zurück (`null` heißt gelungen), statt zu werfen; über der letzten Blockhöhe ohne Bestätigung wirft sie

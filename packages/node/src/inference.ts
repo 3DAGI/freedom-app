@@ -47,18 +47,22 @@ export interface InferenceBackend {
   stream?(req: InferenceRequest, onToken: (t: string) => void): Promise<InferenceResult>;
 }
 
-/** Tool-Definition fuer Ollama Tool-Calling (JSON Schema). */
+/** Tool-Definition fuer Ollama Tool-Calling (JSON Schema) – auch die Werkzeuge von MCP-Servern (B-31a). */
 interface ToolSchema {
   type: "function";
   function: {
     name: string;
     description: string;
-    parameters: {
-      type: "object";
-      properties: Record<string, { type: string; description: string; enum?: string[] }>;
-      required: string[];
-    };
+    parameters: Record<string, unknown>;
   };
+}
+
+/** Werkzeuge von MCP-Servern in der Sandbox (B-31a, `McpWerkzeuge` in `mcp-client.ts`). */
+export interface McpWerkzeugKasten {
+  schemas(): ToolSchema[];
+  kennt(name: string): boolean;
+  /** Wirft nie – Fehler kommen als fester Text zurück. */
+  fuehreAus(name: string, args: Record<string, unknown>): Promise<string>;
 }
 
 /**
@@ -127,6 +131,8 @@ function suchFehler(e: unknown): string {
 export class OllamaBackend implements InferenceBackend {
   private antrieb: AntriebArt;
   private schluessel?: string;
+  /** Werkzeuge aus `~/.freedom/mcp.json` (B-31a) – `main.ts` setzt sie, wenn die Server laufen. */
+  mcp?: McpWerkzeugKasten;
 
   constructor(
     private baseUrl = process.env.OLLAMA_URL ?? "http://localhost:11434",
@@ -272,8 +278,12 @@ export class OllamaBackend implements InferenceBackend {
     };
   }
 
-  /** Tool-Schemas fuer Ollama Tool-Calling. */
+  /** Tool-Schemas fuer Ollama Tool-Calling – die eingebauten, dazu die der MCP-Server (B-31a). */
   private getTools(): ToolSchema[] {
+    return [...this.eingebauteWerkzeuge(), ...(this.mcp?.schemas() ?? [])];
+  }
+
+  private eingebauteWerkzeuge(): ToolSchema[] {
     return [
       {
         type: "function",
@@ -401,8 +411,9 @@ export class OllamaBackend implements InferenceBackend {
     };
   }
 
-  /** Tool lokal ausfuehren (kein externer API-Call). */
+  /** Tool lokal ausfuehren (kein externer API-Call); MCP-Werkzeuge in der Sandbox (B-31a). */
   private async executeTool(name: string, args: Record<string, string>): Promise<string> {
+    if (this.mcp?.kennt(name)) return this.mcp.fuehreAus(name, args);
     switch (name) {
       case "web_search":
         return this.webSearch(args.query ?? "");

@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CODE_GRENZEN, KIND_DVM_KNOTEN_CODE, KIND_GIFT_WRAP, LocalSigner, baueCodeAuftrag, buildJobRequest, codeAntwortText,
-  codeSchrittText, generateKeypair, getTag, istBesitzer, istProjektName, leseCodeAntwort, leseCodeAuftrag, leseCodeSchritt,
+  codeSchrittText, generateKeypair, getTag, istBesitzer, istBildSdp, istProjektName, istVorschauAdresse, leseCodeAntwort, leseCodeAuftrag, leseCodeSchritt,
   neueKopplung, openPrivateKundenEvent, resultKindFor, type CodeAktion, type CodeAntwort, type CodeSchritt,
 } from "../src/index.js";
 
@@ -154,4 +154,107 @@ test("A-31: Antworten – je Aktion feste Form, gelesen nur zur erwarteten Aktio
 test("A-31: Projektnamen taugen als Ordnername – klein, ohne Punkt, Schrägstrich und Steuerzeichen", () => {
   for (const gut of ["a", "meine-app", "x1", "0", "a".repeat(40)]) assert.ok(istProjektName(gut), gut);
   for (const schlecht of ["", ".", "..", "a/b", "a.b", "A", "a b", "-a", "a\n", "ä", "a".repeat(41), 7, null]) assert.ok(!istProjektName(schlecht), String(schlecht));
+});
+
+const C1 = "1a".repeat(20), C2 = "2b".repeat(32);
+
+test("VKe2: Verlauf, Diff, zurück – Aktionen mit Commit-Kennung (SHA-1 oder SHA-256), sonst baut und liest sie niemand", async () => {
+  const knoten = generateKeypair();
+  const k = neueKopplung(knoten.pk);
+  for (const aktion of [{ aktion: "verlauf", projekt: "app" }, { aktion: "diff", projekt: "app", commit: C1 }, { aktion: "zurueck", projekt: "app", commit: C2 }] as CodeAktion[]) {
+    const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: k, aktion });
+    const r = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+    assert.ok(r.ok);
+    assert.deepEqual(leseCodeAuftrag(r.request), aktion);
+  }
+  for (const commit of ["", "1A".repeat(20), "1a".repeat(19), "1a".repeat(21), "HEAD", "main", "1a".repeat(20) + "\n"]) {
+    await assert.rejects(baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: k, aktion: { aktion: "diff", projekt: "app", commit } }), commit);
+    assert.equal(leseCodeAuftrag(kern([["aktion", "zurueck"], ["projekt", "app"], ["commit", commit]])), null, commit);
+  }
+  assert.equal(leseCodeAuftrag(kern([["aktion", "verlauf"], ["projekt", "app"], ["commit", C1]])), null, "fremder Parameter");
+  assert.equal(leseCodeAuftrag(kern([["aktion", "diff"], ["projekt", "app"]])), null, "Commit fehlt");
+});
+
+test("VKe2: Antworten – Verlauf begrenzt, Diff nach JSON-Länge begrenzt (passt in einen Umschlag), zurück mit leerem Commit", () => {
+  const commit = { id: C1, nachricht: "Schritt 3", zeit: 1_790_000_000, dateien: 2 };
+  const verlauf: CodeAntwort = { aktion: "verlauf", commits: [commit] };
+  assert.deepEqual(leseCodeAntwort(codeAntwortText(verlauf), "verlauf"), verlauf);
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: Array.from({ length: CODE_GRENZEN.commits + 1 }, () => commit) }));
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: [{ ...commit, nachricht: "x".repeat(CODE_GRENZEN.nachricht + 1) }] }));
+  assert.throws(() => codeAntwortText({ aktion: "verlauf", commits: [{ ...commit, id: "HEAD" }] }));
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "verlauf", commits: [{ ...commit, autor: "x" }] }), "verlauf"), null);
+  const diff: CodeAntwort = { aktion: "diff", commit: C2, text: "diff --git a/x b/x\n+\"hallo\"\n", gekuerzt: false };
+  assert.deepEqual(leseCodeAntwort(codeAntwortText(diff), "diff"), diff);
+  // Zeilenumbrüche zählen im JSON doppelt – die Grenze gilt dort, nicht in Zeichen
+  const knapp = "\n".repeat(Math.floor((CODE_GRENZEN.diff - 2) / 2));
+  assert.ok(leseCodeAntwort(codeAntwortText({ ...diff, text: knapp }), "diff"));
+  assert.throws(() => codeAntwortText({ ...diff, text: knapp + "\n" }));
+  for (const z of [{ aktion: "zurueck", commit: "" }, { aktion: "zurueck", commit: C1 }] as CodeAntwort[]) assert.deepEqual(leseCodeAntwort(codeAntwortText(z), "zurueck"), z);
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "zurueck", commit: "HEAD" }), "zurueck"), null);
+  assert.equal(leseCodeAntwort(codeAntwortText(diff), "verlauf"), null, "nur zur erwarteten Aktion");
+});
+
+const ZEICHEN = "5c".repeat(32);
+
+test("VKg1a: Vorschau – Aktion mit Projekt; Antwort nur mit einer Adresse, die die App gefahrlos öffnet", async () => {
+  const knoten = generateKeypair();
+  const aktion: CodeAktion = { aktion: "vorschau", projekt: "app" };
+  const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: neueKopplung(knoten.pk), aktion });
+  const r = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+  assert.ok(r.ok);
+  assert.deepEqual(leseCodeAuftrag(r.request), aktion);
+  assert.equal(leseCodeAuftrag(kern([["aktion", "vorschau"]])), null, "Projekt fehlt");
+  assert.equal(leseCodeAuftrag(kern([["aktion", "vorschau"], ["projekt", "../x"]])), null);
+  assert.deepEqual(leseCodeAuftrag(kern([["aktion", "vorschau"], ["projekt", "app"]])), aktion, "dieselbe Form ist gültig");
+  for (const gut of [`http://192.168.1.20:3603/${ZEICHEN}/`, `https://vorschau.example.org/${ZEICHEN}/`, `http://${"a".repeat(56)}.onion/${ZEICHEN}/`]) {
+    assert.ok(istVorschauAdresse(gut), gut);
+    assert.deepEqual(leseCodeAntwort(codeAntwortText({ aktion: "vorschau", url: gut }), "vorschau"), { aktion: "vorschau", url: gut });
+  }
+  for (const schlecht of [
+    `javascript:alert(1)//${ZEICHEN}/`, `file:///${ZEICHEN}/`, `ftp://h/${ZEICHEN}/`, `http://u:p@h/${ZEICHEN}/`, `http://h/${ZEICHEN}/?x=1`,
+    `http://h/${ZEICHEN}/#a`, `http://h/${ZEICHEN}`, `http://h/x/${ZEICHEN}/`, `http://h/${ZEICHEN.toUpperCase()}/`, `http://h:80/${ZEICHEN}/`,
+    `HTTP://h/${ZEICHEN}/`, `http://h/${"5c".repeat(31)}/`, `https://${"a".repeat(CODE_GRENZEN.vorschau)}.org/${ZEICHEN}/`, "", 7, null,
+  ]) {
+    assert.ok(!istVorschauAdresse(schlecht), String(schlecht));
+    assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "vorschau", url: schlecht }), "vorschau"), null, String(schlecht));
+  }
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "vorschau", url: `http://h/${ZEICHEN}/`, projekt: "app" }), "vorschau"), null, "fremdes Feld");
+});
+
+test("VKg2a2: Bild – Angebot und Antwort nur mit Relay-Kandidaten (mindestens einer), gerade Größe im Rahmen; bild-ende", async () => {
+  const finger = `a=fingerprint:sha-256 ${Array(32).fill("AB").join(":")}`;
+  const sdp = (...k: string[]) => ["v=0", "o=- 1 2 IN IP4 127.0.0.1", "s=-", finger, ...k.map((x) => `a=${x}`), ""].join("\r\n");
+  const relay = "candidate:1 1 udp 33562623 203.0.113.9 49160 typ relay raddr 0.0.0.0 rport 0";
+  const angebot = sdp(relay);
+  const knoten = generateKeypair();
+  for (const aktion of [
+    { aktion: "bild", projekt: "spiel", sdp: angebot, breite: 1280, hoehe: 720 }, { aktion: "bild-ende", projekt: "spiel" },
+  ] as CodeAktion[]) {
+    const { wrap } = await baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: neueKopplung(knoten.pk), aktion });
+    const r = await openPrivateKundenEvent(wrap, new LocalSigner(knoten.sk));
+    assert.ok(r.ok);
+    assert.deepEqual(leseCodeAuftrag(r.request), aktion);
+  }
+  assert.ok(istBildSdp(angebot));
+  for (const [name, falsch] of [
+    ["ohne Kandidaten", sdp()], ["Host-Kandidat", sdp(relay, "candidate:2 1 udp 2122260223 192.168.1.5 50000 typ host")],
+    ["srflx", sdp("candidate:3 1 udp 1 198.51.100.7 5 typ srflx raddr 192.168.1.5 rport 1")],
+    ["ohne Fingerabdruck", ["v=0", `a=${relay}`, ""].join("\r\n")], ["kein SDP", "hallo"], ["zu lang", sdp(relay) + "a=x\r\n".repeat(5000)],
+  ] as const) {
+    assert.ok(!istBildSdp(falsch), name);
+    await assert.rejects(baueCodeAuftrag({ sitzung: new LocalSigner(generateKeypair().sk), kopplung: neueKopplung(knoten.pk),
+      aktion: { aktion: "bild", projekt: "spiel", sdp: falsch, breite: 640, hoehe: 480 } }), name);
+    assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "bild", sdp: falsch }), "bild"), null, name);
+  }
+  // Größe: gerade, im Rahmen, als Zahl ohne Zeichen davor
+  const mit = (breite: string, hoehe: string) => leseCodeAuftrag(kern([["aktion", "bild"], ["projekt", "spiel"], ["sdp", angebot], ["breite", breite], ["hoehe", hoehe]]));
+  assert.deepEqual(mit("320", "240"), { aktion: "bild", projekt: "spiel", sdp: angebot, breite: 320, hoehe: 240 });
+  assert.deepEqual(mit("1920", "1080"), { aktion: "bild", projekt: "spiel", sdp: angebot, breite: 1920, hoehe: 1080 });
+  for (const [b, h] of [["318", "240"], ["1922", "1080"], ["641", "480"], ["640", "1082"], ["0640", "480"], ["640.0", "480"], ["+640", "480"], ["640", ""]]) {
+    assert.equal(mit(b, h), null, `${b}×${h}`);
+  }
+  assert.equal(leseCodeAuftrag(kern([["aktion", "bild"], ["projekt", "spiel"], ["sdp", angebot]])), null, "Größe fehlt");
+  assert.deepEqual(leseCodeAntwort(codeAntwortText({ aktion: "bild", sdp: angebot }), "bild"), { aktion: "bild", sdp: angebot });
+  assert.deepEqual(leseCodeAntwort(codeAntwortText({ aktion: "bild-ende", ok: false }), "bild-ende"), { aktion: "bild-ende", ok: false });
+  assert.equal(leseCodeAntwort(JSON.stringify({ aktion: "bild", sdp: angebot, turn: "x" }), "bild"), null, "fremdes Feld");
 });

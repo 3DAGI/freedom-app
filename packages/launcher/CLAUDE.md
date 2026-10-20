@@ -61,3 +61,25 @@ Fallstricke dieses Bereichs unten anhängen.
   entfernt R8 aus dem Release-APK – Keep-Regel `proguard-tor.pro` (die CI kopiert sie nach
   `gen/android/app/` und prüft die Klassen im APK); Signaturen gegen `dexdump` prüfen.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`.)*
+- **Brücken nur über `bruecken.rs`** (seit B-33b1, PT2 A, PT3 A): Zeilen nur nach `pruefe_zeile()` (Transport aus
+  `TRANSPORTE`, IP mit Port, Fingerabdruck 40 Hex, nur sichtbare ASCII-Zeichen) und nur in `netz.json` – der App nur
+  ihre Zahl (`eigene_zeilen`), nie die Zeilen. arti bekommt sie nur über `konfiguriere()`: Brücken fest an, je genutztem
+  Transport ein verwaltetes Programm mit festem Namen neben der Hülle (`freedom-snowflake`, `freedom-webtunnel` – nie
+  `snowflake-client` aus dem System). Fehlt eines oder gilt eine Zeile nicht, startet arti nicht (`fehler: "bruecke"`) –
+  nie still ohne Brücke, kaputte eigene Zeilen nie still durch die eingebauten ersetzen. Eingebaut sind nur die Zeilen
+  aus `client/torrc` der Snowflake-Fassung, die `pt-bauen.sh` baut (ein Test vergleicht). `leseNetzStand()` der App
+  liest `fehler` streng – „bruecke“ braucht dort Text, bevor eine Oberfläche Brücken einschalten kann (B-33c).
+  In die Pakete (seit B-33b2) nur über `scripts/pt-beilegen.sh` (nur, was `SHA256SUMS` des Baus nennt) und
+  `tauri.bruecken.conf.json` – nie in `tauri.conf.json` selbst (sonst baut `cargo test` ohne die Programme nicht) und nie
+  `binaries/` einchecken. Namen in der Datei und in `TRANSPORTE` gleich (ein Test vergleicht); Tauri legt die Programme
+  ohne Tripel neben die Hülle (deb und AppImage `usr/bin`, NSIS das Installationsverzeichnis). In Schritten der Workflows
+  (bash mit `pipefail`) nie `… | grep -q` – endet `grep` beim ersten Treffer, stirbt der Erzeuger gelegentlich an SIGPIPE
+  (141, so in der ersten CI von B-33b2); `grep … > /dev/null` liest bis zum Ende. Was die Prüfung entpackt, nie unter
+  `target/` liegen lassen – ein grüner Lauf legt `target/` in den Cache, der nächste baut darauf (danach scheiterte
+  linuxdeploy auf arm64 einmal ohne Grund im Log; seitdem baut Linux mit `--verbose`).
+  Unter Android (seit B-33d) nur als `lib/arm64-v8a/libfreedom_<name>.so` (`dateiname()`), gefunden über den Ordner der
+  eigenen Bibliothek aus `/proc/self/maps` (`bibliotheksordner()`) – nie aus dem App-Ordner starten (W^X seit API 29).
+  `gen/android` entsteht je Lauf: Programme nur über `pt-beilegen.sh … aarch64-linux-android` nach `android init`, Gradle nur
+  über `scripts/android-bruecken.py` (`useLegacyPackaging = true`, sonst bleiben sie im APK und es gibt keinen Ordner;
+  `keepDebugSymbols`, sonst strippt das Release sie und der Vergleich mit dem Bau scheitert). Das Entpacken gilt dann für
+  alle Bibliotheken der App – die Installation wird größer, der Download nicht.

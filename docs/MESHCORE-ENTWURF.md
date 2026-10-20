@@ -46,6 +46,10 @@ Fragen; gebaut wird erst nach Freigabe.
 | **MCO-W1** – Datentyp | **A** der MENSCH beantragt beim MeshCore-Projekt einen festen Bereich (Pull Request dort); bis dahin `FF00`–`FFFF` · **B** dauerhaft im Versuchsbereich `FF00`–`FFFF` | **A** – im Versuchsbereich kollidieren wir mit anderen Versuchen |
 | **MCO-W2** – Wann bauen? | **A** jetzt, nach 7.5 als Vorlage · **B** erst, wenn ein Nutzer vor Ort MeshCore hat (dann mit echtem Gerät testen) | **B** – ohne Gerät bliebe es ungeprüft wie 7.4 vor 7.5 |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+MCO-W2 **B** (erst bauen, wenn jemand vor Ort ein MeshCore-Gerät hat und mit testen kann). MCO-W1 (Datentyp: festen Bereich beantragen oder Versuchsbereich) ist **zurückgestellt** – gefragt wird wieder, wenn B-37 gebaut wird. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe)
 
 | Schritt | Inhalt | Umfang |

@@ -18,6 +18,15 @@ export class MlsKonto {
      */
     admins(gruppe_id: string): string[];
     /**
+     * Schlüssel für Bild und Ton eines Gruppenanrufs (B-34b, LK3 A): MLS-Exporter
+     * mit `ANRUF_LABEL` und dem Anruf (32 Zeichen Hex) als Kontext, 32 Byte. Alle
+     * Mitglieder derselben Epoche bekommen denselben; nach einem Commit gibt es einen
+     * neuen, den ein entferntes Mitglied nicht kennt. `epoche` ist die Epoche, für die
+     * der Aufrufer ihn will – ist die Gruppe woanders, Fehler statt eines anderen
+     * Schlüssels. Geheim: nie ins Log, nie gespeichert.
+     */
+    anrufSchluessel(gruppe_id: string, anruf: string, epoche: number): Uint8Array;
+    /**
      * Einladung (Kind 1059) annehmen; gibt die Gruppen-Id zurück.
      */
     beitreten(einladung: string): Promise<any>;
@@ -108,6 +117,7 @@ export interface InitOutput {
     readonly __wbg_mlskonto_free: (a: number, b: number) => void;
     readonly mlskonto_admins: (a: number, b: number, c: number, d: number) => void;
     readonly mlskonto_adminsSetzen: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly mlskonto_anrufSchluessel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
     readonly mlskonto_beitreten: (a: number, b: number, c: number) => number;
     readonly mlskonto_bestaetigt: (a: number, b: number, c: number) => number;
     readonly mlskonto_einladen: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
@@ -141,9 +151,9 @@ export interface InitOutput {
     readonly rustsecp256k1_v0_10_0_context_destroy: (a: number) => void;
     readonly rustsecp256k1_v0_10_0_default_error_callback_fn: (a: number, b: number) => void;
     readonly rustsecp256k1_v0_10_0_default_illegal_callback_fn: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_26014: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_26016: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_19763: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_26026: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_26028: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_19775: (a: number, b: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

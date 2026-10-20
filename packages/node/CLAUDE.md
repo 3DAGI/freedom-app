@@ -293,6 +293,14 @@ Bereichs unten anhängen.
   `ulimit -v` – das bricht Node und WASM (sie reservieren viel Adressraum, ohne ihn zu belegen); seit 11.5s3 `ulimit -d`
   (`SANDBOX_GRENZEN.speicherKiB`, zählt seit Linux 4.7 nur privaten beschreibbaren Speicher). Der Motor bekommt alle
   Grenzen außer der Rechenzeit (`mitGrenzen(…, false)`) – er läuft so lange wie der Auftrag.
+- **Prozesse je Befehl nur in der Sandbox begrenzen** (seit 11.5s4a, `SANDBOX_GRENZEN.prozesse`): `RLIMIT_NPROC` zählt
+  seit Linux 5.14 je Nutzer-Namensraum – gesetzt in der Sandbox gilt es für alle Prozesse und Threads des Befehls, die des
+  Knotens zählen nicht mit; nie vor `bwrap` setzen. Der Name des Schalters hängt an der Shell: bash und zsh `ulimit -u`,
+  dash `ulimit -p` (bei bash ist `-p` die Pipe-Größe, nur lesbar – der Aufruf scheitert und mit `&&` liefe nichts), daher
+  `{ ulimit -u N 2>/dev/null || ulimit -p N; }` (geschweifte Klammern, keine Subshell). Für den globalen root zählt der
+  Kern keine Prozesse (`INIT_USER`) – der Container der Agenten läuft als root, dort überspringt sich der Test mit der
+  Fork-Bombe; geprüft wurde er als `nobody` (`setpriv --reuid=65534 …`), die CI läuft ohne root. `pruefeSandbox()`
+  meldet `root`, das Log warnt.
 - **Pakete nur über `pakete.ts`** (seit 11.5n, W6a „So“): Die Sandbox bleibt ohne Netz, Pakete holt der Knoten vorher –
   nur aus `package-lock.json` (Fassung 2/3, `integrity` sha512) und `requirements.txt` mit `--hash=sha256` (`holeAusSperre()`)
   oder mit Namen und fester Version (`paketHolen()`, höchstens 20 je Auftrag, nur offene Räume – das prüft der Aufrufer).
@@ -329,3 +337,136 @@ Bereichs unten anhängen.
   G1 – nie über eine Sitzung (38021) mit Budget ohne Deckung. Versiegelte Sitzungen und Belege (38021/38022) verwirft
   `oeffnePrivat()`; ein Auftrag mit `session` ohne Hinterlegung bekommt die Absage „bitte mit Gebot fragen“. Nicht
   wieder einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.
+- **Der Motor nur über `hermesMotor()` und die Brücke** (seit VKc3a, `hermes-motor.ts`, `modell-bruecke.ts`): Hermes läuft
+  nur in der Sandbox (`sandboxMotor()`); sein venv (`HERMES_ORDNER`), das Startskript `motor/freedom_motor.py` und der
+  Ordner des Sockets kommen nur lesbar hinein (`nurLesbar`, nie unter `/arbeit`). Das Modell erreicht er nur über
+  `oeffneModellBruecke()` – genau `GET /v1/models` und `POST /v1/chat/completions` des eigenen Antriebs, der Schlüssel
+  erst dort, Kopfzeilen aus der Sandbox nie weiter, nach außen feste Texte; nie der Sandbox das Netz geben. `config.yaml`
+  schreibt der Knoten vor jedem Start neu ins Home des Projekts (`~/.freedom/hermes/<projekt>`, nie ins Repo) – nur in
+  echte Ordner und ohne Verweisen zu folgen (`O_NOFOLLOW` nach dem Löschen): Das Home ist in der Sandbox schreibbar,
+  ein Verweis auf `~/.freedom/node-key` ließe den Knoten sonst außerhalb schreiben. Den Projektordner sieht der Motor
+  als `/arbeit` (`MotorVerbindung.ort` für `session/new`). Hermes fragt über ACP vor Änderungen an Dateien und vor
+  riskanten Befehlen, mit eigener Kennung (`perm-check-N`, `edit-approval-N`) und nach 60 s abgelehnt – nie „jeder
+  Befehl wartet“ versprechen. Hermes selbst läuft in dieser Umgebung nicht (Fremdcode); Tests ersetzen ihn hinter
+  demselben Startskript, den Echttest macht der MENSCH.
+- **Vibecoden unter Docker nur über `docker-compose.vibecoden.yml`** (seit VKc3b): Hermes kommt nur mit `VIBECODEN=1`
+  ins Bild (`ARG`), nur aus `docker/hermes-requirements.txt` (`--require-hashes --only-binary :all: --no-deps`; neu
+  erzeugen nur mit dem Befehl in `docker/hermes.in`). Die Sandbox braucht im Container das Profil
+  `docker/seccomp-vibecoden.json` (Standard von Docker plus eine Regel am Ende: `clone`, `unshare`, `mount`, `umount2`,
+  `pivot_root`, `setns`, `sethostname` – ohne `sethostname` scheitert bubblewrap an `--hostname`), dazu
+  `systempaths=unconfined` (sonst „Can't mount proc“) und `apparmor=unconfined` (docker-default verbietet `mount`). Nie in
+  `docker-compose.yml` selbst – der Standard bleibt bei den Regeln von Docker (`docker-vibecoden.test.ts`). In dieser
+  Umgebung baut ein Bild nur mit dem Zertifikat des Proxys (`--build-context`, nicht im Repo) und dem Basisbild von
+  `mirror.gcr.io` (Docker Hub antwortet mit 429).
+- **`kill()` nur mit pid** (seit VKc3b): Scheitert `spawn` (Programm fehlt), hält Node bis zum Ereignis „error“ noch
+  den Griff, und `kind.kill()` schickt `kill()` an eine nie gesetzte pid. Steht dort 0 oder -1, geht SIGTERM an die
+  ganze Gruppe bzw. jeden Prozess des Nutzers – so endete in der CI zweimal der Runner („received a shutdown signal“),
+  ohne einen roten Test. Vor jedem `kill()` `lebt(kind)` (`code-motor.ts`) bzw. `kind.pid !== undefined`. Tests, die einen fehlenden
+  Motor beenden, zählen `kill()` ohne pid (`killOhnePid()` in `hermes-motor.test.ts`), statt ihn zu senden.
+- **Freedom-MCP nur über die Brücke** (seit VKd1, `freedom-mcp.ts`): Werkzeuge des Knotens bekommt der Motor nur als
+  MCP-Server hinter `oeffneModellBruecke(…, { mcp })` – genau `POST /mcp`, eine JSON-RPC-Nachricht, Antwort als JSON
+  (Benachrichtigungen 202, GET und DELETE 405, ohne `Mcp-Session-Id` – sonst öffnete der Client von Hermes einen
+  GET-Strom), höchstens `BRUECKE_GRENZEN.mcpBytes`. Ausgeführt nur über `ToolRegistry.run` (Grenzen, `safeFetch`);
+  Fehler eines Werkzeugs nur mit dem Fehlernamen ins Ergebnis, nie ins Log – Suchanfragen und Adressen sind Inhalt des
+  Projekts. Hermes findet den Server über `mcp_servers` in `config.yaml`, nicht über `session/new` (Hermes 0.19 kündigt
+  `mcpCapabilities.http` nicht an). Die Sandbox bleibt ohne Netz; Hermes fragt vor MCP-Aufrufen nicht (VKd-W1, wie
+  Claude). Deshalb liest `read_page` seit VKd1b nur Adressen, die `LeseFreigaben.darf()` kennt: aus dem Auftrag
+  (`CodeLaeufe` → `beimAuftrag`) und aus Ergebnissen von `web_search` – nie aus gelesenen Seiten, sonst baute eine Seite
+  dem Agenten die Adresse zum Hinausschleusen. Ein neues Werkzeug, das Adressen abruft, gehört hinter dieselbe Prüfung.
+- **Verlauf, Diff und Zurück nur über `ProjektAblage`** (seit VKe2a, `PROTOCOL.md` §34): Ein Commit aus einem Auftrag
+  gilt nur nach `eigenerCommit()` – `istCommit()`, `cat-file -t` ist `commit`, und er führt zu `HEAD` (`merge-base
+  --is-ancestor`); sonst `code-commit`, nie Text von git. Der Diff nur über `git format-patch` mit `--no-ext-diff
+  --no-textconv` (Diff-Programme und Umwandlungen kämen aus dem Projekt) und gekürzt nach JSON-Länge (`CODE_GRENZEN.diff`
+  – der Umschlag fasst 65 535 Byte, Sonderzeichen werden länger). „Zurück“ setzt nie zurück: `read-tree -u --reset` und ein
+  neuer Commit „Zurück auf <kurz>“, damit auch das Zurück sich zurücknehmen lässt – und nie, solange im Projekt ein Lauf
+  geht (`CodeLaeufe.laeuftIn()`, sonst `code-belegt`).
+- **Vorschau nur über `VorschauServer`** (seit VKg1a, `vorschau.ts`, `PROTOCOL.md` §34): eigener Port (`VORSCHAU_PORT`), nie
+  der von Relay und App – sonst teilte die Vorschau den Ursprung mit freedom.html. Zugang nur über das Zeichen je Projekt
+  (32 Zufallsbyte, `adresse()`, nur versiegelt an den Besitzer) und danach das Cookie; die Weiterleitung nie auf `//host`
+  oder `/\host`. Dateien nur über `finde()`: kein Name mit Punkt am Anfang, jeder Teil des Pfads mit `lstat` (ein Verweis
+  heißt „gibt es nicht“), geöffnet mit `O_NOFOLLOW | O_NONBLOCK` (ein FIFO hielte den Server an), unter Linux danach der
+  echte Ort über `/proc/self/fd` – der Agent schreibt im Projekt und könnte zwischen `lstat` und `open` tauschen. Im Test
+  Pfade mit `node:http` schicken, nie mit `fetch`: Der glättet `..`, `%2e%2e` und Rückstriche, bevor sie ankommen.
+- **MCP-Server für den Motor nur über `mcp-katalog.ts`** (seit VKk1, `docs/VIBECODEN-ENTWURF.md` VKk): Hermes startet
+  sie selbst, als Kind in seiner Sandbox (`hermesMotor({ mcp })` → `mcp_servers` in `config.yaml`) – nie ein Server im
+  Knoten oder daneben. Was ein Server braucht, kommt nur lesbar hinein (`McpServer.nurLesbar`, unter `/usr` schon
+  sichtbar) – nie die Wurzel, das Home oder ein Ordner darüber (`OrdnerZuWeit`: ein `MCP_BROWSER=~/chrome` bände sonst
+  `~/.freedom` mit dem Schlüssel ein), Werkzeuge nur aus seiner Liste zum Erlauben (`tools.include`) – nie eines, das beliebigen Code im Server
+  ausführt (`browser_run_code_unsafe`). Die Liste gilt für die gepinnte Fassung (`playwright` exakt 1.62.1); der echte
+  Test vergleicht sie mit `tools/list` – eine neue Fassung bringt neue Werkzeuge erst nach einem Blick darauf. Der Browser
+  ist Playwright MCP aus `playwright-core` (`lib/entry/mcp.js`, kein `@playwright/mcp` daneben): `--headless --isolated
+  --no-sandbox` (Chromium dürfte in unserer Sandbox keine Namensräume anlegen), `--output-dir` im tmpfs (sonst landen
+  Bildschirmfotos im Commit), nie `--caps`, `--port` oder `--allow-unrestricted-file-access`. Snapshots nennen Elemente
+  mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`.
+- **MCP-Server für das Modell nur über `mcp-client.ts`** (seit B-31a, MC1-Größe B): eigener Client ohne SDK – keine
+  Abhängigkeit dafür einführen. Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`), gestartet nur über
+  `starteMcpServer()` in `sandboxMotor()` – nie ein Server außerhalb der Sandbox, nie mit Netz. Eingebunden wird nur
+  lesbar und nie die Wurzel, das Home, ein Ordner darüber oder `~/.freedom` (`zuWeit()`, auch der Ordner des Programms
+  außerhalb von `/usr`, auch hinter Verweisen – `realpath`). Namen fürs Modell höchstens 64 Zeichen
+  (OpenAI-kompatibel). Das Modell erreicht sie nur über `McpWerkzeuge` (`OllamaBackend.mcp`): Namen
+  `mcp__<server>__<werkzeug>`, Grenzen aus `WERKZEUG_GRENZEN`, Fehler nur als feste Texte – nie Text des Servers außer
+  dem Ergebnis selbst, nie Ein- oder Ausgaben ins Log. Die Server des Motors (Hermes, VKk) sind ein anderer Weg
+  (`mcp-katalog.ts`).
+- **Gruppenanrufe nur über `livekit.ts`** (seit B-34a, LK2–LK4 A): Der SFU ist `livekit-server` als eigener Dienst
+  (Profil „livekit“, Datei nur aus `scripts/livekit-einrichten.sh`: 0600, Signal nur auf 127.0.0.1, kein eigener TURN,
+  kein Redis, Protokoll ab `warn`) – keine npm-Abhängigkeit, das JWT rechnet `livekitToken()` mit `node:crypto` (HS256,
+  `iss` = API-Schlüssel, `sub` = zufällige Kennung, `video` nur für diesen Raum, nie Verwaltungsrechte). Zugänge nur mit
+  `livekitAusUmgebung()` (nie halb) und nur an den Besitzer aus einem Umschlag (5081, `istBesitzer()`), je Anfrage frische
+  Kennungen, höchstens `LIVEKIT_GRENZEN.teilnehmer`; Geheimnis und Zugänge nie ins Log. Wie bei TURN zählen sie nicht als
+  Aufträge (`zaehle()`). Eine neue Rolle im Status braucht einen Text in `ROLLEN_TEXT` der App.
+- **Kiwix nur über die eigene Brücke** (seit B-31b, `mcp/kiwix-bruecke.mjs`): in `mcp.json` nur `"kiwix": [ZIM-Dateien]` –
+  der Knoten setzt Brücke und `kiwix-serve` (`KIWIX_SERVE`, Debian `kiwix-tools`, GPL-3.0+, eigenes Programm) selbst ein,
+  nur in der Sandbox (`starteMcpServer()`), ZIM-Ordner nur lesbar und nie zu weit (`zuWeit()`). Die Brücke ist reines
+  JavaScript ohne Pakete (läuft ohne tsx), schreibt nie nach stderr, gibt `kiwix-serve` keine Ausgabe, startet ihn nur auf
+  127.0.0.1 mit `--blockexternal` und `--attachToProcess`; gelesen wird nur ein Pfad aus der Suche (`istArtikelPfad()`),
+  Umleitungen nur auf denselben Ursprung. Ihre stdout ist der MCP-Kanal – nie etwas anderes dorthin schreiben. Fehlt das
+  Programm, wirft `starteMcpServer()` `ProgrammFehlt` (`braucht`). Tests bauen das ZIM mit `zimwriterfs` (`zim-tools`).
+- **Signalverbindung zum Gruppenanruf nur über `SignalWeiterleitung`** (seit B-34e1, LK5 A, `signal-weiterleitung.ts`,
+  `docs/PROTOCOL.md` §41): Zeichen nur über `vergib()` aus `handleSignal()` (5082, aus einem Umschlag, `istBesitzer()`),
+  nur im Speicher, höchstens bis zum Ablauf der Einladung und einen Tag. Der Relay gibt nur `/signal/…` an `weiter()` –
+  alles andere bleibt Nostr (`WebSocketServer` mit `noServer`, eigener `upgrade`-Handler; mit `server` lehnte `ws` fremde
+  Pfade mit 400 ab). Zum SFU nur über `verbinde` aus `main.ts` (mit Tor `torWsVerbindung()`, sonst `direktVerbinden` nach
+  `pruefeZiel` mit `checkUrlSafe()`) – nie ein zweites `new WebSocket(` in der Datei, ein Test zählt. Weiter gehen nur
+  Pfad und Anfrage, nie Kopfzeilen des Browsers; abgelehnt nur mit festem Status, nie Text vom SFU. Was der SFU gleich
+  nach dem Öffnen schickt, kommt vor dem Browser an (`resume` läuft per `nextTick` vor der Fortsetzung nach `await`) –
+  `oeffne()` hebt es auf, bis `verbinde()` es zustellt. Die Anfrage trägt den Zugang zum Anruf: Adressen nie ins Log.
+- **Pakete nur über den Spiegel der Brücke** (seit VKd3, `paket-spiegel.ts`): npm und pip im Motor finden die Registry nur über
+  `.npmrc` und `pip.conf` im Home (`paketKonfiguration()`, geschrieben wie `config.yaml` über `schreibeInsHeim()` – nie durch
+  einen Verweis). Der Spiegel nimmt nur `GET`/`HEAD` auf `/npm/…` und `/pypi/simple|files/…` (`spiegelZiel()`), holt nur über
+  `holeOderFehlt()` von `PAKET_QUELLEN` und schreibt Adressen in Paketlisten und Index auf die Brücke um (`aufDieBruecke()`),
+  Archive nie. Ein neuer Weg nach draußen kommt nie als weiterer Pfad an die Brücke, sondern als eigene Entscheidung (VK-W4 B,
+  „Internet frei“). Node liegt in der Sandbox nur, wenn es unter `/usr` liegt (Docker-Bild: `/usr/local`) – im Test mit
+  `/opt/node22` dieses zusätzlich nur lesbar einbinden.
+- **Dev-Server der Vorschau nur über `DevServer`** (seit VKg1c, `dev-server.ts`): Gestartet wird nur `npm run dev` aus einer
+  echten `package.json` (`devBefehl()`), nur über `sandboxDienst()` (ohne Netz, ohne Grenze der Rechenzeit, Ausgabe nirgends
+  hin) und nur, wenn die Sandbox geht. Erreicht wird er nur über `freedom_motor.py --zurueck` an einem Socket in einem Ordner,
+  den der Knoten anlegt und nur dieser Sandbox schreibbar gibt (`schreibbar`) – nie ein Socket im Home oder im Projekt, dort
+  könnte der Agent einen Verweis auf einen fremden Socket legen. Die Vorschau leitet mit `devKopf()` weiter (Host und Origin
+  `localhost:5173`, sonst lässt Vite nichts durch, ohne das eigene Cookie) und ohne Agent (`agent: false` – ein Pool hielte
+  Verbindungen offen). WebSocket: Sockets des HTTP-Servers bleiben halb offen; endet eine Seite, beide beenden – sonst
+  wartet `close()` ewig (so hing der erste Test).
+- **TURN für die Sandbox nur über `turn-tunnel.ts`** (seit VKg2a1): Die Sandbox bekommt einen Zugang zum TURN nur zusammen
+  mit dem Tunnel (`oeffneTurnTunnel()`, Socket in einem eigenen Ordner) – nie Netz und nie den TURN direkt. Ein Zugang ist
+  sonst ein Weg ins Internet (UDP), auch für den Code des Projekts, der ihn in derselben Sandbox lesen kann. Der Filter lässt
+  nur eine UDP-Allokation durch und Gegenstellen nur aus `relayAdressen()` des Angebots der App; neue STUN-Methoden nur mit
+  Blick darauf, wohin sie vermitteln. ChannelData mit Nummern bis 0x7FFF: coturn vergibt sie wie RFC 5766, nicht nur bis
+  0x4FFF wie RFC 8656 – so verlor der erste Test mit `turnutils_uclient` alle Pakete.
+- **Bildstrom nur über `BildStrom`** (seit VKg2a2, `bildstrom.ts`): zwei Sandboxen – das Bild (`motor/freedom_bild.py`,
+  `mitEinAusgabe`, Tunnel aus `turn-tunnel.ts`) und das Programm des Projekts (`bildBefehl()`, ohne Ein- und Ausgabe);
+  gemeinsam nur der Ordner mit dem Socket des Bildschirms (`/tmp/.X11-unix`). Nie das Programm in der Bild-Sandbox
+  starten: Es könnte den Zugang zum TURN lesen oder eine Antwort an die App unterschieben (andere Gegenstelle, Daten in
+  ICE-Feldern). stdin der Bild-Sandbox bleibt offen – `end()` beendet das Bild sofort (so hing der erste Ende-zu-Ende-Test).
+  PyGObject: den ICE-Agenten (`get_property("ice-agent")`) in einer Liste halten, sonst gibt die Hülle ihn frei; die Antwort
+  eines Promise samt Wert in Namen halten, bevor man ihn weitergibt. In der Sandbox gibt es nur `lo`: ohne
+  `add-local-ip-address 127.0.0.1` sammelt libnice nichts.
+  Eingaben (seit VKg2a3) nur über `Eingabe` in `freedom_bild.py`: XTest an den eigenen Bildschirm, feste Nachrichten
+  (`PROTOCOL.md` §34), begrenzt – nie etwas aus dem Datenkanal an eine Shell, eine Datei oder den Knoten.
+  Web-Projekte (seit VKg2c1) zeigt nur Chromium in der Sandbox des Programms (`bildBefehl(…, web)`, `browserArgumente()`):
+  ohne eigene Sandbox, Profil in `/tmp`, der Dev-Server über `WEB_DEV_START` dort selbst – nie ein Weg aus der Sandbox zum
+  Dev-Server der Vorschau. Den Browser liest nur `browserLesbar()` ein (wie beim Motor, nie Home oder Wurzel). Im Test die
+  Farbe nie in der Bildmitte messen – dort steht der Zeiger von Xvfb; und nie eine feste Pause nach den Eingaben (bis
+  VKg2c1 endete der Empfänger nach 2 s, unter Last kamen die Tasten später an): warten, bis sie wirken, mit Frist.
+  Kodiert wird (seit VKg2c2) nur im Format und mit der Nummer aus dem Angebot (`formate()`, `pipeline_text()` in
+  `freedom_bild.py`) – nie eine feste Nummer: Firefox nennt VP8 120, bis VKg2c2 kam dort kein Bild an. H.264 nur über
+  NVENC (`nvh264enc`), nie in Software (openh264 scheitert auf Ubuntu 24.04, x264 ist GPL). Die GPU bekommt nur die
+  Bild-Sandbox (`gpu` in `BildStrom`), nie das Programm oder der Motor.

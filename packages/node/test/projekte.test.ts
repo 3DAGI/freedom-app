@@ -205,7 +205,124 @@ test("VKc1: main.ts – Ablage nur aus der Umgebung, Rolle „code“ nur mit gi
   assert.match(main, /const projekteWahl = projekteAusUmgebung\(process\.env\);/);
   assert.match(main, /if \(projekte && !\(await projekte\.pruefe\(\)\)\)/);
   assert.match(main, /if \(projekte\) statusRollen\.add\("code"\);/);
-  assert.match(main, /turn,\s*projekte,\s*agent: knotenAgent,/);
+  assert.match(main, /turn,\s*projekte,\s*agent: knotenAgent,\s*\.\.\.\(code \? \{ code \} : \{\}\),/);
+  // VKc3a: der Motor nur mit Sandbox und Hermes, nur über hermesMotor() mit der Brücke
+  assert.match(main, /if \(!sandbox\.ok\) console\.log\("\[code\] kein Motor/);
+  // VKd1b: dazu meldet der Lauf seinen Auftrag an die Lese-Freigaben
+  assert.match(main, /code = new CodeLaeufe\(\{\s*ablage: projekte, beimAuftrag: \(t\) => freigaben\.ausAuftrag\(t\),\s*motor: hermesMotor\(\{ hermes: hermesWahl\.hermes, ablage: projekte, bruecke,/);
+  assert.doesNotMatch(main, /prozessMotor\(/, "nie ein Motor ohne Sandbox");
   const docker = readFileSync(new URL("../../../docker/node.Dockerfile", import.meta.url), "utf8");
   assert.match(docker, /install -y --no-install-recommends aria2 bubblewrap git/, "VK-W2 A: git im Bild, VKb: bubblewrap für die Sandbox");
+});
+
+/** Ein Projekt mit drei Schritten: a.txt, dann b.txt, dann a.txt geändert. */
+async function mitSchritten(a: ProjektAblage) {
+  await a.neu("app");
+  const ort = a.ort("app");
+  writeFileSync(join(ort, "a.txt"), "eins\n");
+  await a.sichere("app", 1);
+  writeFileSync(join(ort, "b.txt"), "zwei\n");
+  await a.sichere("app", 2);
+  writeFileSync(join(ort, "a.txt"), "eins\ndrei\n");
+  await a.sichere("app", 3);
+  return ort;
+}
+
+test("VKe2: Verlauf – neueste zuerst, Nachricht, Zeit, Zahl der Dateien; ohne Commit leer", async () => {
+  const a = new ProjektAblage(ordner());
+  await a.neu("leer");
+  assert.deepEqual(await a.verlauf("leer"), []);
+  await mitSchritten(a);
+  const v = await a.verlauf("app");
+  assert.deepEqual(v.map((c) => [c.nachricht, c.dateien]), [["Schritt 3", 1], ["Schritt 2", 1], ["Schritt 1", 1]]);
+  for (const c of v) assert.match(c.id, /^[0-9a-f]{40}$/);
+  assert.ok(v[0]!.zeit > 1_700_000_000);
+});
+
+test("VKe2: Diff eines eigenen Commits – ohne Diff-Programme des Projekts; fremde Kennung code-commit", async () => {
+  const o = ordner();
+  const a = new ProjektAblage(o);
+  const ort = await mitSchritten(a);
+  const [drei] = await a.verlauf("app");
+  const d = await a.diff("app", drei!.id);
+  assert.equal(d.gekuerzt, false);
+  assert.match(d.text, /^Subject: \[PATCH\] Schritt 3$/m, "wie git format-patch – die App liest es mit leseDiff()");
+  assert.match(d.text, /\+drei/);
+  // Ein Agent schreibt .gitattributes mit einem Diff-Treiber – ohne Eintrag in der Konfiguration des Knotens läuft nichts,
+  // und --no-ext-diff/--no-textconv halten auch einen eingeschmuggelten fern
+  writeFileSync(join(ort, ".gitattributes"), "*.txt diff=boese\n");
+  writeFileSync(join(o, "boese.sh"), `#!/bin/sh\ntouch ${join(o, "AUSGEFUEHRT")}\n`, { mode: 0o755 });
+  git(ort, "config", "diff.boese.textconv", join(o, "boese.sh"));
+  git(ort, "config", "diff.boese.command", join(o, "boese.sh"));
+  await a.diff("app", drei!.id);
+  assert.ok(!existsSync(join(o, "AUSGEFUEHRT")), "kein Programm aus der Konfiguration des Projekts");
+  await assert.rejects(a.diff("app", "ab".repeat(20)), (e: unknown) => e instanceof CodeAbgelehnt && e.fall === "code-commit");
+  // eine Kennung, die es gibt, aber kein Commit ist (ein Baum) – ebenso
+  const baum = git(ort, "rev-parse", `${drei!.id}^{tree}`).trim();
+  await assert.rejects(a.diff("app", baum), (e: unknown) => e instanceof CodeAbgelehnt && e.fall === "code-commit");
+});
+
+test("VKe2: Diff über der Grenze – gekürzt, passt als JSON in den Umschlag", async () => {
+  const a = new ProjektAblage(ordner());
+  await a.neu("gross");
+  writeFileSync(join(a.ort("gross"), "x.txt"), "\"\n".repeat(60_000));
+  await a.sichere("gross", 1);
+  const [c] = await a.verlauf("gross");
+  const d = await a.diff("gross", c!.id);
+  assert.equal(d.gekuerzt, true);
+  assert.ok(JSON.stringify(d.text).length <= CODE_GRENZEN.diff);
+});
+
+test("VKe2: zurück – neuer Commit mit dem alten Baum, nichts geht verloren; nur Vorfahren von HEAD", async () => {
+  const a = new ProjektAblage(ordner());
+  const ort = await mitSchritten(a);
+  const [drei, , eins] = await a.verlauf("app");
+  const neu = await a.zurueck("app", eins!.id);
+  assert.match(neu, /^[0-9a-f]{40}$/);
+  assert.equal(readFileSync(join(ort, "a.txt"), "utf8"), "eins\n");
+  assert.ok(!existsSync(join(ort, "b.txt")), "was erst später kam, ist im Arbeitsordner weg");
+  const v = await a.verlauf("app");
+  assert.deepEqual(v.map((c) => c.nachricht), [`Zurück auf ${eins!.id.slice(0, 7)}`, "Schritt 3", "Schritt 2", "Schritt 1"]);
+  assert.equal(git(ort, "rev-parse", "HEAD^{tree}").trim(), git(ort, "rev-parse", `${eins!.id}^{tree}`).trim());
+  // noch einmal dasselbe ändert nichts; zurück auf Schritt 3 holt alles wieder
+  assert.equal(await a.zurueck("app", neu), "");
+  await a.zurueck("app", drei!.id);
+  assert.equal(readFileSync(join(ort, "b.txt"), "utf8"), "zwei\n");
+  // ein Commit auf einem anderen Zweig führt nicht zu HEAD
+  git(ort, "checkout", "-q", "-b", "daneben");
+  writeFileSync(join(ort, "c.txt"), "x\n");
+  git(ort, "add", "c.txt");
+  git(ort, "commit", "-q", "-m", "daneben");
+  const daneben = git(ort, "rev-parse", "HEAD").trim();
+  git(ort, "checkout", "-q", "main");
+  await assert.rejects(a.zurueck("app", daneben), (e: unknown) => e instanceof CodeAbgelehnt && e.fall === "code-commit");
+});
+
+test("VKe2: über den Knoten – Verlauf, Diff und zurück versiegelt an den Besitzer; zurück nie während eines Laufs", async () => {
+  const o = ordner();
+  const ablage = new ProjektAblage(o);
+  await mitSchritten(ablage);
+  const { relay, pool, k, provider } = await aufbau(ablage);
+  const frage = async (aktion: CodeAktion) => {
+    const s = new LocalSigner(generateKeypair().sk);
+    await pool.publish((await baueCodeAuftrag({ sitzung: s, kopplung: k, aktion })).wrap);
+    await provider.pollOnce();
+    return antworten(relay, s);
+  };
+  const v = leseCodeAntwort((await frage({ aktion: "verlauf", projekt: "app" })).find((r) => r.kind === KIND_DVM_KNOTEN_CODE + 1000)!.content, "verlauf");
+  assert.equal(v?.aktion === "verlauf" && v.commits.length, 3);
+  const id = v!.aktion === "verlauf" ? v!.commits[2]!.id : "";
+  const d = leseCodeAntwort((await frage({ aktion: "diff", projekt: "app", commit: id })).find((r) => r.kind === KIND_DVM_KNOTEN_CODE + 1000)!.content, "diff");
+  assert.ok(d?.aktion === "diff" && d.commit === id && d.text.includes("+eins"));
+  const fremd = (await frage({ aktion: "diff", projekt: "app", commit: "cd".repeat(20) })).find((r) => r.kind === 7000)!;
+  assert.equal(getTag(fremd, "fall"), "code-commit");
+  // Ein Lauf im Projekt: zurück abgelehnt (code-belegt)
+  (provider as unknown as { cfg: { code?: { laeuftIn(p: string): boolean } } }).cfg.code = { laeuftIn: (p: string) => p === "app" } as never;
+  const belegt = (await frage({ aktion: "zurueck", projekt: "app", commit: id })).find((r) => r.kind === 7000)!;
+  assert.equal(getTag(belegt, "fall"), "code-belegt");
+  assert.equal(readFileSync(join(o, "app", "a.txt"), "utf8"), "eins\ndrei\n", "nichts geändert");
+  (provider as unknown as { cfg: { code?: unknown } }).cfg.code = undefined;
+  const z = leseCodeAntwort((await frage({ aktion: "zurueck", projekt: "app", commit: id })).find((r) => r.kind === KIND_DVM_KNOTEN_CODE + 1000)!.content, "zurueck");
+  assert.ok(z?.aktion === "zurueck" && /^[0-9a-f]{40}$/.test(z.commit));
+  assert.equal(readFileSync(join(o, "app", "a.txt"), "utf8"), "eins\n");
 });

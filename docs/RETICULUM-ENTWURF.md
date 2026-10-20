@@ -61,6 +61,10 @@ nennen (Messung an `freedom.html`, W5).
 | W4 | Wo zuerst? | A App mit RNode über WebSerial · B Gateway im Knoten · C beides zugleich | **A**, dann B |
 | W5 | Größe von `freedom.html` | A immer dabei · B nur in der Hülle (Desktop/Android) · C eigener Build | **A**, wenn der Zuwachs unter etwa 150 KB (gzip) bleibt – sonst neu fragen |
 
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adresse versiegelt an Kontakte; B, persönlich per QR, zusätzlich), W3 **A** (direkt und über den eigenen Knoten), W4 **A** (zuerst die App mit RNode über WebSerial, dann das Gateway), W5 **A** (immer in `freedom.html`, solange der Zuwachs unter etwa 150 KB gepackt bleibt – sonst neu fragen). Damit ist B-32 frei; B-32a als Nächstes. Quelle: Entscheidungsvorlage Spur B (Seite „Entscheidungen Spur B“, 18.10.2026), Antworten ohne Notizen.
+
 ## Aufteilung (nach Freigabe)
 
 | Schritt | Inhalt | Umfang |
@@ -71,6 +75,39 @@ nennen (Messung an `freedom.html`, W5).
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
+
+## Stand B-32a (18.10.2026)
+
+- **Bibliothek:** `@reticulum/core` und `@reticulum/lxmf` 0.9.12, exakt gepinnt (0.9.9–0.9.11 schlossen Lecks und
+  Abstürze; 0.9.12 ist bei B-32a einen Tag alt). `@reticulum/lxmf` hängt nur an `@reticulum/core`. Die Nachricht kommt
+  aus `@reticulum/lxmf/src/message.js` – das Paket nennt die Klasse an der Wurzel `LXMessage` und hat dort keine Typen
+  (Brücke `src/reticulum-typen.d.ts`).
+- **Größe (W5):** Baustein samt Bibliothek gebündelt 163 KB, gepackt 48 KB – fast alles `@reticulum/core` (Links,
+  Ressourcen, Transport, die B-32b braucht). Noch nicht in `freedom.html`: die App lädt den Baustein erst mit B-32b;
+  dort wird an `freedom.html` gemessen.
+- **Identität (V2):** `freedom.reticulum.identitaet` in `geheim` (`GEHEIM_FEST`); alles unter `freedom.reticulum.`
+  steht in `SICHERUNG_NIE` (damit auch nicht im Export). Ein kaputter Eintrag wird nie ersetzt.
+- **Umschlag (V1):** `reticulum-umschlag.ts` – Felder `0xFB` = `"freedom/mesh-1"`, `0xFC` = Art + Nutzlast, Schlüssel
+  als Zahlen (`Map`; ein Objekt machte Text daraus). Gelesen wird nur die direkte Form mit der eigenen Adresse am
+  Anfang: Ohne sie nähme die Bibliothek eine Nachricht als „opportunistisch“ und setzte die erwartete Adresse ein.
+  Opportunistische Pakete (ein Paket, Ziel im Kopf von Reticulum) kommen mit B-32b, wenn der Transport das Ziel nennt.
+- **Gegen Python geprüft?** Nein – die Python-Referenz läuft wegen ihrer Lizenz nicht im Projekt (Befunde oben). Die
+  Form folgt der Spezifikation und den eigenen Interop-Tests von reticulum-js; die Live-Probe mit Sideband/NomadNet
+  macht der MENSCH mit B-32b.
+
+## Frage vor B-32b (19.10.2026)
+
+Eine RNode sendet nur mit Funkparametern, die die App ihr beim Verbinden gibt (Frequenz, Bandbreite, Spreizfaktor,
+Kodierrate, Sendeleistung) – anders als Meshtastic, wo die Region im Gerät steht und die App sie nie setzt (7.5).
+Was erlaubt ist, hängt von der Region ab (Frequenzbereich, höchste Sendeleistung, Sendezeit). Die Adresse für Kontakte
+(W2) kommt erst mit B-32c; bis dahin tauscht man sie persönlich per QR-Code aus (W2 B, schon entschieden).
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| RN-W6 | Woher kommen die Funkparameter der RNode? | **A** Vorgaben je Region (Bereich, Leistung, Sendezeit aus einer Tabelle im Code, mit Quelle), die man vor dem ersten Senden bestätigt; Abweichen nur innerhalb der Grenzen der Region · **B** man trägt alles selbst ein, die App schlägt nichts vor · **C** wie A, aber ohne Grenzen (Funkamateure) | **A** – niemand muss Frequenzpläne kennen, und die App sendet nie außerhalb dessen, was die gewählte Region erlaubt |
+
+**Entschieden 19.10.2026 (MENSCH):** RN-W6 **A** – Vorgaben je Region (Tabelle im Code mit Quelle), vor dem ersten Senden
+bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
 
 ## Quellen
 

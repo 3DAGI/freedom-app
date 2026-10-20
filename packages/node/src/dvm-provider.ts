@@ -52,16 +52,21 @@ import {
   KIND_DVM_KNOTEN_STATUS, KURZCODE_TAG, knotenStatusText, type KnotenStatus,
   buildBlob, generateKeypair, verschluesseleDatei,
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
-  KIND_DVM_TURN, turnZugangText,
+  KIND_DVM_TURN, turnZugangText, KIND_DVM_LIVEKIT, leseLivekitAnfrage, livekitZugaengeText,
+  KIND_DVM_SIGNAL, leseSignalAnfrage, signalZugangText,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
 } from "@freedomstack/protocol";
 import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
+import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
+import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
+import type { VorschauServer } from "./vorschau.js";
+import type { BildStrom } from "./bildstrom.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { PfandKasse } from "./pfand-kasse.js";
 import { InferenceBackend, OllamaBackend } from "./inference.js";
@@ -151,10 +156,18 @@ export interface ProviderConfig {
   weckBuch?: WeckBuch;
   /** TURN des eigenen Knotens (B-13a, T2 A) – ohne: keine Zugänge. */
   turn?: TurnDienst;
+  /** SFU für Gruppenanrufe (B-34a, LK2–LK4 A) – ohne: keine Zugänge. */
+  livekit?: LivekitDienst;
+  /** Signalverbindung zum Gruppenanruf weiterreichen (B-34e1, LK5 A) – nur mit eigenem Relay; ohne: keine Zeichen. */
+  signal?: SignalWeiterleitung;
   /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
   projekte?: ProjektAblage;
   /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
   code?: CodeLaeufe;
+  /** Vorschau der Projekte unter eigenem Ursprung (VKg1a, `VORSCHAU_URL`) – ohne: `code-vorschau-aus`. */
+  vorschau?: Pick<VorschauServer, "adresse">;
+  /** Bildstrom für Programme ohne Web (VKg2a2) – nur mit Sandbox, eigenem TURN und GStreamer; ohne: `code-bild-aus`. */
+  bild?: Pick<BildStrom, "starte" | "beende">;
   /** Free-Tier (Provider-Marketing, lokal entschieden — KEIN Protokoll-Feature):
    *  Gratis-Tokens pro pubkey pro Tag. 0 = aus. Der Provider verschenkt
    *  eigene Rechenzeit als Werbung; es gibt keinen Topf und keinen Betreiber. */
@@ -253,9 +266,10 @@ export class DvmProvider {
   /** Aufträge seit dem Start, für den Status (B-11a) – nur Zahlen, nur im Speicher. */
   private zaehler = { erledigt: 0, gratis: 0, abgelehnt: 0, abgerechnetMsat: 0 };
 
-  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN-Zugänge und Code-Aufträge des Besitzers nicht. */
+  /** Ausgang eines Auftrags zählen – Statusabfragen, Weck-Anmeldungen, TURN- und LiveKit-Zugänge, Weiterleitungen und Code-Aufträge des Besitzers nicht. */
   private zaehle(request: NostrEvent, job: ProcessedJob | null): void {
-    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE) return;
+    if (request.kind === KIND_DVM_KNOTEN_STATUS || request.kind === KIND_DVM_WECKEN || request.kind === KIND_DVM_TURN || request.kind === KIND_DVM_KNOTEN_CODE || request.kind === KIND_DVM_LIVEKIT) return;
+    if (request.kind === KIND_DVM_SIGNAL) return;
     if (!job) {
       this.zaehler.abgelehnt++;
       return;
@@ -912,6 +926,19 @@ export class DvmProvider {
       await this.cfg.projekte.neu(a.projekt);
       antwort = { aktion: "neu", projekt: a.projekt };
     } else if (a.aktion === "bundle") antwort = await this.bundleInsBlobNetz(this.cfg.projekte, a.projekt);
+    else if (a.aktion === "verlauf") antwort = { aktion: "verlauf", commits: await this.cfg.projekte.verlauf(a.projekt) };
+    else if (a.aktion === "diff") antwort = { aktion: "diff", commit: a.commit, ...(await this.cfg.projekte.diff(a.projekt, a.commit)) };
+    else if (a.aktion === "zurueck") {
+      // nie während ein Agent im Projekt schreibt – sein nächster Commit hätte sonst den alten Stand
+      if (this.cfg.code?.laeuftIn(a.projekt)) throw new CodeAbgelehnt("code-belegt");
+      antwort = { aktion: "zurueck", commit: await this.cfg.projekte.zurueck(a.projekt, a.commit) };
+    } else if (a.aktion === "vorschau") {
+      if (!this.cfg.vorschau) throw new CodeAbgelehnt("code-vorschau-aus");
+      antwort = { aktion: "vorschau", url: this.cfg.vorschau.adresse(a.projekt) };
+    } else if (a.aktion === "bild") {
+      if (!this.cfg.bild) throw new CodeAbgelehnt("code-bild-aus");
+      antwort = { aktion: "bild", sdp: await this.cfg.bild.starte(a.projekt, a.sdp, { breite: a.breite, hoehe: a.hoehe }) };
+    } else if (a.aktion === "bild-ende") antwort = { aktion: "bild-ende", ok: this.cfg.bild?.beende(a.projekt) ?? false };
     else if (!this.cfg.code) throw new CodeAbgelehnt("code-ohne-motor");
     else if (a.aktion === "auftrag") return this.starteLauf(request, a, this.cfg.code, start);
     else antwort = a.aktion === "freigabe"
@@ -938,7 +965,8 @@ export class DvmProvider {
       aufteilung: [],
       outputPreview: antwort.aktion === "liste" ? `Code: ${antwort.projekte.length} Projekt(e) an den Besitzer`
         : antwort.aktion === "neu" ? "Code: Projekt angelegt"
-        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz` : `Code: ${antwort.aktion}`,
+        : antwort.aktion === "bundle" ? `Code: Bundle (${antwort.bytes} Byte) im Blob-Netz`
+        : antwort.aktion === "verlauf" ? `Code: Verlauf (${antwort.commits.length} Commits)` : `Code: ${antwort.aktion}`,
       durationMs: Date.now() - start,
     };
   }
@@ -1028,6 +1056,78 @@ export class DvmProvider {
   }
 
   /**
+   * Zugänge zum Gruppenanruf (5081, seit B-34a, LK2–LK4 A): nur aus einem Umschlag und mit Nachweis
+   * (`istBesitzer()`), je Teilnehmer ein frischer Zugang (`livekitZugaenge()`) für genau den gefragten Raum. Die
+   * Zugänge reisen nur versiegelt und gehen nie ins Log; nach außen nur feste Texte.
+   */
+  private async handleLivekit(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Gruppenanruf nur für den Besitzer");
+    if (!this.cfg.livekit) throw new Error("kein Gruppenanruf");
+    const anfrage = leseLivekitAnfrage(getTag(request, "i") ?? "");
+    if (!anfrage) throw new Error("Anfrage ungültig");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: livekitZugaengeText(livekitZugaenge(this.cfg.livekit, anfrage.raum, anfrage.anzahl, Math.floor(start / 1000))),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "Zugänge zum Gruppenanruf an den Besitzer",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
+   * Signalverbindung zum Gruppenanruf weiterreichen (5082, seit B-34e1, LK5 A): nur aus einem Umschlag und mit Nachweis
+   * (`istBesitzer()`), ein Zeichen für genau das genannte Ziel bis zu dessen Ablauf (`SignalWeiterleitung.vergib()`).
+   * Das Zeichen reist nur versiegelt und geht nie ins Log; nach außen nur feste Texte.
+   */
+  private async handleSignal(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Weiterleitung nur für den Besitzer");
+    if (!this.cfg.signal) throw new Error("keine Weiterleitung");
+    const anfrage = leseSignalAnfrage(getTag(request, "i") ?? "");
+    if (!anfrage) throw new Error("Anfrage ungültig");
+    const zugang = this.cfg.signal.vergib(anfrage.ziel, anfrage.bis);
+    if (!zugang) throw new Error("Anruf vorbei");
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output: signalZugangText(zugang),
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: "Weiterleitung zum Gruppenanruf an den Besitzer",
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Solana-Deposit-Session validieren (Provider-Seite):
    *   1. Deposit-Open vom Relay laden (d-Tag = sessionId, Autor = Kunde)
    *   2. Muss an UNS adressiert sein, nicht abgelaufen (Timelock)
@@ -1105,6 +1205,10 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_TURN) return this.handleTurn(request, privat);
     // Vibecoden auf dem eigenen Knoten (5080, A-31): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_KNOTEN_CODE) return this.handleCode(request, privat);
+    // Zugänge zum Gruppenanruf (5081, B-34a): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_LIVEKIT) return this.handleLivekit(request, privat);
+    // Signalverbindung zum Gruppenanruf weiterreichen (5082, B-34e1): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_SIGNAL) return this.handleSignal(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");

@@ -138,6 +138,45 @@ Verkehr der App über Tor – Relays, Solana-RPC, Downloads, auch `.onion`.
 - Grenzen: Anrufe (WebRTC) laufen nicht über den Proxy des Webviews; andere Programme
   auf demselben Rechner könnten den Zugang ebenfalls nutzen (sie bekämen nur Tor).
 
+**Brücken (seit B-33b1, Desktop; Android seit B-33d):** Wo Tor gesperrt ist, geht arti über eine Brücke
+(`src/bruecken.rs`, `docs/TOR-BRUECKEN-ENTWURF.md`): Snowflake – eingebaut sind die zwei
+Zeilen aus Snowflake 2.14.1, dieselben wie im Tor Browser – oder WebTunnel (Zeilen von
+bridges.torproject.org zum Einfügen; eigene Zeilen ersetzen die eingebauten).
+
+- Die Programme `freedom-snowflake` und `freedom-webtunnel` liegen neben dem Programm der
+  Hülle; arti startet sie selbst. Fehlen sie, sagt `netz_stand` `bruecken_moeglich: false`,
+  und `netz_setzen` lehnt Brücken ab (`bruecken-fehlen`).
+- In die Pakete kommen sie seit B-33b2 (`launcher.yml`): Der Job „bruecken“ baut sie aus den
+  Quellen (`scripts/pt-bauen.sh`), `scripts/pt-beilegen.sh` legt die der eigenen Plattform
+  nach Prüfung gegen `SHA256SUMS` als `binaries/freedom-<name>-<ziel-tripel>` ab, dazu die
+  Lizenztexte (`bruecken-lizenzen/`, im Paket bei den Ressourcen), und
+  `cargo tauri build --config tauri.bruecken.conf.json` legt sie bei (`externalBin`). Danach
+  vergleicht die CI die Programme im fertigen Paket (deb, AppImage, NSIS) Byte für Byte.
+  Ohne diese Datei baut die Hülle wie bisher – nur ohne Brücken. Lokal:
+  `bash scripts/pt-bauen.sh /tmp/pt && bash scripts/pt-beilegen.sh /tmp/pt packages/launcher`.
+- Die Wahl steht in `netz.json`: `"bruecken": true`, eigene Zeilen in `"zeilen"`.
+  `netz_setzen` nimmt dazu `bruecken` und `zeilen` (fehlen sie, bleibt es, wie es war; eine
+  leere Liste heißt: die eingebauten). Zeilen gelten nur geprüft – Transport `snowflake` oder
+  `webtunnel`, IP mit Port, Fingerabdruck 40 Hex, nur sichtbare ASCII-Zeichen, höchstens 16 –,
+  sonst Fehler `zeile:<stelle>:<kennung>`. Die App erfährt nur ihre Zahl (`eigene_zeilen`).
+- Mit Brücken geht arti nur über sie ins Tor-Netz. Fehlt ein Programm oder gilt eine
+  gemerkte Zeile nicht, startet arti nicht (`fehler: "bruecke"`) – nie still ohne Brücke.
+- Hinaus geht dann das Programm der Brücke selbst: Snowflake löst über das DNS des Systems
+  die Namen von Broker-Front und STUN-Servern auf (gemessen mit dem Paket: nur dieses
+  Programm, sonst nichts außer 127.0.0.1) und spricht danach WebRTC mit freiwilligen Proxys –
+  so arbeitet es auch im Tor Browser. Texte der Oberfläche sagen das (V5, B-33c).
+- In der App (seit B-33c): Settings › Datenschutz › „Über eine Brücke“ und „Eigene Brücken“ (einfügen oder per
+  QR-Code), nur wenn `bruecken_moeglich`.
+- Android (seit B-33d): Die Programme liegen im APK als `lib/arm64-v8a/libfreedom_snowflake.so` und
+  `libfreedom_webtunnel.so` – nur aus `nativeLibraryDir` darf eine App Programme starten. Die CI legt sie nach
+  `cargo tauri android init` bei (`pt-beilegen.sh … aarch64-linux-android`), `scripts/android-bruecken.py` schaltet das
+  Entpacken beim Installieren ein und das Strippen für sie aus; die Hülle findet den Ordner über ihre eigene Bibliothek
+  (`/proc/self/maps`). Gebaut sind sie mit cgo gegen dasselbe NDK wie das APK – ohne cgo fände Go unter Android keinen
+  DNS-Server.
+- Geprüft ist der Weg bis zur Brücke mit einer Attrappe des Programms (arti startet es und
+  verbindet sich mit Adresse und Parametern der Zeile); ins Tor-Netz kommt arti hier nicht –
+  den Live-Test macht der MENSCH, am besten aus einem Netz mit Sperre.
+
 **Android (6.1b2a):** wry setzt dort keinen Proxy. Die Hülle setzt ihn über JNI mit
 androidx.webkit (`ProxyController`, steckt in Tauris Android-Vorlage) für alle WebViews
 der App (`src/android_tor.rs`). Der Zugang spricht dafür auch HTTP CONNECT (am ersten Byte

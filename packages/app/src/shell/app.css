@@ -1943,6 +1943,12 @@ button.menue-punkt.menue-gefahr { color: var(--red-text); }
 .planung-fuss { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
 .planung-fuss .planung-loeschen { margin-left: auto; }
 .planung-knopf { flex: none; }
+/* ---------- Gruppenanrufe im privaten Raum (B-34d): je Anruf eine Zeile über dem Verlauf ---------- */
+.raum-anrufe { display: flex; flex-direction: column; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.gruppenanruf-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.gruppenanruf-zeile strong { overflow-wrap: anywhere; }
+.gruppenanruf-knoepfe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.gruppenanruf-knoepfe button { width: auto; min-height: 40px; }
 
 /* ---------- Mobil (C.5a): Berührflächen, Häkchen, Safe-Area, Tastatur, eigenes Bild ---------- */
 /* Häkchen und Wahlknöpfe nie in voller Breite (die Regel für input setzte sie auf 100 %) */
@@ -2203,4 +2209,52 @@ input.schalter:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .skelett-wert { display: inline-block; width: 6em; height: 1em; vertical-align: middle; }
 @media (prefers-reduced-motion: reduce) {
   #toast, .ai-optionen, .menue-schwebend, .modal-backdrop, .modal-backdrop .modal { animation: none; }
+}
+
+/* Projekte meines Knotens (VKe): Zeilen in „Mein Knoten“ und ein Blatt je Projekt – Auftrag, Schritte, Freigaben */
+.knoten-projekt { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.knoten-projekt span { flex: 1 1 12em; }
+.knoten-projekt button, #knoten-projekte-liste > button { width: auto; padding: 6px 10px; }
+#knoten-projekte-liste > button { margin-top: 8px; }
+.projekt-blatt { max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
+.projekt-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.projekt-kopf h3 { margin: 0; overflow-wrap: anywhere; }
+.projekt-kopf button { width: auto; padding: 6px 10px; }
+.projekt-kopf-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.projekt-neben { display: flex; flex-direction: column; gap: 6px; }
+.projekt-vorschau-link { align-self: flex-start; font-weight: 600; padding: 6px 0; }
+.projekt-vorschau-adresse { overflow-wrap: anywhere; user-select: all; }
+.projekt-vorschau-kopieren { align-self: flex-start; }
+.projekt-bild { display: flex; flex-direction: column; gap: 8px; }
+.projekt-bild-video { width: 100%; max-height: 70vh; background: #000; border-radius: 6px; object-fit: contain; touch-action: none; }
+.projekt-bild:fullscreen .projekt-bild-video { max-height: none; height: 100%; border-radius: 0; }
+.projekt-bild-leiste { display: flex; gap: 8px; align-items: center; }
+.projekt-bild-tastatur { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.projekt-commit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding: 6px 0; }
+.projekt-commit-text { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+.projekt-commit button { width: auto; padding: 6px 10px; }
+.projekt-schritte { display: flex; flex-direction: column; gap: 8px; }
+.projekt-auftrag { white-space: pre-wrap; border-left: 3px solid var(--accent); padding-left: 8px; margin: 0; }
+.projekt-schritt { border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; background: var(--surf); }
+.projekt-nr { font-size: 12px; color: var(--text-muted); }
+.projekt-gedanke { color: var(--text-muted); margin: 4px 0; white-space: pre-wrap; }
+.projekt-befehl, .projekt-ausgabe pre {
+  background: var(--code-bg); border-radius: var(--r-sm); padding: 6px 8px; margin: 4px 0; white-space: pre-wrap;
+  overflow-wrap: anywhere; font-family: ui-monospace, monospace; font-size: 12px; max-height: 40vh; overflow: auto;
+}
+.projekt-ausgabe summary { cursor: pointer; font-size: 12px; color: var(--text-muted); }
+.projekt-freigabe { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.projekt-freigabe span { flex: 1 1 14em; }
+.projekt-freigabe button { width: auto; padding: 6px 12px; }
+.projekt-ende-zeile { font-weight: 600; }
+.projekt-fuss { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
+.projekt-fuss textarea { margin-bottom: 0; }
+.projekt-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.projekt-knoepfe select { width: auto; flex: 1 1 14em; min-width: 0; max-width: 100%; margin-bottom: 0; text-overflow: ellipsis; }
+.projekt-knoepfe button { width: auto; padding: 8px 14px; }
+@media (max-width: 600px) {
+  .projekt-huelle { padding: 0; }
+  .projekt-knoepfe select { flex-basis: 100%; }
+  .projekt-knoepfe button { flex: 1 1 auto; }
+  .projekt-huelle .modal { max-width: none; max-height: 100dvh; height: 100%; border-radius: 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
 }

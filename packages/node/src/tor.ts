@@ -18,7 +18,7 @@ import https from "node:https";
 import net from "node:net";
 import { Readable, type Duplex } from "node:stream";
 import tls from "node:tls";
-import { WebSocket } from "ws";
+import { WebSocket, type ClientOptions } from "ws";
 
 export interface SocksZiel { host: string; port: number }
 
@@ -101,8 +101,14 @@ class TorHttpsAgent extends https.Agent {
 
 /** WebSocket-Fabrik für `WebSocketRelay` (Option `verbinde`): jede Verbindung durch Tor. */
 export function torWebSocket(proxy: SocksZiel): (url: string) => globalThis.WebSocket {
+  const verbinde = torWsVerbindung(proxy);
+  return (url) => verbinde(url) as unknown as globalThis.WebSocket;
+}
+
+/** Dasselbe als Verbindung von `ws` mit eigenen Optionen – für die Weiterleitung zum SFU (B-34e1, Binärrahmen). */
+export function torWsVerbindung(proxy: SocksZiel): (url: string, o?: ClientOptions) => WebSocket {
   const agenten = { ws: new TorHttpAgent(proxy), wss: new TorHttpsAgent(proxy) };
-  return (url) => new WebSocket(url, { agent: url.startsWith("wss:") ? agenten.wss : agenten.ws }) as unknown as globalThis.WebSocket;
+  return (url, o) => new WebSocket(url, { ...o, agent: url.startsWith("wss:") ? agenten.wss : agenten.ws });
 }
 
 /**

@@ -26,7 +26,12 @@ verweist nur; bei Widerspruch gilt die Quelle.
 
 Am 14.10.2026 entschieden (MENSCH: „Ja zu allen deinen Vorschlägen“): VK-W1n C, VK-W6
 bis VK-W9, W3a, W6a, W7 und RM2 W1–W5 – eingetragen in den Entwürfen (Abschnitte
-„Entscheidungen vom 14.10.2026“). Offen sind nur noch die Punkte unten.
+„Entscheidungen vom 14.10.2026“). Am 18.10.2026 entschieden: VKd-W1 (wie Claude und OpenAI,
+ohne Fragen), VKg-W1 (Vorschau wie Replit), VKg-W2 (ja) – eingetragen in
+[`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md). Ebenfalls am 18.10.2026 (Spur B, Entscheidungsvorlage): MC1-Größe B, NG2 A,
+AG-W1–W4 A, PT2 A, PT3 A, RN-W1–W5 A, LK2–LK4 A, MCO-W2 B – eingetragen in den Entwürfen; MCO-W1 zurückgestellt
+(1.2). Am 19.10.2026 entschieden (Spur B, MENSCH: „alle nach deinen Empfehlungen“): AG-W5 A, LK5 A, SP-W1–W6
+(A, A, A, C, A, A), RN-W6 A – eingetragen in den Entwürfen. Offen sind nur noch die Punkte unten.
 
 ### 1.0 Telegram-Mini-App (TMA-1, 14.10.2026)
 
@@ -60,24 +65,11 @@ Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 
 Quelle: [`OBERFLAECHE-REVIEW.md`](OBERFLAECHE-REVIEW.md), Sammlung C-42.
 
-### 1.0b Spur B, 15.10.2026: MCP-Größe, Reticulum, Tor-Brücken, Gruppenanrufe, MeshCore
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| MC1-Größe | B-31 (MCP): `@modelcontextprotocol/sdk` 1.32.1 bringt 95 Pakete mit, 29 MB (MIT, ISC, BSD – kein Copyleft), darunter Express, Hono und Ajv für Server-Teile, die der Knoten als Client nicht braucht. MC1 A verlangt die Größe vor dem Einbau. A so einbauen · B eigener schlanker MCP-Client (stdio, JSON-RPC: `initialize`, `tools/list`, `tools/call`), keine Abhängigkeit | **B** – der Knoten braucht nur den Client; ~150 Zeilen statt 29 MB |
-| AG-W1–W4 | B-30 (Atomic Agent): Entwurf [`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md) – MIT, aber Node ≥ 25.7, kein ACP, **Analyse (PostHog) und Absturzberichte (Sentry) standardmäßig an**; Vorschlag: nicht als Motor im Knoten (Hermes über ACP bleibt), nur als lokaler Server unter „Dieses Gerät“ mit ehrlichem Hinweis | W1 A, W2 A, W3 A, W4 A |
-| NG2 | B-35c (Abgleich nach Funkstille): Wer gleicht was ab? Der Knoten kennt den Schlüssel des Besitzers nicht (Kopplung nur über HMAC, B-8) und kann sich bei fremden Relays nicht für dessen Umschläge anmelden. A die App gleicht ab (sie kann sich als Nutzer anmelden): nach einer Pause der eigene Posteingang zwischen ihren Relays und dem eigenen Knoten – fehlende Umschläge holt sie dort, wo sie liegen, und legt sie beim Knoten ab · B der Knoten gleicht nur seine eigenen Events (Angebote, Manifeste, Kataloge, Kopplungs-Events) mit seinen `RELAYS` ab · C beides | **A**, B als kleiner Zusatz |
-| RN-W1–W5 | B-32 (Reticulum): Entwurf [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md) – RN1 geprüft: `@reticulum/core` steht unter EUPL-1.2, ohne Abhängigkeiten, gepflegt; Fragen zu Adresse, Zustellen, Reihenfolge, Größe | wie im Entwurf: W1 A, W2 A, W3 A, W4 A, W5 A |
-| PT2, PT3 | B-33 (Tor-Brücken): Entwurf [`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md) – Größe und Lizenz gemessen (PT1 A). **Befund: lyrebird enthält GPL-3-Code** (Elligator 2 für obfs4, meek) – nach der STOPP-Regel eine Frage. PT2: A `snowflake-client` (BSD-3) und WebTunnel-Client (MIT), ~22 MB je Plattform, ohne obfs4 · B lyrebird als eigenes Programm (GPL-3) · C eigenes Go-Programm. PT3: A eingebaute Snowflake-Zeilen, WebTunnel zum Einfügen · B dazu Moat | PT2 A, PT3 A |
-| LK2–LK4 | B-34 (Gruppenanrufe): Entwurf [`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md) – Server Apache-2.0 (Docker 44 MB), `livekit-client` 2.22.4 Apache-2.0, +0,6 bis 0,9 MB in `freedom.html`. LK2 Client ins Bundle? LK3 Schlüssel aus dem MLS-Exporter (Crate ändern) oder vom Gastgeber je Epoche? LK4 IP der Teilnehmer: über den eigenen TURN, sonst Warnung – oder immer direkt? | LK2 A, LK3 A, LK4 A |
-| MCO-W1, W2 | B-37 (MeshCore): Entwurf [`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md) – Gruppen-Datagramme mit 16-Bit-Datentyp, höchstens 184 Byte je Paket (unsere Rahmen haben 200 – kleinere nur für diese Strecke). W1: festen Datentyp beim MeshCore-Projekt beantragen (MENSCH, Pull Request dort) oder im Versuchsbereich `FF00`–`FFFF` bleiben? W2: jetzt bauen oder erst mit einem Gerät vor Ort? | W1 A, W2 B |
-
 ### 1.1 Bestätigungen und Zuteilungen
 
 | Punkt | Offen | Quelle |
 |---|---|---|
 | Phase 9, Teil der Agenten | Keiner Spur zugeteilt: `docs/BEDROHUNGSMODELL.md` (9.1), `SECURITY.md` (9.2), Deploy-Skripte und Rücknahmeplan (9.3), KI-Hinweis nach Art. 50 AI Act und C2PA (9.4). Wer, und wann? | [`phase-9.md`](phase-9.md) |
-| Sandbox unter Docker (VKb) | Das Standard-Seccomp von Docker sperrt meist Nutzer-Namensräume – im Docker-Bild führt der Knoten dann keinen Code aus (die Selbstprüfung sagt das; ungeprüft, hier läuft kein Docker). Empfehlung: ein eigenes Seccomp-Profil mitliefern (Standard plus `unshare`/`clone` für Namensräume) und in `docker-compose.yml` nur bei `VIBECODEN=1` setzen; sonst Vibecoden nur mit dem Installer. Wie läuft der GX10-Knoten? | [`PROVIDER.md`](../PROVIDER.md), „Vibecoden“ |
 | Phase 9, Teil des MENSCHEN | Auditoren; Beträge der Bug-Bounty (Sats und SOL); Zeitpunkt Mainnet; CASP-Einordnung nach AMLR (Frist 10.07.2027), Steuer, Impressum und Firmenname (0.F) | [`phase-9.md`](phase-9.md), FORTSCHRITT 0.F |
 
 ### 1.2 Zurückgestellt – ohne Termin
@@ -91,6 +83,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | A-11 Dienste-Markt über KI hinaus | nach B-38 (Transkribieren zuerst) | Sammlung A-11 |
 | A-13 Handel mit Treuhand | nach Audit und Mainnet (M-8) | Sammlung A-13 |
 | B-36 Bitchat in der Android-Hülle | nach einem Audit von Bitchat | Sammlung B-36 |
+| MCO-W1 Datentyp für MeshCore (festen Bereich beim Projekt beantragen oder Versuchsbereich `FF00`–`FFFF`) | B-37 gebaut wird (MCO-W2 B: ein Gerät vor Ort) | [`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md) |
 | B-39 Iroh-Blobs | eine Browser-Fassung von iroh-blobs erscheint | Sammlung B-39 |
 | Deckverkehr gegen Zeitmuster | nach Absprache mit Relay-Betreibern | [`MIXNET.md`](../MIXNET.md), „Offen“ |
 | Passkey für den Tresor (WebAuthn-PRF) | eigener späterer Schritt (8.1) | FORTSCHRITT 1.2, 8.1 |
@@ -136,7 +129,9 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Geld | Phantom-Abgleich, Devnet senden und empfangen; Swaps auf Devnet mit Polar; NWC mit zwei Wallets; LP mit zwei Testnet-LND; echte Relay-Zahlung; Verdienen in SOL; Kopfgeld mit Test-Wallet bezahlen (Lightning an eine Adresse, SOL versiegelt erfragt); KI-Frage mit Gebot in SOL über einen offenen Kanal (nach M-2) | 1.1, 4.2, 4.6, 6.3, 8.3, 8.4, 4.5, E10b2, 12.4b |
 | Provider | echter Provider in unter 30 Minuten, beide Schienen; echte KI-Anfrage in der Live-App | 8.2, 3.1 |
 | Modelle | Live-Probe: Hugging Face, ein Magnet von Pirate Face, zwei Knoten im Schwarm | B-29c |
+| Wissen | Kiwix mit einer echten Wikipedia (ZIM von download.kiwix.org) am GX10: `KIWIX_ZIM` im Installer, eine Frage, die das Modell mit `mcp__wiki__search`/`read` beantwortet | B-31b |
 | Funk | lokaler Validator, Devnet, zwei Funkgeräte; zwei Meshtastic-Geräte, Gateway-Knoten | 7.2, 7.4, 7.5d |
+| Gruppenanruf | LiveKit am GX10 (`scripts/livekit-einrichten.sh`, Profil „livekit“), drei Geräte im privaten Raum: anrufen, beitreten mit und ohne eigenen TURN, einmal mit eigenem Knoten (Relay, TURN) ohne Rückfrage (B-34e), Bild und Ton, jemand verlässt die Gruppe (neuer Schlüssel) | B-34 |
 | Native Apps | Tor in Desktop und Android (`IsTor: true`) | 6.1 |
 | Oberfläche | kurzer Nutzertest: fünf Personen ohne Nostr-Vorwissen, drei Aufgaben (erste Frage, Wallet verbinden, Freund anschreiben), Zeit und Abbrüche | Review 15.10. |
 | Sonstiges | fremde Person richtet die App in unter fünf Minuten ein; QR-Scan am Handy; Radicle-Spiegel mit `rad` | 8.1, 11.1b, 8.10 |
@@ -156,8 +151,8 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration, in der Sandbox (mit Spur B); dazu `CODE_MOTOR` in `main.ts` über `prozessMotor()` mit der Sandbox davor, `.git` darin nur lesbar, `~/.hermes` je Projekt außerhalb des Repos (`prozessMotor()` setzt heute `HOME` = Projekt, `sichere()` nähme es mit) (VKc2 ✓); die Sandbox hat kein Netz – das Modell erreicht der Motor nur über eine Brücke (Unix-Socket, wie Codex) | frei (VKb ✓: `sandboxMotor()`) |
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix (mit Spur B) | frei (VKc2 ✓) |
+| VKd2 | Freedom-MCP: Bilder (ComfyUI oder Provider), Sprache (mit B-38), Kiwix (mit B-31), Browser mit Seiten-Bedienung (Playwright-MCP) – VKd1 ✓: Websuche und Seite lesen, VKd1b ✓: gelesen wird nur, was im Auftrag oder in Suchergebnissen steht, VKd3 ✓: Pakete (npm, PyPI) über die Brücke | frei |
+| VKg2 | Vorschau als Bildstrom für Programme ohne Web (Linux, später Android, Windows): virtueller Bildschirm, GStreamer `webrtcbin`, NVENC, über den eigenen TURN – mit Spur B. Teile ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), VKg2): a1 Tunnel zum TURN, a2 Bildstrom im Knoten (Xvfb, Programm, `webrtcbin`; Code-Aktionen `bild`, `bild-ende`), a3 Eingaben über XTest, b App (Bild ansehen und bedienen), c Docker-Pakete, Chromium ins Bild, NVENC, Messung | VKg2a1 ✓ (Tunnel mit Filter), VKg2a2 ✓ (Bild in zwei Sandboxen), VKg2a3 ✓ (Eingaben), VKg2b ✓ (App), VKg2c1 ✓ (Docker, Chromium im Bild), VKg2c2 ✓ (Kodierer nach dem Angebot, NVENC) – im Code fertig; NVENC prüft der MENSCH auf dem GX10 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
 | 11.5c | Knoten: Ablauf wie mini-swe-agent (W3a A) für Repo-Aufträge, Patch einreichen | frei (Bausteine von Spur B fertig: 11.5s als VKb, 11.5a1, 11.5a2; Pakete 11.5n ✓: `holeAusSperre()`, `paketHolen()`) |
 | 11.5d | App: „Agent beauftragen“, Obergrenze (Oberfläche mit Spur C) | nach 11.5c |
@@ -175,24 +170,22 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| 11.5s4 | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt) (11.5s3 ✓: 4 GiB je Prozess über `ulimit -d`) | später, nachrangig |
+| 11.5s4b | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt) (11.5s3 ✓: 4 GiB je Prozess über `ulimit -d`; 11.5s4a ✓: höchstens 1024 Prozesse je Befehl) | später, nachrangig |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
-| B-30 | Atomic Agent als Harness | Entwurf ✓ ([`ATOMIC-AGENT-ENTWURF.md`](../ATOMIC-AGENT-ENTWURF.md)) – Bau nach AG-W1–W4 (1.0b) |
-| B-31 | Werkzeuge über MCP, Kiwix | wartet auf MC1-Größe (1.0b) |
-| B-32 | Reticulum als zweiter Funkweg | Entwurf ✓ ([`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) – Bau nach RN-W1–W5 (1.0b) |
-| B-33 | Tor mit Pluggable Transports | Entwurf ✓ ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) – Bau nach PT2/PT3 (1.0b) |
-| B-34 | Gruppenanrufe über LiveKit | Entwurf ✓ ([`GRUPPENANRUF-ENTWURF.md`](../GRUPPENANRUF-ENTWURF.md)) – Bau nach LK2–LK4 (1.0b) |
-| B-35 | Abgleich mit Negentropy (NIP-77), eigene Umsetzung – c Abgleich nach Funkstille | wartet auf NG2 (1.0b; a ✓ Kern im Protokoll, b ✓ Relay-Rolle) |
-| B-37 | MeshCore als zweites LoRa-Format | Entwurf ✓ ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) – Bau nach MCO-W1/W2 (1.0b), nachrangig |
-| B-38 | Sprache lokal (whisper.cpp, Piper) | nach B-31 |
+| B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b App mit RNode, c Adresse für Kontakte, d Gateway) | frei (RN-W1–W5 A, 18.10.; RN-W6 A, 19.10.: Funkparameter je Region; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
+| B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop – b1 Logik, b2 Pakete –, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“), b1 ✓ (`bruecken.rs`: arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen, Test mit Attrappe), b2 ✓ (Programme in den Paketen, geprüft gegen den Bau), c ✓ (Schalter „Über eine Brücke“, eigene Zeilen auch per QR-Code, ehrliche Texte), d ✓ (Android: Programme als `lib<name>.so` im APK, mit cgo für DNS, im APK geprüft) | Code fertig; MENSCH: Live-Test mit einem Paket aus dem Lauf, Desktop und Android ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
+| B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
+| B-38 | Sprache lokal (a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App: als Text und Diktieren) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | frei (SP-W1–W6, 19.10.) – a ✓ (Vorlesen nur mit lokalen Stimmen), b als Nächstes |
+| VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |
+| VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | nach VKg2 (Bildstrom) |
+| VKi | Windows: Wine und Hangover | nach VKg2 (Bildstrom) |
 
 ### Spur C – Oberfläche
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | 11.3e (C-9) | Oberfläche: Agenten in Räumen | e1–e4 ✓ ([#431](https://github.com/3DAGI/freedom-app/pull/431), [#432](https://github.com/3DAGI/freedom-app/pull/432), [#433](https://github.com/3DAGI/freedom-app/pull/433), [#434](https://github.com/3DAGI/freedom-app/pull/434)); offen nur das Monatsbudget mit Pfand – nach 11.3d3 |
-| VKe | App: Projekte-Seite unter „Mein Knoten“ (Bausteine Spur A) | nach VKc |
 | Website Englisch | Website auf Englisch | nach M-6 |
 | 6.1a4b | Selbst-Update der Hülle | nach den Signierschlüsseln |
 | RM2d | Oberfläche Cashu-Pfand: „Guthaben laden“ statt Budget, Mint wählen und „verwahrt“ sichtbar – über `cashuTopf` aus `shell/ki-pfand.ts` (`waehleMint()`, `ladeAnfrage()`, `abholen()`, `guthaben()`); Kopf und Seitenleiste zeigen seit RM2c3 „—“ | frei (RM2c1–c4b ✓, Spur A) ([`RM2-ENTWURF.md`](../RM2-ENTWURF.md)) |

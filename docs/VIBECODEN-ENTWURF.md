@@ -172,7 +172,8 @@ den Motor also tauschen.
 | dazu | Kiwix ohne Netz (B-31), die Programme unten |
 
 Diese MCP-Server gibt der Knoten Hermes über ACP je Sitzung mit. Hermes braucht dann kein Portal
-und keinen eigenen Schlüssel.
+und keinen eigenen Schlüssel. *(Seit VKd1: über `config.yaml`, die der Knoten vor jedem Lauf neu schreibt – also
+ebenfalls je Lauf. Über `session/new` ginge es nur, wenn Hermes `mcpCapabilities.http` ankündigte; 0.19 tut das nicht.)*
 
 **Was dagegen spricht, und was wir dagegen tun:**
 
@@ -284,18 +285,18 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 
 | Schritt | Inhalt | Spur | Umfang |
 |---|---|---|---|
-| VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 – **fertig** (`node/src/sandbox.ts`: `fuehreAus()` je Befehl, `sandboxMotor()` für den Motor, `pruefeSandbox()` beim Start und in `npm run pruefen`; Arbeitsspeicher und seccomp noch nicht – 11.5s2; unter Docker sperrt das Standard-Seccomp Nutzer-Namensräume, Frage in `OFFEN.md` 1.1); den Bildschirm bringt VKg |
+| VKb | Sandbox (= 11.5s): bubblewrap je Befehl bzw. für den ganzen Motor, Grenzen, GPU und Bildschirm nur auf Wunsch | B | ~250 – **fertig** (`node/src/sandbox.ts`: `fuehreAus()` je Befehl, `sandboxMotor()` für den Motor, `pruefeSandbox()` beim Start und in `npm run pruefen`; Arbeitsspeicher und seccomp noch nicht – 11.5s2; unter Docker sperrt das Standard-Seccomp Nutzer-Namensräume – seit VKc3b über `docker-compose.vibecoden.yml` gelöst); den Bildschirm bringt VKg |
 | VKc1 | Knoten: Projekte (`~/.freedom/projekte`, git je Projekt), Code-Aufträge annehmen (5080), nur für den Besitzer | A | ~300 – **fertig** (`liste`, `neu`; ein Lauf bis VKc2 mit `code-ohne-motor` abgelehnt) |
 | VKc2 | Knoten: ACP-Client (`@agentclientprotocol/sdk`, neue Abhängigkeit) – Schritte, Freigaben, Stopp auf VKa abbilden; Motor tauschbar | A | ~350 – **fertig** (`code-motor.ts`: Lauf im Hintergrund, Commit je Schritt; gestartet wird der Motor erst mit der Sandbox in VKc3, bis dahin `code-ohne-motor`) |
-| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 |
-| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 |
-| VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 |
+| VKc3 | Hermes gepinnt ins Bild, eigene Konfiguration (eigener Endpunkt, `manual`, kein Portal, keine fremden Anmeldungen), `~/.hermes` je Projekt, in der Sandbox | A + B | ~250 – **VKc3a fertig** (`hermes-motor.ts`, `modell-bruecke.ts`, `motor/freedom_motor.py`: Brücke über einen Unix-Socket, Konfiguration je Projekt in `~/.freedom/hermes/<projekt>`, `main.ts`); **VKc3b fertig** (Hermes 0.19.0 im Bild mit `VIBECODEN=1`, Sandbox unter Docker über `docker-compose.vibecoden.yml`) |
+| VKd | Freedom-MCP im Knoten: Suche, Bilder, Sprache, Browser, Kiwix – je Sitzung über ACP | A + B | ~300 – **VKd1 fertig** (`freedom-mcp.ts`: Websuche und Seite lesen als MCP-Server hinter der Brücke, `POST /mcp`; Hermes findet ihn über `config.yaml`, nicht über `session/new` – Hermes 0.19 kündigt MCP über HTTP in `initialize` nicht an; Netz-Werkzeuge fragen nicht vorher); **VKd1b fertig** (18.10., VKd-W1: wie Claude – `read_page` liest nur Adressen aus dem Auftrag und aus Ergebnissen von `web_search`, `LeseFreigaben`); **VKd3 fertig** (18.10., VK4/W6a „Pakete holt der Knoten“: npm und PyPI über die Brücke, `paket-spiegel.ts` – nur die feste Liste der Registries, Adressen in Paketlisten und Index auf die Brücke umgeschrieben; gemessen: `npm install vite vue` und `vite build` in der Sandbox ohne Netz, 11 s); VKd2: Bilder, Sprache, Kiwix, Seiten-Bedienung |
+| VKe | App: Projekte-Seite (Chat, Schritte, Freigabe, Diff, Rückgängig) | C, Bausteine A | ~400 – **VKe1 fertig** (`knoten-projekt-ui.ts`, `knoten-lauf.ts`: Auftrag, Schritte live, Ja/Nein, Stopp, Abschluss); **VKe2a fertig** (Code-Aktionen `verlauf`, `diff`, `zurueck` im Knoten, `PROTOCOL.md` §34); **VKe2b fertig** (Verlauf, Änderungen über `zeigePatch()`, „hierher zurück“ nach Rückfrage) – VKe fertig, die Vorschau gehört zu VKg |
 | VKf | Kopplung mit Code zum Eintippen (K1) | A | ~250 – **fertig** (`kurzcode.ts`, Kind 38076, `npm run koppeln -- --code`, `PROTOCOL.md` §35) |
-| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400, ggf. zwei Teile |
+| VKg | Live-Vorschau: virtueller Bildschirm, NVENC, WebRTC über den eigenen TURN, Eingaben zurück (Web und Linux) | B + A | ~400 je Teil – entschieden 18.10. (unten): **VKg1** Vorschau wie Replit über eigene Adresse des Knotens (a Server und Code-Aktion, b App, c Dev-Server aus der Sandbox) – **VKg1a fertig** (`vorschau.ts`: eigener Port, Zeichen je Projekt, Cookie, nur Dateien im Projekt; Code-Aktion `vorschau`, `VORSCHAU_URL`), **VKg1b fertig** (Knopf „Vorschau“ auf dem Blatt des Projekts, neuer Tab; in der Hülle Adresse und QR), **VKg1c fertig** (Dev-Server: `npm run dev` in der Sandbox, Rückweg über einen Socket, die Vorschau leitet weiter samt WebSocket; gemessen mit Vite: erste Seite nach 1,5 s, Hot Reload nach 45 ms ohne Neuladen) – VKg1 fertig; **VKg2** Bildstrom für Programme ohne Web (Teile unten: a1 Tunnel, a2 Bild, a3 Eingaben, b App, c Docker und NVENC) – **VKg2a1 fertig** (`turn-tunnel.ts`: die Sandbox erreicht den TURN nur über einen Socket des Knotens, der nur eine UDP-Allokation zu den Relay-Adressen der App durchlässt), **VKg2a2 fertig** (`bildstrom.ts`, `motor/freedom_bild.py`: Programm und Bild in zwei Sandboxen, Code-Aktionen `bild` und `bild-ende`; gemessen: Antwort nach rund 1 s, 30 Bilder je Sekunde), **VKg2a3 fertig** (Eingaben aus dem Datenkanal über XTest), **VKg2b fertig** (Knopf „Bild“ in der App, nur über den eigenen TURN, Maus, Finger und Tasten zurück), **VKg2c1 fertig** (Web-Projekte in Chromium im Bild, Pakete im Docker-Bild), **VKg2c2 fertig** (Kodierer nach dem Angebot, H.264 über NVENC) – VKg2 im Code fertig, NVENC prüft der MENSCH. Die Vorschau über die Relays (VK5) liefe nicht – ein `blob:`-Rahmen erbt die CSP der App, Chromium verweigert seine Skripte (gemessen 17.10.) |
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 |
-| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 |
+| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 – **VKk1 fertig** (`mcp-katalog.ts`: der Browser – Playwright MCP aus `playwright-core` 1.62.1, das der Knoten schon hatte, exakt gepinnt; Chromium aus Debian im Bild mit `VIBECODEN=1`; als Kind von Hermes in dessen Sandbox, ohne Netz; Werkzeuge nur aus `PLAYWRIGHT_WERKZEUGE`, ohne `browser_run_code_unsafe`) |
 | VKl | „Als Repo in einen Raum stellen“ | A | ~200 – **fertig** (VKl1 Knoten: Code-Aktion `bundle`, `PROTOCOL.md` §34; VKl2 App: „Mein Knoten“ › Projekte) |
 
 ### Neue Fragen
@@ -360,3 +361,114 @@ folgen nach VKc2 und der Sandbox (VKb, Spur B).
 MCP-Server erreicht der Motor darin nur über eine Brücke, die VKc3 baut (wie die Proxy-Brücke
 von Codex: ein Unix-Socket in die Sandbox, dahinter nur das Modell) – nie, indem die Sandbox
 das Netz des Rechners teilt.
+
+## Entscheidungen vom 18.10.2026 (MENSCH)
+
+| Nr. | Entscheidung |
+|---|---|
+| VKd-W1 | **Wie Claude und OpenAI, ohne Fragen** („Wie macht Claude und OpenAI das? Mach es genauso, ohne fragen.“) |
+| VKg-W1 | **Wie Replit** („schnelles Live-Rendern in Originalqualität, direkt spielbar/durchklickbar“) – die Vorschau über eine eigene Adresse des Knotens; der Bildstrom bleibt für Programme ohne Web |
+| VKg-W2 | **Ja** – GStreamer `webrtcbin`, virtueller Bildschirm und Chromium ins Bild, nur mit `VIBECODEN=1` |
+
+**VKd-W1 – so machen es die anderen (gelesen 18.10.):**
+- **Claude** (`web_fetch`): Claude baut keine Adressen selbst. Abgerufen wird nur, was in der
+  Nachricht des Nutzers steht oder aus Suchergebnissen kommt. Links aus abgerufenen Seiten
+  zählen seit Juli 2026 nicht mehr. Gefragt wird nicht.
+- **OpenAI:** ChatGPT ruft eine Adresse ohne Rückfrage nur ab, wenn ein unabhängiger Index sie
+  schon kennt, also öffentlich. Codex arbeitet mit einer Liste erlaubter Domains, nur GET, HEAD
+  und OPTIONS.
+
+Freedom macht es wie Claude (**VKd1b**): `read_page` liest nur Adressen aus dem Text des
+Auftrags und aus Ergebnissen von `web_search` (`LeseFreigaben` in `freedom-mcp.ts`).
+- Eine selbst gebaute Adresse lehnt der Knoten ab, ebenso einen Link aus einer gelesenen Seite.
+  Eine Seite kann den Agenten also nicht dazu bringen, Inhalt des Projekts in eine Adresse zu
+  packen.
+- Gefragt wird nicht.
+- Die Suchanfrage bleibt frei, wie bei Claude und OpenAI. Was darin steht, sieht die
+  Suchmaschine; `PROVIDER.md` sagt das.
+
+**VKg-W1 – Vorschau wie Replit.** Replit zeigt die laufende App über eine eigene Adresse, im
+Browser echt gerendert und sofort neu nach jeder Änderung; dazu gibt es „im neuen Tab öffnen“.
+Übertragen auf den Knoten:
+- **VKg1a (Knoten):** ein Vorschau-Server auf eigenem Port, also eigenem Ursprung.
+  - Nie auf dem Port von Relay und App: Sonst teilte die Vorschau den Ursprung mit freedom.html
+    und käme an deren Speicher.
+  - Im Pfad steht ein Zufallszeichen je Projekt. Der Besitzer bekommt es nur versiegelt, über
+    die Code-Aktion `vorschau`.
+  - Ausgeliefert werden die Dateien des Projekts, live und nur lesend: kein `.git`, keine
+    Symlinks hinaus, `nosniff`, `no-store`, kein Referrer.
+  - Nach außen gilt die Adresse aus `VORSCHAU_URL`: Heimnetz, eine Domain mit https oder `.onion`.
+    Über http im Heimnetz kann mitlesen, wer im selben Netz ist – die Texte sagen das.
+- **VKg1b (App):** ein Knopf „Vorschau“ auf dem Blatt des Projekts. Er öffnet die Adresse im
+  neuen Tab (`noopener`). Die CSP der App ändert sich nicht.
+- **VKg1c (Knoten):** Dev-Server aus der Sandbox (Vite, `npm run dev` …) für Hot Reload.
+  - Die Sandbox bleibt ohne Netz.
+  - Der Server lauscht dort auf einem Unix-Socket.
+  - Der Vorschau-Server reicht Anfragen und WebSocket dorthin weiter.
+- **VKg2:** Bildstrom für Programme ohne Web (Linux, später Android und Windows) und für
+  unterwegs ohne Adresse.
+  - Virtueller Bildschirm, GStreamer `webrtcbin`, NVENC auf dem GX10 (sonst Kodierung in
+    Software), über den eigenen TURN (B-13).
+  - Nur mit `VIBECODEN=1`.
+  - **Gemessen 20.10.** (Ubuntu 24.04, GStreamer 1.24, coturn 4.6, Chromium): `xeyes` auf Xvfb
+    1280×720 in bubblewrap ohne Netz, `webrtcbin` mit `ice-transport-policy=relay`, TURN über TCP
+    durch den Tunnel des Knotens; Chromium mit `iceTransportPolicy: "relay"` über UDP. Erstes Bild
+    1,45 s nach dem Angebot, danach 30 Bilder je Sekunde.
+  - Zwei Befunde: In der Sandbox gibt es nur `lo`, und libnice lässt Loopback aus – ohne
+    `add-local-ip-address 127.0.0.1` am ICE-Agenten sammelt `webrtcbin` gar nichts. Chromium meldet
+    das Ende der Sammlung oft erst nach Sekunden; die App wartet nur, bis ein Relay-Kandidat da ist.
+  - Teile:
+    - **VKg2a1 (Knoten, fertig):** Tunnel zum TURN (`turn-tunnel.ts`). Ein Zugang zum TURN ist
+      sonst ein Weg ins Internet (UDP) – auch für den Code des Projekts, der in derselben Sandbox
+      läuft. Der Knoten liest mit: nur Binding, Allocate mit UDP, Refresh, CreatePermission,
+      ChannelBind, Send und ChannelData, Gegenstellen nur die Relay-Adressen aus dem Angebot der App;
+      TCP-Allokationen (RFC 6062) nie.
+    - **VKg2a2 (Knoten, fertig):** zwei Sandboxen ohne Netz. In der einen `motor/freedom_bild.py`
+      (Xvfb und `webrtcbin`, den TURN nur durch den Tunnel), in der anderen das Programm des
+      Projekts (`.freedom/start`, sonst `main.py`); gemeinsam haben sie nur den Socket des
+      Bildschirms. So kommt der Code des Projekts nie an den Zugang zum TURN, nie an den Tunnel und
+      nie an die Ausgabe, aus der der Knoten die Antwort an die App liest – eine untergeschobene
+      Antwort ließe die App sonst einen fremden Rechner anrufen und trüge Daten in ICE-Feldern
+      hinaus. Code-Aktionen `bild` (Angebot rein, Antwort raus, beide nur mit Relay-Kandidaten) und
+      `bild-ende`. Eine Web-Seite in Chromium ins Bild kommt mit VKg2c.
+    - **VKg2a3 (Knoten, fertig):** Eingaben aus dem Datenkanal über XTest (Maus, Berührung, Rad,
+      Tasten, auch Zeichen ohne Taste; Format in `PROTOCOL.md` §34) – nur an den eigenen Bildschirm.
+    - **VKg2b (App, fertig):** Knopf „Bild“ auf dem Blatt des Projekts, Verbindung nur über den eigenen
+      TURN (5079, `iceTransportPolicy: "relay"`, im Angebot nur Relay-Kandidaten), Größe des Bildschirms
+      aus der Fläche in Gerätepixeln, Maus, Berührung, Rad und Tasten über den Datenkanal, Tastatur am
+      Handy, Vollbild (`bild-ui.ts`, `bild-ablauf.ts`).
+    - **VKg2c1 (Knoten, fertig):** Pakete im Docker-Bild (nur `VIBECODEN=1`), `TURN_INTERN` unter
+      Docker (`host.docker.internal`); Web-Projekte zeigt Chromium im Bild – mit Skript `dev` der
+      Dev-Server wie in der Vorschau, sonst `index.html`, ganzer Bildschirm, WebGL über SwiftShader.
+      So geht auch eine Web-App unterwegs nur über den TURN. Gemessen unter Docker (20.10., Debian
+      bookworm, GStreamer 1.22, Chromium 155):
+      - Programm, `index.html` und Dev-Server Ende zu Ende grün, Antwort nach 0,8–0,9 s.
+      - Die Pakete kosten rund 270 MB.
+    - **VKg2c2 (Knoten, fertig):** Kodierer nach dem Angebot – die Nummer des Formats aus dem Angebot
+      (Firefox nennt VP8 120, Chromium 96; bis VKg2c2 kam in Firefox kein Bild an, gemessen), H.264
+      über NVENC, wo der Knoten es hat (GPU nur in der Bild-Sandbox, unter Docker mit
+      `docker-compose.nvenc.yml`), sonst VP8 in Software. Kein H.264 in Software: openh264 scheitert
+      auf Ubuntu 24.04 (`cmInitParaError`), x264 ist GPL, H.264 trägt Patente. NVENC prüft der
+      MENSCH auf dem GX10.
+  - Befund für Spur B (B-13b): Liegt der TURN hinter NAT, sind seine Relay-Adressen privat, und
+    `denied-peer-ip` sperrt Relay zu Relay auf demselben TURN – Anrufe zweier Geräte über denselben
+    TURN und der Bildstrom. Vorschlag: `allowed-peer-ip=<eigene Relay-Adresse>` und `no-tcp-relay`
+    (coturn erlaubt sonst TCP-Allokationen nach RFC 6062) in `turn-einrichten.sh`; prüft der MENSCH
+    mit dem GX10.
+
+**Sandbox auf anderen Geräten** (Frage MENSCH 18.10.: „Freedom soll ja nicht nur auf DGX Spark
+laufen“):
+- Die Sandbox (`sandbox.ts`, bubblewrap) ist nicht an den GX10 gebunden. Sie läuft auf jedem
+  Linux, das Nutzer-Namensräume erlaubt: x86-64 und ARM64, Raspberry Pi (64 Bit), Server und
+  Docker (`docker-compose.vibecoden.yml`).
+- Ubuntu ab 24.04 kann Nutzer-Namensräume per AppArmor sperren
+  (`kernel.apparmor_restrict_unprivileged_userns`). `pruefeSandbox()` sagt beim Start, ob die
+  Sandbox geht.
+- Unter Windows und macOS läuft der Knoten in Docker Desktop (WSL2 bzw. eine Linux-VM), darin
+  dieselbe Sandbox.
+- An den GX10 gebunden ist nur NVENC (VKg2).
+- SPACE (perplexityai) passt nicht. Es braucht Kubernetes, Postgres und privilegiertes Docker
+  und läuft nur auf x86-64.
+- Später, für Aufträge Fremder (11.5), wäre gVisor (`runsc`, Apache-2.0, x86-64 und ARM64, ohne
+  KVM) eine zweite Art in `sandbox.ts`. Es hat einen eigenen Kernel im Nutzerraum. Das ist eine
+  neue Abhängigkeit und damit eine eigene Frage, wenn 11.5c sie braucht.

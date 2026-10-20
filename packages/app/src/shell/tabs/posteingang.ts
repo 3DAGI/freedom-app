@@ -20,6 +20,7 @@ import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
 import { kontaktName, merkeEinladung, zeigeRaumLeiste } from "./raeume.js";
 import { alsAnruf } from "../anruf.js";
+import { abgleichMitKnoten } from "../posteingang-knoten.js";
 import { activeConversation, conversations, loadChatList, loadChatMessages, markiereGelesen, saveConversations } from "./kommunikation.js";
 import { LivePost, postFilter } from "../../post-live.js";
 import { merkeVorschau } from "../../chat-zeile.js";
@@ -267,6 +268,8 @@ export async function syncDmInbox(): Promise<void> {
     let neu = await ladeKontakte().catch(() => 0);
     const umschlaege = await pool.query({ kinds: [1059], "#p": [me.pk], limit: 200 });
     for (const w of umschlaege) if ((await ordneEin(w, me.pk)).neu) neu++;
+    // Nach einer Pause (B-35c, NG2 A): was an den Posteingängen liegt, mit dem eigenen Knoten abgleichen
+    for (const w of await abgleichMitKnoten(me.pk).catch(() => [])) if ((await ordneEin(w, me.pk)).neu) neu++;
     // MLS-Gruppen (2.2b-d1): nur wenn es welche gibt – sonst bleibt die Engine ungeladen
     const mitMls = conversations.filter((c) => c.type === "dm" && c.mls);
     if (mitMls.length > 0 && !mlsGesperrt()) {

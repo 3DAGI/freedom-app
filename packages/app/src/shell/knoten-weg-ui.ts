@@ -7,7 +7,8 @@
  * Ohne bekanntes Relay geht nichts an ihn – nie still über den Pool.
  */
 import {
-  KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, openPrivateJobResponse, type NostrEvent, type RelayFilter, type Signer,
+  KIND_DVM_KNOTEN_CODE, KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, leseCodeSchritt, openPrivateJobResponse,
+  type CodeSchritt, type NostrEvent, type RelayFilter, type Signer,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, satzMitKnotenRelay, ursprungAlsKnotenRelay } from "../knoten-weg.js";
@@ -75,6 +76,36 @@ export async function warteAufKnoten(
       if (!a.ok || getTag(a.response, "e") !== requestId) continue;
       if (a.response.kind === ergebnisKind) return { ergebnis: a.response.content };
       if (a.response.kind === 7000) return { abgelehnt: a.response.content, fall: getTag(a.response, "fall") };
+    }
+  }
+  return null;
+}
+
+/**
+ * Einem Lauf auf meinem Knoten folgen (VKe): Schritte (7000 `partial`, gelesen über `leseCodeSchritt()`) bis zum
+ * Ergebnis (6080) – oder einer Ablehnung (7000 `error`, mit Kennung). Jeder Umschlag wird nur einmal geöffnet; die
+ * Reihenfolge sagt nichts, die Seite ordnet nach `nr`. null nach der Frist oder wenn `aufhoeren()` es sagt.
+ */
+export async function folgeLauf(
+  weg: KnotenWeg, sitzung: Signer, requestId: string,
+  o: { zeitMs: number; taktMs: number; schritt: (s: CodeSchritt) => void; aufhoeren?: () => boolean },
+): Promise<{ ergebnis: string } | { abgelehnt: string; fall?: string } | null> {
+  const seit = Math.floor(Date.now() / 1000) - 60;
+  const gesehen = new Set<string>();
+  for (let t0 = Date.now(); Date.now() - t0 < o.zeitMs && !o.aufhoeren?.();) {
+    await new Promise((ok) => setTimeout(ok, o.taktMs));
+    const umschlaege = await weg.query({ kinds: [1059], "#p": [weg.sitzungPk], since: seit }).catch(() => []);
+    for (const w of umschlaege) {
+      if (gesehen.has(w.id)) continue;
+      gesehen.add(w.id);
+      const a = await openPrivateJobResponse(w, sitzung);
+      if (!a.ok || getTag(a.response, "e") !== requestId) continue;
+      if (a.response.kind === KIND_DVM_KNOTEN_CODE + 1000) return { ergebnis: a.response.content };
+      if (a.response.kind !== 7000) continue;
+      const status = getTag(a.response, "status");
+      if (status === "error") return { abgelehnt: a.response.content, fall: getTag(a.response, "fall") };
+      const s = status === "partial" ? leseCodeSchritt(a.response.content) : null;
+      if (s) o.schritt(s);
     }
   }
   return null;

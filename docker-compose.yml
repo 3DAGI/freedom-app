@@ -181,6 +181,11 @@ services:
       # scripts/turn-einrichten.sh; leer: keine Zugaenge.
       TURN_URLS: "${TURN_URLS:-}"
       TURN_SECRET: "${TURN_SECRET:-}"
+      # B-34a: Zugaenge zum SFU fuer Gruppenanrufe (Profil „livekit“ unten) – alle drei aus
+      # scripts/livekit-einrichten.sh; leer: keine Zugaenge.
+      LIVEKIT_URL: "${LIVEKIT_URL:-}"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-}"
       QUOTA_API_PORT: "3602"
     volumes:
       # Identitaet (node-key, B-40) und Bootstrap-Zeitpunkt ueberleben Neustarts. Ohne
@@ -188,6 +193,8 @@ services:
       # ein neuer Schluessel — Reputation weg, Gratisphase zurueck auf Anfang.
       - freedom-state:/home/node/.freedom
       - freedom-data:/home/node/freedom-data
+      # Wissen ohne Internet (B-31b): ZIM-Dateien nur lesend einbinden und in ~/.freedom/mcp.json nennen, z. B.
+      #   - ./zim:/daten/zim:ro      und  { "server": { "wiki": { "kiwix": ["/daten/zim/wikipedia_de_all_nopic.zim"] } } }
     ports:
       - "127.0.0.1:3602:3602"
       - "127.0.0.1:3601:3601"   # LNURL (8.2b), nur für den Reverse-Proxy
@@ -210,6 +217,22 @@ services:
     user: "${TURN_UID:-1000}:${TURN_GID:-1000}"
     volumes:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+
+  # Gruppenanrufe (B-34a, LK2–LK4 A): SFU, nur mit dem Profil „livekit“. Einmal einrichten:
+  #   bash scripts/livekit-einrichten.sh ./livekit.yaml <oeffentlicher-name> --docker >> .env
+  #   docker compose --profile livekit up -d
+  # Das Signal hoert nur auf 127.0.0.1:7880 – davor ein Reverse-Proxy mit TLS (wss://<name>).
+  # Freigeben: TCP 7881, UDP 50000-50100. Zugaenge vergibt nur der Knoten; die Datei ist 0600 (LIVEKIT_UID/GID).
+  livekit:
+    image: livekit/livekit-server:v1.13.10
+    container_name: freedom-livekit
+    profiles: ["livekit"]
+    restart: unless-stopped
+    network_mode: host
+    user: "${LIVEKIT_UID:-1000}:${LIVEKIT_GID:-1000}"
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
 
 volumes:
   ollama-models:

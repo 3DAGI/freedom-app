@@ -109,8 +109,16 @@ test("SH1: alte Anteile (Fassung 1) bleiben lesbar – gemischt nie", async () =
   assert.deepEqual(await setzeGeheimnisZusammen([alt[4]!, alt[1]!, alt[2]!]), GEHEIMNIS);
   const neu = await teileGeheimnis(GEHEIMNIS, 5, 3);
   await assert.rejects(setzeGeheimnisZusammen([alt[0]!, alt[1]!, neu[2]!]), /verschiedener Fassungen/);
-  // Gegenprobe: dieselben Bytes mit der jeweils anderen Rechnung ergeben nicht das Geheimnis
-  assert.notDeepEqual(combineShares(neu.slice(0, 3).map((t) => ({ index: t.index, data: t.data.slice(0, 32) }))), GEHEIMNIS);
+  // Gegenprobe: dieselben Bytes mit der jeweils anderen Rechnung ergeben nicht das Geheimnis. Für einen einzelnen Dreier
+  // gilt das nur meistens – ob er zufällig passt, hängt nur an den x-Werten der Bibliothek, für alle 32 Byte zugleich
+  // (gemessen 19.10.2026: in 100 000 Läufen passte in 795 einer der zehn Dreier, in 2 zwei, nie mehr; in der CI geschehen).
+  // Geprüft wird deshalb: Nicht alle zehn Dreier ergeben das Geheimnis.
+  const dreier = [[0, 1, 2], [0, 1, 3], [0, 1, 4], [0, 2, 3], [0, 2, 4], [0, 3, 4], [1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]];
+  const passend = dreier.filter((d) => {
+    const v = combineShares(d.map((i) => ({ index: neu[i]!.index, data: neu[i]!.data.slice(0, 32) })));
+    return v.every((b, i) => b === GEHEIMNIS[i]);
+  });
+  assert.ok(passend.length < dreier.length, `alle Dreier passen mit der Rechnung der Fassung 1: ${JSON.stringify(passend)}`);
 });
 
 test("Pruefsumme bestaetigt, dass die Teile zusammenpassen", () => {
