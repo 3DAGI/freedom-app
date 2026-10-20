@@ -12250,3 +12250,29 @@ Gemessen mit dem Skript aus VKg2c1 und einem Angebot mit 120: Die Verbindung ste
 - `empfange()` wartet jetzt auch auf genug Bilder.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt C-60 – Lauf verliert die letzte Ausgabe nicht mehr
+
+Spur C. Gefunden im vollen Lauf für VKd2a (20.10.): Der Smoke-Test „projekt“ war einmal rot. Er wartete 20 s auf die
+Ausgabe des Schritts, das Ergebnis stand schon da.
+
+**Ursache:**
+- Der Pool liefert Abrufe nach Zeit, die neueste Antwort zuerst.
+- Kamen Ausgabe und Ergebnis eines Laufs im selben Abruf und war das Ergebnis eine Sekunde neuer, stand es vorn.
+  `folgeLauf()` hörte dort auf, und die Ausgabe des letzten Schritts ging verloren.
+- Im Test passierte das, wenn die Probe beim Bauen über eine Sekundengrenze rutschte, also unter Last.
+- Im echten Betrieb schickt der Knoten das Ergebnis nach der Ausgabe – dort konnte es bei jedem Lauf passieren.
+
+**Neu:**
+- `werteAbrufAus()` (`knoten-lauf.ts`, ohne DOM) wertet einen Abruf ganz aus: erst alle Schritte, dann das Ende
+  (Ablehnung oder Ergebnis). `folgeLauf()` ruft es je Abruf.
+- Die Probe (`knoten-code-probe.mts`) schickt das Ergebnis jetzt eine Sekunde nach der Ausgabe, wie der Knoten. So prüft
+  der Smoke-Test diese Reihenfolge immer.
+
+**Tests:**
+- `knoten-lauf.test.ts`: Ein Abruf mit dem Ergebnis vorn liefert beide Schritte, keinen aus einem anderen Lauf, dann das
+  Ergebnis; eine Ablehnung samt Kennung; Unlesbares fällt weg.
+- Mit der Probe, die das Ergebnis später schickt: Die App aus `main` ist rot (derselbe TimeoutError wie im vollen Lauf),
+  die neue grün.
+
+Knoten-Stand: nur die App.

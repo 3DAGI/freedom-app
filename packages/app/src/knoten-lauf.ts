@@ -5,7 +5,7 @@
  * `wartet` und noch keine `ausgabe` vorliegt. Gezeigt wird nur Text (`textContent`) – Befehle, Ausgaben und Gedanken
  * kommen vom Modell des Knotens.
  */
-import type { CodeAntwort, CodeEnde, CodeModus, CodeSchritt } from "@freedomstack/protocol";
+import { getTag, leseCodeSchritt, type CodeAntwort, type CodeEnde, type CodeModus, type CodeSchritt, type NostrEvent } from "@freedomstack/protocol";
 import { t } from "./i18n.js";
 
 /** So lange wartet die Seite höchstens auf das Ende – der Knoten bricht nach 60 min selbst ab (`grenze`). */
@@ -55,6 +55,23 @@ export function nimmSchritt(stand: LaufStand, s: CodeSchritt): boolean {
     z.ausgabe = { text: s.ausgabe, code: s.code, gekuerzt: s.gekuerzt };
   }
   return JSON.stringify(z) !== vorher;
+}
+
+/**
+ * Die geöffneten Antworten eines Abrufs auswerten (C-60): erst alle Schritte, dann das Ende – Ablehnung (7000 `error`) oder
+ * Ergebnis (`ergebnisKind`). Der Pool liefert die neueste Antwort zuerst; wer beim Ergebnis aufhörte, verlor die Ausgabe des
+ * letzten Schritts, wenn beide im selben Abruf kamen. Antworten zu anderen Aufträgen zählen nicht.
+ */
+export function werteAbrufAus(antworten: readonly NostrEvent[], requestId: string, ergebnisKind: number): {
+  schritte: CodeSchritt[]; ende: { ergebnis: string } | { abgelehnt: string; fall?: string } | null;
+} {
+  const zumLauf = antworten.filter((a) => getTag(a, "e") === requestId);
+  const schritte = zumLauf.filter((a) => a.kind === 7000 && getTag(a, "status") === "partial")
+    .map((a) => leseCodeSchritt(a.content)).filter((x): x is CodeSchritt => x !== null);
+  const fehler = zumLauf.find((a) => a.kind === 7000 && getTag(a, "status") === "error");
+  const ergebnis = zumLauf.find((a) => a.kind === ergebnisKind);
+  const ende = fehler ? { abgelehnt: fehler.content, fall: getTag(fehler, "fall") } : ergebnis ? { ergebnis: ergebnis.content } : null;
+  return { schritte, ende };
 }
 
 /** Wartet dieser Schritt auf meine Antwort? */

@@ -914,3 +914,6 @@ Fallstricke dieses Bereichs unten anhängen.
   Auf den Datenkanal `eingabe` nur, was `eingabeText()` durchlässt (Format `PROTOCOL.md` §34), nie freien Text. Das Bild
   endet (`bild-ende`), sobald das Blatt etwas anderes zeigt (`lauf()`) oder zugeht. Im Smoke-Test („bild“) startet der Test
   ein echtes coturn auf 127.0.0.1, eine zweite Seite spielt den Knoten (Leinwand) – in der CI installiert der Smoke-Job coturn.
+- **Antworten des Knotens je Abruf ganz auswerten** (seit C-60, `werteAbrufAus()` in `knoten-lauf.ts`): Der Pool liefert die
+  neueste zuerst – erst alle Schritte, dann das Ende; nie beim ersten Ergebnis aufhören, sonst fehlt die Ausgabe des letzten
+  Schritts. Die Probe im Smoke-Test schickt das Ergebnis deshalb eine Sekunde nach der Ausgabe.
