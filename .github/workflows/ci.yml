@@ -67,7 +67,7 @@ jobs:
       - name: coturn fuer die Tunnel-Tests
         run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
 
-      # VKg2a2: der Bildstrom läuft Ende zu Ende gegen echtes Xvfb und GStreamer (webrtcbin) in bubblewrap; python-xlib fürs Testprogramm
+      # VKg2a2/a3: der Bildstrom läuft Ende zu Ende gegen echtes Xvfb, GStreamer (webrtcbin) und python-xlib (XTest) in bubblewrap
       - name: Xvfb und GStreamer fuer den Bildstrom-Test
         run: |
           sudo apt-get install -y --no-install-recommends xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good \

@@ -459,3 +459,5 @@ Bereichs unten anhängen.
   PyGObject: den ICE-Agenten (`get_property("ice-agent")`) in einer Liste halten, sonst gibt die Hülle ihn frei; die Antwort
   eines Promise samt Wert in Namen halten, bevor man ihn weitergibt. In der Sandbox gibt es nur `lo`: ohne
   `add-local-ip-address 127.0.0.1` sammelt libnice nichts.
+  Eingaben (seit VKg2a3) nur über `Eingabe` in `freedom_bild.py`: XTest an den eigenen Bildschirm, feste Nachrichten
+  (`PROTOCOL.md` §34), begrenzt – nie etwas aus dem Datenkanal an eine Shell, eine Datei oder den Knoten.

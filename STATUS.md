@@ -12124,3 +12124,23 @@ Nebenbei: Gegenproben in `knoten-code.test.ts` (VKg1a, VKe2) bauten den Kern mit
 falschen Grund `null` – jetzt mit Paaren und einer Positivprobe.
 
 Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a3 – Eingaben über XTest
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a2.
+
+**Neu:**
+- `motor/freedom_bild.py`: Nachrichten auf dem Datenkanal `eingabe` gehen per XTest an den Bildschirm der Bild-Sandbox – an
+  nichts sonst (`Eingabe`).
+  - Zeiger, Knöpfe 1–3, Rad.
+  - Tasten nach `KeyboardEvent.key`. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu (Tastatur am Handy).
+    Zeichen ohne Taste bekommen eine freie.
+  - Höchstens 200 Zeichen je Nachricht; Unbekanntes tut nichts. Schließt der Kanal, gehen alle Tasten los.
+- `bildFehlt()` verlangt python-xlib. `PROTOCOL.md` §34 nennt das Format, `PROVIDER.md` das Paket.
+
+**Tests:** Der Ende-zu-Ende-Test schickt Eingaben und liest, was das Programm in seiner Sandbox bekam:
+- „h“, „A“ ohne Umschalttaste, „ä“ auf einer frei belegten Taste, Enter;
+- einen Klick an der richtigen Stelle;
+- Unsinn (zu lang, außerhalb, unbekannt), der nichts tut.
+
+Knoten-Stand: nur der Knoten.

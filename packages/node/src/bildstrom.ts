@@ -2,7 +2,7 @@
  * Bildstrom für Programme ohne Web (VKg2a2, Entscheidung VKg-W2 vom 18.10.2026, `docs/VIBECODEN-ENTWURF.md` VKg2): Der
  * Knoten zeigt das Programm eines Projekts auf einem virtuellen Bildschirm und schickt das Bild über WebRTC an die App – nur
  * über den eigenen TURN (B-13). Zwei Sandboxen, beide ohne Netz:
- * - **Bild:** `motor/freedom_bild.py` – Xvfb und GStreamer `webrtcbin` (Eingaben über XTest mit VKg2a3). Den TURN
+ * - **Bild:** `motor/freedom_bild.py` – Xvfb, GStreamer `webrtcbin`, Eingaben aus dem Datenkanal über XTest (VKg2a3). Den TURN
  *   erreicht sie nur über den Tunnel aus `turn-tunnel.ts` (nur die Relay-Adressen aus dem Angebot der App); den Zugang
  *   bekommt sie über stdin.
  * - **Programm:** der Code des Projekts, mit `/arbeit` wie beim Motor. Mit der Bild-Sandbox teilt es nur den Socket des
@@ -43,11 +43,11 @@ const ANZEIGE = ":99";
 /** Feste Sätze fürs Log – warum es kein Bild gibt. */
 export const BILD_TEXT = {
   xvfb: "Xvfb fehlt (apt install xvfb)",
-  gstreamer: "GStreamer mit webrtcbin oder PyGObject fehlen (apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi)",
+  gstreamer: "GStreamer mit webrtcbin, PyGObject oder python-xlib fehlen (apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib)",
 } as const;
 
 const PRUEFUNG = "import gi; gi.require_version('Gst','1.0'); gi.require_version('GstWebRTC','1.0'); gi.require_version('GstSdp','1.0'); "
-  + "from gi.repository import Gst, GstWebRTC, GstSdp; Gst.init(None); "
+  + "from gi.repository import Gst, GstWebRTC, GstSdp; Gst.init(None); import Xlib.ext.xtest; "
   + "assert all(Gst.ElementFactory.find(e) for e in ('webrtcbin','nicesrc','ximagesrc','videoconvert','vp8enc','rtpvp8pay'))";
 
 /** Gibt es hier alles für das Bild? null, sonst ein Satz aus `BILD_TEXT`. Geprüft beim Start, außerhalb der Sandbox (dasselbe `/usr`). */

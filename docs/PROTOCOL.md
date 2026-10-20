@@ -1281,8 +1281,17 @@ TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Proje
 sonst `main.py`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert (VP8). Den
 TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
 erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
-mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`). Eingaben über den
-Datenkanal kommen mit VKg2a3.
+mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).
+
+**Eingaben** (seit VKg2a3): über den Datenkanal `eingabe`, je Nachricht ein JSON-Objekt, höchstens 200 Zeichen.
+Die Bild-Sandbox gibt sie per XTest nur an ihren Bildschirm; was nicht passt, tut nichts.
+
+| `t` | Felder | Wirkung |
+|---|---|---|
+| `b` | `x`, `y` (0 bis 1, Anteil an Breite und Höhe) | Zeiger bewegen |
+| `d`, `u` | `x`, `y` wie oben, `k` (1 links, 2 Mitte, 3 rechts, Vorgabe 1) | Knopf drücken, loslassen (Berührung: `d` und `u` an derselben Stelle) |
+| `r` | `dy` (Pixel wie `WheelEvent.deltaY`) | Rad: je 50 einen Schritt, höchstens fünf |
+| `kd`, `ku` | `s`: `KeyboardEvent.key` – ein Zeichen oder ein Name (`Enter`, `Backspace`, `ArrowLeft`, `Shift`, `F1` …) | Taste drücken, loslassen. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu; Zeichen ohne Taste (Umlaute auf der US-Belegung) bekommen eine freie Taste |
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 
