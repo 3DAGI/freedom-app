@@ -908,3 +908,9 @@ Fallstricke dieses Bereichs unten anhängen.
   das Fenster der App. Nie in einen Rahmen der App laden (er erbte die CSP, VKe2b) und nie die CSP dafür lockern. Die Hülle
   verweigert neue Fenster (`on_new_window`) – dort nur Adresse, Kopieren und QR. Der QR-Code trägt einen Zugang: nur mit
   `geheim: true`.
+- **Bild vom Knoten nur über den eigenen TURN** (seit VKg2b, `shell/bild-ui.ts`, `bild-ablauf.ts`): Zugang nur aus
+  `eigenerTurnZugang()`, `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, das Angebot nur nach `nurRelaySdp()` und
+  `istBildSdp()` in der versiegelten Code-Aktion `bild` – wie Anrufe (B-13); ohne eigenen TURN kein Bild, nie ohne Relay.
+  Auf den Datenkanal `eingabe` nur, was `eingabeText()` durchlässt (Format `PROTOCOL.md` §34), nie freien Text. Das Bild
+  endet (`bild-ende`), sobald das Blatt etwas anderes zeigt (`lauf()`) oder zugeht. Im Smoke-Test („bild“) startet der Test
+  ein echtes coturn auf 127.0.0.1, eine zweite Seite spielt den Knoten (Leinwand) – in der CI installiert der Smoke-Job coturn.

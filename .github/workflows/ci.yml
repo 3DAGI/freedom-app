@@ -211,6 +211,10 @@ jobs:
           python -m pip install --disable-pip-version-check playwright==1.56.0
           python -m playwright install --with-deps chromium
 
+      # VKg2b: das Bild vom Knoten läuft im Test über echtes coturn auf 127.0.0.1 (der Test startet es selbst, freier Port)
+      - name: coturn fuer den Bild-Test
+        run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
+
       - name: Smoke-Test
         run: python scripts/smoke_test.py packages/app/dist
 

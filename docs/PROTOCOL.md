@@ -1282,6 +1282,9 @@ sonst `main.py`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das de
 TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
 erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
 mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).
+Die App (seit VKg2b) holt den Zugang zum eigenen TURN (5079), verbindet nur mit `iceTransportPolicy: "relay"`,
+nennt die Größe der Fläche in Gerätepixeln (eingepasst in den Rahmen oben) und schickt `bild-ende`, sobald das Blatt
+des Projekts etwas anderes zeigt oder zugeht.
 
 **Eingaben** (seit VKg2a3): über den Datenkanal `eingabe`, je Nachricht ein JSON-Objekt, höchstens 200 Zeichen.
 Die Bild-Sandbox gibt sie per XTest nur an ihren Bildschirm; was nicht passt, tut nichts.
