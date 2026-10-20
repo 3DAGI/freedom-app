@@ -7,10 +7,11 @@
  * Ohne bekanntes Relay geht nichts an ihn – nie still über den Pool.
  */
 import {
-  KIND_DVM_KNOTEN_CODE, KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, leseCodeSchritt, openPrivateJobResponse,
+  KIND_DVM_KNOTEN_CODE, KIND_RELAY_LIST, WebSocketRelay, baueRelayAuth, getTag, openPrivateJobResponse,
   type CodeSchritt, type NostrEvent, type RelayFilter, type Signer,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { werteAbrufAus } from "../knoten-lauf.js";
 import { LS_NUR_KNOTEN, knotenRelayAus, nurUeberKnoten, satzMitKnotenRelay, ursprungAlsKnotenRelay } from "../knoten-weg.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { ladeEigeneRelays, setzeEigeneRelays } from "../relay-satz.js";
@@ -84,7 +85,8 @@ export async function warteAufKnoten(
 /**
  * Einem Lauf auf meinem Knoten folgen (VKe): Schritte (7000 `partial`, gelesen über `leseCodeSchritt()`) bis zum
  * Ergebnis (6080) – oder einer Ablehnung (7000 `error`, mit Kennung). Jeder Umschlag wird nur einmal geöffnet; die
- * Reihenfolge sagt nichts, die Seite ordnet nach `nr`. null nach der Frist oder wenn `aufhoeren()` es sagt.
+ * Reihenfolge sagt nichts, die Seite ordnet nach `nr`. Je Abruf erst alle Schritte, dann das Ende (`werteAbrufAus()`,
+ * C-60). null nach der Frist oder wenn `aufhoeren()` es sagt.
  */
 export async function folgeLauf(
   weg: KnotenWeg, sitzung: Signer, requestId: string,
@@ -95,18 +97,16 @@ export async function folgeLauf(
   for (let t0 = Date.now(); Date.now() - t0 < o.zeitMs && !o.aufhoeren?.();) {
     await new Promise((ok) => setTimeout(ok, o.taktMs));
     const umschlaege = await weg.query({ kinds: [1059], "#p": [weg.sitzungPk], since: seit }).catch(() => []);
+    const antworten: NostrEvent[] = [];
     for (const w of umschlaege) {
       if (gesehen.has(w.id)) continue;
       gesehen.add(w.id);
       const a = await openPrivateJobResponse(w, sitzung);
-      if (!a.ok || getTag(a.response, "e") !== requestId) continue;
-      if (a.response.kind === KIND_DVM_KNOTEN_CODE + 1000) return { ergebnis: a.response.content };
-      if (a.response.kind !== 7000) continue;
-      const status = getTag(a.response, "status");
-      if (status === "error") return { abgelehnt: a.response.content, fall: getTag(a.response, "fall") };
-      const s = status === "partial" ? leseCodeSchritt(a.response.content) : null;
-      if (s) o.schritt(s);
+      if (a.ok) antworten.push(a.response as NostrEvent);
     }
+    const { schritte, ende } = werteAbrufAus(antworten, requestId, KIND_DVM_KNOTEN_CODE + 1000);
+    for (const s of schritte) o.schritt(s);
+    if (ende) return ende;
   }
   return null;
 }

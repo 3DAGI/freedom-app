@@ -69,6 +69,9 @@ if (process.argv[2] !== "antworte" && process.argv[2] !== "angebot") {
       events.push(await ergebnis(r, { aktion: "freigabe", ok: !!lauf && a.schritt === 1 }));
       if (lauf && a.schritt === 1) {
         events.push(await schritt(lauf, { nr: 1, art: "ausgabe", ausgabe: a.ja ? "hallo" : "abgelehnt", code: a.ja ? 0 : 1, gekuerzt: false }));
+        // wie der Knoten: das Ergebnis kommt nach der Ausgabe – eine Sekunde später, damit der Pool es vor ihr liefert
+        // (neueste zuerst); bis C-60 verlor die App dann die letzte Ausgabe
+        await new Promise((ok) => setTimeout(ok, 1100));
         events.push(await ergebnis(lauf, { aktion: "auftrag", ende: "fertig", schritte: 1, abschluss: a.ja ? "Fertig: **index.html** angelegt." : "Nichts geändert." }));
       }
     } else if (a.aktion === "stopp") events.push(await ergebnis(r, { aktion: "stopp", ok: false }));

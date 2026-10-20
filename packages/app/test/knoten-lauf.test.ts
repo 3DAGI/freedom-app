@@ -7,9 +7,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CODE_ENDEN } from "@freedomstack/protocol";
+import { CODE_ENDEN, KIND_DVM_KNOTEN_CODE, codeSchrittText, type NostrEvent } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
-import { CODE_ENDE_TEXT, codeText, endeText, neuerLauf, nimmSchritt, wartetAufMich } from "../src/knoten-lauf.js";
+import { CODE_ENDE_TEXT, codeText, endeText, neuerLauf, nimmSchritt, wartetAufMich, werteAbrufAus } from "../src/knoten-lauf.js";
 import { settings } from "../src/texte/settings.js";
 
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
@@ -70,5 +70,25 @@ test("VKe: Seite nur als Text, Freigabe und Stopp über frageKnotenCode(), der A
   assert.match(liste, /istProjektName\(String\(x\.name\)\.trim\(\)\)/);
   const weg = lies("shell/knoten-weg-ui.ts");
   assert.match(weg, /if \(gesehen\.has\(w\.id\)\) continue;/, "jeder Umschlag nur einmal");
-  assert.match(weg, /status === "partial" \? leseCodeSchritt\(a\.response\.content\) : null/);
+  // seit C-60 über werteAbrufAus(): Schritte nur aus 7000 „partial“ über leseCodeSchritt(), erst alle Schritte, dann das Ende
+  assert.match(weg, /werteAbrufAus\(antworten, requestId, KIND_DVM_KNOTEN_CODE \+ 1000\)/);
+  assert.match(lies("knoten-lauf.ts"), /a\.kind === 7000 && getTag\(a, "status"\) === "partial"\)\s*\.map\(\(a\) => leseCodeSchritt\(a\.content\)\)/);
+});
+
+test("C-60: ein Abruf mit Ergebnis und letzter Ausgabe – erst alle Schritte, dann das Ende, auch wenn das Ergebnis vorn steht", () => {
+  const lauf = "c".repeat(64), anderer = "d".repeat(64);
+  const ev = (kind: number, tags: string[][], content: string, created_at: number) =>
+    ({ id: "", pubkey: "", sig: "", kind, tags, content, created_at }) as NostrEvent;
+  const schritt = (nr: number, t: number, auftrag = lauf) =>
+    ev(7000, [["e", auftrag], ["status", "partial"]], codeSchrittText({ nr, art: "ausgabe", ausgabe: `aus ${nr}`, code: 0, gekuerzt: false }), t);
+  const ergebnis = ev(KIND_DVM_KNOTEN_CODE + 1000, [["e", lauf]], "{\"aktion\":\"auftrag\"}", 101);
+  // so liefert der Pool: die neueste zuerst – das Ergebnis vor der Ausgabe, die eine Sekunde älter ist
+  const r = werteAbrufAus([ergebnis, schritt(2, 100), schritt(1, 99), schritt(9, 100, anderer)], lauf, KIND_DVM_KNOTEN_CODE + 1000);
+  assert.deepEqual(r.schritte.map((s) => s.nr), [2, 1], "beide Schritte, keiner aus einem anderen Lauf");
+  assert.deepEqual(r.ende, { ergebnis: "{\"aktion\":\"auftrag\"}" });
+  // eine Ablehnung beendet den Lauf, ihre Kennung kommt mit; ohne Ende bleibt es offen
+  const nein = ev(7000, [["e", lauf], ["status", "error"], ["fall", "code-ohne-motor"]], "kein Motor", 102);
+  assert.deepEqual(werteAbrufAus([nein, schritt(1, 99)], lauf, KIND_DVM_KNOTEN_CODE + 1000).ende, { abgelehnt: "kein Motor", fall: "code-ohne-motor" });
+  assert.equal(werteAbrufAus([schritt(1, 99)], lauf, KIND_DVM_KNOTEN_CODE + 1000).ende, null);
+  assert.deepEqual(werteAbrufAus([ev(7000, [["e", lauf], ["status", "partial"]], "kaputt", 1)], lauf, KIND_DVM_KNOTEN_CODE + 1000).schritte, [], "Unlesbares fällt weg");
 });
