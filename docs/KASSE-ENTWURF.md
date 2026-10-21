@@ -142,6 +142,7 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   Festgelegt dabei:
   - Die Miete abgeschlossener Vorschläge geht an den Tresor der Kasse (`rent_collector`).
     Ohne `rent_collector` bliebe sie liegen; an ein Mitglied verbände sie es mit der Kasse.
+    Bestätigt am 21.10.2026 (MENSCH: „Passt“).
   - Das Schatzamt (Empfänger der Gebühr für das Anlegen) kommt aus den Einstellungen des
     Programms auf der Kette. Ein anderes lehnt Squads ab.
   - Mitglieder liest die App nur von der Kette; die Reihenfolge legt das Programm fest.
@@ -151,5 +152,12 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   Empfänger und Betrag liest `leseAuszahlung()` von der Kette – nur in genau der Form, die die App baut;
   jede andere Transaktion ist keine Auszahlung (V6). Der Vorschlagende zahlt die Miete beider Konten; sie
   kommt beim Abschließen in den Tresor, nicht zu ihm zurück.
+- **A-12b1 (21.10.2026):** Kasse im Raum, Protokoll (`raum-kasse.ts`, `docs/PROTOCOL.md` §42). Neues Recht
+  „kasse“ (W4, `spaces.ts`); die Adresse der Kasse steht als Tag `kasse` in der Definition – offen nur in der des
+  Gründers, privat nur in der eines Admins (V5). Jedes Mitglied nennt dem Raum seine Adresse für die Kasse (Kind 34704,
+  privat nur als inneres Event) samt Nachweis: Die Adresse signiert Ort und Nostr-Schlüssel, so gibt niemand eine
+  fremde als seine aus. `kassenAbweichungen()` zeigt Recht ohne Mitgliedschaft und Mitgliedschaft ohne Recht (V3).
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
-  A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2.
+  A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
+  Recht, Definition, Adressen, Abweichungen) und b2 (App: Adresse nennen, anlegen, einzahlen, Grenze „raum-kasse“ im
+  Datenschutzbericht).

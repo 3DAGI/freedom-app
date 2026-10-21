@@ -12638,3 +12638,36 @@ Spur A, `docs/KASSE-ENTWURF.md` (V1, V6, W2, W3). Nach A-12a1 (anlegen, lesen) d
 - **Gegenprobe:** Mit dem Tresor nur lesbar bei der Ausführung sind auf beiden Programmen je zwei Tests rot.
 
 Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12c.
+
+## Schritt A-12b1 – Kasse im Raum: Recht, Definition, Adressen der Mitglieder
+
+Spur A, `docs/KASSE-ENTWURF.md` (V3–V5, W4). A-12b ist geteilt: b1 ist der Protokollteil, b2 die App (eigene Adresse
+nennen, anlegen, einzahlen, Abweichungen zeigen, Grenze „raum-kasse“ im Datenschutzbericht). Dazu ist im Entwurf
+eingetragen: Die Miete abgeschlossener Vorschläge geht an den Tresor, bestätigt vom MENSCHEN am 21.10. („Passt“).
+
+**Neu:**
+- **Recht „kasse“** (`spaces.ts`, Datei der Spur B): erlaubt die Mitgliedschaft in der Kasse (W4). Gründer und Admins
+  haben es immer, sonst nur über eine zugewiesene Rolle, nie über die Rolle für alle.
+- **Kasse in der Definition** (Tag `kasse`, `buildSpace()`/`raumDefinition()`): Offen zählt sie nur aus der Definition
+  des Gründers, privat nur aus der eines Admins (V5). Eine unlesbare Adresse heißt keine Kasse; der Raum bleibt lesbar.
+- **Adresse eines Mitglieds** (`raum-kasse.ts`, Kind 34704): offen an die Adresse des Raums, privat nur als inneres
+  Event. Der Nachweis ist eine Signatur der Adresse über `freedomstack-kasse-v1:<ort>:<schlüssel>`; so gibt niemand
+  eine fremde Adresse als seine aus, und der Nachweis gilt nur in seinem Raum. Je Schlüssel zählt die neueste Meldung,
+  eine kaputte gilt nicht (nie still die ältere), und eine doppelt genannte Adresse gilt für keinen.
+- **Abweichungen** (`kassenAbweichungen()`, V3): Recht ohne Mitgliedschaft und Mitgliedschaft ohne Recht. Es zählt die
+  Kette.
+- **Doku:** `docs/PROTOCOL.md` §42, Entwurf (Umsetzung), Fallstrick in `packages/protocol/CLAUDE.md`, OFFEN, FORTSCHRITT,
+  Stand.
+
+**Tests:** protocol +7 (`raum-kasse.test.ts`):
+- **Definition:** offen nur vom Gründer, auch nach den Kanälen; privat nur von Admins.
+- **Recht:** Gründer und Admins ja, Rolle für alle nein; beim Lesen der Rollen nicht weggefiltert.
+- **Nachweis:** anderer Schlüssel, anderer Raum, andere Adresse und kaputte Form scheitern; eine fremde Adresse
+  scheitert schon beim Bauen.
+- **Offene und private Meldungen:** neueste je Schlüssel; anderer Raum, umgelenktes `a`-Tag, geklaute Meldung,
+  doppelte Adresse und mehr als 600 s voraus zählen nicht; privat nur diese Gruppe (Gruppen-Id mit 16 Byte wie bei MDK).
+- **Abweichungen:** in beide Richtungen, auch ohne genannte Adresse.
+- **Gegenproben:** Ohne die Prüfung des Nachweises, ohne die Prüfung der Raum-Adresse, ohne die Prüfung der Adresse in
+  der Definition und ohne die Regel für doppelte Adressen ist je mindestens ein Test rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b2.

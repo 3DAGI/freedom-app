@@ -22,6 +22,7 @@
 import { NostrEvent, UnsignedEvent, buildEvent, getTag } from "./event.js";
 import { type ModerationState, parseModerationAction } from "./moderation.js";
 import { ProtokollFehler } from "./fehler.js";
+import { isAddress } from "@solana/kit";
 
 /** Definition eines Raums (Server). */
 export const KIND_SPACE = 34700;
@@ -43,11 +44,13 @@ export type Permission =
   | "kanaele_verwalten"
   | "rollen_vergeben"
   /** Repos des Raums pflegen: ankündigen, Patches annehmen und schließen (11.4a). */
-  | "repos_pflegen";
+  | "repos_pflegen"
+  /** Mitglied der Kasse des Raums werden dürfen (A-12, W4) – Mitglied ist man erst auf der Kette. */
+  | "kasse";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "lesen", "schreiben", "threads", "anheften", "moderieren",
-  "kanaele_verwalten", "rollen_vergeben", "repos_pflegen",
+  "kanaele_verwalten", "rollen_vergeben", "repos_pflegen", "kasse",
 ];
 
 /**
@@ -103,6 +106,8 @@ export interface Space {
   description?: string;
   ownerPubkey: string;
   channels: Channel[];
+  /** Adresse der Kasse auf Solana (A-12, V5: Multisig von Squads) – offen nur in der Definition des Gründers. */
+  kasse?: string;
   createdAt: number;
 }
 
@@ -118,6 +123,10 @@ export function buildSpace(s: Omit<Space, "createdAt">, createdAt?: number): Uns
       "channel", c.id, c.name, c.privacy, String(c.position),
       c.writeRoles.join("|"), c.topic ?? "",
     ]);
+  }
+  if (s.kasse !== undefined) {
+    if (!isAddress(s.kasse)) throw new Error("Adresse der Kasse ungültig");
+    tags.push(["kasse", s.kasse]);
   }
   return buildEvent(s.ownerPubkey, KIND_SPACE, tags, "", createdAt);
 }
@@ -141,9 +150,12 @@ export function parseSpace(ev: NostrEvent): Space {
     .filter((c) => c.id && c.name)
     .sort((a, b) => a.position - b.position);
 
+  // Eine unlesbare Adresse heißt: keine Kasse – der Raum bleibt lesbar
+  const kasse = getTag(ev, "kasse");
   return {
     spaceId, name, description: getTag(ev, "about") ?? undefined,
     ownerPubkey: ev.pubkey, channels, createdAt: ev.created_at,
+    ...(kasse && isAddress(kasse) ? { kasse } : {}),
   };
 }
 
