@@ -204,8 +204,6 @@ agent-auftrag.ts|ausInnererNachricht|Agenten in Räumen (11.3b2, nur Protokoll) 
 agent-auftrag.ts|budgetStufe|Agenten in Räumen (11.3b2, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
 agent-auftrag.ts|naechsteStufe|Agenten in Räumen (11.3b2, nur Protokoll) – verdrahtet in 11.3c (Gerät) und 11.3d (Knoten, Spur B)
 repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag erst mit „Agent beauftragen“ (11.5b → 11.5d)
-repo-auftrag.ts|leseRepoAuftrag|Repo-Aufträge an Agenten: der Knoten liest den Auftrag erst mit seinem Ablauf (11.5b → 11.5c)
-repo-auftrag.ts|repoImOffenenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
-repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten: der Knoten prüft das Repo erst mit seinem Ablauf (11.5b → 11.5c)
+repo-auftrag.ts|repoImPrivatenRaum|Repo-Aufträge an Agenten in privaten Räumen: der Knoten prüft das Repo erst mit P1–P4 (11.5b → 11.5c2b)
 channel.ts|rechneKanalAbIxs|web3.js-Fassung der Einlösung: der Knoten löst seit A-21e1 über kit ein, die Validator-Tests (contracts/solana-channel/tests) und die Vektoren bauen sie noch bis A-21f
 kit-bruecke.ts|alsWeb3|Brücke zu web3.js: seit A-21e1 nur noch in den Validator-Tests (contracts/solana-channel/tests) und den Vektoren, fällt mit A-21f
