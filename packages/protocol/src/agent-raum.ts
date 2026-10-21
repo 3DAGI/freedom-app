@@ -125,10 +125,11 @@ export function agentPromptMit(p: {
 /**
  * Antwort des Agenten (Kind 42): selber Kanal und Thread, Antwort auf die Erwähnung, der Fragende erwähnt.
  * Auf einen Repo-Auftrag (11.5c2a, V5) nennt sie den eingereichten Patch (`["e", <patch>, "", "mention"]`) und
- * wie der Auftrag endete (`["fall", <kennung>]`) – die App bildet daraus ihren Text.
+ * wie der Auftrag endete (`["fall", <kennung>]`) – die App bildet daraus ihren Text; fehlten die Pakete der
+ * Sperrdatei (11.5c3), dazu `["pakete", <kennung>]`.
  */
 export function agentAntwortEvent(p: {
-  agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number; patch?: string; fall?: string;
+  agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number; patch?: string; fall?: string; pakete?: string;
 }): UnsignedEvent {
   const ev = buildChannelMessage({
     authorPubkey: p.agent, spaceId: p.kennung, channelId: p.auf.kanal, content: kuerzeAgentAntwort(p.text),

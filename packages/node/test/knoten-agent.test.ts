@@ -219,7 +219,7 @@ test("11.3d1a: Verdrahtung – main startet den Agenten nur gültig, mit eigenem
   assert.match(main, /const agentWahl = agentAusUmgebung\(process\.env\);\n  if \(agentWahl\?\.grund\) \{\n    console\.error\(`\[agent\] \$\{agentWahl\.grund\} – der Knoten startet nicht`\);\n    process\.exit\(1\);/);
   assert.match(main, /s = ladeKnotenSchluessel\(undefined, agentSchluesselDatei\(\), \{ anlegen: true \}\);/);
   assert.match(main, /if \(s\.pk === keypair\.pk\) \{/);
-  assert.match(main, /knotenAgent = new KnotenAgent\(\{\n      schluessel: s, einstellung: agentWahl\.einstellung, knoten: keypair\.pk, pool, datei: agentBeantwortetDatei\(\), /);
+  assert.match(main, /knotenAgent = new KnotenAgent\(\{\n      schluessel: s, einstellung: agentWahl\.einstellung, knoten: keypair\.pk, pool, datei: agentBeantwortetDatei\(\),\s/);
   assert.match(main, /      agent: knotenAgent,\n/);
   assert.equal(main.match(/if \(knotenAgent\) await pool\.publish\(knotenAgent\.karte\(\)\)/g)?.length, 2, "beim Start und mit jedem Erneuern");
   const provider = quelle("../src/dvm-provider.ts");

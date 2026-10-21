@@ -63,6 +63,7 @@ import { type TurnDienst, turnZugang } from "./turn.js";
 import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
 import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent, type RepoFall } from "./knoten-agent.js";
+import type { PaketFall } from "./pakete.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
 import type { VorschauServer } from "./vorschau.js";
@@ -1453,7 +1454,7 @@ export class DvmProvider {
     };
 
     // Repo-Auftrag (11.5c2a): der Ablauf in der Sandbox statt einer Antwort – die Antwort im Raum nennt den Patch
-    const rechnung: Promise<InferenceResult & { fall?: RepoFall; patch?: string }> = agentAuftrag?.repo
+    const rechnung: Promise<InferenceResult & { fall?: RepoFall; patch?: string; pakete?: PaketFall }> = agentAuftrag?.repo
       ? this.cfg.agent!.bearbeiteRepoAuftrag(agentAuftrag, { gespraech: (q) => this.backend.gespraech!(q), model: requestedModel, tokens: repoTokens })
       : this.backend.complete({
         jobId: request.id,
@@ -1469,7 +1470,7 @@ export class DvmProvider {
       throw e;
     });
     // Agent: erst die Antwort im Raum, dann das Ergebnis an den Fragenden – scheitert sie, zahlt er nichts
-    if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output, result.fall ? { fall: result.fall, patch: result.patch } : undefined);
+    if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output, result.fall ? { fall: result.fall, patch: result.patch, pakete: result.pakete } : undefined);
 
     // Preis: Deposit-Rate, Free-Tier (0), oder Bid-Preis.
     // PLUS Tool-Kosten (web_search etc.) — werden on top gerechnet.
