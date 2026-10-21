@@ -166,3 +166,8 @@ Fallstricke dieses Bereichs unten anhängen.
   `abschliessenAnweisung()`; ausgeführt nur mit der `Auszahlung` aus `leseAuszahlung()` (Empfänger und Betrag von der Kette, V6).
   Die Nachricht hat zwei Formate: beim Anlegen das kompakte von Squads (Längen u8/u16, `auszahlungsNachricht()`), im Konto
   Borsh (Längen u32) – nie das eine mit dem Leser des anderen lesen. Eine Transaktion anderer Form ist keine Auszahlung (`null`).
+  Im Raum (seit A-12b1, `raum-kasse.ts`, `docs/PROTOCOL.md` §42) steht die Kasse nur als Tag `kasse` in der Definition (offen die
+  des Gründers, privat die eines Admins) – wer die Definition neu schreibt, gibt sie mit. Wer welche Adresse hat, nur über
+  `kassenAdressenOffen()`/`kassenAdressenPrivat()` (Kind 34704, Nachweis: die Adresse signiert Ort und Schlüssel, eine doppelt genannte
+  Adresse gilt für keinen), privat nur als inneres Event (`raumKassenAdresse()`); Abweichungen nur über `kassenAbweichungen()` – es
+  zählt die Kette. `KASSEN_RECHT` (Bits bei Squads) ist nicht `RAUM_KASSEN_RECHT` (Recht im Raum).

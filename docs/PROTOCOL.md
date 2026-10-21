@@ -1583,3 +1583,44 @@ beide Richtungen (höchstens 1 MiB je Nachricht, zwei Verbindungen je Zeichen, a
 abgelaufenes Zeichen ergibt 404, ein verbotenes Ziel 403, ein SFU, der nicht antwortet oder ablehnt, 502 – nie Text vom
 SFU. Mit dem Ablauf endet auch eine offene Verbindung. Der SFU sieht die Adresse des eigenen Knotens (oder des
 Tor-Ausgangs), nicht die des Geräts; Bild und Ton gehen weiter über den eigenen Vermittler (§26).
+
+## 42. Kasse im Raum (Tag `kasse` in 34700, Kind 34704, seit A-12b1)
+
+Entwurf `docs/KASSE-ENTWURF.md` (V3–V5, W4): Ein Raum hält SOL gemeinsam in einer Kasse von Squads v4 (`kasse.ts`).
+Wer Mitglied werden darf, sagt der Raum; wer es ist, sagt die Kette – es zählt immer die Kette (`leseKassenStand()`).
+
+**Recht `kasse`** (`Permission` in `spaces.ts`): erlaubt die Mitgliedschaft. Der Gründer eines offenen Raums und die
+Admins eines privaten haben es immer, sonst nur über eine zugewiesene Rolle – nie über die Rolle für alle (`jeder`
+bringt nur Grundrechte, §22).
+
+**Die Kasse in der Definition** (Tag `["kasse", <adresse>]` in 34700, `buildSpace()`/`raumDefinition()`): die Adresse
+des Multisig-Kontos (`kassenAdresse()`), nicht die des Tresors. Offen zählt sie nur aus der Definition des Gründers
+(`raumZustandFuer()`) – die Kasse ist dann öffentlich wie der Raum. Privat steht sie nur in der Definition eines Admins
+in der Gruppe (`gruppenRaum()`); Mitglieder-Adressen, Zahlungen und Stimmen sieht trotzdem jeder auf der Kette. Eine
+unlesbare Adresse heißt: keine Kasse; der Raum bleibt lesbar. Wer die Definition neu schreibt, gibt die geltende Kasse mit.
+
+**Adresse eines Mitglieds** (Kind 34704, `KIND_KASSEN_ADRESSE`): Jedes Mitglied nennt dem Raum die Adresse, mit der es
+in der Kasse steht – eine eigene je Raum, nie die Hauptadresse (V4). Offen (`baueKassenAdresse()`, ersetzbar):
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `kasse:<kennung>` |
+| `space` | Kennung des Raums |
+| `a` | Adresse des Raums, `34700:<gründer>:space:<kennung>` |
+| `sol` | `<adresse>`, `<nachweis>` – 128 Zeichen Hex |
+
+Privat nur als inneres Event der Gruppe (`raumKassenAdresse()`): Art 34704, Tags `d` = `kasse:<gruppe>`, `space` =
+Gruppe, `sol` wie oben – nie offen.
+
+**Nachweis:** Die Adresse signiert mit Ed25519 den Text `freedomstack-kasse-v1:<ort>:<schlüssel>` (UTF-8, lesbar für die
+Wallet; `kassenNachweisNachricht()`), `<ort>` ist die Adresse des offenen Raums oder `mls:<gruppe>` (`kassenOrt()`),
+`<schlüssel>` der Nostr-Schlüssel des Mitglieds (Hex). So gibt niemand eine fremde Adresse als seine aus, und ein
+Nachweis gilt nur in seinem Raum.
+
+**Auswertung** (`kassenAdressenOffen()`, `kassenAdressenPrivat()`): offen nur Events an genau die Adresse des Raums; je
+Schlüssel die neueste Meldung, höchstens 600 s in der Zukunft. Sie zählt nur mit gültigem Nachweis – ist er kaputt, gilt
+für diesen Schlüssel keine Adresse, nie still eine ältere. Nennen mehrere Schlüssel dieselbe Adresse, gilt sie für keinen.
+
+**Abweichungen** (`kassenAbweichungen()`, V3): „Recht ohne Mitgliedschaft“ – wer das Recht hat, aber mit keiner Adresse
+auf der Kette steht (oder keine genannt hat); „Mitgliedschaft ohne Recht“ – eine Adresse auf der Kette, deren Schlüssel
+das Recht nicht hat oder die niemand im Raum nennt. Die App zeigt sie nur an; ändern kann die Kasse nur eine Abstimmung.
