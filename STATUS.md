@@ -12344,3 +12344,20 @@ gegen einen JSON-RPC-Server auf 127.0.0.1 – Kanal lesen, einlösen, auszahlen,
 Kette); Zahlkanal 7 grün gegen den Validator (Agave 3.1.10), die Kasse jetzt über kit und den Pool.
 
 Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.
+
+## Schritt A-32 – Projekte: keine Ausgabe vor dem Ende verlieren
+
+Gefunden in A-21e1: Der Smoke-Teil „projekt“ war einmal rot (`waiting for locator(".projekt-ausgabe summary")`), der
+zweite Lauf grün.
+
+- **Ursache:** `folgeLauf()` (`app/src/shell/knoten-weg-ui.ts`, VKe) gab beim Ergebnis des Laufs sofort zurück. Kamen
+  die Ausgabe des letzten Schritts und das Ergebnis in derselben Abfrage, und stand das Ergebnis vorn, ging die Ausgabe
+  verloren – die Seite zeigte das Ende ohne sie. Der Pool sortiert nach Sekunde, neu zuerst; im Smoke-Test entstehen beide
+  Umschläge im selben Augenblick, rot wurde es nur, wenn dazwischen die Sekunde umsprang. Beim echten Knoten ebenso, wenn
+  beide zwischen zwei Abfragen ankommen.
+- **Korrektur:** erst alle Schritte einer Abfrage an die Seite, dann das Ende (Ergebnis oder Ablehnung, das erste gilt).
+
+**Tests:** app +2 (`knoten-lauf-folge.test.ts`: Ausgabe und Ergebnis in einer Abfrage, das Ergebnis vorn – die Ausgabe
+kommt an; ebenso vor einer Ablehnung, jeder Umschlag nur einmal). Beide scheitern mit dem alten Code.
+
+Knoten-Stand: nicht berührt.
