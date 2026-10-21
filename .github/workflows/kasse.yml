@@ -1,0 +1,58 @@
+# Testet den Baustein der Kasse (A-12, packages/protocol/src/kasse.ts) gegen das echte Squads v4 –
+# das unveraenderliche Programm von Mainnet und das von Devnet, je in einem lokalen Validator.
+# pruefen.sh holt beide Programme mit `solana program dump` und nimmt sie nur mit fester Pruefsumme.
+# Laeuft nur, wenn sich Baustein, Tests oder Entwurf aendern. Kein Deploy, keine Transaktion auf
+# einem echten Netz.
+
+name: Kasse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/squads/**"
+      - "packages/protocol/src/kasse.ts"
+      - "packages/protocol/src/kit-rpc.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
+      - "packages/protocol/src/kit-transaktion.ts"
+      - "docs/KASSE-ENTWURF.md"
+      - ".github/workflows/kasse.yml"
+  pull_request:
+    paths:
+      - "contracts/squads/**"
+      - "packages/protocol/src/kasse.ts"
+      - "packages/protocol/src/kit-rpc.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
+      - "packages/protocol/src/kit-transaktion.ts"
+      - "docs/KASSE-ENTWURF.md"
+      - ".github/workflows/kasse.yml"
+  workflow_dispatch:
+
+jobs:
+  squads:
+    name: Kasse gegen Squads v4 testen (Mainnet- und Devnet-Programm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Solana-Werkzeuge und Squads-Programme zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/freedom-solana
+          key: kasse-agave-v3.1.10-${{ hashFiles('contracts/squads/pruefen.sh') }}
+
+      - name: Testen
+        # Agave 3.1.10 (solana, solana-test-validator); ueberspringen gilt hier als Fehler
+        # (SQUADS_TESTS_PFLICHT in pruefen.sh), eine andere Pruefsumme der Programme auch.
+        run: bash contracts/squads/pruefen.sh --werkzeuge

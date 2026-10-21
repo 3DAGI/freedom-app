@@ -43,3 +43,10 @@ Bereichs unten anhängen.
   unabhängig mit web3.js v1 gerechnet – nie mit dem Adapter selbst. Die Fehlercodes in
   Tests (6000 + Stelle im Enum, 3012 für ein geschlossenes Konto) nur über
   `programmFehlerCode()` lesen. Wirksam auf Devnet erst nach dem Upgrade durch den MENSCHEN.
+- **Squads nur über `contracts/squads/pruefen.sh`** (seit A-12a1): fremdes Programm (AGPL-3.0) –
+  sein Code und seine Binärdatei kommen nie ins Repo. Das Skript holt das Programm von Mainnet und
+  Devnet (`solana program dump`) und nimmt es nur mit der Prüfsumme im Skript; ändert Squads das
+  Programm auf Devnet, erst den neuen Stand ansehen, dann die Summe bewusst ändern. Konten für
+  `--account` nie in den Ledger-Ordner legen: `--reset` leert ihn vor dem Start, und der
+  Validator endet mit Code 1 ohne Meldung (so scheiterte A-12a1 zuerst). Die Einstellungen des
+  Programms legt der Test selbst an (Gebühr über 0), statt sie von Mainnet zu kopieren.

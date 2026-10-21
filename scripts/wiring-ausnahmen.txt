@@ -206,3 +206,14 @@ agent-auftrag.ts|naechsteStufe|Agenten in Räumen (11.3b2, nur Protokoll) – ve
 repo-auftrag.ts|repoAuftragTags|Repo-Aufträge an Agenten: die App setzt das Tag erst mit „Agent beauftragen“ (11.5b → 11.5d)
 channel.ts|rechneKanalAbIxs|web3.js-Fassung der Einlösung: der Knoten löst seit A-21e1 über kit ein, die Validator-Tests (contracts/solana-channel/tests) und die Vektoren bauen sie noch bis A-21f
 kit-bruecke.ts|alsWeb3|Brücke zu web3.js: seit A-21e1 nur noch in den Validator-Tests (contracts/solana-channel/tests) und den Vektoren, fällt mit A-21f
+kasse.ts|kasseAnlegenAnweisung|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|kassenAdresse|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|kassenArt|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|kassenMitglieder|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|kassenTresor|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|leseKasse|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|leseKassenStand|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|leseProgrammEinstellungen|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|leseProgrammEinstellungenVonKette|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|mehrheitVon|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)
+kasse.ts|programmEinstellungenAdresse|Baustein der Kasse über Squads (A-12a1), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12b (anlegen, einzahlen)

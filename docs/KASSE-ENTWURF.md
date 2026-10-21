@@ -131,3 +131,19 @@ Für beide gilt: `config_authority` bleibt leer (V2). Kein Schlüssel ändert di
 Programm vorbei, auch nicht der des Gründers. Die Art steht auf der Kette (Rechte und
 Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist eine
 Änderung der Konfiguration und macht offene Vorschläge ungültig (`staleTransactionIndex`).
+
+## Umsetzung
+
+- **A-12a1 (21.10.2026):** Baustein `packages/protocol/src/kasse.ts`. Er legt die Kasse an
+  (`multisig_create_v2`, beide Arten nach W2), liest Kasse und Einstellungen des Programms und
+  bestimmt die Art nur aus dem Stand auf der Kette (`kassenArt()`). Getestet gegen das Programm
+  von Mainnet und von Devnet, je mit fester Prüfsumme (`contracts/squads/pruefen.sh`, CI
+  `kasse.yml`). Die Bytes der Anweisung gleichen denen des SDK (Vektoren „kasse-anlegen-…“).
+  Festgelegt dabei:
+  - Die Miete abgeschlossener Vorschläge geht an den Tresor der Kasse (`rent_collector`).
+    Ohne `rent_collector` bliebe sie liegen; an ein Mitglied verbände sie es mit der Kasse.
+  - Das Schatzamt (Empfänger der Gebühr für das Anlegen) kommt aus den Einstellungen des
+    Programms auf der Kette. Ein anderes lehnt Squads ab.
+  - Mitglieder liest die App nur von der Kette; die Reihenfolge legt das Programm fest.
+- **Geteilt:** A-12a in a1 (Anlegen, Lesen) und a2 (Auszahlen und Konfiguration ändern).
+  A-12b (App: anlegen, einzahlen) braucht nur a1.

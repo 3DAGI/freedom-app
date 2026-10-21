@@ -12574,3 +12574,35 @@ gerechnet), HTLC 3 (gegen den Validator):
 
 Wirksam erst nach dem Upgrade an `FVb19s…` durch den MENSCHEN (M-1); bis dahin lehnt das Programm die Anweisung ab.
 Knoten-Stand: keiner nötig – der LP ruft `zurueckgeben` erst ab A-28b.
+
+## Schritt A-12a1 – Kasse über Squads: anlegen und lesen
+
+Spur A, `docs/KASSE-ENTWURF.md` (freigegeben 11.10.: V1–V7, W1 B, W2 wählbar, W3–W5). A-12a in zwei Teile geteilt:
+a1 Anlegen und Lesen, a2 Auszahlen und Konfiguration ändern. A-12b (App: anlegen, einzahlen) braucht nur a1.
+
+**Neu:**
+- **Baustein `packages/protocol/src/kasse.ts`** (ohne SDK, W1 B; IDL von Squads v4 2.1.0):
+  - Adressen: Kasse (Multisig), Tresor (Vault 0), Einstellungen des Programms.
+  - Zwei Arten (W2): „Gründer entscheidet“ – der Gründer mit allen Rechten, die übrigen schlagen nur vor, Schwelle 1;
+    „Mehrheit“ – alle mit allen Rechten, Schwelle die Mehrheit, mindestens 2 (`kassenMitglieder()`, `mehrheitVon()`).
+  - Anlegen (`multisig_create_v2`): ohne Verwalter (V2), Zeitschloss nur 0, 1 h oder 24 h (W3), Miete abgeschlossener
+    Vorschläge zurück in den Tresor, das Schatzamt aus den Einstellungen des Programms.
+  - Lesen: Kasse und Einstellungen (Diskriminator, Länge, nur Konten von Squads); die Art nur aus dem Stand auf der Kette
+    (`kassenArt()`), mit Verwalter oder anderen Rechten keine Kasse dieser App.
+- **Tests gegen das echte Programm** (`contracts/squads/`, `pruefen.sh`, CI `kasse.yml`): das unveränderliche Programm von
+  Mainnet und das von Devnet, geholt mit `solana program dump`, nur mit fester Prüfsumme; je ein lokaler Validator. Vom
+  Programm (AGPL-3.0) liegt nichts im Repo. Die Einstellungen des Programms legt der Test selbst an (Gebühr über 0).
+- **Doku:** Entwurf (Umsetzung), Fallstricke in `contracts/CLAUDE.md` und `packages/protocol/CLAUDE.md`, Befehl und Stand in
+  der `CLAUDE.md`, OFFEN, FORTSCHRITT.
+
+**Tests:** protocol +6, Kasse 6 (gegen Squads im Validator, je 3 für Mainnet und Devnet):
+- **Vektoren** „kasse-anlegen-mehrheit“ und „kasse-anlegen-gruender“: gerechnet mit dem SDK von Squads (`@sqds/multisig` 2.1.4,
+  nur außerhalb des Repos) und web3.js v1 – `kasse.ts` liefert dieselben Bytes, Adressen von Kasse und Tresor eingeschlossen.
+- **Protokoll:** Adressen wie im SDK; beide Arten samt Mehrheit für 2 bis 10; doppelte Mitglieder, Mehrheit allein und falsche
+  Zeitschlösser werfen; Konto lesen (alle Felder, falsche Art, abgeschnitten, kaputte Option); Art nur bei passenden Rechten und
+  Schwelle; `leseKasse()` nur für Konten von Squads (JSON-RPC-Attrappe hinter dem Pool).
+- **Validator:** Mehrheit (drei Mitglieder, Schwelle 2, ohne Verwalter, Miete an den Tresor, Einzahlen an den Tresor), Gründer
+  entscheidet (Zeitschloss 1 h), Gebühr an das Schatzamt und ein anderes Schatzamt abgelehnt (6014) – auf beiden Programmen.
+- **Gegenprobe:** Ohne `rent_collector` ist auf beiden Programmen je ein Test rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b.
