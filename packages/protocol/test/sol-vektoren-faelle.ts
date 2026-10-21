@@ -8,7 +8,7 @@ import { Keypair, PublicKey, Transaction, type TransactionInstruction } from "@s
 import { getBase58Decoder } from "@solana/kit";
 import {
   alsWeb3, AnchorSolanaHtlc, ausDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
-  kanalAdresse, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
+  kanalAdresse, kasseAnlegenAnweisung, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
   type KanalEmpfaenger, type SolRpc,
 } from "../src/index.js";
 
@@ -88,5 +88,12 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     "lp-zurueck": await lp((a) => a.refund("lp-1")),
     // A-28: der LP gibt die Sperre des Kunden zurück – Eintrag mit web3.js v1 gerechnet, nicht mit dem Adapter
     "lp-zurueckgeben": await lp((a) => a.zurueckgeben("lp-3", KUNDE)),
+    // A-12a1: Kasse über Squads anlegen – Einträge mit dem SDK von Squads (2.1.4) und web3.js v1 gerechnet, nicht mit `kasse.ts`
+    "kasse-anlegen-mehrheit": nachricht(adresse(21), [alsWeb3(kasseAnlegenAnweisung({
+      ersteller: adresse(21), createKey: adresse(20), schatzamt: adresse(24), art: "mehrheit", gruender: adresse(21), weitere: [adresse(22), adresse(23)],
+    }))]),
+    "kasse-anlegen-gruender": nachricht(adresse(21), [alsWeb3(kasseAnlegenAnweisung({
+      ersteller: adresse(21), createKey: adresse(25), schatzamt: adresse(24), art: "gruender", gruender: adresse(21), weitere: [adresse(22)], zeitschlossSek: 3600,
+    }))]),
   };
 }

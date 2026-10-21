@@ -84,11 +84,12 @@ Fallstricke dieses Bereichs unten anhängen.
   `anweisung()`, `ueberweisungAnweisung()`) – dort weiterreichen, was sie braucht, nie eine eigene Abhängigkeit der App.
 
 - **Einen Export entfernen heißt auch `contracts/` durchsuchen** (seit A-21b2): Die Validator-Tests
-  (`contracts/solana-channel/tests/*.ts`, seit A-28a auch `contracts/solana-htlc/tests/*.ts`) importieren direkt aus
-  `packages/protocol/src`; `check-wiring.py` zählt sie nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen
-  `git grep -n <name>` über das ganze Repo (nicht nur `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json`
-  (beim HTLC `contracts/solana-htlc/tsconfig.validator.json`) – A-21b2 entfernte `oeffneKanalIx()` & Co., erst der
-  CI-Job „Zahlkanal“ fand die Nutzer dort.
+  (`contracts/solana-channel/tests/*.ts`, seit A-28a `contracts/solana-htlc/tests/*.ts`, seit A-12a1
+  `contracts/squads/tests/*.ts`) importieren direkt aus `packages/protocol/src`; `check-wiring.py` zählt sie nicht, und
+  die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur `packages/`) und
+  `npx tsc -p contracts/solana-channel/tsconfig.json` (beim HTLC `contracts/solana-htlc/tsconfig.validator.json`, bei der
+  Kasse `contracts/squads/tsconfig.json`) – A-21b2 entfernte `oeffneKanalIx()` & Co., erst der CI-Job „Zahlkanal“ fand
+  die Nutzer dort.
 - **Solana lesen nur über `poolRpc()`** (seit A-21c, `kit-rpc.ts`): kit fragt die Kette nur über den `RpcPool`
   (`poolTransport()` → `pool.call()`), nie über `createSolanaRpc(url)` oder eine neue `Connection` zum Lesen – sonst fallen
   Ausweichen, eigene Endpunkte zuerst und die Stichprobe (5.8) weg. Die App nimmt `solRpc()` (`shell/state.ts`, der
@@ -155,3 +156,9 @@ Fallstricke dieses Bereichs unten anhängen.
   `sendeMitSchluessel()`; ein Relayer signiert fremde Transaktionen nur über `ausDraht()` → `signiereMit()` →
   `alsDraht()` (dieselbe Nachricht, die `pruefeRelayAuftrag()` gelesen hat). Die LP-Vektoren entstehen aus einer
   JSON-RPC-Attrappe hinter dem Pool (`sol-vektoren-faelle.ts`) – nie wieder eine Attrappe von `Connection`.
+- **Kasse nur über `kasse.ts`** (seit A-12a1, `docs/KASSE-ENTWURF.md`): Squads v4 ohne SDK (W1 B) – Anweisungen nach der IDL
+  2.1.0, Konten selbst gelesen (`leseKassenStand()`, `leseProgrammEinstellungen()`, Diskriminator und Länge geprüft, nur Konten
+  von `SQUADS_PROGRAMM_ID`). Angelegt wird nur über `kasseAnlegenAnweisung()`: `config_authority` immer leer (V2), Mitglieder und
+  Schwelle nur aus `kassenMitglieder()` (W2), Zeitschloss nur 0, 1 h oder 24 h (W3), Miete zurück in den Tresor, das Schatzamt aus
+  den Einstellungen des Programms. Die Art einer Kasse nur über `kassenArt()` aus dem Stand auf der Kette, nie aus dem Raum. Die
+  Vektoren „kasse-…“ rechnet das SDK von Squads (`@sqds/multisig`, nur außerhalb des Repos), nie `kasse.ts` selbst.
