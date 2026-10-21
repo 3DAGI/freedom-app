@@ -470,3 +470,11 @@ Bereichs unten anhängen.
   `freedom_bild.py`) – nie eine feste Nummer: Firefox nennt VP8 120, bis VKg2c2 kam dort kein Bild an. H.264 nur über
   NVENC (`nvh264enc`), nie in Software (openh264 scheitert auf Ubuntu 24.04, x264 ist GPL). Die GPU bekommt nur die
   Bild-Sandbox (`gpu` in `BildStrom`), nie das Programm oder der Motor.
+- **Repo-Aufträge nur über `repo-lauf.ts`** (seit 11.5c1, W3a A): der Ablauf nach mini-swe-agent – je Antwort genau ein
+  ```bash-Block, jeder Befehl in einer neuen bash über `fuehreAus()` (nie eine Shell, die Zustand hält), fertig nur mit
+  `ENDE_MARKE` als erster Zeile und Exit 0; Grenzen nach Schritten, Zeit (je Befehl nur die Restzeit) und Tokens. Den Patch
+  baut der Knoten (`bearbeiteRepo()` → `leseArbeitsordner()` → `schreibePatch()`), nie das Modell; ohne „fertig“ keiner.
+  Die Unterhaltung bleibt im Speicher und endet mit dem Aufruf – nie ins Log, auch keine Befehle. Die Anweisungen an das
+  Modell bleiben englisch wie bei mini-swe-agent (daran wurden die Modelle gemessen); der MIT-Hinweis im Kopf der Datei
+  bleibt stehen. `fuehreAus()` behält bei langer Ausgabe Anfang und Ende (`kuerzeAusgabe()` zeigt beide) – nie nur den Anfang
+  sammeln, sonst fehlt dem Modell die Zusammenfassung eines Testlaufs.

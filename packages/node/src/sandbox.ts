@@ -201,7 +201,11 @@ export function fuehreAus(befehl: readonly string[], o: SandboxOrt & { ohneSecco
       stdio: ["ignore", "pipe", "pipe", ...(etc.fd === null ? [] : [etc.fd])], detached: true, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" },
     });
     let text = "";
-    const nimm = (b: Buffer) => { if (text.length < CODE_GRENZEN.ausgabe * 4) text += b.toString("utf8"); };
+    // Anfang und Ende behalten (11.5c1): `kuerzeAusgabe()` zeigt beide – bis dahin fehlte über 40 000 Zeichen das Ende
+    const nimm = (b: Buffer) => {
+      text += b.toString("utf8");
+      if (text.length > CODE_GRENZEN.ausgabe * 4) text = text.slice(0, CODE_GRENZEN.ausgabe * 2) + text.slice(-CODE_GRENZEN.ausgabe * 2);
+    };
     kind.stdout!.on("data", nimm);
     kind.stderr!.on("data", nimm);
     let zeitUm = false;
