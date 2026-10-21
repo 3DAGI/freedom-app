@@ -102,4 +102,6 @@ dieses Bereichs unten anhängen.
   zeigt erst die CI.
 - **Im Browser-Test auf jedes Ergebnis einzeln warten** (seit VKg1b, Teil „projekt“): Antworten des Knotens kommen als
   Umschläge in beliebiger Reihenfolge (NIP-59) – wer nur auf den Abschluss wartet und danach die Ausgabe des Schritts liest,
-  liest gelegentlich `null`. Vor jedem `evaluate` auf genau die Elemente warten, die es liest.
+  liest gelegentlich `null`. Vor jedem `evaluate` auf genau die Elemente warten, die es liest. Kommt ein Element trotz Warten nie (A-32:
+  `.projekt-ausgabe summary`), liegt der Fehler in der App – dort suchen (`folgeLauf()` gab beim Ergebnis zurück, bevor es
+  die Ausgabe derselben Abfrage verarbeitet hatte), nie die Frist verlängern.

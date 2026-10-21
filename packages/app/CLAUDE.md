@@ -849,7 +849,8 @@ Fallstricke dieses Bereichs unten anhängen.
   jeder Umschlag einmal, Schritte nur über `leseCodeSchritt()`, eine Ablehnung nur mit Kennung). Schritte nur über
   `nimmSchritt()` (`knoten-lauf.ts`) – geordnet nach `nr` und Art, nie nach Ankunft (Umschläge tragen zufällige
   Zeitstempel); „Ja“ und „Nein“ nur, solange `wartetAufMich()` es sagt, gesendet nur über `frageKnotenCode()` wie der
-  Stopp. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
+  Stopp. Das Ende eines Laufs (Ergebnis oder Ablehnung) zählt erst nach allen Schritten derselben Abfrage (seit A-32): Der
+  Pool sortiert nach Sekunde, neu zuerst – kamen Ausgabe und Ergebnis zusammen, ging die Ausgabe sonst verloren. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
   stehen nur im Speicher (`laeufe`), nie in `localStorage` oder `geheim` – Aufträge und Ausgaben sind Inhalt des Projekts.
   „fragen“ nie als „vor jedem Befehl“ beschreiben: Hermes fragt vor Änderungen an Dateien und riskanten Befehlen.
   Im Smoke-Test („projekt“) antwortet `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe.

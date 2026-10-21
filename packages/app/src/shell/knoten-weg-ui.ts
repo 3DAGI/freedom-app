@@ -95,18 +95,22 @@ export async function folgeLauf(
   for (let t0 = Date.now(); Date.now() - t0 < o.zeitMs && !o.aufhoeren?.();) {
     await new Promise((ok) => setTimeout(ok, o.taktMs));
     const umschlaege = await weg.query({ kinds: [1059], "#p": [weg.sitzungPk], since: seit }).catch(() => []);
+    // Das Ende erst nach allen Schritten dieser Abfrage: Der Pool sortiert nach Sekunde, neu zuerst – kamen Ausgabe
+    // und Ergebnis zusammen, stünde das Ergebnis vorn, und die Ausgabe ginge verloren
+    let ende: { ergebnis: string } | { abgelehnt: string; fall?: string } | undefined;
     for (const w of umschlaege) {
       if (gesehen.has(w.id)) continue;
       gesehen.add(w.id);
       const a = await openPrivateJobResponse(w, sitzung);
       if (!a.ok || getTag(a.response, "e") !== requestId) continue;
-      if (a.response.kind === KIND_DVM_KNOTEN_CODE + 1000) return { ergebnis: a.response.content };
+      if (a.response.kind === KIND_DVM_KNOTEN_CODE + 1000) { ende ??= { ergebnis: a.response.content }; continue; }
       if (a.response.kind !== 7000) continue;
       const status = getTag(a.response, "status");
-      if (status === "error") return { abgelehnt: a.response.content, fall: getTag(a.response, "fall") };
+      if (status === "error") { ende ??= { abgelehnt: a.response.content, fall: getTag(a.response, "fall") }; continue; }
       const s = status === "partial" ? leseCodeSchritt(a.response.content) : null;
       if (s) o.schritt(s);
     }
+    if (ende) return ende;
   }
   return null;
 }
