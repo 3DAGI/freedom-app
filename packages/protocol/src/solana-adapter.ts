@@ -22,6 +22,7 @@
  *   initialize(swap_id, hashlock, timelock:i64, amount:u64)
  *   claim(preimage: bytes)
  *   refund()
+ *   zurueckgeben()   (seit A-28: Empfaenger gibt an den Initiator zurueck)
  */
 import { PublicKey } from "@solana/web3.js";
 import { address, getBase58Encoder } from "@solana/kit";
@@ -155,6 +156,19 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
       [this.schluessel.adresse, AccountRole.WRITABLE_SIGNER], // initiator
       [pda.toBase58(), AccountRole.WRITABLE], // swap
     ], sighash("refund")));
+  }
+
+  /**
+   * Eine offene Sperre an den Initiator zurueckgeben (A-28) – unterschreibt der Empfaenger, also dieser Adapter. Das Geld
+   * geht samt Mietbefreiung nur an `initiator`; das Programm prueft ihn gegen die Sperre.
+   */
+  async zurueckgeben(swapId: string, initiator: string): Promise<void> {
+    const { pda } = AnchorSolanaHtlc.deriveSwapPda(swapId);
+    await this.sende(anweisung(HTLC_PROGRAMM_ID, [
+      [this.schluessel.adresse, AccountRole.WRITABLE_SIGNER], // recipient (zahlt die Gebuehr)
+      [initiator, AccountRole.WRITABLE],
+      [pda.toBase58(), AccountRole.WRITABLE], // swap
+    ], sighash("zurueckgeben")));
   }
 
   async get(swapId: string): Promise<SolanaLock | undefined> {

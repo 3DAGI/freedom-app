@@ -83,6 +83,11 @@ export interface SolanaHtlcAdapter {
   claim(swapId: string, preimage: Uint8Array, initiator: string): Promise<void>;
   /** Nach Ablauf der Timelock: Rueckzahlung an den Initiator (LP). */
   refund(swapId: string): Promise<void>;
+  /**
+   * Der Empfaenger gibt eine offene Sperre vor Ablauf an den Initiator zurueck (A-28) – etwa der LP in Richtung
+   * SOL → Lightning, wenn seine Zahlung scheitert. Braucht das Programm ab A-28; das an `FVb19s…` bis zum Upgrade lehnt ab.
+   */
+  zurueckgeben(swapId: string, initiator: string): Promise<void>;
   /** LP beobachtet die Chain und liest die offengelegte Preimage. */
   getRevealedPreimage(swapId: string): Promise<Uint8Array | undefined>;
   get(swapId: string): Promise<SolanaLock | undefined>;

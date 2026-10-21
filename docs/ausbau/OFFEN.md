@@ -102,7 +102,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Nr. | Aufgabe | hält auf |
 |---|---|---|
 | M-2 | Zahlkanal auf Devnet (`F9P2…`) mit der Binary aus 4.3e upgraden – die erste lehnt jeden Aufruf ab | KI-Zahlung mit SOL; 11.3d3, B-18 (8.9c), P5d, A-10 A, Wegfall der Hinterlegung für KI (E8); Devnet-Tests 4.5, 7.4 |
-| M-1 | HTLC seit 13.10. an `FVb19s…` (0.G erledigt); `3UmRR…` schließen (gibt Miete zurück); A-28 als Upgrade an `FVb19s…` | A-28 wirksam |
+| M-1 | HTLC seit 13.10. an `FVb19s…` (0.G erledigt); `3UmRR…` schließen (gibt Miete zurück); A-28 als Upgrade an `FVb19s…` (Code seit A-28a, Schritte im README des Programms) | A-28 wirksam |
 | M-7 | GX10 auf den aktuellen `main` – optional mit `TORRENT=1` und `KI_ANTRIEB=openai` (B-29c), Docker-Bild neu bauen (aria2) | KI-Anfragen der Live-App, wo die App einen neueren Knoten braucht |
 | Signierschlüssel | mindestens zwei (Personen oder Geräte), danach `TRUSTED_SIGNERS`; fester Android-Keystore in den Secrets | 0.D, 5.2, 6.1a4b, 11.2a „geprüft“, Release 1.0 |
 | A-17 W5 | API-Schlüssel für Breez beantragen | Bau von A-17 mit Breez |
@@ -159,7 +159,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | A-21f | Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool; A-21d1 ✓: Transaktionen über kit, SOL ohne Internet; A-21d2 ✓: Wallets und alle Bauer der App über kit; A-21d3a ✓: Senden und Bestätigen als Baustein, Zahlschienen über den Pool; A-21d3b ✓: HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen über den Pool; A-21d3c ✓: Relayer-Prüfung über kit; A-21e1 ✓: Zahlkanal-Kasse, Auszahlung und Einrichtung des Knotens über kit; A-21e2 ✓: Relayer-Dienst, Senden im `main.ts`, HTLC-Adapter des LP – der Knoten ohne web3.js) | A-21f nach W4 ([`KIT-PLAN.md`](../KIT-PLAN.md)) |
 | A-12 | Gemeinsame Kasse für Räume über Squads | nach A-21b ([`KASSE-ENTWURF.md`](../KASSE-ENTWURF.md)) |
 | A-17a, A-17b | Eingebaute Lightning-Wallet mit Breez (Spark) | nach dem API-Schlüssel (A-17 W5) |
-| A-28 | Swap SOL → Lightning: Rückgabe vor Ablauf | Code frei, wirksam mit einem Upgrade an `FVb19s…` (M-1) |
+| A-28b | Swap SOL → Lightning: Rückgabe vor Ablauf im LP und in der App – der LP ruft `zurueckgeben` nur, wenn LND die Zahlung sicher als gescheitert meldet; die Antwort sagt es (neuer Status oder Tag – Format vorher klären), die App zeigt „zurückgegeben“ statt „nach Ablauf zurückholen“ (A-28a ✓: Programm, Adapter, Validator-Tests) | frei, Format vorher klären; wirksam mit dem Upgrade an `FVb19s…` (M-1) |
 | P5d | Prüfrunden mit SOL | nach M-2 |
 | A-10 A | Abos über den Zahlkanal mit Obergrenze | nach M-2, mit B-18 |
 | E8 | Hinterlegung für KI entfernen | nach M-2 |

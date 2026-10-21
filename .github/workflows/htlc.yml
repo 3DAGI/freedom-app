@@ -1,0 +1,61 @@
+# Baut das HTLC-Programm (Swaps, seit A-28a) und laesst seine Tests gegen einen
+# lokalen Validator laufen – mit dem Adapter aus packages/protocol, so wie LP und
+# Kunde ihn nutzen. Laeuft nur, wenn sich Programm, Adapter oder Regeln aendern
+# (Bau: einige Minuten).
+# Kein Deploy: Das Programm verlaesst den Runner nicht.
+
+name: HTLC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/solana-htlc/**"
+      - "packages/protocol/src/solana-adapter.ts"
+      - "packages/protocol/src/adapters.ts"
+      - "packages/protocol/src/kit-rpc.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
+      - "docs/SWAPS.md"
+      - ".github/workflows/htlc.yml"
+  pull_request:
+    paths:
+      - "contracts/solana-htlc/**"
+      - "packages/protocol/src/solana-adapter.ts"
+      - "packages/protocol/src/adapters.ts"
+      - "packages/protocol/src/kit-rpc.ts"
+      - "packages/protocol/src/kit-bruecke.ts"
+      - "docs/SWAPS.md"
+      - ".github/workflows/htlc.yml"
+  workflow_dispatch:
+
+jobs:
+  programm:
+    name: HTLC bauen und gegen den Validator testen
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Solana-Werkzeuge zwischenspeichern
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/freedom-solana
+            ~/.cache/solana
+            ~/.cargo/registry
+          key: htlc-agave-v3.1.10-${{ hashFiles('contracts/solana-htlc/Cargo.lock') }}
+
+      - name: Bauen und testen
+        # Agave 3.1.10 (cargo-build-sbf, platform-tools v1.52, solana-test-validator);
+        # ueberspringen gilt hier als Fehler (HTLC_TESTS_PFLICHT in pruefen.sh).
+        run: bash contracts/solana-htlc/pruefen.sh --werkzeuge

@@ -156,6 +156,16 @@ export class MockSolana implements SolanaHtlcAdapter {
     this.lpLamports += l.amountLamports; // zurueck an den Initiator (LP)
   }
 
+  /** Wie das Programm ab A-28: der Empfaenger gibt jederzeit zurueck, an den Initiator. */
+  async zurueckgeben(swapId: string, initiator: string): Promise<void> {
+    const l = this.locks.get(swapId);
+    if (!l) throw new Error("unbekannter Swap");
+    if (l.claimed || l.refunded) throw new Error("bereits abgeschlossen");
+    if (initiator !== l.initiator) throw new Error("falscher Initiator");
+    l.refunded = true;
+    this.lpLamports += l.amountLamports; // zurueck an den Initiator
+  }
+
   async getRevealedPreimage(swapId: string): Promise<Uint8Array | undefined> {
     return this.locks.get(swapId)?.revealedPreimage;
   }
