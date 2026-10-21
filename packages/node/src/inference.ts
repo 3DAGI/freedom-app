@@ -45,7 +45,15 @@ export interface InferenceBackend {
   complete(req: InferenceRequest): Promise<InferenceResult>;
   /** Optional: Streaming (SSE-artig, tokenweise). Fuer Live-Chat-UX. */
   stream?(req: InferenceRequest, onToken: (t: string) => void): Promise<InferenceResult>;
+  /**
+   * Optional (11.5c2a): ein Gespräch ohne eigenen Systemprompt und ohne Werkzeuge – für den Ablauf der
+   * Repo-Aufträge (`repo-lauf.ts`), der seine Nachrichten selbst baut. Ohne gibt es keine Repo-Aufträge.
+   */
+  gespraech?(p: { model?: string; nachrichten: ReadonlyArray<{ role: "system" | "user" | "assistant"; content: string }>; maxTokens?: number }): Promise<ChatAntwort>;
 }
+
+/** Antwort von `gespraech()`; `abgeschnitten`, wenn sie an der Grenze der Tokens endete (`finish_reason`/`done_reason` „length“). */
+export interface ChatAntwort { text: string; model: string; promptTokens: number; completionTokens: number; abgeschnitten: boolean }
 
 /** Tool-Definition fuer Ollama Tool-Calling (JSON Schema) – auch die Werkzeuge von MCP-Servern (B-31a). */
 interface ToolSchema {
@@ -107,7 +115,7 @@ interface WerkzeugAufruf {
   /** Der Aufruf, wie der Antrieb ihn schickte – so geht er zurück in den Verlauf. */
   roh: unknown;
 }
-interface Antwort { content: string; werkzeuge: WerkzeugAufruf[]; promptTokens: number; completionTokens: number }
+interface Antwort { content: string; werkzeuge: WerkzeugAufruf[]; promptTokens: number; completionTokens: number; abgeschnitten: boolean }
 
 /** Argumente eines Aufrufs: Ollama schickt ein Objekt, OpenAI-kompatibel einen JSON-Text. */
 function argumente(a: unknown): Record<string, string> {
@@ -177,7 +185,7 @@ export class OllamaBackend implements InferenceBackend {
       });
       if (!res.ok) throw new Error(`KI-Antrieb HTTP ${res.status}`);
       const data = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: unknown } }> } }>;
+        choices?: Array<{ message?: { content?: string | null; tool_calls?: Array<{ id?: string; function?: { name?: string; arguments?: unknown } }> }; finish_reason?: string }>;
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       };
       const msg = data.choices?.[0]?.message;
@@ -187,6 +195,7 @@ export class OllamaBackend implements InferenceBackend {
           .map((c) => ({ name: c.function!.name!, arguments: argumente(c.function!.arguments), id: c.id, roh: c })),
         promptTokens: data.usage?.prompt_tokens ?? 0,
         completionTokens: data.usage?.completion_tokens ?? 0,
+        abgeschnitten: data.choices?.[0]?.finish_reason === "length",
       };
     }
     const res = await fetch(`${this.baseUrl}/api/chat`, {
@@ -209,13 +218,26 @@ export class OllamaBackend implements InferenceBackend {
       message?: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: Record<string, string> } }> };
       prompt_eval_count?: number;
       eval_count?: number;
+      done_reason?: string;
     };
     return {
       content: data.message?.content ?? "",
       werkzeuge: (data.message?.tool_calls ?? []).map((c) => ({ name: c.function.name, arguments: argumente(c.function.arguments), roh: c })),
       promptTokens: data.prompt_eval_count ?? 0,
       completionTokens: data.eval_count ?? 0,
+      abgeschnitten: data.done_reason === "length",
     };
+  }
+
+  /**
+   * Gespräch ohne Systemprompt und Werkzeuge (11.5c2a) – die Nachrichten baut der Ablauf; Antworten über langen
+   * Verläufen dauern. Ein Denkblock (`<think>…</think>`) fällt weg: Ein Befehl darin zählte sonst als zweite Aktion.
+   */
+  async gespraech(p: { model?: string; nachrichten: ReadonlyArray<{ role: "system" | "user" | "assistant"; content: string }>; maxTokens?: number }): Promise<ChatAntwort> {
+    const model = p.model ?? this.defaultModel;
+    const a = await this.rufe({ model, messages: [...p.nachrichten], maxTokens: p.maxTokens, zeitMs: 300_000 });
+    const text = a.content.replace(/<think>[\s\S]*?<\/think>\s*/g, "");
+    return { text, model, promptTokens: a.promptTokens, completionTokens: a.completionTokens, abgeschnitten: a.abgeschnitten };
   }
 
   /** Assistent mit Werkzeug-Aufruf und Ergebnis des Werkzeugs – in der Form, die der Antrieb erwartet. */

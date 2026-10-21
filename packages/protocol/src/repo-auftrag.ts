@@ -12,6 +12,8 @@
  *   `istAgent` geht an `mitRaumRechten()`, `raumReposPrivat()` und `patchStatus()`.
  */
 import type { NostrEvent } from "./event.js";
+import { parseGitRepoRef } from "./git.js";
+import { KIND_GIT_REPO_REF } from "./kinds.js";
 import { KIND_REPO_ANKUENDIGUNG, REPO_ADRESSE, leseRepoAnkuendigung, type GelesenesRepo } from "./nip34.js";
 import { mitRaumRechten, raumReposPrivat } from "./raum-repo.js";
 import type { InneresEvent } from "./raum-gruppe.js";
@@ -90,4 +92,27 @@ export function repoImPrivatenRaum(p: {
   const { ankuendigungen } = raumReposPrivat(p.raumId, p.ereignisse, p.zustand, p.istAgent);
   const repo = neuesteZu(p.auftrag.repo, ankuendigungen);
   return repo ? { ok: true, repo } : { ok: false, fall: "agent-repo-fremd" };
+}
+
+/**
+ * Der Bundle-Verweis (38042), an dem der Agent arbeitet (11.5c2a, V3): der neueste von Eigentümer
+ * oder Pflegern genau dieses Repos (`d` = Kennung), lesbar und verschlüsselt (seit 8.9b – der
+ * Schlüssel steht im Verweis); bei gleicher Sekunde die kleinere Id. Nie über Klon-Adressen.
+ */
+export function neuesterBundleVerweis(
+  repo: Pick<GelesenesRepo, "eigentuemer" | "id" | "maintainer">, verweise: readonly NostrEvent[],
+): NostrEvent | undefined {
+  const pfleger = new Set([repo.eigentuemer, ...repo.maintainer]);
+  let beste: NostrEvent | undefined;
+  for (const ev of verweise) {
+    if (ev.kind !== KIND_GIT_REPO_REF || !pfleger.has(ev.pubkey)) continue;
+    try {
+      const r = parseGitRepoRef(ev);
+      if (r.name !== repo.id || !r.schluessel || !HEX64.test(r.blobId)) continue;
+    } catch {
+      continue;
+    }
+    if (!beste || ev.created_at > beste.created_at || (ev.created_at === beste.created_at && ev.id < beste.id)) beste = ev;
+  }
+  return beste;
 }

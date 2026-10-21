@@ -12419,3 +12419,51 @@ drei Ausnahmen aus `wiring-ausnahmen.txt` entfernt.
 `weg()`, Zurücksetzen, Restzeit, Vorgabe-Betreff) und die alte Kürzung machen je einen Test rot.
 
 Knoten-Stand: nicht berührt (noch nicht verdrahtet, kommt mit 11.5c2).
+
+## Schritt 11.5c2a – Repo-Aufträge in offenen Räumen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V3–V6, W3a A, W5 A). 11.5c2 ist geteilt: c2a offene Räume (dieser
+Schritt), c2b private Räume (P1–P4, innere Events, Leak-Szenario).
+
+**Neu:**
+- **Bundle holen:** `node/src/repo-bundle.ts` – `holeRepoBundle()` holt das Bundle eines Verweises (38042):
+  - Manifest und Stücke nur vom Autor des Manifests, das Chiffrat muss die Blob-Id als SHA-256 haben;
+  - entschlüsselt mit dem Schlüssel aus dem Verweis, gelesen mit `leseBundle()`;
+  - sonst `agent-repo-bundle`.
+- **Repo-Aufträge im Knoten-Agenten** (`knoten-agent.ts`, nur mit `AGENT_REPO=1` und Sandbox):
+  - `pruefe()` erkennt das Repo-Tag (`leseRepoAuftrag()`) und prüft das Repo im Raum (`repoImOffenenRaum()`).
+  - Code kommt nur aus dem neuesten Bundle-Verweis eines Pflegers (`neuesterBundleVerweis()`, Protokoll). Ein Issue muss zum Repo gehören.
+  - `bearbeiteRepoAuftrag()` holt das Bundle und lässt `bearbeiteRepo()` laufen (11.5c1). Höchstens ein Auftrag läuft zugleich.
+  - Den Patch reicht der Agent als Kind 1617 ein.
+- **Antwort im Raum:** `agentAntwortEvent()` trägt neu `["fall", …]` und `["e", <patch>, "", "mention"]`. Feste Sätze stehen in `REPO_TEXT`.
+- **Provider** (`dvm-provider.ts`):
+  - Repo-Aufträge laufen statt `complete()` über `gespraech()` (neu im Antrieb, ohne Systemprompt und Werkzeuge, Denkblöcke entfernt).
+  - Nur bezahlt oder vom Besitzer, nach Tokens zum Preis des Knotens bis zum Gebot (W5 A).
+  - Gratis, in der Bootstrap-Phase oder ohne Antrieb für Gespräche abgelehnt.
+  - Scheitert die Arbeit, zahlt der Fragende nichts.
+- **Weitere Stellen:**
+  - `main.ts` prüft die Sandbox nur mit `AGENT_REPO=1`;
+  - `docker-compose.yml` hat `AGENT_REPO`;
+  - Doku: `PROVIDER.md`, `PROTOCOL.md` §33.
+- **Private Räume:** Repo-Aufträge dort lehnt der Agent bis 11.5c2b ab (`agent-repo-privat`), nie als gewöhnliche Frage.
+
+**Tests:** protocol +2, node +6.
+- **Protokoll:** neuester Verweis (Pfleger, Kennung, Schlüssel, gleiche Sekunde); Tags der Antwort.
+- **Bundle:**
+  - nur über den Verweis;
+  - ein fremdes Manifest mit derselben Blob-Id zählt nicht;
+  - Stücke eines anderen Autors zählen nicht, auch wenn ein Relay `authors` übergeht;
+  - ohne Schlüssel gibt es nichts.
+- **Einstellung:** `AGENT_REPO`.
+- **Mit bubblewrap Ende zu Ende:**
+  - Patch vom Agenten, `git am` ergibt denselben Commit;
+  - die Antwort nennt den Patch;
+  - bezahlt 120 msat für drei Antworten;
+  - Ordner weg, nichts im Log.
+- **Grenze erreicht:** kein Patch, Kennung `repo.schritte`.
+- **Ablehnungen vor dem Rechnen**: aus (zweimal), fremdes Repo, kein Verweis, Verweis eines Fremden, fremdes Issue, Bootstrap.
+- **Verdrahtung:** wie der Provider den Auftrag weiterreicht.
+- **Gegenproben:** Ohne Prüfung des Stück-Autors und ohne die Sperre für Gratis ist je ein Test rot.
+- **Angepasst:** zwei Regex-Tests auf die neue Zeile (L2-2, 11.3d1a).
+
+Knoten-Stand: `main` mit 11.5c2a, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.

@@ -62,14 +62,14 @@ import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
 import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
 import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
-import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent } from "./knoten-agent.js";
+import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent, type RepoFall } from "./knoten-agent.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
 import type { CodeLaeufe } from "./code-motor.js";
 import type { VorschauServer } from "./vorschau.js";
 import type { BildStrom } from "./bildstrom.js";
 import type { KanalKasse } from "./kanal-kasse.js";
 import type { PfandKasse } from "./pfand-kasse.js";
-import { InferenceBackend, OllamaBackend } from "./inference.js";
+import { InferenceBackend, OllamaBackend, type InferenceResult } from "./inference.js";
 import { ToolRegistry, ToolCall, defaultToolRegistry } from "./tools.js";
 
 export interface ProviderConfig {
@@ -1342,6 +1342,14 @@ export class DvmProvider {
     // Agent (11.3d1a): nur Text, nach der Zahlungsprüfung und vor dem Rechnen geprüft – reserviert die Erwähnung
     if (verweis && (toolCalls.length > 0 || isSwarm || kurz)) throw new AgentAbgelehnt("agent-nur-text");
     const agentAuftrag: AgentAuftrag | undefined = verweis ? await this.cfg.agent!.pruefe(verweis) : undefined;
+    // Repo-Aufträge (11.5c2a): nur bezahlt (die Gratis-Grenze je Antwort reicht für keinen Ablauf) oder vom Besitzer,
+    // höchstens so viele Tokens, wie das Gebot zum Preis des Knotens deckt (W5 A) – und nur mit einem Antrieb für Gespräche
+    const repoTokens = agentAuftrag?.repo && !besitzer && this.cfg.pricePerKTokenMsat > 0
+      ? Math.floor((bidMsat * 1000) / this.cfg.pricePerKTokenMsat) : undefined;
+    if (agentAuftrag?.repo && (!this.backend.gespraech || (isFreeJob && !besitzer) || repoTokens === 0)) {
+      this.cfg.agent!.gib(agentAuftrag);
+      throw new AgentAbgelehnt(this.backend.gespraech ? "agent-repo-bezahlt" : "agent-repo-aus");
+    }
     // Lebenszeichen (L2-2): angenommen, jetzt wird gerechnet – die App wartet dann bis zur Frist,
     // statt nach 20 s Stille den nächsten Provider zu fragen. Über Funk nicht (Sendezeit, 7.4).
     if (!kurz) this.meldeBearbeitung(request, privat);
@@ -1444,20 +1452,24 @@ export class DvmProvider {
       ), request, privat).catch(() => { /* best-effort */ });
     };
 
-    const result = await this.backend.complete({
-      jobId: request.id,
-      prompt: finalPrompt,
-      model: requestedModel,
-      // Über Funk keine Zwischenstände (7.4): jede Rückmeldung kostet Sendezeit
-      onProgress: kurz ? undefined : onProgress,
-      // Gratis (A-14): höchstens so viele Tokens, ohne Werkzeuge des Modells
-      ...(gratisRegel && this.cfg.gratis ? { maxTokens: this.cfg.gratis.tokensJeAntwort, ohneWerkzeuge: true } : {}),
-    }).catch((e: unknown) => {
+    // Repo-Auftrag (11.5c2a): der Ablauf in der Sandbox statt einer Antwort – die Antwort im Raum nennt den Patch
+    const rechnung: Promise<InferenceResult & { fall?: RepoFall; patch?: string }> = agentAuftrag?.repo
+      ? this.cfg.agent!.bearbeiteRepoAuftrag(agentAuftrag, { gespraech: (q) => this.backend.gespraech!(q), model: requestedModel, tokens: repoTokens })
+      : this.backend.complete({
+        jobId: request.id,
+        prompt: finalPrompt,
+        model: requestedModel,
+        // Über Funk keine Zwischenstände (7.4): jede Rückmeldung kostet Sendezeit
+        onProgress: kurz ? undefined : onProgress,
+        // Gratis (A-14): höchstens so viele Tokens, ohne Werkzeuge des Modells
+        ...(gratisRegel && this.cfg.gratis ? { maxTokens: this.cfg.gratis.tokensJeAntwort, ohneWerkzeuge: true } : {}),
+      });
+    const result = await rechnung.catch((e: unknown) => {
       if (agentAuftrag) this.cfg.agent!.gib(agentAuftrag);
       throw e;
     });
     // Agent: erst die Antwort im Raum, dann das Ergebnis an den Fragenden – scheitert sie, zahlt er nichts
-    if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output);
+    if (agentAuftrag) await this.cfg.agent!.antworte(agentAuftrag, result.output, result.fall ? { fall: result.fall, patch: result.patch } : undefined);
 
     // Preis: Deposit-Rate, Free-Tier (0), oder Bid-Preis.
     // PLUS Tool-Kosten (web_search etc.) — werden on top gerechnet.

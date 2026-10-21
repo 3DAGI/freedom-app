@@ -105,6 +105,9 @@ services:
       AGENT_MODELL: "${AGENT_MODELL:-}"
       AGENT_BESITZER: "${AGENT_BESITZER:-}"
       AGENT_PRIVAT: "${AGENT_PRIVAT:-}"
+      # 11.5c2a: Repo-Aufträge – der Agent bearbeitet Code des Raums in der Sandbox (bubblewrap) und reicht
+      # einen Patch ein. Unter Docker geht die Sandbox nur mit docker-compose.vibecoden.yml; sonst bleibt es aus
+      AGENT_REPO: "${AGENT_REPO:-0}"
       # A-31 VKc1: Vibecoden auf dem eigenen Knoten – Projekte in ~/.freedom/projekte (Volume freedom-state),
       # nur für den gekoppelten Besitzer (docs/VIBECODEN-ENTWURF.md)
       VIBECODEN: "${VIBECODEN:-0}"
