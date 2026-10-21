@@ -122,12 +122,27 @@ export function agentPromptMit(p: {
   ].join("\n\n");
 }
 
-/** Antwort des Agenten (Kind 42): selber Kanal und Thread, Antwort auf die Erwähnung, der Fragende erwähnt. */
-export function agentAntwortEvent(p: { agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number }): UnsignedEvent {
-  return buildChannelMessage({
+/**
+ * Antwort des Agenten (Kind 42): selber Kanal und Thread, Antwort auf die Erwähnung, der Fragende erwähnt.
+ * Auf einen Repo-Auftrag (11.5c2a, V5) nennt sie den eingereichten Patch (`["e", <patch>, "", "mention"]`) und
+ * wie der Auftrag endete (`["fall", <kennung>]`) – die App bildet daraus ihren Text.
+ */
+export function agentAntwortEvent(p: {
+  agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number; patch?: string; fall?: string;
+}): UnsignedEvent {
+  const ev = buildChannelMessage({
     authorPubkey: p.agent, spaceId: p.kennung, channelId: p.auf.kanal, content: kuerzeAgentAntwort(p.text),
     mentions: [p.auf.von], replyTo: p.auf.id, ...(p.auf.threadRoot ? { threadRoot: p.auf.threadRoot } : {}),
   }, p.jetzt);
+  if (p.patch !== undefined) {
+    if (!/^[0-9a-f]{64}$/.test(p.patch)) throw new Error("Patch ist keine Id");
+    ev.tags.push(["e", p.patch, "", "mention"]);
+  }
+  if (p.fall !== undefined) {
+    if (!/^repo\.[a-z-]{1,40}$/.test(p.fall)) throw new Error("Kennung ungültig");
+    ev.tags.push(["fall", p.fall]);
+  }
+  return ev;
 }
 
 /** Hinweis des Agenten (Budget erreicht) – im Kanal der Erwähnung, ohne jemanden zu erwähnen. */

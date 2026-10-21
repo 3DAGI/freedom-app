@@ -6,9 +6,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AGENT_ROLLE, baueRepoAnkuendigung, bauePatch, baueStatus, buildRoleGrant, buildRoles, buildSpace, generateKeypair, istAgentIm,
-  lesePatch, leseRepoAnkuendigung, leseRepoAuftrag, mitRaumRechten, patchStatus, raumAdresse, raumZustandFuer, repoAdresse,
-  repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, type NostrEvent,
+  AGENT_ROLLE, agentAntwortEvent, baueRepoAnkuendigung, bauePatch, baueStatus, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace,
+  generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAuftrag, mitRaumRechten, neuesterBundleVerweis, patchStatus,
+  raumAdresse, raumZustandFuer, repoAdresse, repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verschluesseleDatei,
+  type NostrEvent,
 } from "../src/index.js";
 import { gruppenRaum } from "../src/raum-gruppe.js";
 import { raumRepoAnkuendigung, raumRepoPatch, raumRepoStatus, raumReposPrivat } from "../src/raum-repo.js";
@@ -123,4 +124,34 @@ test("11.5b: privater Raum – Agenten pflegen nicht, auch als Admin; ihr Status
   const r = raumReposPrivat("g", ereignisse, zustand, istAgent);
   const repo = leseRepoAnkuendigung(r.ankuendigungen[0]!);
   assert.equal(patchStatus(lesePatch(r.patches[0]!), repo, r.status, istAgent).status, "offen");
+});
+
+test("11.5c2a: Bundle-Verweis für den Agenten – der neueste von Eigentümer oder Pfleger, nur dieses Repo, nur verschlüsselt", () => {
+  const { schluessel } = verschluesseleDatei(new Uint8Array([1, 2, 3]));
+  const verweis = (k: { pk: string; sk: Uint8Array }, zeit: number, o: { name?: string; ohneSchluessel?: boolean; blob?: string } = {}) =>
+    s({ ...buildGitRepoRef({
+      name: o.name ?? "app", blobId: o.blob ?? "cd".repeat(32), headSha: "1".repeat(40), branch: "main", message: "m", version: zeit,
+      ...(o.ohneSchluessel ? {} : { schluessel }),
+    }, k.pk), created_at: zeit }, k);
+  const repo = { eigentuemer: besitzer.pk, id: "app", maintainer: [pfleger.pk] };
+  const alt = verweis(besitzer, 100), neu = verweis(pfleger, 200);
+  assert.equal(neuesterBundleVerweis(repo, [alt, neu])?.id, neu.id, "der neueste, auch von einem Pfleger");
+  // Fremde, andere Repos, ohne Schlüssel und ohne gültige Blob-Id zählen nie – auch wenn sie neuer sind
+  const falsch = [verweis(autor, 900), verweis(agent, 900), verweis(besitzer, 900, { name: "andere" }), verweis(besitzer, 900, { ohneSchluessel: true }),
+    verweis(besitzer, 900, { blob: "xyz" })];
+  assert.equal(neuesterBundleVerweis(repo, [alt, ...falsch])?.id, alt.id);
+  assert.equal(neuesterBundleVerweis(repo, falsch), undefined);
+  // Gleiche Sekunde: die kleinere Id, wie Relays ersetzbare Events halten
+  const zwei = [verweis(besitzer, 300, { blob: "ef".repeat(32) }), verweis(pfleger, 300)];
+  assert.equal(neuesterBundleVerweis(repo, zwei)?.id, [...zwei].sort((x, y) => (x.id < y.id ? -1 : 1))[0]!.id);
+});
+
+test("11.5c2a: Antwort auf einen Repo-Auftrag nennt den Patch und wie es endete – sonst keine Tags mehr", () => {
+  const auf = { id: "aa".repeat(32), von: autor.pk, zeit: 1, text: "@Agent", kanal: "allgemein", erwaehnt: [agent.pk] };
+  const ohne = agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "Hallo", jetzt: 5 });
+  const mit = agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "Patch eingereicht: x", jetzt: 5, patch: "bb".repeat(32), fall: "repo.patch" });
+  assert.deepEqual(mit.tags.slice(0, ohne.tags.length), ohne.tags);
+  assert.deepEqual(mit.tags.slice(ohne.tags.length), [["e", "bb".repeat(32), "", "mention"], ["fall", "repo.patch"]]);
+  assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", patch: "kein-patch" }), /Patch/);
+  assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", fall: "Freitext vom Modell" }), /Kennung/);
 });

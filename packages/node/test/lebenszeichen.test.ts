@@ -68,6 +68,7 @@ test("L2-2: gemeldet nach allen Prüfungen, vor Werkzeugen und Rechnen – über
   assert.ok(melde > 0);
   assert.ok(auftrag.indexOf('throw new Error("Schwarm nur gegen Bezahlung")') < melde, "nach der letzten Ablehnung");
   assert.ok(melde < auftrag.indexOf("await this.toolRegistry.run(tc)"), "vor den Werkzeugen (die dauern)");
-  assert.ok(melde < auftrag.indexOf("await this.backend.complete("));
+  assert.ok(melde < auftrag.indexOf(": this.backend.complete({"));
+  assert.ok(melde < auftrag.indexOf("this.cfg.agent!.bearbeiteRepoAuftrag("), "auch vor einem Repo-Auftrag (11.5c2a)");
   assert.match(q, /\["status", "processing"\]\], "processing"\)/);
 });

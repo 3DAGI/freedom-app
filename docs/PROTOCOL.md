@@ -1165,6 +1165,27 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   gehört nicht zum Raum. Status-Events (1630–1633) von Agenten zählen nie, auch nicht
   am eigenen Patch (`patchStatus(…, istAgent)`). Annehmen bleibt `darfAnnehmen()`
   für Menschen mit Recht.
+- **Code** (seit 11.5c2a, V3): nur das Bundle des neuesten Verweises (38042) von
+  Eigentümer oder Pfleger mit `d` = Kennung und Schlüssel (`neuesterBundleVerweis()`;
+  gleiche Sekunde → kleinere Id), nie über Klon-Adressen. Manifest und Stücke nur
+  vom Autor des Manifests, das Chiffrat hat die Blob-Id als SHA-256.
+- **Antwort** (seit 11.5c2a, V5): die Antwort des Agenten (Kind 42, §32) trägt
+  zusätzlich `["fall", <kennung>]` und, wenn ein Patch eingereicht wurde,
+  `["e", <patch>, "", "mention"]`. Der Patch ist ein Kind 1617 vom Agenten
+  (`bauePatch()`), den der Knoten aus dem Arbeitsordner baut.
+
+| `fall` | Bedeutung |
+|---|---|
+| `repo.patch` | Patch eingereicht |
+| `repo.keine-aenderung`, `repo.gross`, `repo.binaer`, `repo.ordner`, `repo.angaben` | fertig, aber kein Patch (wie `PatchFall`) |
+| `repo.schritte`, `repo.zeit`, `repo.tokens`, `repo.formfehler` | Grenze erreicht, kein Patch |
+
+- **Ablehnungen** (Rückmeldung mit `fall`, vor dem Rechnen, nichts bezahlt):
+  `agent-repo-aus` (keine Repo-Aufträge oder keine Sandbox), `agent-repo-fremd`,
+  `agent-repo-bundle` (kein Verweis, Bundle nicht vollständig), `agent-repo-issue`
+  (Issue nicht von diesem Repo), `agent-repo-bezahlt` (gratis oder Gebot ohne Tokens),
+  `agent-repo-belegt` (schon ein Auftrag), `agent-repo-fehler` (Modell oder Sandbox
+  scheiterten), `agent-repo-privat` (private Räume erst mit 11.5c2b).
 
 ## 34. Vibecoden auf dem eigenen Knoten (Kind 5080, seit A-31)
 

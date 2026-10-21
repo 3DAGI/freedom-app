@@ -581,7 +581,16 @@ async function main(): Promise<void> {
       console.error("[agent] Der Agent braucht einen eigenen Schlüssel, nicht den des Knotens – der Knoten startet nicht");
       process.exit(1);
     }
-    knotenAgent = new KnotenAgent({ schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei() });
+    // Repo-Aufträge (11.5c2a): nur mit AGENT_REPO=1 und nur, wenn die Sandbox geht – nie Code direkt auf dem Rechner
+    let repoSandbox = false;
+    if (agentWahl.einstellung.repo) {
+      const sandbox = await pruefeSandbox();
+      repoSandbox = sandbox.ok;
+      console.log(`[agent] Repo-Aufträge ${sandbox.ok ? "an" : "aus"} – ${sandboxText(sandbox)}`);
+    }
+    knotenAgent = new KnotenAgent({
+      schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei(), ...(repoSandbox ? { repo: {} } : {}),
+    });
     console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
     // Private Räume (11.3d2a, MENSCH 10.10.): nur mit AGENT_PRIVAT – eigenes MLS-Konto, Stand verschlüsselt, Chat nur im Speicher
     const einladen = agentWahl.einstellung.privat;

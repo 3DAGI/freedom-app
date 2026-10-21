@@ -486,6 +486,7 @@ AGENT_ABOUT=…                                      # freiwillig, öffentlich a
 AGENT_MODELL=qwen3.8:27b                           # freiwillig, ein angebotenes Modell
 AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit deiner Bestätigung in der App
 AGENT_PRIVAT=besitzer                              # freiwillig: private Räume – besitzer oder alle (11.3d2a)
+AGENT_REPO=1                                       # freiwillig: Repo-Aufträge in der Sandbox (11.5c2a)
 ```
 
 - **Karte:** Beim Start und mit jedem Erneuern des Angebots veröffentlicht der
@@ -527,6 +528,20 @@ AGENT_PRIVAT=besitzer                              # freiwillig: private Räume 
     Gruppe. Die App fragt seit 11.3d2c auch in privaten Räumen; wer deinen
     Agenten einlädt, sieht vorher eine Warnung, und im Raum steht danach ein
     Hinweis, dass dein Knoten alles mitliest.
+- **Repo-Aufträge** (seit 11.5c2a, nur mit `AGENT_REPO=1`, offene Räume): Zeigt die
+  Erwähnung auf ein Repo des Raums, bearbeitet der Agent dessen Code und reicht einen
+  Patch ein.
+  - Nur, wenn die Sandbox geht (bubblewrap mit Nutzer-Namensräumen, Log
+    `[agent] Repo-Aufträge an|aus – …`); unter Docker nur mit
+    `docker-compose.vibecoden.yml`. Ohne Netz in der Sandbox, nichts vom Knoten darin.
+  - Der Code kommt nur aus dem neuesten Bundle-Verweis eines Pflegers, geprüft wie
+    beim Halten, der Arbeitsordner liegt im Arbeitsspeicher und ist danach weg.
+  - Der Agent arbeitet wie mini-swe-agent: ein Befehl je Antwort, höchstens 50
+    Schritte und 30 Minuten, ein Auftrag zugleich. Den Patch baut der Knoten, nicht
+    das Modell; angenommen wird er nur von Menschen mit Recht im Raum.
+  - **Bezahlt** nur, nie gratis: nach Tokens der Antworten zu deinem Preis, höchstens
+    das Gebot – dort hört der Agent auf. Die Rechenzeit der Sandbox trägst du.
+  - Private Räume erst mit 11.5c2b.
 - **Noch nicht:** das Budget des Einladers (11.3d3, nach dem Upgrade des
   Zahlkanals).
 

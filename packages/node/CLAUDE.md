@@ -478,3 +478,11 @@ Bereichs unten anhängen.
   Modell bleiben englisch wie bei mini-swe-agent (daran wurden die Modelle gemessen); der MIT-Hinweis im Kopf der Datei
   bleibt stehen. `fuehreAus()` behält bei langer Ausgabe Anfang und Ende (`kuerzeAusgabe()` zeigt beide) – nie nur den Anfang
   sammeln, sonst fehlt dem Modell die Zusammenfassung eines Testlaufs.
+- **Repo-Aufträge im Knoten-Agenten nur über `KnotenAgent`** (seit 11.5c2a, offene Räume): erkannt nur in `pruefe()`
+  (`leseRepoAuftrag()` an der Erwähnung, `repoImOffenenRaum()`, Bundle-Verweis nur über `neuesterBundleVerweis()`), Code nur
+  über `holeRepoBundle()` (Stücke vom Autor des Manifests, Chiffrat = Blob-Id, nie Klon-Adressen), gearbeitet nur in
+  `bearbeiteRepoAuftrag()` → `bearbeiteRepo()` mit `gespraech()` des Antriebs – nie `complete()` (eigener Systemprompt,
+  Werkzeuge). Nur mit `AGENT_REPO=1` und `repo` aus `main.ts` nach `pruefeSandbox()`; nur bezahlt oder vom Besitzer, Tokens bis
+  zum Gebot. Scheitern Bundle, Modell oder Sandbox, wirft er `AgentAbgelehnt` – dann zahlt der Fragende nichts. Private Räume
+  lehnt `pruefePrivat()` ab, bis 11.5c2b P1–P4 bringt – nie als gewöhnliche Frage beantworten. `MemoryRelay` beachtet
+  `authors`: Prüfungen gegen Relays, die Filter übergehen, mit einem eigenen `query`, sonst prüft der Test nichts.
