@@ -484,5 +484,7 @@ Bereichs unten anhängen.
   `bearbeiteRepoAuftrag()` → `bearbeiteRepo()` mit `gespraech()` des Antriebs – nie `complete()` (eigener Systemprompt,
   Werkzeuge). Nur mit `AGENT_REPO=1` und `repo` aus `main.ts` nach `pruefeSandbox()`; nur bezahlt oder vom Besitzer, Tokens bis
   zum Gebot. Scheitern Bundle, Modell oder Sandbox, wirft er `AgentAbgelehnt` – dann zahlt der Fragende nichts. Private Räume
-  lehnt `pruefePrivat()` ab, bis 11.5c2b P1–P4 bringt – nie als gewöhnliche Frage beantworten. `MemoryRelay` beachtet
+  prüft `pruefePrivat()` seit 11.5c2b über `privatesRepo()` (P1–P4): nur mit `modellLokal` (`lokaleKiAdresse()` der Adresse des
+  Antriebs in `main.ts`), Repo über `repoImPrivatenRaum()`, Verweis nur aus `raumReposPrivat()` – nie ein offener 38042; Patch nur
+  über `raumRepoPatch()` in die Gruppe (`reicheEin()`), die Antwort über `raumAgentAntwort(…, repo)`. `MemoryRelay` beachtet
   `authors`: Prüfungen gegen Relays, die Filter übergehen, mit einem eigenen `query`, sonst prüft der Test nichts.

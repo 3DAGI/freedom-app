@@ -8,7 +8,7 @@
  *    Ablauf in der Sandbox → Patch vom Agenten (1617), den `git am` annimmt → Antwort im Raum nennt ihn →
  *    bezahlt nach Tokens bis zum Gebot; der Arbeitsordner ist weg, nichts im Log
  *  - Ohne Patch (Grenze erreicht) nur die Antwort mit Kennung; abgelehnt mit Kennung vor dem Rechnen: aus, fremdes
- *    Repo, kein Bundle, fremdes Issue, gratis; im privaten Raum erst mit 11.5c2b
+ *    Repo, kein Bundle, fremdes Issue, gratis (private Räume: `repo-auftrag-privat.test.ts`, 11.5c2b)
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -249,12 +249,11 @@ test("11.5c2a: abgelehnt mit Kennung, bevor gerechnet wird – aus, fremdes Repo
   }
 });
 
-test("11.5c2a: Verdrahtung – Provider, main.ts und privater Raum", () => {
+test("11.5c2a: Verdrahtung – Provider und main.ts", () => {
   const provider = quelle("../src/dvm-provider.ts");
   assert.match(provider, /agentAuftrag\?\.repo\s*\? this\.cfg\.agent!\.bearbeiteRepoAuftrag\(agentAuftrag/);
   assert.match(provider, /antworte\(agentAuftrag, result\.output, result\.fall \? \{ fall: result\.fall, patch: result\.patch \} : undefined\)/);
   const main = quelle("../src/main.ts");
   assert.match(main, /if \(agentWahl\.einstellung\.repo\) \{\s*const sandbox = await pruefeSandbox\(\);/);
   assert.match(main, /\.\.\.\(repoSandbox \? \{ repo: \{\} \} : \{\}\)/);
-  assert.match(quelle("../src/knoten-agent.ts"), /if \(leseRepoAuftrag\(ev\.tags\)\) throw new AgentAbgelehnt\("agent-repo-privat"\)/);
 });
