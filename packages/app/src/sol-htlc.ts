@@ -9,8 +9,8 @@
  * Kundenseite schlicht nicht benutzbar.
  *
  * WARUM NICHT DER VORHANDENE ADAPTER
- * `AnchorSolanaHtlc` in packages/protocol erwartet ein lokales `Keypair` und
- * signiert selbst. Im Browser gibt es kein Keypair — dort liegt der Schlüssel
+ * `AnchorSolanaHtlc` in packages/protocol erwartet einen lokalen Schlüssel (`ladeSolanaSchluessel()`) und
+ * signiert selbst. Im Browser gibt es keinen solchen Schlüssel — dort liegt er
  * in der Wallet des Nutzers, und die App bekommt ausschließlich eine
  * Signier-Funktion (seit A-21d2 `signiereTransaktion()`). Genau so soll es auch sein: eine Web-App, die
  * einen Solana-Secret-Key hält, wäre ein Verwahrer. Deshalb baut dieses Modul

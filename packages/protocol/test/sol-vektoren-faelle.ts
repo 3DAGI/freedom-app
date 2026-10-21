@@ -5,9 +5,11 @@
  * web3.js v1. Jeder Schritt bis A-21f muss dieselben Bytes liefern.
  */
 import { Keypair, PublicKey, Transaction, type TransactionInstruction } from "@solana/web3.js";
+import { getBase58Decoder } from "@solana/kit";
 import {
-  alsWeb3, AnchorSolanaHtlc, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
-  kanalAdresse, oeffneKanalAnweisung, rechneKanalAbIxs, signiereGutschrift, stockeKanalAufAnweisung, type KanalEmpfaenger,
+  alsWeb3, AnchorSolanaHtlc, ausDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
+  kanalAdresse, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
+  type KanalEmpfaenger, type SolRpc,
 } from "../src/index.js";
 
 export const schluessel = (n: number): Keypair => Keypair.fromSeed(new Uint8Array(32).fill(n));
@@ -32,27 +34,33 @@ export const nachricht = (zahler: string, ixs: TransactionInstruction[]): string
   return alsText(tx.serializeMessage());
 };
 
-/** Attrappe der Verbindung für `sendAndConfirmTransaction()`: setzt den Blockhash, signiert wie web3.js, merkt die Nachricht. */
-function attrappe(): { conn: unknown; nachrichten: string[] } {
+/**
+ * Die Kette als JSON-RPC-Attrappe hinter einem echten Pool (seit A-21e2 sendet der Adapter über kit): nennt den festen
+ * Blockhash, merkt die Nachricht jeder gesendeten Transaktion und bestätigt sie.
+ */
+function attrappe(): { rpc: SolRpc; nachrichten: string[] } {
   const nachrichten: string[] = [];
-  const conn = {
-    sendTransaction: async (tx: Transaction, signer: Keypair[]) => {
-      tx.recentBlockhash = BLOCKHASH;
-      tx.sign(...signer);
-      nachrichten.push(alsText(tx.serializeMessage()));
-      return "signatur";
-    },
-    confirmTransaction: async () => ({ value: { err: null } }),
-  };
-  return { conn, nachrichten };
+  const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const { id, method, params } = JSON.parse(String(init!.body)) as { id: number; method: string; params: unknown[] };
+    const wert = (value: unknown) => ({ context: { slot: 1 }, value });
+    let result: unknown = 10;
+    if (method === "getLatestBlockhash") result = wert({ blockhash: BLOCKHASH, lastValidBlockHeight: 1_000 });
+    else if (method === "sendTransaction") {
+      const roh = new Uint8Array(Buffer.from(String(params[0]), "base64"));
+      nachrichten.push(alsText(ausDraht(roh).messageBytes));
+      result = getBase58Decoder().decode(roh.subarray(1, 65));
+    } else if (method === "getSignatureStatuses") result = wert([{ slot: 2, confirmations: 1, err: null, confirmationStatus: "confirmed" }]);
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id, result }));
+  }) as typeof fetch;
+  return { rpc: poolRpc(new RpcPool([{ url: "https://rpc.test" }], { fetchImpl })), nachrichten };
 }
 
 /** Der LP-Adapter des Knotens (HTLC) mit der Attrappe statt einer Kette. */
 async function lp(fn: (a: AnchorSolanaHtlc) => Promise<unknown>): Promise<string> {
   if (process.env.HTLC_PROGRAM_ID) throw new Error("HTLC_PROGRAM_ID ist gesetzt – die Vektoren gelten für das Programm aus dem Code");
-  const a = new AnchorSolanaHtlc({ rpcUrl: "http://127.0.0.1:1", keypair: schluessel(2) });
-  const { conn, nachrichten } = attrappe();
-  (a as unknown as { conn: unknown }).conn = conn;
+  const a = new AnchorSolanaHtlc({ rpcUrl: "http://127.0.0.1:1", schluessel: solSchluesselAus(schluessel(2).secretKey) });
+  const { rpc, nachrichten } = attrappe();
+  (a as unknown as { rpc: SolRpc }).rpc = rpc;
   await fn(a);
   if (nachrichten.length !== 1) throw new Error(`erwartet eine Nachricht, ${nachrichten.length}`);
   return nachrichten[0]!;

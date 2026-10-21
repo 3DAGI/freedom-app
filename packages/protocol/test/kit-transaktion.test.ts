@@ -129,7 +129,7 @@ test("A-21e1: solSchluesselAus – Datei von solana-keygen ohne web3.js: Adresse
   assert.throws(() => Keypair.fromSecretKey(fremd), "web3.js lehnt ihn ebenso ab");
 });
 
-test("A-21e1: ladeSolanaSchluessel – liest die Datei wie loadSolanaKeypair, kaputte Dateien werfen", async () => {
+test("A-21e1: ladeSolanaSchluessel – liest die Datei von solana-keygen, kaputte Dateien werfen", async () => {
   const ordner = mkdtempSync(join(tmpdir(), "sol-schluessel-"));
   try {
     const kp = Keypair.generate();

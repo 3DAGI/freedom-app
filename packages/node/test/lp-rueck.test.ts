@@ -387,7 +387,8 @@ test("Verdrahtung (4.6b): main.ts startet die Gegenrichtung mit Speicher, SOL-Ko
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   assert.match(main, /process\.env\.LP_DIRECTION \?\? "sell-sol"/);
   assert.match(main, /solAdresse: lpSolAdresse,/);
-  assert.match(main, /lpSolAdresse = solKp\.publicKey\.toBase58\(\)/, "Empfaenger der Sperre = Konto, mit dem eingeloest wird");
+  assert.match(main, /lpSolAdresse = solSchluessel\.adresse;/, "Empfaenger der Sperre = Konto, mit dem eingeloest wird");
+  assert.match(main, /schluessel: solSchluessel,/, "derselbe Schluessel im Adapter (A-21e2)");
   assert.match(main, /rueckSpeicher\(join\(process\.env\.HOME \?\? "\.", "\.freedom", "lp-rueck\.json"\)\)/);
   assert.match(main, /for \(const s of await lp\.nachholen\(\)\)/);
   assert.match(main, /await lp\.erneuereAngebot\(\)/, "Angebot wird in der Schleife erneuert");

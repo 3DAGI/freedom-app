@@ -1147,13 +1147,13 @@ async function main(): Promise<void> {
       const { MockSolana } = await import("@freedomstack/protocol");
       sol = new MockSolana(Number(process.env.LP_SOL_BALANCE ?? 1_000_000_000));
     } else {
-      const { AnchorSolanaHtlc, loadSolanaKeypair } = await import("@freedomstack/protocol");
+      const { AnchorSolanaHtlc, ladeSolanaSchluessel } = await import("@freedomstack/protocol");
       const solKeypairPath = process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`;
-      const solKp = await loadSolanaKeypair(solKeypairPath);
-      lpSolAdresse = solKp.publicKey.toBase58();
+      const solSchluessel = await ladeSolanaSchluessel(solKeypairPath);
+      lpSolAdresse = solSchluessel.adresse;
       sol = new AnchorSolanaHtlc({
         rpcUrl: process.env.SOLANA_RPC ?? "https://api.devnet.solana.com",
-        keypair: solKp,
+        schluessel: solSchluessel,
       });
       console.log(`Solana-HTLC: echter Devnet-Adapter (${solKeypairPath})`);
     }
@@ -1208,18 +1208,18 @@ async function main(): Promise<void> {
   let relayer: import("./relayer-dienst.js").RelayerDienst | undefined;
   if (process.env.RELAYER_ENABLED === "1") {
     const { RelayerDienst } = await import("./relayer-dienst.js");
-    const { loadSolanaKeypair, LocalSigner, HTLC_PROGRAMM_ID } = await import("@freedomstack/protocol");
-    const { Connection } = await import("@solana/web3.js");
+    const { ladeSolanaSchluessel, LocalSigner, HTLC_PROGRAMM_ID, poolRpc, RpcPool, sendeTransaktion } = await import("@freedomstack/protocol");
     const rpc = process.env.SOLANA_RPC ?? "https://api.devnet.solana.com";
-    const conn = new Connection(rpc, "confirmed");
+    // Seit A-21e2 über kit und den RpcPool: senden immer mit Vorabsimulation (sendeTransaktion)
+    const relayerRpc = poolRpc(new RpcPool([{ url: rpc }]));
     relayer = new RelayerDienst({
       signer: new LocalSigner(keypair.sk),
-      solKeypair: await loadSolanaKeypair(process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`),
+      solSchluessel: await ladeSolanaSchluessel(process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`),
       programmId: HTLC_PROGRAMM_ID,
       erstattungLamports: Number(process.env.RELAYER_ERSTATTUNG ?? 10_000),
       kette: /devnet/.test(rpc) ? "solana:devnet" : /testnet/.test(rpc) ? "solana:testnet" : "solana:mainnet",
       maxProStunde: Number(process.env.RELAYER_MAX_PRO_STUNDE ?? 30),
-    }, pool, (roh) => conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" }));
+    }, pool, (roh) => sendeTransaktion(relayerRpc, roh));
     await relayer.veroeffentlicheAngebot();
     statusRollen.add("relayer");
     console.log(`Relayer aktiv (${relayer.solAdresse.slice(0, 8)}…)`);
