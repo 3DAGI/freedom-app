@@ -541,6 +541,14 @@ AGENT_REPO=1                                       # freiwillig: Repo-Aufträge 
     das Modell; angenommen wird er nur von Menschen mit Recht im Raum.
   - **Bezahlt** nur, nie gratis: nach Tokens der Antworten zu deinem Preis, höchstens
     das Gebot – dort hört der Agent auf. Die Rechenzeit der Sandbox trägst du.
+  - **Pakete** (seit 11.5c3, nur offene Räume): Vor dem ersten Schritt holt dein Knoten, was
+    `package-lock.json` und `requirements.txt` des Repos mit Prüfsumme nennen – nur per GET von
+    `registry.npmjs.org`, `pypi.org` und `files.pythonhosted.org`, mit `TOR_SOCKS` durch Tor. Die Sandbox
+    sieht sie nur lesbar, npm und pip installieren daraus ohne Netz und ohne Install-Skripte. Ein neues
+    Paket fragt der Agent mit Namen und fester Version an (`paket_holen`, höchstens 20 je Auftrag) – auch
+    das holt der Knoten, nie die Sandbox. Die Registry sieht dabei Paketnamen und die IP deines Knotens
+    (ohne Tor). Höchstens 500 Pakete, 200 MB und 10 Minuten je Auftrag; scheitert das Holen, arbeitet der
+    Agent ohne Pakete, und die Antwort sagt es.
   - **Private Räume** (seit 11.5c2b): nur mit `AGENT_PRIVAT`, und nur, wenn dein Modell
     auf diesem Rechner läuft (`OLLAMA_URL` auf `localhost`, `127.0.0.1` oder `[::1]`) –
     sonst lehnt der Agent ab. Der Code der Gruppe geht so an keinen anderen Rechner.

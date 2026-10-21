@@ -39,6 +39,7 @@ import {
   type RelayFilter, type SpaceState,
 } from "@freedomstack/protocol";
 import type { ChatAntwort, InferenceBackend } from "./inference.js";
+import type { PaketFall, PaketOptionen } from "./pakete.js";
 import { holeRepoBundle } from "./repo-bundle.js";
 import { type RepoLaufGrenzen, bearbeiteRepo } from "./repo-lauf.js";
 
@@ -151,12 +152,16 @@ export const REPO_TEXT = {
   "repo.formfehler": "Abgebrochen: Das Modell hielt das Format nicht ein – kein Patch.",
 } as const;
 export type RepoFall = keyof typeof REPO_TEXT;
+/** Hinter dem Satz, wenn die Pakete der Sperrdatei nicht zu holen waren (11.5c3) – der Auftrag lief ohne sie. */
+export const PAKETE_FEHLEN_TEXT = "Die Pakete aus der Sperrdatei ließen sich nicht holen.";
 
 /** Ergebnis eines Repo-Auftrags – wie ein gewöhnliches Ergebnis, dazu die Kennung und, wenn eingereicht, der Patch. */
 export interface RepoErgebnis {
   output: string;
   fall: RepoFall;
   patch?: string;
+  /** Warum die Pakete der Sperrdatei fehlten (11.5c3, `PaketAbgelehnt.fall`). */
+  pakete?: PaketFall;
   model: string;
   promptTokens: number;
   completionTokens: number;
@@ -193,7 +198,11 @@ export class KnotenAgent {
      * Repo-Aufträge (11.5c2a): nur, wenn die Sandbox geht (`main.ts` prüft `pruefeSandbox()`) – ohne diese
      * Angabe lehnt der Agent sie ab, auch mit `AGENT_REPO=1`. `bwrap`, `basis`, `grenzen` für Tests.
      */
-    repo?: { bwrap?: string; basis?: string; grenzen?: Partial<RepoLaufGrenzen> };
+    repo?: {
+      bwrap?: string; basis?: string; grenzen?: Partial<RepoLaufGrenzen>;
+      /** Pakete holen (11.5c3, W6a) – nur für offene Räume; `tor` aus `main.ts`. Ohne diese Angabe holt der Agent keine. */
+      pakete?: PaketOptionen;
+    };
     /**
      * Läuft das Modell auf diesem Rechner (`lokaleKiAdresse()` der Adresse des Antriebs, P2)? Nur dann nimmt der
      * Agent Repo-Aufträge privater Räume an – ihr Code geht nie an einen anderen Rechner.
@@ -313,6 +322,8 @@ export class KnotenAgent {
       if (!geholt.ok) throw new AgentAbgelehnt(geholt.fall);
       const r = await bearbeiteRepo({
         aufgabe: arbeit.aufgabe, bundle: geholt.bundle, bwrap: this.p.repo.bwrap, basis: this.p.repo.basis,
+        // Pakete nur in offenen Räumen – privat verriete schon die Wahl der Namen etwas über den Code (P3, W7)
+        ...(this.p.repo.pakete && !a.gruppe ? { paketHolen: this.p.repo.pakete } : {}),
         grenzen: { ...this.p.repo.grenzen, ...(p.tokens !== undefined ? { tokens: p.tokens } : {}) },
         angaben: { name: this.p.einstellung.name, mail: `${this.pk.slice(0, 16)}@agent.freedom.invalid`, zeit: this.jetzt(), betreff: "Vorschlag des Agenten" }, // kein UI-Text
         modell: async (nachrichten) => {
@@ -323,14 +334,15 @@ export class KnotenAgent {
         },
       });
       if (r.ende === "modell" || r.ende === "sandbox") throw new AgentAbgelehnt("agent-repo-fehler");
-      const basis = { model, promptTokens, completionTokens: r.tokens, durationMs: Date.now() - start };
-      if (r.ende !== "fertig") return { ...basis, fall: `repo.${r.ende}`, output: REPO_TEXT[`repo.${r.ende}`] };
+      const basis = { model, promptTokens, completionTokens: r.tokens, durationMs: Date.now() - start, ...(r.pakete ? { pakete: r.pakete } : {}) };
+      const text = (t: string) => (r.pakete ? `${t} ${PAKETE_FEHLEN_TEXT}` : t);
+      if (r.ende !== "fertig") return { ...basis, fall: `repo.${r.ende}`, output: text(REPO_TEXT[`repo.${r.ende}`]) };
       if (!r.patch?.ok) {
         const fall = `repo.${(r.patch?.fall ?? "patch.ordner").slice("patch.".length)}` as RepoFall;
-        return { ...basis, fall, output: REPO_TEXT[fall] };
+        return { ...basis, fall, output: text(REPO_TEXT[fall]) };
       }
       const patch = await this.reicheEin(a, arbeit.repo, r.patch.text);
-      return { ...basis, fall: "repo.patch", patch, output: `${REPO_TEXT["repo.patch"]} ${lesePatchText(r.patch.text).betreff}` };
+      return { ...basis, fall: "repo.patch", patch, output: text(`${REPO_TEXT["repo.patch"]} ${lesePatchText(r.patch.text).betreff}`) };
     } finally {
       this.repoLaeufe--;
     }
@@ -422,7 +434,7 @@ export class KnotenAgent {
    * Die Antwort im Raum veröffentlichen – offen Kind 42 vom Agenten, privat ein inneres Event der
    * Gruppe (11.3d2b) – und die Erwähnung als beantwortet merken.
    */
-  async antworte(a: AgentAuftrag, text: string, repo?: { fall: RepoFall; patch?: string }): Promise<void> {
+  async antworte(a: AgentAuftrag, text: string, repo?: { fall: RepoFall; patch?: string; pakete?: PaketFall }): Promise<void> {
     try {
       if (a.gruppe) {
         const inneres = await this.privat?.sende(a.gruppe, raumAgentAntwort(a.nachricht, text, repo)).catch(() => null);

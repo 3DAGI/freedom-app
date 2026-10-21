@@ -31,6 +31,8 @@ import { ENDE_MARKE } from "../src/repo-lauf.js";
 import { pruefeSandbox } from "../src/sandbox.js";
 
 const quelle = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
+/** Was die Attrappe der Registry gefragt wurde – privat nie etwas (11.5c3, P3). */
+const paketeGefragt: string[] = [];
 const kp = generateKeypair(), hochlader = generateKeypair(), fremd = generateKeypair();
 const gitUmgebung = { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_COMMITTER_NAME: "Agent", GIT_COMMITTER_EMAIL: "agent@freedom.invalid" };
 const git = (dir: string, ...args: string[]) =>
@@ -42,11 +44,14 @@ const GEHEIM = "geheimeZahl";
 /** Modell nach Drehbuch hinter `gespraech()`; `complete()` darf für Repo-Aufträge nie laufen. */
 class DrehbuchBackend implements InferenceBackend {
   gesehen = 0;
+  /** Die Aufgabe, wie das Modell sie im ersten Schritt las. */
+  aufgabe = "";
   constructor(private readonly antworten: string[]) {}
   name(): string { return "drehbuch"; }
   async available(): Promise<boolean> { return true; }
   async complete(_req: InferenceRequest): Promise<InferenceResult> { throw new Error("complete() bei einem Repo-Auftrag"); }
-  async gespraech(): Promise<ChatAntwort> {
+  async gespraech(p: { nachrichten: ReadonlyArray<{ content: string }> }): Promise<ChatAntwort> {
+    if (this.gesehen === 0) this.aufgabe = p.nachrichten[1]?.content ?? "";
     const text = this.antworten[this.gesehen++];
     if (text === undefined) throw new Error("Drehbuch zu Ende");
     return { text, model: "qwen3.8:27b", promptTokens: 100, completionTokens: 40, abgeschnitten: false };
@@ -59,6 +64,8 @@ async function bundleImNetz(pool: OutboxPool): Promise<{ repo: string; ref: GitR
   git(repo, "init", "-q");
   mkdirSync(join(repo, "src"));
   writeFileSync(join(repo, "src/a.ts"), `export const ${GEHEIM} = 1;\n`);
+  // Eine Sperrdatei: im privaten Raum holt der Knoten sie nie (P3) – ihre Namen verrieten, woran gearbeitet wird
+  writeFileSync(join(repo, "requirements.txt"), `${GEHEIM}==1.0.0 --hash=sha256:${"a".repeat(64)}\n`);
   git(repo, "add", ".");
   git(repo, "commit", "-q", "-m", "erster");
   git(repo, "bundle", "create", "-q", "r.bundle", "HEAD", "main");
@@ -75,7 +82,8 @@ async function aufbau(o: { antworten?: string[]; basis?: string; modellLokal?: b
   const ag = generateKeypair();
   const agent = new KnotenAgent({
     schluessel: ag, einstellung: { name: "Lektor", persona: "Du bist Lektor.", ...(o.einstellungRepo === false ? {} : { repo: true }) }, knoten: kp.pk, pool,
-    repo: { basis: o.basis }, modellLokal: o.modellLokal ?? true,
+    repo: { basis: o.basis, pakete: { tor: null, abruf: async (url) => { paketeGefragt.push(url); return new Response("", { status: 404 }); } } },
+    modellLokal: o.modellLokal ?? true,
   });
   const mls = KnotenMls.starte({
     schluessel: ag, einladen: "alle", karte: agent.kartenDaten(), ordner: mkdtempSync(join(tmpdir(), "repo-privat-mls-")),
@@ -192,6 +200,11 @@ test("11.5c2b mit bubblewrap: Repo-Auftrag im privaten Raum – Patch und Antwor
   assert.deepEqual(regelKeinKlartext(gesehen, [GEHEIM, "Patch eingereicht", "Werkstatt"]), []);
   assert.deepEqual(readdirSync(basis), [], "Arbeitsordner gelöscht");
   for (const z of log) assert.ok(!new RegExp(`${GEHEIM}|Patch eingereicht|export const`).test(z), `kein Klartext im Log: ${z}`);
+  // Pakete holt der Knoten privat nie, und das Modell bekommt weder /pakete noch paket_holen (P3)
+  assert.deepEqual(paketeGefragt, []);
+  assert.ok(w.backend.aufgabe.startsWith("Please solve this issue:"));
+  assert.doesNotMatch(w.backend.aufgabe, /Packages|paket_holen|\/pakete/);
+  assert.ok(!antwort.tags.some((t) => t[0] === "pakete"));
   w.mls.stoppe();
 });
 

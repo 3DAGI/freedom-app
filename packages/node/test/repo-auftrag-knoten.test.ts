@@ -23,7 +23,8 @@ import {
 } from "@freedomstack/protocol";
 import { DvmProvider } from "../src/dvm-provider.js";
 import type { ChatAntwort, InferenceBackend, InferenceRequest, InferenceResult } from "../src/inference.js";
-import { KnotenAgent, agentAusUmgebung } from "../src/knoten-agent.js";
+import { KnotenAgent, PAKETE_FEHLEN_TEXT, agentAusUmgebung } from "../src/knoten-agent.js";
+import type { PaketOptionen } from "../src/pakete.js";
 import { holeRepoBundle } from "../src/repo-bundle.js";
 import { ENDE_MARKE } from "../src/repo-lauf.js";
 import { pruefeSandbox } from "../src/sandbox.js";
@@ -39,11 +40,12 @@ const git = (dir: string, ...args: string[]) =>
 const bash = (befehl: string) => `THOUGHT: weiter.\n\n\`\`\`bash\n${befehl}\n\`\`\``;
 
 /** Ein Repo als Bundle, verschlüsselt im Blob-Netz unter einem Wegwerfschlüssel wie in der App – der Verweis vom Eigentümer. */
-async function bundleImNetz(pool: OutboxPool, von = gruender) {
+async function bundleImNetz(pool: OutboxPool, von = gruender, weitere: Record<string, string> = {}) {
   const repo = mkdtempSync(join(tmpdir(), "repo-auftrag-"));
   git(repo, "init", "-q");
   mkdirSync(join(repo, "src"));
   writeFileSync(join(repo, "src/a.ts"), "export const a = 1;\n");
+  for (const [pfad, text] of Object.entries(weitere)) writeFileSync(join(repo, pfad), text);
   git(repo, "add", ".");
   git(repo, "commit", "-q", "-m", "erster");
   git(repo, "bundle", "create", "-q", "r.bundle", "HEAD", "main");
@@ -69,7 +71,9 @@ class DrehbuchBackend implements InferenceBackend {
   }
 }
 
-async function aufbau(o: { repo?: boolean; einstellungRepo?: boolean; antworten?: string[]; basis?: string; grenzen?: { schritte?: number }; bootstrap?: boolean } = {}) {
+async function aufbau(o: {
+  repo?: boolean; einstellungRepo?: boolean; antworten?: string[]; basis?: string; grenzen?: { schritte?: number }; bootstrap?: boolean; pakete?: PaketOptionen;
+} = {}) {
   const relay = new MemoryRelay(`mem://repo-${Math.random()}`);
   const pool = new OutboxPool([relay], { minAcks: 1 });
   const ag = generateKeypair();
@@ -93,7 +97,7 @@ async function aufbau(o: { repo?: boolean; einstellungRepo?: boolean; antworten?
   };
   const agent = new KnotenAgent({
     schluessel: ag, einstellung: { name: "Lektor", persona: "Du bist Lektor.", ...(o.einstellungRepo === false ? {} : { repo: true }) }, knoten: kp.pk, pool,
-    ...(o.repo === false ? {} : { repo: { basis: o.basis, grenzen: o.grenzen } }),
+    ...(o.repo === false ? {} : { repo: { basis: o.basis, grenzen: o.grenzen, ...(o.pakete ? { pakete: o.pakete } : {}) } }),
   });
   const backend = new DrehbuchBackend(o.antworten ?? []);
   const provider = new DvmProvider({
@@ -216,6 +220,23 @@ test("11.5c2a mit bubblewrap: Grenze erreicht – kein Patch, die Antwort sagt w
   assert.ok((await antwortenAn(a.relay, sitzung)).some((e) => e.kind === 6050));
 });
 
+test("11.5c3 mit bubblewrap: offener Raum – Pakete der Sperrdatei nicht zu holen, die Antwort sagt es mit Kennung", { skip: ohne }, async () => {
+  const gefragt: string[] = [];
+  const a = await aufbau({
+    antworten: [bash(`printf '%s\\n' ${ENDE_MARKE} 'nichts'`)],
+    pakete: { tor: null, plattform: { cpu: "x64" }, abruf: async (url) => { gefragt.push(url); return new Response("nicht da", { status: 404 }); } },
+  });
+  await bundleImNetz(a.pool, gruender, { "requirements.txt": `probe==1.0.0 --hash=sha256:${"a".repeat(64)}\n` });
+  const frage = await a.erwaehne(repoAuftragTags({ repo: REPO }));
+  const sitzung = await frageNach(a.pool, frage.id);
+  assert.equal((await a.provider.pollOnce()).length, 1);
+  assert.deepEqual(gefragt, ["https://pypi.org/pypi/probe/1.0.0/json"], "im offenen Raum holt der Knoten, was die Sperrdatei nennt");
+  const [antwort] = await a.relay.query({ kinds: [42], authors: [a.ag.pk] });
+  assert.deepEqual(antwort!.tags.slice(-2), [["fall", "repo.keine-aenderung"], ["pakete", "paket-netz"]]);
+  assert.equal(antwort!.content, `Fertig, aber nichts geändert – kein Patch. ${PAKETE_FEHLEN_TEXT}`);
+  assert.equal((await antwortenAn(a.relay, sitzung)).find((e) => e.kind === 6050)?.content, antwort!.content);
+});
+
 test("11.5c2a: abgelehnt mit Kennung, bevor gerechnet wird – aus, fremdes Repo, kein Bundle, fremdes Issue, gratis", async () => {
   const faelle: Array<[string, () => Promise<{ a: Awaited<ReturnType<typeof aufbau>>; frage: NostrEvent }>]> = [
     ["agent-repo-aus", async () => { const a = await aufbau({ einstellungRepo: false }); await bundleImNetz(a.pool); return { a, frage: await a.erwaehne(repoAuftragTags({ repo: REPO })) }; }],
@@ -252,8 +273,8 @@ test("11.5c2a: abgelehnt mit Kennung, bevor gerechnet wird – aus, fremdes Repo
 test("11.5c2a: Verdrahtung – Provider und main.ts", () => {
   const provider = quelle("../src/dvm-provider.ts");
   assert.match(provider, /agentAuftrag\?\.repo\s*\? this\.cfg\.agent!\.bearbeiteRepoAuftrag\(agentAuftrag/);
-  assert.match(provider, /antworte\(agentAuftrag, result\.output, result\.fall \? \{ fall: result\.fall, patch: result\.patch \} : undefined\)/);
+  assert.match(provider, /antworte\(agentAuftrag, result\.output, result\.fall \? \{ fall: result\.fall, patch: result\.patch, pakete: result\.pakete \} : undefined\)/);
   const main = quelle("../src/main.ts");
   assert.match(main, /if \(agentWahl\.einstellung\.repo\) \{\s*const sandbox = await pruefeSandbox\(\);/);
-  assert.match(main, /\.\.\.\(repoSandbox \? \{ repo: \{\} \} : \{\}\)/);
+  assert.match(main, /\.\.\.\(repoSandbox \? \{ repo: \{ pakete: \{ tor: torProxy \?\? null, /, "Pakete mit Tor durch Tor (11.5c3)");
 });

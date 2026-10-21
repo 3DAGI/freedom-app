@@ -1179,6 +1179,10 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   Events der Gruppe (`raumReposPrivat()`) – ein offener Verweis zählt dort nicht. Patch
   (`raumRepoPatch()`) und Antwort (Kind 9, `raumAgentAntwort(…, { patch, fall })`) gehen
   nur als innere Events in die Gruppe; `e` nennt die Id des inneren Patches.
+- **Pakete** (seit 11.5c3, nur offene Räume): Konnte der Knoten die Pakete aus `package-lock.json` oder
+  `requirements.txt` des Repos nicht holen, lief der Auftrag ohne sie; die Antwort trägt dann zusätzlich
+  `["pakete", <kennung>]` (`paket-…`, etwa `paket-pruefsumme`, `paket-netz`). Im privaten Raum holt der Knoten keine
+  Pakete (P3).
 
 | `fall` | Bedeutung |
 |---|---|

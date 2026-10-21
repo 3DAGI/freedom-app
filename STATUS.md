@@ -12504,3 +12504,44 @@ Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (P1–P4, W7 A). Nach 11.5c2a (offene Rä
 
 Knoten-Stand: `main` mit 11.5c2b, nur wer Repo-Aufträge in privaten Räumen will (`AGENT_REPO=1`, `AGENT_PRIVAT`, Modell
 auf diesem Rechner); sonst kein Unterschied.
+
+## Schritt 11.5c3 – Pakete für Repo-Aufträge offener Räume
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W6 B, W6a „So“, P3). Nach 11.5c2b der letzte Teil von 11.5c; der Schalter für
+private Räume (P3, Vorgabe aus) steht als 11.5c4 in OFFEN.
+
+**Neu:**
+- **Phase 1** (`repo-lauf.ts`, `bearbeiteRepo(…, { paketHolen })`): Vor dem ersten Schritt holt der Knoten, was
+  `package-lock.json` und `requirements.txt` an der Wurzel des Bundles mit Prüfsumme nennen (`holeAusSperre()` aus 11.5n,
+  gelesen aus der Arbeitskopie im Speicher, nie vom Ordner), in einen eigenen Ordner im tmpfs. Die Sandbox sieht ihn nur
+  lesbar als `/pakete`; npm und pip sind über Umgebungsvariablen darauf eingestellt (offline, ohne Install-Skripte, Logs von
+  npm nach `/tmp`). Danach ist der Ordner weg.
+- **`paket_holen`:** Die Zeile `paket_holen <npm|pypi> <name> <version>` erkennt `repoLauf()` und führt `paketHolen()` im
+  Knoten aus – nie die Sandbox; zum Modell nur Adresse und Prüfsumme oder die Kennung. Die Aufgabe nennt beides (englisch
+  wie die übrigen Anweisungen).
+- **Scheitert das Holen**, läuft der Auftrag ohne Pakete: Das Modell liest die Kennung, die Antwort im Raum trägt
+  `["pakete", <kennung>]` (`repoAntwortTags()`) und einen festen Satz dazu (`PAKETE_FEHLEN_TEXT`).
+- **Nur offene Räume:** `bearbeiteRepoAuftrag()` gibt die Pakete nur ohne Gruppe frei; privat gibt es weder `/pakete` noch
+  `paket_holen` (P3).
+- **`main.ts`:** Pakete mit `TOR_SOCKS` durch Tor; die Plattform für Räder (`sandboxPlattform()`: Python-Fassung, wie sie in
+  der Sandbox läuft) – sonst nähme `passendeDateien()` nur reine Räder oder Quellarchive.
+- **Doku:** `PROTOCOL.md` §33 (Tag `pakete`), `PROVIDER.md` (Pakete), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Gemessen:** `npm ci --offline` installiert aus einem nur lesbar eingebundenen Cache, wenn `npm_config_logs_dir` woanders
+hinzeigt (sonst nur eine Warnung).
+
+**Tests:** protocol +1, node +5.
+- **Protokoll:** das Tag `pakete` offen wie privat, nur `paket-…`.
+- **Ablauf:** `paket_holen` im Knoten (Adresse und Prüfsumme, Kennung, nie fremder Fehlertext), npm und pip auf `/pakete`
+  nur mit Freigabe; ohne Freigabe ist die Zeile ein gewöhnlicher Befehl; die Aufgabe nennt eine gescheiterte Phase 1.
+- **Mit bubblewrap:**
+  - Pakete der Sperrdatei vor dem ersten Schritt nur lesbar in `/pakete`, pip installiert daraus ohne Netz,
+    `paket_holen` legt ein neues dazu; nur GET an die Liste; beide Ordner danach weg;
+  - falsche Prüfsumme: nichts abgelegt, der Auftrag läuft, Kennung im Ergebnis; ohne Freigabe kein Abruf, kein `/pakete`;
+  - die Plattform ist die Python-Fassung in der Sandbox.
+- **Knoten-Agent:** offener Raum mit unerreichbarer Registry → Antwort mit `["pakete", "paket-netz"]`; privater Raum mit
+  Sperrdatei → kein Abruf, kein Abschnitt zu Paketen in der Aufgabe.
+- **Gegenproben:** Ohne die Sperre für private Räume und mit `/pakete` schreibbar ist je ein Test rot.
+- **Angepasst:** drei Regex-Tests auf die neuen Zeilen (11.5c2a, 11.3d1a).
+
+Knoten-Stand: `main` mit 11.5c3, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.

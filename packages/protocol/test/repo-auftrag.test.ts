@@ -167,3 +167,14 @@ test("11.5c2b: Antwort im privaten Raum – inneres Event mit denselben Tags, oh
   assert.throws(() => raumAgentAntwort(auf, "x", { patch: "kein-patch" }), /Patch/);
   assert.throws(() => raumAgentAntwort(auf, "x", { fall: "agent-repo-fremd" }), /Kennung/, "nur `repo.…`");
 });
+
+test("11.5c3: fehlten die Pakete der Sperrdatei, nennt die Antwort die Kennung – offen wie privat, nur `paket-…`", () => {
+  const auf = { id: "aa".repeat(32), von: autor.pk, zeit: 1, text: "@Agent", kanal: "allgemein", erwaehnt: [agent.pk] };
+  const offen = agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", jetzt: 5, fall: "repo.keine-aenderung", pakete: "paket-netz" });
+  assert.deepEqual(offen.tags.slice(-2), [["fall", "repo.keine-aenderung"], ["pakete", "paket-netz"]]);
+  assert.deepEqual(raumAgentAntwort(auf, "x", { fall: "repo.zeit", pakete: "paket-pruefsumme" }).tags.slice(-2), [["fall", "repo.zeit"], ["pakete", "paket-pruefsumme"]]);
+  assert.ok(!agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", fall: "repo.patch" }).tags.some((t) => t[0] === "pakete"));
+  for (const falsch of ["Text der Registry", "repo.patch", "paket-", "paket-Netz"]) {
+    assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", pakete: falsch }), /Kennung/, falsch);
+  }
+});

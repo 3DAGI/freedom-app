@@ -42,6 +42,7 @@ import { livekitAusUmgebung } from "./livekit.js";
 import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
+import { sandboxPlattform } from "./repo-lauf.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
@@ -590,7 +591,9 @@ async function main(): Promise<void> {
       console.log(`[agent] Repo-Aufträge ${sandbox.ok ? "an" : "aus"} – ${sandboxText(sandbox)}`);
     }
     knotenAgent = new KnotenAgent({
-      schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei(), ...(repoSandbox ? { repo: {} } : {}),
+      schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei(),
+      // Pakete für Repo-Aufträge offener Räume (11.5c3) mit Tor durch Tor – nie direkt, wenn Tor verlangt ist
+      ...(repoSandbox ? { repo: { pakete: { tor: torProxy ?? null, plattform: await sandboxPlattform() } } } : {}),
       // Private Räume (11.5c2b, P2): Repo-Aufträge nur mit einem Modell auf diesem Rechner
       modellLokal: !!lokaleKiAdresse(antrieb.url),
     });
