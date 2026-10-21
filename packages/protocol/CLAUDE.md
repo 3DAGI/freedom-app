@@ -72,7 +72,8 @@ Fallstricke dieses Bereichs unten anhängen.
   `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()` (offen `istAgentIm()`, privat die Agent-Karten der
   Gruppe). Ohne `istAgent` zählt ein Agent mit `repos_pflegen` oder als Admin wie ein Mensch.
   Den Code für den Agenten (seit 11.5c2a) nur aus `neuesterBundleVerweis()` (Eigentümer oder Pfleger, `d` = Kennung, mit
-  Schlüssel); die Antwort nennt Patch und Ausgang nur über `agentAntwortEvent(…, { patch, fall })` (`fall` nur `repo.…`).
+  Schlüssel); die Antwort nennt Patch und Ausgang nur über `agentAntwortEvent(…, { patch, fall })` (`fall` nur `repo.…`), im privaten
+  Raum (seit 11.5c2b) über `raumAgentAntwort(…, { patch, fall })` – beide über `repoAntwortTags()`, `patch` ist dort die Id des inneren Events.
 - **Solana-Anweisungen nur als kit-`Instruction`** (seit A-21b1, `docs/KIT-PLAN.md`): neue Anweisungen über
   `@solana/kit` (`address()`, `AccountRole`, Konten über `konto()`), System-Anweisungen aus `@solana-program/system`
   (Unterschrift nur als Rolle über `createNoopSigner()`), Ed25519 nur über `ed25519Anweisung()` – web3.js bekommt sie

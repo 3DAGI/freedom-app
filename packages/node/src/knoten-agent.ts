@@ -24,7 +24,9 @@
  * Repo-Aufträge (11.5c2a, `docs/REPO-AGENTEN-ENTWURF.md`, nur mit `AGENT_REPO=1` und Sandbox): Zeigt die
  * Erwähnung auf ein Repo des Raums (`leseRepoAuftrag()`), holt der Agent das Bundle des neuesten Verweises
  * eines Pflegers (`holeRepoBundle()`), arbeitet im Ablauf nach mini-swe-agent (`bearbeiteRepo()`), reicht den
- * Patch ein (Kind 1617 vom Agenten) und nennt ihn in der Antwort. Erst offene Räume; private mit 11.5c2b.
+ * Patch ein (Kind 1617 vom Agenten) und nennt ihn in der Antwort. In privaten Räumen (11.5c2b, P1–P4) nur als
+ * Mitglied, nur mit dem Modell auf diesem Rechner (`modellLokal`), Repo, Verweis, Patch und Antwort nur als innere
+ * Events der Gruppe.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,7 +34,7 @@ import {
   AuftragsBremse, KIND_CHANNEL_MESSAGE, KIND_GIT_REPO_REF, KIND_RAUM_KANAL, KIND_REPO_ANKUENDIGUNG, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
   agentAntwortEvent, agentPromptMit, ausRaumEvent, baueAgentKarte, bauePatch, definitionDesGruenders, entscheide, gruppenRaum, istAgentIm,
   leseIssue, lesePatchText, leseRaumAdresse, leseRepoAuftrag, neuesterBundleVerweis, raumAgentAntwort, raumAgentKarten, raumZustandFuer,
-  repoImOffenenRaum, signEvent, verifyEvent,
+  raumRepoPatch, raumReposPrivat, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verifyEvent,
   type AgentKarteDaten, type AgentVerlaufGrenzen, type GelesenesRepo, type InneresEvent, type InneresSenden, type NostrEvent, type RaumNachricht,
   type RelayFilter, type SpaceState,
 } from "@freedomstack/protocol";
@@ -192,6 +194,11 @@ export class KnotenAgent {
      * Angabe lehnt der Agent sie ab, auch mit `AGENT_REPO=1`. `bwrap`, `basis`, `grenzen` für Tests.
      */
     repo?: { bwrap?: string; basis?: string; grenzen?: Partial<RepoLaufGrenzen> };
+    /**
+     * Läuft das Modell auf diesem Rechner (`lokaleKiAdresse()` der Adresse des Antriebs, P2)? Nur dann nimmt der
+     * Agent Repo-Aufträge privater Räume an – ihr Code geht nie an einen anderen Rechner.
+     */
+    modellLokal?: boolean;
   }) {
     this.pk = p.schluessel.pk;
     this.sk = p.schluessel.sk;
@@ -282,15 +289,8 @@ export class KnotenAgent {
     const verweise = echt(await frage({ kinds: [KIND_GIT_REPO_REF], authors: [im.repo.eigentuemer, ...im.repo.maintainer], "#d": [im.repo.id], limit: 50 }));
     const verweis = neuesterBundleVerweis(im.repo, verweise);
     if (!verweis) throw new AgentAbgelehnt("agent-repo-bundle");
-    let issueText = "";
-    if (auftrag.issue) {
-      const roh = echt(await frage({ ids: [auftrag.issue], limit: 1 })).find((x) => x.id === auftrag.issue);
-      let issue: ReturnType<typeof leseIssue> | undefined;
-      try { issue = roh ? leseIssue(roh) : undefined; } catch { issue = undefined; }
-      if (!issue || issue.repoAdresse !== im.repo.adresse) throw new AgentAbgelehnt("agent-repo-issue");
-      issueText = `\n\n[Issue: ${issue.betreff}]:\n${issue.text}`; // kein UI-Text
-    }
-    return { repo: im.repo, verweis, issueText };
+    const roh = auftrag.issue ? echt(await frage({ ids: [auftrag.issue], limit: 1 })).find((x) => x.id === auftrag.issue) : undefined;
+    return { repo: im.repo, verweis, issueText: this.issueText(auftrag.issue, roh, im.repo) };
   }
 
   /**
@@ -329,12 +329,23 @@ export class KnotenAgent {
         const fall = `repo.${(r.patch?.fall ?? "patch.ordner").slice("patch.".length)}` as RepoFall;
         return { ...basis, fall, output: REPO_TEXT[fall] };
       }
-      const patch = signEvent(bauePatch({ repo: arbeit.repo, text: r.patch.text }, this.pk), this.sk);
-      await this.p.pool.publish(patch).catch(() => { throw new AgentAbgelehnt("agent-nicht-veroeffentlicht"); });
-      return { ...basis, fall: "repo.patch", patch: patch.id, output: `${REPO_TEXT["repo.patch"]} ${lesePatchText(r.patch.text).betreff}` };
+      const patch = await this.reicheEin(a, arbeit.repo, r.patch.text);
+      return { ...basis, fall: "repo.patch", patch, output: `${REPO_TEXT["repo.patch"]} ${lesePatchText(r.patch.text).betreff}` };
     } finally {
       this.repoLaeufe--;
     }
+  }
+
+  /** Den Patch einreichen: offen signiert vom Agenten (1617), privat nur als inneres Event der Gruppe (P4) – die Id davon. */
+  private async reicheEin(a: AgentAuftrag, repo: GelesenesRepo, text: string): Promise<string> {
+    if (a.gruppe) {
+      const inneres = await this.privat?.sende(a.gruppe, raumRepoPatch(a.gruppe, { repo, text })).catch(() => null);
+      if (!inneres) throw new AgentAbgelehnt("agent-nicht-veroeffentlicht");
+      return inneres;
+    }
+    const patch = signEvent(bauePatch({ repo, text }, this.pk), this.sk);
+    await this.p.pool.publish(patch).catch(() => { throw new AgentAbgelehnt("agent-nicht-veroeffentlicht"); });
+    return patch.id;
   }
 
   /** Das MLS-Konto des Agenten (11.3d2a) – ohne gibt es keine privaten Räume. */
@@ -370,14 +381,41 @@ export class KnotenAgent {
       agent: this.pk, ev, alle: r.raum.nachrichten, stand: r.raum.zustand, definition, bremse: this.bremse, jetzt: this.jetzt(), istAgent, ausBudget: false,
     });
     if (e.art !== "antworten") throw new AgentAbgelehnt(`agent-${e.grund}`);
-    // Repo-Aufträge privater Räume erst mit P1–P4 (11.5c2b) – nie als gewöhnliche Frage beantworten
-    if (leseRepoAuftrag(ev.tags)) throw new AgentAbgelehnt("agent-repo-privat");
+    const repo = this.privatesRepo(ev, v.raum, r.ereignisse, r.raum.zustand, istAgent);
     this.inArbeit.add(ev.id);
     const nachrichten = r.raum.nachrichten.map(ausRaumEvent).filter((n): n is RaumNachricht => n !== null);
     const prompt = agentPromptMit({
       agent: this.pk, persona: this.p.einstellung.persona, nachricht: e.nachricht, alle: nachrichten, istAgent, grenzen: AGENT_VERLAUF_KNOTEN,
     });
-    return { nachricht: e.nachricht, kennung: v.raum, gruppe: v.raum, prompt };
+    return { nachricht: e.nachricht, kennung: v.raum, gruppe: v.raum, prompt, ...(repo ? { repo: { ...repo, aufgabe: prompt + repo.issueText } } : {}) };
+  }
+
+  /**
+   * Repo-Auftrag im privaten Raum (11.5c2b, P1–P4): nur, was ein Pfleger der Gruppe angekündigt hat
+   * (`repoImPrivatenRaum()`, Agenten pflegen nie), der Bundle-Verweis samt Schlüssel aus den inneren Events, und nur
+   * mit dem Modell auf diesem Rechner – der Code der Gruppe geht nie an einen anderen.
+   */
+  private privatesRepo(ev: NostrEvent, gruppe: string, ereignisse: InneresEvent[], zustand: SpaceState, istAgent: (pk: string) => boolean):
+    { repo: GelesenesRepo; verweis: NostrEvent; issueText: string } | undefined {
+    const auftrag = leseRepoAuftrag(ev.tags);
+    if (!auftrag) return undefined;
+    if (!this.p.einstellung.repo || !this.p.repo) throw new AgentAbgelehnt("agent-repo-aus");
+    if (!this.p.modellLokal) throw new AgentAbgelehnt("agent-repo-modell");
+    const im = repoImPrivatenRaum({ auftrag, raumId: gruppe, ereignisse, zustand, istAgent });
+    if (!im.ok) throw new AgentAbgelehnt(im.fall);
+    const { bundles, issues } = raumReposPrivat(gruppe, ereignisse, zustand, istAgent);
+    const verweis = neuesterBundleVerweis(im.repo, bundles);
+    if (!verweis) throw new AgentAbgelehnt("agent-repo-bundle");
+    return { repo: im.repo, verweis, issueText: this.issueText(auftrag.issue, issues.find((x) => x.id === auftrag.issue), im.repo) };
+  }
+
+  /** Text eines Issues für die Aufgabe – nur ein Issue genau dieses Repos, sonst `agent-repo-issue`. */
+  private issueText(id: string | undefined, roh: NostrEvent | undefined, repo: GelesenesRepo): string {
+    if (!id) return "";
+    let issue: ReturnType<typeof leseIssue> | undefined;
+    try { issue = roh ? leseIssue(roh) : undefined; } catch { issue = undefined; }
+    if (!issue || issue.repoAdresse !== repo.adresse) throw new AgentAbgelehnt("agent-repo-issue");
+    return `\n\n[Issue: ${issue.betreff}]:\n${issue.text}`; // kein UI-Text
   }
 
   /**
@@ -387,7 +425,7 @@ export class KnotenAgent {
   async antworte(a: AgentAuftrag, text: string, repo?: { fall: RepoFall; patch?: string }): Promise<void> {
     try {
       if (a.gruppe) {
-        const inneres = await this.privat?.sende(a.gruppe, raumAgentAntwort(a.nachricht, text)).catch(() => null);
+        const inneres = await this.privat?.sende(a.gruppe, raumAgentAntwort(a.nachricht, text, repo)).catch(() => null);
         if (!inneres) throw new AgentAbgelehnt("agent-nicht-veroeffentlicht");
       } else {
         const ev = signEvent(agentAntwortEvent({ agent: this.pk, kennung: a.kennung, auf: a.nachricht, text, jetzt: this.jetzt(), ...repo }), this.sk);

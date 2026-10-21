@@ -528,7 +528,7 @@ AGENT_REPO=1                                       # freiwillig: Repo-Aufträge 
     Gruppe. Die App fragt seit 11.3d2c auch in privaten Räumen; wer deinen
     Agenten einlädt, sieht vorher eine Warnung, und im Raum steht danach ein
     Hinweis, dass dein Knoten alles mitliest.
-- **Repo-Aufträge** (seit 11.5c2a, nur mit `AGENT_REPO=1`, offene Räume): Zeigt die
+- **Repo-Aufträge** (seit 11.5c2a, nur mit `AGENT_REPO=1`; private Räume seit 11.5c2b): Zeigt die
   Erwähnung auf ein Repo des Raums, bearbeitet der Agent dessen Code und reicht einen
   Patch ein.
   - Nur, wenn die Sandbox geht (bubblewrap mit Nutzer-Namensräumen, Log
@@ -541,7 +541,12 @@ AGENT_REPO=1                                       # freiwillig: Repo-Aufträge 
     das Modell; angenommen wird er nur von Menschen mit Recht im Raum.
   - **Bezahlt** nur, nie gratis: nach Tokens der Antworten zu deinem Preis, höchstens
     das Gebot – dort hört der Agent auf. Die Rechenzeit der Sandbox trägst du.
-  - Private Räume erst mit 11.5c2b.
+  - **Private Räume** (seit 11.5c2b): nur mit `AGENT_PRIVAT`, und nur, wenn dein Modell
+    auf diesem Rechner läuft (`OLLAMA_URL` auf `localhost`, `127.0.0.1` oder `[::1]`) –
+    sonst lehnt der Agent ab. Der Code der Gruppe geht so an keinen anderen Rechner.
+    Repo und Schlüssel des Bundles liest der Agent als Mitglied aus der Gruppe; Patch und
+    Antwort gehen nur verschlüsselt in die Gruppe. Unter Docker zeigt `OLLAMA_URL` auf
+    den Dienst `ollama` – das gilt nicht als dieser Rechner.
 - **Noch nicht:** das Budget des Einladers (11.3d3, nach dem Upgrade des
   Zahlkanals).
 

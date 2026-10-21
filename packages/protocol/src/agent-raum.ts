@@ -14,7 +14,7 @@
  */
 import type { NostrEvent, UnsignedEvent } from "./event.js";
 import { AGENT_ROLLE } from "./agent-karte.js";
-import { type AuftragsBremse, type RaumNachricht, agentKontext, ausRaumEvent, kuerzeAgentAntwort, leseAgentenketten, sollAntworten } from "./agent-auftrag.js";
+import { type AuftragsBremse, type RaumNachricht, agentKontext, ausRaumEvent, kuerzeAgentAntwort, leseAgentenketten, repoAntwortTags, sollAntworten } from "./agent-auftrag.js";
 import { KIND_SPACE, type SpaceState, buildChannelMessage, canWriteTo, leseRaumAdresse } from "./spaces.js";
 
 /** Mitglied mit der Rolle `agent` – so erkennt der Raum Agenten, nie an einer Angabe im Text. */
@@ -134,14 +134,7 @@ export function agentAntwortEvent(p: {
     authorPubkey: p.agent, spaceId: p.kennung, channelId: p.auf.kanal, content: kuerzeAgentAntwort(p.text),
     mentions: [p.auf.von], replyTo: p.auf.id, ...(p.auf.threadRoot ? { threadRoot: p.auf.threadRoot } : {}),
   }, p.jetzt);
-  if (p.patch !== undefined) {
-    if (!/^[0-9a-f]{64}$/.test(p.patch)) throw new Error("Patch ist keine Id");
-    ev.tags.push(["e", p.patch, "", "mention"]);
-  }
-  if (p.fall !== undefined) {
-    if (!/^repo\.[a-z-]{1,40}$/.test(p.fall)) throw new Error("Kennung ungültig");
-    ev.tags.push(["fall", p.fall]);
-  }
+  ev.tags.push(...repoAntwortTags(p));
   return ev;
 }
 

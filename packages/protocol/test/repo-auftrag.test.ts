@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AGENT_ROLLE, agentAntwortEvent, baueRepoAnkuendigung, bauePatch, baueStatus, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace,
+  AGENT_ROLLE, agentAntwortEvent, raumAgentAntwort, baueRepoAnkuendigung, bauePatch, baueStatus, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace,
   generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAuftrag, mitRaumRechten, neuesterBundleVerweis, patchStatus,
   raumAdresse, raumZustandFuer, repoAdresse, repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verschluesseleDatei,
   type NostrEvent,
@@ -154,4 +154,16 @@ test("11.5c2a: Antwort auf einen Repo-Auftrag nennt den Patch und wie es endete 
   assert.deepEqual(mit.tags.slice(ohne.tags.length), [["e", "bb".repeat(32), "", "mention"], ["fall", "repo.patch"]]);
   assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", patch: "kein-patch" }), /Patch/);
   assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", fall: "Freitext vom Modell" }), /Kennung/);
+});
+
+test("11.5c2b: Antwort im privaten Raum – inneres Event mit denselben Tags, ohne Repo-Auftrag wie bisher", () => {
+  const auf = { id: "aa".repeat(32), von: autor.pk, zeit: 1, text: "@Agent", kanal: "allgemein", erwaehnt: [agent.pk] };
+  const ohne = raumAgentAntwort(auf, "Hallo");
+  assert.deepEqual(ohne.tags, [["h", "allgemein"], ["e", auf.id, "", "reply"], ["p", autor.pk, "", "mention"]]);
+  const mit = raumAgentAntwort(auf, "Grenze erreicht", { fall: "repo.schritte" });
+  assert.deepEqual(mit.tags, [...ohne.tags, ["fall", "repo.schritte"]], "ohne Patch nur die Kennung");
+  assert.deepEqual(raumAgentAntwort(auf, "Patch eingereicht: x", { patch: "cc".repeat(32), fall: "repo.patch" }).tags.slice(ohne.tags.length),
+    [["e", "cc".repeat(32), "", "mention"], ["fall", "repo.patch"]]);
+  assert.throws(() => raumAgentAntwort(auf, "x", { patch: "kein-patch" }), /Patch/);
+  assert.throws(() => raumAgentAntwort(auf, "x", { fall: "agent-repo-fremd" }), /Kennung/, "nur `repo.…`");
 });

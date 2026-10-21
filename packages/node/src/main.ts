@@ -30,6 +30,7 @@ import {
   startUrls,
   gratisAusUmgebung,
   ANGEBOT_TAKT_SEK,
+  lokaleKiAdresse,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -590,6 +591,8 @@ async function main(): Promise<void> {
     }
     knotenAgent = new KnotenAgent({
       schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei(), ...(repoSandbox ? { repo: {} } : {}),
+      // Private Räume (11.5c2b, P2): Repo-Aufträge nur mit einem Modell auf diesem Rechner
+      modellLokal: !!lokaleKiAdresse(antrieb.url),
     });
     console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
     // Private Räume (11.3d2a, MENSCH 10.10.): nur mit AGENT_PRIVAT – eigenes MLS-Konto, Stand verschlüsselt, Chat nur im Speicher

@@ -1171,8 +1171,14 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   vom Autor des Manifests, das Chiffrat hat die Blob-Id als SHA-256.
 - **Antwort** (seit 11.5c2a, V5): die Antwort des Agenten (Kind 42, §32) trägt
   zusätzlich `["fall", <kennung>]` und, wenn ein Patch eingereicht wurde,
-  `["e", <patch>, "", "mention"]`. Der Patch ist ein Kind 1617 vom Agenten
-  (`bauePatch()`), den der Knoten aus dem Arbeitsordner baut.
+  `["e", <patch>, "", "mention"]` (`repoAntwortTags()`). Der Patch ist ein Kind 1617
+  vom Agenten (`bauePatch()`), den der Knoten aus dem Arbeitsordner baut.
+- **Private Räume** (seit 11.5c2b, P1–P4): nur ein Agent, der Mitglied der Gruppe ist,
+  und nur mit dem Modell auf demselben Rechner (Adresse des Antriebs nach
+  `lokaleKiAdresse()`). Repo und Bundle-Verweis samt Schlüssel liest er aus den inneren
+  Events der Gruppe (`raumReposPrivat()`) – ein offener Verweis zählt dort nicht. Patch
+  (`raumRepoPatch()`) und Antwort (Kind 9, `raumAgentAntwort(…, { patch, fall })`) gehen
+  nur als innere Events in die Gruppe; `e` nennt die Id des inneren Patches.
 
 | `fall` | Bedeutung |
 |---|---|
@@ -1185,7 +1191,8 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   `agent-repo-bundle` (kein Verweis, Bundle nicht vollständig), `agent-repo-issue`
   (Issue nicht von diesem Repo), `agent-repo-bezahlt` (gratis oder Gebot ohne Tokens),
   `agent-repo-belegt` (schon ein Auftrag), `agent-repo-fehler` (Modell oder Sandbox
-  scheiterten), `agent-repo-privat` (private Räume erst mit 11.5c2b).
+  scheiterten), `agent-repo-modell` (privater Raum, Modell nicht auf diesem Rechner).
+  `agent-repo-privat` (bis 11.5c2b) gibt es nicht mehr.
 
 ## 34. Vibecoden auf dem eigenen Knoten (Kind 5080, seit A-31)
 

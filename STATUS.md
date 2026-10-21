@@ -12467,3 +12467,40 @@ Schritt), c2b private Räume (P1–P4, innere Events, Leak-Szenario).
 - **Angepasst:** zwei Regex-Tests auf die neue Zeile (L2-2, 11.3d1a).
 
 Knoten-Stand: `main` mit 11.5c2a, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.
+
+## Schritt 11.5c2b – Repo-Aufträge in privaten Räumen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (P1–P4, W7 A). Nach 11.5c2a (offene Räume) jetzt private Räume.
+`paket_holen` und Pakete aus der Sperrdatei für offene Räume folgen als 11.5c3 (P3: im privaten Raum nie).
+
+**Neu:**
+- **Knoten-Agent** (`knoten-agent.ts`, `privatesRepo()` in `pruefePrivat()`):
+  - P1: nur als Mitglied der Gruppe (wie jede Frage im privaten Raum, 11.3d2b).
+  - P2: nur mit dem Modell auf diesem Rechner – `modellLokal` aus `main.ts` (`lokaleKiAdresse()` der Adresse des
+    Antriebs), sonst `agent-repo-modell`.
+  - Repo nur über `repoImPrivatenRaum()`, Bundle-Verweis samt Schlüssel nur aus den inneren Events
+    (`raumReposPrivat()` → `neuesterBundleVerweis()`) – ein offener Verweis zählt dort nicht. Ein Issue nur aus der Gruppe
+    und nur von diesem Repo.
+  - P4: Patch nur als inneres Event (`raumRepoPatch()`, `reicheEin()`), Antwort über `raumAgentAntwort(…, { patch, fall })`.
+    Arbeitsordner im tmpfs und nichts im Log wie in 11.5c2a.
+- **Protokoll:** `repoAntwortTags()` – dieselben Tags für die offene (`agentAntwortEvent()`) und die private Antwort.
+- **Ablehnung `agent-repo-privat`** (bis 11.5c2a) fällt weg; neu `agent-repo-modell`.
+- **Doku:** `PROTOCOL.md` §33 (private Räume, Kennungen), `PROVIDER.md` (private Räume, Docker-Hinweis), Fallstricke in
+  `packages/node/CLAUDE.md` und `packages/protocol/CLAUDE.md`.
+- **Verdrahtung:** `repoImPrivatenRaum` ist aus `wiring-ausnahmen.txt` raus.
+
+**Tests:** protocol +1, node +3.
+- **Protokoll:** private Antwort – ohne Repo-Auftrag wie bisher, mit Kennung, mit Patch; ungültige Id und andere Kennungen werfen.
+- **Mit bubblewrap Ende zu Ende** (echte MDK-Engine, `repo-auftrag-privat.test.ts`):
+  - Repo und Verweis nur in der Gruppe, Patch vom Agenten als inneres Event, `git am` ergibt denselben Commit;
+  - die Antwort in der Gruppe nennt die Id des inneren Patches und `repo.patch`, dieselbe versiegelt an den Fragenden;
+  - auf dem Relay nichts vom Repo (`regelRaumRepoPrivat` mit Schlüssel und inneren Ids, `regelKeinKlartext`), kein
+    1617/42/30617/38042; Ordner weg, nichts im Log.
+- **Ablehnungen vor dem Rechnen:** Modell nicht auf diesem Rechner, aus, fremdes Repo, fremdes Issue, Verweis nur offen –
+  ohne Antwort in der Gruppe.
+- **Verdrahtung:** `modellLokal` in `main.ts`, Prüfung vor `inArbeit`, Patch über `raumRepoPatch()`.
+- **Gegenproben:** Ohne die Prüfung P2 und mit offenem statt innerem Patch ist je ein Test rot.
+- **Angepasst:** zwei Regex-Tests (11.5c2a, 11.3d2b) auf die neuen Zeilen.
+
+Knoten-Stand: `main` mit 11.5c2b, nur wer Repo-Aufträge in privaten Räumen will (`AGENT_REPO=1`, `AGENT_PRIVAT`, Modell
+auf diesem Rechner); sonst kein Unterschied.
