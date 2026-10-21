@@ -13,6 +13,11 @@
  * Art ändert nur eine Abstimmung. Die Art steht auf der Kette (Rechte und Schwelle); gelesen wird
  * sie nur über `kassenArt()`, nie aus dem Raum.
  *
+ * Auszahlen (seit A-12a2): nur SOL aus dem Tresor an genau einen Empfänger. Vorschlagen legt Transaktion
+ * und Vorschlag in einem Zug an; abstimmen, ausführen und abschließen (Miete zurück in den Tresor) sind je
+ * eine Anweisung. Empfänger und Betrag liest die App vor jeder Stimme nur von der Kette (`leseAuszahlung()`,
+ * V6) – eine Transaktion anderer Form ist keine Auszahlung dieser App.
+ *
  * Läuft auch im Browser: Zahlen über `DataView`, Hash über `@noble/hashes`; die PDA rechnet
  * web3.js synchron wie beim Zahlkanal (bis A-21f).
  */
@@ -84,6 +89,10 @@ const zahl = (bytes: number, setze: (dv: DataView) => void): Uint8Array => {
 };
 const u16 = (n: number) => zahl(2, (dv) => dv.setUint16(0, n, true));
 const u32 = (n: number) => zahl(4, (dv) => dv.setUint32(0, n, true));
+const u64 = (n: bigint) => {
+  if (n < 0n || n > 0xffff_ffff_ffff_ffffn) throw new Error("u64 außerhalb des Bereichs");
+  return zahl(8, (dv) => dv.setBigUint64(0, n, true));
+};
 /** Borsh `Option<Pubkey>`: 0 oder 1 und die 32 Byte. */
 const vielleicht = (adresse: string | null) => adresse ? verbinde(Uint8Array.of(1), schluessel(adresse)) : Uint8Array.of(0);
 
@@ -159,6 +168,103 @@ export function kasseAnlegenAnweisung(p: {
   ], daten);
 }
 
+/** Transaktion Nummer `index` der Kasse: ["multisig", Kasse, "transaction", u64]. */
+export function kassenTransaktionAdresse(kasse: string, index: bigint): string {
+  return pda([text.encode("multisig"), schluessel(kasse), text.encode("transaction"), u64(index)]);
+}
+
+/** Der Vorschlag zur Transaktion `index`: […, "transaction", u64, "proposal"]. */
+export function kassenVorschlagAdresse(kasse: string, index: bigint): string {
+  return pda([text.encode("multisig"), schluessel(kasse), text.encode("transaction"), u64(index), text.encode("proposal")]);
+}
+
+export interface Auszahlung {
+  empfaenger: string;
+  lamports: bigint;
+}
+
+/**
+ * Die Nachricht einer Auszahlung im Format von Squads (`TransactionMessage`, Längen als u8/u16): eine
+ * Überweisung des System-Programms vom Tresor an den Empfänger. Konten: Tresor (zahlt, unterschreibt
+ * per PDA), Empfänger, System-Programm.
+ */
+export function auszahlungsNachricht(tresor: string, a: Auszahlung): Uint8Array {
+  if (a.lamports <= 0n) throw new Error("Betrag muss größer als 0 sein");
+  if (a.empfaenger === tresor || a.empfaenger === SYSTEM_PROGRAMM) throw new Error("Empfänger ungültig");
+  const ueberweisung = verbinde(u32(2), u64(a.lamports)); // System-Programm: Transfer
+  return verbinde(
+    Uint8Array.of(1, 1, 1, 3), schluessel(tresor), schluessel(a.empfaenger), schluessel(SYSTEM_PROGRAMM),
+    Uint8Array.of(1, 2, 2, 0, 1), u16(ueberweisung.length), ueberweisung,
+    Uint8Array.of(0), // keine Adresstabellen
+  );
+}
+
+/**
+ * Auszahlung vorschlagen: die Transaktion `index` (Stand der Kasse + 1) und ihr Vorschlag in einem Zug.
+ * `vorschlagender` braucht das Recht „vorschlagen“ und zahlt die Miete beider Konten; sie kommt beim
+ * Abschließen in den Tresor (`rent_collector`).
+ */
+export function auszahlungVorschlagenAnweisungen(p: { kasse: string; index: bigint; vorschlagender: string } & Auszahlung): Instruction[] {
+  const nachricht = auszahlungsNachricht(kassenTresor(p.kasse), p);
+  const transaktion = kassenTransaktionAdresse(p.kasse, p.index);
+  return [
+    anweisung(SQUADS_PROGRAMM_ID, [
+      [p.kasse, AccountRole.WRITABLE],
+      [transaktion, AccountRole.WRITABLE],
+      [p.vorschlagender, AccountRole.READONLY_SIGNER],
+      [p.vorschlagender, AccountRole.WRITABLE_SIGNER],
+      [SYSTEM_PROGRAMM, AccountRole.READONLY],
+    ], verbinde(diskriminator("global", "vault_transaction_create"), Uint8Array.of(0, 0), u32(nachricht.length), nachricht, Uint8Array.of(0))),
+    anweisung(SQUADS_PROGRAMM_ID, [
+      [p.kasse, AccountRole.READONLY],
+      [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+      [p.vorschlagender, AccountRole.READONLY_SIGNER],
+      [p.vorschlagender, AccountRole.WRITABLE_SIGNER],
+      [SYSTEM_PROGRAMM, AccountRole.READONLY],
+    ], verbinde(diskriminator("global", "proposal_create"), u64(p.index), Uint8Array.of(0))),
+  ];
+}
+
+/** Abstimmen über den Vorschlag `index` – dafür oder dagegen; braucht das Recht „abstimmen“. */
+export function abstimmenAnweisung(p: { kasse: string; index: bigint; mitglied: string; dafuer: boolean }): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [p.kasse, AccountRole.READONLY],
+    [p.mitglied, AccountRole.WRITABLE_SIGNER],
+    [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+  ], verbinde(diskriminator("global", p.dafuer ? "proposal_approve" : "proposal_reject"), Uint8Array.of(0)));
+}
+
+/**
+ * Eine angenommene Auszahlung ausführen; braucht das Recht „ausführen“. `auszahlung` nur aus
+ * `leseAuszahlung()` – die Konten folgen der Nachricht auf der Kette (Tresor, Empfänger, System-Programm).
+ */
+export function ausfuehrenAnweisung(p: { kasse: string; index: bigint; mitglied: string; auszahlung: Auszahlung }): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [p.kasse, AccountRole.READONLY],
+    [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [kassenTransaktionAdresse(p.kasse, p.index), AccountRole.READONLY],
+    [p.mitglied, AccountRole.READONLY_SIGNER],
+    [kassenTresor(p.kasse), AccountRole.WRITABLE],
+    [p.auszahlung.empfaenger, AccountRole.WRITABLE],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], diskriminator("global", "vault_transaction_execute"));
+}
+
+/**
+ * Transaktion und Vorschlag schließen, wenn er ausgeführt, abgelehnt, abgebrochen oder veraltet ist – die
+ * Miete geht an `rent_collector` der Kasse (bei Kassen dieser App der Tresor). Unterschreiben muss niemand
+ * außer dem, der die Gebühr zahlt.
+ */
+export function abschliessenAnweisung(p: { kasse: string; index: bigint; mieteAn: string }): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [p.kasse, AccountRole.READONLY],
+    [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [kassenTransaktionAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [p.mieteAn, AccountRole.WRITABLE],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], diskriminator("global", "vault_transaction_accounts_close"));
+}
+
 /** Liest Konten fester Form; wirft, sobald etwas fehlt. */
 class Leser {
   private o = 8;
@@ -177,7 +283,20 @@ class Leser {
   u16 = () => this.dv.getUint16(this.platz(2), true);
   u32 = () => this.dv.getUint32(this.platz(4), true);
   u64 = () => this.dv.getBigUint64(this.platz(8), true);
+  i64 = () => this.dv.getBigInt64(this.platz(8), true);
   adresse = () => { const o = this.platz(32); return new PublicKey(this.daten.subarray(o, o + 32)).toBase58(); };
+  /** Borsh `Vec<T>`: u32 Länge, dann die Einträge – höchstens `max`. */
+  liste = <T>(lies: () => T, max = 65_535): T[] => {
+    const n = this.u32();
+    if (n > max) throw new Error("Liste zu lang");
+    return Array.from({ length: n }, lies);
+  };
+  bytes = (max = 65_535): Uint8Array => {
+    const n = this.u32();
+    if (n > max) throw new Error("Bytes zu lang");
+    const o = this.platz(n);
+    return this.daten.slice(o, o + n);
+  };
   vielleicht = (): string | null => {
     const da = this.u8();
     if (da > 1) throw new Error("Option ungültig");
@@ -237,4 +356,83 @@ export async function leseProgrammEinstellungenVonKette(rpc: SolRpc): Promise<Pr
   if (!k) return null;
   if (k.eigentuemer !== SQUADS_PROGRAMM_ID) throw new Error("Konto gehört nicht Squads");
   return leseProgrammEinstellungen(k.daten);
+}
+
+export type VorschlagsStatus = "entwurf" | "aktiv" | "abgelehnt" | "angenommen" | "wird-ausgefuehrt" | "ausgefuehrt" | "abgebrochen";
+const STATUS: readonly VorschlagsStatus[] = ["entwurf", "aktiv", "abgelehnt", "angenommen", "wird-ausgefuehrt", "ausgefuehrt", "abgebrochen"];
+
+export interface KassenVorschlag {
+  kasse: string;
+  index: bigint;
+  status: VorschlagsStatus;
+  /** Zeitpunkt des Status (Unix-Sekunden); „wird-ausgefuehrt“ hat keinen. */
+  seit: bigint | null;
+  dafuer: string[];
+  dagegen: string[];
+  abgebrochen: string[];
+}
+
+/** Das Konto eines Vorschlags lesen (`Proposal`); wirft bei falscher Art, Länge oder unbekanntem Status. */
+export function leseVorschlag(daten: Uint8Array): KassenVorschlag {
+  const l = new Leser(daten, "Proposal");
+  const kasse = l.adresse(), index = l.u64();
+  const art = l.u8();
+  const status = STATUS[art];
+  if (!status) throw new Error("Status unbekannt");
+  const seit = status === "wird-ausgefuehrt" ? null : l.i64();
+  l.u8(); // bump
+  return { kasse, index, status, seit, dafuer: l.liste(l.adresse), dagegen: l.liste(l.adresse), abgebrochen: l.liste(l.adresse) };
+}
+
+export interface KassenTransaktion {
+  kasse: string;
+  ersteller: string;
+  index: bigint;
+  /** Nur wenn die Nachricht genau eine Auszahlung aus Tresor 0 ist (`auszahlungsNachricht()`); sonst null. */
+  auszahlung: Auszahlung | null;
+}
+
+/**
+ * Das Konto einer Transaktion der Kasse lesen (`VaultTransaction`). Die Nachricht steht dort im Format von
+ * Borsh (Längen als u32) – anders als beim Anlegen. Eine Auszahlung ist sie nur in genau der Form, die diese
+ * App baut: Tresor 0, keine weiteren Unterschriften, eine Überweisung an einen Empfänger, keine Tabellen.
+ */
+export function leseAuszahlung(daten: Uint8Array): KassenTransaktion {
+  const l = new Leser(daten, "VaultTransaction");
+  const kasse = l.adresse(), ersteller = l.adresse(), index = l.u64();
+  l.u8(); // bump
+  const tresorIndex = l.u8();
+  l.u8(); // Bump des Tresors
+  const weitereUnterschriften = l.bytes(255).length;
+  const kopf = [l.u8(), l.u8(), l.u8()];
+  const konten = l.liste(l.adresse, 255);
+  const anweisungen = l.liste(() => ({ programm: l.u8(), konten: Array.from(l.bytes(255)), daten: l.bytes() }), 255);
+  const tabellen = l.liste(() => [l.adresse(), l.bytes(255), l.bytes(255)], 255).length;
+  const ix = anweisungen[0];
+  const passt = tresorIndex === 0 && weitereUnterschriften === 0 && tabellen === 0 && kopf.join() === "1,1,1"
+    && konten.length === 3 && konten[0] === kassenTresor(kasse) && konten[2] === SYSTEM_PROGRAMM && konten[1] !== konten[0]
+    && anweisungen.length === 1 && ix !== undefined && ix.programm === 2 && ix.konten.join() === "0,1" && ix.daten.length === 12
+    && new DataView(ix.daten.buffer, ix.daten.byteOffset).getUint32(0, true) === 2;
+  const lamports = passt ? new DataView(ix!.daten.buffer, ix!.daten.byteOffset).getBigUint64(4, true) : 0n;
+  return { kasse, ersteller, index, auszahlung: passt && lamports > 0n ? { empfaenger: konten[1]!, lamports } : null };
+}
+
+/** Vorschlag `index` von der Kette; null, solange es ihn nicht (mehr) gibt. Nur Konten von Squads, nur zu dieser Kasse. */
+export async function leseVorschlagVonKette(rpc: SolRpc, kasse: string, index: bigint): Promise<KassenVorschlag | null> {
+  const k = await leseKonto(rpc, kassenVorschlagAdresse(kasse, index));
+  if (!k) return null;
+  if (k.eigentuemer !== SQUADS_PROGRAMM_ID) throw new Error("Konto gehört nicht Squads");
+  const v = leseVorschlag(k.daten);
+  if (v.kasse !== kasse || v.index !== index) throw new Error("Vorschlag gehört nicht zu dieser Kasse");
+  return v;
+}
+
+/** Transaktion `index` von der Kette; null, solange es sie nicht (mehr) gibt. Nur Konten von Squads, nur zu dieser Kasse. */
+export async function leseAuszahlungVonKette(rpc: SolRpc, kasse: string, index: bigint): Promise<KassenTransaktion | null> {
+  const k = await leseKonto(rpc, kassenTransaktionAdresse(kasse, index));
+  if (!k) return null;
+  if (k.eigentuemer !== SQUADS_PROGRAMM_ID) throw new Error("Konto gehört nicht Squads");
+  const t = leseAuszahlung(k.daten);
+  if (t.kasse !== kasse || t.index !== index) throw new Error("Transaktion gehört nicht zu dieser Kasse");
+  return t;
 }

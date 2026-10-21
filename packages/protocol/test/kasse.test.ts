@@ -9,8 +9,9 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
-  kasseAnlegenAnweisung, kassenAdresse, kassenArt, kassenMitglieder, kassenTresor, leseKasse, leseKassenStand, leseProgrammEinstellungen,
-  mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, type KassenStand,
+  auszahlungsNachricht, kasseAnlegenAnweisung, kassenAdresse, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
+  kassenVorschlagAdresse, leseAuszahlung, leseAuszahlungVonKette, leseKasse, leseKassenStand, leseProgrammEinstellungen, leseVorschlag,
+  leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, type KassenStand,
 } from "../src/index.js";
 
 const adresse = (n: number) => Keypair.fromSeed(new Uint8Array(32).fill(n)).publicKey.toBase58();
@@ -115,4 +116,89 @@ test("A-12a1: leseKasse – nur Konten von Squads, fehlend ist null", async () =
   assert.deepEqual(await leseKasse(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: kontoBytes(s) }), kassenAdresse(adresse(20))), s);
   assert.equal(await leseKasse(kette(null), kassenAdresse(adresse(20))), null);
   await assert.rejects(leseKasse(kette({ eigentuemer: adresse(40), daten: kontoBytes(s) }), kassenAdresse(adresse(20))), /nicht Squads/);
+});
+
+// ---- A-12a2: Auszahlen ----
+
+const KASSE = kassenAdresse(adresse(20)), TRESOR = kassenTresor(KASSE), EMPF = adresse(26), SYSTEM = "11111111111111111111111111111111";
+
+test("A-12a2: Adressen von Transaktion und Vorschlag wie im SDK von Squads; die Nachricht nimmt nur echte Auszahlungen", () => {
+  assert.equal(kassenTransaktionAdresse(KASSE, 1n), "2y9SpG5AZFCAcfJMeRDPgNx4GsTWxxCgTik3QAHZW2Cr");
+  assert.equal(kassenVorschlagAdresse(KASSE, 1n), "7Fshby9GkHVJvULxgMfPFdSmTbdnUZAmHnrnJjwfwn2a");
+  assert.notEqual(kassenTransaktionAdresse(KASSE, 2n), kassenTransaktionAdresse(KASSE, 1n));
+  assert.throws(() => auszahlungsNachricht(TRESOR, { empfaenger: EMPF, lamports: 0n }), /größer als 0/);
+  assert.throws(() => auszahlungsNachricht(TRESOR, { empfaenger: TRESOR, lamports: 1n }), /Empfänger/);
+  assert.throws(() => auszahlungsNachricht(TRESOR, { empfaenger: SYSTEM, lamports: 1n }), /Empfänger/);
+});
+
+/** Kleine Borsh-Schreibhilfe für Konten in der Form des Programms. */
+function bytes(art: string) {
+  const b: number[] = [...sha256(new TextEncoder().encode(`account:${art}`)).subarray(0, 8)];
+  const w = {
+    pk: (a: string) => { b.push(...new PublicKey(a).toBytes()); return w; },
+    zahl: (n: bigint, len: number) => { for (let i = 0; i < len; i++) b.push(Number((BigInt.asUintN(64, n) >> BigInt(8 * i)) & 0xffn)); return w; },
+    u8: (...n: number[]) => { b.push(...n); return w; },
+    vec: (teile: number[]) => { w.zahl(BigInt(teile.length), 4); b.push(...teile); return w; },
+    fertig: () => Uint8Array.from(b),
+  };
+  return w;
+}
+
+function vorschlagBytes(status: number, mit = true) {
+  const w = bytes("Proposal").pk(KASSE).zahl(1n, 8).u8(status);
+  if (mit) w.zahl(1_800_000_000n, 8);
+  w.u8(255).zahl(2n, 4).pk(adresse(21)).pk(adresse(22)).zahl(1n, 4).pk(adresse(23)).zahl(0n, 4);
+  return w.fertig();
+}
+
+test("A-12a2: Vorschlag lesen – Status mit Zeit, Stimmen dafür und dagegen; unbekannter Status und abgeschnitten werfen", () => {
+  assert.deepEqual(leseVorschlag(vorschlagBytes(3)), {
+    kasse: KASSE, index: 1n, status: "angenommen", seit: 1_800_000_000n, dafuer: [adresse(21), adresse(22)], dagegen: [adresse(23)], abgebrochen: [],
+  });
+  assert.deepEqual([0, 1, 2, 5, 6].map((n) => leseVorschlag(vorschlagBytes(n)).status), ["entwurf", "aktiv", "abgelehnt", "ausgefuehrt", "abgebrochen"]);
+  const laufend = leseVorschlag(vorschlagBytes(4, false));
+  assert.equal(laufend.status, "wird-ausgefuehrt");
+  assert.equal(laufend.seit, null);
+  assert.throws(() => leseVorschlag(vorschlagBytes(7)), /Status unbekannt/);
+  const b = vorschlagBytes(1);
+  assert.throws(() => leseVorschlag(b.subarray(0, b.length - 2)), /zu kurz/);
+});
+
+/** Eine VaultTransaction mit einer Nachricht in Borsh-Form; `aendere` verbiegt einzelne Teile. */
+function transaktionBytes(aendere: Partial<{ tresorIndex: number; signer: number[]; kopf: number[]; konten: string[]; programm: number; konto: number[]; daten: number[]; tabellen: number; extra: boolean }> = {}) {
+  const daten = aendere.daten ?? [2, 0, 0, 0, ...[0x00, 0xe1, 0xf5, 0x05, 0, 0, 0, 0]]; // Transfer 100 000 000
+  const konten = aendere.konten ?? [TRESOR, EMPF, SYSTEM];
+  const w = bytes("VaultTransaction").pk(KASSE).pk(adresse(21)).zahl(1n, 8).u8(254, aendere.tresorIndex ?? 0, 253)
+    .vec(aendere.signer ?? []).u8(...(aendere.kopf ?? [1, 1, 1])).zahl(BigInt(konten.length), 4);
+  for (const k of konten) w.pk(k);
+  const ix = () => { w.u8(aendere.programm ?? 2).vec(aendere.konto ?? [0, 1]).vec(daten); };
+  w.zahl(aendere.extra ? 2n : 1n, 4); ix(); if (aendere.extra) ix();
+  w.zahl(BigInt(aendere.tabellen ?? 0), 4);
+  for (let i = 0; i < (aendere.tabellen ?? 0); i++) w.pk(adresse(40)).vec([0]).vec([]);
+  return w.fertig();
+}
+
+test("A-12a2: Auszahlung lesen – nur genau die Form dieser App, sonst keine Auszahlung", () => {
+  assert.deepEqual(leseAuszahlung(transaktionBytes()), {
+    kasse: KASSE, ersteller: adresse(21), index: 1n, auszahlung: { empfaenger: EMPF, lamports: 100_000_000n },
+  });
+  const keine: Array<Parameters<typeof transaktionBytes>[0]> = [
+    { tresorIndex: 1 }, { signer: [255] }, { kopf: [2, 1, 1] }, { konten: [adresse(41), EMPF, SYSTEM] }, { konten: [TRESOR, EMPF, adresse(42)] },
+    { konten: [TRESOR, TRESOR, SYSTEM] }, { programm: 1 }, { konto: [1, 0] }, { daten: [3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] },
+    { daten: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { daten: [2, 0, 0, 0, 1] }, { tabellen: 1 }, { extra: true },
+  ];
+  for (const a of keine) assert.equal(leseAuszahlung(transaktionBytes(a)).auszahlung, null, JSON.stringify(a));
+  const b = transaktionBytes();
+  assert.throws(() => leseAuszahlung(b.subarray(0, b.length - 1)), /zu kurz/);
+  assert.throws(() => leseAuszahlung(vorschlagBytes(1)), /kein VaultTransaction/);
+});
+
+test("A-12a2: von der Kette nur Konten von Squads und nur zur genannten Kasse", async () => {
+  const t = transaktionBytes();
+  assert.equal((await leseAuszahlungVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: t }), KASSE, 1n))?.auszahlung?.empfaenger, EMPF);
+  assert.equal(await leseAuszahlungVonKette(kette(null), KASSE, 1n), null);
+  await assert.rejects(leseAuszahlungVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: t }), kassenAdresse(adresse(25)), 1n), /nicht zu dieser Kasse/);
+  await assert.rejects(leseAuszahlungVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: t }), KASSE, 2n), /nicht zu dieser Kasse/);
+  await assert.rejects(leseVorschlagVonKette(kette({ eigentuemer: adresse(40), daten: vorschlagBytes(1) }), KASSE, 1n), /nicht Squads/);
+  assert.equal((await leseVorschlagVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: vorschlagBytes(1) }), KASSE, 1n))?.status, "aktiv");
 });

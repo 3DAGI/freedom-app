@@ -145,5 +145,11 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   - Das Schatzamt (Empfänger der Gebühr für das Anlegen) kommt aus den Einstellungen des
     Programms auf der Kette. Ein anderes lehnt Squads ab.
   - Mitglieder liest die App nur von der Kette; die Reihenfolge legt das Programm fest.
-- **Geteilt:** A-12a in a1 (Anlegen, Lesen) und a2 (Auszahlen und Konfiguration ändern).
-  A-12b (App: anlegen, einzahlen) braucht nur a1.
+- **A-12a2 (21.10.2026):** Auszahlen. Vorschlagen legt die Vault-Transaktion (eine Überweisung aus Tresor 0
+  an einen Empfänger) und den Vorschlag in einem Zug an; abstimmen (`proposal_approve`/`proposal_reject`),
+  ausführen und abschließen (`vault_transaction_accounts_close`, Miete an den Tresor) sind je eine Anweisung.
+  Empfänger und Betrag liest `leseAuszahlung()` von der Kette – nur in genau der Form, die die App baut;
+  jede andere Transaktion ist keine Auszahlung (V6). Der Vorschlagende zahlt die Miete beider Konten; sie
+  kommt beim Abschließen in den Tresor, nicht zu ihm zurück.
+- **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
+  A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2.
