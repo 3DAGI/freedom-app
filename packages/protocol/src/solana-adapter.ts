@@ -2,10 +2,10 @@
  * AnchorSolanaHtlcAdapter: SolanaHtlcAdapter gegen das echte Anchor-HTLC-
  * Programm (deployed: Devnet FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD).
  *
- * Kein Anchor-Client: rohe @solana/web3.js-Transaktionen mit manueller
- * Borsh-(De)Serialisierung. Das haelt den Adapter klein und IDL-unabhaengig.
- * Gelesen wird seit A-21c ueber @solana/kit auf dem RpcPool (`kit-rpc.ts`),
- * geschrieben noch ueber web3.js (bis A-21e).
+ * Kein Anchor-Client: rohe Anweisungen mit manueller Borsh-(De)Serialisierung.
+ * Das haelt den Adapter klein und IDL-unabhaengig. Gelesen wird seit A-21c
+ * ueber @solana/kit auf dem RpcPool (`kit-rpc.ts`), geschrieben seit A-21e2
+ * ebenso (`sendeMitSchluessel()`); web3.js rechnet nur noch die PDA (synchron, bis A-21f).
  *
  * Account-Layout (Swap, 8-Byte-Diskriminator + Felder):
  *   swap_id    [u8;32]
@@ -23,19 +23,12 @@
  *   claim(preimage: bytes)
  *   refund()
  */
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { address, getBase58Encoder } from "@solana/kit";
 import { createHash } from "node:crypto";
 import { SolanaHtlcAdapter, SolanaLock } from "./adapters.js";
-import { leseKonto, poolRpc, type SolRpc } from "./kit-rpc.js";
+import { AccountRole, anweisung, SYSTEM_PROGRAMM, type Instruction } from "./kit-bruecke.js";
+import { leseKonto, poolRpc, sendeMitSchluessel, type SolRpc } from "./kit-rpc.js";
 import { solSchluesselAus } from "./kit-transaktion.js";
 import { RpcPool } from "./rpc-pool.js";
 
@@ -52,21 +45,23 @@ export const HTLC_PROGRAMM_ID = PROGRAM_ID.toBase58();
 
 export interface AnchorAdapterConfig {
   rpcUrl: string;
-  /** Signer des Adapters (LP beim lock/refund, Nutzer beim claim). */
-  keypair: Keypair;
-  commitment?: "processed" | "confirmed" | "finalized";
+  /** Schluessel des Adapters (LP beim lock/refund, Nutzer beim claim) – aus `ladeSolanaSchluessel()` (A-21e2). */
+  schluessel: { geheim: Uint8Array; adresse: string };
 }
 
 export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
-  private conn: Connection;
-  private kp: Keypair;
-  /** Lesen ueber kit auf dem Pool (A-21c) – immer „confirmed“. */
+  private schluessel: { geheim: Uint8Array; adresse: string };
+  /** Lesen und seit A-21e2 auch Senden ueber kit auf dem Pool – immer „confirmed“. */
   private rpc: SolRpc;
 
   constructor(cfg: AnchorAdapterConfig) {
-    this.conn = new Connection(cfg.rpcUrl, cfg.commitment ?? "confirmed");
     this.rpc = poolRpc(new RpcPool([{ url: cfg.rpcUrl }]));
-    this.kp = cfg.keypair;
+    this.schluessel = cfg.schluessel;
+  }
+
+  /** Mit dem eigenen Schluessel signieren, senden (Vorabsimulation) und bestaetigen. */
+  private sende(ix: Instruction): Promise<string> {
+    return sendeMitSchluessel(this.rpc, this.schluessel, [ix]);
   }
 
   /**
@@ -110,19 +105,12 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
     args.writeBigInt64LE(BigInt(params.timelockUnix), 64);
     args.writeBigUInt64LE(BigInt(params.amountLamports), 72);
 
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: this.kp.publicKey, isSigner: true, isWritable: true }, // initiator
-        { pubkey: new PublicKey(params.recipient), isSigner: false, isWritable: false },
-        { pubkey: pda, isSigner: false, isWritable: true }, // swap
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      data: Buffer.concat([sighash("initialize"), args]),
-    });
-
-    const tx = new Transaction().add(ix);
-    await sendAndConfirmTransaction(this.conn, tx, [this.kp]);
+    await this.sende(anweisung(HTLC_PROGRAMM_ID, [
+      [this.schluessel.adresse, AccountRole.WRITABLE_SIGNER], // initiator
+      [params.recipient, AccountRole.READONLY],
+      [pda.toBase58(), AccountRole.WRITABLE], // swap
+      [SYSTEM_PROGRAMM, AccountRole.READONLY],
+    ], Buffer.concat([sighash("initialize"), args])));
 
     return {
       swapId: params.swapId,
@@ -154,31 +142,19 @@ export class AnchorSolanaHtlc implements SolanaHtlcAdapter {
     }
     const { pda } = AnchorSolanaHtlc.deriveSwapPda(swapId);
 
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: this.kp.publicKey, isSigner: true, isWritable: true }, // recipient
-        { pubkey: new PublicKey(initiator), isSigner: false, isWritable: true },
-        { pubkey: pda, isSigner: false, isWritable: true }, // swap
-      ],
-      data: Buffer.concat([sighash("claim"), Buffer.from(preimage)]),
-    });
-    const tx = new Transaction().add(ix);
-    await sendAndConfirmTransaction(this.conn, tx, [this.kp]);
+    await this.sende(anweisung(HTLC_PROGRAMM_ID, [
+      [this.schluessel.adresse, AccountRole.WRITABLE_SIGNER], // recipient
+      [initiator, AccountRole.WRITABLE],
+      [pda.toBase58(), AccountRole.WRITABLE], // swap
+    ], Buffer.concat([sighash("claim"), Buffer.from(preimage)])));
   }
 
   async refund(swapId: string): Promise<void> {
     const { pda } = AnchorSolanaHtlc.deriveSwapPda(swapId);
-    const ix = new TransactionInstruction({
-      programId: PROGRAM_ID,
-      keys: [
-        { pubkey: this.kp.publicKey, isSigner: true, isWritable: true }, // initiator
-        { pubkey: pda, isSigner: false, isWritable: true }, // swap
-      ],
-      data: sighash("refund"),
-    });
-    const tx = new Transaction().add(ix);
-    await sendAndConfirmTransaction(this.conn, tx, [this.kp]);
+    await this.sende(anweisung(HTLC_PROGRAMM_ID, [
+      [this.schluessel.adresse, AccountRole.WRITABLE_SIGNER], // initiator
+      [pda.toBase58(), AccountRole.WRITABLE], // swap
+    ], sighash("refund")));
   }
 
   async get(swapId: string): Promise<SolanaLock | undefined> {
@@ -269,11 +245,4 @@ export async function ladeSolanaSchluessel(path: string): Promise<{ geheim: Uint
   } finally {
     bytes.fill(0);
   }
-}
-
-/** Laedt ein Solana-Keypair aus einer JSON-Datei (solana-keygen Format). */
-export async function loadSolanaKeypair(path: string): Promise<Keypair> {
-  const { readFile } = await import("node:fs/promises");
-  const secret = JSON.parse(await readFile(path, "utf8")) as number[];
-  return Keypair.fromSecretKey(Uint8Array.from(secret));
 }

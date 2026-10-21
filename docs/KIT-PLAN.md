@@ -159,9 +159,15 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
     kit – alles über `poolRpc(new RpcPool([{ url }]))`. Die Validator-Tests bauen die Kasse jetzt aus
     der Umgebung wie der Knoten (Schlüsseldatei, kit, Gebühr zahlt der Provider). `dvm-provider.ts`
     las schon seit A-21c über kit;
-  - **A-21e2** Relayer-Dienst (`relayer-dienst.ts`: signiert und sendet eine fremde Transaktion),
-    das Senden im `main.ts` und der HTLC-Adapter des LP (`AnchorSolanaHtlc` in `solana-adapter.ts`,
-    `loadSolanaKeypair()` in `main.ts` und `lp-abnahme-lauf.ts`).
+  - **A-21e2** Relayer-Dienst, Senden im `main.ts` und HTLC-Adapter des LP – **fertig** (21.10.2026):
+    `AnchorSolanaHtlc` nimmt einen `schluessel` (aus `ladeSolanaSchluessel()`) und sperrt, löst ein und
+    holt zurück über kit-Anweisungen und `sendeMitSchluessel()`; `loadSolanaKeypair()` fällt. Der
+    Relayer-Dienst signiert über `ausDraht()`/`signiereMit()`/`alsDraht()` mit (Byte für Byte wie
+    `partialSign()`), `main.ts` sendet über `sendeTransaktion()` auf dem Pool. Die LP-Vektoren
+    kommen jetzt aus einer JSON-RPC-Attrappe hinter dem Pool – unverändert. Der Knoten braucht
+    web3.js nicht mehr; A-21e ist fertig. Im Protokoll bleibt es für die synchronen PDAs
+    (`channel.ts`, `solana-adapter.ts`, die App über `swapAddress()`), die Brücke `alsWeb3()` und
+    `rechneKanalAbIxs()` (Validator-Tests, Vektoren) – A-21f.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle
   messen, `check-wiring` laufen lassen und die Fallstricke anpassen. Die Regel „kein
   `readBigInt64LE`“ bleibt.

@@ -123,3 +123,33 @@ test("Preimage aus der Einlösung: Sighash + 32 Byte ohne Längenpräfix, nur vo
   transaktionen.sigWeg = null;
   assert.equal(await AnchorSolanaHtlc.reader(rpc).getRevealedPreimage("s1"), undefined);
 });
+
+test("A-21e2: der Adapter sendet über kit – signiert vom eigenen Schlüssel, mit Vorabsimulation; lehnt die Kette ab, wirft er", async () => {
+  const { ed25519 } = await import("@noble/curves/ed25519.js");
+  const { ausDraht, leseNachricht, solSchluesselAus } = await import("../src/kit-transaktion.js");
+  const lp = Keypair.generate();
+  const log: Aufruf[] = [];
+  let fehler: unknown = null;
+  const rpc = kette(({ method, params }) => {
+    if (method === "getLatestBlockhash") return { context: { slot: 1 }, value: { blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 900 } };
+    if (method === "sendTransaction") return getBase58Decoder().decode(Buffer.from(String(params[0]), "base64").subarray(1, 65));
+    if (method === "getSignatureStatuses") return { context: { slot: 1 }, value: [{ slot: 2, confirmations: 1, err: fehler, confirmationStatus: "confirmed" }] };
+    return 10;
+  }, log);
+  const a = new AnchorSolanaHtlc({ rpcUrl: "https://rpc.test", schluessel: solSchluesselAus(lp.secretKey) });
+  (a as unknown as { rpc: unknown }).rpc = rpc;
+  await a.refund("s1");
+  const gesendet = log.find((x) => x.method === "sendTransaction")!;
+  assert.deepEqual(gesendet.params[1], { encoding: "base64", preflightCommitment: "confirmed" });
+  const tx = ausDraht(new Uint8Array(Buffer.from(String(gesendet.params[0]), "base64")));
+  const n = leseNachricht(tx);
+  assert.equal(n.zahler, lp.publicKey.toBase58());
+  assert.equal(n.anweisungen[0]!.programm, HTLC_PROGRAMM_ID);
+  assert.deepEqual(n.anweisungen[0]!.konten.map((k) => k.adresse), [lp.publicKey.toBase58(), AnchorSolanaHtlc.deriveSwapPda("s1").pda.toBase58()]);
+  assert.ok(ed25519.verify(tx.signatures[lp.publicKey.toBase58() as never]!, Uint8Array.from(tx.messageBytes), lp.publicKey.toBytes()));
+  assert.deepEqual(log.map((x) => x.method), ["getLatestBlockhash", "sendTransaction", "getSignatureStatuses"], "erst bestätigt, dann fertig");
+
+  fehler = { InstructionError: [0, { Custom: 6002 }] };
+  await assert.rejects(a.refund("s1"), /Transaktion abgelehnt/);
+  await assert.rejects(a.claim("s1", new Uint8Array(31), lp.publicKey.toBase58()), /32 Bytes/, "ein falsches Preimage geht gar nicht erst hinaus");
+});

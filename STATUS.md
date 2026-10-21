@@ -12361,3 +12361,22 @@ zweite Lauf grün.
 kommt an; ebenso vor einer Ablehnung, jeder Umschlag nur einmal). Beide scheitern mit dem alten Code.
 
 Knoten-Stand: nicht berührt.
+
+## Schritt A-21e2 – HTLC-Adapter des LP, Relayer-Dienst und Senden im Knoten über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21e; W1, W2 vom 11.10.). Zweiter Teil von A-21e – danach braucht der Knoten web3.js nicht mehr.
+
+**Geändert:** `AnchorSolanaHtlc` (`protocol/src/solana-adapter.ts`) nimmt statt eines `Keypair` einen `schluessel` aus
+`ladeSolanaSchluessel()` und sperrt, löst ein und holt zurück über kit-Anweisungen (`anweisung()`, gleiche Konten und
+Daten) und `sendeMitSchluessel()` – mit Vorabsimulation, bestätigt durch Nachfragen; `loadSolanaKeypair()` fällt. Der
+Relayer-Dienst signiert über `ausDraht()` → `signiereMit()` → `alsDraht()` mit (Byte für Byte wie `partialSign()` von
+web3.js), `main.ts` sendet über `sendeTransaktion()` auf einem `RpcPool` statt `sendRawTransaction()`. LP (`main.ts`) und
+LP-Abnahme (`lp-abnahme-lauf.ts`) laden den Schlüssel über `ladeSolanaSchluessel()`. Die LP-Vektoren entstehen jetzt aus
+einer JSON-RPC-Attrappe hinter dem Pool – die Bytes sind unverändert.
+
+**Tests:** protocol 1359 → 1360 (der Adapter sendet über kit: signiert vom eigenen Schlüssel, mit Vorabsimulation, erst
+bestätigt dann fertig; eine Ablehnung der Kette wirft, ein falsches Preimage geht gar nicht erst hinaus); node unverändert
+(Relayer: die mitsignierte Transaktion gleicht der von `partialSign()`; zwei Verdrahtungstests lesen den neuen Weg).
+Alle 17 Vektoren unverändert.
+
+Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.

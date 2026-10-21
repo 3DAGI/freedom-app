@@ -147,3 +147,7 @@ Fallstricke dieses Bereichs unten anhängen.
   es wirft, wenn die Kette ablehnt (die Kasse gibt nur den Fehlernamen weiter). Schlüsseldateien von solana-keygen nur über
   `ladeSolanaSchluessel()` bzw. `solSchluesselAus()`: 64 Byte, der öffentliche Teil muss zum geheimen passen, zurück kommen
   der geheime Teil (32 Byte, hält der Aufrufer) und die Adresse – nie das ganze Array weiterreichen.
+  Der HTLC-Adapter (`AnchorSolanaHtlc`) nimmt seit A-21e2 einen solchen `schluessel` und sendet über
+  `sendeMitSchluessel()`; ein Relayer signiert fremde Transaktionen nur über `ausDraht()` → `signiereMit()` →
+  `alsDraht()` (dieselbe Nachricht, die `pruefeRelayAuftrag()` gelesen hat). Die LP-Vektoren entstehen aus einer
+  JSON-RPC-Attrappe hinter dem Pool (`sol-vektoren-faelle.ts`) – nie wieder eine Attrappe von `Connection`.

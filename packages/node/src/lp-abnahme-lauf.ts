@@ -61,12 +61,12 @@ export function istTestnetRechnung(bolt11: string): boolean {
 }
 
 export async function starteAbnahme(e: AbnahmeEinstellungen, log = (z: string) => console.log(z)): Promise<boolean> {
-  const { AnchorSolanaHtlc, LndLightningAdapter, loadMacaroonHex, loadSolanaKeypair, pruefeLpMacaroon } = await import("@freedomstack/protocol");
+  const { AnchorSolanaHtlc, LndLightningAdapter, ladeSolanaSchluessel, loadMacaroonHex, pruefeLpMacaroon } = await import("@freedomstack/protocol");
   const lpMacaroon = await loadMacaroonHex(e.lp.macaroon);
   const mac = pruefeLpMacaroon(lpMacaroon);
   if (!mac.ok) throw new Error(`LND_LP_MACAROON: ${mac.grund} – wie im Betrieb nur eine eingeschraenkte (docs/SWAPS.md)`);
-  const lpKp = await loadSolanaKeypair(e.lp.solKeypair);
-  const kundeKp = await loadSolanaKeypair(e.kunde.solKeypair);
+  const lpSchluessel = await ladeSolanaSchluessel(e.lp.solKeypair);
+  const kundeSchluessel = await ladeSolanaSchluessel(e.kunde.solKeypair);
   const kundeLn = new LndLightningAdapter({ restUrl: e.kunde.rest, macaroonHex: await loadMacaroonHex(e.kunde.macaroon), allowInsecureTls: e.unsicheresTls });
   const probe = await kundeLn.createInvoice(1);
   await kundeLn.cancelHoldInvoice(probe.paymentHash).catch(() => undefined);
@@ -74,10 +74,10 @@ export async function starteAbnahme(e: AbnahmeEinstellungen, log = (z: string) =
   const a: Abnahme = {
     lp: {
       ln: new LndLightningAdapter({ restUrl: e.lp.rest, macaroonHex: lpMacaroon, allowInsecureTls: e.unsicheresTls }),
-      sol: new AnchorSolanaHtlc({ rpcUrl: e.rpc, keypair: lpKp }),
-      solAdresse: lpKp.publicKey.toBase58(),
+      sol: new AnchorSolanaHtlc({ rpcUrl: e.rpc, schluessel: lpSchluessel }),
+      solAdresse: lpSchluessel.adresse,
     },
-    kunde: { ln: kundeLn, sol: new AnchorSolanaHtlc({ rpcUrl: e.rpc, keypair: kundeKp }), solAdresse: kundeKp.publicKey.toBase58() },
+    kunde: { ln: kundeLn, sol: new AnchorSolanaHtlc({ rpcUrl: e.rpc, schluessel: kundeSchluessel }), solAdresse: kundeSchluessel.adresse },
     uhr: () => Math.floor(Date.now() / 1000),
     warte: (s) => new Promise((r) => setTimeout(r, s * 1000)),
     sats: e.sats, lamportsPerSat: e.lamportsPerSat, feePpm: 3000,

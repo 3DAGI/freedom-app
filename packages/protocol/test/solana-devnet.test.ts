@@ -20,7 +20,7 @@ import assert from "node:assert/strict";
 import { Keypair } from "@solana/web3.js";
 import {
   AnchorSolanaHtlc,
-  loadSolanaKeypair,
+  ladeSolanaSchluessel,
   generatePreimage,
   hashlock,
 } from "../src/index.js";
@@ -56,8 +56,8 @@ test("DEVNET: HTLC lock -> claim -> Preimage offengelegt", async (t) => {
     return;
   }
 
-  const wallet = await loadSolanaKeypair(WALLET);
-  const lp = new AnchorSolanaHtlc({ rpcUrl: RPC, keypair: wallet });
+  const wallet = await ladeSolanaSchluessel(WALLET);
+  const lp = new AnchorSolanaHtlc({ rpcUrl: RPC, schluessel: wallet });
 
   const swapId = `devnet-test-${Date.now()}`;
   const preimage = generatePreimage();
@@ -72,7 +72,7 @@ test("DEVNET: HTLC lock -> claim -> Preimage offengelegt", async (t) => {
     amountLamports: 10_000_000,
     timelockUnix,
     recipient,
-    initiator: wallet.publicKey.toBase58(),
+    initiator: wallet.adresse,
   });
   assert.equal(lock.claimed, false);
   console.log("  locked:", swapId);
@@ -99,11 +99,11 @@ test("DEVNET: HTLC lock -> claim -> Preimage offengelegt", async (t) => {
     hashlock: H2,
     amountLamports: 5_000_000,
     timelockUnix,
-    recipient: wallet.publicKey.toBase58(), // self-claim zum Testen
-    initiator: wallet.publicKey.toBase58(),
+    recipient: wallet.adresse, // self-claim zum Testen
+    initiator: wallet.adresse,
   });
   // initiator == wallet (siehe lock oben); die Mietbefreiung geht dorthin zurueck.
-  await lp.claim(swap2, pre2, wallet.publicKey.toBase58());
+  await lp.claim(swap2, pre2, wallet.adresse);
   console.log("  claimed:", swap2);
 
   const claimed = await lp.get(swap2);
@@ -122,8 +122,8 @@ test("DEVNET: refund vor Timelock-Ablauf wird on-chain abgelehnt", async (t) => 
     t.skip(grund);
     return;
   }
-  const wallet = await loadSolanaKeypair(WALLET);
-  const lp = new AnchorSolanaHtlc({ rpcUrl: RPC, keypair: wallet });
+  const wallet = await ladeSolanaSchluessel(WALLET);
+  const lp = new AnchorSolanaHtlc({ rpcUrl: RPC, schluessel: wallet });
 
   const swapId = `devnet-refund-${Date.now()}`;
   const H = hashlock(generatePreimage());
@@ -133,7 +133,7 @@ test("DEVNET: refund vor Timelock-Ablauf wird on-chain abgelehnt", async (t) => 
     amountLamports: 3_000_000,
     timelockUnix: Math.floor(Date.now() / 1000) + 7200, // weit in der Zukunft
     recipient: Keypair.generate().publicKey.toBase58(),
-    initiator: wallet.publicKey.toBase58(),
+    initiator: wallet.adresse,
   });
 
   await assert.rejects(
