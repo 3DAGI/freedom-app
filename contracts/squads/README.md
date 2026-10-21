@@ -13,7 +13,8 @@ bash contracts/squads/pruefen.sh --werkzeuge  # lädt Agave 3.1.10 vorher
 `pruefen.sh` holt das Programm von Mainnet und von Devnet mit `solana program dump` nach
 `~/.cache/freedom-solana/squads/`. Es nimmt es nur mit der Prüfsumme, die im Skript steht.
 Danach lässt es `tests/kasse.test.ts` gegen beide laufen, je in einem lokalen
-`solana-test-validator`. Das Programm auf Mainnet ist unveränderlich; das auf Devnet kann
+`solana-test-validator` – Anlegen (A-12a1) und Auszahlen (A-12a2): vorschlagen, abstimmen,
+ausführen, abschließen. Das Programm auf Mainnet ist unveränderlich; das auf Devnet kann
 Squads ändern. Dann scheitert die Prüfung, bis jemand den neuen Stand angesehen und die Summe
 bewusst geändert hat. Die Einstellungen des Programms (Gebühr, Schatzamt) legt der Test selbst
 an, mit einer Gebühr über 0 – so prüft er auch das Schatzamt.

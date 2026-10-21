@@ -162,3 +162,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Schwelle nur aus `kassenMitglieder()` (W2), Zeitschloss nur 0, 1 h oder 24 h (W3), Miete zurück in den Tresor, das Schatzamt aus
   den Einstellungen des Programms. Die Art einer Kasse nur über `kassenArt()` aus dem Stand auf der Kette, nie aus dem Raum. Die
   Vektoren „kasse-…“ rechnet das SDK von Squads (`@sqds/multisig`, nur außerhalb des Repos), nie `kasse.ts` selbst.
+  Auszahlen (seit A-12a2) nur über `auszahlungVorschlagenAnweisungen()`, `abstimmenAnweisung()`, `ausfuehrenAnweisung()`,
+  `abschliessenAnweisung()`; ausgeführt nur mit der `Auszahlung` aus `leseAuszahlung()` (Empfänger und Betrag von der Kette, V6).
+  Die Nachricht hat zwei Formate: beim Anlegen das kompakte von Squads (Längen u8/u16, `auszahlungsNachricht()`), im Konto
+  Borsh (Längen u32) – nie das eine mit dem Leser des anderen lesen. Eine Transaktion anderer Form ist keine Auszahlung (`null`).

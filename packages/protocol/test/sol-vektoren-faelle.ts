@@ -8,7 +8,8 @@ import { Keypair, PublicKey, Transaction, type TransactionInstruction } from "@s
 import { getBase58Decoder } from "@solana/kit";
 import {
   alsWeb3, AnchorSolanaHtlc, ausDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
-  kanalAdresse, kasseAnlegenAnweisung, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
+  abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, kanalAdresse, kasseAnlegenAnweisung,
+  kassenAdresse, kassenTresor, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
   type KanalEmpfaenger, type SolRpc,
 } from "../src/index.js";
 
@@ -94,6 +95,18 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     }))]),
     "kasse-anlegen-gruender": nachricht(adresse(21), [alsWeb3(kasseAnlegenAnweisung({
       ersteller: adresse(21), createKey: adresse(25), schatzamt: adresse(24), art: "gruender", gruender: adresse(21), weitere: [adresse(22)], zeitschlossSek: 3600,
+    }))]),
+    // A-12a2: Auszahlen – ebenso mit dem SDK von Squads gerechnet
+    "kasse-auszahlung-vorschlagen": nachricht(adresse(21), auszahlungVorschlagenAnweisungen({
+      kasse: kassenAdresse(adresse(20)), index: 1n, vorschlagender: adresse(21), empfaenger: adresse(26), lamports: 100_000_000n,
+    }).map(alsWeb3)),
+    "kasse-zustimmen": nachricht(adresse(22), [alsWeb3(abstimmenAnweisung({ kasse: kassenAdresse(adresse(20)), index: 1n, mitglied: adresse(22), dafuer: true }))]),
+    "kasse-ablehnen": nachricht(adresse(23), [alsWeb3(abstimmenAnweisung({ kasse: kassenAdresse(adresse(20)), index: 1n, mitglied: adresse(23), dafuer: false }))]),
+    "kasse-ausfuehren": nachricht(adresse(22), [alsWeb3(ausfuehrenAnweisung({
+      kasse: kassenAdresse(adresse(20)), index: 1n, mitglied: adresse(22), auszahlung: { empfaenger: adresse(26), lamports: 100_000_000n },
+    }))]),
+    "kasse-abschliessen": nachricht(adresse(23), [alsWeb3(abschliessenAnweisung({
+      kasse: kassenAdresse(adresse(20)), index: 1n, mieteAn: kassenTresor(kassenAdresse(adresse(20))),
     }))]),
   };
 }

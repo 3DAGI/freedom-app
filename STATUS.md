@@ -12606,3 +12606,35 @@ a1 Anlegen und Lesen, a2 Auszahlen und Konfiguration ändern. A-12b (App: anlege
 - **Gegenprobe:** Ohne `rent_collector` ist auf beiden Programmen je ein Test rot.
 
 Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b.
+
+## Schritt A-12a2 – Kasse über Squads: auszahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V1, V6, W2, W3). Nach A-12a1 (anlegen, lesen) der zweite Teil des Bausteins; das
+Ändern der Konfiguration (Mitglieder, Schwelle, Zeitschloss) steht als A-12a3 in OFFEN, für A-12d.
+
+**Neu (`packages/protocol/src/kasse.ts`):**
+- **Adressen** von Transaktion und Vorschlag je Index (`kassenTransaktionAdresse()`, `kassenVorschlagAdresse()`).
+- **Vorschlagen** (`auszahlungVorschlagenAnweisungen()`): Vault-Transaktion und Vorschlag in einem Zug. Die Nachricht
+  (`auszahlungsNachricht()`, kompaktes Format von Squads) ist genau eine Überweisung aus Tresor 0 an einen Empfänger;
+  Betrag 0, der Tresor selbst und das System-Programm als Empfänger werfen. Der Vorschlagende zahlt die Miete.
+- **Abstimmen** (`abstimmenAnweisung()`: dafür oder dagegen), **ausführen** (`ausfuehrenAnweisung()`: nur mit der
+  Auszahlung von der Kette, Konten aus ihr) und **abschließen** (`abschliessenAnweisung()`: Miete an den Tresor).
+- **Lesen:** Vorschlag (Status samt Zeit, Stimmen dafür, dagegen, abgebrochen) und Transaktion (`leseAuszahlung()`: eine
+  Auszahlung nur in genau der Form dieser App, sonst `null` – V6); von der Kette nur Konten von Squads und nur zur
+  genannten Kasse und Nummer.
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/protocol/CLAUDE.md` (zwei Formate der Nachricht), README der
+  Tests, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:** protocol +4, Kasse +6 (je 3 auf dem Programm von Mainnet und Devnet):
+- **Vektoren** „kasse-auszahlung-vorschlagen“, „kasse-zustimmen“, „kasse-ablehnen“, „kasse-ausfuehren“,
+  „kasse-abschliessen“ – mit dem SDK von Squads und web3.js v1 gerechnet; `kasse.ts` liefert dieselben Bytes.
+- **Protokoll:** Adressen wie im SDK; Nachricht nimmt nur echte Auszahlungen; Vorschlag lesen (alle Status, ohne Zeit bei
+  „wird ausgeführt“, unbekannt und abgeschnitten werfen); Auszahlung lesen (13 Abweichungen von der Form ergeben `null`);
+  von der Kette nur zur genannten Kasse und Nummer.
+- **Validator:** Mehrheit – vorschlagen, ausführen erst ab zwei Stimmen (6008 vorher), nur der Betrag verlässt den Tresor,
+  falscher Empfänger der Miete abgelehnt (6033), abschließen gibt die Miete beider Konten auf den Lamport in den Tresor;
+  zwei Gegenstimmen lehnen ab, nicht ausführbar, abschließbar; Gründer entscheidet – das übrige Mitglied schlägt vor, darf
+  aber weder abstimmen noch ausführen (6004), der Gründer führt aus; mit Zeitschloss 1 h hält Squads die Ausführung (6021).
+- **Gegenprobe:** Mit dem Tresor nur lesbar bei der Ausführung sind auf beiden Programmen je zwei Tests rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12c.

@@ -9,6 +9,9 @@
  *  - „Gründer entscheidet“: der Gründer mit allen Rechten, die übrigen schlagen nur vor, Schwelle 1,
  *    Zeitschloss 1 h
  *  - die Gebühr geht an das Schatzamt aus den Einstellungen des Programms; ein anderes lehnt Squads ab
+ *  - Auszahlen (A-12a2): vorschlagen, abstimmen, ausführen, abschließen – Empfänger und Betrag von der
+ *    Kette, ausgeführt erst ab der Schwelle, abgelehnt ab genug Gegenstimmen, die Miete zurück in den
+ *    Tresor; bei „Gründer entscheidet“ stimmt und führt nur der Gründer aus, das Zeitschloss hält
  *
  * Die Einstellungen des Programms legt der Test selbst an (eigene Gebühr, eigenes Schatzamt) – das
  * Konto von Mainnet zu kopieren hieße, im Test das Netz zu fragen. Die Programme lädt `pruefen.sh`
@@ -24,11 +27,12 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  kasseAnlegenAnweisung, kassenAdresse, kassenArt, kassenTresor, leseKasse, leseProgrammEinstellungenVonKette, type KassenArt,
-  programmEinstellungenAdresse, SQUADS_PROGRAMM_ID,
+  abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, kasseAnlegenAnweisung, kassenAdresse,
+  kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
+  leseProgrammEinstellungenVonKette, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, type KassenArt,
 } from "../../../packages/protocol/src/kasse.js";
 import {
-  leseGuthaben, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
+  leseGuthaben, leseKonto, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
 } from "../../../packages/protocol/src/kit-rpc.js";
 import { alsDraht, baueTransaktion, signiereMit, solSchluesselAus } from "../../../packages/protocol/src/kit-transaktion.js";
 import { ueberweisungAnweisung, type Instruction } from "../../../packages/protocol/src/kit-bruecke.js";
@@ -42,8 +46,15 @@ if (skip && process.env.SQUADS_TESTS_PFLICHT === "1") throw new Error(`Squads-Te
 
 const GEBUEHR = 1_000_000n;
 const SCHATZAMT = Keypair.generate().publicKey.toBase58();
-// Squads: 6014 = InvalidAccount
-const F = { FalschesKonto: 6014 } as const;
+// Squads: 6004 Unauthorized, 6008 InvalidProposalStatus, 6014 InvalidAccount, 6021 TimeLockNotReleased, 6033 InvalidRentCollector
+const F = { NichtBerechtigt: 6004, FalscherStatus: 6008, FalschesKonto: 6014, Zeitschloss: 6021, FalscheMiete: 6033 } as const;
+
+async function scheitert(p: Promise<unknown>, code: number): Promise<void> {
+  await assert.rejects(p, (e: unknown) => {
+    assert.equal(programmFehlerCode(e), code, `erwartet ${code}: ${String((e as Error).message).slice(0, 300)}`);
+    return true;
+  });
+}
 
 /** Die Einstellungen des Programms als Konto für `--account` – Form nach der IDL (ProgramConfig). */
 function einstellungenKonto(datei: string): void {
@@ -133,7 +144,7 @@ function mitValidator(netz: keyof typeof PROGRAMME, port: number) {
 }
 
 for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
-  describe(`A-12a1: Kasse gegen Squads v4 (${netz})`, { skip }, () => {
+  describe(`A-12a: Kasse gegen Squads v4 (${netz})`, { skip }, () => {
     const v = mitValidator(netz, port);
 
     test("Mehrheit: alle Rechte, Schwelle 2, ohne Verwalter, Miete in den Tresor; Einzahlen an den Tresor", async () => {
@@ -171,10 +182,91 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       const vorher = await v.solange(leseGuthaben(v.rpc, SCHATZAMT));
       await v.legeAn("gruender", gruender, []);
       assert.equal((await v.solange(leseGuthaben(v.rpc, SCHATZAMT))) - vorher, GEBUEHR);
-      await assert.rejects(v.legeAn("gruender", gruender, [], 0, Keypair.generate().publicKey.toBase58()), (e: unknown) => {
-        assert.equal(programmFehlerCode(e), F.FalschesKonto, String((e as Error).message).slice(0, 300));
-        return true;
-      });
+      await scheitert(v.legeAn("gruender", gruender, [], 0, Keypair.generate().publicKey.toBase58()), F.FalschesKonto);
+    });
+
+    // ---- A-12a2: Auszahlen ----
+    type Konto = { geheim: Uint8Array; adresse: string };
+    const vorschlagen = (kasse: string, wer: Konto, empfaenger: string, lamports: bigint, index = 1n) =>
+      v.sende(wer, auszahlungVorschlagenAnweisungen({ kasse, index, vorschlagender: wer.adresse, empfaenger, lamports }));
+    const stimme = (kasse: string, wer: Konto, dafuer: boolean, index = 1n) =>
+      v.sende(wer, [abstimmenAnweisung({ kasse, index, mitglied: wer.adresse, dafuer })]);
+    async function fuehreAus(kasse: string, wer: Konto, index = 1n) {
+      const t = await v.solange(leseAuszahlungVonKette(v.rpc, kasse, index));
+      assert.ok(t?.auszahlung, "Auszahlung von der Kette");
+      await v.sende(wer, [ausfuehrenAnweisung({ kasse, index, mitglied: wer.adresse, auszahlung: t.auszahlung })]);
+    }
+    const status = async (kasse: string, index = 1n) => (await v.solange(leseVorschlagVonKette(v.rpc, kasse, index)))?.status ?? null;
+    async function kasseMitGeld(art: KassenArt, gruender: Konto, weitere: string[], zeitschlossSek = 0) {
+      const kasse = await v.legeAn(art, gruender, weitere, zeitschlossSek);
+      await v.sende(gruender, [ueberweisungAnweisung({ von: gruender.adresse, an: kassenTresor(kasse), lamports: 1_000_000_000n })]);
+      return kasse;
+    }
+
+    test("A-12a2 Mehrheit: vorschlagen, ausführen erst ab zwei Stimmen, abschließen gibt die Miete in den Tresor", async () => {
+      const a = await v.neuesKonto(), b = await v.neuesKonto(1), c = await v.neuesKonto(1);
+      const kasse = await kasseMitGeld("mehrheit", a, [b.adresse, c.adresse]);
+      const tresor = kassenTresor(kasse), x = Keypair.generate().publicKey.toBase58();
+      await vorschlagen(kasse, a, x, 300_000_000n);
+      const t = await v.solange(leseAuszahlungVonKette(v.rpc, kasse, 1n));
+      assert.deepEqual(t, { kasse, ersteller: a.adresse, index: 1n, auszahlung: { empfaenger: x, lamports: 300_000_000n } });
+      assert.equal((await v.solange(leseKasse(v.rpc, kasse)))?.transaktionsIndex, 1n);
+      assert.equal(await status(kasse), "aktiv");
+
+      await stimme(kasse, a, true);
+      await scheitert(fuehreAus(kasse, b), F.FalscherStatus);
+      await stimme(kasse, b, true);
+      const v1 = await v.solange(leseVorschlagVonKette(v.rpc, kasse, 1n));
+      assert.equal(v1?.status, "angenommen");
+      assert.deepEqual([...v1!.dafuer].sort(), [a.adresse, b.adresse].sort());
+
+      const vorher = await v.solange(leseGuthaben(v.rpc, tresor));
+      await fuehreAus(kasse, c);
+      assert.equal(await v.solange(leseGuthaben(v.rpc, x)), 300_000_000n);
+      assert.equal(vorher - (await v.solange(leseGuthaben(v.rpc, tresor))), 300_000_000n, "nur der Betrag verlässt den Tresor");
+      assert.equal(await status(kasse), "ausgefuehrt");
+
+      const miete = (await v.solange(leseKonto(v.rpc, kassenVorschlagAdresse(kasse, 1n))))!.lamports
+        + (await v.solange(leseKonto(v.rpc, kassenTransaktionAdresse(kasse, 1n))))!.lamports;
+      await scheitert(v.sende(c, [abschliessenAnweisung({ kasse, index: 1n, mieteAn: c.adresse })]), F.FalscheMiete);
+      const davor = await v.solange(leseGuthaben(v.rpc, tresor));
+      await v.sende(c, [abschliessenAnweisung({ kasse, index: 1n, mieteAn: tresor })]);
+      assert.equal((await v.solange(leseGuthaben(v.rpc, tresor))) - davor, miete, "die Miete beider Konten zurück in den Tresor");
+      assert.equal(await status(kasse), null);
+      assert.equal(await v.solange(leseAuszahlungVonKette(v.rpc, kasse, 1n)), null);
+    });
+
+    test("A-12a2 Mehrheit: zwei Gegenstimmen lehnen ab – nicht ausführbar, abschließbar", async () => {
+      const a = await v.neuesKonto(), b = await v.neuesKonto(1), c = await v.neuesKonto(1);
+      const kasse = await kasseMitGeld("mehrheit", a, [b.adresse, c.adresse]);
+      await vorschlagen(kasse, a, Keypair.generate().publicKey.toBase58(), 100_000_000n);
+      await stimme(kasse, b, false);
+      assert.equal(await status(kasse), "aktiv");
+      await stimme(kasse, c, false);
+      assert.equal(await status(kasse), "abgelehnt");
+      await scheitert(fuehreAus(kasse, a), F.FalscherStatus);
+      await v.sende(a, [abschliessenAnweisung({ kasse, index: 1n, mieteAn: kassenTresor(kasse) })]);
+      assert.equal(await status(kasse), null);
+    });
+
+    test("A-12a2 Gründer entscheidet: nur der Gründer stimmt ab und führt aus; das Zeitschloss hält die Ausführung", async () => {
+      // zwei Kassen mit je 1 SOL, dazu Gebühr und Miete
+      const g = await v.neuesKonto(3), b = await v.neuesKonto(1), x = Keypair.generate().publicKey.toBase58();
+      const kasse = await kasseMitGeld("gruender", g, [b.adresse]);
+      await vorschlagen(kasse, b, x, 200_000_000n);
+      await scheitert(stimme(kasse, b, true), F.NichtBerechtigt);
+      await stimme(kasse, g, true);
+      assert.equal(await status(kasse), "angenommen");
+      await scheitert(fuehreAus(kasse, b), F.NichtBerechtigt);
+      await fuehreAus(kasse, g);
+      assert.equal(await v.solange(leseGuthaben(v.rpc, x)), 200_000_000n);
+
+      const mitSchloss = await kasseMitGeld("gruender", g, [], 3600);
+      await vorschlagen(mitSchloss, g, x, 100_000_000n);
+      await stimme(mitSchloss, g, true);
+      assert.equal(await status(mitSchloss), "angenommen");
+      await scheitert(fuehreAus(mitSchloss, g), F.Zeitschloss);
+      assert.equal(await v.solange(leseGuthaben(v.rpc, x)), 200_000_000n, "vor Ablauf des Zeitschlosses geht nichts hinaus");
     });
   });
 }
