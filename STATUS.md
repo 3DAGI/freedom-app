@@ -12380,3 +12380,42 @@ bestätigt dann fertig; eine Ablehnung der Kette wirft, ein falsches Preimage ge
 Alle 17 Vektoren unverändert.
 
 Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.
+
+## Schritt 11.5c1 – Ablauf für Repo-Aufträge nach mini-swe-agent
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W3a A, entschieden 14.10.). 11.5c ist geteilt: c1 der Ablauf als Baustein im
+Knoten, c2 die Verdrahtung im Knoten-Agenten (Bundle holen, P1–P4, Patch einreichen, Antwort im Raum).
+
+**Neu:** `node/src/repo-lauf.ts`.
+- **Ablauf:** `repoLauf()` folgt mini-swe-agent (Fassung 1.x, MIT – Hinweis im Kopf der Datei):
+  - eine lineare Unterhaltung, je Antwort genau ein ```bash-Block;
+  - jeder Befehl in einer neuen bash in der Sandbox, mit der Umgebung von dort (`PAGER=cat` …);
+  - die Ausgabe als `<returncode>`/`<output>`, gekürzt mit Warnung, ein Zeitablauf mit eigener Meldung;
+  - fertig nur, wenn die erste Zeile der Ausgabe `COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` ist und der Befehl mit 0 endet – die Zeilen danach sind Betreff und Beschreibung.
+- **Grenzen:** höchstens drei Formfehler hintereinander; Grenzen nach Schritten (50), Zeit (30 min, auch je Befehl nur die Restzeit) und Tokens (W5).
+- **Fehler:** scheitern Modell oder Sandbox, endet der Lauf mit dem Grund, ohne Text.
+- **Anweisungen an das Modell:** die von mini-swe-agent, englisch wie im Original. Angepasst sind kein Netz, kein git, `/arbeit` und der Abschluss mit Betreff.
+- **`bearbeiteRepo()`:** Arbeitskopie am Kopf des Bundles → neuer Arbeitsordner im tmpfs → Ablauf → `leseArbeitsordner()` → `schreibePatch()`.
+  - Der Ordner ist danach immer weg; ohne „fertig“ gibt es keinen Patch.
+  - Ein Betreff, von dem für git nichts bleibt, fällt auf die Vorgabe zurück.
+  - Nichts geht ins Log.
+
+**Sandbox** (Spur B, eine Stelle in `sandbox.ts`): `fuehreAus()` behält bei langer Ausgabe Anfang und Ende. Bis dahin
+fehlte über 40 000 Zeichen das Ende, also etwa die Zusammenfassung eines Testlaufs.
+
+**Verdrahtung:** `arbeitskopie()`, `schreibePatch()` und `zeilenDiff()` aus dem Protokoll ruft jetzt der Knoten auf –
+drei Ausnahmen aus `wiring-ausnahmen.txt` entfernt.
+
+**Tests:** node +7 (`repo-lauf.test.ts`):
+- ein Befehl je Antwort, Beobachtung, Umgebung;
+- Formfehler (keiner, zwei, abgeschnitten; Zurücksetzen nach einem guten Schritt);
+- Marke nur als erste Zeile und mit 0;
+- Grenzen nach Schritten, Tokens und Zeit samt Restzeit je Befehl, lange Ausgabe und Zeitablauf;
+- Fehler von Modell und Sandbox;
+- mit bubblewrap Ende zu Ende: Patch, den `git am` mit demselben Commit annimmt, keine Variable des Knotens in der Sandbox, Ordner weg, nichts im Log;
+- ohne „fertig“ kein Patch, ohne Änderung keiner, Vorgabe-Betreff.
+
+`sandbox.test.ts` prüft zusätzlich Anfang und Ende bei 300 000 Zeichen. Gegenproben: jede der fünf Regeln (Exit 0,
+`weg()`, Zurücksetzen, Restzeit, Vorgabe-Betreff) und die alte Kürzung machen je einen Test rot.
+
+Knoten-Stand: nicht berührt (noch nicht verdrahtet, kommt mit 11.5c2).
