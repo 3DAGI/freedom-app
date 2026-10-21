@@ -33,3 +33,13 @@ Bereichs unten anhängen.
   Devnet und nahm keinen Aufruf an, ebenso der HTLC an `3UmRR…`. Erst die ID
   eintragen, dann bauen, dann deployen – nie umgekehrt. Der HTLC liegt seit
   13.10.2026 an `FVb19s…` (0.G, `DEPLOY.md`).
+- **HTLC nur über `contracts/solana-htlc/pruefen.sh`** (seit A-28a): bauen und gegen den
+  Validator testen wie beim Zahlkanal (Agave 3.1.10, `tests/htlc.test.ts` mit dem Adapter aus
+  dem Protokoll); die CI (`htlc.yml`) tut dasselbe, Überspringen gilt dort als Fehler. Der
+  alte Anchor-Test (`tests/solana-htlc.ts`) läuft nirgends mit. `zurueckgeben` (A-28) nur
+  vom Empfänger und nur an den Initiator der Sperre (beide gegen das Konto geprüft) – nie
+  eine Rückgabe, die ein anderes Ziel nimmt. Eine neue Anweisung braucht im Protokoll einen
+  Fall in `test/sol-vektoren-faelle.ts` und einen Eintrag in `fixtures/solana-vektoren.json`,
+  unabhängig mit web3.js v1 gerechnet – nie mit dem Adapter selbst. Die Fehlercodes in
+  Tests (6000 + Stelle im Enum, 3012 für ein geschlossenes Konto) nur über
+  `programmFehlerCode()` lesen. Wirksam auf Devnet erst nach dem Upgrade durch den MENSCHEN.

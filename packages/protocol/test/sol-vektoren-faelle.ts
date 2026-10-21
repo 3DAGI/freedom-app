@@ -86,5 +86,7 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     })),
     "lp-einloesen": await lp((a) => a.claim("lp-2", new Uint8Array(32).fill(5), KUNDE)),
     "lp-zurueck": await lp((a) => a.refund("lp-1")),
+    // A-28: der LP gibt die Sperre des Kunden zurück – Eintrag mit web3.js v1 gerechnet, nicht mit dem Adapter
+    "lp-zurueckgeben": await lp((a) => a.zurueckgeben("lp-3", KUNDE)),
   };
 }

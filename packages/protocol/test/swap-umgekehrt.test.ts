@@ -60,6 +60,26 @@ test("LP zahlt nicht: Kunde holt nach T_sol alles zurueck", async () => {
   assert.equal(ln.lpSats, 100_000);
 });
 
+test("A-28: Attrappe gibt vor Ablauf zurück – nur an den Initiator, nur einmal, nie nach dem Einlösen", async () => {
+  const { sol, cfg } = aufbau();
+  const preimage = new Uint8Array(32).fill(7);
+  const sperre = (swapId: string) => sol.lock({
+    swapId, hashlock: hashlock(preimage), amountLamports: 1_000_000, timelockUnix: JETZT + cfg.tSolSecs, recipient: LP, initiator: KUNDE,
+  });
+  await sperre("zurueck-1");
+  await assert.rejects(sol.zurueckgeben("zurueck-1", LP), /falscher Initiator/);
+  assert.equal(sol.lpLamports, 4_000_000, "die Sperre bleibt");
+  await sol.zurueckgeben("zurueck-1", KUNDE);
+  assert.equal(sol.lpLamports, 5_000_000, "vor Ablauf alles zurück an den Kunden");
+  assert.equal((await sol.get("zurueck-1"))?.refunded, true);
+  await assert.rejects(sol.zurueckgeben("zurueck-1", KUNDE), /bereits abgeschlossen/);
+  await assert.rejects(sol.refund("zurueck-1"), /bereits abgeschlossen/);
+  await sperre("zurueck-2");
+  await sol.claim("zurueck-2", preimage);
+  await assert.rejects(sol.zurueckgeben("zurueck-2", KUNDE), /bereits abgeschlossen/);
+  await assert.rejects(sol.zurueckgeben("unbekannt", KUNDE), /unbekannter Swap/);
+});
+
 test("Kunde haelt das Preimage zurueck: Zahlung laeuft ab, LP behaelt sats, Kunde holt SOL", async () => {
   const { ln, sol, cfg } = aufbau();
   ln.kundeHaeltZurueck = true;

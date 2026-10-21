@@ -12545,3 +12545,32 @@ hinzeigt (sonst nur eine Warnung).
 - **Angepasst:** drei Regex-Tests auf die neuen Zeilen (11.5c2a, 11.3d1a).
 
 Knoten-Stand: `main` mit 11.5c3, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.
+
+## Schritt A-28a – Rückgabe vor Ablauf im HTLC-Programm
+
+Spur A, Entscheidung 11.10. (MENSCH: A-28 ja, mit 0.G); Vorschlag aus `docs/BOLTZ-VERGLEICH.md` (B2). A-28 in zwei Teilen:
+A-28a Programm, Adapter, Tests; A-28b LP und App (Format der Antwort vorher klären).
+
+**Neu:**
+- **Programm** (`contracts/solana-htlc`): Anweisung `zurueckgeben`. Nur der Empfänger der Sperre unterschreibt; das Geld
+  geht nur an den Initiator – Betrag und Miete, das Konto der Sperre wird geschlossen. Beide werden gegen die Sperre
+  geprüft (`WrongRecipient`, `WrongInitiator`), eine abgeschlossene Sperre lehnt ab (`AlreadyClosed`). Keine neue
+  Fehler-Variante, `lock`, `claim` und `refund` unverändert.
+- **Adapter** (`solana-adapter.ts`): `zurueckgeben(swapId, initiator)` über kit, der LP zahlt die Gebühr; Schnittstelle
+  `SolanaHtlcAdapter` und `MockSolana` ebenso.
+- **Validator-Tests** (`contracts/solana-htlc/tests/htlc.test.ts`, `pruefen.sh`, CI `htlc.yml`): das HTLC-Programm zum
+  ersten Mal gebaut und gegen einen lokalen Validator getestet, mit dem Adapter aus dem Protokoll – wie beim Zahlkanal
+  (Agave 3.1.10, Überspringen gilt in der CI als Fehler).
+- **Doku:** `SWAPS.md` (Rückgabe vor Ablauf), README des Programms (Bauen, Upgrade-Schritte, kein `--final`),
+  `SOLANA-UPGRADE-AUTHORITY.md` (Checkliste), Fallstrick in `contracts/CLAUDE.md`, Befehl in der `CLAUDE.md`.
+
+**Tests:** protocol +1 (Attrappe; dazu der Vektor „lp-zurueckgeben“ im bestehenden Vektor-Test, unabhängig mit web3.js v1
+gerechnet), HTLC 3 (gegen den Validator):
+- zurück an den Kunden auf den Lamport (Betrag und Miete), der LP zahlt nur die Gebühr, danach ist die Sperre weg und ein
+  zweiter Versuch scheitert (3012);
+- ein Fremder und der Kunde selbst scheitern (6004), ein LP, der an sich umleiten will, auch (6005) – die Sperre bleibt;
+- nach dem Einlösen gibt es nichts zurückzugeben; Rückholen erst nach Ablauf (6006), dann an den Kunden.
+- **Gegenprobe:** Ohne die Prüfung des Initiators ist ein Test rot.
+
+Wirksam erst nach dem Upgrade an `FVb19s…` durch den MENSCHEN (M-1); bis dahin lehnt das Programm die Anweisung ab.
+Knoten-Stand: keiner nötig – der LP ruft `zurueckgeben` erst ab A-28b.

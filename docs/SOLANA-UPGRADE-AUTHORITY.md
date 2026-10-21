@@ -125,7 +125,7 @@ Verzögerung. Vorher: Audits, lange Testphase, Bug-Bounty (`GO-LIVE.md`).
 
 - [x] 0.G: Der HTLC liegt seit 13.10.2026 neu an `FVb19s…` (Upgrade-Recht `FsUyQ…`); Code und Doku nennen diese ID.
 - [ ] `3UmRR…` schließen (`solana program close`, gleiches Upgrade-Recht `FsUyQ…`) – gibt die Miete zurück; `B6W19U…` liegt beim Schlüssel `8DhKPv…`.
-- [ ] A-28 (Rückgabe vor Ablauf): Upgrade an `FVb19s…`, sobald der Code da ist.
+- [ ] A-28 (Rückgabe vor Ablauf): Code seit A-28a da – Upgrade an `FVb19s…` mit der Binary aus `bash contracts/solana-htlc/pruefen.sh --werkzeuge` (`target/deploy/solana_htlc.so`, Schritte im README des Programms), danach eine Simulation von `zurueckgeben`, die nicht mehr mit 101 (`InstructionFallbackNotFound`) endet.
 - [ ] Zahlkanal: Upgrade an `F9P2…` mit der Binary aus 4.3e (README des Programms), danach eine Simulation, die nicht mehr mit 4100 endet.
 - [ ] Squad auf Devnet anlegen, ein Programm übertragen, ein Upgrade einmal durchspielen.
 - [ ] Verzögerung festlegen: länger als die längste Sperre (Zahlkanal-Ablauf, Swap-Fristen).

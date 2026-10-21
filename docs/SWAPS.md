@@ -70,6 +70,17 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
   `GESCHEITERT`, `ZU_SPAET` oder `ABGELEHNT` (dann steht der Grund im Inhalt).
   Bei allem außer `EINGELOEST` holt der Kunde seine SOL nach T_sol zurück.
   Öffentlich stehen nur feste Texte des LP, nie Meldungen von LND.
+- **Rückgabe vor Ablauf (A-28, Programm seit A-28a):** Das HTLC-Programm kennt
+  die Anweisung `zurueckgeben`. Nur der Empfänger der Sperre (hier der LP)
+  unterschreibt; das Geld geht nur an den Initiator (den Kunden), Betrag und
+  Miete auf den Lamport, und die Sperre ist danach geschlossen. Der Initiator
+  wird gegen die Sperre geprüft – ein Empfänger kann das Geld nicht an sich
+  umleiten, ein Fremder nichts auslösen. Einlösen und Rückholen bleiben, wie
+  sie sind. Wirksam erst nach dem Upgrade an `FVb19s…` durch den MENSCHEN
+  (`docs/SOLANA-UPGRADE-AUTHORITY.md`); bis dahin lehnt das Programm die
+  Anweisung ab. Der LP ruft sie ab A-28b nach einer Zahlung, die LND sicher
+  als gescheitert meldet – nie bei einem offenen Ausgang (sonst zahlte er die
+  Rechnung und gäbe die SOL zurück).
 - **`cltv_limit`** = kleinstes von `lnCltvDeltaBlocks` des Angebots und
   `maxCltvLimitFuer(T_sol − jetzt)`.
 - **Neustart:** Der LP speichert jede Sitzung, **bevor** er zahlt

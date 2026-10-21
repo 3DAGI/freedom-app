@@ -84,10 +84,11 @@ Fallstricke dieses Bereichs unten anhängen.
   `anweisung()`, `ueberweisungAnweisung()`) – dort weiterreichen, was sie braucht, nie eine eigene Abhängigkeit der App.
 
 - **Einen Export entfernen heißt auch `contracts/` durchsuchen** (seit A-21b2): Die Validator-Tests
-  (`contracts/solana-channel/tests/*.ts`) importieren direkt aus `packages/protocol/src`; `check-wiring.py` zählt sie
-  nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur
-  `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json` – A-21b2 entfernte `oeffneKanalIx()` & Co.,
-  erst der CI-Job „Zahlkanal“ fand die Nutzer dort.
+  (`contracts/solana-channel/tests/*.ts`, seit A-28a auch `contracts/solana-htlc/tests/*.ts`) importieren direkt aus
+  `packages/protocol/src`; `check-wiring.py` zählt sie nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen
+  `git grep -n <name>` über das ganze Repo (nicht nur `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json`
+  (beim HTLC `contracts/solana-htlc/tsconfig.validator.json`) – A-21b2 entfernte `oeffneKanalIx()` & Co., erst der
+  CI-Job „Zahlkanal“ fand die Nutzer dort.
 - **Solana lesen nur über `poolRpc()`** (seit A-21c, `kit-rpc.ts`): kit fragt die Kette nur über den `RpcPool`
   (`poolTransport()` → `pool.call()`), nie über `createSolanaRpc(url)` oder eine neue `Connection` zum Lesen – sonst fallen
   Ausweichen, eigene Endpunkte zuerst und die Stichprobe (5.8) weg. Die App nimmt `solRpc()` (`shell/state.ts`, der
