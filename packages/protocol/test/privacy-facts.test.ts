@@ -45,6 +45,7 @@ import { baueStueckAbruf } from "../src/blob.js";
 import { regelAgentRaumPrivat, regelMlsGruppe } from "../src/leak-rules.js";
 import { raumAgentAntwort, type RaumNachricht } from "../src/agent-auftrag.js";
 import { raumGruppenanruf, raumGruppenanrufEnde } from "../src/raum-gruppenanruf.js";
+import { kassenOrt, raumKassenAdresse, signiereKassenAdresse } from "../src/raum-kasse.js";
 import { raumAgentKarte, raumAgentenListe } from "../src/agent-karte.js";
 import { baueRaumMeldung, raumDefinition, raumNachricht } from "../src/raum-gruppe.js";
 import { baueRufUmschlaege } from "../src/quittung.js";
@@ -549,6 +550,21 @@ const SZENARIEN: Record<string, () => Promise<number>> = {
     return regelKeinKlartext(alle, ["geheimknoten", anruf, ...zugaenge.flatMap((x) => [x.kennung, x.token])]).length
       + regelAutorNicht(alle, a.pk).length + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
   },
+  "raum-kasse": async () => {
+    // Wie die App seit A-12b2a: im privaten Raum geht die Adresse für die Kasse samt Nachweis nur als inneres Event – echte Engine
+    const { Mls, ladeMls } = (await import(["@freedomstack", "mls"].join("/"))) as MlsModulT;
+    ladeMls(gunzipSync(readFileSync(new URL("../../mls/dist/freedom_mls_bg.wasm.gz", import.meta.url))));
+    const konto = (k: typeof a) => new Mls(new LocalSigner(k.sk), (id) => toHex(schnorr.sign(fromHex(id), k.sk)));
+    const [ma, mb] = [konto(a), konto(b)];
+    const kpB = await new LocalSigner(b.sk).signEvent(await mb.keyPackage("ef".repeat(32)));
+    const g = await ma.gruppeAnlegen("Werkstatt", [kpB], ["wss://gruppe.test"]);
+    const { adresse, nachweis } = signiereKassenAdresse(kassenOrt(g.gruppe), a.pk, new Uint8Array(32).fill(7));
+    const events = (await ma.sendenEvent(g.gruppe, ...alsArgs(raumKassenAdresse(g.gruppe, adresse, nachweis)))).events;
+    const alle = [...g.einladungen, ...events];
+    if (events.length !== 1) return 1;
+    return regelKeinKlartext(alle, [adresse, nachweis]).length + regelAutorNicht(alle, a.pk).length
+      + regelMlsGruppe(alle, { gruppenIds: [g.gruppe], identitaeten: [a.pk, b.pk] }).length;
+  },
   "raum-meldung": async () => {
     // Wie die App seit 8.5 meldet: je Moderator ein Umschlag, nie in die Gruppe, nie offen
     const mods = [generateKeypair(), generateKeypair()];
@@ -674,6 +690,17 @@ test("B-34d/B-34e2: Gruppenanrufe stehen als Grenze im Bericht – IP beim Knote
   assert.deepEqual(regelBesitzerVersiegelt([wrap]), []);
   assert.deepEqual(regelKeinKlartext([wrap], ["geheimknoten"]), []);
   assert.deepEqual(wrap.tags, [["p", knoten.pk]], "nur der eigene Knoten als Empfänger");
+});
+
+test("A-12b2a: die Kasse im Raum steht als Grenze im Bericht – privat geht die Adresse nur in die Gruppe; das Szenario hält das ein", async () => {
+  assert.equal(await SZENARIEN["raum-kasse"]!(), 0, "Adresse und Nachweis nur als MLS-Chiffrat");
+  const f = PRIVACY_FACTS.find((x) => x.id === "raum-kasse");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, "mls-gruppe");
+  assert.match(f?.aussage ?? "", /frische Adresse deiner eingebauten Wallet, nie die Hauptadresse/, "V4");
+  assert.match(f?.grund ?? "", /Freedom verwahrt nichts/);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Eine Kasse im Raum \(Squads\) steht öffentlich auf der Kette: .*nie die Hauptadresse\./);
 });
 
 test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {

@@ -157,7 +157,12 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   Gründers, privat nur in der eines Admins (V5). Jedes Mitglied nennt dem Raum seine Adresse für die Kasse (Kind 34704,
   privat nur als inneres Event) samt Nachweis: Die Adresse signiert Ort und Nostr-Schlüssel, so gibt niemand eine
   fremde als seine aus. `kassenAbweichungen()` zeigt Recht ohne Mitgliedschaft und Mitgliedschaft ohne Recht (V3).
+- **A-12b2a (21.10.2026):** In der App nennt, wer das Recht „kasse“ hat, dem Raum eine frische Adresse der eingebauten
+  Wallet (Raum-Menü). Die Wallet signiert dafür nur den festen Text des Nachweises, keine beliebigen Bytes. Offen geht die
+  Meldung an die Adresse des Raums, privat nur in die Gruppe; vorher sagt die App, was öffentlich wird. Der
+  Datenschutzbericht nennt die Grenze „raum-kasse“. Wer die private Definition neu schreibt (Raumstand, Kanäle,
+  Agentenketten), gibt die Kasse mit. Verbundene Wallets (Wallet Standard) folgen als b2d.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
-  Recht, Definition, Adressen, Abweichungen) und b2 (App: Adresse nennen, anlegen, einzahlen, Grenze „raum-kasse“ im
-  Datenschutzbericht).
+  Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
+  Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet).

@@ -96,6 +96,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "anruf-ip": ["ds.fAnrufIp"],
   "anruf-vermittler": ["ds.fAnrufVermittler", "ds.gAnrufVermittler"],
   "gruppenanruf": ["ds.fGruppenanruf", "ds.gGruppenanruf"],
+  "raum-kasse": ["ds.fRaumKasse", "ds.gRaumKasse"],
 };
 
 /** Hat jede Kennung einen Text? (für den Test – eine neue Aussage im Protokoll braucht einen hier) */
