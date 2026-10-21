@@ -12671,3 +12671,34 @@ eingetragen: Die Miete abgeschlossener Vorschläge geht an den Tresor, bestätig
   der Definition und ohne die Regel für doppelte Adressen ist je mindestens ein Test rot.
 
 Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b2.
+
+## Schritt A-12b2a – Kasse im Raum: eigene Adresse nennen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V4, V5, W4). Erster App-Teil der Kasse im Raum. A-12b2 ist geteilt:
+- **a (hier):** Adresse nennen, Grenze im Bericht
+- **b:** anlegen
+- **c:** einzahlen, Stand und Abweichungen
+- **d:** Adresse aus einer verbundenen Wallet
+
+**Neu:**
+- **Raum-Menü „Adresse für die Kasse nennen …“** (`shell/raum-kasse-ui.ts`, Menüpunkt in `tabs/raeume.ts`):
+  - Nur mit dem Recht „kasse“ und als Person, nie als Gerät.
+  - Erst die Rückfrage: Sie sagt, was öffentlich wird – offen der Schlüssel mit der Adresse, privat nur die Gruppe; auf der Kette in beiden Fällen alles der Kasse.
+  - Dann eine frische Adresse aus dem Vorrat der eingebauten Wallet (V4), nie die Hauptadresse.
+  - Offen als Kind 34704 an die Adresse des Raums, privat nur als inneres Event der Gruppe.
+  - Wer schon eine genannt hat, bekommt sie gezeigt.
+- **Eingebaute Wallet** (`sol-wallet.ts`): `kassenNachweis()` signiert nur den festen Text der Kasse, nie beliebige Bytes, die eine Transaktion sein könnten. Nur für eigene Adressen: Hauptadresse oder vergebene frische.
+  - Erreichbar nur über `frischeKassenAdresse()` in `shell/eingebaute-wallet.ts` – die Regel „Zahlwege“ lässt die Wallet nur dort zu.
+- **Grenze „raum-kasse“** im Datenschutzbericht, Deutsch und Englisch: Die Kasse steht öffentlich auf der Kette; im öffentlichen Raum verbindet die Meldung den Schlüssel mit der Adresse; die App nimmt eine frische Adresse.
+- **Private Definition behält die Kasse:** Raumstand, Kanal anlegen und ändern, Agentenketten geben `kasse` mit (`raum-mls.ts`).
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/app/CLAUDE.md`, OFFEN (b2b–b2d), FORTSCHRITT, Stand.
+
+**Tests:**
+- **protocol +1:** Grenze im Bericht, dazu das Szenario „raum-kasse“ mit echter MLS-Engine: Adresse und Nachweis nur als Chiffrat, nie die Identität.
+- **app +3:**
+  - Nachweis der Wallet: frische Adresse, nur dieser Ort und Schlüssel, keine fremde oder unvergebene Adresse, gesperrter Tresor.
+  - Verdrahtung: Recht, Rückfrage vor der Adresse, offen an die Raum-Adresse, privat nur in die Gruppe, nie die Hauptadresse.
+  - Die drei Neuschreib-Stellen der privaten Definition.
+- **Gegenproben:** Signiert die Wallet mit dem ersten Schlüssel statt dem der Adresse oder vergisst die Definition die Kasse, ist je ein Test rot.
+
+Knoten-Stand: keiner nötig.

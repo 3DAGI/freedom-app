@@ -296,4 +296,20 @@ export const raeume: Texte = {
   "gruppenanruf.stumm": { de: "Stumm", en: "Mute" },
   "gruppenanruf.tonAn": { de: "Ton an", en: "Unmute" },
   "gruppenanruf.verlassen": { de: "Verlassen", en: "Leave" },
+  "kasse.adresseMenue": { de: "Adresse für die Kasse nennen …", en: "Give your address for the treasury …" },
+  "kasse.adresseTitel": { de: "Adresse für die Kasse", en: "Address for the treasury" },
+  "kasse.offenText": {
+    de: "Die App nimmt eine frische Adresse deiner eingebauten Wallet (nie die Hauptadresse), weist mit ihr nach, dass sie dir gehört, und nennt sie diesem Raum. Der Raum ist öffentlich: Jeder sieht dann, dass dein Schlüssel diese Adresse hat. Wirst du Mitglied der Kasse, steht sie auf der Kette mit allen Einzahlungen, Vorschlägen und Stimmen. Freedom verwahrt nichts.",
+    en: "The app takes a fresh address of your built-in wallet (never the main address), proves with it that it is yours and gives it to this room. The room is public: everyone then sees that your key has this address. If you become a member of the treasury, it is on the chain with all deposits, proposals and votes. Freedom holds nothing.",
+  },
+  "kasse.privatText": {
+    de: "Die App nimmt eine frische Adresse deiner eingebauten Wallet (nie die Hauptadresse), weist mit ihr nach, dass sie dir gehört, und nennt sie nur den Mitgliedern dieses Raums – verschlüsselt in der Gruppe. Wirst du Mitglied der Kasse, steht die Adresse trotzdem öffentlich auf der Kette, mit allen Einzahlungen, Vorschlägen und Stimmen. Freedom verwahrt nichts.",
+    en: "The app takes a fresh address of your built-in wallet (never the main address), proves with it that it is yours and gives it only to the members of this room – encrypted in the group. If you become a member of the treasury, the address is still public on the chain, with all deposits, proposals and votes. Freedom holds nothing.",
+  },
+  "kasse.nennen": { de: "Adresse nennen", en: "Give address" },
+  "kasse.schonGenannt": { de: "Du hast diesem Raum schon eine Adresse genannt: {adresse}", en: "You already gave this room an address: {adresse}" },
+  "kasse.ohneWallet": { de: "Dafür braucht es die eingebaute SOL-Wallet mit offenem Tresor (Wallet › SOL).", en: "This needs the built-in SOL wallet with an open vault (Wallet › SOL)." },
+  "kasse.ohneVorrat": { de: "Keine frische Adresse mehr – im Wallet-Tab den Vorrat ergänzen.", en: "No fresh address left – top up the supply in the wallet tab." },
+  "kasse.genannt": { de: "Adresse für die Kasse genannt: {adresse}", en: "Address for the treasury given: {adresse}" },
+  "kasse.wofuer": { de: "die Kasse im Raum", en: "the room treasury" },
 };

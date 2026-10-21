@@ -40,6 +40,7 @@ export const zahlung: Texte = {
   "zahl.keineFrischeAdresse": { de: "Keine frische Adresse mehr – gib deine 12 Wörter ein, um neue abzuleiten.", en: "No fresh address left – enter your 12 words to derive new ones." },
   "zahl.limitGanz": { de: "Limit muss eine nicht negative ganze Zahl sein", en: "The limit must be a non-negative integer" },
   "zahl.keineEingebaute": { de: "Keine eingebaute Wallet eingerichtet", en: "No built-in wallet set up" },
+  "zahl.nichtEigeneAdresse": { de: "Diese Adresse gehört nicht zur eingebauten Wallet", en: "This address does not belong to the built-in wallet" },
   "zahl.keineSignaturVerlangt": { de: "Die Transaktion verlangt keine Signatur dieser Wallet", en: "The transaction requires no signature from this wallet" },
   "zahl.eingebauteGesperrt": { de: "Eingebaute Wallet nicht verfügbar (Tresor gesperrt?)", en: "Built-in wallet not available (vault locked?)" },
   "zahl.walletKannNicht": { de: "{wallet} kann {was} nicht", en: "{wallet} can't do {was}" },

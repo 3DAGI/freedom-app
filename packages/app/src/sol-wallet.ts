@@ -26,7 +26,7 @@ import { base58 } from "@scure/base";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import {
-  type Ausgabe, type LimitPruefung, MIETE_LEERES_KONTO, type SolTransaktion, deriveSolanaKey, imFenster, pruefeTageslimit, signiereMit,
+  type Ausgabe, type LimitPruefung, MIETE_LEERES_KONTO, type SolTransaktion, deriveSolanaKey, imFenster, pruefeTageslimit, signiereKassenAdresse, signiereMit,
 } from "@freedomstack/protocol";
 import { identityFromMnemonic } from "./identity.js";
 import { t } from "./i18n.js";
@@ -238,6 +238,17 @@ export class EingebauteSolWallet {
     }
     if (!signiert) throw new Error(t("zahl.keineSignaturVerlangt"));
     return ergebnis;
+  }
+
+  /**
+   * Nachweis für die Kasse im Raum (A-12b2a): Diese eigene Adresse (Hauptadresse oder vergebene frische) stimmt
+   * dem Schlüssel an diesem Ort zu. Nur dieser feste Text (`signiereKassenAdresse()`) – nie beliebige Bytes, die
+   * eine Transaktion sein könnten.
+   */
+  kassenNachweis(adresse: string, ort: string, pubkey: string): string {
+    const hex = this.eigeneSchluessel().find((k) => HEX64.test(k) && adresseVon(k) === adresse);
+    if (!hex) throw new Error(t("zahl.nichtEigeneAdresse"));
+    return this.mitSchluessel((sk) => signiereKassenAdresse(ort, pubkey, sk).nachweis, hex);
   }
 
   /** Hauptadresse und vergebene frische (als Hex) – nur zum Signieren. */

@@ -39,6 +39,22 @@ export async function frischeEmpfangsadresse(): Promise<string | undefined> {
   return adresse;
 }
 
+/** Was fehlt, damit die eingebaute Wallet eine Adresse für die Kasse im Raum liefert (A-12b2a) – null: nichts. */
+export function kassenAdresseFehlt(): "ohne-wallet" | "ohne-vorrat" | null {
+  const e = benutzbareEingebauteWallet();
+  return !e ? "ohne-wallet" : e.vorratFrei() === 0 ? "ohne-vorrat" : null;
+}
+
+/**
+ * Eine frische Adresse für die Kasse im Raum samt Nachweis (A-12b2a, V4): aus dem Vorrat, nie die
+ * Hauptadresse; signiert wird nur der feste Text der Kasse – keine Zahlung, keine Transaktion.
+ */
+export async function frischeKassenAdresse(ort: string, pubkey: string): Promise<{ adresse: string; nachweis: string } | undefined> {
+  const e = benutzbareEingebauteWallet();
+  const adresse = e ? await frischeEmpfangsadresse() : undefined;
+  return e && adresse ? { adresse, nachweis: e.kassenNachweis(adresse, ort, pubkey) } : undefined;
+}
+
 /**
  * Signierer fuer eine Einloesung an eine eigene Adresse der eingebauten Wallet
  * (Hauptadresse oder vergebene frische). Keine Zahlung – das Geld kommt herein;

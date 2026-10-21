@@ -923,3 +923,11 @@ Fallstricke dieses Bereichs unten anhängen.
   Auf den Datenkanal `eingabe` nur, was `eingabeText()` durchlässt (Format `PROTOCOL.md` §34), nie freien Text. Das Bild
   endet (`bild-ende`), sobald das Blatt etwas anderes zeigt (`lauf()`) oder zugeht. Im Smoke-Test („bild“) startet der Test
   ein echtes coturn auf 127.0.0.1, eine zweite Seite spielt den Knoten (Leinwand) – in der CI installiert der Smoke-Job coturn.
+- **Kasse im Raum nur über `shell/raum-kasse-ui.ts`** (seit A-12b2a, `docs/KASSE-ENTWURF.md`): die eigene Adresse nennt die
+  App nur mit dem Recht „kasse“ und als Person (`darfKassenAdresse()`), erst nach `bestaetige()` (offen sagt der Text, dass
+  der Schlüssel öffentlich mit der Adresse verbunden wird), nur frisch aus dem Vorrat über `frischeKassenAdresse()`
+  (`shell/eingebaute-wallet.ts` – die Regel „Zahlwege“ lässt die Wallet nur dort zu), nie die Hauptadresse. Die Wallet
+  signiert dafür nur `kassenNachweis()` – den festen Text der Kasse, nie beliebige Bytes, die eine Transaktion sein
+  könnten. Offen nur `baueKassenAdresse()` an die Adresse des Raums, privat nur `raumKassenAdresse()` über
+  `mlsSendeEvent()`. Wer die private Definition neu schreibt, gibt `kasse` mit (`definitionMitKetten()`,
+  `setzePrivateKetten()`) – eine neue Stelle, die `raumDefinition()` ruft, ebenso.
