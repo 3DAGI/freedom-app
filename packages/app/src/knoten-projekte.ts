@@ -23,11 +23,23 @@ export const CODE_FALL_TEXT: Record<string, string> = {
   "code-zu-gross": "set.codeZuGross",
   "code-commit": "set.codeCommit",
   "code-vorschau-aus": "set.codeVorschauAus",
+  "code-bild-aus": "set.codeBildAus",
+  "code-bild-kein-programm": "set.codeBildKeinProgramm",
+  "code-bild-fehler": "set.codeBildFehler",
 };
 
 /** Warum der Knoten ablehnte – bekannte Kennung als Text, sonst nur, dass er ablehnte (seine Meldung bleibt draußen). */
 export function codeAblehnungText(fall: string | undefined): string {
   return fall && Object.hasOwn(CODE_FALL_TEXT, fall) ? t(CODE_FALL_TEXT[fall]!) : t("set.codeAbgelehnt");
+}
+
+/**
+ * Vorschau (VKg1b): Über http – außer zu einer .onion-Adresse, die Tor verschlüsselt – kann mitlesen, wer im selben
+ * Netz ist. Die Adresse kommt nur aus `leseCodeAntwort()` (`istVorschauAdresse()`).
+ */
+export function vorschauUnverschluesselt(url: string): boolean {
+  const u = new URL(url);
+  return u.protocol === "http:" && !u.hostname.endsWith(".onion");
 }
 
 /** Eine Zeile je Projekt – Name, Schritte, letzte Änderung. */

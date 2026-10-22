@@ -62,6 +62,18 @@ jobs:
           bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --unshare-all --ro-bind / / true
 
+      # VKg2a1: der Tunnel zum TURN läuft gegen echtes coturn (turnserver, turnutils_uclient, turnutils_peer) –
+      # ohne es überspränge sich der Test; der Test startet coturn selbst auf 127.0.0.1 mit freien Ports
+      - name: coturn fuer die Tunnel-Tests
+        run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
+
+      # VKg2a2/a3: der Bildstrom läuft Ende zu Ende gegen echtes Xvfb, GStreamer (webrtcbin) und python-xlib (XTest) in bubblewrap
+      - name: Xvfb und GStreamer fuer den Bildstrom-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib
+          /usr/bin/python3 -c "import gi; gi.require_version('GstWebRTC', '1.0'); import Xlib"
+
       - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
@@ -198,6 +210,10 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check playwright==1.56.0
           python -m playwright install --with-deps chromium
+
+      # VKg2b: das Bild vom Knoten läuft im Test über echtes coturn auf 127.0.0.1 (der Test startet es selbst, freier Port)
+      - name: coturn fuer den Bild-Test
+        run: sudo apt-get install -y --no-install-recommends coturn && turnserver --version
 
       - name: Smoke-Test
         run: python scripts/smoke_test.py packages/app/dist

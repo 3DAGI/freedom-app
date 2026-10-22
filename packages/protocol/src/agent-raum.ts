@@ -14,7 +14,7 @@
  */
 import type { NostrEvent, UnsignedEvent } from "./event.js";
 import { AGENT_ROLLE } from "./agent-karte.js";
-import { type AuftragsBremse, type RaumNachricht, agentKontext, ausRaumEvent, kuerzeAgentAntwort, leseAgentenketten, sollAntworten } from "./agent-auftrag.js";
+import { type AuftragsBremse, type RaumNachricht, agentKontext, ausRaumEvent, kuerzeAgentAntwort, leseAgentenketten, repoAntwortTags, sollAntworten } from "./agent-auftrag.js";
 import { KIND_SPACE, type SpaceState, buildChannelMessage, canWriteTo, leseRaumAdresse } from "./spaces.js";
 
 /** Mitglied mit der Rolle `agent` – so erkennt der Raum Agenten, nie an einer Angabe im Text. */
@@ -122,12 +122,21 @@ export function agentPromptMit(p: {
   ].join("\n\n");
 }
 
-/** Antwort des Agenten (Kind 42): selber Kanal und Thread, Antwort auf die Erwähnung, der Fragende erwähnt. */
-export function agentAntwortEvent(p: { agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number }): UnsignedEvent {
-  return buildChannelMessage({
+/**
+ * Antwort des Agenten (Kind 42): selber Kanal und Thread, Antwort auf die Erwähnung, der Fragende erwähnt.
+ * Auf einen Repo-Auftrag (11.5c2a, V5) nennt sie den eingereichten Patch (`["e", <patch>, "", "mention"]`) und
+ * wie der Auftrag endete (`["fall", <kennung>]`) – die App bildet daraus ihren Text; fehlten die Pakete der
+ * Sperrdatei (11.5c3), dazu `["pakete", <kennung>]`.
+ */
+export function agentAntwortEvent(p: {
+  agent: string; kennung: string; auf: RaumNachricht; text: string; jetzt?: number; patch?: string; fall?: string; pakete?: string;
+}): UnsignedEvent {
+  const ev = buildChannelMessage({
     authorPubkey: p.agent, spaceId: p.kennung, channelId: p.auf.kanal, content: kuerzeAgentAntwort(p.text),
     mentions: [p.auf.von], replyTo: p.auf.id, ...(p.auf.threadRoot ? { threadRoot: p.auf.threadRoot } : {}),
   }, p.jetzt);
+  ev.tags.push(...repoAntwortTags(p));
+  return ev;
 }
 
 /** Hinweis des Agenten (Budget erreicht) – im Kanal der Erwähnung, ohne jemanden zu erwähnen. */

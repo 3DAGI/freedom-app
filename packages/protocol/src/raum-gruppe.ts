@@ -75,8 +75,9 @@ const neueste = (l: InneresEvent[]) => l.reduce<InneresEvent | undefined>((a, b)
 
 // ------------------------------------------------------------ Senden
 
-export function raumDefinition(raumId: string, r: { name: string; beschreibung?: string; kanaele: Channel[] }): InneresSenden {
-  const u = buildSpace({ spaceId: raumId, name: r.name, description: r.beschreibung, ownerPubkey: "", channels: r.kanaele });
+/** Definition des Raums; `kasse` nur von Admins (A-12, V5) – wer sie neu schreibt, gibt die geltende mit. */
+export function raumDefinition(raumId: string, r: { name: string; beschreibung?: string; kanaele: Channel[]; kasse?: string }): InneresSenden {
+  const u = buildSpace({ spaceId: raumId, name: r.name, description: r.beschreibung, ownerPubkey: "", channels: r.kanaele, kasse: r.kasse });
   return { art: u.kind, tags: u.tags, text: "" };
 }
 

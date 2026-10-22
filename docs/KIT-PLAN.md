@@ -70,7 +70,7 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
     dazu `anweisung()` und `ueberweisungAnweisung()`) – eine eigene Abhängigkeit legte eine
     zweite Kopie von kit 8.4.0 neben die des Protokolls (im Wurzelordner liegt 5.x), und das
     Bundle trüge beide. Die `…Ix`-Fassungen von öffnen, aufstocken, erstatten fielen weg; der
-    Knoten nutzt bis A-21e nur `rechneKanalAbIxs()`. Die Referenz nach Solana Pay
+    Knoten nutzte bis A-21e1 nur `rechneKanalAbIxs()`. Die Referenz nach Solana Pay
     (`solReferenz()`) entsteht ohne web3.js. Unverändert: die HTLC-PDA (`swapAddress()`) über
     web3.js – kit rechnet sie nur mit `crypto.subtle`, und das fehlt der App über http im
     Heimnetz; ebenso das Lesen eines Relay-Auftrags in `pruefeRelayAuftrag()` (Transaktion,
@@ -120,9 +120,54 @@ Jeder Schritt ist ein eigener Pull Request, unter 400 Zeilen und für sich grün
   - **A-21d3** Senden und Bestätigen über den Pool (`solRpc()`) statt einer eigenen
     `Connection`, die übrigen Lesestellen der App (Blockhash, Guthaben, Miete, Kanal) und
     `pruefeRelayAuftrag()` (Protokoll) über kit; danach braucht die App web3.js nur noch für
-    die Brücke (W4).
+    die Brücke (W4). Geteilt (17.10.2026), rund zehn Dateien in der App:
+    - **A-21d3a** Baustein und Zahlschienen – **fertig** (17.10.2026): `kit-rpc.ts` bekommt
+      `neuesterBlockhash()`, `sendeTransaktion()` (Base64, immer mit Vorabsimulation),
+      `warteAufBestaetigung()` (fragt nach, bis „confirmed“; über der letzten Blockhöhe ohne
+      Bestätigung `tx-abgelaufen`, ohne Websocket) und `txFehlerText()` (Fehler der Kette mit
+      BigInt). Über den Pool laufen jetzt die Überweisung (`buildSolTransfer()` nimmt eine
+      `SolRpc`), das Senden der Schienen, Nonce-Konto anlegen, lesen und schließen, das
+      Einreichen einer Offline-Überweisung und die Wahl des Absenders. Der zweite Pool in
+      `sol-transfer.ts` fällt. Senden und Nachfragen einer Transaktion gehen an denselben
+      Anbieter (`RpcPool.einVorgang()`) – sonst sähen beim Verteilen alle die Signatur;
+    - **A-21d3b** HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen der App
+      über `solRpc()` – **fertig** (20.10.2026): `signiertVonWallet()` fragt den Blockhash über
+      den Pool, `sendeUndWarte()` (`sol-htlc.ts`) sendet mit Vorabsimulation und wartet über
+      `warteAufBestaetigung()`; sperren, einlösen, zurückholen, die Einlösung über einen Relayer
+      (deren Stand liest `leseSignaturStand()`), Zahlkanal öffnen, aufstocken und erstatten, der
+      Wächter und die Quittungen laufen über den Pool, je Transaktion ein Vorgang
+      (`einVorgang()`). Programmfehler liest `programmFehlerCode()` (Protokoll) – aus dem Fehler
+      der Kette (BigInt), aus der Ursache des `SolanaError` und aus altem Text. In der App
+      bleibt web3.js nur für `swapAddress()` (PDA synchron, ohne `crypto.subtle`) und die
+      Brücke `ueberWeb3()` (W4);
+    - **A-21d3c** `pruefeRelayAuftrag()` (Protokoll) über kit – **fertig** (20.10.2026): gelesen
+      über `ausDraht()`/`leseNachricht()` (nur legacy, Rollen aus dem Kopf), Signaturen über
+      Ed25519 aus `@noble/curves` (jede vorhandene muss passen, fehlende zählen nicht – wie
+      `verifySignatures(false)`); dieselben Regeln und Fälle wie bisher. `relayer.ts` ohne
+      web3.js; A-21d ist damit fertig. Im Protokoll bleibt web3.js für den Knoten
+      (`solana-adapter.ts`, `adapters.ts`), die synchrone PDA (`channel.ts`) und die Brücke
+      (`kit-bruecke.ts`) – A-21e und A-21f.
 - **A-21e Knoten.** `dvm-provider.ts`, `einrichtung.ts`, `kanal-kasse.ts`, `main.ts`,
-  `relayer-dienst.ts`, `sol-auszahlung.ts`.
+  `relayer-dienst.ts`, `sol-auszahlung.ts`. Geteilt (20.10.2026):
+  - **A-21e1** Zahlkanal-Kasse, Auszahlung und Einrichtung – **fertig** (20.10.2026): Bausteine im
+    Protokoll `solSchluesselAus()` (64 Byte von solana-keygen, der öffentliche Teil muss passen),
+    `ladeSolanaSchluessel()` (Datei ohne web3.js), `sendeMitSchluessel()` (bauen, signieren, senden mit
+    Vorabsimulation, bestätigen; wirft, wenn die Kette ablehnt) und `istSolAdresse()`. Die Kasse
+    (`kanalKasseAusUmgebung()`) liest Kanäle über `leseKonto()`, löst über `rechneKanalAbAnweisungen()`
+    und `sendeMitSchluessel()` ein; die Auszahlung liest das Guthaben über `leseGuthaben()` und
+    überweist mit `ueberweisungAnweisung()`; der Blick der Einrichtung (`kettenBlick()`) liest über
+    kit – alles über `poolRpc(new RpcPool([{ url }]))`. Die Validator-Tests bauen die Kasse jetzt aus
+    der Umgebung wie der Knoten (Schlüsseldatei, kit, Gebühr zahlt der Provider). `dvm-provider.ts`
+    las schon seit A-21c über kit;
+  - **A-21e2** Relayer-Dienst, Senden im `main.ts` und HTLC-Adapter des LP – **fertig** (21.10.2026):
+    `AnchorSolanaHtlc` nimmt einen `schluessel` (aus `ladeSolanaSchluessel()`) und sperrt, löst ein und
+    holt zurück über kit-Anweisungen und `sendeMitSchluessel()`; `loadSolanaKeypair()` fällt. Der
+    Relayer-Dienst signiert über `ausDraht()`/`signiereMit()`/`alsDraht()` mit (Byte für Byte wie
+    `partialSign()`), `main.ts` sendet über `sendeTransaktion()` auf dem Pool. Die LP-Vektoren
+    kommen jetzt aus einer JSON-RPC-Attrappe hinter dem Pool – unverändert. Der Knoten braucht
+    web3.js nicht mehr; A-21e ist fertig. Im Protokoll bleibt es für die synchronen PDAs
+    (`channel.ts`, `solana-adapter.ts`, die App über `swapAddress()`), die Brücke `alsWeb3()` und
+    `rechneKanalAbIxs()` (Validator-Tests, Vektoren) – A-21f.
 - **A-21f Aufräumen.** `@solana/web3.js` verschwindet aus allen `package.json`. Danach Bundle
   messen, `check-wiring` laufen lassen und die Fallstricke anpassen. Die Regel „kein
   `readBigInt64LE`“ bleibt.

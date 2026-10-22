@@ -12,7 +12,7 @@
  */
 import {
   type RelayerAngebot,
-  alsDraht, baueTransaktion, MAX_ERSTATTUNG_LAMPORTS, pruefeRelayAuftrag, ueberweisungAnweisung,
+  alsDraht, baueTransaktion, MAX_ERSTATTUNG_LAMPORTS, neuesterBlockhash, pruefeRelayAuftrag, type SolRpc, ueberweisungAnweisung,
 } from "@freedomstack/protocol";
 import { buildClaimInstruction } from "./swap-client.js";
 import { HTLC_PROGRAM_ID, type WalletSigner } from "./sol-htlc.js";
@@ -59,7 +59,8 @@ export function waehleRelayer(
  * umsonst offen.
  */
 export async function baueRelayEinloesung(p: {
-  connection: Pick<import("@solana/web3.js").Connection, "getLatestBlockhash">;
+  /** Für den Blockhash (A-21d3b: über den Pool). */
+  rpc: SolRpc;
   wallet: WalletSigner;
   swapId: string;
   preimage: Uint8Array;
@@ -68,14 +69,14 @@ export async function baueRelayEinloesung(p: {
 }): Promise<Uint8Array> {
   const empfaenger = p.wallet.publicKey.toBase58();
   // Der Relayer zahlt die Gebühr und unterschreibt zuletzt – sein Platz bleibt hier leer (A-21d2: kit)
-  const { blockhash, lastValidBlockHeight } = await p.connection.getLatestBlockhash("confirmed");
+  const lebensdauer = await neuesterBlockhash(p.rpc);
   const tx = baueTransaktion({
     zahler: p.relayer.solAdresse,
     anweisungen: [
       await buildClaimInstruction(p.swapId, p.preimage, empfaenger, p.initiator),
       ueberweisungAnweisung({ von: empfaenger, an: p.relayer.solAdresse, lamports: BigInt(p.relayer.erstattungLamports) }),
     ],
-    lebensdauer: { blockhash, letzteHoehe: BigInt(lastValidBlockHeight) },
+    lebensdauer,
   });
   const roh = alsDraht(await p.wallet.signiereTransaktion(tx));
   const selbst = pruefeRelayAuftrag(roh, { relayer: p.relayer.solAdresse, programmId: HTLC_PROGRAM_ID, erstattungMin: p.relayer.erstattungLamports });

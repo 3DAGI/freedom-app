@@ -113,6 +113,9 @@ test("VKb (bubblewrap): Exit-Code kommt durch, lange Ausgabe gekürzt, nach der 
   assert.equal((await fuehreAus(["/bin/sh", "-c", "exit 7"], { arbeit: projekt() })).code, 7);
   const lang = await fuehreAus(["/bin/sh", "-c", "head -c 30000 /dev/zero | tr '\\0' a; echo ENDE"], { arbeit: projekt() });
   assert.ok(lang.gekuerzt && lang.ausgabe.length <= CODE_GRENZEN.ausgabe && lang.ausgabe.trimEnd().endsWith("ENDE"));
+  // auch weit über der Grenze bleiben Anfang und Ende (11.5c1)
+  const sehr = await fuehreAus(["/bin/sh", "-c", "echo ANFANG; head -c 300000 /dev/zero | tr '\\0' a; echo ENDE"], { arbeit: projekt() });
+  assert.ok(sehr.gekuerzt && sehr.ausgabe.length <= CODE_GRENZEN.ausgabe && sehr.ausgabe.startsWith("ANFANG\n") && sehr.ausgabe.trimEnd().endsWith("ENDE"));
   // ein Kind im Hintergrund hält die Rückgabe nicht auf
   const t = Date.now();
   const r = await fuehreAus(["/bin/sh", "-c", "sleep 30 & sleep 30"], { arbeit: projekt() }, 300);

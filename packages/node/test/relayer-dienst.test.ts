@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import {
   OutboxPool, MemoryRelay, LocalSigner, generateKeypair, HTLC_PROGRAMM_ID, KIND_RELAYER_ANGEBOT,
-  buildRelayAuftrag, oeffneRelayAntwort, parseRelayerAngebot, giftWrapMitSigner,
+  buildRelayAuftrag, oeffneRelayAntwort, parseRelayerAngebot, giftWrapMitSigner, solSchluesselAus,
 } from "@freedomstack/protocol";
 import { RelayerDienst } from "../src/relayer-dienst.js";
 
@@ -23,7 +23,7 @@ function aufbau(o: { max?: number; senden?: (roh: Uint8Array) => Promise<string>
   const sol = Keypair.generate();
   const gesendet: Uint8Array[] = [];
   const dienst = new RelayerDienst(
-    { signer: knoten, solKeypair: sol, programmId: HTLC_PROGRAMM_ID, erstattungLamports: 10_000, kette: "solana:devnet", maxProStunde: o.max ?? 5 },
+    { signer: knoten, solSchluessel: solSchluesselAus(sol.secretKey), programmId: HTLC_PROGRAMM_ID, erstattungLamports: 10_000, kette: "solana:devnet", maxProStunde: o.max ?? 5 },
     pool, o.senden ?? (async (roh) => { gesendet.push(roh); return "5".repeat(88); }),
   );
   return { pool, knoten, sol, dienst, gesendet };
@@ -66,11 +66,16 @@ async function antwort(a: ReturnType<typeof aufbau>, k: { kunde: LocalSigner; au
 
 test("Gueltige Einloesung: mitsigniert, gesendet, Kunde bekommt die Signatur versiegelt", async () => {
   const a = aufbau();
-  const k = await sende(a, einloesung(a.sol.publicKey, Keypair.generate()));
+  const roh = einloesung(a.sol.publicKey, Keypair.generate());
+  const k = await sende(a, roh);
   assert.deepEqual(await a.dienst.pollOnce(), [{ status: "GESENDET" }]);
   assert.equal(a.gesendet.length, 1);
   const tx = Transaction.from(a.gesendet[0]);
   assert.equal(tx.verifySignatures(), true, "Kunde und Relayer haben signiert");
+  // A-21e2: über kit mitsigniert – Byte für Byte wie partialSign() von web3.js, die Signatur des Kunden bleibt
+  const web3 = Transaction.from(roh);
+  web3.partialSign(a.sol);
+  assert.deepEqual(a.gesendet[0], Uint8Array.from(web3.serialize()));
   assert.equal(tx.feePayer?.toBase58(), a.sol.publicKey.toBase58());
   assert.deepEqual(await antwort(a, k), { status: "GESENDET", signatur: "5".repeat(88), grund: "" });
   assert.deepEqual(await a.dienst.pollOnce(), [], "derselbe Auftrag nur einmal");
@@ -127,7 +132,10 @@ test("Angebot: SOL-Konto, Erstattung, Kette", async () => {
 test("Verdrahtung (4.6e): main.ts startet den Relayer mit Vorabsimulation und fragt ihn in der Schleife", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   assert.match(main, /process\.env\.RELAYER_ENABLED === "1"/);
-  assert.match(main, /sendRawTransaction\(roh, \{ skipPreflight: false, preflightCommitment: "confirmed" \}\)/);
+  // Seit A-21e2 über kit: sendeTransaktion() schickt immer mit Vorabsimulation (kit-rpc.test.ts prüft das)
+  assert.match(main, /\(roh\) => sendeTransaktion\(relayerRpc, roh\)/);
+  assert.match(main, /const relayerRpc = poolRpc\(new RpcPool\(\[\{ url: rpc \}\]\)\);/);
+  assert.ok(!/skipPreflight: true/.test(main));
   assert.match(main, /await relayer\.veroeffentlicheAngebot\(\)/);
   assert.match(main, /for \(const r of await relayer\.pollOnce\(\)\)/);
 });

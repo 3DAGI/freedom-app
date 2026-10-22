@@ -6,6 +6,10 @@
 //!                 sha256(R) == H. R wird dadurch on-chain oeffentlich, sodass
 //!                 der LP anschliessend die Lightning-Hold-Invoice abrechnen kann.
 //! - `refund`:     Nach Ablauf der Timelock zurueck an den Initiator.
+//! - `zurueckgeben`: Der Empfaenger gibt eine offene Sperre jederzeit an den
+//!                 Initiator zurueck (A-28, `docs/SWAPS.md`) – etwa der LP, wenn
+//!                 seine Lightning-Zahlung scheitert; der Kunde wartet dann nicht
+//!                 bis zum Ablauf.
 //!
 //! Die escrowten Lamports liegen im programm-eigenen Swap-PDA; claim/refund
 //! verschieben sie per direkter Lamport-Arithmetik (zulaessig, da das Programm
@@ -117,6 +121,21 @@ pub mod solana_htlc {
         // Mietbefreiung in einem Schritt.
         Ok(())
     }
+
+    /// Gibt eine offene Sperre vor Ablauf zurueck (A-28, wie die kooperative
+    /// Rueckgabe bei Boltz): Nur der Empfaenger unterschreibt – er verzichtet
+    /// damit auf das Geld –, und es geht nur an den Initiator, samt
+    /// Mietbefreiung (`close = initiator`). Die Pruefung des Initiators haelt
+    /// einen Empfaenger davon ab, das Geld an sich selbst umzuleiten.
+    pub fn zurueckgeben(ctx: Context<Zurueckgeben>) -> Result<()> {
+        let s = &mut ctx.accounts.swap;
+        require!(!s.claimed && !s.refunded, HtlcError::AlreadyClosed);
+        require_keys_eq!(ctx.accounts.recipient.key(), s.recipient, HtlcError::WrongRecipient);
+        require_keys_eq!(ctx.accounts.initiator.key(), s.initiator, HtlcError::WrongInitiator);
+
+        s.refunded = true;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -158,6 +177,22 @@ pub struct Claim<'info> {
 pub struct Refund<'info> {
     #[account(mut)]
     pub initiator: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"swap", swap.swap_id.as_ref()],
+        bump = swap.bump,
+        close = initiator
+    )]
+    pub swap: Account<'info, Swap>,
+}
+
+#[derive(Accounts)]
+pub struct Zurueckgeben<'info> {
+    pub recipient: Signer<'info>,
+    /// CHECK: Gegen swap.initiator geprueft; bekommt alles zurueck (Betrag und
+    /// Mietbefreiung), wenn das Konto geschlossen wird.
+    #[account(mut)]
+    pub initiator: UncheckedAccount<'info>,
     #[account(
         mut,
         seeds = [b"swap", swap.swap_id.as_ref()],

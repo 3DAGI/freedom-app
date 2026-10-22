@@ -131,3 +131,71 @@ Für beide gilt: `config_authority` bleibt leer (V2). Kein Schlüssel ändert di
 Programm vorbei, auch nicht der des Gründers. Die Art steht auf der Kette (Rechte und
 Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist eine
 Änderung der Konfiguration und macht offene Vorschläge ungültig (`staleTransactionIndex`).
+
+## Umsetzung
+
+- **A-12a1 (21.10.2026):** Baustein `packages/protocol/src/kasse.ts`. Er legt die Kasse an
+  (`multisig_create_v2`, beide Arten nach W2), liest Kasse und Einstellungen des Programms und
+  bestimmt die Art nur aus dem Stand auf der Kette (`kassenArt()`). Getestet gegen das Programm
+  von Mainnet und von Devnet, je mit fester Prüfsumme (`contracts/squads/pruefen.sh`, CI
+  `kasse.yml`). Die Bytes der Anweisung gleichen denen des SDK (Vektoren „kasse-anlegen-…“).
+  Festgelegt dabei:
+  - Die Miete abgeschlossener Vorschläge geht an den Tresor der Kasse (`rent_collector`).
+    Ohne `rent_collector` bliebe sie liegen; an ein Mitglied verbände sie es mit der Kasse.
+    Bestätigt am 21.10.2026 (MENSCH: „Passt“).
+  - Das Schatzamt (Empfänger der Gebühr für das Anlegen) kommt aus den Einstellungen des
+    Programms auf der Kette. Ein anderes lehnt Squads ab.
+  - Mitglieder liest die App nur von der Kette; die Reihenfolge legt das Programm fest.
+- **A-12a2 (21.10.2026):** Auszahlen. Vorschlagen legt die Vault-Transaktion (eine Überweisung aus Tresor 0
+  an einen Empfänger) und den Vorschlag in einem Zug an; abstimmen (`proposal_approve`/`proposal_reject`),
+  ausführen und abschließen (`vault_transaction_accounts_close`, Miete an den Tresor) sind je eine Anweisung.
+  Empfänger und Betrag liest `leseAuszahlung()` von der Kette – nur in genau der Form, die die App baut;
+  jede andere Transaktion ist keine Auszahlung (V6). Der Vorschlagende zahlt die Miete beider Konten; sie
+  kommt beim Abschließen in den Tresor, nicht zu ihm zurück.
+- **A-12b1 (21.10.2026):** Kasse im Raum, Protokoll (`raum-kasse.ts`, `docs/PROTOCOL.md` §42). Neues Recht
+  „kasse“ (W4, `spaces.ts`); die Adresse der Kasse steht als Tag `kasse` in der Definition – offen nur in der des
+  Gründers, privat nur in der eines Admins (V5). Jedes Mitglied nennt dem Raum seine Adresse für die Kasse (Kind 34704,
+  privat nur als inneres Event) samt Nachweis: Die Adresse signiert Ort und Nostr-Schlüssel, so gibt niemand eine
+  fremde als seine aus. `kassenAbweichungen()` zeigt Recht ohne Mitgliedschaft und Mitgliedschaft ohne Recht (V3).
+- **A-12b2a (21.10.2026):** In der App nennt, wer das Recht „kasse“ hat, dem Raum eine frische Adresse der eingebauten
+  Wallet (Raum-Menü). Die Wallet signiert dafür nur den festen Text des Nachweises, keine beliebigen Bytes. Offen geht die
+  Meldung an die Adresse des Raums, privat nur in die Gruppe; vorher sagt die App, was öffentlich wird. Der
+  Datenschutzbericht nennt die Grenze „raum-kasse“. Wer die private Definition neu schreibt (Raumstand, Kanäle,
+  Agentenketten), gibt die Kasse mit. Verbundene Wallets (Wallet Standard) folgen als b2d.
+- **A-12b2b (22.10.2026):** Anlegen in der App – offen der Gründer, privat ein Admin, nur solange der Raum keine Kasse hat.
+  Mitglieder sind die eigene genannte Adresse und die genannten Adressen derer mit dem Recht „kasse“; wer keine genannt hat,
+  fehlt und kommt später nur über eine Abstimmung dazu (A-12d). Nur Devnet (V7): Die App fragt dafür nur eigene Endpunkte,
+  deren Genesis-Hash Devnet ist (`endpunkteImNetz()`), nie den gemeinsamen Pool – er wiche bei einem Ausfall auf Mainnet
+  aus. Der Create-Key ist frisch, unterschreibt im Protokoll (`baueKasseAnlegen()`) und wird gleich genullt. Die Miete rechnet
+  `kassenKontoGroesse()` (im Validator gegen die echte Länge geprüft). Vor dem Senden zeigt die App Miete, Gebühr von Squads
+  und die zahlende Adresse; sie steht als Ersteller auf der Kette, deshalb zahlt am liebsten die Adresse für die Kasse (V4),
+  sonst sagt der Text, dass eine andere damit verbunden wird. Bei „Gründer entscheidet“ sagt er, dass der Gründer allein
+  verfügt. Danach steht die Kasse in der Definition – offen eine neue des Gründers, privat über die Stelle mit den Ketten;
+  scheitert das, fragt die App, bis es gelingt oder man abbricht.
+- **A-12b2c (22.10.2026):** Stand und Einzahlen. „Kasse …“ im Raum-Menü liest die Kasse von der Kette (nur Devnet, eigene
+  Endpunkte) und zeigt Tresor, Guthaben, Art, Wartezeit und Mitglieder, dazu jede Abweichung zum Raum (V3): Recht ohne
+  Mitgliedschaft (mit oder ohne genannte Adresse), Mitgliedschaft ohne Recht (bekannt oder unbekannt). Es zählt die Kette.
+  Eingezahlt wird an den Tresor, nur in eine Kasse, die die App so anlegen würde (`kassenArt()`, ohne Verwalter) – eine
+  andere zeigt sie nur. Vorher die Rückfrage mit dem Zahler (am liebsten die eigene Adresse für die Kasse), danach das
+  Tageslimit der Wallet; bei „Gründer entscheidet“ sagt sie, dass der Gründer allein verfügt (W2). Die erste Einzahlung
+  muss die Miete des Tresors decken.
+- **A-12b2d (22.10.2026):** Adresse aus einer verbundenen Wallet (V4: man wählt sie selbst, die App rät zu einem neuen
+  Konto). Nur ohne eingebaute Wallet – die geht vor, weil sie eine frische Adresse aus dem Vorrat nimmt; mit gesperrtem
+  Tresor erst entsperren. Die Wallet signiert den festen Text des Nachweises (`solana:signMessage`, bei `window.solana`
+  `signMessage`); setzt sie einen eigenen Vorspann davor (`signedMessage` weicht ab) oder ist die Signatur nicht Ed25519
+  mit 64 Byte, nimmt die App sie nicht. Vor dem Senden prüft sie den Nachweis gegen Adresse, Ort und Schlüssel. Ohne
+  Tresor verlangt sie für diesen Weg keinen. Anlegen und einzahlen bleiben bei der eingebauten Wallet. Damit ist A-12b fertig.
+- **A-12c1 (22.10.2026):** Auszahlen in der App. „Kasse …“ zeigt die jüngsten zehn Vorschläge von der Kette – Betrag,
+  Empfänger, Status, Stimmen, bei Wartezeit ab wann (V6) – und bietet nur an, was das Programm jetzt annimmt
+  (`vorschlagsSchritte()`): vorschlagen (mit dem Recht), dafür oder dagegen (aktiv, nicht veraltet, nicht zum zweiten Mal
+  gleich; eine Stimme lässt sich umkehren), auszahlen (angenommen, nach der Wartezeit – im selben Zug abgeschlossen, die
+  Miete geht in den Tresor) und abschließen (ausgeführt, abgelehnt, abgebrochen oder veraltet; das darf jeder). Diese Regeln
+  prüft der Validator gegen beide Programme. Nur mit der eingebauten Wallet und nur auf Devnet; unterschrieben wird mit der
+  eigenen Adresse für die Kasse. Hat sie kein Guthaben, zahlt eine andere eigene Adresse Gebühr und Miete (`mietZahler`,
+  SDK-Vektor) – die Rückfrage sagt, dass sie damit verbunden wird. Ein Vorschlag, nach dem im Tresor weniger als die Miete
+  bliebe, geht nicht hinaus. Über eine Transaktion anderer Form stimmt die App nicht ab.
+- **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
+  A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
+  Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
+  Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet). A-12c in c1 (Auszahlen mit der eingebauten Wallet), c2
+  (Hinweis im Raum auf neue Vorschläge, V6) und c3 (abstimmen und auszahlen mit einer verbundenen Wallet).

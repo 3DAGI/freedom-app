@@ -1,6 +1,6 @@
 /**
  * Browser-Shim fuer node:fs/promises — die betroffenen Funktionen
- * (loadMacaroonHex, loadSolanaKeypair) sind Node-only-Features
+ * (loadMacaroonHex, ladeSolanaSchluessel) sind Node-only-Features
  * (LND-/Solana-Adapter), die in der Browser-App nie aufgerufen werden.
  * Shim wirft erst bei tatsaechlichem Aufruf, nicht beim Import.
  */

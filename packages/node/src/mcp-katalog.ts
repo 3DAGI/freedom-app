@@ -74,17 +74,14 @@ export function playwrightOrdner(): string | null {
 export function playwrightMcp(o: { playwright: string; browser: string; node?: string; heim?: string }): McpServer {
   const node = o.node ?? process.execPath;
   for (const p of [o.playwright, o.browser, node]) if (!isAbsolute(p) || normalize(p) !== p) throw new Error("Pfad ungültig");
-  const nurLesbar = [{ quelle: o.playwright, ziel: PLAYWRIGHT_IN_SANDBOX }];
-  // Programme unter /usr sieht die Sandbox schon; sonst ihr Ordner (Chrome: alles neben der Datei, Node: das Präfix) –
-  // nie die Wurzel, das Home oder etwas darüber: Darin läge ~/.freedom mit dem Schlüssel des Knotens
+  // Programme unter /usr sieht die Sandbox schon; sonst ihr Ordner (Chrome: alles neben der Datei, Node: das Präfix)
   const heim = o.heim ?? homedir();
-  for (const ordner of [o.browser.startsWith("/usr/") ? null : dirname(o.browser), node.startsWith("/usr/") ? null : dirname(dirname(node))]) {
-    if (ordner === null) continue;
-    if (ordner === "/" || heim === ordner || heim.startsWith(`${ordner}/`)) throw Object.assign(new Error("Ordner zu weit"), { name: "OrdnerZuWeit" });
-    nurLesbar.push({ quelle: ordner, ziel: ordner });
-  }
-  // Schriften: ohne die Einstellungen von fontconfig zeigten Bildschirmfotos keine Buchstaben (nichts Geheimes darin)
-  if (existsSync("/etc/fonts")) nurLesbar.push({ quelle: "/etc/fonts", ziel: "/etc/fonts" });
+  const nurLesbar = [
+    { quelle: o.playwright, ziel: PLAYWRIGHT_IN_SANDBOX },
+    ...(o.browser.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(o.browser), heim)),
+    ...(node.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(dirname(node)), heim)),
+    ...schriften(),
+  ];
   return {
     name: "browser",
     befehl: node,
@@ -118,6 +115,34 @@ export function mcpAusUmgebung(env: { MCP_BROWSER?: string }, o: { playwright?: 
   } catch {
     return { ungueltig: "Browser oder Node liegen direkt im Home oder in der Wurzel – die Sandbox bekäme zu viel zu sehen (MCP_BROWSER)" };
   }
+}
+
+/** Ein Programm außerhalb von `/usr` braucht seinen Ordner – nie die Wurzel, das Home oder etwas darüber: Darin läge ~/.freedom mit dem Schlüssel des Knotens. */
+function lesbarerOrdner(ordner: string, heim: string): Array<{ quelle: string; ziel: string }> {
+  if (ordner === "/" || heim === ordner || heim.startsWith(`${ordner}/`)) throw Object.assign(new Error("Ordner zu weit"), { name: "OrdnerZuWeit" });
+  return [{ quelle: ordner, ziel: ordner }];
+}
+
+/** Schriften: ohne die Einstellungen von fontconfig zeigte der Browser keine Buchstaben (nichts Geheimes darin). */
+function schriften(): Array<{ quelle: string; ziel: string }> {
+  return existsSync("/etc/fonts") ? [{ quelle: "/etc/fonts", ziel: "/etc/fonts" }] : [];
+}
+
+/** Was eine Sandbox vom Browser lesen muss – für Chromium im Bild (VKg2c1, `bildstrom.ts`), wie beim Motor. */
+export function browserLesbar(browser: string, heim = homedir()): Array<{ quelle: string; ziel: string }> {
+  if (!isAbsolute(browser) || normalize(browser) !== browser) throw new Error("Pfad ungültig");
+  return [...(browser.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(browser), heim)), ...schriften()];
+}
+
+/**
+ * Der Browser aus der Umgebung – derselbe wie für den Motor: `MCP_BROWSER`, sonst der erste aus `BROWSER_ORTE`; null mit
+ * `aus`, mit einem Pfad, der nicht stimmt, oder ohne Fund.
+ */
+export function browserAusUmgebung(env: { MCP_BROWSER?: string }, orte: readonly string[] = BROWSER_ORTE): string | null {
+  const wahl = env.MCP_BROWSER?.trim();
+  if (wahl === "aus") return null;
+  if (wahl) return isAbsolute(wahl) && normalize(wahl) === wahl && istDatei(wahl) ? wahl : null;
+  return orte.find(istDatei) ?? null;
 }
 
 function istDatei(p: string): boolean {

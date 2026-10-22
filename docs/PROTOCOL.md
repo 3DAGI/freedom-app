@@ -1165,6 +1165,38 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   gehört nicht zum Raum. Status-Events (1630–1633) von Agenten zählen nie, auch nicht
   am eigenen Patch (`patchStatus(…, istAgent)`). Annehmen bleibt `darfAnnehmen()`
   für Menschen mit Recht.
+- **Code** (seit 11.5c2a, V3): nur das Bundle des neuesten Verweises (38042) von
+  Eigentümer oder Pfleger mit `d` = Kennung und Schlüssel (`neuesterBundleVerweis()`;
+  gleiche Sekunde → kleinere Id), nie über Klon-Adressen. Manifest und Stücke nur
+  vom Autor des Manifests, das Chiffrat hat die Blob-Id als SHA-256.
+- **Antwort** (seit 11.5c2a, V5): die Antwort des Agenten (Kind 42, §32) trägt
+  zusätzlich `["fall", <kennung>]` und, wenn ein Patch eingereicht wurde,
+  `["e", <patch>, "", "mention"]` (`repoAntwortTags()`). Der Patch ist ein Kind 1617
+  vom Agenten (`bauePatch()`), den der Knoten aus dem Arbeitsordner baut.
+- **Private Räume** (seit 11.5c2b, P1–P4): nur ein Agent, der Mitglied der Gruppe ist,
+  und nur mit dem Modell auf demselben Rechner (Adresse des Antriebs nach
+  `lokaleKiAdresse()`). Repo und Bundle-Verweis samt Schlüssel liest er aus den inneren
+  Events der Gruppe (`raumReposPrivat()`) – ein offener Verweis zählt dort nicht. Patch
+  (`raumRepoPatch()`) und Antwort (Kind 9, `raumAgentAntwort(…, { patch, fall })`) gehen
+  nur als innere Events in die Gruppe; `e` nennt die Id des inneren Patches.
+- **Pakete** (seit 11.5c3, nur offene Räume): Konnte der Knoten die Pakete aus `package-lock.json` oder
+  `requirements.txt` des Repos nicht holen, lief der Auftrag ohne sie; die Antwort trägt dann zusätzlich
+  `["pakete", <kennung>]` (`paket-…`, etwa `paket-pruefsumme`, `paket-netz`). Im privaten Raum holt der Knoten keine
+  Pakete (P3).
+
+| `fall` | Bedeutung |
+|---|---|
+| `repo.patch` | Patch eingereicht |
+| `repo.keine-aenderung`, `repo.gross`, `repo.binaer`, `repo.ordner`, `repo.angaben` | fertig, aber kein Patch (wie `PatchFall`) |
+| `repo.schritte`, `repo.zeit`, `repo.tokens`, `repo.formfehler` | Grenze erreicht, kein Patch |
+
+- **Ablehnungen** (Rückmeldung mit `fall`, vor dem Rechnen, nichts bezahlt):
+  `agent-repo-aus` (keine Repo-Aufträge oder keine Sandbox), `agent-repo-fremd`,
+  `agent-repo-bundle` (kein Verweis, Bundle nicht vollständig), `agent-repo-issue`
+  (Issue nicht von diesem Repo), `agent-repo-bezahlt` (gratis oder Gebot ohne Tokens),
+  `agent-repo-belegt` (schon ein Auftrag), `agent-repo-fehler` (Modell oder Sandbox
+  scheiterten), `agent-repo-modell` (privater Raum, Modell nicht auf diesem Rechner).
+  `agent-repo-privat` (bis 11.5c2b) gibt es nicht mehr.
 
 ## 34. Vibecoden auf dem eigenen Knoten (Kind 5080, seit A-31)
 
@@ -1189,6 +1221,8 @@ keine anderen (gelesen nur mit `leseCodeAuftrag()`):
 | `diff` (seit VKe2) | `projekt`, `commit` | `commit`, `text` (wie `git format-patch`, ohne Diff-Programme des Projekts, als JSON-Text höchstens 30 000 Zeichen), `gekuerzt` |
 | `zurueck` (seit VKe2) | `projekt`, `commit` | `commit`: der neue Commit „Zurück auf <kurz>“ mit dem Baum des genannten – leer, wenn sich nichts änderte |
 | `vorschau` (seit VKg1a) | `projekt` | `url`: Adresse der Vorschau – http oder https, ohne Zugangsdaten, Suche und Anker, Pfad genau `/<zeichen>/` (64 Hex), höchstens 300 Zeichen (`istVorschauAdresse()`) |
+| `bild` (seit VKg2a2) | `projekt`, `sdp` (Angebot der App), `breite` (320–1920), `hoehe` (240–1080), beide gerade | `sdp`: Antwort des Knotens. Beide SDP nur mit Relay-Kandidaten, mit Fingerabdruck und mindestens einem Kandidaten (`istBildSdp()`) |
+| `bild-ende` (seit VKg2a2) | `projekt` | `ok`: ob ein Bild lief |
 
 - **Projektname:** `[a-z0-9][a-z0-9-]{0,39}` – zugleich der Name seines Ordners
   auf dem Knoten, ohne Punkt und Schrägstrich.
@@ -1248,6 +1282,9 @@ Tag, nie am Text:
 | `code-zu-gross` | `bundle`: das Bundle wäre größer als 32 MiB |
 | `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
 | `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
+| `code-bild-aus` | `bild`: der Knoten hat keinen Bildstrom (keine Sandbox, kein eigener TURN, oder GStreamer fehlt) |
+| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` – und, wo der Knoten Chromium hat (seit VKg2c1), weder ein Skript `dev` in `package.json` noch `index.html` |
+| `code-bild-fehler` | `bild`: das Angebot passt nicht, das Programm endete gleich, oder es gab keine Antwort |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.
 Den Status-Eintrag `code` (§24) meldet ein Knoten nur, wenn Vibecoden an ist.
@@ -1269,6 +1306,30 @@ Projekt. Ausgeliefert wird nur gelesen, live (`Cache-Control: no-store`) und nur
 `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt selbst. Namen mit Punkt am
 Anfang (`.git`, `.env`) und Verweise gibt es nicht. Pfade ohne Endung, die fehlen, bekommen die
 `index.html`.
+
+**Bild** (seit VKg2a2, für Programme ohne Web): Die App schickt ein Angebot mit Video zum Empfangen und dem
+Datenkanal `eingabe`, ohne Trickle – alle Kandidaten stehen im Angebot, alle vom Typ „relay“ über den eigenen
+TURN (§26). Der Knoten startet zwei Sandboxen ohne Netz: das Programm des Projekts (`.freedom/start` mit `sh`,
+sonst `main.py`; seit VKg2c1 sonst ein Web-Projekt in Chromium – mit Skript `dev` der Dev-Server wie in der Vorschau, sonst
+`index.html`) auf einem virtuellen Bildschirm und daneben `webrtcbin`, das den Bildschirm kodiert – seit VKg2c2 im Format und
+mit der Nummer aus dem Angebot: H.264 (Constrained Baseline, `packetization-mode=1`) über NVENC, wo der Knoten es hat, sonst
+VP8 (Firefox nennt VP8 120, Chromium 96). Den
+TURN erreicht nur die Bild-Sandbox, über einen Tunnel des Knotens, der nur die Relay-Adressen aus dem Angebot
+erlaubt (`turn-tunnel.ts`). Ein neues Angebot ersetzt das alte Bild des Projekts; es endet mit der Verbindung,
+mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft (`TURN_GUELTIG_SEK`).
+Die App (seit VKg2b) holt den Zugang zum eigenen TURN (5079), verbindet nur mit `iceTransportPolicy: "relay"`,
+nennt die Größe der Fläche in Gerätepixeln (eingepasst in den Rahmen oben) und schickt `bild-ende`, sobald das Blatt
+des Projekts etwas anderes zeigt oder zugeht.
+
+**Eingaben** (seit VKg2a3): über den Datenkanal `eingabe`, je Nachricht ein JSON-Objekt, höchstens 200 Zeichen.
+Die Bild-Sandbox gibt sie per XTest nur an ihren Bildschirm; was nicht passt, tut nichts.
+
+| `t` | Felder | Wirkung |
+|---|---|---|
+| `b` | `x`, `y` (0 bis 1, Anteil an Breite und Höhe) | Zeiger bewegen |
+| `d`, `u` | `x`, `y` wie oben, `k` (1 links, 2 Mitte, 3 rechts, Vorgabe 1) | Knopf drücken, loslassen (Berührung: `d` und `u` an derselben Stelle) |
+| `r` | `dy` (Pixel wie `WheelEvent.deltaY`) | Rad: je 50 einen Schritt, höchstens fünf |
+| `kd`, `ku` | `s`: `KeyboardEvent.key` – ein Zeichen oder ein Name (`Enter`, `Backspace`, `ArrowLeft`, `Shift`, `F1` …) | Taste drücken, loslassen. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu; Zeichen ohne Taste (Umlaute auf der US-Belegung) bekommen eine freie Taste |
 
 ## 35. Code zum Eintippen (Kind 38076, seit VKf)
 
@@ -1522,3 +1583,44 @@ beide Richtungen (höchstens 1 MiB je Nachricht, zwei Verbindungen je Zeichen, a
 abgelaufenes Zeichen ergibt 404, ein verbotenes Ziel 403, ein SFU, der nicht antwortet oder ablehnt, 502 – nie Text vom
 SFU. Mit dem Ablauf endet auch eine offene Verbindung. Der SFU sieht die Adresse des eigenen Knotens (oder des
 Tor-Ausgangs), nicht die des Geräts; Bild und Ton gehen weiter über den eigenen Vermittler (§26).
+
+## 42. Kasse im Raum (Tag `kasse` in 34700, Kind 34704, seit A-12b1)
+
+Entwurf `docs/KASSE-ENTWURF.md` (V3–V5, W4): Ein Raum hält SOL gemeinsam in einer Kasse von Squads v4 (`kasse.ts`).
+Wer Mitglied werden darf, sagt der Raum; wer es ist, sagt die Kette – es zählt immer die Kette (`leseKassenStand()`).
+
+**Recht `kasse`** (`Permission` in `spaces.ts`): erlaubt die Mitgliedschaft. Der Gründer eines offenen Raums und die
+Admins eines privaten haben es immer, sonst nur über eine zugewiesene Rolle – nie über die Rolle für alle (`jeder`
+bringt nur Grundrechte, §22).
+
+**Die Kasse in der Definition** (Tag `["kasse", <adresse>]` in 34700, `buildSpace()`/`raumDefinition()`): die Adresse
+des Multisig-Kontos (`kassenAdresse()`), nicht die des Tresors. Offen zählt sie nur aus der Definition des Gründers
+(`raumZustandFuer()`) – die Kasse ist dann öffentlich wie der Raum. Privat steht sie nur in der Definition eines Admins
+in der Gruppe (`gruppenRaum()`); Mitglieder-Adressen, Zahlungen und Stimmen sieht trotzdem jeder auf der Kette. Eine
+unlesbare Adresse heißt: keine Kasse; der Raum bleibt lesbar. Wer die Definition neu schreibt, gibt die geltende Kasse mit.
+
+**Adresse eines Mitglieds** (Kind 34704, `KIND_KASSEN_ADRESSE`): Jedes Mitglied nennt dem Raum die Adresse, mit der es
+in der Kasse steht – eine eigene je Raum, nie die Hauptadresse (V4). Offen (`baueKassenAdresse()`, ersetzbar):
+
+| Tag | Inhalt |
+|---|---|
+| `d` | `kasse:<kennung>` |
+| `space` | Kennung des Raums |
+| `a` | Adresse des Raums, `34700:<gründer>:space:<kennung>` |
+| `sol` | `<adresse>`, `<nachweis>` – 128 Zeichen Hex |
+
+Privat nur als inneres Event der Gruppe (`raumKassenAdresse()`): Art 34704, Tags `d` = `kasse:<gruppe>`, `space` =
+Gruppe, `sol` wie oben – nie offen.
+
+**Nachweis:** Die Adresse signiert mit Ed25519 den Text `freedomstack-kasse-v1:<ort>:<schlüssel>` (UTF-8, lesbar für die
+Wallet; `kassenNachweisNachricht()`), `<ort>` ist die Adresse des offenen Raums oder `mls:<gruppe>` (`kassenOrt()`),
+`<schlüssel>` der Nostr-Schlüssel des Mitglieds (Hex). So gibt niemand eine fremde Adresse als seine aus, und ein
+Nachweis gilt nur in seinem Raum.
+
+**Auswertung** (`kassenAdressenOffen()`, `kassenAdressenPrivat()`): offen nur Events an genau die Adresse des Raums; je
+Schlüssel die neueste Meldung, höchstens 600 s in der Zukunft. Sie zählt nur mit gültigem Nachweis – ist er kaputt, gilt
+für diesen Schlüssel keine Adresse, nie still eine ältere. Nennen mehrere Schlüssel dieselbe Adresse, gilt sie für keinen.
+
+**Abweichungen** (`kassenAbweichungen()`, V3): „Recht ohne Mitgliedschaft“ – wer das Recht hat, aber mit keiner Adresse
+auf der Kette steht (oder keine genannt hat); „Mitgliedschaft ohne Recht“ – eine Adresse auf der Kette, deren Schlüssel
+das Recht nicht hat oder die niemand im Raum nennt. Die App zeigt sie nur an; ändern kann die Kasse nur eine Abstimmung.

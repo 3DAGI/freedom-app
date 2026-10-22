@@ -6,12 +6,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { Message, PublicKey, Transaction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Keypair, Message, PublicKey, Transaction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import {
-  alsDraht, ausDraht, baueTransaktion, erstatteKanalAnweisung, leseNachricht, oeffneKanalAnweisung, rechneKanalAbAnweisungen,
-  signiereGutschrift, signiereMit, stockeKanalAufAnweisung, type SolTransaktion,
+  alsDraht, ausDraht, baueTransaktion, erstatteKanalAnweisung, ladeSolanaSchluessel, leseNachricht, oeffneKanalAnweisung, rechneKanalAbAnweisungen,
+  signiereGutschrift, signiereMit, solSchluesselAus, stockeKanalAufAnweisung, type SolTransaktion,
 } from "../src/index.js";
 import { BLOCKHASH, EMPFAENGER, KANAL, KUNDE, PROVIDER, SITZUNG, SITZUNG_GEHEIM, adresse, alsText, schluessel } from "./sol-vektoren-faelle.js";
 
@@ -103,4 +105,51 @@ test("A-21d1: Durable Nonce – kit stellt das Weiterschalten an den Anfang, der
   assert.deepEqual(g.anweisungen[0]!.konten.map((k) => k.adresse), [konto, "SysvarRecentB1ockHashes11111111111111111111", KUNDE]);
   assert.deepEqual(g.anweisungen[0]!.daten, new Uint8Array([4, 0, 0, 0]));
   assert.deepEqual(g.anweisungen[0]!.konten.map((k) => k.signiert), [false, false, true], "die Autorität unterschreibt");
+});
+
+test("A-21e1: solSchluesselAus – Datei von solana-keygen ohne web3.js: Adresse wie Keypair, nur der geheime Teil, falsche Form wirft", () => {
+  const kp = Keypair.generate();
+  const roh = Uint8Array.from(kp.secretKey);
+  const s = solSchluesselAus(roh);
+  assert.equal(s.adresse, kp.publicKey.toBase58());
+  assert.deepEqual(s.geheim, kp.secretKey.slice(0, 32));
+  s.geheim.fill(0);
+  assert.deepEqual(roh, Uint8Array.from(kp.secretKey), "eine Kopie – die Eingabe bleibt, wie sie war");
+  // Mit dem geheimen Teil unterschreibt signiereMit() wie web3.js
+  const tx = baueTransaktion({ zahler: kp.publicKey.toBase58(), anweisungen: [], lebensdauer: zeit });
+  const web3 = Transaction.populate(Message.from(Buffer.from(Uint8Array.from(tx.messageBytes))));
+  web3.sign(kp);
+  assert.deepEqual(alsDraht(signiereMit(tx, solSchluesselAus(roh).geheim)!), Uint8Array.from(web3.serialize()));
+
+  assert.throws(() => solSchluesselAus(roh.subarray(0, 32)), /64 Byte/);
+  assert.throws(() => solSchluesselAus(new Uint8Array(65)), /64 Byte/);
+  const fremd = Uint8Array.from(roh);
+  fremd.set(Keypair.generate().publicKey.toBytes(), 32);
+  assert.throws(() => solSchluesselAus(fremd), /passt nicht/, "der öffentliche Teil eines anderen Schlüssels");
+  assert.throws(() => Keypair.fromSecretKey(fremd), "web3.js lehnt ihn ebenso ab");
+});
+
+test("A-21e1: ladeSolanaSchluessel – liest die Datei von solana-keygen, kaputte Dateien werfen", async () => {
+  const ordner = mkdtempSync(join(tmpdir(), "sol-schluessel-"));
+  try {
+    const kp = Keypair.generate();
+    const datei = join(ordner, "id.json");
+    writeFileSync(datei, JSON.stringify(Array.from(kp.secretKey)));
+    const s = await ladeSolanaSchluessel(datei);
+    assert.equal(s.adresse, kp.publicKey.toBase58());
+    assert.deepEqual(s.geheim, kp.secretKey.slice(0, 32));
+    for (const [name, inhalt, grund] of [
+      ["kurz.json", JSON.stringify(Array.from(kp.secretKey.slice(0, 32))), /64 Byte/],
+      ["gross.json", JSON.stringify([...Array.from(kp.secretKey).slice(0, 63), 256]), /unlesbar/],
+      ["text.json", JSON.stringify(Array.from(kp.secretKey).map(String)), /unlesbar/],
+      ["objekt.json", JSON.stringify({ secretKey: Array.from(kp.secretKey) }), /unlesbar/],
+      ["kaputt.json", "[1, 2,", /JSON/],
+    ] as const) {
+      writeFileSync(join(ordner, name), inhalt);
+      await assert.rejects(ladeSolanaSchluessel(join(ordner, name)), grund, name);
+    }
+    await assert.rejects(ladeSolanaSchluessel(join(ordner, "fehlt.json")), /ENOENT/);
+  } finally {
+    rmSync(ordner, { recursive: true, force: true });
+  }
 });

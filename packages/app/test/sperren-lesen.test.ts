@@ -40,7 +40,7 @@ test("Rückhol-Wächter: offen sind nur Sperren auf der Kette, die weder eingel�
       return new Response(JSON.stringify({ jsonrpc: "2.0", id, result: { context: { slot: 1 }, value } }));
     }) as typeof fetch,
   }));
-  const runner = walletRefundRunner({} as import("@solana/web3.js").Connection, {} as Parameters<typeof walletRefundRunner>[1], rpc);
+  const runner = walletRefundRunner({} as Parameters<typeof walletRefundRunner>[0], rpc);
   assert.deepEqual(await runner.offen!(["offen", "eingeloest", "zurueck", "weg"], "swap"), ["offen"]);
   assert.deepEqual(gefragt, ["offen", "eingeloest", "zurueck", "weg"].map(pda), "nur über den Pool, je Sperre einmal");
 });
@@ -48,12 +48,15 @@ test("Rückhol-Wächter: offen sind nur Sperren auf der Kette, die weder eingel�
 test("verdrahtet: Sperren und Kanäle nur über solRpc() lesen – der gemeinsame Pool", () => {
   const src = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   const state = src("shell/state.ts");
-  const f = state.slice(state.indexOf("export async function solRpc()"), state.indexOf("export async function solRpcUrl()"));
+  const f = state.slice(state.indexOf("export async function solRpc("), state.indexOf("export async function solRpcUrl()"));
+  assert.ok(f.length > 0, "solRpc() gefunden");
   assert.match(f, /ensureRpcPool\(\)/);
-  assert.match(f, /return poolRpc\(pool\);/);
+  // Ohne Angabe der gemeinsame Pool; ein Vorgang (A-21d3a) bleibt bei einem Anbieter desselben Pools
+  assert.match(f, /return poolRpc\(opts\.einVorgang \? pool\.einVorgang\(\) : pool\);/);
   const tausch = src("shell/tabs/tausch.ts");
   assert.match(tausch, /const reader = AnchorSolanaHtlc\.reader\(await solRpc\(\)\);/);
-  assert.match(tausch, /walletRefundRunner\(conn, signer, await solRpc\(\)\)/);
+  // Lesen über den gemeinsamen Pool, jede Rückholung ein eigener Vorgang (A-21d3b)
+  assert.match(tausch, /walletRefundRunner\(signer, await solRpc\(\), \(\) => solRpc\(\{ einVorgang: true \}\)\)/);
   assert.doesNotMatch(tausch, /reader\(new Connection/);
   assert.match(src("refund-watcher.ts"), /const leser = AnchorSolanaHtlc\.reader\(rpc\);/);
   assert.match(src("shell/zahlkanal-ui.ts"), /await programmBereit\(await solRpc\(\)\)/);

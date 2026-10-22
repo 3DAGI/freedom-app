@@ -207,9 +207,32 @@ export function agentAntwortTags(auf: RaumNachricht): string[][] {
   return tags;
 }
 
-/** Antwort im privaten Raum – inneres Event, wie jede Nachricht der Gruppe. */
-export function raumAgentAntwort(auf: RaumNachricht, text: string): InneresSenden {
-  return raumNachricht({ kanal: auf.kanal, text: kuerzeAgentAntwort(text), ...(auf.threadRoot ? { threadRoot: auf.threadRoot } : {}), replyTo: auf.id, erwaehnt: [auf.von] });
+/**
+ * Tags einer Antwort auf einen Repo-Auftrag (11.5c2a/b, `docs/PROTOCOL.md` §33): der eingereichte Patch
+ * (offen das Event, privat das innere Event) und wie der Auftrag endete – nur feste Kennungen `repo.…`;
+ * seit 11.5c3 `pakete`, wenn die Pakete der Sperrdatei nicht zu holen waren (Kennung `paket-…`).
+ */
+export function repoAntwortTags(r: { patch?: string; fall?: string; pakete?: string }): string[][] {
+  const tags: string[][] = [];
+  if (r.patch !== undefined) {
+    if (!/^[0-9a-f]{64}$/.test(r.patch)) throw new Error("Patch ist keine Id");
+    tags.push(["e", r.patch, "", "mention"]);
+  }
+  if (r.fall !== undefined) {
+    if (!/^repo\.[a-z-]{1,40}$/.test(r.fall)) throw new Error("Kennung ungültig");
+    tags.push(["fall", r.fall]);
+  }
+  if (r.pakete !== undefined) {
+    if (!/^paket-[a-z-]{1,40}$/.test(r.pakete)) throw new Error("Kennung ungültig");
+    tags.push(["pakete", r.pakete]);
+  }
+  return tags;
+}
+
+/** Antwort im privaten Raum – inneres Event, wie jede Nachricht der Gruppe; auf einen Repo-Auftrag mit Patch und Kennung (11.5c2b). */
+export function raumAgentAntwort(auf: RaumNachricht, text: string, repo: { patch?: string; fall?: string; pakete?: string } = {}): InneresSenden {
+  const s = raumNachricht({ kanal: auf.kanal, text: kuerzeAgentAntwort(text), ...(auf.threadRoot ? { threadRoot: auf.threadRoot } : {}), replyTo: auf.id, erwaehnt: [auf.von] });
+  return { ...s, tags: [...s.tags, ...repoAntwortTags(repo)] };
 }
 
 // ------------------------------------------------------------ Monatsbudget (F2)

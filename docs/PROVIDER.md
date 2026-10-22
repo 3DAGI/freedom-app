@@ -486,6 +486,7 @@ AGENT_ABOUT=…                                      # freiwillig, öffentlich a
 AGENT_MODELL=qwen3.8:27b                           # freiwillig, ein angebotenes Modell
 AGENT_BESITZER=<hex>                               # freiwillig; gilt erst mit deiner Bestätigung in der App
 AGENT_PRIVAT=besitzer                              # freiwillig: private Räume – besitzer oder alle (11.3d2a)
+AGENT_REPO=1                                       # freiwillig: Repo-Aufträge in der Sandbox (11.5c2a)
 ```
 
 - **Karte:** Beim Start und mit jedem Erneuern des Angebots veröffentlicht der
@@ -527,6 +528,33 @@ AGENT_PRIVAT=besitzer                              # freiwillig: private Räume 
     Gruppe. Die App fragt seit 11.3d2c auch in privaten Räumen; wer deinen
     Agenten einlädt, sieht vorher eine Warnung, und im Raum steht danach ein
     Hinweis, dass dein Knoten alles mitliest.
+- **Repo-Aufträge** (seit 11.5c2a, nur mit `AGENT_REPO=1`; private Räume seit 11.5c2b): Zeigt die
+  Erwähnung auf ein Repo des Raums, bearbeitet der Agent dessen Code und reicht einen
+  Patch ein.
+  - Nur, wenn die Sandbox geht (bubblewrap mit Nutzer-Namensräumen, Log
+    `[agent] Repo-Aufträge an|aus – …`); unter Docker nur mit
+    `docker-compose.vibecoden.yml`. Ohne Netz in der Sandbox, nichts vom Knoten darin.
+  - Der Code kommt nur aus dem neuesten Bundle-Verweis eines Pflegers, geprüft wie
+    beim Halten, der Arbeitsordner liegt im Arbeitsspeicher und ist danach weg.
+  - Der Agent arbeitet wie mini-swe-agent: ein Befehl je Antwort, höchstens 50
+    Schritte und 30 Minuten, ein Auftrag zugleich. Den Patch baut der Knoten, nicht
+    das Modell; angenommen wird er nur von Menschen mit Recht im Raum.
+  - **Bezahlt** nur, nie gratis: nach Tokens der Antworten zu deinem Preis, höchstens
+    das Gebot – dort hört der Agent auf. Die Rechenzeit der Sandbox trägst du.
+  - **Pakete** (seit 11.5c3, nur offene Räume): Vor dem ersten Schritt holt dein Knoten, was
+    `package-lock.json` und `requirements.txt` des Repos mit Prüfsumme nennen – nur per GET von
+    `registry.npmjs.org`, `pypi.org` und `files.pythonhosted.org`, mit `TOR_SOCKS` durch Tor. Die Sandbox
+    sieht sie nur lesbar, npm und pip installieren daraus ohne Netz und ohne Install-Skripte. Ein neues
+    Paket fragt der Agent mit Namen und fester Version an (`paket_holen`, höchstens 20 je Auftrag) – auch
+    das holt der Knoten, nie die Sandbox. Die Registry sieht dabei Paketnamen und die IP deines Knotens
+    (ohne Tor). Höchstens 500 Pakete, 200 MB und 10 Minuten je Auftrag; scheitert das Holen, arbeitet der
+    Agent ohne Pakete, und die Antwort sagt es.
+  - **Private Räume** (seit 11.5c2b): nur mit `AGENT_PRIVAT`, und nur, wenn dein Modell
+    auf diesem Rechner läuft (`OLLAMA_URL` auf `localhost`, `127.0.0.1` oder `[::1]`) –
+    sonst lehnt der Agent ab. Der Code der Gruppe geht so an keinen anderen Rechner.
+    Repo und Schlüssel des Bundles liest der Agent als Mitglied aus der Gruppe; Patch und
+    Antwort gehen nur verschlüsselt in die Gruppe. Unter Docker zeigt `OLLAMA_URL` auf
+    den Dienst `ollama` – das gilt nicht als dieser Rechner.
 - **Noch nicht:** das Budget des Einladers (11.3d3, nach dem Upgrade des
   Zahlkanals).
 
@@ -625,7 +653,7 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
 - **Werkzeuge (seit VKd1):** Hermes kann über deinen Knoten im Netz suchen
   (DuckDuckGo, nur Kurzantworten) und öffentliche Seiten als Text lesen (Freedom-MCP,
   `POST /mcp` an derselben Brücke). Die Sandbox selbst bleibt ohne Netz; es gehen nur
-  diese zwei Werkzeuge hinaus, mit den Grenzen der Werkzeuge des Knotens (http und
+  diese zwei Werkzeuge hinaus (Pakete gehen seit VKd3 eigene Wege, unten), mit den Grenzen der Werkzeuge des Knotens (http und
   https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
   Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
   Aufrufen nicht; in der App erscheinen sie als Schritt. Gelesen werden nur Seiten,
@@ -643,6 +671,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Pakete (seit VKd3):** `npm install` und `pip install` im Projekt gehen über
+  dieselbe Brücke. Der Knoten holt nur von registry.npmjs.org, pypi.org und
+  files.pythonhosted.org, nur lesend, ohne Weiterleitung, mit `TOR_SOCKS` durch Tor,
+  je Datei bis 50 MB, je Stunde höchstens 20 000 Abrufe und 4 GB. Prüfsummen rechnen
+  npm und pip selbst. Die Registry sieht die IP deines Knotens (oder den Ausgang von
+  Tor) und die Namen der Pakete. Andere Adressen (GitHub, CDNs) gehen aus der
+  Sandbox nicht.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der
@@ -657,7 +692,43 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   ändert sich bei jedem Start. Über http im Heimnetz kann mitlesen, wer im selben
   Netz ist – für unterwegs `.onion` oder https. Ausgeliefert wird nur gelesen:
   `dist/` oder `build/`, wenn dort eine `index.html` liegt, sonst das Projekt, nie
-  `.git`, `.env` oder Verweise hinaus.
+  `.git`, `.env` oder Verweise hinaus. Nennt `package.json` ein Skript `dev` (seit
+  VKg1c), startet der Knoten beim ersten Aufruf der Vorschau `npm run dev` in der
+  Sandbox – ohne Netz, wie jeden Code des Projekts – und leitet die Vorschau dorthin
+  weiter, auch Hot Reload: Änderungen des Agenten erscheinen ohne Neuladen. Der
+  Server muss in der Sandbox auf `127.0.0.1:5173` lauschen; Vite tut das von selbst,
+  andere nehmen `PORT`. Höchstens drei laufen zugleich, nach 30 Minuten ohne Aufruf
+  endet einer; ohne Sandbox zeigt die Vorschau nur die Dateien.
+- **Bild (seit VKg2a2, für Programme ohne Web):** Spiele und Programme mit Fenster
+  (Python mit pygame oder tkinter, später Godot und andere) zeigt der Knoten als
+  Bildstrom in der App – auch unterwegs ohne `VORSCHAU_URL`. Das Programm nennt
+  `.freedom/start` im Projekt (ein Befehl für `sh`), sonst startet der Knoten
+  `main.py`. Web-Projekte zeigt Chromium im Bild (seit VKg2c1, derselbe wie für den
+  Motor: `MCP_BROWSER`, sonst Chromium aus Debian) – mit Skript `dev` in
+  `package.json` der Dev-Server wie in der Vorschau, sonst `index.html`; WebGL rechnet
+  dort SwiftShader in Software. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
+  eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
+  NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
+  WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN
+  erreicht nur diese zweite Sandbox, über einen Tunnel des Knotens, der nur die
+  Adressen der App erlaubt. Liegt coturn auf demselben Rechner und ist sein
+  öffentlicher Name von innen nicht erreichbar, nennt `TURN_INTERN` die Adresse für
+  den Knoten (etwa `127.0.0.1:3478`). Gebraucht werden Xvfb, GStreamer mit
+  `webrtcbin` und PyGObject (`xvfb gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+  gstreamer1.0-nice gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib`); fehlt etwas, sagt es das
+  Log, und die App bekommt `code-bild-aus`. Höchstens zwei Bilder laufen zugleich,
+  eines endet spätestens mit dem Zugang zum TURN (`TURN_GUELTIG_SEK`, Standard eine
+  Stunde). Maus, Berührung und Tasten aus der App gehen nur an diesen Bildschirm
+  (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
+  Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
+  Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
+  270 MB);
+  läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
+  dort `host.docker.internal:3478`. NVENC unter Docker (seit VKg2c2) nur mit
+  NVIDIA Container Toolkit und der dritten Datei: `docker compose -f
+  docker-compose.yml -f docker-compose.vibecoden.yml -f docker-compose.nvenc.yml
+  up -d --build`. Die GPU bekommt dann nur die Bild-Sandbox, nie der Code des
+  Projekts; das Log sagt beim Start „H.264 über NVENC“ und je Bild den Kodierer.
 - **Unter Docker (seit VKc3b):** `docker compose -f docker-compose.yml -f
   docker-compose.vibecoden.yml up -d --build`. Die Ergänzung baut Hermes ins Bild
   (rund 40 MB Pakete, venv etwa 135 MB, mit MCP seit VKd1 rund 7 MB mehr, dazu python3 und ripgrep) und gibt dem

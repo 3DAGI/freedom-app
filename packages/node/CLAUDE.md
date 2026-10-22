@@ -312,6 +312,13 @@ Bereichs unten anhängen.
   --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
   Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
   außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.
+  Im Repo-Auftrag (seit 11.5c3) nur über `bearbeiteRepo(…, { paketHolen })` und nur in offenen Räumen (`!a.gruppe` in
+  `bearbeiteRepoAuftrag()`, `tor` aus `main.ts`): die Sperrdateien aus der Arbeitskopie im Speicher (`sperreAus()`, nie vom
+  Ordner – dort könnte ein Verweis liegen), der Zwischenspeicher ein eigener Ordner im tmpfs, nur lesbar als `/pakete`
+  (`nurLesbar`), danach `weg()`. npm braucht dann `npm_config_logs_dir` außerhalb des Caches. `paket_holen` erkennt nur
+  `repoLauf()` (genau eine Zeile) und führt `paketHolen()` im Knoten aus – nie ein Werkzeug, das die Sandbox selbst aufruft;
+  zum Modell nur Adresse und Prüfsumme oder die Kennung. Scheitert das Holen, läuft der Auftrag ohne Pakete (`pakete` im
+  Ergebnis, Tag `pakete` in der Antwort).
 - **Cashu-Pfand im Knoten nur über `PfandKasse`** (seit RM2b1, `pfand-kasse.ts`, `docs/PROTOCOL.md` §38): angenommen nur
   über `nimmAn()` – `pruefePfand()` gegen die gemerkten Schlüssel der Mints aus `ladeMints()` (nur Mints mit NUT-11, NUT-12
   und Schlüsseln in sat), Deckung je Sitzungsschlüssel der Anfrage (signiert, nie ein Schlüssel aus den Tags) und netto:
@@ -430,3 +437,61 @@ Bereichs unten anhängen.
   Pfad und Anfrage, nie Kopfzeilen des Browsers; abgelehnt nur mit festem Status, nie Text vom SFU. Was der SFU gleich
   nach dem Öffnen schickt, kommt vor dem Browser an (`resume` läuft per `nextTick` vor der Fortsetzung nach `await`) –
   `oeffne()` hebt es auf, bis `verbinde()` es zustellt. Die Anfrage trägt den Zugang zum Anruf: Adressen nie ins Log.
+- **Pakete nur über den Spiegel der Brücke** (seit VKd3, `paket-spiegel.ts`): npm und pip im Motor finden die Registry nur über
+  `.npmrc` und `pip.conf` im Home (`paketKonfiguration()`, geschrieben wie `config.yaml` über `schreibeInsHeim()` – nie durch
+  einen Verweis). Der Spiegel nimmt nur `GET`/`HEAD` auf `/npm/…` und `/pypi/simple|files/…` (`spiegelZiel()`), holt nur über
+  `holeOderFehlt()` von `PAKET_QUELLEN` und schreibt Adressen in Paketlisten und Index auf die Brücke um (`aufDieBruecke()`),
+  Archive nie. Ein neuer Weg nach draußen kommt nie als weiterer Pfad an die Brücke, sondern als eigene Entscheidung (VK-W4 B,
+  „Internet frei“). Node liegt in der Sandbox nur, wenn es unter `/usr` liegt (Docker-Bild: `/usr/local`) – im Test mit
+  `/opt/node22` dieses zusätzlich nur lesbar einbinden.
+- **Dev-Server der Vorschau nur über `DevServer`** (seit VKg1c, `dev-server.ts`): Gestartet wird nur `npm run dev` aus einer
+  echten `package.json` (`devBefehl()`), nur über `sandboxDienst()` (ohne Netz, ohne Grenze der Rechenzeit, Ausgabe nirgends
+  hin) und nur, wenn die Sandbox geht. Erreicht wird er nur über `freedom_motor.py --zurueck` an einem Socket in einem Ordner,
+  den der Knoten anlegt und nur dieser Sandbox schreibbar gibt (`schreibbar`) – nie ein Socket im Home oder im Projekt, dort
+  könnte der Agent einen Verweis auf einen fremden Socket legen. Die Vorschau leitet mit `devKopf()` weiter (Host und Origin
+  `localhost:5173`, sonst lässt Vite nichts durch, ohne das eigene Cookie) und ohne Agent (`agent: false` – ein Pool hielte
+  Verbindungen offen). WebSocket: Sockets des HTTP-Servers bleiben halb offen; endet eine Seite, beide beenden – sonst
+  wartet `close()` ewig (so hing der erste Test).
+- **TURN für die Sandbox nur über `turn-tunnel.ts`** (seit VKg2a1): Die Sandbox bekommt einen Zugang zum TURN nur zusammen
+  mit dem Tunnel (`oeffneTurnTunnel()`, Socket in einem eigenen Ordner) – nie Netz und nie den TURN direkt. Ein Zugang ist
+  sonst ein Weg ins Internet (UDP), auch für den Code des Projekts, der ihn in derselben Sandbox lesen kann. Der Filter lässt
+  nur eine UDP-Allokation durch und Gegenstellen nur aus `relayAdressen()` des Angebots der App; neue STUN-Methoden nur mit
+  Blick darauf, wohin sie vermitteln. ChannelData mit Nummern bis 0x7FFF: coturn vergibt sie wie RFC 5766, nicht nur bis
+  0x4FFF wie RFC 8656 – so verlor der erste Test mit `turnutils_uclient` alle Pakete.
+- **Bildstrom nur über `BildStrom`** (seit VKg2a2, `bildstrom.ts`): zwei Sandboxen – das Bild (`motor/freedom_bild.py`,
+  `mitEinAusgabe`, Tunnel aus `turn-tunnel.ts`) und das Programm des Projekts (`bildBefehl()`, ohne Ein- und Ausgabe);
+  gemeinsam nur der Ordner mit dem Socket des Bildschirms (`/tmp/.X11-unix`). Nie das Programm in der Bild-Sandbox
+  starten: Es könnte den Zugang zum TURN lesen oder eine Antwort an die App unterschieben (andere Gegenstelle, Daten in
+  ICE-Feldern). stdin der Bild-Sandbox bleibt offen – `end()` beendet das Bild sofort (so hing der erste Ende-zu-Ende-Test).
+  PyGObject: den ICE-Agenten (`get_property("ice-agent")`) in einer Liste halten, sonst gibt die Hülle ihn frei; die Antwort
+  eines Promise samt Wert in Namen halten, bevor man ihn weitergibt. In der Sandbox gibt es nur `lo`: ohne
+  `add-local-ip-address 127.0.0.1` sammelt libnice nichts.
+  Eingaben (seit VKg2a3) nur über `Eingabe` in `freedom_bild.py`: XTest an den eigenen Bildschirm, feste Nachrichten
+  (`PROTOCOL.md` §34), begrenzt – nie etwas aus dem Datenkanal an eine Shell, eine Datei oder den Knoten.
+  Web-Projekte (seit VKg2c1) zeigt nur Chromium in der Sandbox des Programms (`bildBefehl(…, web)`, `browserArgumente()`):
+  ohne eigene Sandbox, Profil in `/tmp`, der Dev-Server über `WEB_DEV_START` dort selbst – nie ein Weg aus der Sandbox zum
+  Dev-Server der Vorschau. Den Browser liest nur `browserLesbar()` ein (wie beim Motor, nie Home oder Wurzel). Im Test die
+  Farbe nie in der Bildmitte messen – dort steht der Zeiger von Xvfb; und nie eine feste Pause nach den Eingaben (bis
+  VKg2c1 endete der Empfänger nach 2 s, unter Last kamen die Tasten später an): warten, bis sie wirken, mit Frist.
+  Kodiert wird (seit VKg2c2) nur im Format und mit der Nummer aus dem Angebot (`formate()`, `pipeline_text()` in
+  `freedom_bild.py`) – nie eine feste Nummer: Firefox nennt VP8 120, bis VKg2c2 kam dort kein Bild an. H.264 nur über
+  NVENC (`nvh264enc`), nie in Software (openh264 scheitert auf Ubuntu 24.04, x264 ist GPL). Die GPU bekommt nur die
+  Bild-Sandbox (`gpu` in `BildStrom`), nie das Programm oder der Motor.
+- **Repo-Aufträge nur über `repo-lauf.ts`** (seit 11.5c1, W3a A): der Ablauf nach mini-swe-agent – je Antwort genau ein
+  ```bash-Block, jeder Befehl in einer neuen bash über `fuehreAus()` (nie eine Shell, die Zustand hält), fertig nur mit
+  `ENDE_MARKE` als erster Zeile und Exit 0; Grenzen nach Schritten, Zeit (je Befehl nur die Restzeit) und Tokens. Den Patch
+  baut der Knoten (`bearbeiteRepo()` → `leseArbeitsordner()` → `schreibePatch()`), nie das Modell; ohne „fertig“ keiner.
+  Die Unterhaltung bleibt im Speicher und endet mit dem Aufruf – nie ins Log, auch keine Befehle. Die Anweisungen an das
+  Modell bleiben englisch wie bei mini-swe-agent (daran wurden die Modelle gemessen); der MIT-Hinweis im Kopf der Datei
+  bleibt stehen. `fuehreAus()` behält bei langer Ausgabe Anfang und Ende (`kuerzeAusgabe()` zeigt beide) – nie nur den Anfang
+  sammeln, sonst fehlt dem Modell die Zusammenfassung eines Testlaufs.
+- **Repo-Aufträge im Knoten-Agenten nur über `KnotenAgent`** (seit 11.5c2a, offene Räume): erkannt nur in `pruefe()`
+  (`leseRepoAuftrag()` an der Erwähnung, `repoImOffenenRaum()`, Bundle-Verweis nur über `neuesterBundleVerweis()`), Code nur
+  über `holeRepoBundle()` (Stücke vom Autor des Manifests, Chiffrat = Blob-Id, nie Klon-Adressen), gearbeitet nur in
+  `bearbeiteRepoAuftrag()` → `bearbeiteRepo()` mit `gespraech()` des Antriebs – nie `complete()` (eigener Systemprompt,
+  Werkzeuge). Nur mit `AGENT_REPO=1` und `repo` aus `main.ts` nach `pruefeSandbox()`; nur bezahlt oder vom Besitzer, Tokens bis
+  zum Gebot. Scheitern Bundle, Modell oder Sandbox, wirft er `AgentAbgelehnt` – dann zahlt der Fragende nichts. Private Räume
+  prüft `pruefePrivat()` seit 11.5c2b über `privatesRepo()` (P1–P4): nur mit `modellLokal` (`lokaleKiAdresse()` der Adresse des
+  Antriebs in `main.ts`), Repo über `repoImPrivatenRaum()`, Verweis nur aus `raumReposPrivat()` – nie ein offener 38042; Patch nur
+  über `raumRepoPatch()` in die Gruppe (`reicheEin()`), die Antwort über `raumAgentAntwort(…, repo)`. `MemoryRelay` beachtet
+  `authors`: Prüfungen gegen Relays, die Filter übergehen, mit einem eigenen `query`, sonst prüft der Test nichts.

@@ -175,5 +175,5 @@ test("11.3d2b: verdrahtet – private Räume nur mit dem MLS-Konto aus AGENT_PRI
   const agent = quelle("../src/knoten-agent.ts");
   assert.match(agent, /if \(!z \|\| !z\.gruppen\(\)\.includes\(v\.raum\)\) throw new AgentAbgelehnt\("agent-privat"\);/);
   assert.match(agent, /ausBudget: false,\n\s+\}\);/, "„wer fragt, zahlt“ – nie auf Agenten");
-  assert.match(agent, /const inneres = await this\.privat\?\.sende\(a\.gruppe, raumAgentAntwort\(a\.nachricht, text\)\)/, "Antwort nur als inneres Event");
+  assert.match(agent, /const inneres = await this\.privat\?\.sende\(a\.gruppe, raumAgentAntwort\(a\.nachricht, text, repo\)\)/, "Antwort nur als inneres Event");
 });

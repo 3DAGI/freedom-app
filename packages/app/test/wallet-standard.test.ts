@@ -143,3 +143,48 @@ test("Verbinden: eine Wallet direkt, mehrere per Auswahl, still nur die gemerkte
   assert.equal(still?.name, "Zwei");
   assert.equal(await connectSolanaWallet({ userAgentOverride: "Desktop", silent: true, gemerkt: null }), null, "still ohne gemerkte Wallet: kein Popup");
 });
+
+test("A-12b2d: solana:signMessage – nur genau die Bytes der App, Ed25519, 64 Byte; ein Vorspann der Wallet gilt nicht", async () => {
+  const { ed25519 } = await import("@noble/curves/ed25519.js");
+  const { kassenNachweisNachricht, kassenOrt, pruefeKassenNachweis } = await import("@freedomstack/protocol");
+  const kp = Keypair.generate();
+  const sk = kp.secretKey.slice(0, 32);
+  const PK = "cd".repeat(32);
+  const ort = kassenOrt("9e41c07b5a2d38f6e1b0c4d7a8f25e93");
+  const nachricht = kassenNachweisNachricht(ort, PK);
+  const mitSignMessage = (antwort: (m: Uint8Array) => { signedMessage: Uint8Array; signature: Uint8Array; signatureType?: string }) => {
+    const { wallet, log } = testWallet("N", kp);
+    wallet.features["solana:signMessage"] = {
+      version: "1.0.0",
+      signMessage: async (e: { account: { address: string }; message: Uint8Array }) => { log.push({ was: "nachricht", eingabe: e }); return [antwort(e.message)]; },
+    };
+    return { anbieter: alsAnbieter(wallet, async () => "solana:devnet"), log };
+  };
+
+  const gut = mitSignMessage((m) => ({ signedMessage: m, signature: ed25519.sign(m, sk), signatureType: "ed25519" }));
+  await gut.anbieter.connect();
+  const sig = await gut.anbieter.signiereNachricht!(nachricht);
+  assert.equal(pruefeKassenNachweis(ort, PK, kp.publicKey.toBase58(), Buffer.from(sig).toString("hex")), true);
+  const e = gut.log.find((x) => x.was === "nachricht")!.eingabe as { account: { address: string }; message: Uint8Array };
+  assert.equal(e.account.address, kp.publicKey.toBase58(), "das verbundene Konto");
+  assert.deepEqual(e.message, nachricht);
+
+  // Eine Wallet mit eigenem Vorspann signiert andere Bytes – die App nimmt das nicht
+  const vorspann = mitSignMessage((m) => {
+    const lang = new Uint8Array([...new TextEncoder().encode("Solana signed message:\n"), ...m]);
+    return { signedMessage: lang, signature: ed25519.sign(lang, sk) };
+  });
+  await vorspann.anbieter.connect();
+  await assert.rejects(vorspann.anbieter.signiereNachricht!(nachricht), /nicht so signiert/);
+  const fremdeArt = mitSignMessage((m) => ({ signedMessage: m, signature: ed25519.sign(m, sk), signatureType: "secp256k1" }));
+  await fremdeArt.anbieter.connect();
+  await assert.rejects(fremdeArt.anbieter.signiereNachricht!(nachricht), /nicht so signiert/);
+  const kurz = mitSignMessage((m) => ({ signedMessage: m, signature: new Uint8Array(32) }));
+  await kurz.anbieter.connect();
+  await assert.rejects(kurz.anbieter.signiereNachricht!(nachricht), /nicht so signiert/);
+
+  assert.equal(alsAnbieter(testWallet("O", kp).wallet, async () => "solana:devnet").signiereNachricht, undefined, "ohne Feature nichts anbieten");
+  const ohneVerbindung = mitSignMessage((m) => ({ signedMessage: m, signature: ed25519.sign(m, sk) }));
+  await assert.rejects(ohneVerbindung.anbieter.signiereNachricht!(nachricht), /nicht verbunden/, "erst verbinden");
+  assert.ok(!ohneVerbindung.log.some((x) => x.was === "nachricht"), "die Wallet bekam nichts");
+});

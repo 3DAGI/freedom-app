@@ -101,10 +101,11 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
 
 /**
  * Die Definition neu – mit dem Schalter der Agentenketten, wie er gilt (11.3e3): wer Kanäle
- * ändert oder den Raumstand sendet, schaltet ihn sonst still wieder aus.
+ * ändert oder den Raumstand sendet, schaltet ihn sonst still wieder aus. Ebenso die Kasse
+ * (A-12b2a): ohne sie hätte der Raum danach keine mehr.
  */
 function definitionMitKetten(raum: PrivaterRaum, r: Parameters<typeof raumDefinition>[1]): InneresSenden {
-  const d = raumDefinition(raum.gruppe, r);
+  const d = raumDefinition(raum.gruppe, { kasse: raum.zustand.space?.kasse, ...r });
   return { ...d, tags: mitKetten(d.tags, kettenGrenze(privateDefinition(raum.ereignisse, raum.admins))) };
 }
 
@@ -112,8 +113,15 @@ function definitionMitKetten(raum: PrivaterRaum, r: Parameters<typeof raumDefini
 export function setzePrivateKetten(raum: PrivaterRaum, grenze: number | null): Promise<boolean> {
   const sp = raum.zustand.space;
   if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
-  const d = raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels });
+  const d = raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels, kasse: sp.kasse });
   return mlsSendeEvent(raum.gruppe, { ...d, tags: mitKetten(d.tags, grenze) });
+}
+
+/** Die Kasse in die Definition schreiben (A-12b2b) – nur Admins, über dieselbe Stelle wie Kanäle und Ketten. */
+export function setzePrivateKasse(raum: PrivaterRaum, kasse: string): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
+  return mlsSendeEvent(raum.gruppe, definitionMitKetten(raum, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels, kasse }));
 }
 
 /** Den Raumstand (Definition, Rollen, Zuweisungen) erneut senden – nach jeder Einladung (auch eines Agenten, 11.3c3a). */

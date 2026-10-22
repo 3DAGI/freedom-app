@@ -159,13 +159,14 @@ export async function holeJson(url: string, zeitMs = 10_000): Promise<Antwort> {
  * ein Programm. Wirft bei unbrauchbarem Endpunkt; dann ohne Kette prüfen.
  */
 export async function kettenBlick(rpcUrl: string): Promise<NonNullable<PruefHilfen["kette"]>> {
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const { KANAL_PROGRAMM_ID } = await import("@freedomstack/protocol");
-  const conn = new Connection(rpcUrl, "confirmed");
-  const ausfuehrbar = async (a: string) => (await conn.getAccountInfo(new PublicKey(a), "confirmed"))?.executable === true;
+  // Seit A-21e1 über kit und den RpcPool; wie bisher mit `Connection` nur http(s)
+  if (!/^https?:\/\//.test(rpcUrl)) throw new Error("kein Solana-Endpunkt");
+  const { KANAL_PROGRAMM_ID, leseGuthaben, leseKonto, poolRpc, RpcPool } = await import("@freedomstack/protocol");
+  const rpc = poolRpc(new RpcPool([{ url: rpcUrl }]));
+  const ausfuehrbar = async (a: string) => (await leseKonto(rpc, a))?.ausfuehrbar === true;
   return {
     programmBereit: () => ausfuehrbar(KANAL_PROGRAMM_ID),
-    guthaben: async (a) => BigInt(await conn.getBalance(new PublicKey(a), "confirmed")),
+    guthaben: (a) => leseGuthaben(rpc, a),
     istProgramm: ausfuehrbar,
   };
 }

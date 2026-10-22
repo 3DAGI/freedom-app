@@ -43,7 +43,7 @@ test("claimSwap bricht vor jeder Netzwerkaktion ab, wenn es zu knapp ist", async
   const falle = new Proxy({}, { get() { throw new Error("darf nicht aufgerufen werden"); } });
   await assert.rejects(
     claimSwap({
-      connection: falle as never,
+      rpc: falle as never,
       wallet: falle as never,
       swapId: "00".repeat(32),
       preimage: new Uint8Array(32),
@@ -58,6 +58,9 @@ test("Programmfehler werden verstaendlich uebersetzt", () => {
   assert.match(describeHtlcError({ InstructionError: [0, { Custom: 6007 }] }) ?? "", /Frist abgelaufen/);
   assert.match(describeHtlcError(new Error("custom program error: 0x1777")) ?? "", /Frist abgelaufen/);
   assert.match(describeHtlcError({ InstructionError: [0, { Custom: 6003 }] }) ?? "", /Preimage/);
+  // Seit A-21d3b: kit liefert den Code als BigInt, die Vorabsimulation als SolanaError mit Ursache
+  assert.match(describeHtlcError({ InstructionError: [0n, { Custom: 6007n }] }) ?? "", /Frist abgelaufen/);
+  assert.match(describeHtlcError(new Error("Transaction simulation failed", { cause: { InstructionError: [0, { Custom: 6003n }] } })) ?? "", /Preimage/);
   assert.equal(describeHtlcError({ InstructionError: [0, { Custom: 1 }] }), undefined);
   assert.equal(describeHtlcError("irgendwas"), undefined);
 });

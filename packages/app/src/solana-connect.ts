@@ -46,6 +46,8 @@ export interface SolAnbieter {
   name?: string;
   signiereTransaktion?(tx: SolTransaktion): Promise<SolTransaktion>;
   signiereUndSendeTransaktion?(tx: SolTransaktion): Promise<{ signature: string }>;
+  /** Genau diese Bytes signieren (A-12b2d, Nachweis für die Kasse): 64 Byte Ed25519 – nie eine Transaktion. */
+  signiereNachricht?(nachricht: Uint8Array): Promise<Uint8Array>;
 }
 
 /**
@@ -63,6 +65,13 @@ export function ueberWeb3(p: SolanaProvider): SolAnbieter {
     };
   }
   if (p.signAndSendTransaction) a.signiereUndSendeTransaktion = async (tx) => p.signAndSendTransaction!(await alsObjekt(tx));
+  if (p.signMessage) {
+    a.signiereNachricht = async (nachricht) => {
+      const r = await p.signMessage!(nachricht, "utf8");
+      if (!(r?.signature instanceof Uint8Array) || r.signature.length !== 64) throw new Error(t("zahl.walletNachrichtAnders"));
+      return r.signature;
+    };
+  }
   return a;
 }
 

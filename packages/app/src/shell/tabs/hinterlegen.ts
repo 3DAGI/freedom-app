@@ -8,7 +8,7 @@ import { gebietsschema, t } from "../../i18n.js";
 import { fehlerText } from "../../protokoll-texte.js";
 import { escapeHtml } from "../../shell-logic.js";
 import { anbieterKursWarnung, depositDeckel } from "../../preis-anzeige.js";
-import { angebotVon, ensurePool, signiere, solRpcUrl, state } from "../state.js";
+import { angebotVon, ensurePool, signiere, solRpc, state } from "../state.js";
 import { bestaetige } from "../dialog.js";
 import { aktualisiereKurs } from "../marktkurs.js";
 import { geheim, verlangeTresor } from "../tresor.js";
@@ -99,9 +99,8 @@ export async function startDeposit(): Promise<void> {
       return;
     }
 
-    const { Connection } = await import("@solana/web3.js");
-    const rpcUrl = await solRpcUrl();
-    const conn = new Connection(rpcUrl, "confirmed");
+    // Sperren über den Pool, Senden und Nachfragen beim selben Anbieter (A-21d3b)
+    const rpc = await solRpc({ einVorgang: true });
 
     const { lockDeposit } = await import("../../sol-htlc.js");
     statusEl.className = "mono-sm";
@@ -114,7 +113,7 @@ export async function startDeposit(): Promise<void> {
     });
     void starteRueckholWaechter();
     const lock = await lockDeposit({
-      connection: conn,
+      rpc,
       wallet: signer,
       providerSolAddress: providerSol,
       spendSwapId,
@@ -194,13 +193,11 @@ export async function refundDeposit(): Promise<void> {
   }
 
   try {
-    const { Connection } = await import("@solana/web3.js");
-    const rpcUrl = await solRpcUrl();
     const { refundDepositOnChain } = await import("../../sol-htlc.js");
 
     statusEl.className = "mono-sm";
     const res = await refundDepositOnChain({
-      connection: new Connection(rpcUrl, "confirmed"),
+      rpc: await solRpc({ einVorgang: true }),
       wallet: signer,
       swapIds: [activeDeposit.refundSwapId, activeDeposit.spendSwapId],
       onProgress: (step) => { statusEl.textContent = step; },

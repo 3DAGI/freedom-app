@@ -1582,7 +1582,8 @@ def projekt_pruefen(browser, url: str) -> dict:
     zeigt das Blatt; ein Auftrag geht versiegelt an den Knoten, der Schritt, der wartet, zeigt „Ja“ und „Nein“, „Ja“
     geht als eigener Auftrag hinaus, danach kommen Ausgabe und Abschluss (Markdown nur als Text). Der Knoten ist
     `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe; alles an ihn ist ein Umschlag (Kind 1059). Seit VKe2: „Verlauf“
-    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann."""
+    zeigt die Commits, „Änderungen“ den Patch (Patch-Ansicht der Repos), „Hierher zurück“ fragt erst und schickt dann. Seit VKg1b:
+    „Vorschau“ holt die Adresse vom Knoten und öffnet sie im neuen Tab ohne Verweis zurück."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
@@ -1644,6 +1645,8 @@ def projekt_pruefen(browser, url: str) -> dict:
     s.click(".projekt-freigabe button")
     antworte(n + 1)
     s.wait_for_selector(".projekt-ende .projekt-abschluss", timeout=20000)
+    # die Umschläge kommen in beliebiger Reihenfolge (NIP-59) – auch auf die Ausgabe des Schritts warten
+    s.wait_for_selector(".projekt-ausgabe summary", timeout=20000)
     erg["fertig"] = ev("""() => { const b = document.querySelector('.projekt-blatt');
       return { ende: b.querySelector('.projekt-ende-zeile').textContent, abschluss: b.querySelector('.projekt-abschluss').textContent,
         fett: b.querySelector('.projekt-abschluss strong')?.textContent ?? '', ausgabe: b.querySelector('.projekt-ausgabe summary').textContent,
@@ -1682,6 +1685,15 @@ def projekt_pruefen(browser, url: str) -> dict:
     antworte(n + 2)
     s.click(".projekt-verlauf-knopf")
     erg["zurueck_zum_auftrag"] = ev("() => [document.querySelector('.projekt-neben').hidden, document.querySelector('.projekt-fuss').hidden]")
+    # Vorschau (VKg1b): die Adresse vom Knoten, geöffnet im neuen Tab ohne Verweis zurück, dazu Kopieren, QR und Hinweis
+    n = len(an_knoten())
+    s.click(".projekt-vorschau-knopf")
+    antworte(n + 1)
+    s.wait_for_selector(".projekt-vorschau-link", timeout=20000)
+    erg["vorschau"] = ev("""() => { const b = document.querySelector('.projekt-neben'), a = b.querySelector('.projekt-vorschau-link');
+      return { href: a.getAttribute('href'), target: a.target, rel: a.rel, text: a.textContent,
+        adresse: b.querySelector('.projekt-vorschau-adresse').textContent, kopieren: !!b.querySelector('.projekt-vorschau-kopieren'),
+        qr: !!b.querySelector('.qr-zeigen'), http: !!b.querySelector('.projekt-vorschau-http'), auftrag_weg: document.querySelector('.projekt-fuss').hidden }; }""")
     # Schließen mit Esc – das Blatt ist weg, die Liste bleibt
     s.keyboard.press("Escape")
     s.wait_for_function("() => !document.querySelector('.projekt-blatt')", timeout=5000)
@@ -1707,14 +1719,172 @@ def projekt_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"Rückfrage {erg['zurueck_frage']} – vorher hinaus: {erg['zurueck_vorher']}")
     if erg["zurueck"] != "Zurückgesetzt – neuer Schritt 2b2b2b2" or erg["zurueck_zum_auftrag"] != [True, False]:
         erg["fehler"].append(f"zurück {erg['zurueck']} {erg['zurueck_zum_auftrag']}")
-    if erg["umschlaege"] != 8:
-        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf")
+    vorschau = f"http://192.168.1.20:3603/{'5c' * 32}/"
+    if erg["vorschau"] != {"href": vorschau, "target": "_blank", "rel": "noopener noreferrer", "text": "Vorschau öffnen", "adresse": vorschau,
+                           "kopieren": True, "qr": True, "http": True, "auftrag_weg": True}:
+        erg["fehler"].append(f"Vorschau {erg['vorschau']}")
+    if erg["umschlaege"] != 9:
+        erg["fehler"].append(f"{erg['umschlaege']} Umschläge an den Knoten – erwartet Liste, Auftrag, Freigabe, Verlauf, Diff, Verlauf, Zurück, Verlauf, Vorschau")
     erg["browser_dialoge"] = seite.browser_dialoge
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
     seite.ctx.close()
     erg["bestanden"] = not erg["fehler"]
     return erg
+
+# Gegenstelle für „bild“ (VKg2b): spielt den Knoten – eine Leinwand mit Bewegung als Bild, nur über den TURN, und merkt sich,
+# was über den Datenkanal „eingabe“ ankommt
+BILD_GEGENSTELLE = """async ([angebot, turn]) => {
+  const pc = new RTCPeerConnection({ iceServers: [turn], iceTransportPolicy: 'relay' });
+  window.__pc = pc; window.__eingaben = [];
+  pc.ondatachannel = (e) => { e.channel.onmessage = (m) => window.__eingaben.push(JSON.parse(m.data)); };
+  const c = document.createElement('canvas'); c.width = 320; c.height = 240; document.body.append(c);
+  const g = c.getContext('2d'); let i = 0;
+  setInterval(() => { g.fillStyle = '#0a0'; g.fillRect(0, 0, 320, 240); g.fillStyle = '#fff'; g.fillRect((i += 7) % 300, 100, 20, 20); }, 33);
+  const strom = c.captureStream(30);
+  await pc.setRemoteDescription({ type: 'offer', sdp: angebot });
+  pc.getTransceivers()[0].direction = 'sendonly';
+  await pc.getTransceivers()[0].sender.replaceTrack(strom.getVideoTracks()[0]);
+  await pc.setLocalDescription(await pc.createAnswer());
+  await new Promise((r) => { setTimeout(r, 5000); pc.onicecandidate = (e) => e.candidate && / typ relay /.test(e.candidate.candidate) && setTimeout(r, 300); });
+  return pc.localDescription.sdp.split('\\r\\n').filter((z) => !z.startsWith('a=candidate:') || / typ relay /.test(z)).join('\\r\\n');
+}"""
+
+
+def bild_pruefen(browser, url: str) -> dict:
+    """Bild vom eigenen Knoten (VKg2b): „Bild“ auf dem Blatt eines Projekts holt den Zugang zum eigenen TURN (5079), schickt ein
+    Angebot nur mit Relay-Kandidaten versiegelt als Code-Aktion `bild` und zeigt das Bild der Antwort; Klick und Taste gehen
+    über den Datenkanal `eingabe`. Der TURN ist ein echtes coturn auf 127.0.0.1, die Gegenstelle eine zweite Seite (Leinwand),
+    der Knoten `scripts/knoten-code-probe.mts`. „Zum Auftrag“ beendet das Bild (`bild-ende`)."""
+    import base64, hashlib, hmac, shutil, tempfile, time
+    erg = {"fehler": []}
+    if not shutil.which("turnserver"):
+        return {"bestanden": False, "fehler": ["coturn fehlt (turnserver) – der Bild-Test braucht einen echten TURN"]}
+    wurzel = Path(__file__).resolve().parent.parent
+    geheimnis = os.urandom(32).hex()
+    with socket.socket() as fp:
+        fp.bind(("127.0.0.1", 0))
+        turn_port = fp.getsockname()[1]
+    relay_von = 49_500 + (os.getpid() % 40) * 10
+    ordner = tempfile.mkdtemp(prefix="smoke-bild-")
+    conf = os.path.join(ordner, "turnserver.conf")
+    with open(conf, "w") as f:
+        f.write("\n".join(["listening-ip=127.0.0.1", f"listening-port={turn_port}", "relay-ip=127.0.0.1", f"min-port={relay_von}",
+                           f"max-port={relay_von + 9}", "realm=freedom", "use-auth-secret", f"static-auth-secret={geheimnis}", "fingerprint",
+                           "no-cli", "no-tls", "no-dtls", "allow-loopback-peers", "log-file=/dev/null", ""]))
+    coturn = subprocess.Popen(["turnserver", "-c", conf, "--no-stdout-log"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    gegen_ctx = None
+    try:
+        turn_url = f"turn:127.0.0.1:{turn_port}?transport=udp"
+        umgebung = dict(os.environ, PROBE_TURN=turn_url, PROBE_TURN_SECRET=geheimnis, PROBE_BILD_ANTWORT=os.path.join(ordner, "antwort.sdp"))
+        probe = json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                          timeout=180, check=True).stdout)
+        code = f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}"
+        relay = ProbeRelay()
+        seite = DialogSeite(browser, url, relay, erg, init=f"localStorage.setItem('freedom.knoten.kopplung', {json.dumps(code)});")
+        s, ev = seite.s, seite.ev
+        beantwortet: dict[str, str] = {}
+
+        def an_knoten() -> list[dict]:
+            return list({e["id"]: e for e in relay.gesendet if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]}.values())
+
+        def probe_lauf(art: str) -> list[dict]:
+            return json.loads(subprocess.run(["npx", "tsx", "scripts/knoten-code-probe.mts", art, probe["sk"], probe["geheimnis"]], cwd=wurzel,
+                                             input=json.dumps(an_knoten()), capture_output=True, text=True, timeout=180, check=True, env=umgebung).stdout)
+
+        def warte(n: int) -> None:
+            for _ in range(150):
+                if len(an_knoten()) >= n:
+                    return
+                s.wait_for_timeout(200)
+
+        def antworte() -> None:
+            for a in probe_lauf("antworte"):
+                if a["fuer"] not in beantwortet:
+                    beantwortet[a["fuer"]] = a["aktion"]
+                    relay.events.extend(a["events"])
+        ev("() => { location.hash = '#/settings'; }")
+        s.click("[data-subtab-group=settings] [data-subtab=devices]")
+        s.wait_for_selector("#knoten-projekte", state="visible", timeout=15000)
+        n = len(an_knoten())
+        s.click("#knoten-projekte")
+        warte(n + 1)
+        antworte()
+        s.wait_for_selector("#knoten-projekte-liste .knoten-projekt", timeout=20000)
+        s.click("#knoten-projekte-liste .knoten-projekt button")
+        s.wait_for_selector(".projekt-bild-knopf", timeout=10000)
+        erg["knopf"] = ev("() => { const b = document.querySelector('.projekt-bild-knopf'); return [b.textContent, b.getAttribute('aria-label')]; }")
+        # erst der Zugang zum TURN (5079), dann das Angebot als `bild`
+        n = len(an_knoten())
+        s.click(".projekt-bild-knopf")
+        warte(n + 1)
+        antworte()
+        warte(n + 2)
+        angebote = probe_lauf("angebot")
+        if not angebote:
+            raise RuntimeError("kein Angebot beim Knoten")
+        angebot = angebote[-1]["sdp"]
+        kandidaten = [z for z in angebot.split("\r\n") if z.startswith("a=candidate:")]
+        erg["angebot"] = {"kandidaten": len(kandidaten), "nur_relay": all(" typ relay " in z for z in kandidaten), "kanal": "m=application" in angebot}
+        # die Gegenstelle antwortet wie der Knoten – mit eigenem Zugang zu demselben TURN
+        nutzer = f"{int(time.time()) + 600}:gegenstelle"
+        passwort = base64.b64encode(hmac.new(geheimnis.encode(), nutzer.encode(), hashlib.sha1).digest()).decode()
+        gegen_ctx = browser.new_context()
+        gegen = gegen_ctx.new_page()
+        antwort = gegen.evaluate(BILD_GEGENSTELLE, [angebot, {"urls": [turn_url], "username": nutzer, "credential": passwort}])
+        with open(umgebung["PROBE_BILD_ANTWORT"], "w") as f:
+            f.write(antwort)
+        antworte()
+        s.wait_for_function("() => (document.querySelector('.projekt-bild-video')?.videoWidth ?? 0) > 0", timeout=30000)
+        s.wait_for_function("() => document.querySelector('.projekt-bild-status')?.textContent === 'verbunden'", timeout=20000)
+        erg["bild"] = ev("""() => { const v = document.querySelector('.projekt-bild-video');
+          return { breite: v.videoWidth, hoehe: v.videoHeight, status: document.querySelector('.projekt-bild-status').textContent,
+            text: document.querySelector('.projekt-neben > p').textContent.startsWith('Das Programm läuft auf deinem Knoten'),
+            auftrag_weg: document.querySelector('.projekt-fuss').hidden, tastatur: !!document.querySelector('.projekt-bild-tastatur') }; }""")
+        # Klick in die Mitte und eine Taste – sie kommen bei der Gegenstelle an
+        kasten = s.locator(".projekt-bild-video").bounding_box()
+        mitte = (kasten["x"] + kasten["width"] / 2, kasten["y"] + kasten["height"] / 2)
+        s.mouse.move(*mitte)
+        s.mouse.down()
+        s.mouse.up()
+        s.keyboard.press("a")
+        s.keyboard.press("Enter")
+        gegen.wait_for_function("() => window.__eingaben.filter((e) => e.t === 'ku').length >= 2", timeout=10000)
+        eingaben = gegen.evaluate("() => window.__eingaben")
+        knoepfe = [e for e in eingaben if e["t"] in ("d", "u")]
+        erg["eingaben"] = {"knopf": [[e["t"], e["k"], round(e["x"], 1), round(e["y"], 1)] for e in knoepfe],
+                           "tasten": [[e["t"], e["s"]] for e in eingaben if e["t"] in ("kd", "ku")]}
+        # „Zum Auftrag“ beendet das Bild: die Verbindung zu, `bild-ende` an den Knoten
+        n = len(an_knoten())
+        s.click(".projekt-verlauf-knopf")
+        warte(n + 1)
+        antworte()
+        erg["ende"] = {"aktionen": sorted(set(beantwortet.values())), "auftrag_zurueck": ev("() => !document.querySelector('.projekt-fuss').hidden"),
+                       "video_weg": ev("() => !document.querySelector('.projekt-bild-video')?.srcObject")}
+        erg["umschlaege"] = len(an_knoten())
+        if erg["knopf"] != ["Bild", "Bild von app – das Programm aus dem Projekt, live von meinem Knoten, mit Maus, Finger und Tastatur"]:
+            erg["fehler"].append(f"Knopf {erg['knopf']}")
+        if not (erg["angebot"]["kandidaten"] >= 1 and erg["angebot"]["nur_relay"] and erg["angebot"]["kanal"]):
+            erg["fehler"].append(f"Angebot {erg['angebot']}")
+        if not (erg["bild"]["breite"] == 320 and erg["bild"]["hoehe"] == 240 and erg["bild"]["status"] == "verbunden" and erg["bild"]["text"]
+                and erg["bild"]["auftrag_weg"] and erg["bild"]["tastatur"]):
+            erg["fehler"].append(f"Bild {erg['bild']}")
+        if erg["eingaben"]["knopf"] != [["d", 1, 0.5, 0.5], ["u", 1, 0.5, 0.5]] or erg["eingaben"]["tasten"] != [["kd", "a"], ["ku", "a"], ["kd", "Enter"], ["ku", "Enter"]]:
+            erg["fehler"].append(f"Eingaben {erg['eingaben']}")
+        if erg["ende"] != {"aktionen": ["bild", "bild-ende", "liste", "turn"], "auftrag_zurueck": True, "video_weg": True}:
+            erg["fehler"].append(f"Ende {erg['ende']}")
+        erg["browser_dialoge"] = seite.browser_dialoge
+        if seite.browser_dialoge:
+            erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+        seite.ctx.close()
+    finally:
+        if gegen_ctx:
+            gegen_ctx.close()
+        coturn.terminate()
+        shutil.rmtree(ordner, ignore_errors=True)
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
 
 def tresor_an(seite: "DialogSeite", passphrase: str) -> None:
     """Tresor einrichten (Settings › Sicherheit, Schritt 5) – MLS gibt es nur mit Tresor (2.2b-e1)."""
@@ -6560,6 +6730,10 @@ def main() -> int:
             except Exception as e:
                 erg["projekt"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["bild"] = bild_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["bild"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["post_live"] = post_live_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["post_live"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6707,6 +6881,7 @@ def main() -> int:
           and erg.get("agent_folgen", {}).get("bestanden") is True
           and erg.get("anruf", {}).get("bestanden") is True
           and erg.get("projekt", {}).get("bestanden") is True
+          and erg.get("bild", {}).get("bestanden") is True
           and erg.get("post_live", {}).get("bestanden") is True
           and erg.get("agent_abo", {}).get("bestanden") is True
           and erg.get("privatraum", {}).get("bestanden") is True

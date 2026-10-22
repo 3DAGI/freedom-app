@@ -8,7 +8,7 @@
  */
 import { kontaktKurzName } from "../../kontakt-name.js";
 import {
-  JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_KASSEN_RECHT, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { alsGeraet, ensurePool, mitBunker, signiere, state } from "../state.js";
@@ -421,7 +421,16 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-agent-neu")?.classList.toggle("hidden", !agenten);
   // Agentenketten (11.3e3): offen der Gründer, privat ein Moderator – nur als Hauptidentität
   document.getElementById("space-ketten")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt());
-  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten);
+  // Kasse (A-12b2a): die eigene Adresse nennen – mit dem Recht „kasse“, nur als Hauptidentität
+  const st = spacesUi.state as SpaceState | null;
+  const kasse = !!agentOrt() && !alsGeraet() && !!state.keypair && !!st && darf(state.keypair.pk, RAUM_KASSEN_RECHT, st);
+  document.getElementById("space-kasse-adresse")?.classList.toggle("hidden", !kasse);
+  // Anlegen (A-12b2b): offen der Gründer, privat ein Moderator – nur ohne Kasse
+  document.getElementById("space-kasse-anlegen")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt() || !st?.space || !!st.space.kasse);
+  // Stand und einzahlen (A-12b2c): wer den Raum sieht, sobald er eine Kasse hat – nur als Hauptidentität
+  const kasseStand = !!agentOrt() && !alsGeraet() && !!state.keypair && !!st?.space?.kasse;
+  document.getElementById("space-kasse")?.classList.toggle("hidden", !kasseStand);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten && !kasse && !kasseStand);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
 }
@@ -1588,6 +1597,21 @@ export async function wireSpacesTab(): Promise<void> {
   document.getElementById("space-ketten")?.addEventListener("click", () => {
     const ort = agentOrt();
     if (ort) void import("../raum-ketten-ui.js").then(async (m) => { if ((await m.stelleKettenEin(ort)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
+  // Kasse im Raum (A-12b2a): die eigene Adresse nennen – danach den Raum neu, damit sie im Stand steht
+  document.getElementById("space-kasse-adresse")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-kasse-ui.js").then(async (m) => { if ((await m.nenneKassenAdresse(ort, spacesUi.state as SpaceState | undefined)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
+  // Kasse: Stand von der Kette, Abweichungen, einzahlen (A-12b2c)
+  document.getElementById("space-kasse")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-kasse-ui.js").then((m) => m.zeigeKasse(ort, spacesUi.state as SpaceState | undefined, kontaktName));
+  });
+  // Kasse anlegen (A-12b2b) – danach den Raum neu, damit die Definition sie nennt
+  document.getElementById("space-kasse-anlegen")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-kasse-ui.js").then(async (m) => { if ((await m.legeKasseImRaumAn(ort, spacesUi.state as SpaceState | undefined)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
   });
   // Agent hinzufügen (11.3e1): neu oder vorhanden, mit Budget – danach den Raum neu, damit er in der Liste steht
   document.getElementById("space-agent-neu")?.addEventListener("click", () => {

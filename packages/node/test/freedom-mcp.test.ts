@@ -139,7 +139,8 @@ test("VKd: Hermes findet Freedom-MCP über die Konfiguration – dieselbe Brück
   assert.deepEqual(k.mcp_servers, { freedom: { url: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp` } });
   // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /oeffneModellBruecke\(antrieb, \{ mcp: \(n\) => mcpAntwort\(n, werkzeuge, freigaben\) \}\)/);
+  // seit VKd3 dazu der Spiegel für Pakete an derselben Brücke
+  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(n\) => mcpAntwort\(n, werkzeuge, freigaben\),\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
   assert.match(main, /beimAuftrag: \(t\) => freigaben\.ausAuftrag\(t\)/);
   assert.match(main, /werkzeuge\.register\(new WebSearchExecutor\(\)\);\n\s+werkzeuge\.register\(new BrowserExecutor\(\)\);/);
 });

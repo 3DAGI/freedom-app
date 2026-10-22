@@ -15,7 +15,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,7 +28,7 @@ import {
   type Gutschrift, type KanalEmpfaenger,
 } from "../../../packages/protocol/src/channel.js";
 import { alsWeb3 } from "../../../packages/protocol/src/kit-bruecke.js";
-import { KanalKasse } from "../../../packages/node/src/kanal-kasse.js";
+import { KanalKasse, kanalKasseAusUmgebung } from "../../../packages/node/src/kanal-kasse.js";
 
 // Seit A-21b2 gibt es die web3.js-Fassungen nur noch über alsWeb3 – dieselben Bytes (Vektoren aus A-21a)
 const oeffneKanalIx = (...a: Parameters<typeof oeffneKanalAnweisung>) => alsWeb3(oeffneKanalAnweisung(...a));
@@ -284,25 +284,29 @@ test("Kasse des Knotens (4.3c): nimmt Gutschriften an, bucht und löst sie gegen
   const werber = await neuesKonto(1);
   const empfaenger = [{ adresse: werber.publicKey.toBase58(), ppm: 25_000 }];
   const k = await oeffne({ nonce: 5n, betrag: 2_000_000n, laufzeit: 7_200n, empfaenger, provider });
-  const kasse = new KanalKasse({
-    provider: provider.publicKey.toBase58(),
-    lese: async (a) => {
-      const i = await conn.getAccountInfo(new PublicKey(a), "confirmed");
-      return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
-    },
-    sende: (ixs) => schicke(ixs, [provider]),
-    einloesSchwelle: 1n,
-  });
+  // Seit A-21e1 die Kasse aus der Umgebung wie im Knoten: Schlüsseldatei, kit über den RpcPool, gesendet mit
+  // Vorabsimulation und bestätigt durch Nachfragen – gegen den Validator statt gegen eine Attrappe
+  const ordner = mkdtempSync(join(tmpdir(), "kanal-kasse-"));
+  writeFileSync(join(ordner, "id.json"), JSON.stringify([...provider.secretKey]));
+  const { kasse: ausUmgebung, grund } = await kanalKasseAusUmgebung(
+    { ZAHLKANAL: "1", NODE_SOL_ADDRESS: provider.publicKey.toBase58(), SOLANA_KEYPAIR: join(ordner, "id.json"), KANAL_EINLOES_SCHWELLE_LAMPORTS: "1" },
+    { rpcUrl: `http://127.0.0.1:${PORT}`, datei: join(ordner, "kanaele.json"), standardSchluessel: join(ordner, "fehlt.json") },
+  );
+  assert.ok(ausUmgebung, grund ?? "");
+  const kasse = ausUmgebung;
   const g = (b: bigint) => signiereGutschrift(k.sitzung.geheim, k.adresse, b, k.ablauf);
   assert.deepEqual(await kasse.nimmAn(g(300_000n), 200_000n), { ok: true, empfaenger });
   assert.equal(kasse.verbuche(k.adresse, 150_000n), 150_000n);
   assert.deepEqual(await kasse.nimmAn(g(500_000n), 300_000n), { ok: true, empfaenger });
   const vorher = await Promise.all([provider.publicKey, werber.publicKey].map(lamports));
-  const r = await kasse.loeseFaelligeEin();
+  const r = await solangeValidator(kasse.loeseFaelligeEin());
   assert.equal(r.length, 1);
   assert.ok(r[0].signatur && !r[0].fehler, `Einlösen: ${r[0].fehler ?? "ohne Signatur"}`);
   const nachher = await Promise.all([provider.publicKey, werber.publicKey].map(lamports));
-  assert.equal(nachher[0] - vorher[0], 487_500n, "Provider: 97,5 %");
+  // Der Provider zahlt die Gebühr seiner Einlösung selbst (wie im Knoten) – sie steht in der Transaktion
+  const gebuehr = BigInt((await conn.getTransaction(r[0].signatur!, { commitment: "confirmed", maxSupportedTransactionVersion: 0 }))!.meta!.fee);
+  assert.ok(gebuehr > 0n && gebuehr <= 10_000n, `Gebühr ${gebuehr}`);
+  assert.equal(nachher[0] - vorher[0], 487_500n - gebuehr, "Provider: 97,5 % abzüglich der Gebühr");
   assert.equal(nachher[1] - vorher[1], 12_500n, "Werber: 2,5 %");
   assert.equal((await kanal(k.adresse)).ausgezahlt, 500_000n);
   assert.deepEqual(await kasse.loeseFaelligeEin(), [], "schon eingelöst");
@@ -312,4 +316,5 @@ test("Kasse des Knotens (4.3c): nimmt Gutschriften an, bucht und löst sie gegen
     return i ? { owner: i.owner.toBase58(), daten: i.data } : null;
   }, sende: async () => "nie" });
   assert.deepEqual(await fremd.nimmAn(g(600_000n), 1n), { ok: false, grund: "Kanal für einen anderen Provider" });
+  rmSync(ordner, { recursive: true, force: true });
 });

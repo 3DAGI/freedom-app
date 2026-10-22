@@ -30,6 +30,7 @@ import {
   startUrls,
   gratisAusUmgebung,
   ANGEBOT_TAKT_SEK,
+  lokaleKiAdresse,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -41,13 +42,18 @@ import { livekitAusUmgebung } from "./livekit.js";
 import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
+import { sandboxPlattform } from "./repo-lauf.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
-import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
+import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
-import { oeffneModellBruecke } from "./modell-bruecke.js";
+import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
 import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
+import { DevServer } from "./dev-server.js";
+import { BildStrom, bildFehlt, bildKodierer, nvencDa } from "./bildstrom.js";
+import { turnZiel } from "./turn-tunnel.js";
+import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
 import { kopplungsDatei, kurzcodeDatei, leseKopplung } from "./kopplung-datei.js";
 import { KurzcodeDienst } from "./kurzcode-dienst.js";
@@ -480,9 +486,48 @@ async function main(): Promise<void> {
   // Sandbox (VKb): Code führt der Knoten nur in bubblewrap aus – ob sie hier geht, steht im Log. Der Motor (VKc3) nur
   // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
   let code: CodeLaeufe | undefined;
+  let bild: BildStrom | undefined;
   if (projekte) {
     const sandbox = await pruefeSandbox();
     console.log(`[code] ${sandboxText(sandbox)}`);
+    // Dev-Server der Vorschau (VKg1c): `npm run dev` nur in der Sandbox – ohne sie zeigt die Vorschau nur die Dateien
+    if (vorschau && sandbox.ok) {
+      const dev = new DevServer(projekte);
+      vorschau.nutzeDev(dev);
+      setInterval(() => dev.raeumeAuf(), 5 * 60_000).unref();
+      process.on("exit", () => dev.beendeAlle());
+    }
+    // Bildstrom für Programme ohne Web (VKg2a2): nur mit Sandbox, eigenem TURN und GStreamer – sonst `code-bild-aus`.
+    // TURN_INTERN (host:port): wie der Knoten selbst den TURN erreicht, wenn der öffentliche Name von innen nicht geht
+    if (sandbox.ok && turn) {
+      const ziel = turnZiel(turn.urls, process.env.TURN_INTERN);
+      if (!ziel) {
+        console.error("[bild] TURN_INTERN ungültig (host:port) – der Knoten startet nicht");
+        process.exit(1);
+      }
+      const fehlt = await bildFehlt();
+      if (fehlt) console.log(`[bild] aus – ${fehlt}`);
+      else {
+        // Web-Projekte (VKg2c1) zeigt derselbe Chromium wie beim Motor – ohne ihn zeigt das Bild nur Programme
+        let browser = browserAusUmgebung(process.env);
+        try {
+          if (browser) browserLesbar(browser);
+        } catch {
+          browser = null;
+        }
+        // Kodierer (VKg2c2): H.264 über NVENC, wo es geht – nur dann bekommt die Bild-Sandbox die GPU
+        const nvenc = await nvencDa();
+        const kodierer = bildKodierer(process.env, nvenc);
+        if (!kodierer) {
+          console.error("[bild] BILD_KODIERER ungültig (vp8, auto oder leer) – der Knoten startet nicht");
+          process.exit(1);
+        }
+        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}) });
+        process.on("exit", () => b.beendeAlle());
+        bild = b;
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
+      }
+    }
     const hermesWahl = hermesAusUmgebung(process.env);
     if ("ungueltig" in hermesWahl) {
       console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);
@@ -502,7 +547,12 @@ async function main(): Promise<void> {
       werkzeuge.register(new WebSearchExecutor());
       werkzeuge.register(new BrowserExecutor());
       const freigaben = new LeseFreigaben();
-      const bruecke = await oeffneModellBruecke(antrieb, { mcp: (n) => mcpAntwort(n, werkzeuge, freigaben) });
+      // Pakete (VKd3): npm und PyPI nur von der festen Liste, über die Brücke – mit Tor durch Tor
+      const spiegelKonto = new SpiegelKonto();
+      const bruecke = await oeffneModellBruecke(antrieb, {
+        mcp: (n) => mcpAntwort(n, werkzeuge, freigaben),
+        spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
+      });
       process.on("exit", () => bruecke.schliesse());
       code = new CodeLaeufe({
         ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
@@ -533,7 +583,20 @@ async function main(): Promise<void> {
       console.error("[agent] Der Agent braucht einen eigenen Schlüssel, nicht den des Knotens – der Knoten startet nicht");
       process.exit(1);
     }
-    knotenAgent = new KnotenAgent({ schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei() });
+    // Repo-Aufträge (11.5c2a): nur mit AGENT_REPO=1 und nur, wenn die Sandbox geht – nie Code direkt auf dem Rechner
+    let repoSandbox = false;
+    if (agentWahl.einstellung.repo) {
+      const sandbox = await pruefeSandbox();
+      repoSandbox = sandbox.ok;
+      console.log(`[agent] Repo-Aufträge ${sandbox.ok ? "an" : "aus"} – ${sandboxText(sandbox)}`);
+    }
+    knotenAgent = new KnotenAgent({
+      schluessel: s, einstellung: agentWahl.einstellung, knoten: keypair.pk, pool, datei: agentBeantwortetDatei(),
+      // Pakete für Repo-Aufträge offener Räume (11.5c3) mit Tor durch Tor – nie direkt, wenn Tor verlangt ist
+      ...(repoSandbox ? { repo: { pakete: { tor: torProxy ?? null, plattform: await sandboxPlattform() } } } : {}),
+      // Private Räume (11.5c2b, P2): Repo-Aufträge nur mit einem Modell auf diesem Rechner
+      modellLokal: !!lokaleKiAdresse(antrieb.url),
+    });
     console.log(`[agent] Agent auf dem Knoten: pubkey=${s.pk} – offene Räume, wer fragt, zahlt`);
     // Private Räume (11.3d2a, MENSCH 10.10.): nur mit AGENT_PRIVAT – eigenes MLS-Konto, Stand verschlüsselt, Chat nur im Speicher
     const einladen = agentWahl.einstellung.privat;
@@ -562,6 +625,7 @@ async function main(): Promise<void> {
       projekte,
       agent: knotenAgent,
       ...(code ? { code } : {}),
+      ...(bild ? { bild } : {}),
       ...(vorschau ? { vorschau } : {}),
       livekit,
       signal,
@@ -1098,13 +1162,13 @@ async function main(): Promise<void> {
       const { MockSolana } = await import("@freedomstack/protocol");
       sol = new MockSolana(Number(process.env.LP_SOL_BALANCE ?? 1_000_000_000));
     } else {
-      const { AnchorSolanaHtlc, loadSolanaKeypair } = await import("@freedomstack/protocol");
+      const { AnchorSolanaHtlc, ladeSolanaSchluessel } = await import("@freedomstack/protocol");
       const solKeypairPath = process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`;
-      const solKp = await loadSolanaKeypair(solKeypairPath);
-      lpSolAdresse = solKp.publicKey.toBase58();
+      const solSchluessel = await ladeSolanaSchluessel(solKeypairPath);
+      lpSolAdresse = solSchluessel.adresse;
       sol = new AnchorSolanaHtlc({
         rpcUrl: process.env.SOLANA_RPC ?? "https://api.devnet.solana.com",
-        keypair: solKp,
+        schluessel: solSchluessel,
       });
       console.log(`Solana-HTLC: echter Devnet-Adapter (${solKeypairPath})`);
     }
@@ -1159,18 +1223,18 @@ async function main(): Promise<void> {
   let relayer: import("./relayer-dienst.js").RelayerDienst | undefined;
   if (process.env.RELAYER_ENABLED === "1") {
     const { RelayerDienst } = await import("./relayer-dienst.js");
-    const { loadSolanaKeypair, LocalSigner, HTLC_PROGRAMM_ID } = await import("@freedomstack/protocol");
-    const { Connection } = await import("@solana/web3.js");
+    const { ladeSolanaSchluessel, LocalSigner, HTLC_PROGRAMM_ID, poolRpc, RpcPool, sendeTransaktion } = await import("@freedomstack/protocol");
     const rpc = process.env.SOLANA_RPC ?? "https://api.devnet.solana.com";
-    const conn = new Connection(rpc, "confirmed");
+    // Seit A-21e2 über kit und den RpcPool: senden immer mit Vorabsimulation (sendeTransaktion)
+    const relayerRpc = poolRpc(new RpcPool([{ url: rpc }]));
     relayer = new RelayerDienst({
       signer: new LocalSigner(keypair.sk),
-      solKeypair: await loadSolanaKeypair(process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`),
+      solSchluessel: await ladeSolanaSchluessel(process.env.SOLANA_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`),
       programmId: HTLC_PROGRAMM_ID,
       erstattungLamports: Number(process.env.RELAYER_ERSTATTUNG ?? 10_000),
       kette: /devnet/.test(rpc) ? "solana:devnet" : /testnet/.test(rpc) ? "solana:testnet" : "solana:mainnet",
       maxProStunde: Number(process.env.RELAYER_MAX_PRO_STUNDE ?? 30),
-    }, pool, (roh) => conn.sendRawTransaction(roh, { skipPreflight: false, preflightCommitment: "confirmed" }));
+    }, pool, (roh) => sendeTransaktion(relayerRpc, roh));
     await relayer.veroeffentlicheAngebot();
     statusRollen.add("relayer");
     console.log(`Relayer aktiv (${relayer.solAdresse.slice(0, 8)}…)`);

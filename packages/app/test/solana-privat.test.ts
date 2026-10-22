@@ -26,8 +26,14 @@ test("Verdrahtung (4.9e): Trinkgeld verrauscht runde Betraege (Standard an), die
   assert.match(z, /<input type="checkbox" id="zap-rauschen" checked \/>/);
   assert.match(z, /if \(r\.suspicious && r\.suggested\) lamports = r\.suggested;/);
   assert.ok(z.indexOf("lamports = r.suggested") < z.indexOf("await zahle(zahlschienen(), { ziel, betrag: { einheit: \"lamports\", wert: lamports }"), "erst verrauschen, dann zahlen");
-  for (const datei of ["../src/sol-transfer.ts", "../src/shell/state.ts", "../src/solana-connect.ts"]) {
+  for (const datei of ["../src/shell/state.ts", "../src/solana-connect.ts"]) {
     const s = readFileSync(new URL(datei, import.meta.url), "utf8");
     assert.match(s, /new RpcPool\(DEFAULT_MAINNET_RPCS, \{[\s\S]*?verteilen: true/, datei);
   }
+  // Seit A-21d3a ohne eigenen Pool: Überweisung und Zahlschienen fragen über den der App (`solRpc()`)
+  for (const datei of ["../src/sol-transfer.ts", "../src/shell/zahlschienen.ts"]) {
+    const s = readFileSync(new URL(datei, import.meta.url), "utf8");
+    assert.doesNotMatch(s, /new RpcPool|new Connection|solRpcUrl/, datei);
+  }
+  assert.match(readFileSync(new URL("../src/shell/zahlschienen.ts", import.meta.url), "utf8"), /buildSolTransfer\(von, an, lamports, referenz, await solRpc\(\)\)/);
 });

@@ -13,15 +13,14 @@
  */
 import {
   type NostrEvent, type OutboxPool, type Signer,
-  KIND_GIFT_WRAP, buildRelayAntwort, buildRelayerAngebot, oeffneRelayAuftrag, pruefeRelayAuftrag,
+  KIND_GIFT_WRAP, alsDraht, ausDraht, buildRelayAntwort, buildRelayerAngebot, oeffneRelayAuftrag, pruefeRelayAuftrag, signiereMit,
 } from "@freedomstack/protocol";
-import { Transaction, type Keypair } from "@solana/web3.js";
 
 export interface RelayerConfig {
   /** Nostr-Schluessel des Knotens (Auftraege kommen versiegelt an ihn). */
   signer: Signer;
-  /** Solana-Schluessel, der die Gebuehren zahlt. */
-  solKeypair: Keypair;
+  /** Solana-Schluessel, der die Gebuehren zahlt – aus `ladeSolanaSchluessel()` (seit A-21e2 ohne web3.js). */
+  solSchluessel: { geheim: Uint8Array; adresse: string };
   programmId: string;
   /** Was der Kunde in derselben Transaktion zurueckzahlt (deckt Gebuehr plus Aufschlag). */
   erstattungLamports: number;
@@ -43,7 +42,7 @@ export class RelayerDienst {
   ) {}
 
   get solAdresse(): string {
-    return this.cfg.solKeypair.publicKey.toBase58();
+    return this.cfg.solSchluessel.adresse;
   }
 
   async veroeffentlicheAngebot(): Promise<void> {
@@ -80,10 +79,11 @@ export class RelayerDienst {
     if (this.gesendet.length >= this.cfg.maxProStunde) return antworte("ABGELEHNT", { grund: "Relayer ausgelastet – später erneut" });
     const p = pruefeRelayAuftrag(a.tx, { relayer: this.solAdresse, programmId: this.cfg.programmId, erstattungMin: this.cfg.erstattungLamports });
     if (!p.ok) return antworte("ABGELEHNT", { grund: p.grund });
+    // Mitsignieren über kit (A-21e2): dieselbe Nachricht, die pruefeRelayAuftrag() gelesen hat, nur die eigene Signatur dazu
+    const signiert = signiereMit(ausDraht(a.tx), this.cfg.solSchluessel.geheim);
+    if (!signiert) return antworte("ABGELEHNT", { grund: "Relayer ist nicht Gebührenzahler" }); // prüft schon pruefeRelayAuftrag()
     try {
-      const tx = Transaction.from(a.tx);
-      tx.partialSign(this.cfg.solKeypair);
-      const signatur = await this.senden(tx.serialize());
+      const signatur = await this.senden(alsDraht(signiert));
       this.gesendet.push(this.jetzt());
       return antworte("GESENDET", { signatur });
     } catch (e) {

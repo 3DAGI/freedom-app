@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setLang } from "../src/i18n.js";
-import { CODE_FALL_TEXT, bundleVerweis, codeAblehnungText, projektZeile } from "../src/knoten-projekte.js";
+import { CODE_FALL_TEXT, bundleVerweis, codeAblehnungText, projektZeile, vorschauUnverschluesselt } from "../src/knoten-projekte.js";
 import { settings } from "../src/texte/settings.js";
 import { repos } from "../src/texte/repos.js";
 
@@ -71,6 +71,21 @@ test("VKl2: Verdrahtung – Projekte nur gekoppelt und auf Knopfdruck, versiegel
   assert.match(fn, /if \(!imRaum && !ausKnoten && w\.wo === LOKAL\)/);
   for (const k of ["repo.knotenHinweis", "repo.knotenEingestellt"]) {
     const e = (repos as Record<string, { de: string; en: string }>)[k];
+    assert.ok(e?.de && e.en, k);
+  }
+});
+
+test("VKg1b: Vorschau – Hinweis auf Mitlesen nur bei http außer .onion; das Blatt öffnet nur ohne Verweis zurück", () => {
+  const z = "5c".repeat(32);
+  assert.equal(vorschauUnverschluesselt(`http://192.168.1.20:3603/${z}/`), true);
+  assert.equal(vorschauUnverschluesselt(`https://vorschau.example.org/${z}/`), false);
+  assert.equal(vorschauUnverschluesselt(`http://${"a".repeat(56)}.onion/${z}/`), false);
+  const blatt = lies("shell/knoten-projekt-ui.ts");
+  assert.match(blatt, /setAttribute\("rel", "noopener noreferrer"\)/);
+  assert.match(blatt, /if \(huellenArt\(\)\) teile\.push\(el\("p", t\("set\.vorschauHuelle"\)/, "in der Hülle kein Link – sie öffnet keine Fenster");
+  assert.match(blatt, /qrKnopf\(url, \{ beschriftung: t\("set\.vorschauQr"\), geheim: true \}\)/, "die Adresse ist ein Zugang");
+  for (const k of ["set.projektVorschau", "set.projektVorschauAria", "set.vorschauText", "set.vorschauOeffnen", "set.vorschauHuelle", "set.vorschauKopieren", "set.vorschauQr", "set.vorschauHttp", "set.vorschauGeheim"]) {
+    const e = (settings as Record<string, { de: string; en: string }>)[k];
     assert.ok(e?.de && e.en, k);
   }
 });

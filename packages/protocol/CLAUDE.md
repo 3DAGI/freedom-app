@@ -71,6 +71,9 @@ Fallstricke dieses Bereichs unten anhängen.
   pflegen nie (V6): Wer Rechte oder Status eines Raum-Repos rechnet und den Raum kennt, gibt `istAgent` mit –
   `patchStatus()`, `mitRaumRechten()`, `raumReposPrivat()` (offen `istAgentIm()`, privat die Agent-Karten der
   Gruppe). Ohne `istAgent` zählt ein Agent mit `repos_pflegen` oder als Admin wie ein Mensch.
+  Den Code für den Agenten (seit 11.5c2a) nur aus `neuesterBundleVerweis()` (Eigentümer oder Pfleger, `d` = Kennung, mit
+  Schlüssel); die Antwort nennt Patch und Ausgang nur über `agentAntwortEvent(…, { patch, fall })` (`fall` nur `repo.…`), im privaten
+  Raum (seit 11.5c2b) über `raumAgentAntwort(…, { patch, fall })` – beide über `repoAntwortTags()`, `patch` ist dort die Id des inneren Events.
 - **Solana-Anweisungen nur als kit-`Instruction`** (seit A-21b1, `docs/KIT-PLAN.md`): neue Anweisungen über
   `@solana/kit` (`address()`, `AccountRole`, Konten über `konto()`), System-Anweisungen aus `@solana-program/system`
   (Unterschrift nur als Rolle über `createNoopSigner()`), Ed25519 nur über `ed25519Anweisung()` – web3.js bekommt sie
@@ -81,10 +84,12 @@ Fallstricke dieses Bereichs unten anhängen.
   `anweisung()`, `ueberweisungAnweisung()`) – dort weiterreichen, was sie braucht, nie eine eigene Abhängigkeit der App.
 
 - **Einen Export entfernen heißt auch `contracts/` durchsuchen** (seit A-21b2): Die Validator-Tests
-  (`contracts/solana-channel/tests/*.ts`) importieren direkt aus `packages/protocol/src`; `check-wiring.py` zählt sie
-  nicht, und die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur
-  `packages/`) und `npx tsc -p contracts/solana-channel/tsconfig.json` – A-21b2 entfernte `oeffneKanalIx()` & Co.,
-  erst der CI-Job „Zahlkanal“ fand die Nutzer dort.
+  (`contracts/solana-channel/tests/*.ts`, seit A-28a `contracts/solana-htlc/tests/*.ts`, seit A-12a1
+  `contracts/squads/tests/*.ts`) importieren direkt aus `packages/protocol/src`; `check-wiring.py` zählt sie nicht, und
+  die Paket-Tests laufen ohne sie. Vor dem Entfernen `git grep -n <name>` über das ganze Repo (nicht nur `packages/`) und
+  `npx tsc -p contracts/solana-channel/tsconfig.json` (beim HTLC `contracts/solana-htlc/tsconfig.validator.json`, bei der
+  Kasse `contracts/squads/tsconfig.json`) – A-21b2 entfernte `oeffneKanalIx()` & Co., erst der CI-Job „Zahlkanal“ fand
+  die Nutzer dort.
 - **Solana lesen nur über `poolRpc()`** (seit A-21c, `kit-rpc.ts`): kit fragt die Kette nur über den `RpcPool`
   (`poolTransport()` → `pool.call()`), nie über `createSolanaRpc(url)` oder eine neue `Connection` zum Lesen – sonst fallen
   Ausweichen, eigene Endpunkte zuerst und die Stichprobe (5.8) weg. Die App nimmt `solRpc()` (`shell/state.ts`, der
@@ -132,3 +137,46 @@ Fallstricke dieses Bereichs unten anhängen.
   falschen Rechnung ergeben nicht das Geheimnis“ hing an einem zufälligen Dreier – ob er passt, hängt nur an den x-Werten
   der Bibliothek, für alle Bytes zugleich: etwa jeder 250. Lauf passte (in der CI rot). Was nur „meistens“ gilt, über alle
   Möglichkeiten prüfen (hier: nicht alle zehn Dreier) und die Rate einmal messen, bevor man sich auf sie verlässt.
+- **Senden und Bestätigen nur über `kit-rpc.ts`** (seit A-21d3a): `sendeTransaktion()` schickt immer mit Vorabsimulation
+  (nie `skipPreflight`), bestätigt wird nur über `warteAufBestaetigung()` – sie fragt nach, bis „confirmed“, und gibt den
+  Fehler der Kette zurück (`null` heißt gelungen), statt zu werfen; über der letzten Blockhöhe ohne Bestätigung wirft sie
+  `tx-abgelaufen` (nur für Blockhash, nie für Durable Nonce). kit liefert Zahlen in Fehlern als BigInt – `JSON.stringify()`
+  wirft dann; als Text nur über `txFehlerText()`. Lehnt die Vorabsimulation ab, wirft kit einen `SolanaError` (-32002), der
+  Fehler des Programms steht in `cause` (`context.code`), und der Pool reicht ihn nicht an den nächsten Endpunkt.
+  Senden und Nachfragen einer Transaktion nur über `RpcPool.einVorgang()` (App: `solRpc({ einVorgang: true })`): Mit
+  `verteilen` zieht der Pool je Anfrage neu – sonst sähen alle Anbieter die Signatur samt IP (4.9).
+  Programmfehler (seit A-21d3b) nur über `programmFehlerCode()` – `typeof x === "number"` übersieht kits BigInt, und
+  in der Vorabsimulation steht der Code nur in `cause`. Den Stand einer fremden Signatur nur über
+  `leseSignaturStand()` (prüft die Form, bevor gefragt wird).
+  Mit dem eigenen Schlüssel (Knoten, seit A-21e1) nur über `sendeMitSchluessel()` – bauen, signieren, senden, bestätigen;
+  es wirft, wenn die Kette ablehnt (die Kasse gibt nur den Fehlernamen weiter). Schlüsseldateien von solana-keygen nur über
+  `ladeSolanaSchluessel()` bzw. `solSchluesselAus()`: 64 Byte, der öffentliche Teil muss zum geheimen passen, zurück kommen
+  der geheime Teil (32 Byte, hält der Aufrufer) und die Adresse – nie das ganze Array weiterreichen.
+  Der HTLC-Adapter (`AnchorSolanaHtlc`) nimmt seit A-21e2 einen solchen `schluessel` und sendet über
+  `sendeMitSchluessel()`; ein Relayer signiert fremde Transaktionen nur über `ausDraht()` → `signiereMit()` →
+  `alsDraht()` (dieselbe Nachricht, die `pruefeRelayAuftrag()` gelesen hat). Die LP-Vektoren entstehen aus einer
+  JSON-RPC-Attrappe hinter dem Pool (`sol-vektoren-faelle.ts`) – nie wieder eine Attrappe von `Connection`.
+- **Kasse nur über `kasse.ts`** (seit A-12a1, `docs/KASSE-ENTWURF.md`): Squads v4 ohne SDK (W1 B) – Anweisungen nach der IDL
+  2.1.0, Konten selbst gelesen (`leseKassenStand()`, `leseProgrammEinstellungen()`, Diskriminator und Länge geprüft, nur Konten
+  von `SQUADS_PROGRAMM_ID`). Angelegt wird nur über `kasseAnlegenAnweisung()`: `config_authority` immer leer (V2), Mitglieder und
+  Schwelle nur aus `kassenMitglieder()` (W2), Zeitschloss nur 0, 1 h oder 24 h (W3), Miete zurück in den Tresor, das Schatzamt aus
+  den Einstellungen des Programms. Die Art einer Kasse nur über `kassenArt()` aus dem Stand auf der Kette, nie aus dem Raum. Die
+  Vektoren „kasse-…“ rechnet das SDK von Squads (`@sqds/multisig`, nur außerhalb des Repos), nie `kasse.ts` selbst.
+  Auszahlen (seit A-12a2) nur über `auszahlungVorschlagenAnweisungen()`, `abstimmenAnweisung()`, `ausfuehrenAnweisung()`,
+  `abschliessenAnweisung()`; ausgeführt nur mit der `Auszahlung` aus `leseAuszahlung()` (Empfänger und Betrag von der Kette, V6).
+  Die Nachricht hat zwei Formate: beim Anlegen das kompakte von Squads (Längen u8/u16, `auszahlungsNachricht()`), im Konto
+  Borsh (Längen u32) – nie das eine mit dem Leser des anderen lesen. Eine Transaktion anderer Form ist keine Auszahlung (`null`).
+  Im Raum (seit A-12b1, `raum-kasse.ts`, `docs/PROTOCOL.md` §42) steht die Kasse nur als Tag `kasse` in der Definition (offen die
+  des Gründers, privat die eines Admins) – wer die Definition neu schreibt, gibt sie mit. Wer welche Adresse hat, nur über
+  `kassenAdressenOffen()`/`kassenAdressenPrivat()` (Kind 34704, Nachweis: die Adresse signiert Ort und Schlüssel, eine doppelt genannte
+  Adresse gilt für keinen), privat nur als inneres Event (`raumKassenAdresse()`); Abweichungen nur über `kassenAbweichungen()` – es
+  zählt die Kette. `KASSEN_RECHT` (Bits bei Squads) ist nicht `RAUM_KASSEN_RECHT` (Recht im Raum).
+  Die Transaktion zum Anlegen (seit A-12b2b) nur über `baueKasseAnlegen()`: frischer Create-Key, unterschreibt dort und wird
+  genullt – er geht nie an die App. Miete nur nach `kassenKontoGroesse()` (der Validator-Test vergleicht sie mit der Länge des
+  Kontos). Wer nur auf einer Kette handeln darf, baut seinen Pool aus `endpunkteImNetz()` (Genesis-Hash je Endpunkt) und ohne
+  eingebaute Endpunkte (`new RpcPool([], …)`) – `new RpcPool()` ohne Liste nimmt `DEFAULT_MAINNET_RPCS`.
+  Was mit einem Vorschlag geht (seit A-12c1), sagt nur `vorschlagsSchritte()` – die Regeln von Squads v4, im Validator in jedem
+  Stand gegen beide Programme geprüft; eine neue Regel braucht dort einen Fall. Die Miete eines Vorschlags rechnet nur
+  `auszahlungKontoGroessen()` (Validator vergleicht die Länge); ein anderer Zahler der Miete nur über `mietZahler` (Vektor
+  „kasse-vorschlagen-mietzahler“ aus dem SDK). Ausführen und abschließen dürfen in eine Transaktion (Vektor
+  „kasse-ausfuehren-abschliessen“) – das Programm sieht den Status „ausgeführt“ schon in der zweiten Anweisung.

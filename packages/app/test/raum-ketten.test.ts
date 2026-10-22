@@ -44,7 +44,7 @@ test("Private Definition: die neueste eines Admins – Mitglieder zählen nicht"
 test("Verdrahtet: privat nimmt jede neue Definition den Schalter mit, offen nie in derselben Sekunde, Menü nur für Verwalter", () => {
   const mls = lies("shell/raum-mls.ts");
   assert.match(mls, /return \{ \.\.\.d, tags: mitKetten\(d\.tags, kettenGrenze\(privateDefinition\(raum\.ereignisse, raum\.admins\)\)\) \};/);
-  assert.equal((mls.match(/definitionMitKetten\(raum, \{/g) ?? []).length, 3, "Raumstand, Kanal anlegen, Kanal ändern");
+  assert.equal((mls.match(/definitionMitKetten\(raum, \{/g) ?? []).length, 4, "Raumstand, Kanal anlegen, Kanal ändern, Kasse (A-12b2b)");
   assert.doesNotMatch(mls.slice(mls.indexOf("export async function sendeRaumstand(")), /raumDefinition\(raum\.gruppe, \{ name: st\.space/);
   const setze = mls.slice(mls.indexOf("export function setzePrivateKetten("), mls.indexOf("/** Den Raumstand"));
   assert.match(setze, /if \(!sp \|\| !raum\.admins\.includes\(raum\.ich\)\) return Promise\.resolve\(false\);/);

@@ -219,14 +219,14 @@ test("11.3d1a: Verdrahtung – main startet den Agenten nur gültig, mit eigenem
   assert.match(main, /const agentWahl = agentAusUmgebung\(process\.env\);\n  if \(agentWahl\?\.grund\) \{\n    console\.error\(`\[agent\] \$\{agentWahl\.grund\} – der Knoten startet nicht`\);\n    process\.exit\(1\);/);
   assert.match(main, /s = ladeKnotenSchluessel\(undefined, agentSchluesselDatei\(\), \{ anlegen: true \}\);/);
   assert.match(main, /if \(s\.pk === keypair\.pk\) \{/);
-  assert.match(main, /knotenAgent = new KnotenAgent\(\{ schluessel: s, einstellung: agentWahl\.einstellung, knoten: keypair\.pk, pool, datei: agentBeantwortetDatei\(\) \}\);/);
+  assert.match(main, /knotenAgent = new KnotenAgent\(\{\n      schluessel: s, einstellung: agentWahl\.einstellung, knoten: keypair\.pk, pool, datei: agentBeantwortetDatei\(\),\s/);
   assert.match(main, /      agent: knotenAgent,\n/);
   assert.equal(main.match(/if \(knotenAgent\) await pool\.publish\(knotenAgent\.karte\(\)\)/g)?.length, 2, "beim Start und mit jedem Erneuern");
   const provider = quelle("../src/dvm-provider.ts");
   assert.match(provider, /if \(verweis && !privat\) throw new AgentAbgelehnt\("agent-nur-versiegelt"\);/);
   assert.match(provider, /const agentAuftrag: AgentAuftrag \| undefined = verweis \? await this\.cfg\.agent!\.pruefe\(verweis\) : undefined;/);
   assert.match(provider, /if \(agentAuftrag\) finalPrompt = agentAuftrag\.prompt;/);
-  assert.match(provider, /if \(agentAuftrag\) await this\.cfg\.agent!\.antworte\(agentAuftrag, result\.output\);/);
+  assert.match(provider, /if \(agentAuftrag\) await this\.cfg\.agent!\.antworte\(agentAuftrag, result\.output, /);
   const agent = quelle("../src/knoten-agent.ts");
   assert.doesNotMatch(agent, /console\./, "der Agent schreibt nichts ins Log");
 });

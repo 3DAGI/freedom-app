@@ -777,8 +777,13 @@ Fallstricke dieses Bereichs unten anhängen.
   `@freedomstack/protocol` (`kit-bruecke.ts`); seit A-21d2 baut kit auch jede Transaktion der App (`baueTransaktion()`,
   `signiertVonWallet()` in `sol-htlc.ts`), Wallets bekommen nur kit-Transaktionen über `WalletSigner.signiereTransaktion()` –
   die eingebaute über ihr `signiereTransaktion()` (Kopien genullt), Wallet Standard als Bytes (`alsAnbieter()`), Wallets nur
-  mit `window.solana` über `ueberWeb3()` (bis W4). Nie wieder `signTransaction(web3Tx)` als Schnittstelle. Gesendet wird bis
-  A-21d3 über `Connection.sendRawTransaction(alsDraht(…))`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
+  mit `window.solana` über `ueberWeb3()` (bis W4). Nie wieder `signTransaction(web3Tx)` als Schnittstelle. Gesendet wird
+  seit A-21d3a über den Pool: Überweisung, Zahlschienen, Nonce-Konto und SOL ohne Internet über `sendeTransaktion()` und
+  `warteAufBestaetigung()` (`kit-rpc.ts`), Senden und Nachfragen einer Transaktion mit `solRpc({ einVorgang: true })`;
+  seit A-21d3b ebenso HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen – mit der Wallet über
+  `signiertVonWallet(rpc, …)` und `sendeUndWarte()` (`sol-htlc.ts`), Programmfehler nur über `describeHtlcError()` →
+  `programmFehlerCode()` (kit liefert BigInt und `SolanaError`). Kein `new Connection` mehr in der App; web3.js bleibt
+  nur für `swapAddress()` und die Brücke `ueberWeb3()`. Das neue Nonce-Konto unterschreibt mit `neuerKontoSchluessel()`
   und wird gleich danach genullt. Nie `@solana/kit` in die `package.json` der App: npm legte eine zweite Kopie von 8.4.0 neben die des
   Protokolls (im Wurzelordner liegt kit 5.x für andere Pakete), und das Bundle trüge beide. Die HTLC-PDA nur über
   `swapAddress()` (web3.js, synchron gerechnet) – kits `getProgramDerivedAddress()` braucht `crypto.subtle`, das der
@@ -833,7 +838,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `begleiche()`. Kein Budget, keine Fenster, kein Vorziehen eines Providers wegen offener Sitzung – nicht wieder
   einführen: Schlüssel kosten nichts, jeder neue bekäme wieder Kredit.
 - **Attrappen für kit-Transaktionen** (seit A-21d2): kit prüft den Blockhash streng – 32 Byte, base58 (`blockhash()`);
-  web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Wer in Tests liest, was die
+  web3.js nahm auch „Fake111…“ (31 Byte). Attrappen der Verbindung nennen einen echten Wert. Seit A-21d3b ist die
+  Kette in Tests nur `ketteAttrappe()` (`test/kette-attrappe.ts`): ein Endpunkt hinter einem echten `RpcPool`, Signatur
+  die erste aus dem Draht, `fehler` (bestätigt abgelehnt) und `vorab` (Vorabsimulation lehnt ab) – keine Attrappen von
+  `Connection` mehr. Wer in Tests liest, was die
   Wallet bekam, nimmt `leseNachricht()` – das ist die fertige Nachricht: Der Gebührenzahler unterschreibt dort immer, auch wo
   die Anweisung selbst keine Unterschrift verlangt (Z1: das an der Anweisung prüfen, `erstatteKanalAnweisung().accounts`).
 - **Projekte-Seite nur über `shell/knoten-projekt-ui.ts`** (seit VKe1): Der Lauf gehört dem Knoten – die Seite gibt den
@@ -841,7 +849,8 @@ Fallstricke dieses Bereichs unten anhängen.
   jeder Umschlag einmal, Schritte nur über `leseCodeSchritt()`, eine Ablehnung nur mit Kennung). Schritte nur über
   `nimmSchritt()` (`knoten-lauf.ts`) – geordnet nach `nr` und Art, nie nach Ankunft (Umschläge tragen zufällige
   Zeitstempel); „Ja“ und „Nein“ nur, solange `wartetAufMich()` es sagt, gesendet nur über `frageKnotenCode()` wie der
-  Stopp. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
+  Stopp. Das Ende eines Laufs (Ergebnis oder Ablehnung) zählt erst nach allen Schritten derselben Abfrage (seit A-32): Der
+  Pool sortiert nach Sekunde, neu zuerst – kamen Ausgabe und Ergebnis zusammen, ging die Ausgabe sonst verloren. Wie ein Lauf endete, nur aus der Kennung (`CODE_ENDE_TEXT`), der Abschluss nur über `markdownDom()`. Läufe
   stehen nur im Speicher (`laeufe`), nie in `localStorage` oder `geheim` – Aufträge und Ausgaben sind Inhalt des Projekts.
   „fragen“ nie als „vor jedem Befehl“ beschreiben: Hermes fragt vor Änderungen an Dateien und riskanten Befehlen.
   Im Smoke-Test („projekt“) antwortet `scripts/knoten-code-probe.mts` hinter der Relay-Attrappe.
@@ -902,6 +911,43 @@ Fallstricke dieses Bereichs unten anhängen.
   Stimme nicht vorlesen, nie auf eine Netzstimme ausweichen. Die Spracherkennung des Browsers (`…Recognition`) schickt in
   Chrome den Ton an Google – nie benutzen, ein Test sucht danach. Im Smoke-Test („lokal“) spielt `SPRACHE_ATTRAPPE`
   `speechSynthesis` mit einer Netzstimme als Vorgabe.
+- **Vorschau nur aus der versiegelten Antwort** (seit VKg1b, `knoten-projekt-ui.ts`): Die Adresse kommt nur aus
+  `leseCodeAntwort(…, "vorschau")` (`istVorschauAdresse()`: http oder https, Pfad genau das Zeichen) und wird nur als Link mit
+  `target="_blank"` und `rel="noopener noreferrer"` geöffnet – die Vorschau ist Code des Agenten und bekommt keinen Griff auf
+  das Fenster der App. Nie in einen Rahmen der App laden (er erbte die CSP, VKe2b) und nie die CSP dafür lockern. Die Hülle
+  verweigert neue Fenster (`on_new_window`) – dort nur Adresse, Kopieren und QR. Der QR-Code trägt einen Zugang: nur mit
+  `geheim: true`.
+- **Bild vom Knoten nur über den eigenen TURN** (seit VKg2b, `shell/bild-ui.ts`, `bild-ablauf.ts`): Zugang nur aus
+  `eigenerTurnZugang()`, `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, das Angebot nur nach `nurRelaySdp()` und
+  `istBildSdp()` in der versiegelten Code-Aktion `bild` – wie Anrufe (B-13); ohne eigenen TURN kein Bild, nie ohne Relay.
+  Auf den Datenkanal `eingabe` nur, was `eingabeText()` durchlässt (Format `PROTOCOL.md` §34), nie freien Text. Das Bild
+  endet (`bild-ende`), sobald das Blatt etwas anderes zeigt (`lauf()`) oder zugeht. Im Smoke-Test („bild“) startet der Test
+  ein echtes coturn auf 127.0.0.1, eine zweite Seite spielt den Knoten (Leinwand) – in der CI installiert der Smoke-Job coturn.
+- **Kasse im Raum nur über `shell/raum-kasse-ui.ts`** (seit A-12b2a, `docs/KASSE-ENTWURF.md`): die eigene Adresse nennt die
+  App nur mit dem Recht „kasse“ und als Person (`darfKassenAdresse()`), erst nach `bestaetige()` (offen sagt der Text, dass
+  der Schlüssel öffentlich mit der Adresse verbunden wird), nur frisch aus dem Vorrat über `frischeKassenAdresse()`
+  (`shell/eingebaute-wallet.ts` – die Regel „Zahlwege“ lässt die Wallet nur dort zu), nie die Hauptadresse. Die Wallet
+  signiert dafür nur `kassenNachweis()` – den festen Text der Kasse, nie beliebige Bytes, die eine Transaktion sein
+  könnten. Offen nur `baueKassenAdresse()` an die Adresse des Raums, privat nur `raumKassenAdresse()` über
+  `mlsSendeEvent()`. Wer die private Definition neu schreibt, gibt `kasse` mit (`definitionMitKetten()`,
+  `setzePrivateKetten()`) – eine neue Stelle, die `raumDefinition()` ruft, ebenso.
+  Angelegt (seit A-12b2b) nur über `legeKasseAn()` (`shell/zahlschienen.ts`) mit `devnetRpc()` – nur eigene Endpunkte mit dem
+  Genesis-Hash von Devnet, nie `solRpc()`: Der gemeinsame Pool wiche bei einem Ausfall still auf Mainnet aus, mit denselben
+  Schlüsseln (V7, bis M-8). Erst Kosten und Zahler bestätigen, dann bauen; am liebsten zahlt die Adresse für die Kasse (der
+  Zahler steht als Ersteller auf der Kette). In die Definition offen nur `mitKassenTag()` auf der neuesten des Gründers
+  (`gruenderDefinition()`, eine Sekunde danach), privat `setzePrivateKasse()`; scheitert es, fragen statt still aufgeben.
+  Stand und Einzahlen (seit A-12b2c) nur über `zeigeKasse()` und `zahleInKasse()`: gelesen nur über `devnetRpc()`, als Text
+  nur über `kassenStandText()` (`kasse-anzeige.ts`, Abweichungen aus `kassenAbweichungen()`); eingezahlt nur an
+  `kassenTresor()`, nur wenn `kassenArt()` die Kasse kennt (sonst nur zeigen), erst Rückfrage mit Zahler, dann `freigabe()`.
+  Zahler für Anlegen und Einzahlen nur über `kassenZahler()` – am liebsten die eigene Adresse für die Kasse.
+  Aus einer verbundenen Wallet (seit A-12b2d) nur ohne eingebaute (die geht vor; gesperrter Tresor → erst entsperren) und nur über
+  `signiereNachricht()` des Anbieters (`wallet-standard.ts`: `solana:signMessage`, nur wenn `signedMessage` genau die Bytes der
+  App sind, Ed25519, 64 Byte; `solana-connect.ts`: `signMessage`), signiert nur `kassenNachweisNachricht()`; gesendet erst nach
+  `pruefeKassenNachweis()`. Nie Transaktions-Bytes über `signiereNachricht()` signieren lassen.
+  Auszahlen (seit A-12c1) nur über `kassenSchritt()` (`shell/zahlschienen.ts`): nur `devnetRpc()`, nur Kassen, die `kassenArt()`
+  kennt, nur Schritte, die `vorschlagsSchritte()` aus dem frisch gelesenen Stand erlaubt – nie aus dem Stand beim Öffnen des
+  Dialogs; Empfänger und Betrag für Stimme und Ausführung nur aus `leseAuszahlungVonKette()` (V6). Gewählt wird nur, was
+  `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
 - **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach

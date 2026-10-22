@@ -5,18 +5,24 @@
  * zahlt mit `zahle(zahlschienen(), …)` – nicht mit einer eigenen Wallet-Suche.
  */
 import {
-  NONCE_KONTO_BYTES, alsDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, leseNonceKonto, neuerKontoSchluessel, nonceKontoKosten,
-  pruefeOfflineUeberweisung, signiereMit, type PaymentRail, type SolTransaktion,
+  KASSEN_RECHT, MIETE_LEERES_KONTO, NONCE_KONTO_BYTES, abschliessenAnweisung, abstimmenAnweisung, alsDraht, auszahlungKontoGroessen,
+  auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueTransaktion,
+  kassenArt, kassenKontoGroesse, kassenTresor, leseAuszahlungVonKette, leseGuthaben, leseKasse, leseKonto, leseNonceKonto,
+  leseProgrammEinstellungenVonKette, leseVorschlagVonKette, neuerKontoSchluessel, neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung,
+  sendeTransaktion, signiereMit, txFehlerText, ueberweisungAnweisung, vorschlagsSchritte, warteAufBestaetigung, type Auszahlung, type Instruction,
+  type KassenArt, type KassenSchritt, type PaymentRail, type SolRpc, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { solText } from "../preis-anzeige.js";
 import { offlineGrund } from "../protokoll-texte.js";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
-import { type EingebauteSolWallet, waehleAbsender } from "../sol-wallet.js";
+import { type EingebauteSolWallet, UEBERWEISUNG_GEBUEHR, waehleAbsender } from "../sol-wallet.js";
 import type { SolAnbieter } from "../solana-connect.js";
-import { buildSolTransfer, solRpcUrl } from "../sol-transfer.js";
+import { buildSolTransfer } from "../sol-transfer.js";
 import { NWC_VERLAUF_MAX, leseWalletBuchungen, merkeZahlung, type WalletBuchung } from "../zahlungsbuch.js";
 import { benutzbareEingebauteWallet, bestaetigeUeberLimit, frischeEmpfangsadresse } from "./eingebaute-wallet.js";
+import { devnetRpc, solRpc } from "./state.js";
 import { geheim } from "./tresor.js";
 import { netzDa } from "./ui.js";
 import { nwc, verbundeneSolanaWallet } from "./tabs/waehrung.js";
@@ -46,10 +52,18 @@ export async function eigeneSolAdresse(): Promise<{ adresse: string; art: "frisc
 }
 
 type WebLN = { enable(): Promise<void>; sendPayment(bolt11: string): Promise<{ preimage: string }> };
-/** Eine signierte Transaktion (kit, A-21d2) ueber den RPC-Pool abschicken. */
+/** Eine signierte Transaktion (kit, A-21d2) ueber den RPC-Pool abschicken – mit Vorabsimulation (A-21d3a). */
 async function sende(signiert: SolTransaktion): Promise<string> {
-  const { Connection } = await import("@solana/web3.js");
-  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(alsDraht(signiert));
+  return sendeTransaktion(await solRpc(), alsDraht(signiert));
+}
+
+/**
+ * Senden und warten, bis die Kette bestaetigt; lehnt sie ab, mit ihrem Fehler (Nonce-Konto anlegen, schliessen).
+ * `rpc` aus `solRpc({ einVorgang: true })` – die Nachfragen gehen an denselben Anbieter wie das Senden.
+ */
+async function sendeUndBestaetige(rpc: SolRpc, signiert: SolTransaktion, letzteHoehe: bigint): Promise<void> {
+  const fehler = await warteAufBestaetigung(rpc, await sendeTransaktion(rpc, alsDraht(signiert)), letzteHoehe);
+  if (fehler) throw new Error(t("zahl.txAbgelehnt", { fehler: txFehlerText(fehler) }));
 }
 
 /**
@@ -74,10 +88,9 @@ function solanaWallet(): SolanaWalletZugang | undefined {
     adresse,
     // Frische Empfangsadressen (4.9c): gezahlt wird von einer, die allein reicht.
     absender: async (lamports) => {
-      const { fetchSolBalance } = await import("../solana-connect.js");
-      const rpc = await solRpcUrl();
+      const rpc = await solRpc();
       const adressen = e.eigeneAdressen();
-      const guthaben = await Promise.all(adressen.map(async (a) => ({ adresse: a, lamports: (await fetchSolBalance(a, rpc)).lamports })));
+      const guthaben = await Promise.all(adressen.map(async (a) => ({ adresse: a, lamports: Number(await leseGuthaben(rpc, a)) })));
       return waehleAbsender(guthaben, lamports);
     },
     freigabe: (lamports, ziel) => e.freigabe(lamports, ziel, bestaetigeUeberLimit),
@@ -98,7 +111,11 @@ export function zahlschienen(): PaymentRail[] {
       webln: () => (globalThis as { webln?: WebLN }).webln,
       online: () => netzDa(),
     }),
-    new SolanaRail({ wallet: solanaWallet, baueUeberweisung: buildSolTransfer, online: () => netzDa() }),
+    new SolanaRail({
+      wallet: solanaWallet,
+      baueUeberweisung: async (von, an, lamports, referenz) => buildSolTransfer(von, an, lamports, referenz, await solRpc()),
+      online: () => netzDa(),
+    }),
   ].map(mitBuch);
 }
 
@@ -134,10 +151,9 @@ function offlineWallet(): EingebauteSolWallet {
 
 /** Den aktuellen Wert eines Nonce-Kontos von der Kette lesen und ablegen (mit Netz). */
 async function legeStandAb(konto: string): Promise<NonceAblage> {
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const info = await new Connection(await solRpcUrl(), "confirmed").getAccountInfo(new PublicKey(konto), "confirmed");
+  const info = await leseKonto(await solRpc(), konto);
   if (!info) throw new Error(t("zahl.nonceNichtGefunden"));
-  const ablage: NonceAblage = { konto, stand: leseNonceKonto(new Uint8Array(info.data)), gelesen: Math.floor(Date.now() / 1000), verbraucht: false };
+  const ablage: NonceAblage = { konto, stand: leseNonceKonto(info.daten), gelesen: Math.floor(Date.now() / 1000), verbraucht: false };
   await schreibeAblage(geheim, ablage);
   return ablage;
 }
@@ -148,24 +164,147 @@ async function legeStandAb(konto: string): Promise<NonceAblage> {
  */
 export async function legeNonceKontoAn(bestaetige: (k: { miete: number; gebuehr: number; gesamt: number }) => Promise<boolean>): Promise<NonceAblage> {
   const e = offlineWallet();
-  const { Connection } = await import("@solana/web3.js");
-  const c = new Connection(await solRpcUrl(), "confirmed");
-  const miete = await c.getMinimumBalanceForRentExemption(NONCE_KONTO_BYTES);
+  const rpc = await solRpc({ einVorgang: true });
+  const miete = Number(await rpc.getMinimumBalanceForRentExemption(BigInt(NONCE_KONTO_BYTES), { commitment: "confirmed" }).send());
   if (!(await bestaetige(nonceKontoKosten(miete)))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
-  const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
+  const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);
   // Das neue Konto unterschreibt nur hier (A-21d1) – sein Schlüssel ist danach genullt
   const konto = neuerKontoSchluessel();
   let tx: SolTransaktion;
   try {
     tx = signiereMit(baueNonceKontoAnlegen({
-      zahler: e.adresse()!, nonceKonto: konto.adresse, mieteLamports: miete, blockhash, letzteHoehe: BigInt(lastValidBlockHeight),
+      zahler: e.adresse()!, nonceKonto: konto.adresse, mieteLamports: miete, blockhash, letzteHoehe,
     }), konto.geheim)!;
   } finally {
     konto.geheim.fill(0);
   }
-  const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
-  await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), letzteHoehe);
   return legeStandAb(konto.adresse);
+}
+
+// ------------------------------------------------ Kasse über Squads (A-12b2b)
+
+/**
+ * Eine Kasse anlegen – nur mit der eingebauten Wallet und nur auf Devnet (V7, bis M-8): über `devnetRpc()`, nie über
+ * den gemeinsamen Pool. `gruender` ist die eigene Adresse für die Kasse (A-12b2a); zahlen kann jede eigene, die allein
+ * reicht – sie steht als Ersteller auf der Kette. Kosten und Zahler zeigt `bestaetige` vorher; ohne Zustimmung geht nichts hinaus.
+ */
+export async function legeKasseAn(
+  p: { art: KassenArt; gruender: string; weitere: readonly string[]; zeitschlossSek: number },
+  bestaetige: (k: { miete: number; gebuehr: number; gesamt: number; zahler: string }) => Promise<boolean>,
+): Promise<string> {
+  const e = benutzbareEingebauteWallet();
+  if (!e?.adresse()) throw new Error(t("kasse.ohneWallet"));
+  const eigene = e.eigeneAdressen();
+  if (!eigene.includes(p.gruender)) throw new Error(t("zahl.nichtEigeneAdresse"));
+  const rpc = await devnetRpc();
+  if (!rpc) throw new Error(t("kasse.nurDevnet"));
+  const einstellungen = await leseProgrammEinstellungenVonKette(rpc);
+  if (!einstellungen) throw new Error(t("kasse.ohneSquads"));
+  const miete = Number(await rpc.getMinimumBalanceForRentExemption(BigInt(kassenKontoGroesse(1 + p.weitere.length)), { commitment: "confirmed" }).send());
+  const gebuehr = Number(einstellungen.gebuehr);
+  // Zwei Unterschriften (Zahler und Create-Key); `waehleAbsender()` rechnet eine Netzgebühr selbst dazu
+  const zahler = await kassenZahler(rpc, e, miete + gebuehr + UEBERWEISUNG_GEBUEHR, p.gruender);
+  if (!(await bestaetige({ miete, gebuehr, gesamt: miete + gebuehr + 2 * UEBERWEISUNG_GEBUEHR, zahler }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const { tx, kasse } = baueKasseAnlegen({ ...p, ersteller: zahler, schatzamt: einstellungen.schatzamt, lebensdauer });
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
+  return kasse;
+}
+
+/** Wer zahlt: am liebsten die Adresse für die Kasse selbst – jede andere ist danach auf der Kette mit ihr verbunden (V4). */
+async function kassenZahler(rpc: SolRpc, e: EingebauteSolWallet, betrag: number, bevorzugt: string | undefined): Promise<string> {
+  const guthaben = await Promise.all(e.eigeneAdressen().map(async (a) => ({ adresse: a, lamports: Number(await leseGuthaben(rpc, a)) })));
+  try {
+    return waehleAbsender(guthaben.filter((g) => g.adresse === bevorzugt), betrag);
+  } catch {
+    return waehleAbsender(guthaben, betrag);
+  }
+}
+
+/**
+ * In die Kasse einzahlen (A-12b2c): an ihren Tresor, nur mit der eingebauten Wallet, nur auf Devnet (`devnetRpc()`) und
+ * nur in eine Kasse, die die App so anlegen würde (`kassenArt()`, ohne Verwalter). Zahler wie beim Anlegen; `bestaetige`
+ * zeigt ihn vorher, danach gilt das Tageslimit (`freigabe()`). Gibt den Tresor zurück.
+ */
+export async function zahleInKasse(
+  p: { kasse: string; lamports: number; bevorzugt?: string },
+  bestaetige: (k: { zahler: string; tresor: string }) => Promise<boolean>,
+): Promise<string> {
+  const e = benutzbareEingebauteWallet();
+  if (!e?.adresse()) throw new Error(t("kasse.ohneWallet"));
+  if (!Number.isSafeInteger(p.lamports) || p.lamports <= 0) throw new Error(t("zahl.ungueltigerBetrag"));
+  const rpc = await devnetRpc();
+  if (!rpc) throw new Error(t("kasse.nurDevnet"));
+  const stand = await leseKasse(rpc, p.kasse);
+  if (!stand || !kassenArt(stand)) throw new Error(t("kasse.nichtEinzahlen"));
+  const tresor = kassenTresor(p.kasse);
+  // Der Tresor ist ein gewöhnliches Konto: unter der Miete lehnt die Kette die erste Einzahlung ab
+  const vorher = Number(await leseGuthaben(rpc, tresor));
+  if (vorher + p.lamports < MIETE_LEERES_KONTO) throw new Error(t("kasse.zuWenig", { betrag: solText(MIETE_LEERES_KONTO - vorher) }));
+  const zahler = await kassenZahler(rpc, e, p.lamports, p.bevorzugt);
+  if (!(await bestaetige({ zahler, tresor })) || !(await e.freigabe(p.lamports, tresor, bestaetigeUeberLimit))) {
+    throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  }
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const tx = baueTransaktion({ zahler, anweisungen: [ueberweisungAnweisung({ von: zahler, an: tresor, lamports: BigInt(p.lamports) })], lebensdauer });
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
+  return tresor;
+}
+
+/**
+ * Ein Schritt einer Auszahlung aus der Kasse (A-12c1): vorschlagen, dafür/dagegen stimmen, ausführen (abgeschlossen im
+ * selben Zug, die Miete geht in den Tresor) oder abschließen – nur mit der eingebauten Wallet, nur auf Devnet und nur in
+ * Kassen der App. Ob der Schritt geht, sagt `vorschlagsSchritte()` aus dem Stand auf der Kette; Empfänger und Betrag einer
+ * Stimme oder Ausführung kommen von der Kette (V6), nie aus dem Raum. `mitglied` ist die eigene Adresse für die Kasse – sie
+ * unterschreibt; Gebühr und Miete zahlt wie beim Anlegen am liebsten sie selbst (`kassenZahler()`). `bestaetige` zeigt
+ * vorher Zahler, Miete und Auszahlung; ohne Zustimmung geht nichts hinaus. Gibt die Nummer des Vorschlags zurück.
+ */
+export async function kassenSchritt(
+  a: { kasse: string; mitglied?: string } & ({ schritt: "vorschlagen"; auszahlung: Auszahlung } | { schritt: KassenSchritt; index: bigint }),
+  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null }) => Promise<boolean>,
+): Promise<bigint> {
+  const e = benutzbareEingebauteWallet();
+  if (!e?.adresse()) throw new Error(t("kasse.nurEingebaut"));
+  const eigen = a.mitglied && e.eigeneAdressen().includes(a.mitglied) ? a.mitglied : undefined;
+  // Abschließen braucht keine Unterschrift eines Mitglieds, alles andere die eigene Adresse für die Kasse
+  if (!eigen && a.schritt !== "abschliessen") throw new Error(t("kasse.nurEingebaut"));
+  const rpc = await devnetRpc();
+  if (!rpc) throw new Error(t("kasse.nurDevnet"));
+  const stand = await leseKasse(rpc, a.kasse);
+  if (!stand || !kassenArt(stand)) throw new Error(t("kasse.nichtAuszahlen"));
+  let miete = 0, index: bigint;
+  let auszahlung: Auszahlung | null;
+  let baue: (zahler: string) => Instruction[];
+  if (a.schritt === "vorschlagen") {
+    if (!((stand.mitglieder.find((m) => m.adresse === eigen)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen)) throw new Error(t("kasse.schrittNicht"));
+    // Danach muss der Tresor leer oder mietfrei sein – sonst lehnt die Kette die Ausführung ab
+    const rest = Number(await leseGuthaben(rpc, kassenTresor(a.kasse))) - Number(a.auszahlung.lamports);
+    if (rest !== 0 && rest < MIETE_LEERES_KONTO) throw new Error(t("kasse.zuViel"));
+    const groesse = auszahlungKontoGroessen(stand.mitglieder.length);
+    for (const b of [groesse.transaktion, groesse.vorschlag]) miete += Number(await rpc.getMinimumBalanceForRentExemption(BigInt(b), { commitment: "confirmed" }).send());
+    const p = { kasse: a.kasse, index: stand.transaktionsIndex + 1n, vorschlagender: eigen!, ...a.auszahlung };
+    index = p.index;
+    auszahlung = a.auszahlung;
+    baue = (zahler) => auszahlungVorschlagenAnweisungen({ ...p, mietZahler: zahler });
+  } else {
+    const { schritt } = a;
+    index = a.index;
+    const [vorschlag, tx] = await Promise.all([leseVorschlagVonKette(rpc, a.kasse, index), leseAuszahlungVonKette(rpc, a.kasse, index)]);
+    auszahlung = tx?.auszahlung ?? null;
+    const jetztSek = Math.floor(Date.now() / 1000);
+    if (!vorschlag || !vorschlagsSchritte({ stand, vorschlag, auszahlung, mitglied: eigen, jetztSek }).includes(schritt)) throw new Error(t("kasse.schrittNicht"));
+    const abschliessen = stand.mieteAn ? [abschliessenAnweisung({ kasse: a.kasse, index, mieteAn: stand.mieteAn })] : [];
+    baue = () => schritt === "abschliessen" ? abschliessen
+      : schritt === "ausfuehren" ? [ausfuehrenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, auszahlung: auszahlung! }), ...abschliessen]
+      : [abstimmenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, dafuer: schritt === "dafuer" })];
+  }
+  const zahler = await kassenZahler(rpc, e, miete, eigen);
+  if (!(await bestaetige({ zahler, miete, auszahlung }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const tx = baueTransaktion({ zahler, anweisungen: baue(zahler), lebensdauer });
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
+  return index;
 }
 
 /** Den Wert neu lesen (mit Netz) – danach ist wieder eine Offline-Zahlung moeglich. */
@@ -180,14 +319,12 @@ export async function schliesseNonceKonto(): Promise<number> {
   const e = offlineWallet();
   const a = leseAblage(geheim);
   if (!a) throw new Error(t("zahl.keinNonceAngelegt"));
-  const { Connection, PublicKey } = await import("@solana/web3.js");
-  const c = new Connection(await solRpcUrl(), "confirmed");
-  const guthaben = await c.getBalance(new PublicKey(a.konto), "confirmed");
+  const rpc = await solRpc({ einVorgang: true });
+  const guthaben = Number(await leseGuthaben(rpc, a.konto));
   if (guthaben > 0) {
-    const { blockhash, lastValidBlockHeight } = await c.getLatestBlockhash("confirmed");
-    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash, letzteHoehe: BigInt(lastValidBlockHeight) });
-    const signatur = await c.sendRawTransaction(alsDraht(e.signiereTransaktion(tx)));
-    await c.confirmTransaction({ signature: signatur, blockhash, lastValidBlockHeight }, "confirmed");
+    const { blockhash, letzteHoehe } = await neuesterBlockhash(rpc);
+    const tx = baueNonceKontoSchliessen({ autoritaet: e.adresse()!, nonceKonto: a.konto, lamports: guthaben, blockhash, letzteHoehe });
+    await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), letzteHoehe);
   }
   await schreibeAblage(geheim, null);
   return guthaben;
@@ -206,6 +343,5 @@ export async function zahleSolOffline(an: string, lamports: number): Promise<Uin
 export async function reicheSolOfflineEin(roh: Uint8Array): Promise<string> {
   const p = pruefeOfflineUeberweisung(roh);
   if (!p.ok) throw new Error(offlineGrund(p));
-  const { Connection } = await import("@solana/web3.js");
-  return new Connection(await solRpcUrl(), "confirmed").sendRawTransaction(roh);
+  return sendeTransaktion(await solRpc(), roh);
 }

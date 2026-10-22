@@ -262,9 +262,22 @@ export async function solTransaktion(signatur: string): Promise<unknown> {
 }
 
 /** kit-RPC auf dem Pool (A-21c): Lesen nur hierüber – mit Ausweichen und eigenen Endpunkten zuerst. */
-export async function solRpc(): Promise<import("@freedomstack/protocol").SolRpc> {
+export async function solRpc(opts: { einVorgang?: boolean } = {}): Promise<import("@freedomstack/protocol").SolRpc> {
   const [{ poolRpc }, pool] = await Promise.all([import("@freedomstack/protocol"), ensureRpcPool()]);
-  return poolRpc(pool);
+  // Senden und Bestätigen einer Transaktion bei einem Anbieter (A-21d3a) – sonst sähen alle die Signatur
+  return poolRpc(opts.einVorgang ? pool.einVorgang() : pool);
+}
+
+/**
+ * Solana nur auf Devnet (A-12b2b, Kasse bis M-8): nur eigene Endpunkte, deren Genesis-Hash Devnet ist – ohne
+ * die eingebauten (Mainnet) und ohne Ausweichen dorthin. `null`, wenn keiner passt.
+ */
+export async function devnetRpc(): Promise<import("@freedomstack/protocol").SolRpc | null> {
+  const { RpcPool, GENESIS_DEVNET, endpunkteImNetz, parseUserEndpoints, poolRpc } = await import("@freedomstack/protocol");
+  const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
+  const eigene = [...(konfiguriert ? [konfiguriert] : []), ...parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs"))];
+  const devnet = await endpunkteImNetz(eigene, GENESIS_DEVNET);
+  return devnet.length ? poolRpc(new RpcPool([], { userEndpoints: devnet })) : null;
 }
 
 /** Beste erreichbare RPC-URL fuer Bibliotheken, die eine feste Adresse wollen. */

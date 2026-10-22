@@ -28,6 +28,7 @@ import {
   SwapState,
 } from "../src/swap-client.js";
 import { anchorSighash, swapAddress, WalletSigner } from "../src/sol-htlc.js";
+import { ketteAttrappe } from "./kette-attrappe.js";
 import { AccountRole } from "@freedomstack/protocol";
 import { setLang } from "../src/i18n.js";
 
@@ -190,32 +191,36 @@ function fakeWallet(): WalletSigner {
   };
 }
 
-function fakeConnection(err: unknown = null) {
-  return {
-    async getLatestBlockhash() {
-      return { blockhash: "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k", lastValidBlockHeight: 1 };
-    },
-    async sendRawTransaction() { return "sigAAA"; },
-    async confirmTransaction() { return { value: { err } }; },
-  } as unknown as import("@solana/web3.js").Connection;
-}
-
-test("Einloesen: erfolgreicher Claim liefert die Signatur", async () => {
+test("Einloesen: erfolgreicher Claim liefert die Signatur der Kette", async () => {
+  const k = ketteAttrappe();
   const r = await claimSwap({
-    connection: fakeConnection(), wallet: fakeWallet(), swapId: "s3", preimage: PREIMAGE,
+    rpc: k.rpc, wallet: fakeWallet(), swapId: "s3", preimage: PREIMAGE,
     initiator: FREMD, timelockUnix: Math.floor(Date.now() / 1000) + 3600,
   });
-  assert.equal(r.signature, "sigAAA");
+  assert.equal(r.signature, k.signaturen[0]);
 });
 
 test("Einloesen: Ablehnung erklaert die wahrscheinlichen Gruende", async () => {
   await assert.rejects(
     () => claimSwap({
-      connection: fakeConnection({ Custom: 1 }), wallet: fakeWallet(), swapId: "s4", preimage: PREIMAGE,
+      rpc: ketteAttrappe({ fehler: { Custom: 1 } }).rpc, wallet: fakeWallet(), swapId: "s4", preimage: PREIMAGE,
       initiator: FREMD, timelockUnix: Math.floor(Date.now() / 1000) + 3600,
     }),
     /Frist abgelaufen|Preimage nicht passt/,
   );
+});
+
+test("Einloesen (A-21d3b): lehnt die Vorabsimulation ab, sagt die App den Grund des Programms – nichts ging in einen Block", async () => {
+  const k = ketteAttrappe({ vorab: 6003 });
+  await assert.rejects(
+    () => claimSwap({
+      rpc: k.rpc, wallet: fakeWallet(), swapId: "s5", preimage: PREIMAGE,
+      initiator: FREMD, timelockUnix: Math.floor(Date.now() / 1000) + 3600,
+    }),
+    /Preimage/,
+  );
+  assert.equal(k.gesendet.length, 0);
+  assert.deepEqual(k.anfragen.map((a) => a.method), ["getLatestBlockhash", "sendTransaction"], "nach der Ablehnung kein Nachfragen");
 });
 
 // ------------------------------------------------------------- Preimage

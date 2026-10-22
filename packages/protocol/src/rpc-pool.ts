@@ -136,10 +136,13 @@ function betreiber(url: string): string {
   return /^[\d.]+$|^\[|^localhost$/.test(host) ? host : host.split(".").slice(-2).join(".");
 }
 
+/** Genesis-Hash von Devnet – Kassen gibt es bis M-8 nur dort (A-12, V7). */
+export const GENESIS_DEVNET = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+
 /** Bekannte Genesis-Hashes – nur für die Anzeige; verglichen wird der Hash selbst. */
 const NETZE: Record<string, string> = {
   "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d": "Mainnet",
-  EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG: "Devnet",
+  [GENESIS_DEVNET]: "Devnet",
   "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY": "Testnet",
 };
 const netzName = (genesis: string) => NETZE[genesis] ?? "unbekanntes Netz";
@@ -160,6 +163,8 @@ export class RpcPool {
   private readonly fetchImpl: typeof fetch;
   private readonly verteilen: boolean;
   private readonly zufall: () => number;
+  /** Fest gezogene Reihenfolge eines Vorgangs (`einVorgang()`); sonst je Anfrage neu. */
+  private readonly festesLos?: Map<EndpointState, number>;
 
   constructor(endpoints: RpcEndpoint[] = DEFAULT_MAINNET_RPCS, opts: RpcPoolOptions = {}) {
     // Eigene Endpunkte zuerst: Wer einen eigenen Knoten betreibt, soll ihn
@@ -208,10 +213,23 @@ export class RpcPool {
     const liste = frei.length > 0 ? frei : [...this.states];
     if (this.verteilen) {
       // Eigene vorn, dann die fremden in zufaelliger Reihenfolge (weniger Fehler zuerst).
-      const los = new Map(liste.map((s) => [s, this.zufall()]));
+      const los = this.festesLos ?? new Map(liste.map((s) => [s, this.zufall()]));
       return liste.sort((a, b) => Number(!!b.eigen) - Number(!!a.eigen) || a.failures - b.failures || los.get(a)! - los.get(b)!);
     }
     return liste.sort((a, b) => a.failures - b.failures || (a.lastLatencyMs ?? 0) - (b.lastLatencyMs ?? 0));
+  }
+
+  /**
+   * Derselbe Pool für einen Vorgang (A-21d3a), etwa eine Transaktion senden und bis zur Bestätigung
+   * nachfragen: Die Reihenfolge der fremden Anbieter wird einmal gezogen und gilt für alle Anfragen
+   * des Vorgangs – sonst fragte jede Nachfrage einen anderen, und am Ende sähen alle Anbieter die
+   * Signatur samt IP (4.9). Ausfälle und Sperrfristen teilt er mit dem Pool; fällt der gezogene aus,
+   * weicht er wie gewohnt aus.
+   */
+  einVorgang(): RpcPool {
+    if (!this.verteilen) return this;
+    const festesLos = new Map(this.states.map((s) => [s, this.zufall()]));
+    return Object.assign(Object.create(this) as RpcPool, { festesLos });
   }
 
   /**
@@ -468,4 +486,21 @@ export function parseUserEndpoints(raw: string | null | undefined): string[] {
     .map((s) => s.trim())
     .filter((s) => /^https?:\/\/.+/.test(s))
     .slice(0, 5);
+}
+
+/**
+ * Welche dieser Endpunkte hängen an der Kette mit diesem Genesis-Hash? Je Endpunkt eine eigene Frage, ohne
+ * Ausweichen (A-12b2b): Ein Pool mit den eingebauten Endpunkten wiche bei einem Ausfall still auf Mainnet aus –
+ * mit denselben Schlüsseln. Wer nur auf einer Kette handeln darf, baut seinen Pool nur aus diesen.
+ */
+export async function endpunkteImNetz(
+  urls: readonly string[], genesis: string, opts: Pick<RpcPoolOptions, "fetchImpl" | "timeoutMs"> = {},
+): Promise<string[]> {
+  const treffer: string[] = [];
+  for (const url of urls) {
+    if (!/^https?:\/\//.test(url)) continue;
+    const g = await new RpcPool([], { ...opts, userEndpoints: [url] }).call<unknown>("getGenesisHash").catch(() => null);
+    if (g === genesis) treffer.push(url);
+  }
+  return treffer;
 }

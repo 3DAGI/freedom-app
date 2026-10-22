@@ -11,6 +11,8 @@
  *   Gedächtnis und Skills bleiben beim Projekt (AG1 A), landen aber nie in seinen Commits. `config.yaml` schreibt der
  *   Knoten vor jedem Start neu: eigener Endpunkt, Freigaben `manual` über ACP, keine Nachinstallation von Paketen.
  *   Hermes fragt über ACP vor Änderungen an Dateien und vor riskanten Befehlen – nicht vor jedem Befehl.
+ * - **Pakete** (seit VKd3) über dieselbe Brücke: `.npmrc` und `pip.conf` im Home zeigen auf den Spiegel des Knotens
+ *   (`paket-spiegel.ts`), nur npm und PyPI von der festen Liste.
  */
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSync, writeSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -55,8 +57,8 @@ export function hermesAusUmgebung(env: { HERMES_ORDNER?: string; CODE_MODELL?: s
  * `config.yaml` für Hermes – als JSON, das YAML liest. Nur Schlüssel, die Hermes 0.19 kennt: das Modell über die
  * Brücke (`custom`, Adresse in der Sandbox), Freedom-MCP über dieselbe Brücke (VKd – in der Konfiguration statt über ACP,
  * weil Hermes 0.19 MCP über HTTP in `initialize` nicht ankündigt), Freigaben `manual` (nie `smart`, das ein zweites Modell
- * fragte), keine Nachinstallation aus PyPI (die Sandbox hat ohnehin kein Netz). Server aus dem MCP-Katalog (VKk) startet
- * Hermes selbst, als Kind in derselben Sandbox – nur mit den Werkzeugen ihrer Liste.
+ * fragte), keine Nachinstallation für Hermes selbst – Pakete holt seit VKd3 nur das Projekt, über den Spiegel der Brücke.
+ * Server aus dem MCP-Katalog (VKk) startet Hermes selbst, als Kind in derselben Sandbox – nur mit den Werkzeugen ihrer Liste.
  */
 export function hermesKonfiguration(modell: string, mcp: readonly McpServer[] = []): string {
   if (!MODELL.test(modell)) throw new Error("Modellname ungültig");
@@ -68,6 +70,18 @@ export function hermesKonfiguration(modell: string, mcp: readonly McpServer[] = 
     approvals: { mode: "manual", cron_mode: "deny" },
     security: { allow_lazy_installs: false, redact_secrets: true },
   }, null, 2) + "\n";
+}
+
+/**
+ * `.npmrc` und `pip.conf` (VKd3): npm und pip fragen die Brücke statt des Netzes; ohne Prüfung der Sicherheitslücken
+ * (`audit`, an einen anderen Endpunkt von npm) und ohne Versionsabfrage von pip, die nur warten ließen.
+ */
+export function paketKonfiguration(): { npmrc: string; pip: string } {
+  const bruecke = `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`;
+  return {
+    npmrc: [`registry=${bruecke}/npm/`, "audit=false", "fund=false", "update-notifier=false", ""].join("\n"),
+    pip: ["[global]", `index-url = ${bruecke}/pypi/simple/`, "trusted-host = 127.0.0.1", "disable-pip-version-check = true", ""].join("\n"),
+  };
 }
 
 /** Home des Motors für ein Projekt – neben den Projekten, nie darin (`~/.freedom/hermes/<projekt>`). */
@@ -102,7 +116,11 @@ export function hermesMotor(o: {
   return (projekt) => {
     const modell = o.hermes.modell ?? o.modell();
     if (!modell) throw Object.assign(new Error("kein Modell für Code-Läufe"), { name: "KeinModell" });
-    schreibeKonfiguration(hermesHeim(o.ablage, projekt), hermesKonfiguration(modell, o.mcp));
+    const heim = hermesHeim(o.ablage, projekt);
+    const pakete = paketKonfiguration();
+    schreibeInsHeim(heim, [".hermes", "config.yaml"], hermesKonfiguration(modell, o.mcp));
+    schreibeInsHeim(heim, [".npmrc"], pakete.npmrc);
+    schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
     return start(projekt);
   };
 }
@@ -115,14 +133,18 @@ function echterOrdner(pfad: string): void {
 }
 
 /**
- * `config.yaml` neu schreiben, ohne Verweisen zu folgen: Der Motor des letzten Laufs hätte sie durch einen Verweis
- * ersetzen können (etwa auf `~/.freedom/node-key`) – der Knoten schriebe sonst außerhalb der Sandbox.
+ * Eine Datei im Home neu schreiben (`config.yaml`, `.npmrc`, `pip.conf`), ohne Verweisen zu folgen: Der Motor des
+ * letzten Laufs hätte sie durch einen Verweis ersetzen können (etwa auf `~/.freedom/node-key`) – der Knoten schriebe
+ * sonst außerhalb der Sandbox. Jeder Ordner davor muss ein echter sein.
  */
-function schreibeKonfiguration(heim: string, inhalt: string): void {
+function schreibeInsHeim(heim: string, pfad: string[], inhalt: string): void {
   echterOrdner(heim);
-  const konfig = join(heim, ".hermes");
-  echterOrdner(konfig);
-  const datei = join(konfig, "config.yaml");
+  let ordner = heim;
+  for (const teil of pfad.slice(0, -1)) {
+    ordner = join(ordner, teil);
+    echterOrdner(ordner);
+  }
+  const datei = join(ordner, pfad[pfad.length - 1]!);
   rmSync(datei, { force: true });
   const fd = openSync(datei, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
   try {

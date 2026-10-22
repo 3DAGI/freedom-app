@@ -11979,6 +11979,831 @@ Datenschutz-Test. Smoke („privatraum“): Bo koppelt einen eigenen Probe-Knote
 das Signal nur über `wss://knoten-bo.probe.test/signal/<zeichen>`.
 
 Knoten-Stand: B-34e1 (Weiterleitung); ohne ihn fragt die App wie bisher.
+## Schritt VKg1b – Projekte-Seite: Vorschau öffnen
+
+Spur C, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a (Vorschau-Server im Knoten).
+
+**Neu:**
+- Auf dem Blatt eines Projekts „Vorschau“: Die App holt die Adresse versiegelt vom Knoten (`vorschau`).
+  - Im Browser öffnet „Vorschau öffnen“ sie im neuen Tab, ohne Verweis zurück (`noopener noreferrer`).
+  - In der Hülle, die keine Fenster öffnet, gibt es die Adresse zum Kopieren.
+  - Der QR-Code für ein anderes Gerät kommt nur auf Klick und verschwindet wieder (`geheim`) – die Adresse ist ein Zugang.
+  - Über http (außer `.onion`) steht der Hinweis, dass im selben Netz mitlesen kann, wer will (`vorschauUnverschluesselt()`).
+- Texte in beiden Sprachen; Fallstrick in `packages/app/CLAUDE.md`.
+
+**Tests:**
+- app +1: Hinweis bei http, Link ohne Verweis zurück, in der Hülle kein Link, QR geheim, Texte.
+- Browser-Test „projekt“: Vorschau mit Adresse, Ziel, `rel`, Kopieren, QR und Hinweis – 9 Umschläge an den Knoten, alle versiegelt.
+- Browser-Test „projekt“ wartet jetzt auch auf die Ausgabe des Schritts, nicht nur auf den Abschluss. Die Umschläge kommen
+  in beliebiger Reihenfolge (NIP-59); im vollen Lauf war die Ausgabe einmal noch nicht da (`null` beim Lesen) – ein Wettlauf
+  im Test seit VKe1, kein Fehler der App.
+
+Knoten-Stand: VKg1a (Code-Aktion `vorschau`) – ein älterer Knoten lehnt die Vorschau ab.
+
+## Schritt VKd3 – Pakete über die Brücke (npm, PyPI)
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK4: „Pakete holt der Knoten“, W6a). Ohne diesen Schritt ging in der Sandbox kein
+`npm install` – also keine React- oder Vite-App, die die Vorschau (VKg1) zeigen könnte.
+
+**Neu:**
+- `paket-spiegel.ts`: Die Brücke beantwortet `GET /npm/…` (registry.npmjs.org) und `/pypi/simple/…`, `/pypi/files/…`
+  (pypi.org, files.pythonhosted.org).
+  - Nur diese Pfade (`spiegelZiel()`), nur lesend, über `holeOderFehlt()` aus `pakete.ts`: feste Liste, ohne Weiterleitung,
+    SSRF-Wächter oder Tor, je Abruf höchstens 50 MB.
+  - Adressen in Paketlisten und Index zeigen danach auf die Brücke (`aufDieBruecke()`); Archive bleiben unverändert.
+  - Je Stunde höchstens 20 000 Abrufe und 4 GB (`SpiegelKonto`), sonst 429.
+  - Antworten nur mit festen Texten; ins Log nichts.
+- `hermes-motor.ts`: `.npmrc` und `pip.conf` im Home des Motors (`paketKonfiguration()`), vor jedem Start neu und nie durch
+  einen Verweis (`schreibeInsHeim()`, auch für `config.yaml`).
+- `pakete.ts`: `holeOderFehlt()` – wie `hole()`, 404 als „gibt es nicht“.
+- `PROVIDER.md` sagt, was die Registry sieht; Fallstrick in `packages/node/CLAUDE.md`.
+
+**Gemessen** (Sandbox ohne Netz, echte Registries):
+- `npm install vite@6 vue@3` (33 Pakete, mit den nativen Programmen von Rollup und esbuild) und `vite build` in 11 s.
+- `pip install six` in einem venv.
+- `curl https://registry.npmjs.org/` direkt aus der Sandbox geht nicht.
+
+**Tests:** node +4:
+- Ziele des Spiegels.
+- Über die Brücke: umgeschrieben, Archive unverändert, 404, 413, 502, andere Methoden und Pfade nie zur Registry.
+- Grenze je Stunde.
+- `.npmrc` und `pip.conf` im Motor, nie durch einen Verweis.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg1c – Vorschau mit Dev-Server und Hot Reload
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: wie Replit). Auf VKg1a/b (Vorschau) und VKd3 (Pakete). Damit ist VKg1 fertig.
+
+**Neu:**
+- `dev-server.ts`: Nennt `package.json` ein Skript `dev`, startet der Knoten beim ersten Aufruf der Vorschau `npm run dev`
+  in der Sandbox (`sandboxDienst()`, ohne Netz, mit `PORT=5173`).
+  - Erreichbar nur über `freedom_motor.py --zurueck`: Das Skript lauscht an einem Socket in einem Ordner, den der Knoten
+    anlegt und nur dieser Sandbox schreibbar gibt, und reicht an `127.0.0.1:5173` in der Sandbox weiter.
+  - Höchstens drei zugleich; nach 30 Minuten ohne Aufruf beendet.
+- `vorschau.ts`: Mit Dev-Server leitet die Vorschau jede Anfrage weiter, jede Methode, auch WebSocket für Hot Reload.
+  - Host und Origin wie auf dem Rechner selbst (`devKopf()`) – Vite lässt sonst nichts durch.
+  - Ohne das eigene Cookie und ohne Referer.
+  - Ohne Dev-Server bleibt alles wie in VKg1a: nur Dateien, nur lesen.
+- `sandbox.ts` (Spur B, klein): `schreibbar` für weitere Orte, `sandboxDienst()` für lange laufende Dienste.
+- `main.ts`: Dev-Server nur, wenn die Sandbox geht.
+
+**Gemessen** (Sandbox, echte Registry über den Spiegel, Chromium):
+- Vite 6 installiert über die Brücke.
+- Erste Seite nach 1,5 s, Start des Dev-Servers eingeschlossen.
+- Eine Änderung an `main.js` erscheint nach 45 ms, ohne Neuladen.
+
+**Tests:** node +5:
+- Befehl nur mit Skript `dev` in einer echten `package.json`.
+- `schreibbar` nie über `/arbeit`.
+- Höchstens drei, je Projekt einer, Leerlauf.
+- Ein Dienst in bubblewrap, erreichbar nur über den Socket.
+- Weiterleitung: Methode, Kopfzeilen, Cookie, WebSocket mit Echo; ohne Cookie oder ohne Dev-Server zu.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a1 – Tunnel zum TURN für den Bildstrom
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: Bildstrom mit GStreamer `webrtcbin` über den eigenen TURN), gebaut von Spur C.
+Erster Teil von VKg2 – Baustein, verdrahtet mit VKg2a2.
+
+**Gemessen vorab** (Versuch, nicht im Repo): `xeyes` auf Xvfb in bubblewrap ohne Netz, `webrtcbin` mit TURN über TCP durch
+den Tunnel, Chromium nur über Relay – erstes Bild nach 1,45 s, danach 30 Bilder je Sekunde in 1280×720.
+
+**Neu:**
+- `turn-tunnel.ts`: Die Sandbox erreicht den TURN nur über einen Unix-Socket des Knotens (0600); der Knoten verbindet über
+  TCP oder TLS (`turnZiel()`: `TURN_INTERN`, sonst die erste Adresse aus `TURN_URLS`, die TCP spricht).
+  - Der Filter (`TurnFilter`) lässt nur durch, was eine UDP-Allokation braucht: Binding, Allocate mit UDP, Refresh,
+    CreatePermission, ChannelBind, Send, ChannelData. Nie TCP-Allokationen (RFC 6062).
+  - Gegenstellen nur die Relay-Adressen aus dem Angebot der App (`relayAdressen()`).
+  - Was nicht passt, schließt beide Seiten; zur Sandbox geht alles unverändert. Höchstens vier Verbindungen je Tunnel.
+- CI: coturn für den Test gegen den echten TURN.
+
+**Befund für Spur B:** Hinter NAT sperrt `denied-peer-ip` Relay zu Relay auf demselben TURN (Entwurf, VKg2) – Vorschlag
+`allowed-peer-ip` für die eigene Relay-Adresse und `no-tcp-relay` in `turn-einrichten.sh`.
+
+**Tests:** node +6:
+- Ziel und Relay-Adressen.
+- Filter: Erlaubtes geht durch, auch zerteilt; 16 verbotene Fälle schließen den Tunnel.
+- Tunnel: Socket 0600, Verbotenes erreicht den TURN nie, Grenze der Verbindungen.
+- Echter coturn (`turnutils_uclient` über den Tunnel): Kanäle und Send an die erlaubte Gegenstelle ohne Verlust, an eine
+  andere kein Byte.
+
+Knoten-Stand: nur der Knoten (noch nicht verdrahtet).
+
+## Schritt VKg2a2 – Bildstrom im Knoten
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2a1 (Tunnel). Programme ohne Web als Bild über den
+eigenen TURN; bedienen mit VKg2a3, die App mit VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: `BildStrom.starte()` nimmt das Angebot der App und gibt die Antwort des Knotens zurück. Zwei Sandboxen
+  ohne Netz:
+  - Bild: `motor/freedom_bild.py` (Xvfb, GStreamer `webrtcbin`, VP8). Den TURN erreicht es nur durch den Tunnel aus
+    VKg2a1, den Zugang bekommt es über stdin. stdin bleibt offen, solange das Bild läuft.
+  - Programm: `.freedom/start` (mit `sh`), sonst `main.py` (`bildBefehl()`), mit `/arbeit` wie der Motor. Mit dem Bild teilt
+    es nur den Socket des Bildschirms.
+  - Getrennt, damit der Code des Projekts nie an Zugang, Tunnel oder die Antwort an die App kommt: Eine untergeschobene
+    Antwort ließe die App einen fremden Rechner anrufen.
+  - Je Projekt ein Bild, höchstens zwei; Ende mit der Verbindung, dem Programm, `bild-ende` oder dem Ablauf des Zugangs.
+- `bildFehlt()`: Prüfung beim Start (Xvfb, GStreamer mit `webrtcbin`, PyGObject); `main.ts` baut den Bildstrom nur mit
+  Sandbox und eigenem TURN, `TURN_INTERN` neu.
+- Protokoll: Code-Aktionen `bild` (SDP nur mit Relay-Kandidaten, `istBildSdp()`, Größe gerade) und `bild-ende`;
+  Kennungen `code-bild-aus`, `code-bild-kein-programm`, `code-bild-fehler` mit Texten in der App.
+- `sandbox.ts` (Spur B, klein): `sandboxDienst(…, { mitEinAusgabe })` – stdin und stdout nur für eigenen Code des Knotens.
+- `PROTOCOL.md` §34, `PROVIDER.md` (Bild), Fallstrick in `packages/node/CLAUDE.md`, CI installiert Xvfb und GStreamer.
+
+**Tests:** protocol +1 (Aktionen, SDP-Regeln, Größe); node +5:
+- Programmwahl.
+- Zwei Sandboxen (Attrappe): was wohin eingebunden wird.
+- Ablehnungen und Grenze.
+- Über den Knoten, nur versiegelt.
+- Ende zu Ende mit echtem bubblewrap, Xvfb, GStreamer und coturn: Antwort nach rund 1 s, gut 100 Bilder in 3 s.
+
+Nebenbei: Gegenproben in `knoten-code.test.ts` (VKg1a, VKe2) bauten den Kern mit `["param", …]` doppelt und waren aus dem
+falschen Grund `null` – jetzt mit Paaren und einer Positivprobe.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2a3 – Eingaben über XTest
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a2.
+
+**Neu:**
+- `motor/freedom_bild.py`: Nachrichten auf dem Datenkanal `eingabe` gehen per XTest an den Bildschirm der Bild-Sandbox – an
+  nichts sonst (`Eingabe`).
+  - Zeiger, Knöpfe 1–3, Rad.
+  - Tasten nach `KeyboardEvent.key`. Großbuchstaben ohne gedrückte Umschalttaste bekommen sie dazu (Tastatur am Handy).
+    Zeichen ohne Taste bekommen eine freie.
+  - Höchstens 200 Zeichen je Nachricht; Unbekanntes tut nichts. Schließt der Kanal, gehen alle Tasten los.
+- `bildFehlt()` verlangt python-xlib. `PROTOCOL.md` §34 nennt das Format, `PROVIDER.md` das Paket.
+
+**Tests:** Der Ende-zu-Ende-Test schickt Eingaben und liest, was das Programm in seiner Sandbox bekam:
+- „h“, „A“ ohne Umschalttaste, „ä“ auf einer frei belegten Taste, Enter;
+- einen Klick an der richtigen Stelle;
+- Unsinn (zu lang, außerhalb, unbekannt), der nichts tut.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2b – App: Bild ansehen und bedienen
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W1: „direkt spielbar, durchklickbar“), gebaut von Spur C. Auf VKg2a3.
+
+**Neu:**
+- `shell/bild-ui.ts`: Knopf „Bild“ auf dem Blatt des Projekts (`knoten-projekt-ui.ts`, zwischen „Vorschau“ und „Zum Auftrag“).
+  - Zugang zum eigenen TURN (5079), `RTCPeerConnection` nur mit `iceTransportPolicy: "relay"`, Video zum Empfangen und
+    Datenkanal `eingabe`; das Angebot nur mit Relay-Kandidaten (`nurRelaySdp()`, `istBildSdp()`) versiegelt als `bild`.
+  - Maus, Finger, Rad und Tasten gehen über den Datenkanal; am Handy über ein verstecktes Eingabefeld („Tastatur“), dazu
+    „Vollbild“.
+  - Das Bild endet (`bild-ende`, Verbindung zu), sobald das Blatt etwas anderes zeigt oder zugeht.
+- `bild-ablauf.ts`: Größe des Bildschirms aus der Fläche in Gerätepixeln, eingepasst in den Rahmen des Protokolls, gerade;
+  die Stelle im eingepassten Bild (Ränder zählen nicht); nur Nachrichten im Format des Knotens (`eingabeText()`).
+- Texte in beiden Sprachen; `PROTOCOL.md` §34 nennt die App-Seite, `PROVIDER.md` den Knopf.
+
+**Tests:**
+- `bild-ablauf.test.ts` (3): Größe, Stelle im Bild, Format und Negativfälle.
+- Smoke-Test „bild“: echtes coturn auf 127.0.0.1, `knoten-code-probe.mts` gibt den Zugang (TURN-REST wie der Knoten), eine
+  zweite Seite antwortet als Knoten mit einer Leinwand. Geprüft: Angebot nur mit Relay-Kandidaten, Bild 320×240 „verbunden“,
+  Klick in die Mitte kommt als `d`/`u` bei 0,5/0,5 an, „a“ und Enter als `kd`/`ku`, „Zum Auftrag“ schickt `bild-ende`.
+  Fünfmal hintereinander grün, je 16 s. Die CI installiert coturn auch im Smoke-Job.
+
+Knoten-Stand: nur die App (der Knoten seit VKg2a3).
+
+## Schritt VKg2c1 – Web-Projekte in Chromium im Bild, Pakete im Docker-Bild
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2: „virtueller Bildschirm und Chromium ins Bild“), gebaut von Spur C. Auf VKg2b.
+
+**Neu:**
+- `bildstrom.ts`: Ohne `.freedom/start` und ohne `main.py` zeigt das Bild ein Web-Projekt in Chromium (`bildBefehl(…, web)`).
+  - Mit Skript `dev` in `package.json` läuft der Dev-Server wie in der Vorschau, und Chromium öffnet, sobald er antwortet
+    (`WEB_DEV_START`).
+  - Sonst öffnet Chromium `index.html`.
+  - Alles läuft in der Sandbox des Programms, ohne Netz.
+- Chromium (`browserArgumente()`):
+  - ganzer Bildschirm, ohne eigene Sandbox, Profil in `/tmp`, ohne Dienste im Hintergrund;
+  - WebGL über SwiftShader in Software.
+  - Den Browser liest die Sandbox nur über `browserLesbar()` (`mcp-katalog.ts`, wie beim Motor).
+  - `main.ts` nimmt denselben Browser wie der Motor (`browserAusUmgebung()`).
+  - So geht auch eine Web-App unterwegs nur über den TURN.
+- Docker:
+  - Mit `VIBECODEN=1` kommen Xvfb, GStreamer mit `webrtcbin` und libnice, PyGObject und python-xlib ins Bild.
+  - `docker-compose.vibecoden.yml` reicht `TURN_INTERN` durch und kennt `host.docker.internal`; coturn läuft dort im Netz
+    des Rechners.
+- Text `code-bild-kein-programm` nennt jetzt auch `index.html` und das Skript `dev`.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - `bildBefehl` mit Browser (Reihenfolge, Verweise, ohne Browser kein Web);
+  - `WEB_DEV_START` mit einem nachgemachten npm: Chromium erst, wenn der Server antwortet;
+  - Docker-Pakete;
+  - Ende zu Ende mit echtem Chromium: Eine grüne Seite kommt über den TURN an, ein Klick über den Datenkanal macht sie rot.
+  - Ebenso mit Dev-Server (`npm run dev`). Er läuft nur, wo npm und node wirklich unter `/usr` liegen, wie im Docker-Bild;
+    sonst überspringt er sich.
+- Die Ende-zu-Ende-Tests warten jetzt, bis die Eingaben wirken, mit Frist. Bis VKg2c1 endete der Empfänger nach zwei
+  Sekunden; unter Last war das zu kurz (im vollen Lauf für VKg2b einmal rot, während daneben Chromium lief).
+- Eingaben schickt der Empfänger erst, wenn das Bild das Fenster des Programms zeigt.
+- Die Farbe misst er bei einem Viertel des Bildes: In der Mitte steht der Zeiger von Xvfb.
+
+**Gemessen unter Docker (20.10., Docker 29.3.1):**
+- Bild mit `VIBECODEN=1`, Debian bookworm: GStreamer 1.22, Python 3.11, Chromium 155. Im Container meldet `bildFehlt()`
+  nichts, `browserAusUmgebung()` findet `/usr/lib/chromium/chromium`.
+- Die Pakete des Bildes kosten rund 270 MB: 164 Pakete mehr, 1042 statt 770 MB für den Vibecoden-Teil (apt).
+- `bildstrom.test.ts` im Container mit dem Seccomp-Profil aus `docker-compose.vibecoden.yml`, dazu coturn nur für den Test:
+  9 von 9 grün. Die Antwort kam nach 0,8–0,9 s, für Programm, `index.html` und Dev-Server.
+
+Knoten-Stand: nur der Knoten.
+
+## Schritt VKg2c2 – Kodierer nach dem Angebot, NVENC
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKg-W2), gebaut von Spur C. Auf VKg2c1. VKg2 ist damit im Code fertig; NVENC prüft der
+MENSCH auf dem GX10.
+
+**Befund:** Bis hierher kodierte das Bild VP8 immer mit der Nummer 96 – so nennt es Chromium. Firefox nennt VP8 120.
+Gemessen mit dem Skript aus VKg2c1 und einem Angebot mit 120: Die Verbindung steht, aber es kommt kein einziges Bild an.
+
+**Neu:**
+- `motor/freedom_bild.py`:
+  - `formate()` liest die Formate des Videos aus dem Angebot: VP8 mit seiner Nummer und H.264 nur mit
+    `packetization-mode=1` und Baseline. Constrained Baseline geht vor, alles andere zählt nicht.
+  - `pipeline_text()` baut die Kette mit genau dieser Nummer. Die Antwort nennt den Kodierer (`kodierer`); der Knoten
+    schreibt nur feste Namen ins Log.
+  - H.264 nur über NVENC (`nvh264enc`), wenn gewünscht und angeboten. Scheitert NVENC beim Start, kommt VP8.
+  - Kein H.264 in Software: openh264 scheitert auf Ubuntu 24.04 schon in der einfachsten Kette (`cmInitParaError`),
+    x264 ist GPL, und H.264 trägt Patente.
+- `bildstrom.ts`:
+  - `bildKodierer()`: `BILD_KODIERER` leer oder `auto` heißt H.264 über NVENC, wo es ihn gibt; `vp8` heißt immer VP8.
+  - `nvencDa()`: Gerät `/dev/nvidiactl` und `nvh264enc` in GStreamer.
+  - Mit H.264 bekommt nur die Bild-Sandbox die GPU (`gpu`), nie das Programm.
+- `docker-compose.nvenc.yml` (neu): die GPU mit Video-Kodierer für den Knoten, nur auf Rechnern mit NVIDIA Container
+  Toolkit. Vibecoden bleibt ohne NVIDIA lauffähig, etwa auf einem Raspberry Pi.
+- Doku: `PROTOCOL.md` §34 und `PROVIDER.md`.
+
+**Tests:**
+- Neu:
+  - Wahl des Kodierers samt Negativfällen; die GPU nur für die Bild-Sandbox;
+  - Formate aus Angeboten wie von Chromium und Firefox;
+  - die Kette für NVENC als Text, die für VP8 baut GStreamer wirklich;
+  - Ende zu Ende: VP8 mit 120 kommt an, und H.264 ohne NVENC wird VP8 mit der Nummer des Angebots;
+  - `docker-compose.nvenc.yml`.
+- Mit dem alten Skript ist der Fall mit 120 rot (0 Bilder), mit dem neuen grün.
+- `empfange()` wartet jetzt auch auf genug Bilder.
+
+Knoten-Stand: nur der Knoten.
+## Schritt A-21d3a – Senden und Bestätigen über den Pool: Baustein und Zahlschienen
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). A-21d3 berührt rund zehn Dateien der App – deshalb drei Teile:
+a Baustein und Zahlschienen, b HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen, c
+`pruefeRelayAuftrag()`.
+
+**Geändert:**
+- `protocol/src/kit-rpc.ts`: `neuesterBlockhash()` (letzte Höhe als BigInt), `sendeTransaktion()` (Base64, immer mit
+  Vorabsimulation), `warteAufBestaetigung()` (fragt nach, bis „confirmed“, gibt den Fehler der Kette zurück; über der
+  letzten Blockhöhe ohne Bestätigung `tx-abgelaufen`, ohne Websocket) und `txFehlerText()` (Fehler mit BigInt als Text).
+- App: `buildSolTransfer()` nimmt eine `SolRpc` und fragt den Blockhash über den Pool; ihr eigener zweiter Pool in
+  `sol-transfer.ts` fällt. `shell/zahlschienen.ts` sendet, legt das Nonce-Konto an, liest und schließt es, reicht
+  Offline-Überweisungen ein und wählt den Absender über `solRpc()` – kein `Connection` mehr. Lehnt die Kette das Anlegen
+  oder Schließen ab, sagt die App es (bisher blieb ein Fehler nach `confirmTransaction()` unbemerkt).
+- `RpcPool.einVorgang()`: Mit `verteilen` (4.9) zieht der Pool die Reihenfolge der fremden Anbieter je Anfrage neu –
+  beim Nachfragen bis zur Bestätigung sähen sonst alle Anbieter die Signatur samt IP. Ein Vorgang zieht einmal und
+  bleibt dabei; Ausfälle teilt er mit dem Pool. Die App nimmt ihn für Nonce-Konto anlegen und schließen
+  (`solRpc({ einVorgang: true })`).
+- Text `pf.txAbgelaufen` (de/en).
+
+**Tests:** protocol 1331 → 1336 (`rpc-pool.test.ts`: ein Vorgang bleibt beim selben Anbieter, der Pool verteilt weiter,
+nach einem Ausfall weicht er aus und der Pool kennt ihn; ohne Verteilen derselbe Pool. `kit-rpc.test.ts`: Blockhash und Senden mit Vorabsimulation; Ablehnung der
+Vorabsimulation als `SolanaError` mit dem Fehler des Programms, nur ein Endpunkt; Bestätigen mit und ohne Fehler, BigInt
+im Text; abgelaufen, spät doch bestätigt, genau auf der letzten Höhe noch gültig). App: Vektoren der Überweisung über kit
+und einen Pool-Endpunkt als Attrappe, unverändert; `solana-privat` prüft, dass Überweisung und Zahlschienen keinen eigenen
+Pool und keine `Connection` mehr bauen.
+
+Knoten-Stand: nicht berührt.
+
+## Schritt A-21d3b – HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen über den Pool
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). Nach A-21d3a (Baustein, Zahlschienen) senden und bestätigen jetzt
+alle übrigen Wege der App über kit und den RpcPool – die App baut kein `Connection` mehr.
+
+**Geändert:**
+- Protokoll (`kit-rpc.ts`): `programmFehlerCode()` liest den Code eines Programmfehlers aus dem Fehler der Kette (kit
+  liefert BigInt), aus der Ursache des `SolanaError` der Vorabsimulation und aus altem Text; `leseSignaturStand()` nennt
+  den Stand einer Signatur (bestätigt samt Fehler, sonst null) und prüft eine fremde Signatur vorher.
+  `warteAufBestaetigung()` fragt darüber nach.
+- App: `signiertVonWallet(rpc, …)` fragt den Blockhash über den Pool, `sendeUndWarte()` sendet mit Vorabsimulation und
+  wartet. Darüber laufen HTLC sperren (Deposit, Rück-Swap), einlösen (`claimSwap()`), zurückholen, die Einlösung über einen
+  Relayer (Blockhash über den Pool, ihr Stand über `leseSignaturStand()`), Zahlkanal öffnen, aufstocken und erstatten
+  (`sendeMitWallet()`, `kanalAufKette()` über `leseKonto()`), der Rückhol-Wächter (`walletRefundRunner(wallet, rpc,
+  vorgang)`: lesen über den Pool, je Rückholung ein Vorgang), die Quittungen und das Guthaben vor dem Einlösen – je
+  Transaktion `solRpc({ einVorgang: true })`. `describeHtlcError()` nimmt `programmFehlerCode()`: Bisher übersah es
+  Codes als BigInt.
+- In der App bleibt web3.js nur für `swapAddress()` (PDA synchron, ohne `crypto.subtle`) und die Brücke `ueberWeb3()` (W4).
+
+**Tests:** protocol 1351 → 1353 (`kit-rpc.test.ts`: Programmfehler aus Kette, Ursache und Text, nichts aus anderem,
+eine Ursache auf sich selbst endet; Stand einer Signatur, eine kaputte fragt nicht erst). App: neue Attrappe der Kette
+(`test/kette-attrappe.ts`, ein Endpunkt hinter einem echten `RpcPool`) statt Attrappen von `Connection`; die Vektoren
+unverändert; neu: lehnt die Vorabsimulation eine Einlösung ab, nennt die App den Grund des Programms, und nichts ging
+hinaus; `claim-guard` mit BigInt und `SolanaError`-Ursache.
+
+Knoten-Stand: nicht berührt.
+
+## Schritt A-21d3c – Relayer-Prüfung über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21d3; W1, W2 vom 11.10.). Der letzte Teil von A-21d: `pruefeRelayAuftrag()` – die Prüfung,
+die der Relayer vor dem Mitsignieren macht und die App vorher an ihrem eigenen Auftrag.
+
+**Geändert:** `protocol/src/relayer.ts` liest den Auftrag über `ausDraht()`/`leseNachricht()` (nur legacy, Rollen aus dem
+Kopf der Nachricht) statt `Transaction.from()` und prüft die Signaturen über Ed25519 aus `@noble/curves`: jede vorhandene
+muss zur Nachricht passen, fehlende zählen nicht (der Platz des Relayers ist leer) – wie bisher `verifySignatures(false)`.
+Regeln, Reihenfolge und Fälle (`RelayFehler`) unverändert; die Datei braucht web3.js nicht mehr. Damit ist A-21d fertig.
+
+**Tests:** protocol 1353 → 1354 (`relayer.test.ts`: alle bisherigen Fälle unverändert grün – die Aufträge baut dort weiter
+web3.js, wie eine andere Software sie schicken könnte; neu: v0 ist unlesbar, eine falsche Signatur an einem anderen Platz
+fällt auf, ein schon mitsignierter Auftrag gilt, `relayer.ts` ohne web3.js). Knoten (`relayer-dienst`) und App
+(`relay-einloesung`, Vektoren) unverändert grün.
+
+Knoten-Stand: nicht berührt (der Knoten prüft mit derselben Funktion – gleiche Regeln).
+
+## Schritt A-21e1 – Zahlkanal-Kasse, Auszahlung und Einrichtung des Knotens über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21e; W1, W2 vom 11.10.). A-21e ist geteilt: e1 Zahlkanal-Kasse, Auszahlung und
+Einrichtung; e2 Relayer-Dienst, Senden im `main.ts`, HTLC-Adapter des LP.
+
+**Geändert:** Neue Bausteine im Protokoll: `solSchluesselAus()`/`ladeSolanaSchluessel()` (Schlüsseldatei von
+solana-keygen ohne web3.js, der öffentliche Teil muss passen), `sendeMitSchluessel()` (bauen, mit dem eigenen
+Schlüssel signieren, mit Vorabsimulation senden, bestätigen – wirft bei Ablehnung) und `istSolAdresse()`. Im Knoten
+liest `kanalKasseAusUmgebung()` Kanäle über `leseKonto()` und löst über `rechneKanalAbAnweisungen()` und
+`sendeMitSchluessel()` ein; die Auszahlung liest das Guthaben über `leseGuthaben()` und überweist mit
+`ueberweisungAnweisung()`; `kettenBlick()` liest über kit – alles über `poolRpc(new RpcPool([{ url }]))`.
+`kanal-kasse.ts`, `sol-auszahlung.ts` und `einrichtung.ts` brauchen web3.js nicht mehr. Die Validator-Tests des
+Zahlkanals bauen die Kasse jetzt wie der Knoten (`kanalKasseAusUmgebung()`, Gebühr zahlt der Provider).
+`rechneKanalAbIxs()` und `alsWeb3()` stehen bis A-21f in `wiring-ausnahmen.txt` (nur noch Validator-Tests und Vektoren).
+
+**Tests:** protocol 1354 → 1359 (Schlüssel aus 64 Byte und aus der Datei, Adressprüfung, Senden mit dem eigenen
+Schlüssel gegen eine JSON-RPC-Attrappe hinter einem echten Pool); node +3 (Kasse und Auszahlung aus der Umgebung
+gegen einen JSON-RPC-Server auf 127.0.0.1 – Kanal lesen, einlösen, auszahlen, Ablehnung der Kette; Blick auf die
+Kette); Zahlkanal 7 grün gegen den Validator (Agave 3.1.10), die Kasse jetzt über kit und den Pool.
+
+Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.
+
+## Schritt A-32 – Projekte: keine Ausgabe vor dem Ende verlieren
+
+Gefunden in A-21e1: Der Smoke-Teil „projekt“ war einmal rot (`waiting for locator(".projekt-ausgabe summary")`), der
+zweite Lauf grün.
+
+- **Ursache:** `folgeLauf()` (`app/src/shell/knoten-weg-ui.ts`, VKe) gab beim Ergebnis des Laufs sofort zurück. Kamen
+  die Ausgabe des letzten Schritts und das Ergebnis in derselben Abfrage, und stand das Ergebnis vorn, ging die Ausgabe
+  verloren – die Seite zeigte das Ende ohne sie. Der Pool sortiert nach Sekunde, neu zuerst; im Smoke-Test entstehen beide
+  Umschläge im selben Augenblick, rot wurde es nur, wenn dazwischen die Sekunde umsprang. Beim echten Knoten ebenso, wenn
+  beide zwischen zwei Abfragen ankommen.
+- **Korrektur:** erst alle Schritte einer Abfrage an die Seite, dann das Ende (Ergebnis oder Ablehnung, das erste gilt).
+
+**Tests:** app +2 (`knoten-lauf-folge.test.ts`: Ausgabe und Ergebnis in einer Abfrage, das Ergebnis vorn – die Ausgabe
+kommt an; ebenso vor einer Ablehnung, jeder Umschlag nur einmal). Beide scheitern mit dem alten Code.
+
+Knoten-Stand: nicht berührt.
+
+## Schritt A-21e2 – HTLC-Adapter des LP, Relayer-Dienst und Senden im Knoten über kit
+
+Spur A, `docs/KIT-PLAN.md` (A-21e; W1, W2 vom 11.10.). Zweiter Teil von A-21e – danach braucht der Knoten web3.js nicht mehr.
+
+**Geändert:** `AnchorSolanaHtlc` (`protocol/src/solana-adapter.ts`) nimmt statt eines `Keypair` einen `schluessel` aus
+`ladeSolanaSchluessel()` und sperrt, löst ein und holt zurück über kit-Anweisungen (`anweisung()`, gleiche Konten und
+Daten) und `sendeMitSchluessel()` – mit Vorabsimulation, bestätigt durch Nachfragen; `loadSolanaKeypair()` fällt. Der
+Relayer-Dienst signiert über `ausDraht()` → `signiereMit()` → `alsDraht()` mit (Byte für Byte wie `partialSign()` von
+web3.js), `main.ts` sendet über `sendeTransaktion()` auf einem `RpcPool` statt `sendRawTransaction()`. LP (`main.ts`) und
+LP-Abnahme (`lp-abnahme-lauf.ts`) laden den Schlüssel über `ladeSolanaSchluessel()`. Die LP-Vektoren entstehen jetzt aus
+einer JSON-RPC-Attrappe hinter dem Pool – die Bytes sind unverändert.
+
+**Tests:** protocol 1359 → 1360 (der Adapter sendet über kit: signiert vom eigenen Schlüssel, mit Vorabsimulation, erst
+bestätigt dann fertig; eine Ablehnung der Kette wirft, ein falsches Preimage geht gar nicht erst hinaus); node unverändert
+(Relayer: die mitsignierte Transaktion gleicht der von `partialSign()`; zwei Verdrahtungstests lesen den neuen Weg).
+Alle 17 Vektoren unverändert.
+
+Knoten-Stand: keiner nötig – gleiche Anweisungen, Vorabsimulation und „confirmed“ wie bisher.
+
+## Schritt 11.5c1 – Ablauf für Repo-Aufträge nach mini-swe-agent
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W3a A, entschieden 14.10.). 11.5c ist geteilt: c1 der Ablauf als Baustein im
+Knoten, c2 die Verdrahtung im Knoten-Agenten (Bundle holen, P1–P4, Patch einreichen, Antwort im Raum).
+
+**Neu:** `node/src/repo-lauf.ts`.
+- **Ablauf:** `repoLauf()` folgt mini-swe-agent (Fassung 1.x, MIT – Hinweis im Kopf der Datei):
+  - eine lineare Unterhaltung, je Antwort genau ein ```bash-Block;
+  - jeder Befehl in einer neuen bash in der Sandbox, mit der Umgebung von dort (`PAGER=cat` …);
+  - die Ausgabe als `<returncode>`/`<output>`, gekürzt mit Warnung, ein Zeitablauf mit eigener Meldung;
+  - fertig nur, wenn die erste Zeile der Ausgabe `COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` ist und der Befehl mit 0 endet – die Zeilen danach sind Betreff und Beschreibung.
+- **Grenzen:** höchstens drei Formfehler hintereinander; Grenzen nach Schritten (50), Zeit (30 min, auch je Befehl nur die Restzeit) und Tokens (W5).
+- **Fehler:** scheitern Modell oder Sandbox, endet der Lauf mit dem Grund, ohne Text.
+- **Anweisungen an das Modell:** die von mini-swe-agent, englisch wie im Original. Angepasst sind kein Netz, kein git, `/arbeit` und der Abschluss mit Betreff.
+- **`bearbeiteRepo()`:** Arbeitskopie am Kopf des Bundles → neuer Arbeitsordner im tmpfs → Ablauf → `leseArbeitsordner()` → `schreibePatch()`.
+  - Der Ordner ist danach immer weg; ohne „fertig“ gibt es keinen Patch.
+  - Ein Betreff, von dem für git nichts bleibt, fällt auf die Vorgabe zurück.
+  - Nichts geht ins Log.
+
+**Sandbox** (Spur B, eine Stelle in `sandbox.ts`): `fuehreAus()` behält bei langer Ausgabe Anfang und Ende. Bis dahin
+fehlte über 40 000 Zeichen das Ende, also etwa die Zusammenfassung eines Testlaufs.
+
+**Verdrahtung:** `arbeitskopie()`, `schreibePatch()` und `zeilenDiff()` aus dem Protokoll ruft jetzt der Knoten auf –
+drei Ausnahmen aus `wiring-ausnahmen.txt` entfernt.
+
+**Tests:** node +7 (`repo-lauf.test.ts`):
+- ein Befehl je Antwort, Beobachtung, Umgebung;
+- Formfehler (keiner, zwei, abgeschnitten; Zurücksetzen nach einem guten Schritt);
+- Marke nur als erste Zeile und mit 0;
+- Grenzen nach Schritten, Tokens und Zeit samt Restzeit je Befehl, lange Ausgabe und Zeitablauf;
+- Fehler von Modell und Sandbox;
+- mit bubblewrap Ende zu Ende: Patch, den `git am` mit demselben Commit annimmt, keine Variable des Knotens in der Sandbox, Ordner weg, nichts im Log;
+- ohne „fertig“ kein Patch, ohne Änderung keiner, Vorgabe-Betreff.
+
+`sandbox.test.ts` prüft zusätzlich Anfang und Ende bei 300 000 Zeichen. Gegenproben: jede der fünf Regeln (Exit 0,
+`weg()`, Zurücksetzen, Restzeit, Vorgabe-Betreff) und die alte Kürzung machen je einen Test rot.
+
+Knoten-Stand: nicht berührt (noch nicht verdrahtet, kommt mit 11.5c2).
+
+## Schritt 11.5c2a – Repo-Aufträge in offenen Räumen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V3–V6, W3a A, W5 A). 11.5c2 ist geteilt: c2a offene Räume (dieser
+Schritt), c2b private Räume (P1–P4, innere Events, Leak-Szenario).
+
+**Neu:**
+- **Bundle holen:** `node/src/repo-bundle.ts` – `holeRepoBundle()` holt das Bundle eines Verweises (38042):
+  - Manifest und Stücke nur vom Autor des Manifests, das Chiffrat muss die Blob-Id als SHA-256 haben;
+  - entschlüsselt mit dem Schlüssel aus dem Verweis, gelesen mit `leseBundle()`;
+  - sonst `agent-repo-bundle`.
+- **Repo-Aufträge im Knoten-Agenten** (`knoten-agent.ts`, nur mit `AGENT_REPO=1` und Sandbox):
+  - `pruefe()` erkennt das Repo-Tag (`leseRepoAuftrag()`) und prüft das Repo im Raum (`repoImOffenenRaum()`).
+  - Code kommt nur aus dem neuesten Bundle-Verweis eines Pflegers (`neuesterBundleVerweis()`, Protokoll). Ein Issue muss zum Repo gehören.
+  - `bearbeiteRepoAuftrag()` holt das Bundle und lässt `bearbeiteRepo()` laufen (11.5c1). Höchstens ein Auftrag läuft zugleich.
+  - Den Patch reicht der Agent als Kind 1617 ein.
+- **Antwort im Raum:** `agentAntwortEvent()` trägt neu `["fall", …]` und `["e", <patch>, "", "mention"]`. Feste Sätze stehen in `REPO_TEXT`.
+- **Provider** (`dvm-provider.ts`):
+  - Repo-Aufträge laufen statt `complete()` über `gespraech()` (neu im Antrieb, ohne Systemprompt und Werkzeuge, Denkblöcke entfernt).
+  - Nur bezahlt oder vom Besitzer, nach Tokens zum Preis des Knotens bis zum Gebot (W5 A).
+  - Gratis, in der Bootstrap-Phase oder ohne Antrieb für Gespräche abgelehnt.
+  - Scheitert die Arbeit, zahlt der Fragende nichts.
+- **Weitere Stellen:**
+  - `main.ts` prüft die Sandbox nur mit `AGENT_REPO=1`;
+  - `docker-compose.yml` hat `AGENT_REPO`;
+  - Doku: `PROVIDER.md`, `PROTOCOL.md` §33.
+- **Private Räume:** Repo-Aufträge dort lehnt der Agent bis 11.5c2b ab (`agent-repo-privat`), nie als gewöhnliche Frage.
+
+**Tests:** protocol +2, node +6.
+- **Protokoll:** neuester Verweis (Pfleger, Kennung, Schlüssel, gleiche Sekunde); Tags der Antwort.
+- **Bundle:**
+  - nur über den Verweis;
+  - ein fremdes Manifest mit derselben Blob-Id zählt nicht;
+  - Stücke eines anderen Autors zählen nicht, auch wenn ein Relay `authors` übergeht;
+  - ohne Schlüssel gibt es nichts.
+- **Einstellung:** `AGENT_REPO`.
+- **Mit bubblewrap Ende zu Ende:**
+  - Patch vom Agenten, `git am` ergibt denselben Commit;
+  - die Antwort nennt den Patch;
+  - bezahlt 120 msat für drei Antworten;
+  - Ordner weg, nichts im Log.
+- **Grenze erreicht:** kein Patch, Kennung `repo.schritte`.
+- **Ablehnungen vor dem Rechnen**: aus (zweimal), fremdes Repo, kein Verweis, Verweis eines Fremden, fremdes Issue, Bootstrap.
+- **Verdrahtung:** wie der Provider den Auftrag weiterreicht.
+- **Gegenproben:** Ohne Prüfung des Stück-Autors und ohne die Sperre für Gratis ist je ein Test rot.
+- **Angepasst:** zwei Regex-Tests auf die neue Zeile (L2-2, 11.3d1a).
+
+Knoten-Stand: `main` mit 11.5c2a, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.
+
+## Schritt 11.5c2b – Repo-Aufträge in privaten Räumen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (P1–P4, W7 A). Nach 11.5c2a (offene Räume) jetzt private Räume.
+`paket_holen` und Pakete aus der Sperrdatei für offene Räume folgen als 11.5c3 (P3: im privaten Raum nie).
+
+**Neu:**
+- **Knoten-Agent** (`knoten-agent.ts`, `privatesRepo()` in `pruefePrivat()`):
+  - P1: nur als Mitglied der Gruppe (wie jede Frage im privaten Raum, 11.3d2b).
+  - P2: nur mit dem Modell auf diesem Rechner – `modellLokal` aus `main.ts` (`lokaleKiAdresse()` der Adresse des
+    Antriebs), sonst `agent-repo-modell`.
+  - Repo nur über `repoImPrivatenRaum()`, Bundle-Verweis samt Schlüssel nur aus den inneren Events
+    (`raumReposPrivat()` → `neuesterBundleVerweis()`) – ein offener Verweis zählt dort nicht. Ein Issue nur aus der Gruppe
+    und nur von diesem Repo.
+  - P4: Patch nur als inneres Event (`raumRepoPatch()`, `reicheEin()`), Antwort über `raumAgentAntwort(…, { patch, fall })`.
+    Arbeitsordner im tmpfs und nichts im Log wie in 11.5c2a.
+- **Protokoll:** `repoAntwortTags()` – dieselben Tags für die offene (`agentAntwortEvent()`) und die private Antwort.
+- **Ablehnung `agent-repo-privat`** (bis 11.5c2a) fällt weg; neu `agent-repo-modell`.
+- **Doku:** `PROTOCOL.md` §33 (private Räume, Kennungen), `PROVIDER.md` (private Räume, Docker-Hinweis), Fallstricke in
+  `packages/node/CLAUDE.md` und `packages/protocol/CLAUDE.md`.
+- **Verdrahtung:** `repoImPrivatenRaum` ist aus `wiring-ausnahmen.txt` raus.
+
+**Tests:** protocol +1, node +3.
+- **Protokoll:** private Antwort – ohne Repo-Auftrag wie bisher, mit Kennung, mit Patch; ungültige Id und andere Kennungen werfen.
+- **Mit bubblewrap Ende zu Ende** (echte MDK-Engine, `repo-auftrag-privat.test.ts`):
+  - Repo und Verweis nur in der Gruppe, Patch vom Agenten als inneres Event, `git am` ergibt denselben Commit;
+  - die Antwort in der Gruppe nennt die Id des inneren Patches und `repo.patch`, dieselbe versiegelt an den Fragenden;
+  - auf dem Relay nichts vom Repo (`regelRaumRepoPrivat` mit Schlüssel und inneren Ids, `regelKeinKlartext`), kein
+    1617/42/30617/38042; Ordner weg, nichts im Log.
+- **Ablehnungen vor dem Rechnen:** Modell nicht auf diesem Rechner, aus, fremdes Repo, fremdes Issue, Verweis nur offen –
+  ohne Antwort in der Gruppe.
+- **Verdrahtung:** `modellLokal` in `main.ts`, Prüfung vor `inArbeit`, Patch über `raumRepoPatch()`.
+- **Gegenproben:** Ohne die Prüfung P2 und mit offenem statt innerem Patch ist je ein Test rot.
+- **Angepasst:** zwei Regex-Tests (11.5c2a, 11.3d2b) auf die neuen Zeilen.
+
+Knoten-Stand: `main` mit 11.5c2b, nur wer Repo-Aufträge in privaten Räumen will (`AGENT_REPO=1`, `AGENT_PRIVAT`, Modell
+auf diesem Rechner); sonst kein Unterschied.
+
+## Schritt 11.5c3 – Pakete für Repo-Aufträge offener Räume
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (W6 B, W6a „So“, P3). Nach 11.5c2b der letzte Teil von 11.5c; der Schalter für
+private Räume (P3, Vorgabe aus) steht als 11.5c4 in OFFEN.
+
+**Neu:**
+- **Phase 1** (`repo-lauf.ts`, `bearbeiteRepo(…, { paketHolen })`): Vor dem ersten Schritt holt der Knoten, was
+  `package-lock.json` und `requirements.txt` an der Wurzel des Bundles mit Prüfsumme nennen (`holeAusSperre()` aus 11.5n,
+  gelesen aus der Arbeitskopie im Speicher, nie vom Ordner), in einen eigenen Ordner im tmpfs. Die Sandbox sieht ihn nur
+  lesbar als `/pakete`; npm und pip sind über Umgebungsvariablen darauf eingestellt (offline, ohne Install-Skripte, Logs von
+  npm nach `/tmp`). Danach ist der Ordner weg.
+- **`paket_holen`:** Die Zeile `paket_holen <npm|pypi> <name> <version>` erkennt `repoLauf()` und führt `paketHolen()` im
+  Knoten aus – nie die Sandbox; zum Modell nur Adresse und Prüfsumme oder die Kennung. Die Aufgabe nennt beides (englisch
+  wie die übrigen Anweisungen).
+- **Scheitert das Holen**, läuft der Auftrag ohne Pakete: Das Modell liest die Kennung, die Antwort im Raum trägt
+  `["pakete", <kennung>]` (`repoAntwortTags()`) und einen festen Satz dazu (`PAKETE_FEHLEN_TEXT`).
+- **Nur offene Räume:** `bearbeiteRepoAuftrag()` gibt die Pakete nur ohne Gruppe frei; privat gibt es weder `/pakete` noch
+  `paket_holen` (P3).
+- **`main.ts`:** Pakete mit `TOR_SOCKS` durch Tor; die Plattform für Räder (`sandboxPlattform()`: Python-Fassung, wie sie in
+  der Sandbox läuft) – sonst nähme `passendeDateien()` nur reine Räder oder Quellarchive.
+- **Doku:** `PROTOCOL.md` §33 (Tag `pakete`), `PROVIDER.md` (Pakete), Fallstrick in `packages/node/CLAUDE.md`.
+
+**Gemessen:** `npm ci --offline` installiert aus einem nur lesbar eingebundenen Cache, wenn `npm_config_logs_dir` woanders
+hinzeigt (sonst nur eine Warnung).
+
+**Tests:** protocol +1, node +5.
+- **Protokoll:** das Tag `pakete` offen wie privat, nur `paket-…`.
+- **Ablauf:** `paket_holen` im Knoten (Adresse und Prüfsumme, Kennung, nie fremder Fehlertext), npm und pip auf `/pakete`
+  nur mit Freigabe; ohne Freigabe ist die Zeile ein gewöhnlicher Befehl; die Aufgabe nennt eine gescheiterte Phase 1.
+- **Mit bubblewrap:**
+  - Pakete der Sperrdatei vor dem ersten Schritt nur lesbar in `/pakete`, pip installiert daraus ohne Netz,
+    `paket_holen` legt ein neues dazu; nur GET an die Liste; beide Ordner danach weg;
+  - falsche Prüfsumme: nichts abgelegt, der Auftrag läuft, Kennung im Ergebnis; ohne Freigabe kein Abruf, kein `/pakete`;
+  - die Plattform ist die Python-Fassung in der Sandbox.
+- **Knoten-Agent:** offener Raum mit unerreichbarer Registry → Antwort mit `["pakete", "paket-netz"]`; privater Raum mit
+  Sperrdatei → kein Abruf, kein Abschnitt zu Paketen in der Aufgabe.
+- **Gegenproben:** Ohne die Sperre für private Räume und mit `/pakete` schreibbar ist je ein Test rot.
+- **Angepasst:** drei Regex-Tests auf die neuen Zeilen (11.5c2a, 11.3d1a).
+
+Knoten-Stand: `main` mit 11.5c3, nur wer Repo-Aufträge will (`AGENT_REPO=1`, Sandbox); sonst kein Unterschied.
+
+## Schritt A-28a – Rückgabe vor Ablauf im HTLC-Programm
+
+Spur A, Entscheidung 11.10. (MENSCH: A-28 ja, mit 0.G); Vorschlag aus `docs/BOLTZ-VERGLEICH.md` (B2). A-28 in zwei Teilen:
+A-28a Programm, Adapter, Tests; A-28b LP und App (Format der Antwort vorher klären).
+
+**Neu:**
+- **Programm** (`contracts/solana-htlc`): Anweisung `zurueckgeben`. Nur der Empfänger der Sperre unterschreibt; das Geld
+  geht nur an den Initiator – Betrag und Miete, das Konto der Sperre wird geschlossen. Beide werden gegen die Sperre
+  geprüft (`WrongRecipient`, `WrongInitiator`), eine abgeschlossene Sperre lehnt ab (`AlreadyClosed`). Keine neue
+  Fehler-Variante, `lock`, `claim` und `refund` unverändert.
+- **Adapter** (`solana-adapter.ts`): `zurueckgeben(swapId, initiator)` über kit, der LP zahlt die Gebühr; Schnittstelle
+  `SolanaHtlcAdapter` und `MockSolana` ebenso.
+- **Validator-Tests** (`contracts/solana-htlc/tests/htlc.test.ts`, `pruefen.sh`, CI `htlc.yml`): das HTLC-Programm zum
+  ersten Mal gebaut und gegen einen lokalen Validator getestet, mit dem Adapter aus dem Protokoll – wie beim Zahlkanal
+  (Agave 3.1.10, Überspringen gilt in der CI als Fehler).
+- **Doku:** `SWAPS.md` (Rückgabe vor Ablauf), README des Programms (Bauen, Upgrade-Schritte, kein `--final`),
+  `SOLANA-UPGRADE-AUTHORITY.md` (Checkliste), Fallstrick in `contracts/CLAUDE.md`, Befehl in der `CLAUDE.md`.
+
+**Tests:** protocol +1 (Attrappe; dazu der Vektor „lp-zurueckgeben“ im bestehenden Vektor-Test, unabhängig mit web3.js v1
+gerechnet), HTLC 3 (gegen den Validator):
+- zurück an den Kunden auf den Lamport (Betrag und Miete), der LP zahlt nur die Gebühr, danach ist die Sperre weg und ein
+  zweiter Versuch scheitert (3012);
+- ein Fremder und der Kunde selbst scheitern (6004), ein LP, der an sich umleiten will, auch (6005) – die Sperre bleibt;
+- nach dem Einlösen gibt es nichts zurückzugeben; Rückholen erst nach Ablauf (6006), dann an den Kunden.
+- **Gegenprobe:** Ohne die Prüfung des Initiators ist ein Test rot.
+
+Wirksam erst nach dem Upgrade an `FVb19s…` durch den MENSCHEN (M-1); bis dahin lehnt das Programm die Anweisung ab.
+Knoten-Stand: keiner nötig – der LP ruft `zurueckgeben` erst ab A-28b.
+
+## Schritt A-12a1 – Kasse über Squads: anlegen und lesen
+
+Spur A, `docs/KASSE-ENTWURF.md` (freigegeben 11.10.: V1–V7, W1 B, W2 wählbar, W3–W5). A-12a in zwei Teile geteilt:
+a1 Anlegen und Lesen, a2 Auszahlen und Konfiguration ändern. A-12b (App: anlegen, einzahlen) braucht nur a1.
+
+**Neu:**
+- **Baustein `packages/protocol/src/kasse.ts`** (ohne SDK, W1 B; IDL von Squads v4 2.1.0):
+  - Adressen: Kasse (Multisig), Tresor (Vault 0), Einstellungen des Programms.
+  - Zwei Arten (W2): „Gründer entscheidet“ – der Gründer mit allen Rechten, die übrigen schlagen nur vor, Schwelle 1;
+    „Mehrheit“ – alle mit allen Rechten, Schwelle die Mehrheit, mindestens 2 (`kassenMitglieder()`, `mehrheitVon()`).
+  - Anlegen (`multisig_create_v2`): ohne Verwalter (V2), Zeitschloss nur 0, 1 h oder 24 h (W3), Miete abgeschlossener
+    Vorschläge zurück in den Tresor, das Schatzamt aus den Einstellungen des Programms.
+  - Lesen: Kasse und Einstellungen (Diskriminator, Länge, nur Konten von Squads); die Art nur aus dem Stand auf der Kette
+    (`kassenArt()`), mit Verwalter oder anderen Rechten keine Kasse dieser App.
+- **Tests gegen das echte Programm** (`contracts/squads/`, `pruefen.sh`, CI `kasse.yml`): das unveränderliche Programm von
+  Mainnet und das von Devnet, geholt mit `solana program dump`, nur mit fester Prüfsumme; je ein lokaler Validator. Vom
+  Programm (AGPL-3.0) liegt nichts im Repo. Die Einstellungen des Programms legt der Test selbst an (Gebühr über 0).
+- **Doku:** Entwurf (Umsetzung), Fallstricke in `contracts/CLAUDE.md` und `packages/protocol/CLAUDE.md`, Befehl und Stand in
+  der `CLAUDE.md`, OFFEN, FORTSCHRITT.
+
+**Tests:** protocol +6, Kasse 6 (gegen Squads im Validator, je 3 für Mainnet und Devnet):
+- **Vektoren** „kasse-anlegen-mehrheit“ und „kasse-anlegen-gruender“: gerechnet mit dem SDK von Squads (`@sqds/multisig` 2.1.4,
+  nur außerhalb des Repos) und web3.js v1 – `kasse.ts` liefert dieselben Bytes, Adressen von Kasse und Tresor eingeschlossen.
+- **Protokoll:** Adressen wie im SDK; beide Arten samt Mehrheit für 2 bis 10; doppelte Mitglieder, Mehrheit allein und falsche
+  Zeitschlösser werfen; Konto lesen (alle Felder, falsche Art, abgeschnitten, kaputte Option); Art nur bei passenden Rechten und
+  Schwelle; `leseKasse()` nur für Konten von Squads (JSON-RPC-Attrappe hinter dem Pool).
+- **Validator:** Mehrheit (drei Mitglieder, Schwelle 2, ohne Verwalter, Miete an den Tresor, Einzahlen an den Tresor), Gründer
+  entscheidet (Zeitschloss 1 h), Gebühr an das Schatzamt und ein anderes Schatzamt abgelehnt (6014) – auf beiden Programmen.
+- **Gegenprobe:** Ohne `rent_collector` ist auf beiden Programmen je ein Test rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b.
+
+## Schritt A-12a2 – Kasse über Squads: auszahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V1, V6, W2, W3). Nach A-12a1 (anlegen, lesen) der zweite Teil des Bausteins; das
+Ändern der Konfiguration (Mitglieder, Schwelle, Zeitschloss) steht als A-12a3 in OFFEN, für A-12d.
+
+**Neu (`packages/protocol/src/kasse.ts`):**
+- **Adressen** von Transaktion und Vorschlag je Index (`kassenTransaktionAdresse()`, `kassenVorschlagAdresse()`).
+- **Vorschlagen** (`auszahlungVorschlagenAnweisungen()`): Vault-Transaktion und Vorschlag in einem Zug. Die Nachricht
+  (`auszahlungsNachricht()`, kompaktes Format von Squads) ist genau eine Überweisung aus Tresor 0 an einen Empfänger;
+  Betrag 0, der Tresor selbst und das System-Programm als Empfänger werfen. Der Vorschlagende zahlt die Miete.
+- **Abstimmen** (`abstimmenAnweisung()`: dafür oder dagegen), **ausführen** (`ausfuehrenAnweisung()`: nur mit der
+  Auszahlung von der Kette, Konten aus ihr) und **abschließen** (`abschliessenAnweisung()`: Miete an den Tresor).
+- **Lesen:** Vorschlag (Status samt Zeit, Stimmen dafür, dagegen, abgebrochen) und Transaktion (`leseAuszahlung()`: eine
+  Auszahlung nur in genau der Form dieser App, sonst `null` – V6); von der Kette nur Konten von Squads und nur zur
+  genannten Kasse und Nummer.
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/protocol/CLAUDE.md` (zwei Formate der Nachricht), README der
+  Tests, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:** protocol +4, Kasse +6 (je 3 auf dem Programm von Mainnet und Devnet):
+- **Vektoren** „kasse-auszahlung-vorschlagen“, „kasse-zustimmen“, „kasse-ablehnen“, „kasse-ausfuehren“,
+  „kasse-abschliessen“ – mit dem SDK von Squads und web3.js v1 gerechnet; `kasse.ts` liefert dieselben Bytes.
+- **Protokoll:** Adressen wie im SDK; Nachricht nimmt nur echte Auszahlungen; Vorschlag lesen (alle Status, ohne Zeit bei
+  „wird ausgeführt“, unbekannt und abgeschnitten werfen); Auszahlung lesen (13 Abweichungen von der Form ergeben `null`);
+  von der Kette nur zur genannten Kasse und Nummer.
+- **Validator:** Mehrheit – vorschlagen, ausführen erst ab zwei Stimmen (6008 vorher), nur der Betrag verlässt den Tresor,
+  falscher Empfänger der Miete abgelehnt (6033), abschließen gibt die Miete beider Konten auf den Lamport in den Tresor;
+  zwei Gegenstimmen lehnen ab, nicht ausführbar, abschließbar; Gründer entscheidet – das übrige Mitglied schlägt vor, darf
+  aber weder abstimmen noch ausführen (6004), der Gründer führt aus; mit Zeitschloss 1 h hält Squads die Ausführung (6021).
+- **Gegenprobe:** Mit dem Tresor nur lesbar bei der Ausführung sind auf beiden Programmen je zwei Tests rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12c.
+
+## Schritt A-12b1 – Kasse im Raum: Recht, Definition, Adressen der Mitglieder
+
+Spur A, `docs/KASSE-ENTWURF.md` (V3–V5, W4). A-12b ist geteilt: b1 ist der Protokollteil, b2 die App (eigene Adresse
+nennen, anlegen, einzahlen, Abweichungen zeigen, Grenze „raum-kasse“ im Datenschutzbericht). Dazu ist im Entwurf
+eingetragen: Die Miete abgeschlossener Vorschläge geht an den Tresor, bestätigt vom MENSCHEN am 21.10. („Passt“).
+
+**Neu:**
+- **Recht „kasse“** (`spaces.ts`, Datei der Spur B): erlaubt die Mitgliedschaft in der Kasse (W4). Gründer und Admins
+  haben es immer, sonst nur über eine zugewiesene Rolle, nie über die Rolle für alle.
+- **Kasse in der Definition** (Tag `kasse`, `buildSpace()`/`raumDefinition()`): Offen zählt sie nur aus der Definition
+  des Gründers, privat nur aus der eines Admins (V5). Eine unlesbare Adresse heißt keine Kasse; der Raum bleibt lesbar.
+- **Adresse eines Mitglieds** (`raum-kasse.ts`, Kind 34704): offen an die Adresse des Raums, privat nur als inneres
+  Event. Der Nachweis ist eine Signatur der Adresse über `freedomstack-kasse-v1:<ort>:<schlüssel>`; so gibt niemand
+  eine fremde Adresse als seine aus, und der Nachweis gilt nur in seinem Raum. Je Schlüssel zählt die neueste Meldung,
+  eine kaputte gilt nicht (nie still die ältere), und eine doppelt genannte Adresse gilt für keinen.
+- **Abweichungen** (`kassenAbweichungen()`, V3): Recht ohne Mitgliedschaft und Mitgliedschaft ohne Recht. Es zählt die
+  Kette.
+- **Doku:** `docs/PROTOCOL.md` §42, Entwurf (Umsetzung), Fallstrick in `packages/protocol/CLAUDE.md`, OFFEN, FORTSCHRITT,
+  Stand.
+
+**Tests:** protocol +7 (`raum-kasse.test.ts`):
+- **Definition:** offen nur vom Gründer, auch nach den Kanälen; privat nur von Admins.
+- **Recht:** Gründer und Admins ja, Rolle für alle nein; beim Lesen der Rollen nicht weggefiltert.
+- **Nachweis:** anderer Schlüssel, anderer Raum, andere Adresse und kaputte Form scheitern; eine fremde Adresse
+  scheitert schon beim Bauen.
+- **Offene und private Meldungen:** neueste je Schlüssel; anderer Raum, umgelenktes `a`-Tag, geklaute Meldung,
+  doppelte Adresse und mehr als 600 s voraus zählen nicht; privat nur diese Gruppe (Gruppen-Id mit 16 Byte wie bei MDK).
+- **Abweichungen:** in beide Richtungen, auch ohne genannte Adresse.
+- **Gegenproben:** Ohne die Prüfung des Nachweises, ohne die Prüfung der Raum-Adresse, ohne die Prüfung der Adresse in
+  der Definition und ohne die Regel für doppelte Adressen ist je mindestens ein Test rot.
+
+Knoten-Stand: keiner nötig – die App ruft den Baustein ab A-12b2.
+
+## Schritt A-12b2a – Kasse im Raum: eigene Adresse nennen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V4, V5, W4). Erster App-Teil der Kasse im Raum. A-12b2 ist geteilt:
+- **a (hier):** Adresse nennen, Grenze im Bericht
+- **b:** anlegen
+- **c:** einzahlen, Stand und Abweichungen
+- **d:** Adresse aus einer verbundenen Wallet
+
+**Neu:**
+- **Raum-Menü „Adresse für die Kasse nennen …“** (`shell/raum-kasse-ui.ts`, Menüpunkt in `tabs/raeume.ts`):
+  - Nur mit dem Recht „kasse“ und als Person, nie als Gerät.
+  - Erst die Rückfrage: Sie sagt, was öffentlich wird – offen der Schlüssel mit der Adresse, privat nur die Gruppe; auf der Kette in beiden Fällen alles der Kasse.
+  - Dann eine frische Adresse aus dem Vorrat der eingebauten Wallet (V4), nie die Hauptadresse.
+  - Offen als Kind 34704 an die Adresse des Raums, privat nur als inneres Event der Gruppe.
+  - Wer schon eine genannt hat, bekommt sie gezeigt.
+- **Eingebaute Wallet** (`sol-wallet.ts`): `kassenNachweis()` signiert nur den festen Text der Kasse, nie beliebige Bytes, die eine Transaktion sein könnten. Nur für eigene Adressen: Hauptadresse oder vergebene frische.
+  - Erreichbar nur über `frischeKassenAdresse()` in `shell/eingebaute-wallet.ts` – die Regel „Zahlwege“ lässt die Wallet nur dort zu.
+- **Grenze „raum-kasse“** im Datenschutzbericht, Deutsch und Englisch: Die Kasse steht öffentlich auf der Kette; im öffentlichen Raum verbindet die Meldung den Schlüssel mit der Adresse; die App nimmt eine frische Adresse.
+- **Private Definition behält die Kasse:** Raumstand, Kanal anlegen und ändern, Agentenketten geben `kasse` mit (`raum-mls.ts`).
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/app/CLAUDE.md`, OFFEN (b2b–b2d), FORTSCHRITT, Stand.
+
+**Tests:**
+- **protocol +1:** Grenze im Bericht, dazu das Szenario „raum-kasse“ mit echter MLS-Engine: Adresse und Nachweis nur als Chiffrat, nie die Identität.
+- **app +3:**
+  - Nachweis der Wallet: frische Adresse, nur dieser Ort und Schlüssel, keine fremde oder unvergebene Adresse, gesperrter Tresor.
+  - Verdrahtung: Recht, Rückfrage vor der Adresse, offen an die Raum-Adresse, privat nur in die Gruppe, nie die Hauptadresse.
+  - Die drei Neuschreib-Stellen der privaten Definition.
+- **Gegenproben:** Signiert die Wallet mit dem ersten Schlüssel statt dem der Adresse oder vergisst die Definition die Kasse, ist je ein Test rot.
+
+Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2b – Kasse im Raum: anlegen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V2, V4, V7, W2, W3). Zweiter App-Teil der Kasse im Raum, auf A-12b2a.
+
+**Neu:**
+- **Raum-Menü „Kasse anlegen …“** (`shell/raum-kasse-ui.ts`, Menüpunkt in `tabs/raeume.ts`):
+  - Offen nur der Gründer, privat nur ein Moderator (Admin); als Person, nie als Gerät; nur solange der Raum keine Kasse hat.
+  - Erst muss man selbst eine Adresse genannt haben (A-12b2a) – mit ihr steht man in der Kasse.
+  - Mitglieder: die eigene Adresse und die genannten Adressen derer mit dem Recht „kasse“. Wer keine genannt hat, fehlt; der Dialog nennt die Zahl.
+  - Wählbar: Art (Gründer entscheidet oder Mehrheit, W2) und Wartezeit (0, 1 h, 24 h, W3). Mehrheit braucht ein weiteres Mitglied.
+  - Danach die Kosten: Miete, Gebühr von Squads, Netzgebühr und die zahlende Adresse. Bei „Gründer entscheidet“ sagt der Text, dass der Gründer allein verfügt.
+- **Anlegen** (`legeKasseAn()` in `shell/zahlschienen.ts`): nur mit der eingebauten Wallet, nur auf Devnet (V7):
+  - Gefragt werden nur eigene Endpunkte, deren Genesis-Hash Devnet ist (`devnetRpc()` in `shell/state.ts`, `endpunkteImNetz()` im Protokoll) – nie der gemeinsame Pool, der bei einem Ausfall still auf Mainnet auswiche. Ohne solchen Endpunkt sagt die App, wo man ihn einträgt.
+  - Es zahlt am liebsten die Adresse für die Kasse (V4); zahlt eine andere eigene, sagt der Text, dass sie als Ersteller mit der Kasse verbunden wird.
+  - Der Create-Key ist frisch, unterschreibt im Protokoll (`baueKasseAnlegen()`) und wird gleich genullt. Die Miete rechnet `kassenKontoGroesse()`.
+- **In die Definition:** offen eine neue Definition des Gründers mit dem Tag `kasse` (`mitKassenTag()`, eine Sekunde nach der alten), privat `setzePrivateKasse()` über die Stelle mit den Ketten. Scheitert es, fragt die App erneut, statt still aufzugeben – die Kasse steht dann schon auf der Kette.
+- **Grenze „raum-kasse“** um einen Satz ergänzt (beide Sprachen): Die zahlende Adresse steht als Ersteller auf der Kette.
+- **Validator-Test** (`contracts/squads/tests/kasse.test.ts`): legt jede Kasse jetzt über `baueKasseAnlegen()` an, wie die App, und vergleicht die Länge des Kontos mit `kassenKontoGroesse()`.
+- **Doku:** Entwurf (Umsetzung), Fallstricke in `packages/app/CLAUDE.md` und `packages/protocol/CLAUDE.md`, OFFEN (b2b raus, Gerätetest Kasse auf Devnet), FORTSCHRITT, Stand; 9 Ausnahmen in `wiring-ausnahmen.txt` fallen weg (jetzt verdrahtet).
+
+**Tests:**
+- **protocol +4:** Anlegen mit frischem Create-Key (er hat unterschrieben, der Ersteller noch nicht; dieselben Bytes wie die Anweisung; Größe des Kontos); `endpunkteImNetz()` (nur Endpunkte mit diesem Genesis-Hash, je Endpunkt eine Frage, kein Ausweichen); `mitKassenTag()`; Satz im Bericht.
+- **app +2:** Die eingebaute Wallet unterschreibt das Anlegen als Ersteller (auch mit der Adresse für die Kasse), eine unvergebene Adresse nicht; Verdrahtung (nur Devnet-Endpunkte, erst Kosten, dann senden; Recht, eigene Adresse zuerst, Definition offen und privat, Menüpunkt).
+- **Kasse (Validator) 12:** wie bisher, jetzt über den Weg der App und mit der Länge des Kontos.
+- **Gegenproben:** falsche Größe (alle 12 Validator-Tests rot); App über den gemeinsamen Pool, Pool mit den eingebauten Endpunkten, private Definition ohne Kasse, Anlegen trotz vorhandener Kasse – je ein Test rot.
+
+Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2c – Kasse im Raum: Stand und einzahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V2, V3, V4, V7, W2). Dritter App-Teil der Kasse im Raum, auf A-12b2b.
+
+**Neu:**
+- **Raum-Menü „Kasse …“** (`shell/raum-kasse-ui.ts`, `zeigeKasse()`), sichtbar, sobald der Raum eine Kasse hat; als Person, nie als Gerät:
+  - Liest die Kasse von der Kette – nur auf Devnet über eigene Endpunkte (`devnetRpc()`).
+  - Zeigt Tresor, Guthaben, Art, Wartezeit und Mitglieder (`kassenStandText()`, neu `kasse-anzeige.ts`, ohne DOM).
+  - Zeigt jede Abweichung zum Raum (`kassenAbweichungen()`, V3): Recht ohne Mitgliedschaft (mit oder ohne genannte Adresse), Mitgliedschaft ohne Recht (bekannt oder unbekannt). Es zählt die Kette.
+  - Eine Kasse anderer Form (etwa mit Verwalter) zeigt sie nur; einzahlen dort nie.
+- **Einzahlen** (`zahleInKasse()` in `shell/zahlschienen.ts`): an den Tresor, nur mit der eingebauten Wallet, nur auf Devnet, nur in Kassen, die `kassenArt()` kennt.
+  - Die erste Einzahlung muss die Miete des Tresors decken, sonst ein klarer Hinweis statt der Ablehnung der Kette.
+  - Erst die Rückfrage mit Betrag, Tresor und Zahler, dann das Tageslimit (`freigabe()`), dann senden mit Vorabsimulation.
+  - Bei „Gründer entscheidet“ sagt die Rückfrage, dass der Gründer allein verfügt (Entwurf, W2: bei jeder Einzahlung).
+  - Zahler wie beim Anlegen über `kassenZahler()` – am liebsten die eigene Adresse für die Kasse.
+- **Grenze „raum-kasse“:** Der Satz zum Zahler gilt jetzt für Anlegen und Einzahlen (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/app/CLAUDE.md`, OFFEN (b2c raus, Gerätetest ergänzt), FORTSCHRITT, Stand; 4 Ausnahmen in `wiring-ausnahmen.txt` fallen weg.
+
+**Tests:**
+- **app +2:** Text des Stands (beide Arten, fremde Form, Wartezeiten, alle vier Arten von Abweichung, „stimmen überein“); Verdrahtung (nur Devnet, nur Kassen der App, Miete, Reihenfolge Rückfrage → Tageslimit → bauen → senden, fremde Form nur zeigen, Hinweis bei „Gründer entscheidet“, Menüpunkt).
+- **protocol:** der Satz im Bericht (Test angepasst an „anlegt oder einzahlt“).
+- **Gegenproben:** vertauschte Abweichung, falsche Art, Einzahlen ohne Prüfung der Art, ohne Tageslimit – je ein Test rot.
+
+Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2d – Kasse im Raum: Adresse aus einer verbundenen Wallet
+
+Spur A, `docs/KASSE-ENTWURF.md` (V4). Letzter App-Teil der Kasse im Raum (A-12b), auf A-12b2c.
+
+**Neu:**
+- **Nachricht signieren über verbundene Wallets** (`signiereNachricht()` am `SolAnbieter`):
+  - Wallet Standard (`wallet-standard.ts`): `solana:signMessage` mit dem verbundenen Konto. Die App nimmt die Signatur nur, wenn `signedMessage` genau ihre Bytes sind (manche Wallets setzen einen Vorspann davor – dann gälte der Nachweis nicht), der Typ Ed25519 ist und sie 64 Byte hat.
+  - `window.solana` (`solana-connect.ts`): `signMessage(…, "utf8")`, nur 64 Byte.
+  - Angeboten nur, was die Wallet kann.
+- **„Adresse für die Kasse nennen …“ mit verbundener Wallet** (`shell/raum-kasse-ui.ts`):
+  - Die eingebaute Wallet geht vor (frische Adresse aus dem Vorrat). Ist der Tresor gesperrt, sagt die App das, statt still die verbundene zu nehmen.
+  - Ohne eingebaute nimmt sie die Adresse der verbundenen Wallet; ohne Tresor verlangt sie dafür keinen.
+  - Die Rückfrage nennt die Adresse und rät zu einem eigenen, neuen Konto der Wallet (V4); offen sagt sie, dass der Schlüssel öffentlich mit der Adresse verbunden wird.
+  - Die Wallet signiert nur den festen Text (`kassenNachweisNachricht()`); vor dem Senden prüft die App den Nachweis (`pruefeKassenNachweis()`).
+- **Grenze „raum-kasse“:** nennt die verbundene Wallet (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung, A-12b fertig), Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:**
+- **app +3:** Wallet Standard mit echter Ed25519-Signatur (Nachweis gilt; Vorspann, fremder Typ, kurze Signatur und fehlende Verbindung abgewiesen; ohne Feature nichts angeboten); `window.solana` ebenso; Verdrahtung (Vorrang der eingebauten, gesperrter Tresor, kein Tresor nötig, Rückfrage vor dem Signieren, Prüfung vor dem Senden).
+- **protocol +1:** der Satz im Bericht.
+- **Gegenproben:** ohne Vergleich der Bytes, ohne Längenprüfung, verbundene Wallet auch bei leerem Vorrat, Senden ohne Prüfung des Nachweises – je ein Test rot.
+
+Knoten-Stand: keiner nötig.
+
+## Schritt A-12c1 – Kasse im Raum: auszahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V6, V7, W2, W3). Erster Teil von A-12c, auf A-12b2d. A-12c ist geteilt: c1 auszahlen mit der eingebauten Wallet (hier), c2 Hinweis im Raum auf neue Vorschläge (V6), c3 abstimmen und auszahlen mit einer verbundenen Wallet.
+
+**Neu:**
+- **Protokoll** (`kasse.ts`):
+  - `vorschlagsSchritte()`: was das Programm mit einem Vorschlag jetzt annimmt. Abstimmen nur aktiv, nicht veraltet, mit dem Recht und nicht zum zweiten Mal gleich; ausführen nur angenommen, nach der Wartezeit, mit dem Recht; abschließen nur ausgeführt, abgelehnt, abgebrochen oder veraltet und nur mit `rent_collector`. Abstimmen und ausführen nur bei einer Auszahlung der App (V6). Dazu `ausfuehrbarAb()`.
+  - `leseVorschlaege()`: die jüngsten zehn Vorschläge samt Auszahlung, von der Kette.
+  - `auszahlungKontoGroessen()`: die Größe von Transaktion und Vorschlag für die Miete.
+  - `auszahlungVorschlagenAnweisungen()` mit `mietZahler`: Die Miete darf eine andere Adresse zahlen als die vorschlagende (Vektor aus dem SDK von Squads).
+- **App:**
+  - „Kasse …“ zeigt die Auszahlungen von der Kette – Betrag, Empfänger, Status, Stimmen, bei Wartezeit ab wann (`vorschlaegeText()`) – und bietet nur an, was `vorschlagsSchritte()` erlaubt (`kassenAktionen()`): einzahlen, vorschlagen, dafür oder dagegen stimmen, auszahlen, abschließen.
+  - `kassenSchritt()` (`shell/zahlschienen.ts`): nur eingebaute Wallet, nur Devnet, nur Kassen der App. Erlaubt wird nach dem frisch gelesenen Stand; Empfänger und Betrag kommen von der Kette. Auszahlen schließt den Vorschlag im selben Zug ab, die Miete geht in den Tresor. Ein Vorschlag, nach dem im Tresor weniger als die Miete bliebe, geht nicht hinaus.
+  - Unterschrieben wird mit der eigenen Adresse für die Kasse. Gebühr und Miete zahlt am liebsten sie; sonst eine andere eigene Adresse, und die Rückfrage sagt, dass sie damit verbunden wird.
+- **Grenze „raum-kasse“:** nennt, wer bei Auszahlungen auf der Kette steht (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung, Teilung von A-12c), Fallstricke in `packages/app/CLAUDE.md` und `packages/protocol/CLAUDE.md`, OFFEN (Gerätetest um Auszahlen ergänzt), FORTSCHRITT, Stand. Aus `wiring-ausnahmen.txt` fallen die letzten 11 Zeilen der Kasse.
+
+**Tests:**
+- **Validator +2 (14):** gegen beide Programme. Ein Mitglied ohne Guthaben schlägt vor, ein anderes zahlt die Miete. Die Konten haben die Größe aus `auszahlungKontoGroessen()`. Eine Stimme lässt sich umkehren, dieselbe zweimal nicht (6010). Ausführen und abschließen gehen in einem Zug. `vorschlagsSchritte()` sagt in jedem Stand, was das Programm annimmt – auch nach Ablehnung und vor Ablauf der Wartezeit.
+- **protocol +4:** Miete von einem anderen Zahler und Größe der Konten, Schritte in jedem Stand, Vorschläge lesen, der Satz im Bericht; dazu zwei Vektoren aus dem SDK im bestehenden Vektor-Test.
+- **app +3:** Text und Menü der Auszahlungen, Unterschrift der eingebauten Wallet als Mitglied mit anderem Zahler, Verdrahtung.
+- **Gegenproben:** abstimmen trotz veraltet, ausführen vor der Wartezeit, dieselbe Stimme zweimal, vorschlagen ohne Recht im Menü, Schritt ohne Prüfung nach der Kette, Auszahlung nicht von der Kette – je ein Test rot.
+
+Knoten-Stand: keiner nötig.
 
 ## Schritt B-32b1 – Funkparameter je Region und RNode verbinden
 
