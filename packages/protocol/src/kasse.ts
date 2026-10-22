@@ -232,25 +232,26 @@ export function auszahlungsNachricht(tresor: string, a: Auszahlung): Uint8Array 
 
 /**
  * Auszahlung vorschlagen: die Transaktion `index` (Stand der Kasse + 1) und ihr Vorschlag in einem Zug.
- * `vorschlagender` braucht das Recht „vorschlagen“ und zahlt die Miete beider Konten; sie kommt beim
- * Abschließen in den Tresor (`rent_collector`).
+ * `vorschlagender` braucht das Recht „vorschlagen“; die Miete beider Konten zahlt `mietZahler` (sonst er
+ * selbst, seit A-12c1 wählbar). Sie kommt beim Abschließen in den Tresor (`rent_collector`), nicht zurück.
  */
-export function auszahlungVorschlagenAnweisungen(p: { kasse: string; index: bigint; vorschlagender: string } & Auszahlung): Instruction[] {
+export function auszahlungVorschlagenAnweisungen(p: { kasse: string; index: bigint; vorschlagender: string; mietZahler?: string } & Auszahlung): Instruction[] {
   const nachricht = auszahlungsNachricht(kassenTresor(p.kasse), p);
   const transaktion = kassenTransaktionAdresse(p.kasse, p.index);
+  const miete = p.mietZahler ?? p.vorschlagender;
   return [
     anweisung(SQUADS_PROGRAMM_ID, [
       [p.kasse, AccountRole.WRITABLE],
       [transaktion, AccountRole.WRITABLE],
       [p.vorschlagender, AccountRole.READONLY_SIGNER],
-      [p.vorschlagender, AccountRole.WRITABLE_SIGNER],
+      [miete, AccountRole.WRITABLE_SIGNER],
       [SYSTEM_PROGRAMM, AccountRole.READONLY],
     ], verbinde(diskriminator("global", "vault_transaction_create"), Uint8Array.of(0, 0), u32(nachricht.length), nachricht, Uint8Array.of(0))),
     anweisung(SQUADS_PROGRAMM_ID, [
       [p.kasse, AccountRole.READONLY],
       [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
       [p.vorschlagender, AccountRole.READONLY_SIGNER],
-      [p.vorschlagender, AccountRole.WRITABLE_SIGNER],
+      [miete, AccountRole.WRITABLE_SIGNER],
       [SYSTEM_PROGRAMM, AccountRole.READONLY],
     ], verbinde(diskriminator("global", "proposal_create"), u64(p.index), Uint8Array.of(0))),
   ];
@@ -294,6 +295,17 @@ export function abschliessenAnweisung(p: { kasse: string; index: bigint; mieteAn
     [p.mieteAn, AccountRole.WRITABLE],
     [SYSTEM_PROGRAMM, AccountRole.READONLY],
   ], diskriminator("global", "vault_transaction_accounts_close"));
+}
+
+/**
+ * Größe der beiden Konten einer Auszahlung für die Miete (A-12c1): Transaktion (fest, eine Überweisung, ohne weitere
+ * Unterschriften) und Vorschlag (drei Listen von Stimmen, je Platz für alle Mitglieder). Der Validator-Test vergleicht
+ * sie mit der echten Länge.
+ */
+export function auszahlungKontoGroessen(mitglieder: number): { transaktion: number; vorschlag: number } {
+  if (!Number.isInteger(mitglieder) || mitglieder < 1 || mitglieder > 65_535) throw new Error("Mitglieder ungültig");
+  // Kopf 87 (Diskriminator, Kasse, Ersteller, Index, drei Bytes, leere Liste) + Nachricht in Borsh-Form 134
+  return { transaktion: 221, vorschlag: 70 + 96 * mitglieder };
 }
 
 /** Liest Konten fester Form; wirft, sobald etwas fehlt. */
@@ -466,4 +478,55 @@ export async function leseAuszahlungVonKette(rpc: SolRpc, kasse: string, index: 
   const t = leseAuszahlung(k.daten);
   if (t.kasse !== kasse || t.index !== index) throw new Error("Transaktion gehört nicht zu dieser Kasse");
   return t;
+}
+
+/** Was man mit einem Vorschlag tun kann (A-12c1). */
+export type KassenSchritt = "dafuer" | "dagegen" | "ausfuehren" | "abschliessen";
+
+/** Ab wann eine angenommene Auszahlung ausgeführt werden darf (Annahme + Zeitschloss); null, solange sie nicht angenommen ist. */
+export function ausfuehrbarAb(stand: KassenStand, v: KassenVorschlag): bigint | null {
+  return v.status === "angenommen" && v.seit !== null ? v.seit + BigInt(stand.zeitschlossSek) : null;
+}
+
+/**
+ * Welche Schritte das Programm für Vorschlag `v` jetzt annimmt – nach den Regeln von Squads v4, im Validator gegen beide
+ * Programme geprüft. Abstimmen nur aktiv, nicht veraltet, mit dem Recht und nicht zum zweiten Mal gleich; ausführen nur
+ * angenommen, nach dem Zeitschloss, mit dem Recht; abschließen nur ausgeführt, abgelehnt, abgebrochen oder (als Entwurf
+ * oder aktiv) veraltet, und nur mit `rent_collector`. Abstimmen und ausführen nur bei einer Auszahlung dieser App
+ * (`auszahlung` aus `leseAuszahlung()`, V6) – sonst wüsste niemand, wofür er stimmt.
+ */
+export function vorschlagsSchritte(p: {
+  stand: KassenStand; vorschlag: KassenVorschlag; auszahlung: Auszahlung | null; mitglied?: string; jetztSek: number;
+}): KassenSchritt[] {
+  const { stand, vorschlag: v } = p;
+  const rechte = stand.mitglieder.find((m) => m.adresse === p.mitglied)?.rechte ?? 0;
+  const veraltet = v.index <= stand.veraltetBis;
+  const schritte: KassenSchritt[] = [];
+  if (p.auszahlung && p.mitglied && v.status === "aktiv" && !veraltet && rechte & KASSEN_RECHT.abstimmen) {
+    if (!v.dafuer.includes(p.mitglied)) schritte.push("dafuer");
+    if (!v.dagegen.includes(p.mitglied)) schritte.push("dagegen");
+  }
+  const ab = ausfuehrbarAb(stand, v);
+  if (p.auszahlung && ab !== null && ab <= BigInt(Math.floor(p.jetztSek)) && rechte & KASSEN_RECHT.ausfuehren) schritte.push("ausfuehren");
+  const fertig = v.status === "ausgefuehrt" || v.status === "abgelehnt" || v.status === "abgebrochen";
+  if (stand.mieteAn && (fertig || (veraltet && (v.status === "entwurf" || v.status === "aktiv")))) schritte.push("abschliessen");
+  return schritte;
+}
+
+export interface KassenVorgang {
+  index: bigint;
+  vorschlag: KassenVorschlag;
+  /** null: keine Auszahlung dieser App (oder die Transaktion fehlt) – nur zeigen, nie darüber abstimmen. */
+  auszahlung: Auszahlung | null;
+}
+
+/** Die jüngsten Vorschläge einer Kasse (höchstens `max`, neueste zuerst); abgeschlossene stehen nicht mehr auf der Kette. */
+export async function leseVorschlaege(rpc: SolRpc, kasse: string, stand: KassenStand, max = 10): Promise<KassenVorgang[]> {
+  const indizes: bigint[] = [];
+  for (let i = stand.transaktionsIndex; i >= 1n && indizes.length < max; i--) indizes.push(i);
+  const gelesen = await Promise.all(indizes.map(async (index) => {
+    const [vorschlag, t] = await Promise.all([leseVorschlagVonKette(rpc, kasse, index), leseAuszahlungVonKette(rpc, kasse, index)]);
+    return vorschlag ? { index, vorschlag, auszahlung: t?.auszahlung ?? null } : null;
+  }));
+  return gelesen.filter((g): g is KassenVorgang => g !== null);
 }

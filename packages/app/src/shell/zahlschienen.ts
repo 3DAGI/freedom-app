@@ -5,10 +5,12 @@
  * zahlt mit `zahle(zahlschienen(), …)` – nicht mit einer eigenen Wallet-Suche.
  */
 import {
-  MIETE_LEERES_KONTO, NONCE_KONTO_BYTES, alsDraht, baueKasseAnlegen, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueTransaktion, kassenArt,
-  kassenKontoGroesse, kassenTresor, leseGuthaben, leseKasse, leseKonto, leseNonceKonto, leseProgrammEinstellungenVonKette, neuerKontoSchluessel,
-  neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung, sendeTransaktion, signiereMit, txFehlerText, ueberweisungAnweisung,
-  warteAufBestaetigung, type KassenArt, type PaymentRail, type SolRpc, type SolTransaktion,
+  KASSEN_RECHT, MIETE_LEERES_KONTO, NONCE_KONTO_BYTES, abschliessenAnweisung, abstimmenAnweisung, alsDraht, auszahlungKontoGroessen,
+  auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueTransaktion,
+  kassenArt, kassenKontoGroesse, kassenTresor, leseAuszahlungVonKette, leseGuthaben, leseKasse, leseKonto, leseNonceKonto,
+  leseProgrammEinstellungenVonKette, leseVorschlagVonKette, neuerKontoSchluessel, neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung,
+  sendeTransaktion, signiereMit, txFehlerText, ueberweisungAnweisung, vorschlagsSchritte, warteAufBestaetigung, type Auszahlung, type Instruction,
+  type KassenArt, type KassenSchritt, type PaymentRail, type SolRpc, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { solText } from "../preis-anzeige.js";
@@ -248,6 +250,61 @@ export async function zahleInKasse(
   const tx = baueTransaktion({ zahler, anweisungen: [ueberweisungAnweisung({ von: zahler, an: tresor, lamports: BigInt(p.lamports) })], lebensdauer });
   await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
   return tresor;
+}
+
+/**
+ * Ein Schritt einer Auszahlung aus der Kasse (A-12c1): vorschlagen, dafür/dagegen stimmen, ausführen (abgeschlossen im
+ * selben Zug, die Miete geht in den Tresor) oder abschließen – nur mit der eingebauten Wallet, nur auf Devnet und nur in
+ * Kassen der App. Ob der Schritt geht, sagt `vorschlagsSchritte()` aus dem Stand auf der Kette; Empfänger und Betrag einer
+ * Stimme oder Ausführung kommen von der Kette (V6), nie aus dem Raum. `mitglied` ist die eigene Adresse für die Kasse – sie
+ * unterschreibt; Gebühr und Miete zahlt wie beim Anlegen am liebsten sie selbst (`kassenZahler()`). `bestaetige` zeigt
+ * vorher Zahler, Miete und Auszahlung; ohne Zustimmung geht nichts hinaus. Gibt die Nummer des Vorschlags zurück.
+ */
+export async function kassenSchritt(
+  a: { kasse: string; mitglied?: string } & ({ schritt: "vorschlagen"; auszahlung: Auszahlung } | { schritt: KassenSchritt; index: bigint }),
+  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null }) => Promise<boolean>,
+): Promise<bigint> {
+  const e = benutzbareEingebauteWallet();
+  if (!e?.adresse()) throw new Error(t("kasse.nurEingebaut"));
+  const eigen = a.mitglied && e.eigeneAdressen().includes(a.mitglied) ? a.mitglied : undefined;
+  // Abschließen braucht keine Unterschrift eines Mitglieds, alles andere die eigene Adresse für die Kasse
+  if (!eigen && a.schritt !== "abschliessen") throw new Error(t("kasse.nurEingebaut"));
+  const rpc = await devnetRpc();
+  if (!rpc) throw new Error(t("kasse.nurDevnet"));
+  const stand = await leseKasse(rpc, a.kasse);
+  if (!stand || !kassenArt(stand)) throw new Error(t("kasse.nichtAuszahlen"));
+  let miete = 0, index: bigint;
+  let auszahlung: Auszahlung | null;
+  let baue: (zahler: string) => Instruction[];
+  if (a.schritt === "vorschlagen") {
+    if (!((stand.mitglieder.find((m) => m.adresse === eigen)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen)) throw new Error(t("kasse.schrittNicht"));
+    // Danach muss der Tresor leer oder mietfrei sein – sonst lehnt die Kette die Ausführung ab
+    const rest = Number(await leseGuthaben(rpc, kassenTresor(a.kasse))) - Number(a.auszahlung.lamports);
+    if (rest !== 0 && rest < MIETE_LEERES_KONTO) throw new Error(t("kasse.zuViel"));
+    const groesse = auszahlungKontoGroessen(stand.mitglieder.length);
+    for (const b of [groesse.transaktion, groesse.vorschlag]) miete += Number(await rpc.getMinimumBalanceForRentExemption(BigInt(b), { commitment: "confirmed" }).send());
+    const p = { kasse: a.kasse, index: stand.transaktionsIndex + 1n, vorschlagender: eigen!, ...a.auszahlung };
+    index = p.index;
+    auszahlung = a.auszahlung;
+    baue = (zahler) => auszahlungVorschlagenAnweisungen({ ...p, mietZahler: zahler });
+  } else {
+    const { schritt } = a;
+    index = a.index;
+    const [vorschlag, tx] = await Promise.all([leseVorschlagVonKette(rpc, a.kasse, index), leseAuszahlungVonKette(rpc, a.kasse, index)]);
+    auszahlung = tx?.auszahlung ?? null;
+    const jetztSek = Math.floor(Date.now() / 1000);
+    if (!vorschlag || !vorschlagsSchritte({ stand, vorschlag, auszahlung, mitglied: eigen, jetztSek }).includes(schritt)) throw new Error(t("kasse.schrittNicht"));
+    const abschliessen = stand.mieteAn ? [abschliessenAnweisung({ kasse: a.kasse, index, mieteAn: stand.mieteAn })] : [];
+    baue = () => schritt === "abschliessen" ? abschliessen
+      : schritt === "ausfuehren" ? [ausfuehrenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, auszahlung: auszahlung! }), ...abschliessen]
+      : [abstimmenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, dafuer: schritt === "dafuer" })];
+  }
+  const zahler = await kassenZahler(rpc, e, miete, eigen);
+  if (!(await bestaetige({ zahler, miete, auszahlung }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  const lebensdauer = await neuesterBlockhash(rpc);
+  const tx = baueTransaktion({ zahler, anweisungen: baue(zahler), lebensdauer });
+  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
+  return index;
 }
 
 /** Den Wert neu lesen (mit Netz) – danach ist wieder eine Offline-Zahlung moeglich. */

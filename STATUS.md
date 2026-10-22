@@ -12779,3 +12779,28 @@ Spur A, `docs/KASSE-ENTWURF.md` (V4). Letzter App-Teil der Kasse im Raum (A-12b)
 - **Gegenproben:** ohne Vergleich der Bytes, ohne Längenprüfung, verbundene Wallet auch bei leerem Vorrat, Senden ohne Prüfung des Nachweises – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12c1 – Kasse im Raum: auszahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V6, V7, W2, W3). Erster Teil von A-12c, auf A-12b2d. A-12c ist geteilt: c1 auszahlen mit der eingebauten Wallet (hier), c2 Hinweis im Raum auf neue Vorschläge (V6), c3 abstimmen und auszahlen mit einer verbundenen Wallet.
+
+**Neu:**
+- **Protokoll** (`kasse.ts`):
+  - `vorschlagsSchritte()`: was das Programm mit einem Vorschlag jetzt annimmt. Abstimmen nur aktiv, nicht veraltet, mit dem Recht und nicht zum zweiten Mal gleich; ausführen nur angenommen, nach der Wartezeit, mit dem Recht; abschließen nur ausgeführt, abgelehnt, abgebrochen oder veraltet und nur mit `rent_collector`. Abstimmen und ausführen nur bei einer Auszahlung der App (V6). Dazu `ausfuehrbarAb()`.
+  - `leseVorschlaege()`: die jüngsten zehn Vorschläge samt Auszahlung, von der Kette.
+  - `auszahlungKontoGroessen()`: die Größe von Transaktion und Vorschlag für die Miete.
+  - `auszahlungVorschlagenAnweisungen()` mit `mietZahler`: Die Miete darf eine andere Adresse zahlen als die vorschlagende (Vektor aus dem SDK von Squads).
+- **App:**
+  - „Kasse …“ zeigt die Auszahlungen von der Kette – Betrag, Empfänger, Status, Stimmen, bei Wartezeit ab wann (`vorschlaegeText()`) – und bietet nur an, was `vorschlagsSchritte()` erlaubt (`kassenAktionen()`): einzahlen, vorschlagen, dafür oder dagegen stimmen, auszahlen, abschließen.
+  - `kassenSchritt()` (`shell/zahlschienen.ts`): nur eingebaute Wallet, nur Devnet, nur Kassen der App. Erlaubt wird nach dem frisch gelesenen Stand; Empfänger und Betrag kommen von der Kette. Auszahlen schließt den Vorschlag im selben Zug ab, die Miete geht in den Tresor. Ein Vorschlag, nach dem im Tresor weniger als die Miete bliebe, geht nicht hinaus.
+  - Unterschrieben wird mit der eigenen Adresse für die Kasse. Gebühr und Miete zahlt am liebsten sie; sonst eine andere eigene Adresse, und die Rückfrage sagt, dass sie damit verbunden wird.
+- **Grenze „raum-kasse“:** nennt, wer bei Auszahlungen auf der Kette steht (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung, Teilung von A-12c), Fallstricke in `packages/app/CLAUDE.md` und `packages/protocol/CLAUDE.md`, OFFEN (Gerätetest um Auszahlen ergänzt), FORTSCHRITT, Stand. Aus `wiring-ausnahmen.txt` fallen die letzten 11 Zeilen der Kasse.
+
+**Tests:**
+- **Validator +2 (14):** gegen beide Programme. Ein Mitglied ohne Guthaben schlägt vor, ein anderes zahlt die Miete. Die Konten haben die Größe aus `auszahlungKontoGroessen()`. Eine Stimme lässt sich umkehren, dieselbe zweimal nicht (6010). Ausführen und abschließen gehen in einem Zug. `vorschlagsSchritte()` sagt in jedem Stand, was das Programm annimmt – auch nach Ablehnung und vor Ablauf der Wartezeit.
+- **protocol +4:** Miete von einem anderen Zahler und Größe der Konten, Schritte in jedem Stand, Vorschläge lesen, der Satz im Bericht; dazu zwei Vektoren aus dem SDK im bestehenden Vektor-Test.
+- **app +3:** Text und Menü der Auszahlungen, Unterschrift der eingebauten Wallet als Mitglied mit anderem Zahler, Verdrahtung.
+- **Gegenproben:** abstimmen trotz veraltet, ausführen vor der Wartezeit, dieselbe Stimme zweimal, vorschlagen ohne Recht im Menü, Schritt ohne Prüfung nach der Kette, Auszahlung nicht von der Kette – je ein Test rot.
+
+Knoten-Stand: keiner nötig.

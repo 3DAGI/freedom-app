@@ -175,3 +175,8 @@ Fallstricke dieses Bereichs unten anhängen.
   genullt – er geht nie an die App. Miete nur nach `kassenKontoGroesse()` (der Validator-Test vergleicht sie mit der Länge des
   Kontos). Wer nur auf einer Kette handeln darf, baut seinen Pool aus `endpunkteImNetz()` (Genesis-Hash je Endpunkt) und ohne
   eingebaute Endpunkte (`new RpcPool([], …)`) – `new RpcPool()` ohne Liste nimmt `DEFAULT_MAINNET_RPCS`.
+  Was mit einem Vorschlag geht (seit A-12c1), sagt nur `vorschlagsSchritte()` – die Regeln von Squads v4, im Validator in jedem
+  Stand gegen beide Programme geprüft; eine neue Regel braucht dort einen Fall. Die Miete eines Vorschlags rechnet nur
+  `auszahlungKontoGroessen()` (Validator vergleicht die Länge); ein anderer Zahler der Miete nur über `mietZahler` (Vektor
+  „kasse-vorschlagen-mietzahler“ aus dem SDK). Ausführen und abschließen dürfen in eine Transaktion (Vektor
+  „kasse-ausfuehren-abschliessen“) – das Programm sieht den Status „ausgeführt“ schon in der zweiten Anweisung.

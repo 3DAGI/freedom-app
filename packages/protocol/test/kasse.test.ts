@@ -1,5 +1,5 @@
 /**
- * Gemeinsame Kasse über Squads v4 (A-12a1): Adressen, Arten, Anlegen, Konten lesen.
+ * Gemeinsame Kasse über Squads v4 (A-12a1): Adressen, Arten, Anlegen, Konten lesen; seit A-12c1 Schritte eines Vorschlags.
  * Die erwarteten Adressen hat das SDK von Squads (`@sqds/multisig` 2.1.4) gerechnet, nicht `kasse.ts`;
  * die Bytes der Anweisung halten die Vektoren fest („kasse-anlegen-…“), das echte Programm prüft
  * `contracts/squads/tests/kasse.test.ts`.
@@ -9,9 +9,10 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
-  auszahlungsNachricht, baueKasseAnlegen, kasseAnlegenAnweisung, kassenAdresse, kassenKontoGroesse, leseNachricht, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
+  auszahlungKontoGroessen, auszahlungsNachricht, auszahlungVorschlagenAnweisungen, ausfuehrbarAb, baueKasseAnlegen, kasseAnlegenAnweisung, kassenAdresse, kassenKontoGroesse, leseNachricht, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
   kassenVorschlagAdresse, leseAuszahlung, leseAuszahlungVonKette, leseKasse, leseKassenStand, leseProgrammEinstellungen, leseVorschlag,
-  leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, type KassenStand,
+  leseVorschlaege, leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
+  type KassenStand, type KassenVorschlag,
 } from "../src/index.js";
 
 const adresse = (n: number) => Keypair.fromSeed(new Uint8Array(32).fill(n)).publicKey.toBase58();
@@ -226,4 +227,89 @@ test("A-12b2b: Anlegen mit frischem Create-Key – er hat unterschrieben, der Er
 
   assert.deepEqual([1, 2, 5].map(kassenKontoGroesse), [165, 198, 297]);
   for (const x of [0, -1, 1.5, Number.NaN]) assert.throws(() => kassenKontoGroesse(x), /Mitglieder/);
+});
+
+// ---- A-12c1: Auszahlen in der App ----
+
+test("A-12c1: Miete eines Vorschlags von einem anderen Zahler; Größe der Konten für die Miete", () => {
+  const p = { kasse: KASSE, index: 1n, vorschlagender: A, empfaenger: EMPF, lamports: 1n };
+  const ohne = auszahlungVorschlagenAnweisungen(p);
+  assert.deepEqual(ohne.map((ix) => ix.accounts![3]!.address), [A, A], "ohne Angabe zahlt der Vorschlagende");
+  const mit = auszahlungVorschlagenAnweisungen({ ...p, mietZahler: C });
+  for (const ix of mit) {
+    assert.equal(ix.accounts![2]!.address, A, "Ersteller bleibt der Vorschlagende");
+    assert.deepEqual([ix.accounts![3]!.address, ix.accounts![3]!.role], [C, 3], "der Zahler der Miete unterschreibt, beschreibbar");
+  }
+  assert.deepEqual(mit.map((ix) => ix.data), ohne.map((ix) => ix.data), "die Daten bleiben gleich");
+  assert.deepEqual([1, 2, 5].map(auszahlungKontoGroessen), [1, 2, 5].map((n) => ({ transaktion: 221, vorschlag: 70 + 96 * n })));
+  for (const x of [0, 1.5, 70_000]) assert.throws(() => auszahlungKontoGroessen(x), /Mitglieder/);
+});
+
+const vorschlagAus = (index: bigint, status: KassenVorschlag["status"], s: Partial<KassenVorschlag> = {}): KassenVorschlag => ({
+  kasse: KASSE, index, status, seit: status === "wird-ausgefuehrt" ? null : 1000n, dafuer: [], dagegen: [], abgebrochen: [], ...s,
+});
+
+test("A-12c1: Schritte nach den Regeln von Squads – abstimmen, ausführen nach dem Zeitschloss, abschließen", () => {
+  const mehrheit = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 7 }, { adresse: C, rechte: 7 }], 2), veraltetBis: 0n };
+  const AUS = { empfaenger: EMPF, lamports: 5n };
+  // `null`: ohne eigene Adresse (ein übergebenes `undefined` nähme den Vorgabewert)
+  const schritte = (v: KassenVorschlag, mitglied: string | null = A, jetztSek = 10_000, s: KassenStand = mehrheit, auszahlung: typeof AUS | null = AUS) =>
+    vorschlagsSchritte({ stand: s, vorschlag: v, auszahlung, mitglied: mitglied ?? undefined, jetztSek });
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv")), ["dafuer", "dagegen"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv", { dafuer: [A] })), ["dagegen"], "dieselbe Stimme nicht zweimal");
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv", { dagegen: [A] })), ["dafuer"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), null), [], "ohne eigene Adresse nicht abstimmen");
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), adresse(40)), [], "nicht in der Kasse");
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), A, 10_000, mehrheit, null), [], "keine Auszahlung der App: nicht abstimmen");
+
+  // Zeitschloss 1 h ab der Annahme (seit 1000)
+  const angenommen = vorschlagAus(1n, "angenommen", { dafuer: [A, B] });
+  assert.equal(ausfuehrbarAb(mehrheit, angenommen), 4600n);
+  assert.equal(ausfuehrbarAb(mehrheit, vorschlagAus(1n, "aktiv")), null);
+  assert.deepEqual(schritte(angenommen, A, 4599), [], "vor Ablauf des Zeitschlosses nicht");
+  assert.deepEqual(schritte(angenommen, A, 4600), ["ausfuehren"]);
+  assert.deepEqual(schritte(angenommen, A, 4600, mehrheit, null), [], "keine Auszahlung der App: nicht ausführen");
+  const gruender = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 1 }], 1), veraltetBis: 0n };
+  assert.deepEqual(schritte(angenommen, B, 4600, gruender), [], "wer nur vorschlägt, führt nicht aus");
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), B, 4600, gruender), [], "und stimmt nicht ab");
+
+  for (const status of ["ausgefuehrt", "abgelehnt", "abgebrochen"] as const) {
+    assert.deepEqual(schritte(vorschlagAus(1n, status), null), ["abschliessen"], status);
+    assert.deepEqual(schritte(vorschlagAus(1n, status), A, 10_000, { ...mehrheit, mieteAn: null }), [], "ohne rent_collector nicht");
+  }
+  assert.deepEqual(schritte(vorschlagAus(1n, "wird-ausgefuehrt")), []);
+  // Veraltet (nach einer Änderung der Konfiguration): nicht mehr abstimmen, aber abschließen; angenommen bleibt ausführbar
+  const veraltet = { ...mehrheit, veraltetBis: 1n };
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), A, 10_000, veraltet), ["abschliessen"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "entwurf"), A, 10_000, veraltet), ["abschliessen"]);
+  assert.deepEqual(schritte(angenommen, A, 10_000, veraltet), ["ausfuehren"]);
+  assert.deepEqual(schritte(vorschlagAus(2n, "entwurf"), A, 10_000, veraltet), [], "ein Entwurf, der nicht veraltet ist");
+});
+
+/** Die Kette als Attrappe mit mehreren Konten (Adresse → Konto). */
+function ketteMit(konten: Record<string, { eigentuemer: string; daten: Uint8Array }>) {
+  const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const { id, params } = JSON.parse(String(init!.body)) as { id: number; params: [string] };
+    const k = konten[params[0]];
+    const value = k && { data: [Buffer.from(k.daten).toString("base64"), "base64"], owner: k.eigentuemer, executable: false, lamports: 3_000_000, rentEpoch: 0, space: k.daten.length };
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id, result: { context: { slot: 1 }, value: value ?? null } }));
+  }) as typeof fetch;
+  return poolRpc(new RpcPool([{ url: "https://rpc.test" }], { fetchImpl }));
+}
+
+test("A-12c1: die jüngsten Vorschläge von der Kette – neueste zuerst, abgeschlossene fehlen, ohne Transaktion keine Auszahlung", async () => {
+  const vorschlag = (index: bigint, status: number) => bytes("Proposal").pk(KASSE).zahl(index, 8).u8(status).zahl(1000n, 8).u8(255).zahl(0n, 4).zahl(0n, 4).zahl(0n, 4).fertig();
+  const sq = (daten: Uint8Array) => ({ eigentuemer: SQUADS_PROGRAMM_ID, daten });
+  const rpc = ketteMit({
+    [kassenVorschlagAdresse(KASSE, 3n)]: sq(vorschlag(3n, 1)),
+    [kassenVorschlagAdresse(KASSE, 1n)]: sq(vorschlag(1n, 3)),
+    [kassenTransaktionAdresse(KASSE, 1n)]: sq(transaktionBytes()),
+  });
+  const s = { ...stand([{ adresse: A, rechte: 7 }], 1), transaktionsIndex: 3n };
+  const liste = await leseVorschlaege(rpc, KASSE, s);
+  assert.deepEqual(liste.map((v) => [v.index, v.vorschlag.status, v.auszahlung]), [
+    [3n, "aktiv", null], [1n, "angenommen", { empfaenger: EMPF, lamports: 100_000_000n }],
+  ]);
+  assert.deepEqual((await leseVorschlaege(rpc, KASSE, s, 2)).map((v) => v.index), [3n], "höchstens zwei Nummern gefragt");
+  assert.deepEqual(await leseVorschlaege(rpc, KASSE, { ...s, transaktionsIndex: 0n }), []);
 });

@@ -108,5 +108,12 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     "kasse-abschliessen": nachricht(adresse(23), [alsWeb3(abschliessenAnweisung({
       kasse: kassenAdresse(adresse(20)), index: 1n, mieteAn: kassenTresor(kassenAdresse(adresse(20))),
     }))]),
+    // A-12c1: ein anderer Zahler der Miete; Ausführen und Abschließen in einer Transaktion – ebenso mit dem SDK gerechnet
+    "kasse-vorschlagen-mietzahler": nachricht(adresse(27), auszahlungVorschlagenAnweisungen({
+      kasse: kassenAdresse(adresse(20)), index: 1n, vorschlagender: adresse(21), mietZahler: adresse(27), empfaenger: adresse(26), lamports: 100_000_000n,
+    }).map(alsWeb3)),
+    "kasse-ausfuehren-abschliessen": nachricht(adresse(27), [alsWeb3(ausfuehrenAnweisung({
+      kasse: kassenAdresse(adresse(20)), index: 1n, mitglied: adresse(22), auszahlung: { empfaenger: adresse(26), lamports: 100_000_000n },
+    })), alsWeb3(abschliessenAnweisung({ kasse: kassenAdresse(adresse(20)), index: 1n, mieteAn: kassenTresor(kassenAdresse(adresse(20))) }))]),
   };
 }

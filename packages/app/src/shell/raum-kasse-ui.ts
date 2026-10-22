@@ -6,16 +6,18 @@
  * Raums, privat nur als inneres Event der Gruppe. Vorher sagt die App, was öffentlich wird (V5). Teil b2b: Gründer
  * (offen) bzw. Admin (privat) legt die Kasse an – Mitglieder sind die genannten Adressen derer mit dem Recht – und
  * schreibt sie in die Definition. Teil b2c: den Stand von der Kette zeigen (mit Abweichungen zum Raum) und einzahlen.
+ * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – Empfänger und Betrag von der Kette (V6).
  * Die Oberfläche baut Spur C (A-12e). Als Gerät nie – die Kasse gehört der Person.
  */
 import {
-  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, kassenAbweichungen,
-  kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor, leseGuthaben, leseKasse,
-  mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type SpaceState,
+  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, istSolAdresse,
+  kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor, leseGuthaben,
+  leseKasse, leseVorschlaege, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type Auszahlung, type KassenSchritt,
+  type SpaceState,
 } from "@freedomstack/protocol";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { t } from "../i18n.js";
-import { kassenStandText, zeitschlossText } from "../kasse-anzeige.js";
+import { kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../kasse-anzeige.js";
 import type { SolAnbieter } from "../solana-connect.js";
 import { solText } from "../preis-anzeige.js";
 import { solZuLamports } from "../zahlungs-anforderung.js";
@@ -196,8 +198,17 @@ export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefine
       await hinweis(titel, text);
       return false;
     }
+    // Auszahlungen (A-12c1): Empfänger, Betrag und Stimmen von der Kette; wählbar nur, was das Programm jetzt annimmt
+    const vorgaenge = await leseVorschlaege(rpc, kasse, stand);
+    const mitglied = adressen.get(ich);
+    const aktion = await dialog({
+      titel, text: `${text}\n\n${vorschlaegeText(stand, vorgaenge)}`, ok: t("kasse.weiter"), abbrechen: t("dlg.schliessen"),
+      felder: [{ art: "wahl", name: "aktion", label: t("kasse.aktion"), optionen: kassenAktionen(stand, vorgaenge, mitglied, Math.floor(Date.now() / 1000)), wert: "einzahlen" }],
+    });
+    if (!aktion) return false;
+    if (aktion.aktion !== "einzahlen") return await auszahlen(kasse, String(aktion.aktion), mitglied);
     const w = await dialog({
-      titel, text, ok: t("kasse.einzahlen"), abbrechen: t("dlg.schliessen"),
+      titel, ok: t("kasse.einzahlen"),
       felder: [{ art: "text", name: "betrag", label: t("kasse.betrag"), mono: true }],
       pruefe: (w) => (solZuLamports(String(w.betrag ?? "")) ? null : t("kasse.betragFalsch")),
     });
@@ -218,4 +229,55 @@ export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefine
     toast(fehlerText(e), true);
     return false;
   }
+}
+
+const FRAGE: Record<KassenSchritt, string> = { // kein UI-Text
+  dafuer: "kasse.dafuerFrage", dagegen: "kasse.dagegenFrage", ausfuehren: "kasse.ausfuehrenFrage", abschliessen: "kasse.abschliessenFrage",
+};
+const ERLEDIGT: Record<KassenSchritt | "vorschlagen", string> = { // kein UI-Text
+  vorschlagen: "kasse.vorgeschlagen", dafuer: "kasse.abgestimmt", dagegen: "kasse.abgestimmt", ausfuehren: "kasse.ausgezahlt", abschliessen: "kasse.abgeschlossen",
+};
+
+/**
+ * Eine Auszahlung vorschlagen oder einen Schritt eines Vorschlags gehen (A-12c1, `kassenSchritt()`): „vorschlagen“ fragt
+ * Empfänger und Betrag, „<schritt>:<nr>“ zeigt vor dem Senden, was auf der Kette steht – nie, was im Raum steht (V6).
+ * Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit verbunden wird.
+ */
+async function auszahlen(kasse: string, aktion: string, mitglied: string | undefined): Promise<boolean> {
+  const titel = t("kasse.titel");
+  let neu: Auszahlung | undefined;
+  if (aktion === "vorschlagen") {
+    const w = await dialog({
+      titel: t("kasse.vorschlagTitel"), ok: t("kasse.weiter"),
+      felder: [
+        { art: "text", name: "empfaenger", label: t("kasse.empfaenger"), mono: true, scannen: true },
+        { art: "text", name: "betrag", label: t("kasse.betrag"), mono: true },
+      ],
+      pruefe: (w) => {
+        const an = String(w.empfaenger ?? "").trim();
+        if (!istSolAdresse(an) || an === kassenTresor(kasse)) return t("kasse.empfaengerFalsch");
+        return solZuLamports(String(w.betrag ?? "")) ? null : t("kasse.betragFalsch");
+      },
+    });
+    if (!w) return false;
+    neu = { empfaenger: String(w.empfaenger).trim(), lamports: BigInt(solZuLamports(String(w.betrag))!) };
+  }
+  const [schritt, nr] = aktion.split(":") as [KassenSchritt | "vorschlagen", string | undefined];
+  if (!(await verlangeTresor(t("kasse.wofuer")))) return false;
+  const { kassenSchritt } = await import("./zahlschienen.js");
+  const index = await kassenSchritt(
+    neu ? { kasse, mitglied, schritt: "vorschlagen", auszahlung: neu } : { kasse, mitglied, schritt: schritt as KassenSchritt, index: BigInt(nr ?? "") },
+    (k) => {
+      const werte = { nr: nr ?? "", zahler: k.zahler, miete: solText(k.miete), betrag: solText(Number(k.auszahlung?.lamports ?? 0n)), empfaenger: k.auszahlung?.empfaenger ?? "" };
+      return bestaetige({
+        titel, ok: t("kasse.weiter"),
+        text: [
+          t(schritt === "vorschlagen" ? "kasse.vorschlagenFrage" : FRAGE[schritt], werte),
+          ...(k.zahler === mitglied ? [] : [mitglied ? t("kasse.zahlerVerbunden", { gruender: mitglied }) : t("kasse.zahlerVerbundenOhne")]),
+        ].join("\n\n"),
+      });
+    },
+  );
+  toast(t(ERLEDIGT[schritt], { nr: String(index) }));
+  return true;
 }

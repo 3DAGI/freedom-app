@@ -944,3 +944,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `signiereNachricht()` des Anbieters (`wallet-standard.ts`: `solana:signMessage`, nur wenn `signedMessage` genau die Bytes der
   App sind, Ed25519, 64 Byte; `solana-connect.ts`: `signMessage`), signiert nur `kassenNachweisNachricht()`; gesendet erst nach
   `pruefeKassenNachweis()`. Nie Transaktions-Bytes über `signiereNachricht()` signieren lassen.
+  Auszahlen (seit A-12c1) nur über `kassenSchritt()` (`shell/zahlschienen.ts`): nur `devnetRpc()`, nur Kassen, die `kassenArt()`
+  kennt, nur Schritte, die `vorschlagsSchritte()` aus dem frisch gelesenen Stand erlaubt – nie aus dem Stand beim Öffnen des
+  Dialogs; Empfänger und Betrag für Stimme und Ausführung nur aus `leseAuszahlungVonKette()` (V6). Gewählt wird nur, was
+  `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
