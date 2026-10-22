@@ -194,7 +194,16 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   eigenen Adresse für die Kasse. Hat sie kein Guthaben, zahlt eine andere eigene Adresse Gebühr und Miete (`mietZahler`,
   SDK-Vektor) – die Rückfrage sagt, dass sie damit verbunden wird. Ein Vorschlag, nach dem im Tresor weniger als die Miete
   bliebe, geht nicht hinaus. Über eine Transaktion anderer Form stimmt die App nicht ab.
-- **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
+- **A-12a3 (22.10.2026):** Baustein „Konfiguration ändern“ (für A-12d). Vorschlagen (`config_transaction_create` und Vorschlag in
+  einem Zug), ausführen und abschließen nach der IDL; die Änderungen sind nur Mitglied dazu oder weg, Schwelle und Wartezeit (0,
+  1 h, 24 h) – keine Ausgabelimits, kein anderer `rent_collector`. `kassenAenderungen()` stellt sie so zusammen, dass die Kasse
+  ihre Art behält (W2): Wer dazukommt, bekommt die Rechte der Art, die Schwelle folgt der Mehrheit, der Gründer bleibt.
+  `kassenStandNach()` rechnet den Stand danach wie das Programm, mit dessen Prüfungen. Festgestellt im Validator (beide
+  Programme): Kommt ein Mitglied dazu, wächst das Konto der Kasse um zehn Plätze auf einmal (`kassenKontoGroesseNach()`), die
+  Miete dafür zahlt, wer ausführt. Jede Änderung macht offene Vorschläge veraltet; eine veraltete Auszahlung lässt sich noch
+  ausführen, eine veraltete Änderung nicht mehr – nur abschließen. Das Programm prüft die Wartezeit vor dem Veralten. Die App
+  liest Änderungen in der Liste der Vorschläge mit und zeigt sie bis A-12d nur.
+- **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d; fertig).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
   Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet). A-12c in c1 (Auszahlen mit der eingebauten Wallet), c2

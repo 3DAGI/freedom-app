@@ -48,8 +48,10 @@ const STATUS: Record<VorschlagsStatus, string> = { // kein UI-Text
 /** Die jüngsten Auszahlungen als Text: Betrag, Empfänger, Status und Stimmen – alles von der Kette, nie aus dem Raum. */
 export function vorschlaegeText(stand: KassenStand, liste: readonly KassenVorgang[]): string {
   if (!liste.length) return t("kasse.keineVorschlaege");
-  const zeilen = liste.map(({ index, vorschlag: v, auszahlung: a }) => {
+  const zeilen = liste.map(({ index, vorschlag: v, auszahlung: a, konfiguration }) => {
     const status = t(STATUS[v.status]);
+    // Änderungen der Kasse (A-12a3) zeigt die App nur – abstimmen darüber kommt mit A-12d
+    if (konfiguration !== undefined) return t("kasse.vorschlagKonfiguration", { nr: String(index), status });
     if (!a) return t("kasse.vorschlagFremd", { nr: String(index), status });
     const ab = ausfuehrbarAb(stand, v);
     return t("kasse.vorschlagZeile", {
@@ -72,6 +74,7 @@ export function kassenAktionen(stand: KassenStand, liste: readonly KassenVorgang
   const aktionen = [{ wert: "einzahlen", text: t("kasse.einzahlen") }];
   if ((stand.mitglieder.find((m) => m.adresse === mitglied)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen) aktionen.push({ wert: "vorschlagen", text: t("kasse.vorschlagen") });
   for (const v of liste) {
+    if (v.konfiguration !== undefined) continue; // eine Änderung der Kasse: noch keine Schritte (A-12d)
     for (const s of vorschlagsSchritte({ stand, vorschlag: v.vorschlag, auszahlung: v.auszahlung, mitglied, jetztSek })) {
       aktionen.push({ wert: `${s}:${v.index}`, text: t(SCHRITT[s], { nr: String(v.index) }) });
     }
