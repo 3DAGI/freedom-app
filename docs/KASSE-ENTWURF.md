@@ -179,6 +179,12 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   andere zeigt sie nur. Vorher die Rückfrage mit dem Zahler (am liebsten die eigene Adresse für die Kasse), danach das
   Tageslimit der Wallet; bei „Gründer entscheidet“ sagt sie, dass der Gründer allein verfügt (W2). Die erste Einzahlung
   muss die Miete des Tresors decken.
+- **A-12b2d (22.10.2026):** Adresse aus einer verbundenen Wallet (V4: man wählt sie selbst, die App rät zu einem neuen
+  Konto). Nur ohne eingebaute Wallet – die geht vor, weil sie eine frische Adresse aus dem Vorrat nimmt; mit gesperrtem
+  Tresor erst entsperren. Die Wallet signiert den festen Text des Nachweises (`solana:signMessage`, bei `window.solana`
+  `signMessage`); setzt sie einen eigenen Vorspann davor (`signedMessage` weicht ab) oder ist die Signatur nicht Ed25519
+  mit 64 Byte, nimmt die App sie nicht. Vor dem Senden prüft sie den Nachweis gegen Adresse, Ort und Schlüssel. Ohne
+  Tresor verlangt sie für diesen Weg keinen. Anlegen und einzahlen bleiben bei der eingebauten Wallet. Damit ist A-12b fertig.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,

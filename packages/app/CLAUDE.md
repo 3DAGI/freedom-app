@@ -940,3 +940,7 @@ Fallstricke dieses Bereichs unten anhängen.
   nur über `kassenStandText()` (`kasse-anzeige.ts`, Abweichungen aus `kassenAbweichungen()`); eingezahlt nur an
   `kassenTresor()`, nur wenn `kassenArt()` die Kasse kennt (sonst nur zeigen), erst Rückfrage mit Zahler, dann `freigabe()`.
   Zahler für Anlegen und Einzahlen nur über `kassenZahler()` – am liebsten die eigene Adresse für die Kasse.
+  Aus einer verbundenen Wallet (seit A-12b2d) nur ohne eingebaute (die geht vor; gesperrter Tresor → erst entsperren) und nur über
+  `signiereNachricht()` des Anbieters (`wallet-standard.ts`: `solana:signMessage`, nur wenn `signedMessage` genau die Bytes der
+  App sind, Ed25519, 64 Byte; `solana-connect.ts`: `signMessage`), signiert nur `kassenNachweisNachricht()`; gesendet erst nach
+  `pruefeKassenNachweis()`. Nie Transaktions-Bytes über `signiereNachricht()` signieren lassen.

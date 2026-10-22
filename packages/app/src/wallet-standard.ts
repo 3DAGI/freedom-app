@@ -36,6 +36,11 @@ type SignierenUndSenden = {
 type Signieren = {
   signTransaction(...inputs: Array<{ account: StandardKonto; transaction: Uint8Array; chain?: string }>): Promise<Array<{ signedTransaction: Uint8Array }>>;
 };
+type NachrichtSignieren = {
+  signMessage(...inputs: Array<{ account: StandardKonto; message: Uint8Array }>): Promise<Array<{ signedMessage: Uint8Array; signature: Uint8Array; signatureType?: string }>>;
+};
+
+const gleicheBytes = (a: unknown, b: Uint8Array): boolean => a instanceof Uint8Array && a.length === b.length && a.every((x, i) => x === b[i]);
 
 const gefunden = new Set<StandardWallet>();
 let beobachtet: EventTarget | null = null;
@@ -97,6 +102,7 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
     connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toBase58(): string } }>;
     signiereTransaktion?(tx: SolTransaktion): Promise<SolTransaktion>;
     signiereUndSendeTransaktion?(tx: SolTransaktion): Promise<{ signature: string }>;
+    signiereNachricht?(nachricht: Uint8Array): Promise<Uint8Array>;
   } = {
     name: w.name,
     async connect(opts) {
@@ -123,6 +129,17 @@ export function alsAnbieter(w: StandardWallet, kette: () => Promise<string>) {
       });
       if (!(r?.signature instanceof Uint8Array) || r.signature.length !== 64) throw new Error(t("zahl.walletOhneSignatur", { wallet: w.name }));
       return { signature: base58.encode(r.signature) };
+    };
+  }
+  // A-12b2d: nur genau die Bytes der App – setzt die Wallet einen eigenen Vorspann davor, gilt die Signatur nicht für sie
+  if (w.features["solana:signMessage"]) {
+    anbieter.signiereNachricht = async (nachricht) => {
+      const [r] = await feature<NachrichtSignieren>("solana:signMessage").signMessage({ account: verbundenesKonto(), message: nachricht });
+      const ed25519 = !r?.signatureType || r.signatureType === "ed25519";
+      if (!ed25519 || !gleicheBytes(r.signedMessage, nachricht) || !(r.signature instanceof Uint8Array) || r.signature.length !== 64) {
+        throw new Error(t("zahl.walletNachrichtAnders"));
+      }
+      return r.signature;
     };
   }
   return anbieter;

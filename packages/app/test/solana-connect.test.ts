@@ -169,3 +169,23 @@ test("Adressprüfung: base58 ja, hex nein", () => {
   assert.equal(isValidSolanaAddress(""), false);
   assert.equal(isValidSolanaAddress("0OIl"), false, "0, O, I, l gibt es in base58 nicht");
 });
+
+test("A-12b2d: window.solana signiert eine Nachricht für den Nachweis der Kasse – nur 64 Byte gelten", async () => {
+  const { ed25519 } = await import("@noble/curves/ed25519.js");
+  const { kassenNachweisNachricht, kassenOrt, pruefeKassenNachweis } = await import("@freedomstack/protocol");
+  const kp = Keypair.generate();
+  const PK = "ab".repeat(32);
+  const ort = kassenOrt("9e41c07b5a2d38f6e1b0c4d7a8f25e93");
+  const gesehen: Array<{ msg: Uint8Array; enc?: string }> = [];
+  const b = ueberWeb3({
+    connect: async () => ({ publicKey: kp.publicKey }),
+    signMessage: async (msg, enc) => { gesehen.push({ msg, enc }); return { signature: ed25519.sign(msg, kp.secretKey.slice(0, 32)) }; },
+  });
+  const nachricht = kassenNachweisNachricht(ort, PK);
+  const sig = await b.signiereNachricht!(nachricht);
+  assert.deepEqual(gesehen[0], { msg: nachricht, enc: "utf8" });
+  assert.equal(pruefeKassenNachweis(ort, PK, kp.publicKey.toBase58(), Buffer.from(sig).toString("hex")), true);
+  const kurz = ueberWeb3({ connect: async () => ({ publicKey: kp.publicKey }), signMessage: async () => ({ signature: new Uint8Array(63) }) });
+  await assert.rejects(kurz.signiereNachricht!(nachricht), /nicht so signiert/);
+  assert.equal(ueberWeb3({ connect: async () => ({ publicKey: kp.publicKey }) }).signiereNachricht, undefined, "nur anbieten, was die Wallet kann");
+});
