@@ -66,7 +66,8 @@ export function maxSendeleistungDbm(r: FunkRegion): number {
   return Math.floor(10 * Math.log10(r.maxErpMw));
 }
 
-export type FunkFall = "region" | "frequenz" | "bandbreite" | "spreizfaktor" | "kodierrate" | "leistung" | "form";
+export const FUNK_FAELLE = ["region", "frequenz", "bandbreite", "spreizfaktor", "kodierrate", "leistung", "form"] as const; // kein UI-Text
+export type FunkFall = (typeof FUNK_FAELLE)[number];
 
 /** Prüft Parameter gegen die Grenzen der Region – alle Werte ganze Zahlen, das Signal ganz im Band. */
 export function pruefeFunkParameter(regionKennung: string, p: FunkParameter): { ok: true; region: FunkRegion } | { ok: false; fall: FunkFall } {
@@ -80,6 +81,19 @@ export function pruefeFunkParameter(regionKennung: string, p: FunkParameter): { 
   if (p.codingRate < 5 || p.codingRate > 8) return { ok: false, fall: "kodierrate" };
   if (p.txPower < 0 || p.txPower > maxSendeleistungDbm(r)) return { ok: false, fall: "leistung" };
   return { ok: true, region: r };
+}
+
+/**
+ * Eigene Werte aus dem Dialog (B-32b4): Frequenz in MHz (Punkt oder Komma, höchstens 6 Nachkommastellen), sonst ganze
+ * Zahlen – oder null. Ob die Werte erlaubt sind, sagt erst `pruefeFunkParameter()`.
+ */
+export function leseFunkEingabe(w: { frequenz?: unknown; bandbreite?: unknown; sf?: unknown; cr?: unknown; leistung?: unknown }): FunkParameter | null {
+  const f = /^(\d{1,4})(?:[.,](\d{1,6}))?$/.exec(String(w.frequenz ?? "").trim());
+  const zahl = (v: unknown, muster: RegExp): number | null => (muster.test(String(v ?? "").trim()) ? Number(String(v).trim()) : null);
+  const bandwidth = zahl(w.bandbreite, /^\d{1,6}$/), spreadingFactor = zahl(w.sf, /^\d{1,2}$/), codingRate = zahl(w.cr, /^\d$/);
+  const txPower = zahl(w.leistung, /^-?\d{1,2}$/);
+  if (!f || bandwidth === null || spreadingFactor === null || codingRate === null || txPower === null) return null;
+  return { frequency: Number(f[1]) * 1e6 + Number((f[2] ?? "").padEnd(6, "0")), bandwidth, spreadingFactor, codingRate, txPower };
 }
 
 /** Was die App sich merkt: Region, Parameter und wann man sie bestätigt hat (Unix-Sekunden). */

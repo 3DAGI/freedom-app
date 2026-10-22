@@ -103,7 +103,7 @@ test("B-32b1: verdrahtet – Knopf „RNode“ im Funk-Bereich, Region bestätig
   assert.match(lies("src/shell/tabs/mesh.ts"), /const rnode = \$\("#mesh-rnode"\);\n\s+if \(rnode\) rnode\.onclick = async \(\) => \{\n\s+const \{ rnodeKnopf \} = await import\("\.\.\/rnode-ui\.js"\);/);
   const ui = lies("src/shell/rnode-ui.ts");
   assert.ok(ui.indexOf("await waehleFunkRegion()") < ui.indexOf("serial.requestPort()"), "erst bestätigen, dann den Port wählen");
-  assert.match(ui, /parameter: \{ \.\.\.region\.vorgabe \}/, "nur die Vorgabe der Region – keine freien Werte");
+  assert.match(ui, /parameter: FunkParameter = \{ \.\.\.region\.vorgabe \}/, "die Vorgabe der Region – eigene Werte nur geprüft (B-32b4)");
   assert.doesNotMatch(ui, /\.message|innerHTML|console\./, "keine Meldungen der Bibliothek, nur feste Texte");
   const { setLang, t } = await import("../src/i18n.js");
   for (const sprache of ["de", "en"] as const) {

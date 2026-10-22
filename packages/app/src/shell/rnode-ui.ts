@@ -1,6 +1,7 @@
 /**
- * RNode verbinden (B-32b1, RN-W6 A): Region wählen und bestätigen, dann über WebSerial verbinden. Die Werte kommen nur
- * aus `FUNK_REGIONEN` (Vorgabe der Region); gemerkt wird die bestätigte Wahl (`freedom.reticulum.funk`). Danach läuft
+ * RNode verbinden (B-32b1, RN-W6 A): Region wählen und bestätigen, dann über WebSerial verbinden. Die Werte sind die
+ * Vorgabe der Region aus `FUNK_REGIONEN` oder eigene (B-32b4), die `pruefeFunkParameter()` besteht – nur innerhalb der
+ * Grenzen der Region; gemerkt wird die bestätigte Wahl (`freedom.reticulum.funk`). Danach läuft
  * Reticulum über die RNode (B-32b2, `starteReticulum()`): Was an die eigene LXMF-Adresse kommt, geht wie Funk weiter
  * (`nimmFunkInhalt()`). Gesendet wird (B-32b3) nur an die gemerkte Gegenstelle (`freedom.reticulum.gegenstelle`, in
  * `geheim`) über `sendeUeberReticulum()` – aus `sendeUeberFunk()`, wenn kein Meshtastic-Gerät verbunden ist. Ein zweiter
@@ -8,7 +9,8 @@
  */
 import { t } from "../i18n.js";
 import {
-  FUNK_REGIONEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, maxSendeleistungDbm, verbindeRNode, type FunkWahl, type RNodePort,
+  FUNK_REGIONEN, LORA_BANDBREITEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkEingabe, leseFunkWahl, maxSendeleistungDbm, pruefeFunkParameter,
+  verbindeRNode, type FunkFall, type FunkParameter, type FunkRegion, type FunkWahl, type RNodePort,
 } from "../rnode-funk.js";
 import { LS_RETICULUM_GEGENSTELLE, leseLxmfAdresse, type ReticulumFunk } from "../reticulum-funk.js";
 import { ReticulumFehler, type ReticulumFall } from "../reticulum-umschlag.js";
@@ -20,11 +22,48 @@ import { toast } from "./ui.js";
 let verbunden: ReticulumFunk | null = null;
 const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
-const mhz = (hz: number): string => (hz / 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 });
+const mhz = (hz: number): string => (hz / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 });
 
-/** Die Region wählen und bestätigen – die Vorgabe der Region, nichts darüber. Abbrechen: null. */
+const FUNK_FALL_TEXT: Record<FunkFall, string> = {
+  region: "set.rnodeGrenzeRegion", frequenz: "set.rnodeGrenzeFrequenz", bandbreite: "set.rnodeGrenzeBandbreite",
+  spreizfaktor: "set.rnodeGrenzeSf", kodierrate: "set.rnodeGrenzeCr", leistung: "set.rnodeGrenzeLeistung", form: "set.rnodeGrenzeForm",
+};
+
+/** Warum eigene Werte nicht gehen – je Fall der Prüfung ein Text. */
+export function funkFallText(fall: FunkFall): string {
+  return t(FUNK_FALL_TEXT[fall]);
+}
+
+/** Eigene Werte (B-32b4) – vorbelegt mit `start`, angenommen nur, was `pruefeFunkParameter()` besteht. Abbrechen: null. */
+async function eigeneFunkWerte(region: FunkRegion, start: FunkParameter): Promise<FunkParameter | null> {
+  const wahl = (name: string, label: string, werte: readonly number[], text: (n: number) => string, wert: number) => ({
+    art: "wahl" as const, name, label, wert: String(wert), optionen: werte.map((n) => ({ wert: String(n), text: text(n) })),
+  });
+  const w = await dialog({
+    titel: t("set.rnodeEigeneTitel"),
+    text: t("set.rnodeEigeneText", { von: mhz(region.von), bis: mhz(region.bis), max: maxSendeleistungDbm(region) }),
+    felder: [
+      { art: "text", name: "frequenz", label: t("set.rnodeFrequenz"), wert: String(start.frequency / 1e6), mono: true },
+      wahl("bandbreite", t("set.rnodeBandbreite"), LORA_BANDBREITEN.filter((b) => b <= region.bis - region.von), (b) => `${b / 1000} kHz`, start.bandwidth),
+      wahl("sf", t("set.rnodeSf"), [7, 8, 9, 10, 11, 12], (n) => `SF ${n}`, start.spreadingFactor),
+      wahl("cr", t("set.rnodeCr"), [5, 6, 7, 8], (n) => `4/${n}`, start.codingRate),
+      { art: "text", name: "leistung", label: t("set.rnodeLeistung", { max: maxSendeleistungDbm(region) }), wert: String(start.txPower), mono: true },
+    ],
+    pruefe: (w) => {
+      const p = leseFunkEingabe(w);
+      const r = p ? pruefeFunkParameter(region.kennung, p) : { ok: false as const, fall: "form" as const };
+      return r.ok ? null : funkFallText(r.fall);
+    },
+    ok: t("set.rnodeBestaetigen"),
+  });
+  return w ? leseFunkEingabe(w) : null;
+}
+
+/** Die Region wählen und bestätigen – ihre Vorgabe oder eigene Werte innerhalb ihrer Grenzen. Abbrechen: null. */
 export async function waehleFunkRegion(): Promise<FunkWahl | null> {
   const gemerkt = leseFunkWahl(localStorage.getItem(LS_RETICULUM_FUNK));
+  const eigenGemerkt = !!gemerkt && FUNK_REGIONEN.some((r) => r.kennung === gemerkt.region
+    && (Object.keys(r.vorgabe) as Array<keyof FunkParameter>).some((k) => r.vorgabe[k] !== gemerkt.parameter[k]));
   const w = await dialog({
     titel: t("set.rnodeTitel"),
     text: t("set.rnodeText"),
@@ -38,12 +77,22 @@ export async function waehleFunkRegion(): Promise<FunkWahl | null> {
           max: maxSendeleistungDbm(r), quelle: t(r.quelle),
         }),
       })),
+    }, {
+      art: "wahl", name: "werte", label: t("set.rnodeWerte"), wert: eigenGemerkt ? "eigene" : "vorgabe",
+      optionen: [{ wert: "vorgabe", text: t("set.rnodeWerteVorgabe") }, { wert: "eigene", text: t("set.rnodeWerteEigene") }],
     }],
     ok: t("set.rnodeBestaetigen"),
   });
   const region = FUNK_REGIONEN.find((r) => r.kennung === w?.region);
   if (!region) return null;
-  const wahl: FunkWahl = { region: region.kennung, parameter: { ...region.vorgabe }, bestaetigt: Math.floor(Date.now() / 1000) };
+  let parameter: FunkParameter = { ...region.vorgabe };
+  if (w?.werte === "eigene") {
+    // Vorbelegt mit den gemerkten eigenen Werten derselben Region, sonst mit der Vorgabe
+    const eigene = await eigeneFunkWerte(region, gemerkt?.region === region.kennung ? gemerkt.parameter : region.vorgabe);
+    if (!eigene || !pruefeFunkParameter(region.kennung, eigene).ok) return null;
+    parameter = eigene;
+  }
+  const wahl: FunkWahl = { region: region.kennung, parameter, bestaetigt: Math.floor(Date.now() / 1000) };
   localStorage.setItem(LS_RETICULUM_FUNK, funkWahlText(wahl));
   return wahl;
 }
