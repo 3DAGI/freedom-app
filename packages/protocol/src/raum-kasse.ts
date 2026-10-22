@@ -14,6 +14,9 @@
  *
  * Abweichungen (V3) nur über `kassenAbweichungen()`: ein Recht ohne Mitgliedschaft, eine
  * Mitgliedschaft ohne Recht. Es zählt immer die Kette – die App zeigt sie nur an.
+ *
+ * Einen neuen Vorschlag meldet die App im Raum (V6, A-12c2) als gewöhnliche Nachricht mit seiner Nummer, im Kanal aus
+ * `kassenHinweisKanal()` – kein eigenes Format: Was ein Vorschlag auszahlt oder ändert, liest jedes Mitglied von der Kette.
  */
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
@@ -21,7 +24,7 @@ import { address, getAddressDecoder, getAddressEncoder, isAddress } from "@solan
 import { buildEvent, type NostrEvent, type UnsignedEvent } from "./event.js";
 import type { KassenMitglied } from "./kasse.js";
 import type { InneresEvent, InneresSenden } from "./raum-gruppe.js";
-import { can, KANAL_GRENZEN, leseRaumAdresse, type SpaceState } from "./spaces.js";
+import { can, canWriteTo, KANAL_GRENZEN, leseRaumAdresse, type SpaceState } from "./spaces.js";
 
 /** Adresse eines Mitglieds für die Kasse des Raums – offen an die Adresse des Raums, privat inneres Event. */
 export const KIND_KASSEN_ADRESSE = 34704;
@@ -129,6 +132,14 @@ export function kassenAdressenPrivat(gruppe: string, ereignisse: readonly Innere
 export function mitKassenRecht(zustand: SpaceState): string[] {
   const alle = new Set([...(zustand.ownerPubkey ? [zustand.ownerPubkey] : []), ...zustand.grants.keys()]);
   return [...alle].filter((pk) => HEX64.test(pk) && can(pk, RAUM_KASSEN_RECHT, zustand)).sort();
+}
+
+/**
+ * Kanal für den Hinweis auf einen neuen Vorschlag (A-12c2): der erste, in den `pk` schreiben darf – die Kanäle stehen im
+ * Zustand schon nach Position (`parseSpace()`, `mitRaumKanaelen()`).
+ */
+export function kassenHinweisKanal(zustand: SpaceState, pk: string): string | undefined {
+  return zustand.space?.channels.find((k) => canWriteTo(pk, k, zustand))?.id;
 }
 
 export interface KassenAbweichungen {

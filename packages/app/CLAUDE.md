@@ -954,6 +954,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `konfigurationAbschliessenAnweisung()` ab, nie die Anweisung der Auszahlung. Für eine Änderung, nach der die Kasse eine andere Art hätte,
   bieten `kassenAktionen()` und `kassenSchritt()` nur dagegen und abschließen an (`behaeltArt()`). Wächst beim Ausführen das Konto der
   Kasse, zahlt der Ausführende die Miete (`kassenKontoGroesseNach()` mit der Länge des Kontos) – die Rückfrage nennt sie vorher.
+  Neue Vorschläge (seit A-12c2, V6) meldet die App im Raum nur über `meldeVorschlag()`: eine gewöhnliche Nachricht mit der Nummer im
+  Kanal aus `kassenHinweisKanal()`, offen signiert an den Raum, privat nur `sendePrivat()` – nie Empfänger oder Betrag im Hinweis, nur nach
+  „vorschlagen“ und „aendern“ (`vorgeschlagen()`), nie nach Stimmen; die Rückfrage sagt es vorher. Ein Test zählt die `publish(`-Stellen in
+  `raum-kasse-ui.ts` – eine neue Stelle, die an Relays geht, braucht dort ihren Grund.
 - **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
