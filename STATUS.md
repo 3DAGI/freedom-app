@@ -12979,6 +12979,40 @@ Verdrahtung: vier Ausnahmen bis B-38b3b2.
 
 Knoten-Stand: unverändert (nur Protokoll).
 
+## Schritt A-12d1 – Kasse: Mitglieder und Wartezeit in der App ändern
+
+Spur A, `docs/KASSE-ENTWURF.md` (V3, V6, W2, W3). Erster Teil von A-12d, auf A-12a3 (#567). A-12d ist geteilt: d1 Mitglieder dazu und weg, Wartezeit; d2 Wechsel der Art (Gründer ↔ Mehrheit).
+
+**Neu:**
+- **App:**
+  - „Kasse …“ bietet mit dem Recht „vorschlagen“ auf der Kette „Kasse ändern …“ an. Dazu kommen nur, wer im Raum das Recht „kasse“ hat und eine Adresse genannt hat (V3); weg kann jedes Mitglied; dazu die Wartezeit (0, 1 h, 24 h).
+  - `kassenSchritt()` stellt die Änderung aus dem frisch gelesenen Stand mit `kassenAenderungen()` zusammen: Die Art bleibt, die Schwelle folgt der Mehrheit.
+  - Die Liste zeigt Änderungen mit dem, was sich laut Kette ändert, und mit dem Namen im Raum, wo jemand die Adresse genannt hat. Abstimmen, ausführen (im selben Zug abgeschlossen) und abschließen gehen wie bei Auszahlungen; abgeschlossen wird mit der Anweisung der Änderung.
+  - Für eine Änderung, nach der die Kasse eine andere Art hätte (etwa aus einem anderen Programm), stimmt die App nicht und führt sie nicht aus – nur dagegen und abschließen.
+  - Wächst beim Ausführen das Konto der Kasse, zahlt der Ausführende die Miete; die Rückfrage nennt sie vorher.
+- **Protokoll:**
+  - `leseVorgang()` liest einen Vorschlag samt Auszahlung oder Änderung; `leseVorschlaege()` nutzt ihn.
+  - `konfigurationKontoGroessen()` rechnet die Miete einer Änderung.
+  - `behaeltArt()` sagt für Änderungen von der Kette, ob die Kasse ihre Art behält.
+- **Bericht:** Die Grenze „raum-kasse“ nennt auch Änderungen (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung, Teilung von A-12d), Fallstricke in `packages/protocol/CLAUDE.md` und `packages/app/CLAUDE.md`, OFFEN (Gerätetest um „ein Mitglied aufnehmen“ ergänzt), FORTSCHRITT, Stand. Sechs Ausnahmen aus A-12a3 fallen aus `wiring-ausnahmen.txt`; `leseAuszahlungVonKette()` und `leseKonfigurationVonKette()` bleiben als Lesehilfen mit Grund.
+
+**Tests:**
+- **Validator (18, gegen beide Programme):** Die Konten einer Änderung haben die Größe aus `konfigurationKontoGroessen()`, `leseVorgang()` liest sie, ausführen und abschließen gehen auch bei Änderungen in einem Zug.
+- **protocol +1:** Miete einer Änderung, die Art bei fremden Änderungen, ein Vorgang von der Kette.
+- **app +1 (netto):**
+  - Änderungen in Text und Menü; für eine andere Art nur dagegen.
+  - Verdrahtung des Änderns.
+  - Der Test aus A-12a3 („nur zeigen“) geht in den neuen Test über.
+- **Gegenproben** – je mindestens ein Test rot:
+  - Menü ohne Prüfung der Art
+  - abschließen mit der Anweisung der Auszahlung
+  - Kopf 84 statt 85
+  - `leseVorgang()` ohne Erkennung
+  - Rückfrage ohne Änderungen
+
+Knoten-Stand: keiner nötig.
+
 ## Schritt B-38b3b2 – Text aus Sprache: der Knoten lädt das Whisper-Modell geprüft
 
 Spur B, `docs/SPRACHE-ENTWURF.md` (V4, SP-W4 C), auf B-38b3b1.
