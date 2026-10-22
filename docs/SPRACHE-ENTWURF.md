@@ -91,7 +91,10 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | Schritt | Inhalt | Umfang |
 |---|---|---|
 | B-38a ✓ | Vorlesen auf dem Gerät: Knopf an den Antworten des Agenten, nur lokale Stimmen, Sprache passend, Smoke-Test mit Attrappe | ~150 |
-| B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 |
+| B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 – geteilt in b1–b3 |
+| B-38b1 ✓ | Protokoll: Kind 5083, Ton als WAV in genau einer Form (`baueWav()`, `pruefeWav()`), Auftrag versiegelt mit Nachweis (`baueSpracheAuftrag()`), Antwort streng (`leseTranskript()`), `PROTOCOL.md` §43 | ~250 |
+| B-38b2 | Knoten: `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Modell nur lesbar), Ton aus dem Blob-Netz holen und prüfen, Antwort; Rolle `sprache` im Status | ~300 |
+| B-38b3 | `whisper-cli` im Bild (Bau aus den Quellen, gepinnt), Modell über Manifest (V4), Vorgabe nach SP-W4 | ~250 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
@@ -109,6 +112,22 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
   ein zweiter Klick hält an), Code-Blöcke als „Code ausgelassen.“. Ohne lokale Stimme ein Hinweis, kein Vorlesen.
 - **Nicht in der App:** die Spracherkennung des Browsers – ein Test sucht danach in allen Quellen.
 - **Offen:** Nachrichten im Chat vorlesen kommt mit B-38c (dort gibt es dann auch Sprachnachrichten als Text).
+
+## Stand B-38b1 (22.10.2026)
+
+- **Geteilt:** B-38b in drei Schritte (Tabelle oben) – Protokoll, Knoten, Bild. Zusammen wären es deutlich über 400 Zeilen.
+- **Befund: `whisper-cli` statt `whisper-server`.** Die Sandbox des Knotens (VKb) hat kein Netz; ein `whisper-server` darin
+  wäre vom Knoten aus nicht erreichbar (er kennt keinen Unix-Socket), einer außerhalb liefe ohne Sandbox. `whisper-cli` je
+  Auftrag liest eine Datei und schreibt den Text in eine Datei – kein offener Port, nichts bleibt im Speicher. Das Modell
+  lädt dafür je Auftrag neu (bei large-v3-turbo-q5_0 einige Sekunden; messen macht der MENSCH auf dem GX10).
+- **Ton:** WAV in genau einer Form (`baueWav()`: 44 Byte Kopf, PCM, mono, 16 kHz, 16 Bit), höchstens 120 s; `pruefeWav()`
+  nimmt nichts anderes (Kennungen `wav-form`, `wav-format`, `wav-leer`, `wav-lang`). So liest der Knoten nie einen fremden
+  Container (SP-W5 A).
+- **Auftrag** (5083, `baueSpracheAuftrag()`): versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, mit Nachweis,
+  ohne Gebot; `i` nennt Blob, Manifest und Schlüssel des Tons und die Sprache (`de`, `en`, `auto`). **Antwort** (6083):
+  Text bis 8000 Zeichen ohne Steuerzeichen und die Länge aus der WAV-Datei (`leseTranskript()`). `PROTOCOL.md` §43.
+- **Ältere Knoten:** Ein Knoten vor B-38b2 läse 5083 als gewöhnlichen Auftrag – die App fragt nur, wenn der Status die
+  Rolle `sprache` nennt (B-38c).
 
 ## Quellen
 

@@ -59,6 +59,7 @@ export const KIND_DVM_TURN = 5079;          // Zugang zum TURN des eigenen Knote
 export const KIND_DVM_KNOTEN_CODE = 5080;   // Vibecoden auf dem eigenen Knoten (nur Besitzer, versiegelt, A-31/VKa)
 export const KIND_DVM_LIVEKIT = 5081;       // Zugänge zum Gruppenanruf (LiveKit) des eigenen Knotens (nur Besitzer, versiegelt, B-34a)
 export const KIND_DVM_SIGNAL = 5082;        // Signalverbindung zum Gruppenanruf über den eigenen Knoten (nur Besitzer, versiegelt, B-34e)
+export const KIND_DVM_TEXT_AUS_SPRACHE = 5083; // Text aus Sprache beim eigenen Knoten (nur Besitzer, versiegelt, Ton im Blob-Netz, B-38b)
 
 export function isDvmRequest(kind: number): boolean {
   return kind >= KIND_DVM_REQUEST_MIN && kind <= KIND_DVM_REQUEST_MAX;

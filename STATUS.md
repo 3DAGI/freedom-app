@@ -12906,3 +12906,20 @@ nach dem Fallstrick „In Zufallsdaten nie nach kurzen Zeichenfolgen suchen“; 
 `app/test/leak/ki-anfrage.test.ts` („21000“/„34000“) – im Pull Request genannt.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-38b1 – Text aus Sprache: Protokoll (Kind 5083)
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, SP-W5 A). B-38b ist geteilt: b1 Protokoll, b2 Knoten, b3 Bild.
+
+- **`sprache-auftrag.ts`** (neu): `baueWav()`/`pruefeWav()` – WAV in genau einer Form (44 Byte Kopf, PCM, mono, 16 kHz,
+  16 Bit, höchstens 120 s), Kennungen statt Text; `baueSpracheAuftrag()`/`leseSpracheAuftrag()` – versiegelt an den
+  gekoppelten Knoten, mit Nachweis, ohne Gebot, Ton als Verweis ins Blob-Netz samt Schlüssel; `transkriptText()`/
+  `leseTranskript()` – Text bis 8000 Zeichen ohne Steuerzeichen.
+- **Kind 5083** (`KIND_DVM_TEXT_AUS_SPRACHE`), `PROTOCOL.md` §43; in der Liste der Kinds dazu 5080–5082 nachgetragen.
+- **Befund:** `whisper-cli` je Auftrag statt `whisper-server` – in der Sandbox ohne Netz wäre ein Server nicht erreichbar.
+- **Verdrahtung:** sechs Exporte ausgenommen mit dem Schritt, der sie aufruft (Knoten B-38b2, App B-38c).
+
+**Tests:** protocol +5 (`sprache-auftrag.test.ts`: WAV-Form samt 15 Gegenproben und Grenze, Auftrag versiegelt, streng
+gelesen, Antwort streng).
+
+Knoten-Stand: unverändert.
