@@ -26,9 +26,10 @@ import { dirname, join } from "node:path";
 import {
   type GeladeneDatei, type HfName, type HfStand, type Magnet, type ModelFile, type ModelManifest, type NostrEvent, type OllamaName,
   type Schicht, fitsOnDevice, hfQuelle, leseHfName, leseMagnet, leseOllamaName, ollamaDateien, pruefeDateien, pruefeSchichten,
-  registryAdresse, vertrautesManifest, vorpruefeHf,
+  leseWhisperName, registryAdresse, vertrautesManifest, vorpruefeHf, whisperKennung,
 } from "@freedomstack/protocol";
 import type { Festgehalten } from "./modell-hf.js";
+import { type WhisperHilfen, ladeWhisperModell } from "./modell-whisper.js";
 import { leseBegrenzt } from "./url-guard.js";
 
 export const modellDatei = (home = process.env.HOME ?? "."): string => join(home, ".freedom", "modelle.json");
@@ -37,11 +38,13 @@ export const wunschDatei = (home = process.env.HOME ?? "."): string => join(home
 export const modellOrdner = (env: { MODELL_ORDNER?: string; HOME?: string } = process.env): string =>
   env.MODELL_ORDNER?.trim() || join(env.HOME ?? ".", ".freedom", "modelle");
 
-/** Woher ein Modell kommt: Ollama (E9-3a) oder Hugging Face in einen Ordner (B-29c1b). */
-export type Quelle = "ollama" | "hf";
-/** Ein Name, wie die Quelle ihn schreibt – sonst null. */
-export const quellName = (quelle: Quelle, s: string): string | null => (quelle === "hf" ? leseHfName(s)?.voll : leseOllamaName(s)?.voll) ?? null;
-const gueltigerName = (n: unknown): n is string => typeof n === "string" && (quellName("ollama", n) === n || quellName("hf", n) === n);
+/** Woher ein Modell kommt: Ollama (E9-3a), Hugging Face in einen Ordner (B-29c1b), Whisper für Text aus Sprache (B-38b3b2). */
+export type Quelle = "ollama" | "hf" | "whisper";
+const whisperName = (s: string): string | undefined => { const n = leseWhisperName(s); return n ? whisperKennung(n) : undefined; };
+/** Ein Name, wie die Quelle ihn schreibt – sonst null. Für Whisper immer mit Vorsatz: `whisper:<name>`. */
+export const quellName = (quelle: Quelle, s: string): string | null =>
+  (quelle === "hf" ? leseHfName(s)?.voll : quelle === "whisper" ? whisperName(s) : leseOllamaName(s)?.voll) ?? null;
+const gueltigerName = (n: unknown): n is string => typeof n === "string" && (["ollama", "hf", "whisper"] as const).some((q) => quellName(q, n) === n);
 
 export interface GeprueftesModell {
   /** Name bei Ollama und im Angebot, z. B. `qwen2.5:0.5b`. */
@@ -54,9 +57,11 @@ export interface GeprueftesModell {
   /** Fingerabdruck bei Ollama (`/api/tags`, `digest`) zur Zeit der Prüfung; bei Hugging Face leer. */
   ollama: string;
   geprueft: number;
-  /** Seit B-29c1b: aus Hugging Face in diesen Ordner geladen, mit seinem Fingerabdruck (`ordnerAbdruck()`). */
-  quelle?: "hf";
+  /** Seit B-29c1b: aus Hugging Face in diesen Ordner geladen, mit seinem Fingerabdruck (`ordnerAbdruck()`); seit B-38b3b2 für
+   * Whisper die eine Datei mit ihrem Abdruck (`dateiAbdruck()`) – nie im Angebot für KI. */
+  quelle?: "hf" | "whisper";
   ordner?: string;
+  datei?: string;
   abdruck?: string;
   /** Seit B-29c2c: Kennung des Freedom-Torrents, unter dem der Knoten es teilt. */
   torrent?: string;
@@ -74,8 +79,8 @@ export interface Wunsch {
   seit: number;
   /** Vorher festhalten, was die Quelle jetzt nennt (eigenes Manifest) – Registry bzw. Hugging Face. */
   ausRegistry?: true;
-  /** Seit B-29c1b: Hugging Face statt Ollama. */
-  quelle?: "hf";
+  /** Seit B-29c1b: Hugging Face statt Ollama; seit B-38b3b2 Whisper (Text aus Sprache). */
+  quelle?: "hf" | "whisper";
   /** Seit B-29c2c: ein Magnet vom Betreiber (etwa von Pirate Face), geprüft mit `leseMagnet()`. */
   magnet?: string;
 }
@@ -95,7 +100,8 @@ export function leseStand(datei: string): ModellStand {
   const s = leseJson<Partial<ModellStand>>(datei, {});
   const modell = (m: GeprueftesModell | null) => typeof m?.ollama === "string" && (m.quelle === "hf"
     ? quellName("hf", m.name) === m.name && typeof m.ordner === "string" && typeof m.abdruck === "string"
-    : m.quelle === undefined && quellName("ollama", m.name) === m.name);
+    : m.quelle === "whisper" ? quellName("whisper", m.name) === m.name && typeof m.datei === "string" && typeof m.abdruck === "string"
+      : m.quelle === undefined && quellName("ollama", m.name) === m.name);
   return {
     modelle: Array.isArray(s.modelle) ? s.modelle.filter(modell) : [],
     laeuft: s.laeuft && gueltigerName(s.laeuft.name) ? s.laeuft : undefined,
@@ -106,9 +112,10 @@ export function leseStand(datei: string): ModellStand {
 export function leseWuensche(datei: string): Wunsch[] {
   const w = leseJson<unknown>(datei, []);
   if (!Array.isArray(w)) return [];
-  return w.filter((x) => typeof x?.name === "string" && quellName(x.quelle === "hf" ? "hf" : "ollama", x.name) === x.name && Number.isSafeInteger(x.seit))
+  const quelle = (x: Wunsch): Quelle => (x.quelle === "hf" || x.quelle === "whisper" ? x.quelle : "ollama");
+  return w.filter((x) => typeof x?.name === "string" && quellName(quelle(x), x.name) === x.name && Number.isSafeInteger(x.seit))
     .map((x: Wunsch) => ({
-      name: x.name, seit: x.seit, ...(x.ausRegistry === true ? { ausRegistry: true as const } : {}), ...(x.quelle === "hf" ? { quelle: "hf" as const } : {}),
+      name: x.name, seit: x.seit, ...(x.ausRegistry === true ? { ausRegistry: true as const } : {}), ...(quelle(x) !== "ollama" ? { quelle: quelle(x) as "hf" | "whisper" } : {}),
       ...(x.quelle === "hf" && typeof x.magnet === "string" && leseMagnet(x.magnet) ? { magnet: leseMagnet(x.magnet)!.link } : {}),
     }));
 }
@@ -123,7 +130,7 @@ export function merkeWunsch(
   const magnet = magnetLink === undefined ? undefined : quelle === "hf" ? leseMagnet(magnetLink)?.link : undefined;
   if (magnetLink !== undefined && !magnet) return null;
   const wunsch: Wunsch = {
-    name, seit: jetzt, ...(ausRegistry ? { ausRegistry: true as const } : {}), ...(quelle === "hf" ? { quelle: "hf" as const } : {}), ...(magnet ? { magnet } : {}),
+    name, seit: jetzt, ...(ausRegistry ? { ausRegistry: true as const } : {}), ...(quelle !== "ollama" ? { quelle } : {}), ...(magnet ? { magnet } : {}),
   };
   schreibeJson(datei, [...leseWuensche(datei).filter((w) => w.name !== name), wunsch]);
   return name;
@@ -150,6 +157,8 @@ export interface LaderHilfen {
   eigener: string;
   /** Seit B-29c1b, nur mit einem OpenAI-kompatiblen Antrieb: Hugging Face als Quelle. */
   hf?: HfHilfen;
+  /** Seit B-38b3b2, mit jedem Antrieb: das Modell für Text aus Sprache (`modell-whisper.ts`). */
+  whisper?: WhisperHilfen;
 }
 
 /** Was der Weg über Hugging Face braucht (`modell-hf.ts`, in `main.ts` verdrahtet). */
@@ -337,7 +346,8 @@ export class ModellDienst {
    * (B-29c1b): nur mit diesem Weg, der Antrieb nennt das Modell, und der Ordner ist unverändert.
    */
   async imAngebot(): Promise<string[]> {
-    const modelle = leseStand(this.dateien.stand).modelle;
+    // Whisper gehört zu Text aus Sprache, nie ins Angebot für KI (B-38b3b2)
+    const modelle = leseStand(this.dateien.stand).modelle.filter((m) => m.quelle !== "whisper");
     const tags = modelle.some((m) => m.quelle !== "hf") ? await this.h.tags().catch(() => null) : null;
     const hf = this.h.hf;
     const namen = hf && modelle.some((m) => m.quelle === "hf") ? await hf.antrieb().catch(() => null) : null;
@@ -354,7 +364,9 @@ export class ModellDienst {
   async arbeite(): Promise<boolean> {
     if (this.beschaeftigt) return false;
     // Nur Wünsche, die dieser Antrieb laden kann – die übrigen nennt `pruefeModelle()`
-    const [w] = offeneWuensche(leseWuensche(this.dateien.wunsch), leseStand(this.dateien.stand)).filter((x) => (x.quelle ?? "ollama") === this.quelle);
+    // Whisper lädt jeder Knoten mit `whisper` – gleich welcher Antrieb
+    const [w] = offeneWuensche(leseWuensche(this.dateien.wunsch), leseStand(this.dateien.stand))
+      .filter((x) => (x.quelle === "whisper" ? !!this.h.whisper : (x.quelle ?? "ollama") === this.quelle));
     if (!w) return false;
     this.beschaeftigt = true;
     let zuletzt = 0;
@@ -369,14 +381,15 @@ export class ModellDienst {
       this.log(`[modell] ${w.name}: suche Manifest, prüfe, lade`);
       const r = await (w.quelle === "hf"
         ? ladeHfModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true, w.magnet)
-        : ladeModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true)).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
+        : w.quelle === "whisper" ? ladeWhisperModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true)
+          : ladeModell(w.name, this.h, melde, this.jetzt, w.ausRegistry === true)).catch((e): LadeErgebnis => ({ ok: false, fall: "fehler", werte: { fehler: fehlerName(e) } }));
       const s = leseStand(this.dateien.stand);
       const ergebnis: Ergebnis = r.ok ? { name: w.name, fall: "ok", zeit: this.jetzt() } : { name: w.name, fall: r.fall, werte: r.werte, zeit: this.jetzt() };
       schreibeJson(this.dateien.stand, {
         modelle: r.ok ? [...s.modelle.filter((m) => m.name !== w.name), r.modell] : s.modelle,
         ergebnisse: [...s.ergebnisse.filter((e) => e.name !== w.name), ergebnis],
       });
-      this.log(`[modell] ${w.name}: ${r.ok ? "geprüft, im Angebot" : `nicht angeboten (${r.fall})`}`);
+      this.log(`[modell] ${w.name}: ${r.ok ? (w.quelle === "whisper" ? "geprüft, für Text aus Sprache" : "geprüft, im Angebot") : `nicht angeboten (${r.fall})`}`);
       return r.ok;
     } finally {
       this.beschaeftigt = false;

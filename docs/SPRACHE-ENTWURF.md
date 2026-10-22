@@ -98,7 +98,7 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b3a ✓ | `scripts/whisper-bauen.sh` (v1.9.5, Commit geprüft, ohne OpenMP), Stufe im Docker-Bild (`WHISPER=1`, `docker-compose.sprache.yml`), CI baut es und prüft das echte Programm in der Sandbox | ~200 |
 | B-38b3b | Modell geprüft laden: über ein Manifest (38057) wie andere Modelle (`npm run modell`), Vorgabe nach SP-W4 | ~500 – geteilt in b3b1–b3b3 |
 | B-38b3b1 ✓ | Protokoll: Konvention `whisper:<name>` mit genau einer Datei `ggml-<name>.bin` aus `ggerganov/whisper.cpp` am Commit (`whisperQuelle()`), Stand von Hugging Face (`whisperStand()`), Adresse, Kennung `ggml` (`istGgml()`), Vorgabe | ~200 |
-| B-38b3b2 | Knoten: `npm run modell -- --whisper [name] [--aus-hf]`, Laden und Prüfen im `ModellDienst` (nie im Angebot für KI), Selbstprüfung | ~300 |
+| B-38b3b2 ✓ | Knoten: `npm run modell -- --whisper [name] [--aus-hf]`, Laden und Prüfen im `ModellDienst` (nie im Angebot für KI), Selbstprüfung | ~300 |
 | B-38b3b3 | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
@@ -179,6 +179,19 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
 - **Kein Pickle:** `.bin` gilt nur auf diesem Weg (`WHISPER_DATEI`); die Datei muss mit `ggml` beginnen (`istGgml()`,
   gemessen am Testmodell von whisper.cpp: `6c 6d 67 67`). `HF_DATEI` bleibt ohne `.bin`.
 - **Vorgabe** (`WHISPER_VORGABE`): mit GPU `large-v3-turbo-q5_0`, ohne `base`.
+
+## Stand B-38b3b2 (22.10.2026)
+
+- **Wunsch:** `npm run modell -- --whisper [name] [--aus-hf]` – ohne Namen die Vorgabe nach `WHISPER_GPU`. Im Stand heißt
+  das Modell `whisper:<name>` (Quelle `whisper`), mit jedem KI-Antrieb – auch neben Ollama.
+- **Laden** (`modell-whisper.ts` im Knoten, `ladeWhisperModell()` im `ModellDienst`): Manifest wie bei anderen Modellen,
+  Vorprüfung am Commit (eine andere Datei dort: `whisper.anders`, nichts geladen), dann `ladeWhisperDatei()` – derselbe
+  geprüfte Abruf wie für Hugging Face (`ladeGepruefteDatei()`: SHA-256 beim Laden, nie mehr Bytes, erst danach unter dem
+  Namen) und die Kennung `ggml` (sonst gelöscht, `whisper.keinGgml`). Ziel `MODELL_ORDNER/whisper/ggml-<name>.bin`.
+- **Gemerkt** mit dem Abdruck der Datei (`dateiAbdruck()`: Größe, Zeit, Inode, ohne Verweisen zu folgen); die Selbstprüfung
+  sagt `modell.whisper` bzw. `modell.whisperVeraendert` – im Status an den Besitzer und in `npm run pruefen`.
+- **Nie im Angebot für KI** (`imAngebot()` lässt Whisper aus).
+- **Noch offen (B-38b3b3):** Whisper nimmt das geprüfte Modell von selbst; bis dahin zeigt `WHISPER_MODELL` darauf.
 
 ## Quellen
 

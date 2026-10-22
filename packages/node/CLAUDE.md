@@ -504,3 +504,8 @@ Bereichs unten anhängen.
   Arbeitsordner ist nach jedem Auftrag weg. Ablehnungen nur als `SpracheAbgelehnt` mit `fall` aus `SPRACHE_FAELLE`.
   `RLIMIT_CPU` zählt alle Threads zusammen – Whisper bekommt `rechenzeitSek` = Frist mal Threads, sonst endet ein langer
   Ton mit SIGXCPU.
+- **Das Whisper-Modell nur über `modell-whisper.ts`** (seit B-38b3b2): gewünscht über `npm run modell -- --whisper`, geladen
+  nur im `ModellDienst` über `ladeWhisperModell()` → `ladeWhisperDatei()` – derselbe geprüfte Abruf wie für Hugging Face
+  (`ladeGepruefteDatei()`), dazu die Kennung `ggml` am Anfang (sonst löschen). Mit jedem Antrieb (`whisper` in den
+  `LaderHilfen`, nicht an `hf` gebunden); im Stand mit `datei` und `abdruck` (`dateiAbdruck()`, nie einem Verweis folgen).
+  Ein Whisper-Modell steht nie im Angebot für KI – `imAngebot()` und `pruefeModelle()` behandeln es vor allen anderen.

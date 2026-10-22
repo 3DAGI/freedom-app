@@ -102,6 +102,14 @@ export const MODELL_TEXT: Record<string, string> = {
   "modell.dateiGroesse": "set.modDateiGroesse",
   "modell.dateiFehlt": "set.modDateiFehlt",
   "modell.fehler": "set.modFehler",
+  "modell.whisper": "set.modWhisper",
+  "modell.whisperVeraendert": "set.modWhisperVeraendert",
+  "modell.whisperForm": "set.modWhisperForm",
+  "modell.whisperFehlt": "set.modWhisperFehlt",
+  "modell.whisperNichtErreichbar": "set.modWhisperNichtErreichbar",
+  "modell.whisperAnders": "set.modWhisperAnders",
+  "modell.whisperLaden": "set.modWhisperLaden",
+  "modell.whisperKeinGgml": "set.modWhisperKeinGgml",
 };
 
 /** Textschlüssel je Schritt beim Laden (E9-3b). */

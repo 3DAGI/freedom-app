@@ -75,6 +75,14 @@ export const MODELL_TEXT: Record<string, (w: Record<string, number | string>) =>
   "modell.dateiGroesse": (w) => `${w.anzahl} Datei(en) mit anderer Größe als im Manifest – nicht angeboten`,
   "modell.dateiFehlt": (w) => `${w.anzahl} Datei(en) des Manifests fehlen im Ordner – nicht angeboten`,
   "modell.fehler": (w) => `abgebrochen (${w.fehler})`,
+  "modell.whisper": (w) => `geprüft gegen das Manifest (${gb(w.bytes)} GB) – für Text aus Sprache, nicht im Angebot für KI`,
+  "modell.whisperVeraendert": () => "die Modelldatei hat sich geändert – nicht benutzt, bis sie neu geprüft ist: npm run modell -- --whisper <name>",
+  "modell.whisperForm": () => "Hugging Face nennt die Datei des Whisper-Modells nicht in der erwarteten Form (mit SHA-256) – nichts festgehalten, nichts geladen",
+  "modell.whisperFehlt": () => "das Repo von whisper.cpp hat kein Modell dieses Namens (ggml-<name>.bin)",
+  "modell.whisperNichtErreichbar": (w) => `Hugging Face war nicht zu befragen (${w.fehler}) – nichts festgehalten, nichts geladen`,
+  "modell.whisperAnders": () => "Hugging Face nennt am Commit des Manifests eine andere Datei – nichts geladen",
+  "modell.whisperLaden": (w) => `Laden von Hugging Face abgebrochen (${w.fehler}) – nicht benutzt`,
+  "modell.whisperKeinGgml": () => "die Datei ist kein Modell von whisper.cpp (Kennung ggml fehlt) – gelöscht, nicht benutzt",
 };
 export const modellText = (fall: string, werte: Record<string, number | string> = {}): string => MODELL_TEXT[fall]?.(werte) ?? fall;
 
@@ -95,6 +103,8 @@ export function pruefeModelle(e: {
   antrieb?: AntriebArt;
   /** Seit B-29c1b: ist der Ordner eines Modells von Hugging Face unverändert (`ordnerAbdruck()`)? */
   ordnerUnveraendert?: (m: GeprueftesModell) => boolean;
+  /** Seit B-38b3b2: ist die Datei eines Whisper-Modells unverändert (`dateiAbdruck()`)? */
+  dateiUnveraendert?: (m: GeprueftesModell) => boolean;
 }): ModellPruefBefund[] {
   const b = (name: string, stufe: Stufe, fall: string, werte?: Record<string, number | string>): ModellPruefBefund =>
     ({ name, stufe, fall, ...(werte ? { werte } : {}), text: modellText(fall, werte) });
@@ -106,6 +116,11 @@ export function pruefeModelle(e: {
   const passt = (m: GeprueftesModell) => (m.quelle === "hf") === openai;
   const geprueft = new Set(e.stand.modelle.filter(passt).map((m) => m.name));
   for (const m of e.stand.modelle) {
+    // Whisper (B-38b3b2) gehört zu Text aus Sprache – mit jedem Antrieb, nie im Angebot
+    if (m.quelle === "whisper") {
+      aus.push((e.dateiUnveraendert?.(m) ?? true) ? b(m.name, "ok", "modell.whisper", { bytes: m.bytes }) : b(m.name, "fehler", "modell.whisperVeraendert"));
+      continue;
+    }
     if (!passt(m)) {
       aus.push(b(m.name, "hinweis", openai ? "modell.nurOllama" : "modell.nurAntrieb"));
       continue;
@@ -134,6 +149,7 @@ export function pruefeModelle(e: {
   const offen = offeneWuensche(e.wuensche, e.stand);
   for (const w of offen) {
     if (w.name === e.stand.laeuft?.name) continue;
+    if (w.quelle === "whisper") { aus.push(b(w.name, "hinweis", "modell.wartet")); continue; }
     const hf = w.quelle === "hf";
     aus.push(b(w.name, "hinweis", hf === openai ? "modell.wartet" : openai ? "modell.ladenNurOllama" : "modell.ladenNurAntrieb"));
   }

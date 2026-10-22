@@ -481,10 +481,21 @@ fragt erst mit B-38c („Als Text“).
 - **Programm:** `scripts/whisper-bauen.sh <ordner>` baut `whisper-cli` aus den Quellen in fester Fassung (v1.9.5, Commit
   geprüft), ohne OpenMP, ohne Server – rund zwei Minuten, braucht `cmake`, `git` und einen C++-Compiler. Mit
   `WHISPER_CUDA=1` für die GPU (braucht das CUDA-Toolkit). Unter Docker baut `docker-compose.sprache.yml` es ins Bild.
-- **Modell:** ein ggml-Modell von whisper.cpp – auf dem GX10 `ggml-large-v3-turbo-q5_0.bin` (547 MiB), ohne GPU
-  `ggml-base.bin` (SP-W4). Die Prüfsummen (SHA-1) nennt `models/README.md` von whisper.cpp in derselben Fassung, etwa
-  `e050f7970618a659205450ad97eb95a18d69c9ee` für large-v3-turbo-q5_0 – vor dem Ablegen mit `sha1sum` vergleichen.
-  Geprüft laden über ein Manifest folgt mit B-38b3b.
+- **Modell:** ein ggml-Modell von whisper.cpp – auf dem GX10 `large-v3-turbo-q5_0` (547 MiB), ohne GPU `base` (SP-W4).
+  Geprüft laden wie andere Modelle (seit B-38b3b2, mit jedem KI-Antrieb):
+
+  ```bash
+  npm run modell -- --whisper --aus-hf        # beim ersten Mal: festhalten, was Hugging Face jetzt nennt (Vorgabe nach WHISPER_GPU)
+  npm run modell -- --whisper base            # ein anderes Modell; später ohne --aus-hf gegen das Festgehaltene laden
+  npm run modell                              # Stand – nennt die geprüfte Datei
+  # Docker: docker compose exec node npm run modell -- --whisper --aus-hf
+  ```
+
+  Der laufende Knoten lädt genau die eine Datei `ggml-<name>.bin` aus dem Repo von whisper.cpp bei Hugging Face
+  (`ggerganov/whisper.cpp`, am Commit des Manifests), prüft SHA-256 und Größe beim Laden und dass sie mit `ggml` beginnt,
+  und legt sie nach `MODELL_ORDNER/whisper/`. Bis B-38b3b3 nimmt Whisper sie erst, wenn `WHISPER_MODELL` auf diese Datei
+  zeigt. Wer das Modell selbst ablegt, vergleicht die SHA-1 aus `models/README.md` von whisper.cpp (etwa
+  `e050f7970618a659205450ad97eb95a18d69c9ee` für large-v3-turbo-q5_0).
 - **Einstellen:** `WHISPER_MODELL` (absoluter Pfad zum Modell; ohne bleibt Text aus Sprache aus), `WHISPER_CLI` (Vorgabe
   `/usr/local/bin/whisper-cli`), `WHISPER_THREADS` (Vorgabe 4), `WHISPER_FRIST_SEK` (Vorgabe 600), `WHISPER_GPU=1` nur mit
   CUDA-Bau. Ungültig heißt aus – das Log sagt, warum (`[sprache] …`).
@@ -493,7 +504,9 @@ fragt erst mit B-38c („Als Text“).
 
   ```bash
   docker compose -f docker-compose.yml -f docker-compose.sprache.yml up -d --build
-  # Modell ins Volume, unter dem Pfad aus WHISPER_MODELL:
+  # Modell geprüft laden (landet in /home/node/.freedom/modelle/whisper/), dann WHISPER_MODELL dorthin zeigen lassen:
+  docker compose exec node npm run modell -- --whisper large-v3-turbo-q5_0 --aus-hf
+  # oder selbst ins Volume, unter dem Pfad aus WHISPER_MODELL:
   docker compose exec node mkdir -p /home/node/.freedom/whisper
   docker compose cp ggml-large-v3-turbo-q5_0.bin node:/home/node/.freedom/whisper/
   ```

@@ -1680,4 +1680,6 @@ Festhalten liest den Stand am Commit (`whisperStand()`: die eine Datei mit LFS-S
 `whisper.form`); geladen wird nur `whisperDateiAdresse()`. `.bin` ist hier kein Pickle: Modelle von whisper.cpp beginnen
 mit der Kennung `ggml` (`0x67676d6c`, Kleinendian `6c 6d 67 67`, `istGgml()`), und gelesen werden sie nur von
 `whisper-cli` in der Sandbox ohne Netz. Vorgabe: mit GPU `large-v3-turbo-q5_0`, ohne `base` (`WHISPER_VORGABE`).
+Im Knoten (seit B-38b3b2) mit jedem KI-Antrieb über `npm run modell -- --whisper [name] [--aus-hf]`; vor dem Laden fragt er
+Hugging Face am Commit des Manifests (eine andere Datei dort: nichts laden), und im Angebot für KI steht ein Whisper-Modell nie.
 
