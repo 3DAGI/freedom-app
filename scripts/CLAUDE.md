@@ -106,3 +106,8 @@ dieses Bereichs unten anhängen.
   liest gelegentlich `null`. Vor jedem `evaluate` auf genau die Elemente warten, die es liest. Kommt ein Element trotz Warten nie (A-32:
   `.projekt-ausgabe summary`), liegt der Fehler in der App – dort suchen (`folgeLauf()` gab beim Ergebnis zurück, bevor es
   die Ausgabe derselben Abfrage verarbeitet hatte), nie die Frist verlängern.
+- **whisper-cli nur aus `whisper-bauen.sh`** (seit B-38b3a): aus den Quellen, Fassung und Commit fest im Skript und nach
+  dem Holen geprüft – nie ein fertiges Programm oder ein Paket der Distribution. Ohne OpenMP und mit ggml statisch: sonst
+  braucht `whisper-cli` Bibliotheken außerhalb von `/usr` und startet in der Sandbox nicht (`ldd`-Prüfung am Ende). Eine
+  neue Fassung nur mit Fassung und Commit zusammen und mit dem Echttest (`WHISPER_TEST_CLI`, die CI baut ihn). Das
+  Testmodell `for-tests-ggml-tiny.bin` hat Gewichte ohne Sinn – ein leerer Text ist dort richtig, nie auf Inhalt prüfen.

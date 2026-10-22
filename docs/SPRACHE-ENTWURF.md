@@ -94,7 +94,9 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 – geteilt in b1–b3 |
 | B-38b1 ✓ | Protokoll: Kind 5083, Ton als WAV in genau einer Form (`baueWav()`, `pruefeWav()`), Auftrag versiegelt mit Nachweis (`baueSpracheAuftrag()`), Antwort streng (`leseTranskript()`), `PROTOCOL.md` §43 | ~250 |
 | B-38b2 ✓ | Knoten: `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Modell nur lesbar), Ton aus dem Blob-Netz holen und prüfen, Antwort; Rolle `sprache` im Status | ~300 |
-| B-38b3 | `whisper-cli` im Bild (Bau aus den Quellen, gepinnt), Modell über Manifest (V4), Vorgabe nach SP-W4 | ~250 |
+| B-38b3 | `whisper-cli` im Bild (Bau aus den Quellen, gepinnt), Modell über Manifest (V4), Vorgabe nach SP-W4 | ~250 – geteilt |
+| B-38b3a ✓ | `scripts/whisper-bauen.sh` (v1.9.5, Commit geprüft, ohne OpenMP), Stufe im Docker-Bild (`WHISPER=1`, `docker-compose.sprache.yml`), CI baut es und prüft das echte Programm in der Sandbox | ~200 |
+| B-38b3b | Modell geprüft laden: über ein Manifest (38057) wie andere Modelle (`npm run modell`), Vorgabe nach SP-W4 | ~250 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
@@ -145,6 +147,24 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
 - **Sandbox:** `fuehreAus()` nimmt eine eigene Rechenzeit (`rechenzeitSek`) – Whisper rechnet mit mehreren Threads, und
   `RLIMIT_CPU` zählt alle zusammen.
 - **Noch offen:** `whisper-cli` und ein Modell im Bild (B-38b3); bis dahin legt der Betreiber beides selbst ab.
+
+## Stand B-38b3a (22.10.2026)
+
+- **Programm:** `scripts/whisper-bauen.sh <ziel>` holt whisper.cpp v1.9.5, prüft den Commit (`d1be6fde…`), baut nur
+  `whisper-cli` – ggml statisch, ohne OpenMP, ohne Server, SDL und curl – und legt die Lizenz (MIT) dazu. Am Ende prüft es
+  mit `ldd`, dass nur libc, libm, libstdc++ und libgcc gebraucht werden (in der Sandbox liegen sie unter `/usr`).
+  `WHISPER_CUDA=1` baut für die GPU (CUDA-Toolkit nötig). Hier gemessen: 1:38 min, 3,4 MB.
+- **Echt geprüft:** Das gebaute Programm lief über `Whisper.transkribiere()` in bubblewrap mit dem Testmodell des Projekts
+  (`for-tests-ggml-tiny.bin`, Gewichte ohne Sinn) – Argumente angenommen, Ausgabedatei geschrieben, 1,5 s je Lauf; der Text
+  ist leer, weil das Modell nichts gelernt hat. Ein echtes Modell lädt diese Umgebung nicht (Hugging Face gesperrt) – die
+  Qualität misst der MENSCH.
+- **CI:** Der Testjob baut `whisper-cli` (rund 2 min, Frist des Jobs jetzt 25 min) und führt `sprache-echt.test.ts` mit dem
+  echten Programm in der Sandbox aus (`WHISPER_TEST_CLI`, `WHISPER_TEST_MODELL`); ohne die Variablen überspringt er sich.
+- **Docker:** eigene Stufe `whisper-bau` (Compiler bleiben draußen), nur mit `WHISPER=1`; `docker-compose.sprache.yml` setzt
+  es, die Variablen und die Regeln für die Sandbox (wie beim Vibecoden). Das Bild ist hier nicht gebaut (kein Docker-Dienst
+  in der Entwicklungsumgebung) – das baut der MENSCH auf dem GX10.
+- **Modell:** bis B-38b3b legt der Betreiber es selbst ab und vergleicht die SHA-1 aus `models/README.md` von whisper.cpp
+  derselben Fassung (`docs/PROVIDER.md`, „Text aus Sprache“).
 
 ## Quellen
 

@@ -12943,3 +12943,20 @@ lesbares Modell, Verweis und Riesendatei abgelehnt, Frist, ein Auftrag zur Zeit 
 Ablehnungen mit Kennung, Verdrahtung); Repo-Tests unverändert grün.
 
 Knoten-Stand: **neu nötig** für Text aus Sprache (nur mit `WHISPER_MODELL`); sonst verhält sich der Knoten wie bisher.
+
+## Schritt B-38b3a – Text aus Sprache: whisper-cli aus den Quellen, im Bild und in der CI
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A), auf B-38b2. B-38b3 ist geteilt: b3a Programm, b3b Modell über Manifest.
+
+- **`scripts/whisper-bauen.sh`** (neu): whisper.cpp v1.9.5, Commit nach dem Holen geprüft, nur `whisper-cli` – ggml
+  statisch, ohne OpenMP, Server, SDL und curl; Lizenz (MIT) daneben; `ldd` erlaubt nur libc, libm, libstdc++, libgcc
+  (CUDA-Bibliotheken mit `WHISPER_CUDA=1`). Nie ein fertiges Programm herunterladen. Hier 1:38 min, 3,4 MB.
+- **Docker:** eigene Stufe `whisper-bau` in `docker/node.Dockerfile`, baut nur mit `WHISPER=1` (Compiler bleiben draußen);
+  `docker-compose.sprache.yml` setzt es samt `WHISPER_*` und den Sandbox-Regeln wie beim Vibecoden – nie im Standard.
+- **CI:** Der Testjob baut `whisper-cli` mit dem Testmodell (Frist 25 min) und gibt `WHISPER_TEST_CLI`/`WHISPER_TEST_MODELL`.
+- **Docs:** `PROVIDER.md` „Text aus Sprache“ (Programm, Modell mit SHA-1, Variablen, Docker), Entwurf „Stand B-38b3a“.
+
+**Tests:** node +2 (`sprache-echt.test.ts`: das echte `whisper-cli` über `Whisper.transkribiere()` in echtem bubblewrap für
+de/en/auto – Ordner danach leer, Modell unverändert; feste Fassung, Commit, Bau-Schalter, Docker-Stufe, Compose-Datei, CI).
+
+Knoten-Stand: unverändert (nur Bau und Doku); im Bild nur mit `WHISPER=1`.

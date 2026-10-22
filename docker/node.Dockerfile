@@ -3,6 +3,19 @@
 # Bewusst schlank: Playwright ist eine OPTIONALE Abhaengigkeit (~300 MB inkl.
 # Browser) und kommt nur mit VIBECODEN=1 ins Bild (Browser des Motors, VKk1) —
 # dem Normalfall diese Groesse aufzuzwingen waere der falsche Standardfall.
+# whisper-cli für Text aus Sprache (B-38b3, SP-W1 A) – nur mit WHISPER=1 gebaut (docker-compose.sprache.yml), aus den
+# Quellen in fester Fassung (scripts/whisper-bauen.sh; whisper.cpp ist MIT, der Text liegt im Bild). Eigene Stufe: Compiler
+# und cmake bleiben draußen, ins Bild kommen nur das Programm und seine Lizenz. Ohne WHISPER=1 bleibt /aus leer.
+FROM node:22-slim AS whisper-bau
+ARG WHISPER=0
+COPY scripts/whisper-bauen.sh /tmp/whisper-bauen.sh
+RUN mkdir -p /aus && if [ "$WHISPER" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends build-essential cmake git ca-certificates \
+      && bash /tmp/whisper-bauen.sh /tmp/whisper \
+      && install -D -m 0755 /tmp/whisper/whisper-cli /aus/usr/local/bin/whisper-cli \
+      && install -D -m 0644 /tmp/whisper/whisper.cpp-LICENSE /aus/usr/local/share/doc/whisper.cpp/LICENSE; \
+    fi
+
 FROM node:22-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -19,6 +32,9 @@ RUN useradd -m -u 1001 -s /bin/bash freedom || true
 # Programm, nur in der Sandbox gestartet, nur mit einem Server „kiwix“ in ~/.freedom/mcp.json.
 RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewrap git kiwix-tools \
     && rm -rf /var/lib/apt/lists/*
+
+# whisper-cli aus der Stufe oben (nur mit WHISPER=1 – sonst kommt nichts)
+COPY --from=whisper-bau /aus/ /
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes
