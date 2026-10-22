@@ -805,7 +805,8 @@ test("B-32b2: Reticulum als Grenze – die Antwort im Funk trägt Adresse und Sc
   assert.equal(f?.regel, undefined, "Funk, kein Event");
   assert.match(f?.aussage ?? "", /^Ist eine RNode verbunden, antwortet die App im Funk/);
   assert.match(f?.aussage ?? "", /nicht deinem Schlüssel zuordnen/);
-  for (const g of [/RN2 A/, /kündigt die App nichts an/, /Umschläge/]) assert.match(f?.grund ?? "", g);
+  for (const g of [/RN2 A/, /kündigt die App nichts an/, /Umschläge/, /Gegenstelle, die du selbst festlegst/]) assert.match(f?.grund ?? "", g);
+  assert.match(f?.aussage ?? "", /an deine Gegenstelle sendest, deren Adresse/, "B-32b3: Senden nennt die Adresse der Gegenstelle offen");
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ist eine RNode verbunden, antwortet die App im Funk/);
 });

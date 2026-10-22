@@ -2,17 +2,22 @@
  * RNode verbinden (B-32b1, RN-W6 A): Region wählen und bestätigen, dann über WebSerial verbinden. Die Werte kommen nur
  * aus `FUNK_REGIONEN` (Vorgabe der Region); gemerkt wird die bestätigte Wahl (`freedom.reticulum.funk`). Danach läuft
  * Reticulum über die RNode (B-32b2, `starteReticulum()`): Was an die eigene LXMF-Adresse kommt, geht wie Funk weiter
- * (`nimmFunkInhalt()`); eigene Nachrichten sendet die App über sie erst mit B-32b3. Ein zweiter Klick trennt.
+ * (`nimmFunkInhalt()`). Gesendet wird (B-32b3) nur an die gemerkte Gegenstelle (`freedom.reticulum.gegenstelle`, in
+ * `geheim`) über `sendeUeberReticulum()` – aus `sendeUeberFunk()`, wenn kein Meshtastic-Gerät verbunden ist. Ein zweiter
+ * Klick trennt.
  */
 import { t } from "../i18n.js";
 import {
   FUNK_REGIONEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, maxSendeleistungDbm, verbindeRNode, type FunkWahl, type RNodePort,
 } from "../rnode-funk.js";
+import { LS_RETICULUM_GEGENSTELLE, leseLxmfAdresse, type ReticulumFunk } from "../reticulum-funk.js";
+import { ReticulumFehler, type ReticulumFall } from "../reticulum-umschlag.js";
+import type { MeshKind } from "@freedomstack/protocol";
 import { dialog } from "./dialog.js";
 import { geheim, tresorEingerichtet, tresorOffen } from "./tresor.js";
 import { toast } from "./ui.js";
 
-let verbunden: { stoppe(): Promise<void> } | null = null;
+let verbunden: ReticulumFunk | null = null;
 const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 const mhz = (hz: number): string => (hz / 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 });
@@ -86,4 +91,64 @@ export async function rnodeKnopf(status: HTMLElement | null): Promise<void> {
     if ((e as { name?: string }).name === "NotFoundError") return;
     if (status) status.textContent = t("set.rnodeNicht");
   }
+}
+
+const FEHLER_TEXT: Record<ReticulumFall, string> = {
+  "identitaet-kaputt": "set.rnodeFallIdentitaet", adresse: "set.rnodeFallAdresse", "zu-gross": "set.rnodeFallZuGross",
+  inhalt: "set.rnodeFallInhalt", sendezeit: "set.rnodeFallSendezeit",
+};
+
+/** Warum Senden über Reticulum nicht ging – nur über die Kennung, nie die Meldung der Bibliothek. */
+export function reticulumFehlerText(e: unknown): string {
+  return e instanceof ReticulumFehler ? t(FEHLER_TEXT[e.fall]) : t("set.rnodeSendenNicht");
+}
+
+/**
+ * Über Reticulum an die Gegenstelle senden (B-32b3) – nur mit laufender RNode und gemerkter Gegenstelle, sonst false
+ * (dann nimmt der Aufrufer den Datei-Weg). Scheitert es, sagt ein Text warum, und es bleibt beim Datei-Weg.
+ */
+export async function sendeUeberReticulum(payload: Uint8Array, kind: MeshKind, eigeneSchluessel: readonly string[]): Promise<boolean> {
+  const funk = verbunden;
+  const an = leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE));
+  if (!funk || !an) return false;
+  toast(t("set.rnodeSendet"));
+  try {
+    await funk.sende(an, payload, kind, eigeneSchluessel);
+    return true;
+  } catch (e) {
+    toast(reticulumFehlerText(e), true);
+    return false;
+  }
+}
+
+/**
+ * Die eigene Adresse (Text und QR-Code – sie ist nicht geheim, sie steht in jeder Antwort im Funk) und die Gegenstelle:
+ * eintippen oder scannen, gemerkt nur in `geheim`. Leer heißt: keine Gegenstelle mehr.
+ */
+export async function adressenDialog(): Promise<void> {
+  if (tresorEingerichtet() && !tresorOffen()) return toast(t("ein.tresorGesperrt"), true);
+  const { reticulumIdentitaet, lxmfAdresse } = await import("../reticulum-umschlag.js");
+  const eigene = hex(verbunden?.adresse ?? await lxmfAdresse(await reticulumIdentitaet(geheim)));
+  const gemerkt = leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE));
+  const w = await dialog({
+    titel: t("set.rnodeAdressenTitel"),
+    text: t("set.rnodeAdressenText"),
+    felder: [
+      { art: "qr", name: "qr", label: t("set.rnodeEigeneQr"), wert: eigene },
+      { art: "nurlesen", name: "eigene", label: t("set.rnodeEigene"), wert: eigene },
+      { art: "text", name: "gegenstelle", label: t("set.rnodeGegenstelle"), wert: gemerkt ? hex(gemerkt) : "", mono: true, scannen: true },
+    ],
+    pruefe: (w) => {
+      const roh = String(w.gegenstelle ?? "").trim();
+      if (!roh) return null;
+      const a = leseLxmfAdresse(roh);
+      return !a ? t("set.rnodeKeineAdresse") : hex(a) === eigene ? t("set.rnodeEigeneGegenstelle") : null;
+    },
+    ok: t("set.rnodeGegenstelleMerken"),
+  });
+  if (!w) return;
+  const neu = leseLxmfAdresse(String(w.gegenstelle ?? ""));
+  if (neu) await geheim.setItem(LS_RETICULUM_GEGENSTELLE, hex(neu));
+  else await geheim.removeItem(LS_RETICULUM_GEGENSTELLE);
+  toast(t(neu ? "set.rnodeGegenstelleGemerkt" : "set.rnodeGegenstelleWeg"));
 }
