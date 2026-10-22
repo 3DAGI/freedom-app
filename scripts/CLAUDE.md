@@ -56,7 +56,8 @@ dieses Bereichs unten anhängen.
   Ebenso nach „Patch senden“ im Raum (VKb): erst senden, dann neu laden – auf die Patch-Liste warten; 800 ms reichten
   nicht, als der Rechner nebenher Knoten-Tests rechnete. Den Smoke-Test nie neben anderen schweren Läufen starten.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
-  Bytes aus der Referenz.
+  Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `test/rnode-attrappe.ts`;
+  sie zählt Datenrahmen, und „die App funkt von sich aus nichts“ heißt dort: 0 nach dem Verbinden.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
 - **`check-wiring.py` ordnet Rümpfe nach Namen** (gefunden in B-35a): Deklarationen auf oberster Ebene zählen über alle
   Protokolldateien unter ihrem Namen. Ein privater Helfer mit dem Namen eines verdrahteten in einer anderen Datei (`Leser`
