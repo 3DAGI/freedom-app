@@ -162,6 +162,16 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   Meldung an die Adresse des Raums, privat nur in die Gruppe; vorher sagt die App, was öffentlich wird. Der
   Datenschutzbericht nennt die Grenze „raum-kasse“. Wer die private Definition neu schreibt (Raumstand, Kanäle,
   Agentenketten), gibt die Kasse mit. Verbundene Wallets (Wallet Standard) folgen als b2d.
+- **A-12b2b (22.10.2026):** Anlegen in der App – offen der Gründer, privat ein Admin, nur solange der Raum keine Kasse hat.
+  Mitglieder sind die eigene genannte Adresse und die genannten Adressen derer mit dem Recht „kasse“; wer keine genannt hat,
+  fehlt und kommt später nur über eine Abstimmung dazu (A-12d). Nur Devnet (V7): Die App fragt dafür nur eigene Endpunkte,
+  deren Genesis-Hash Devnet ist (`endpunkteImNetz()`), nie den gemeinsamen Pool – er wiche bei einem Ausfall auf Mainnet
+  aus. Der Create-Key ist frisch, unterschreibt im Protokoll (`baueKasseAnlegen()`) und wird gleich genullt. Die Miete rechnet
+  `kassenKontoGroesse()` (im Validator gegen die echte Länge geprüft). Vor dem Senden zeigt die App Miete, Gebühr von Squads
+  und die zahlende Adresse; sie steht als Ersteller auf der Kette, deshalb zahlt am liebsten die Adresse für die Kasse (V4),
+  sonst sagt der Text, dass eine andere damit verbunden wird. Bei „Gründer entscheidet“ sagt er, dass der Gründer allein
+  verfügt. Danach steht die Kasse in der Definition – offen eine neue des Gründers, privat über die Stelle mit den Ketten;
+  scheitert das, fragt die App, bis es gelingt oder man abbricht.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,

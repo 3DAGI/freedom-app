@@ -26,6 +26,7 @@ import { PublicKey } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { anweisung, SYSTEM_PROGRAMM } from "./kit-bruecke.js";
 import { leseKonto, type SolRpc } from "./kit-rpc.js";
+import { baueTransaktion, neuerKontoSchluessel, signiereMit, type Lebensdauer, type SolTransaktion } from "./kit-transaktion.js";
 
 /** Squads v4 – dieselbe Kennung auf Devnet und Mainnet (Mainnet unveränderlich, Devnet nicht). */
 export const SQUADS_PROGRAMM_ID = "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf";
@@ -166,6 +167,36 @@ export function kasseAnlegenAnweisung(p: {
     [p.ersteller, AccountRole.WRITABLE_SIGNER],
     [SYSTEM_PROGRAMM, AccountRole.READONLY],
   ], daten);
+}
+
+/**
+ * Größe des Kontos einer Kasse in Byte (`Multisig::size()` von Squads v4): Diskriminator 8, Create-Key 32,
+ * Verwalter 32, Schwelle 2, Zeitschloss 4, zwei Indizes je 8, Mietempfänger 1 + 32 (immer reserviert), bump 1,
+ * Länge der Liste 4, je Mitglied 33 (Adresse und Rechte) – für die Miete beim Anlegen.
+ */
+export function kassenKontoGroesse(mitglieder: number): number {
+  if (!Number.isSafeInteger(mitglieder) || mitglieder < 1) throw new Error("Anzahl der Mitglieder ungültig");
+  return 132 + 33 * mitglieder;
+}
+
+/**
+ * Die Transaktion zum Anlegen (A-12b2b) mit einem frischen Create-Key: Er unterschreibt hier und wird gleich
+ * genullt – danach braucht ihn niemand mehr, nur seine Adresse bestimmt die der Kasse. Unterschreiben muss noch
+ * der `ersteller`; er zahlt Miete, Gebühr von Squads und Netzgebühr.
+ */
+export function baueKasseAnlegen(
+  p: Omit<Parameters<typeof kasseAnlegenAnweisung>[0], "createKey"> & { lebensdauer: Lebensdauer },
+): { tx: SolTransaktion; kasse: string } {
+  const { lebensdauer, ...rest } = p;
+  const createKey = neuerKontoSchluessel();
+  try {
+    const ix = kasseAnlegenAnweisung({ ...rest, createKey: createKey.adresse });
+    const tx = signiereMit(baueTransaktion({ zahler: p.ersteller, anweisungen: [ix], lebensdauer }), createKey.geheim);
+    if (!tx) throw new Error("Create-Key fehlt in der Nachricht");
+    return { tx, kasse: kassenAdresse(createKey.adresse) };
+  } finally {
+    createKey.geheim.fill(0);
+  }
 }
 
 /** Transaktion Nummer `index` der Kasse: ["multisig", Kasse, "transaction", u64]. */

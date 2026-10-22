@@ -79,6 +79,12 @@ export function raumKassenAdresse(gruppe: string, adresse: string, nachweis: str
   return { art: KIND_KASSEN_ADRESSE, tags: [["d", `kasse:${gruppe}`], ["space", gruppe], ["sol", adresse, nachweis]], text: "" };
 }
 
+/** Die Tags einer Definition mit dieser Kasse (A-12b2b): ein altes `kasse` fällt weg, alles andere bleibt. */
+export function mitKassenTag(tags: readonly (readonly string[])[], adresse: string): string[][] {
+  if (!isAddress(adresse)) throw new Error("Adresse der Kasse ungültig");
+  return [...tags.filter((t) => t[0] !== "kasse").map((t) => [...t]), ["kasse", adresse]];
+}
+
 interface Meldung { id: string; von: string; zeit: number; tags: string[][] }
 
 /**

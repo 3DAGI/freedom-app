@@ -268,6 +268,18 @@ export async function solRpc(opts: { einVorgang?: boolean } = {}): Promise<impor
   return poolRpc(opts.einVorgang ? pool.einVorgang() : pool);
 }
 
+/**
+ * Solana nur auf Devnet (A-12b2b, Kasse bis M-8): nur eigene Endpunkte, deren Genesis-Hash Devnet ist – ohne
+ * die eingebauten (Mainnet) und ohne Ausweichen dorthin. `null`, wenn keiner passt.
+ */
+export async function devnetRpc(): Promise<import("@freedomstack/protocol").SolRpc | null> {
+  const { RpcPool, GENESIS_DEVNET, endpunkteImNetz, parseUserEndpoints, poolRpc } = await import("@freedomstack/protocol");
+  const konfiguriert = (window as unknown as { FREEDOM_SOL_RPC?: string }).FREEDOM_SOL_RPC;
+  const eigene = [...(konfiguriert ? [konfiguriert] : []), ...parseUserEndpoints(localStorage.getItem("freedom.sol.rpcs"))];
+  const devnet = await endpunkteImNetz(eigene, GENESIS_DEVNET);
+  return devnet.length ? poolRpc(new RpcPool([], { userEndpoints: devnet })) : null;
+}
+
 /** Beste erreichbare RPC-URL fuer Bibliotheken, die eine feste Adresse wollen. */
 export async function solRpcUrl(): Promise<string> {
   return (await ensureRpcPool()).bestUrl();

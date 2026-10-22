@@ -27,14 +27,14 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, kasseAnlegenAnweisung, kassenAdresse,
+  abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen, kassenKontoGroesse,
   kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
   leseProgrammEinstellungenVonKette, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, type KassenArt,
 } from "../../../packages/protocol/src/kasse.js";
 import {
   leseGuthaben, leseKonto, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
 } from "../../../packages/protocol/src/kit-rpc.js";
-import { alsDraht, baueTransaktion, signiereMit, solSchluesselAus } from "../../../packages/protocol/src/kit-transaktion.js";
+import { alsDraht, baueTransaktion, signiereMit, solSchluesselAus, type SolTransaktion } from "../../../packages/protocol/src/kit-transaktion.js";
 import { ueberweisungAnweisung, type Instruction } from "../../../packages/protocol/src/kit-bruecke.js";
 import { RpcPool } from "../../../packages/protocol/src/rpc-pool.js";
 
@@ -120,24 +120,29 @@ function mitValidator(netz: keyof typeof PROGRAMME, port: number) {
   }
 
   /** Bauen, mit allen Schlüsseln signieren, senden (Vorabsimulation), bestätigen – wie die App. */
-  async function sende(zahler: { geheim: Uint8Array; adresse: string }, anweisungen: Instruction[], weitere: Uint8Array[] = []) {
+  async function sende(zahler: { geheim: Uint8Array; adresse: string }, anweisungen: Instruction[]) {
     const lebensdauer = await solange(neuesterBlockhash(rpc));
-    let tx = baueTransaktion({ zahler: zahler.adresse, anweisungen, lebensdauer });
-    for (const g of [zahler.geheim, ...weitere]) tx = signiereMit(tx, g) ?? assert.fail("Schlüssel passt nicht");
-    const signatur = await solange(sendeTransaktion(rpc, alsDraht(tx)));
-    const fehler = await solange(warteAufBestaetigung(rpc, signatur, lebensdauer.letzteHoehe, { abstandMs: 200 }));
+    await schicke(baueTransaktion({ zahler: zahler.adresse, anweisungen, lebensdauer }), zahler.geheim, lebensdauer.letzteHoehe);
+  }
+
+  async function schicke(tx: SolTransaktion, geheim: Uint8Array, letzteHoehe: bigint) {
+    const signiert = signiereMit(tx, geheim) ?? assert.fail("Schlüssel passt nicht");
+    const signatur = await solange(sendeTransaktion(rpc, alsDraht(signiert)));
+    const fehler = await solange(warteAufBestaetigung(rpc, signatur, letzteHoehe, { abstandMs: 200 }));
     if (fehler) throw new Error(`abgelehnt: ${txFehlerText(fehler)}`);
   }
 
+  /** Anlegen wie die App (A-12b2b): `baueKasseAnlegen()` mit frischem Create-Key, der Gründer unterschreibt dazu. */
   async function legeAn(art: KassenArt, gruender: { geheim: Uint8Array; adresse: string }, weitere: string[], zeitschlossSek = 0, schatzamt?: string) {
-    const createKey = solSchluesselAus(Keypair.generate().secretKey);
     const einstellungen = await solange(leseProgrammEinstellungenVonKette(rpc));
     assert.ok(einstellungen, "Einstellungen des Programms auf der Kette");
-    const ix = kasseAnlegenAnweisung({
-      ersteller: gruender.adresse, createKey: createKey.adresse, schatzamt: schatzamt ?? einstellungen.schatzamt, art, gruender: gruender.adresse, weitere, zeitschlossSek,
+    const lebensdauer = await solange(neuesterBlockhash(rpc));
+    const { tx, kasse } = baueKasseAnlegen({
+      ersteller: gruender.adresse, schatzamt: schatzamt ?? einstellungen.schatzamt, art, gruender: gruender.adresse, weitere, zeitschlossSek, lebensdauer,
     });
-    await sende(gruender, [ix], [createKey.geheim]);
-    return kassenAdresse(createKey.adresse);
+    await schicke(tx, gruender.geheim, lebensdauer.letzteHoehe);
+    assert.equal((await solange(leseKonto(rpc, kasse)))?.daten.length, kassenKontoGroesse(1 + weitere.length), "Größe für die Miete");
+    return kasse;
   }
 
   return { rpc, solange, neuesKonto, sende, legeAn };

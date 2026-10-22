@@ -136,10 +136,13 @@ function betreiber(url: string): string {
   return /^[\d.]+$|^\[|^localhost$/.test(host) ? host : host.split(".").slice(-2).join(".");
 }
 
+/** Genesis-Hash von Devnet – Kassen gibt es bis M-8 nur dort (A-12, V7). */
+export const GENESIS_DEVNET = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+
 /** Bekannte Genesis-Hashes – nur für die Anzeige; verglichen wird der Hash selbst. */
 const NETZE: Record<string, string> = {
   "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d": "Mainnet",
-  EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG: "Devnet",
+  [GENESIS_DEVNET]: "Devnet",
   "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY": "Testnet",
 };
 const netzName = (genesis: string) => NETZE[genesis] ?? "unbekanntes Netz";
@@ -483,4 +486,21 @@ export function parseUserEndpoints(raw: string | null | undefined): string[] {
     .map((s) => s.trim())
     .filter((s) => /^https?:\/\/.+/.test(s))
     .slice(0, 5);
+}
+
+/**
+ * Welche dieser Endpunkte hängen an der Kette mit diesem Genesis-Hash? Je Endpunkt eine eigene Frage, ohne
+ * Ausweichen (A-12b2b): Ein Pool mit den eingebauten Endpunkten wiche bei einem Ausfall still auf Mainnet aus –
+ * mit denselben Schlüsseln. Wer nur auf einer Kette handeln darf, baut seinen Pool nur aus diesen.
+ */
+export async function endpunkteImNetz(
+  urls: readonly string[], genesis: string, opts: Pick<RpcPoolOptions, "fetchImpl" | "timeoutMs"> = {},
+): Promise<string[]> {
+  const treffer: string[] = [];
+  for (const url of urls) {
+    if (!/^https?:\/\//.test(url)) continue;
+    const g = await new RpcPool([], { ...opts, userEndpoints: [url] }).call<unknown>("getGenesisHash").catch(() => null);
+    if (g === genesis) treffer.push(url);
+  }
+  return treffer;
 }
