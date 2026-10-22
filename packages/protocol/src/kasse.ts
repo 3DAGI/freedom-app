@@ -546,16 +546,19 @@ export interface KassenVorgang {
 export async function leseVorschlaege(rpc: SolRpc, kasse: string, stand: KassenStand, max = 10): Promise<KassenVorgang[]> {
   const indizes: bigint[] = [];
   for (let i = stand.transaktionsIndex; i >= 1n && indizes.length < max; i--) indizes.push(i);
-  const gelesen = await Promise.all(indizes.map(async (index): Promise<KassenVorgang | null> => {
-    const [vorschlag, konto] = await Promise.all([leseVorschlagVonKette(rpc, kasse, index), leseKonto(rpc, kassenTransaktionAdresse(kasse, index))]);
-    if (!vorschlag) return null;
-    // Unter derselben Adresse steht eine Auszahlung (VaultTransaction) oder eine Änderung (ConfigTransaction, A-12a3)
-    if (konto && istKonto(konto.daten, "ConfigTransaction")) {
-      return { index, vorschlag, auszahlung: null, konfiguration: konfigurationDesKontos(konto, kasse, index).aenderungen };
-    }
-    return { index, vorschlag, auszahlung: konto ? auszahlungDesKontos(konto, kasse, index).auszahlung : null };
-  }));
+  const gelesen = await Promise.all(indizes.map((index) => leseVorgang(rpc, kasse, index)));
   return gelesen.filter((g): g is KassenVorgang => g !== null);
+}
+
+/** Vorschlag `index` samt Auszahlung oder Änderung von der Kette (A-12d1); null, solange es ihn nicht (mehr) gibt. */
+export async function leseVorgang(rpc: SolRpc, kasse: string, index: bigint): Promise<KassenVorgang | null> {
+  const [vorschlag, konto] = await Promise.all([leseVorschlagVonKette(rpc, kasse, index), leseKonto(rpc, kassenTransaktionAdresse(kasse, index))]);
+  if (!vorschlag) return null;
+  // Unter derselben Adresse steht eine Auszahlung (VaultTransaction) oder eine Änderung (ConfigTransaction, A-12a3)
+  if (konto && istKonto(konto.daten, "ConfigTransaction")) {
+    return { index, vorschlag, auszahlung: null, konfiguration: konfigurationDesKontos(konto, kasse, index).aenderungen };
+  }
+  return { index, vorschlag, auszahlung: konto ? auszahlungDesKontos(konto, kasse, index).auszahlung : null };
 }
 
 // ---------------------------------------------------------------- A-12a3: Konfiguration ändern
@@ -634,6 +637,15 @@ export function kassenKontoGroesseNach(aktuell: number, mitglieder: number): num
   return aktuell >= noetig ? aktuell : Math.max(aktuell + 10 * 33, noetig);
 }
 
+/**
+ * Größe der beiden Konten einer Änderung für die Miete (A-12d1): Transaktion (Kopf 85 – Diskriminator, Kasse, Ersteller,
+ * Index, Bump, Länge der Liste – und jede Änderung in Borsh-Form) und Vorschlag wie bei der Auszahlung. Der Validator-Test
+ * vergleicht sie mit der echten Länge.
+ */
+export function konfigurationKontoGroessen(aenderungen: readonly KassenAenderung[], mitglieder: number): { transaktion: number; vorschlag: number } {
+  return { transaktion: aenderungen.reduce((n, a) => n + aenderungBytes(a).length, 85), vorschlag: auszahlungKontoGroessen(mitglieder).vorschlag };
+}
+
 /** Eine Änderung abschließen (Miete an `rent_collector`) – ausgeführt, abgelehnt, abgebrochen oder veraltet. */
 export function konfigurationAbschliessenAnweisung(p: { kasse: string; index: bigint; mieteAn: string }): Instruction {
   return anweisung(SQUADS_PROGRAMM_ID, [
@@ -708,6 +720,19 @@ export function kassenStandNach(stand: KassenStand, aenderungen: readonly Kassen
   if (!mit(KASSEN_RECHT.vorschlagen) || !mit(KASSEN_RECHT.ausfuehren) || !mit(KASSEN_RECHT.abstimmen)) throw new Error("Rechte fehlen");
   if (neu.schwelle < 1 || neu.schwelle > mit(KASSEN_RECHT.abstimmen)) throw new Error("Schwelle ungültig");
   return neu;
+}
+
+/**
+ * Behält die Kasse mit diesen Änderungen ihre Art (A-12d1)? Für Änderungen von der Kette, die ein anderes Programm vorgeschlagen
+ * haben kann: Die App stimmt nur für solche und führt nur solche aus – false auch, wo das Programm ablehnen würde.
+ */
+export function behaeltArt(stand: KassenStand, aenderungen: readonly KassenAenderung[]): boolean {
+  const art = kassenArt(stand);
+  try {
+    return art !== null && kassenArt(kassenStandNach(stand, aenderungen)) === art;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -2,11 +2,12 @@
  * Stand einer Kasse im Raum als Text (A-12b2c, `docs/KASSE-ENTWURF.md` V3): was die Kette sagt – Guthaben des Tresors,
  * Art, Schwelle, Wartezeit, Mitglieder – und wo Raum und Kette abweichen (`kassenAbweichungen()`). Es zählt die Kette;
  * der Raum sagt nur, wer welche Adresse genannt hat. Seit A-12c1 auch die jüngsten Auszahlungen, Empfänger und Betrag
- * von der Kette (V6). Ohne DOM, damit ein Test die Sätze prüft.
+ * von der Kette (V6), seit A-12d1 auch Änderungen der Kasse (Mitglieder, Schwelle, Wartezeit). Ohne DOM, damit ein Test die
+ * Sätze prüft.
  */
 import {
-  KASSEN_RECHT, ausfuehrbarAb, kassenArt, kassenTresor, vorschlagsSchritte, type KassenAbweichungen, type KassenSchritt, type KassenStand,
-  type KassenVorgang, type VorschlagsStatus,
+  KASSEN_RECHT, ausfuehrbarAb, behaeltArt, kassenArt, kassenTresor, vorschlagsSchritte, type KassenAbweichungen, type KassenAenderung,
+  type KassenSchritt, type KassenStand, type KassenVorgang, type VorschlagsStatus,
 } from "@freedomstack/protocol";
 import { gebietsschema, t } from "./i18n.js";
 import { solText } from "./preis-anzeige.js";
@@ -45,19 +46,44 @@ const STATUS: Record<VorschlagsStatus, string> = { // kein UI-Text
   "wird-ausgefuehrt": "kasse.stWirdAusgefuehrt", ausgefuehrt: "kasse.stAusgefuehrt", abgebrochen: "kasse.stAbgebrochen",
 };
 
-/** Die jüngsten Auszahlungen als Text: Betrag, Empfänger, Status und Stimmen – alles von der Kette, nie aus dem Raum. */
-export function vorschlaegeText(stand: KassenStand, liste: readonly KassenVorgang[]): string {
+const ALLE = KASSEN_RECHT.vorschlagen | KASSEN_RECHT.abstimmen | KASSEN_RECHT.ausfuehren;
+
+/**
+ * Eine Änderung der Kasse als Text (A-12d1) – so, wie sie auf der Kette steht (V6). `wer` macht aus einer Adresse den Namen im
+ * Raum, wo jemand sie genannt hat; die Adresse steht immer dabei.
+ */
+export function aenderungenText(aenderungen: readonly KassenAenderung[], wer: (adresse: string) => string | undefined = () => undefined): string {
+  const adresse = (a: string) => (wer(a) ? t("kasse.aeWer", { name: wer(a)!, adresse: a }) : a);
+  return aenderungen.map((a) => {
+    if (a.art === "mitglied-dazu") {
+      const k = a.rechte === ALLE ? "kasse.aeDazu" : a.rechte === KASSEN_RECHT.vorschlagen ? "kasse.aeDazuVorschlagen" : "kasse.aeDazuRechte";
+      return t(k, { wer: adresse(a.adresse), rechte: a.rechte });
+    }
+    if (a.art === "mitglied-weg") return t("kasse.aeWeg", { wer: adresse(a.adresse) });
+    if (a.art === "schwelle") return t("kasse.aeSchwelle", { n: a.schwelle });
+    return t("kasse.aeWartezeit", { wartezeit: zeitschlossText(a.sek) });
+  }).join("; ");
+}
+
+/**
+ * Die jüngsten Vorschläge als Text: bei Auszahlungen Betrag und Empfänger, bei Änderungen was sich ändert (A-12d1), dazu Status
+ * und Stimmen – alles von der Kette, nie aus dem Raum.
+ */
+export function vorschlaegeText(stand: KassenStand, liste: readonly KassenVorgang[], wer?: (adresse: string) => string | undefined): string {
   if (!liste.length) return t("kasse.keineVorschlaege");
   const zeilen = liste.map(({ index, vorschlag: v, auszahlung: a, konfiguration }) => {
     const status = t(STATUS[v.status]);
-    // Änderungen der Kasse (A-12a3) zeigt die App nur – abstimmen darüber kommt mit A-12d
-    if (konfiguration !== undefined) return t("kasse.vorschlagKonfiguration", { nr: String(index), status });
-    if (!a) return t("kasse.vorschlagFremd", { nr: String(index), status });
+    const stimmen = { nr: String(index), status, ja: v.dafuer.length, schwelle: stand.schwelle, nein: v.dagegen.length };
     const ab = ausfuehrbarAb(stand, v);
-    return t("kasse.vorschlagZeile", {
-      nr: String(index), betrag: solText(Number(a.lamports)), empfaenger: a.empfaenger, status,
-      ja: v.dafuer.length, schwelle: stand.schwelle, nein: v.dagegen.length,
-    }) + (ab !== null && stand.zeitschlossSek > 0 ? t("kasse.ausfuehrbarAb", { zeit: new Date(Number(ab) * 1000).toLocaleString(gebietsschema()) }) : "");
+    const wann = ab !== null && stand.zeitschlossSek > 0 ? t("kasse.ausfuehrbarAb", { zeit: new Date(Number(ab) * 1000).toLocaleString(gebietsschema()) }) : "";
+    if (konfiguration === null) return t("kasse.vorschlagKonfiguration", { nr: String(index), status });
+    if (konfiguration) {
+      // Eine Änderung, nach der die Kasse eine andere Art hätte, hat kein Programm der App vorgeschlagen – die App stimmt nicht dafür
+      return t("kasse.aenderungZeile", { ...stimmen, aenderungen: aenderungenText(konfiguration, wer) }) + wann
+        + (behaeltArt(stand, konfiguration) ? "" : t("kasse.aenderungAndereArt"));
+    }
+    if (!a) return t("kasse.vorschlagFremd", { nr: String(index), status });
+    return t("kasse.vorschlagZeile", { ...stimmen, betrag: solText(Number(a.lamports)), empfaenger: a.empfaenger }) + wann;
   });
   return [t("kasse.vorschlaege"), ...zeilen].join("\n");
 }
@@ -65,18 +91,24 @@ export function vorschlaegeText(stand: KassenStand, liste: readonly KassenVorgan
 const SCHRITT: Record<KassenSchritt, string> = { // kein UI-Text
   dafuer: "kasse.schrittDafuer", dagegen: "kasse.schrittDagegen", ausfuehren: "kasse.schrittAusfuehren", abschliessen: "kasse.schrittAbschliessen",
 };
+const SCHRITT_AENDERUNG: Record<KassenSchritt, string> = { ...SCHRITT, ausfuehren: "kasse.schrittAendern" }; // kein UI-Text
 
 /**
- * Was man im Menü der Kasse wählen kann (A-12c1): einzahlen; vorschlagen, wenn die eigene Adresse (`mitglied`) es auf der
- * Kette darf; je Vorschlag die Schritte, die `vorschlagsSchritte()` erlaubt. Werte: „einzahlen“, „vorschlagen“, „<schritt>:<nr>“.
+ * Was man im Menü der Kasse wählen kann (A-12c1): einzahlen; vorschlagen und (seit A-12d1) die Kasse ändern, wenn die eigene
+ * Adresse (`mitglied`) es auf der Kette darf; je Vorschlag die Schritte, die `vorschlagsSchritte()` erlaubt – für eine Änderung,
+ * nach der die Kasse eine andere Art hätte, nur dagegen stimmen und abschließen. Werte: „einzahlen“, „vorschlagen“, „aendern“,
+ * „<schritt>:<nr>“.
  */
 export function kassenAktionen(stand: KassenStand, liste: readonly KassenVorgang[], mitglied: string | undefined, jetztSek: number): Array<{ wert: string; text: string }> {
   const aktionen = [{ wert: "einzahlen", text: t("kasse.einzahlen") }];
-  if ((stand.mitglieder.find((m) => m.adresse === mitglied)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen) aktionen.push({ wert: "vorschlagen", text: t("kasse.vorschlagen") });
+  if ((stand.mitglieder.find((m) => m.adresse === mitglied)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen) {
+    aktionen.push({ wert: "vorschlagen", text: t("kasse.vorschlagen") }, { wert: "aendern", text: t("kasse.aendern") });
+  }
   for (const v of liste) {
-    if (v.konfiguration !== undefined) continue; // eine Änderung der Kasse: noch keine Schritte (A-12d)
-    for (const s of vorschlagsSchritte({ stand, vorschlag: v.vorschlag, auszahlung: v.auszahlung, mitglied, jetztSek })) {
-      aktionen.push({ wert: `${s}:${v.index}`, text: t(SCHRITT[s], { nr: String(v.index) }) });
+    const k = v.konfiguration;
+    for (const s of vorschlagsSchritte({ stand, vorschlag: v.vorschlag, auszahlung: v.auszahlung, konfiguration: k, mitglied, jetztSek })) {
+      if (k && (s === "dafuer" || s === "ausfuehren") && !behaeltArt(stand, k)) continue;
+      aktionen.push({ wert: `${s}:${v.index}`, text: t((k !== undefined ? SCHRITT_AENDERUNG : SCHRITT)[s], { nr: String(v.index) }) });
     }
   }
   return aktionen;

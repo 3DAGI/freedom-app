@@ -186,3 +186,7 @@ Fallstricke dieses Bereichs unten anhängen.
   derselben Adresse steht eine VaultTransaction oder eine ConfigTransaction, gelesen nur über `leseVorschlaege()` (Diskriminator).
   Eine veraltete Änderung führt das Programm nicht mehr aus (eine Auszahlung schon); es prüft die Wartezeit vor dem Veralten
   (6021 vor 6007) – im Test Veralten ohne Wartezeit prüfen.
+  Einen einzelnen Vorschlag (seit A-12d1) nur über `leseVorgang()` lesen – er unterscheidet Auszahlung und Änderung wie die Liste; die
+  Miete einer Änderung nur über `konfigurationKontoGroessen()` (Kopf 85 plus Borsh-Länge jeder Änderung, der Validator vergleicht).
+  Änderungen von der Kette können aus einem anderen Programm stammen: Ob die Kasse danach ihre Art behält, sagt nur `behaeltArt()` (false
+  auch, wo das Programm ablehnte) – `kassenAenderungen()` gilt nur für Änderungen, die die App selbst zusammenstellt.

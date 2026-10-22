@@ -715,9 +715,10 @@ test("A-12b2d: der Bericht nennt die verbundene Wallet – deren gerade verbunde
   assert.match(f?.aussage ?? "", /Mit einer verbundenen Wallet nennt sie deren gerade verbundene Adresse und rät zu einem eigenen, neuen Konto\./);
 });
 
-test("A-12c1: der Bericht sagt, wer bei Auszahlungen auf der Kette steht – die eigene Adresse für die Kasse und, wenn eine andere zahlt, auch sie", () => {
+test("A-12c1/A-12d1: der Bericht sagt, wer bei Auszahlungen und Änderungen auf der Kette steht – die eigene Adresse für die Kasse und, wenn eine andere zahlt, auch sie", () => {
   const f = PRIVACY_FACTS.find((x) => x.id === "raum-kasse");
-  assert.match(f?.aussage ?? "", /Wer eine Auszahlung vorschlägt, über sie abstimmt oder sie auszahlt, unterschreibt mit seiner Adresse für die Kasse;/);
+  assert.match(f?.aussage ?? "", /Wer eine Auszahlung oder Änderung vorschlägt, über sie abstimmt oder sie ausführt, unterschreibt mit seiner Adresse für die Kasse;/);
+  assert.match(f?.aussage ?? "", /jeder Vorschlag mit Empfänger und Betrag oder mit den Änderungen an Mitgliedern, Schwelle und Wartezeit, jede Stimme\./, "auch Änderungen stehen öffentlich dort");
   assert.match(f?.aussage ?? "", /zahlt eine andere eigene Adresse Gebühr oder Miete, steht auch sie dort – die App sagt es vorher\.$/);
 });
 
