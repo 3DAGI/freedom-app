@@ -427,7 +427,10 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-kasse-adresse")?.classList.toggle("hidden", !kasse);
   // Anlegen (A-12b2b): offen der Gründer, privat ein Moderator – nur ohne Kasse
   document.getElementById("space-kasse-anlegen")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt() || !st?.space || !!st.space.kasse);
-  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten && !kasse);
+  // Stand und einzahlen (A-12b2c): wer den Raum sieht, sobald er eine Kasse hat – nur als Hauptidentität
+  const kasseStand = !!agentOrt() && !alsGeraet() && !!state.keypair && !!st?.space?.kasse;
+  document.getElementById("space-kasse")?.classList.toggle("hidden", !kasseStand);
+  document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten && !kasse && !kasseStand);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
 }
@@ -1599,6 +1602,11 @@ export async function wireSpacesTab(): Promise<void> {
   document.getElementById("space-kasse-adresse")?.addEventListener("click", () => {
     const ort = agentOrt();
     if (ort) void import("../raum-kasse-ui.js").then(async (m) => { if ((await m.nenneKassenAdresse(ort, spacesUi.state as SpaceState | undefined)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
+  // Kasse: Stand von der Kette, Abweichungen, einzahlen (A-12b2c)
+  document.getElementById("space-kasse")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-kasse-ui.js").then((m) => m.zeigeKasse(ort, spacesUi.state as SpaceState | undefined, kontaktName));
   });
   // Kasse anlegen (A-12b2b) – danach den Raum neu, damit die Definition sie nennt
   document.getElementById("space-kasse-anlegen")?.addEventListener("click", () => {

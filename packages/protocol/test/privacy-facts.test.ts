@@ -703,10 +703,10 @@ test("A-12b2a: die Kasse im Raum steht als Grenze im Bericht – privat geht die
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Eine Kasse im Raum \(Squads\) steht öffentlich auf der Kette: .*nie die Hauptadresse\./);
 });
 
-test("A-12b2b: der Bericht sagt, dass die zahlende Adresse als Ersteller der Kasse auf der Kette steht", () => {
+test("A-12b2b/c: der Bericht sagt, dass die zahlende Adresse beim Anlegen und Einzahlen auf der Kette steht", () => {
   const f = PRIVACY_FACTS.find((x) => x.id === "raum-kasse");
-  assert.match(f?.aussage ?? "", /mit der zahlenden Adresse als Ersteller auf der Kette/);
-  assert.match(f?.aussage ?? "", /sagt vorher, wenn es eine andere ist/);
+  assert.match(f?.aussage ?? "", /Wer die Kasse anlegt oder einzahlt, steht mit der zahlenden Adresse auf der Kette/);
+  assert.match(f?.aussage ?? "", /die App zeigt sie vorher/);
 });
 
 test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {

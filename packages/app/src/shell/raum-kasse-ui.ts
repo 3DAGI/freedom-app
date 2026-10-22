@@ -5,15 +5,18 @@
  * Hauptadresse) samt Nachweis dieser Adresse (`kassenNachweis()`): offen als Kind 34704 an die Adresse des
  * Raums, privat nur als inneres Event der Gruppe. Vorher sagt die App, was öffentlich wird (V5). Teil b2b: Gründer
  * (offen) bzw. Admin (privat) legt die Kasse an – Mitglieder sind die genannten Adressen derer mit dem Recht – und
- * schreibt sie in die Definition. Einzahlen folgt (A-12b2c), die Oberfläche baut Spur C (A-12e). Als Gerät nie –
- * die Kasse gehört der Person.
+ * schreibt sie in die Definition. Teil b2c: den Stand von der Kette zeigen (mit Abweichungen zum Raum) und einzahlen.
+ * Die Oberfläche baut Spur C (A-12e). Als Gerät nie – die Kasse gehört der Person.
  */
 import {
-  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, kassenAdressenOffen,
-  kassenAdressenPrivat, kassenOrt, mitKassenRecht, mitKassenTag, raumKassenAdresse, type SpaceState,
+  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, kassenAbweichungen,
+  kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenOrt, kassenTresor, leseGuthaben, leseKasse, mitKassenRecht, mitKassenTag,
+  raumKassenAdresse, type SpaceState,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
+import { kassenStandText, zeitschlossText } from "../kasse-anzeige.js";
 import { solText } from "../preis-anzeige.js";
+import { solZuLamports } from "../zahlungs-anforderung.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { bestaetige, dialog, hinweis } from "./dialog.js";
 import { frischeKassenAdresse, kassenAdresseFehlt } from "./eingebaute-wallet.js";
@@ -21,7 +24,7 @@ import { mlsSendeEvent } from "./mls-konto.js";
 import type { AgentZiel } from "./raum-agenten-ui.js";
 import { gruenderDefinition } from "./raum-ketten-ui.js";
 import { setzePrivateKasse } from "./raum-mls.js";
-import { alsGeraet, ensurePool, signiere, state } from "./state.js";
+import { alsGeraet, devnetRpc, ensurePool, signiere, state } from "./state.js";
 import { verlangeTresor } from "./tresor.js";
 import { toast } from "./ui.js";
 
@@ -80,8 +83,6 @@ function darfKasseAnlegen(ziel: AgentZiel, zustand: SpaceState | undefined): boo
   return "privat" in ziel ? ziel.privat.admins.includes(ich) : zustand.ownerPubkey === ich;
 }
 
-const ZEITSCHLOSS: Record<number, string> = { 0: "kasse.ohneZeitschloss", 3600: "kasse.zeitschlossStunde", 86_400: "kasse.zeitschlossTag" }; // kein UI-Text
-
 /** Die Kasse anlegen (Devnet, eingebaute Wallet) und in die Definition schreiben – true, wenn sie dort steht. */
 export async function legeKasseImRaumAn(ziel: AgentZiel, zustand: SpaceState | undefined): Promise<boolean> {
   const ich = state.keypair?.pk;
@@ -102,7 +103,7 @@ export async function legeKasseImRaumAn(ziel: AgentZiel, zustand: SpaceState | u
         { art: "wahl", name: "art", label: t("kasse.art"), wert: "gruender", optionen: [
           { wert: "gruender", text: t("kasse.artGruender") }, { wert: "mehrheit", text: t("kasse.artMehrheit") },
         ] },
-        { art: "wahl", name: "zeitschloss", label: t("kasse.zeitschloss"), wert: "0", optionen: KASSEN_ZEITSCHLOSS_SEK.map((s) => ({ wert: String(s), text: t(ZEITSCHLOSS[s]!) })) },
+        { art: "wahl", name: "zeitschloss", label: t("kasse.zeitschloss"), wert: "0", optionen: KASSEN_ZEITSCHLOSS_SEK.map((s) => ({ wert: String(s), text: zeitschlossText(s) })) },
       ],
       pruefe: (w) => (w.art === "mehrheit" && !weitere.length ? t("kasse.mehrheitAllein") : null),
     });
@@ -137,4 +138,56 @@ async function schreibeKasse(ziel: AgentZiel, ich: string, kasse: string): Promi
   // Nach der alten Definition, nie in derselben Sekunde – sonst entschiede die Id (Fallstrick B-20c)
   const zeit = Math.max(Math.floor(Date.now() / 1000), alt.zeit + 1);
   return (await ensurePool()).publish(await signiere(buildEvent(ich, KIND_SPACE, mitKassenTag(alt.tags, kasse), "", zeit))).then(() => true, () => false);
+}
+
+/**
+ * Der Stand der Kasse von der Kette (Devnet, eigene Endpunkte) mit den Abweichungen zum Raum (V3), auf Wunsch einzahlen –
+ * true, wenn eingezahlt wurde. `name` macht aus einem Schlüssel den Namen im Raum.
+ */
+export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefined, name: (pk: string) => string): Promise<boolean> {
+  const ich = state.keypair?.pk;
+  const kasse = zustand?.space?.kasse;
+  if (!ich || !zustand || !kasse || alsGeraet()) return false;
+  const titel = t("kasse.titel");
+  try {
+    const rpc = await devnetRpc();
+    if (!rpc) {
+      await hinweis(titel, t("kasse.nurDevnet"));
+      return false;
+    }
+    const [stand, guthaben, adressen] = await Promise.all([leseKasse(rpc, kasse), leseGuthaben(rpc, kassenTresor(kasse)), genannteKassenAdressen(ziel)]);
+    if (!stand) {
+      await hinweis(titel, t("kasse.nichtAufKette", { kasse }));
+      return false;
+    }
+    const abweichungen = kassenAbweichungen({ mitglieder: stand.mitglieder, adressen, zustand });
+    const text = kassenStandText({ kasse, stand, guthaben: Number(guthaben), abweichungen, name });
+    const art = kassenArt(stand);
+    // Eine Kasse anderer Form (etwa mit Verwalter) zeigt die App nur – einzahlen nie
+    if (!art) {
+      await hinweis(titel, text);
+      return false;
+    }
+    const w = await dialog({
+      titel, text, ok: t("kasse.einzahlen"), abbrechen: t("dlg.schliessen"),
+      felder: [{ art: "text", name: "betrag", label: t("kasse.betrag"), mono: true }],
+      pruefe: (w) => (solZuLamports(String(w.betrag ?? "")) ? null : t("kasse.betragFalsch")),
+    });
+    const lamports = w ? solZuLamports(String(w.betrag ?? "")) : undefined;
+    if (!lamports || !(await verlangeTresor(t("kasse.wofuer")))) return false;
+    const { zahleInKasse } = await import("./zahlschienen.js");
+    await zahleInKasse({ kasse, lamports, bevorzugt: adressen.get(ich) }, (k) => bestaetige({
+      titel, ok: t("kasse.einzahlen"),
+      text: [
+        t("kasse.einzahlenFrage", { betrag: solText(lamports), tresor: k.tresor, zahler: k.zahler }),
+        // Bei „Gründer entscheidet“ bei jeder Einzahlung (Entwurf, W2)
+        ...(art === "gruender" ? [t("kasse.ehrlichGruenderEinzahlen")] : []),
+      ].join("\n\n"),
+    }));
+    toast(t("kasse.eingezahlt", { betrag: solText(lamports) }));
+    return true;
+  } catch (e) {
+    toast(fehlerText(e), true);
+    return false;
+  }
 }

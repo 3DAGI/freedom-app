@@ -936,3 +936,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Schlüsseln (V7, bis M-8). Erst Kosten und Zahler bestätigen, dann bauen; am liebsten zahlt die Adresse für die Kasse (der
   Zahler steht als Ersteller auf der Kette). In die Definition offen nur `mitKassenTag()` auf der neuesten des Gründers
   (`gruenderDefinition()`, eine Sekunde danach), privat `setzePrivateKasse()`; scheitert es, fragen statt still aufgeben.
+  Stand und Einzahlen (seit A-12b2c) nur über `zeigeKasse()` und `zahleInKasse()`: gelesen nur über `devnetRpc()`, als Text
+  nur über `kassenStandText()` (`kasse-anzeige.ts`, Abweichungen aus `kassenAbweichungen()`); eingezahlt nur an
+  `kassenTresor()`, nur wenn `kassenArt()` die Kasse kennt (sonst nur zeigen), erst Rückfrage mit Zahler, dann `freigabe()`.
+  Zahler für Anlegen und Einzahlen nur über `kassenZahler()` – am liebsten die eigene Adresse für die Kasse.
