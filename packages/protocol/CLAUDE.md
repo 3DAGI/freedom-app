@@ -191,3 +191,8 @@ Fallstricke dieses Bereichs unten anhängen.
   anderes an, nie einen weiteren Container „zur Sicherheit“ dazu (der Knoten gäbe ihn sonst dem Modell). Der Auftrag (5083) nur
   über `baueSpracheAuftrag()`: versiegelt, mit Nachweis, ohne Gebot; der Schlüssel des Tons steht nur im Kern. Antworten nur über
   `leseTranskript()`. Zahlen in WAV nur über `DataView` mit Kleinendian (Regel „Kein `readBigInt64LE` im Browser“ gilt auch hier).
+- **Whisper-Modelle nur über `modell-whisper.ts`** (seit B-38b3b1, V4, `docs/PROTOCOL.md` §43): ein Manifest mit `model`
+  `whisper:<name>`, `upstream` `hf:ggerganov/whisper.cpp@<Commit>` und genau einer Datei `ggml-<name>.bin` – gewählt nur über
+  `vertrautesManifest(…, whisperQuelle)`, nie über `hfQuelle()`. `.bin` gilt nur hier (`WHISPER_DATEI`) und nur mit der
+  Kennung `ggml` am Anfang (`istGgml()`); `HF_DATEI` bekommt nie `.bin` dazu – dort wäre es Pickle. Der Stand von Hugging Face
+  nur über `whisperStand()` (die eine Datei, nur mit LFS-Summe), geladen nur `whisperDateiAdresse()` (am Commit, nur dieses Repo).

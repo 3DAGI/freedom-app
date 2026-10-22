@@ -96,7 +96,10 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b2 ✓ | Knoten: `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Modell nur lesbar), Ton aus dem Blob-Netz holen und prüfen, Antwort; Rolle `sprache` im Status | ~300 |
 | B-38b3 | `whisper-cli` im Bild (Bau aus den Quellen, gepinnt), Modell über Manifest (V4), Vorgabe nach SP-W4 | ~250 – geteilt |
 | B-38b3a ✓ | `scripts/whisper-bauen.sh` (v1.9.5, Commit geprüft, ohne OpenMP), Stufe im Docker-Bild (`WHISPER=1`, `docker-compose.sprache.yml`), CI baut es und prüft das echte Programm in der Sandbox | ~200 |
-| B-38b3b | Modell geprüft laden: über ein Manifest (38057) wie andere Modelle (`npm run modell`), Vorgabe nach SP-W4 | ~250 |
+| B-38b3b | Modell geprüft laden: über ein Manifest (38057) wie andere Modelle (`npm run modell`), Vorgabe nach SP-W4 | ~500 – geteilt in b3b1–b3b3 |
+| B-38b3b1 ✓ | Protokoll: Konvention `whisper:<name>` mit genau einer Datei `ggml-<name>.bin` aus `ggerganov/whisper.cpp` am Commit (`whisperQuelle()`), Stand von Hugging Face (`whisperStand()`), Adresse, Kennung `ggml` (`istGgml()`), Vorgabe | ~200 |
+| B-38b3b2 | Knoten: `npm run modell -- --whisper [name] [--aus-hf]`, Laden und Prüfen im `ModellDienst` (nie im Angebot für KI), Selbstprüfung | ~300 |
+| B-38b3b3 | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
@@ -165,6 +168,17 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
   in der Entwicklungsumgebung) – das baut der MENSCH auf dem GX10.
 - **Modell:** bis B-38b3b legt der Betreiber es selbst ab und vergleicht die SHA-1 aus `models/README.md` von whisper.cpp
   derselben Fassung (`docs/PROVIDER.md`, „Text aus Sprache“).
+
+## Stand B-38b3b1 (22.10.2026)
+
+- **Konvention** (`modell-whisper.ts`, `docs/PROTOCOL.md` §43): `model` = `whisper:<name>`, `upstream` =
+  `hf:ggerganov/whisper.cpp@<Commit>`, genau eine Datei `ggml-<name>.bin` (höchstens 3,5 GB). Gewählt über
+  `vertrautesManifest()` mit `whisperQuelle()` – dieselbe Regel wie für andere Modelle (eigenes vor Katalog, bei Streit keins).
+- **Hugging Face:** das Repo, aus dem whisper.cpp selbst lädt (`models/download-ggml-model.sh` in v1.9.5). Festhalten liest
+  die eine Datei mit LFS-Summe (`whisperStand()`); andere Dateien dort (`.en`-Modelle, Core-ML-Archive) bleiben draußen.
+- **Kein Pickle:** `.bin` gilt nur auf diesem Weg (`WHISPER_DATEI`); die Datei muss mit `ggml` beginnen (`istGgml()`,
+  gemessen am Testmodell von whisper.cpp: `6c 6d 67 67`). `HF_DATEI` bleibt ohne `.bin`.
+- **Vorgabe** (`WHISPER_VORGABE`): mit GPU `large-v3-turbo-q5_0`, ohne `base`.
 
 ## Quellen
 
