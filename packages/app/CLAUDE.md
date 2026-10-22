@@ -968,3 +968,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Im Build führen alle Pfade `@reticulum/…` auf EIN vorab minifiziertes Modul (Plugin „reticulum-klein“ in `build.mjs`):
   Ein neuer Pfad, den die App lädt, gehört dort in die Liste (ein Test vergleicht) – sonst fehlte der Name zur Laufzeit,
   und ein eigenes Modul je Pfad brächte zwei Kopien des Kerns.
+  Gesendet wird (seit B-32b3) nur an die Gegenstelle: gelesen nur über `leseLxmfAdresse()`, gemerkt nur in `geheim`
+  (`freedom.reticulum.gegenstelle`, in `GEHEIM_FEST`), nur aus `sendeUeberFunk()` über `sendeUeberReticulum()` und nur,
+  wenn kein Meshtastic-Gerät verbunden ist – sonst der Datei-Weg, nie still woanders hin. KI über Funk bleibt an
+  `funkGeraetVerbunden()` (nur Meshtastic), bis der Knoten Reticulum-Gateway ist (B-32d). Fehler nur über
+  `reticulumFehlerText()` (je `RETICULUM_FAELLE` ein Text).

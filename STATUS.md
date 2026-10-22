@@ -12867,3 +12867,21 @@ Spur A, `docs/KASSE-ENTWURF.md` (V2, W2, W3). Letzter Teil von A-12a; die App nu
 - **Gegenproben:** Rechte der Art falsch, veraltete Änderung ausführbar, Konto ohne zehn Plätze, Liste ohne Erkennung, Stand ohne Prüfung der Schwelle, falsche Nummer einer Variante, Menü mit Schritt für Änderungen – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt B-32b3 – Reticulum: Senden an eine Gegenstelle
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (Aufteilung aus B-32b2).
+
+- **Gegenstelle:** LXMF-Adresse (32 Zeichen Hex, auch `<…>`), gelesen nur über `leseLxmfAdresse()`, gemerkt nur in
+  `geheim` (`freedom.reticulum.gegenstelle`, in `GEHEIM_FEST`).
+- **Oberfläche:** Knopf „Reticulum-Adressen“ (`adressenDialog()`) – eigene Adresse als Text und QR-Code, Gegenstelle
+  eintippen oder scannen, leer = keine; die eigene Adresse ist nicht als Gegenstelle möglich.
+- **Senden:** `sendeUeberFunk()` → ohne Meshtastic `sendeUeberReticulum()` (laufende RNode und Gegenstelle, sonst der
+  Datei-Weg). Heute für SOL-Zahlungen ohne Internet; KI über Funk bleibt bei Meshtastic, bis der Knoten Gateway ist
+  (B-32d). Fehler nur über `reticulumFehlerText()` (`RETICULUM_FAELLE`, je Fall ein Text).
+- **Datenschutz:** Grenze „reticulum-ankuendigung“ nennt das Senden – Adresse der Gegenstelle offen in jedem Paket an sie.
+
+**Tests:** app +5 (`rnode-senden.test.ts`: Adressen lesen, ohne RNode oder Gegenstelle nichts, Texte je Fall,
+Verdrahtung, Grenze im Bericht); protocol: Test der Grenze erweitert.
+
+Knoten-Stand: unverändert.

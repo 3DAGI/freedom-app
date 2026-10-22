@@ -21,7 +21,8 @@ export const RETICULUM_ART = "freedom/mesh-1";
 export const RETICULUM_GRENZEN = Object.freeze({ nutzlast: 65_535, draht: 65_535 + 1024 });
 
 /** Warum etwas nicht ging – die App zeigt es ab B-32b über die Kennung, nie über die Meldung. */
-export type ReticulumFall = "identitaet-kaputt" | "adresse" | "zu-gross" | "inhalt" | "sendezeit";
+export const RETICULUM_FAELLE = ["identitaet-kaputt", "adresse", "zu-gross", "inhalt", "sendezeit"] as const; // kein UI-Text
+export type ReticulumFall = (typeof RETICULUM_FAELLE)[number];
 
 export class ReticulumFehler extends Error {
   constructor(readonly fall: ReticulumFall, readonly pruefung?: Extract<MeshPruefung, { ok: false }>) {

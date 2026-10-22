@@ -41,6 +41,18 @@ export function rnodeSendezeit(p: FunkParameter, bytes: number): number {
   return mitKopf <= 255 ? rahmen(mitKopf) : rahmen(255) + rahmen(mitKopf - 254 + 1);
 }
 
+/**
+ * Die Gegenstelle (B-32b3): die LXMF-Adresse, an die die App über Reticulum sendet – eine andere App mit Netz, die
+ * weiterreicht, später der eigene Knoten (B-32d). Nur in `geheim`: Sie verrät, mit wem man funkt.
+ */
+export const LS_RETICULUM_GEGENSTELLE = "freedom.reticulum.gegenstelle";
+
+/** Eine LXMF-Adresse aus Text – 32 Zeichen Hex, wie Reticulum sie zeigt auch in spitzen Klammern; sonst null. */
+export function leseLxmfAdresse(text: string | null | undefined): Uint8Array | null {
+  const m = /^<?([0-9a-fA-F]{32})>?$/.exec((text ?? "").trim());
+  return m ? Uint8Array.from(m[1]!.match(/../g)!, (x) => parseInt(x, 16)) : null;
+}
+
 /** Konto für die RNode – eines je Sitzung, auch über Trennen und neu Verbinden hinweg. */
 export const RETICULUM_KONTO = new Sendezeitkonto();
 

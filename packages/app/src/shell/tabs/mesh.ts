@@ -71,7 +71,11 @@ export async function sendeUeberFunk(
   /** Vorrang in der Warteschlange – Zahlungen zuerst, KI über Funk (7.4c3) wie eine Nachricht. */
   vorrang?: import("@freedomstack/protocol").MeshPriority,
 ): Promise<boolean> {
-  if (!meshNode || !funkGeraetVerbunden()) return false;
+  if (!meshNode || !funkGeraetVerbunden()) {
+    // Ohne Meshtastic-Gerät über Reticulum an die Gegenstelle (B-32b3) – sonst nimmt der Aufrufer den Datei-Weg
+    const { sendeUeberReticulum } = await import("../rnode-ui.js");
+    return sendeUeberReticulum(payload, kind, state.keypair ? [state.keypair.pk] : []);
+  }
   const { MeshPriority } = await import("@freedomstack/protocol");
   meshNode.enqueue(payload, kind, vorrang ?? MeshPriority.Zahlung, label);
   return true;
@@ -223,6 +227,11 @@ export async function wireMeshTab(): Promise<void> {
   if (rnode) rnode.onclick = async () => {
     const { rnodeKnopf } = await import("../rnode-ui.js");
     await rnodeKnopf($("#mesh-status"));
+  };
+  const rnodeAdressen = $("#mesh-rnode-adressen");
+  if (rnodeAdressen) rnodeAdressen.onclick = async () => {
+    const { adressenDialog } = await import("../rnode-ui.js");
+    await adressenDialog();
   };
 
   void zeigeOfflineFaehigkeiten("lora");
