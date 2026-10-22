@@ -211,3 +211,7 @@ kasse.ts|leseKonfigurationVonKette|Lesehilfe der Kasse für eine einzelne Änder
 sprache-auftrag.ts|baueSpracheAuftrag|Text aus Sprache (B-38b1, nur Protokoll): die App fragt ab B-38c („Als Text“, Diktieren)
 sprache-auftrag.ts|baueWav|Text aus Sprache (B-38b1, nur Protokoll): die App wandelt den Ton ab B-38c (SP-W5 A)
 sprache-auftrag.ts|leseTranskript|Text aus Sprache (B-38b1, nur Protokoll): die App liest die Antwort ab B-38c
+modell-whisper.ts|leseWhisperName|Whisper-Modell über ein Manifest (B-38b3b1, nur Protokoll): der Knoten liest den Wunsch (`npm run modell -- --whisper`) ab B-38b3b2
+modell-whisper.ts|whisperDateiAdresse|Whisper-Modell über ein Manifest (B-38b3b1, nur Protokoll): der Knoten lädt die Datei ab B-38b3b2
+modell-whisper.ts|whisperQuelle|Whisper-Modell über ein Manifest (B-38b3b1, nur Protokoll): der Knoten wählt das Manifest (`vertrautesManifest()`) ab B-38b3b2
+modell-whisper.ts|whisperStand|Whisper-Modell über ein Manifest (B-38b3b1, nur Protokoll): der Knoten hält fest und prüft vor ab B-38b3b2
