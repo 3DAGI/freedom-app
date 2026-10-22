@@ -9,6 +9,7 @@ import { getBase58Decoder } from "@solana/kit";
 import {
   alsWeb3, AnchorSolanaHtlc, ausDraht, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueOfflineUeberweisung, erstatteKanalAnweisung,
   abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, kanalAdresse, kasseAnlegenAnweisung,
+  konfigurationAbschliessenAnweisung, konfigurationAusfuehrenAnweisung, konfigurationVorschlagenAnweisungen,
   kassenAdresse, kassenTresor, oeffneKanalAnweisung, poolRpc, rechneKanalAbIxs, RpcPool, signiereGutschrift, solSchluesselAus, stockeKanalAufAnweisung,
   type KanalEmpfaenger, type SolRpc,
 } from "../src/index.js";
@@ -115,5 +116,18 @@ export async function protokollFaelle(): Promise<Record<string, string>> {
     "kasse-ausfuehren-abschliessen": nachricht(adresse(27), [alsWeb3(ausfuehrenAnweisung({
       kasse: kassenAdresse(adresse(20)), index: 1n, mitglied: adresse(22), auszahlung: { empfaenger: adresse(26), lamports: 100_000_000n },
     })), alsWeb3(abschliessenAnweisung({ kasse: kassenAdresse(adresse(20)), index: 1n, mieteAn: kassenTresor(kassenAdresse(adresse(20))) }))]),
+    // A-12a3: Konfiguration ändern – ebenso mit dem SDK gerechnet
+    "kasse-konfiguration-vorschlagen": nachricht(adresse(27), konfigurationVorschlagenAnweisungen({
+      kasse: kassenAdresse(adresse(20)), index: 2n, vorschlagender: adresse(21), mietZahler: adresse(27), aenderungen: [
+        { art: "mitglied-dazu", adresse: adresse(28), rechte: 7 }, { art: "mitglied-weg", adresse: adresse(23) },
+        { art: "schwelle", schwelle: 3 }, { art: "zeitschloss", sek: 3600 },
+      ],
+    }).map(alsWeb3)),
+    "kasse-konfiguration-ausfuehren": nachricht(adresse(22), [alsWeb3(konfigurationAusfuehrenAnweisung({
+      kasse: kassenAdresse(adresse(20)), index: 2n, mitglied: adresse(22), mietZahler: adresse(22),
+    }))]),
+    "kasse-konfiguration-abschliessen": nachricht(adresse(23), [alsWeb3(konfigurationAbschliessenAnweisung({
+      kasse: kassenAdresse(adresse(20)), index: 2n, mieteAn: kassenTresor(kassenAdresse(adresse(20))),
+    }))]),
   };
 }

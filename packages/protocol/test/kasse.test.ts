@@ -1,5 +1,6 @@
 /**
- * Gemeinsame Kasse über Squads v4 (A-12a1): Adressen, Arten, Anlegen, Konten lesen; seit A-12c1 Schritte eines Vorschlags.
+ * Gemeinsame Kasse über Squads v4 (A-12a1): Adressen, Arten, Anlegen, Konten lesen; seit A-12c1 Schritte eines Vorschlags,
+ * seit A-12a3 Änderungen der Kasse.
  * Die erwarteten Adressen hat das SDK von Squads (`@sqds/multisig` 2.1.4) gerechnet, nicht `kasse.ts`;
  * die Bytes der Anweisung halten die Vektoren fest („kasse-anlegen-…“), das echte Programm prüft
  * `contracts/squads/tests/kasse.test.ts`.
@@ -12,7 +13,8 @@ import {
   auszahlungKontoGroessen, auszahlungsNachricht, auszahlungVorschlagenAnweisungen, ausfuehrbarAb, baueKasseAnlegen, kasseAnlegenAnweisung, kassenAdresse, kassenKontoGroesse, leseNachricht, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
   kassenVorschlagAdresse, leseAuszahlung, leseAuszahlungVonKette, leseKasse, leseKassenStand, leseProgrammEinstellungen, leseVorschlag,
   leseVorschlaege, leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
-  type KassenStand, type KassenVorschlag,
+  kassenAenderungen, kassenKontoGroesseNach, kassenStandNach, konfigurationAusfuehrenAnweisung, konfigurationVorschlagenAnweisungen, leseKonfiguration, leseKonfigurationVonKette,
+  type KassenAenderung, type KassenStand, type KassenVorschlag,
 } from "../src/index.js";
 
 const adresse = (n: number) => Keypair.fromSeed(new Uint8Array(32).fill(n)).publicKey.toBase58();
@@ -312,4 +314,106 @@ test("A-12c1: die jüngsten Vorschläge von der Kette – neueste zuerst, abgesc
   ]);
   assert.deepEqual((await leseVorschlaege(rpc, KASSE, s, 2)).map((v) => v.index), [3n], "höchstens zwei Nummern gefragt");
   assert.deepEqual(await leseVorschlaege(rpc, KASSE, { ...s, transaktionsIndex: 0n }), []);
+});
+
+// ---- A-12a3: Konfiguration ändern ----
+
+test("A-12a3: Änderung bauen und lesen – nur Mitglied dazu oder weg, Schwelle, Wartezeit; andere Varianten keine Änderung der App", () => {
+  const aenderungen: KassenAenderung[] = [
+    { art: "mitglied-dazu", adresse: C, rechte: 7 }, { art: "mitglied-weg", adresse: B }, { art: "schwelle", schwelle: 2 }, { art: "zeitschloss", sek: 86_400 },
+  ];
+  const [anlegen, vorschlag] = konfigurationVorschlagenAnweisungen({ kasse: KASSE, index: 6n, vorschlagender: A, aenderungen });
+  assert.deepEqual(anlegen!.accounts!.map((k) => [k.address, k.role]), [
+    [KASSE, 1], [kassenTransaktionAdresse(KASSE, 6n), 1], [A, 2], [A, 3], [SYSTEM, 0],
+  ]);
+  assert.equal(vorschlag!.accounts![1]!.address, kassenVorschlagAdresse(KASSE, 6n));
+  const d = anlegen!.data!;
+  assert.equal(d[d.length - 1], 0, "ohne Memo");
+  // Das Konto, wie das Programm es speichert: Kasse, Ersteller, Index, Bump, dann dieselbe Liste wie in der Anweisung
+  const konto = Uint8Array.from([...bytes("ConfigTransaction").pk(KASSE).pk(A).zahl(6n, 8).u8(254).fertig(), ...d.subarray(8, d.length - 1)]);
+  assert.deepEqual(leseKonfiguration(konto), { kasse: KASSE, ersteller: A, index: 6n, aenderungen });
+  const limit = bytes("ConfigTransaction").pk(KASSE).pk(A).zahl(6n, 8).u8(254).zahl(1n, 4).u8(6, 0).fertig(); // SetRentCollector(None)
+  assert.equal(leseKonfiguration(limit).aenderungen, null, "eine Variante, die die App nicht anbietet");
+  assert.throws(() => leseKonfiguration(konto.subarray(0, konto.length - 1)), /zu kurz/);
+  assert.throws(() => leseKonfiguration(transaktionBytes()), /kein ConfigTransaction/);
+
+  assert.throws(() => konfigurationVorschlagenAnweisungen({ kasse: KASSE, index: 6n, vorschlagender: A, aenderungen: [] }), /keine Änderung/);
+  for (const falsch of [
+    { art: "mitglied-dazu", adresse: C, rechte: 0 }, { art: "mitglied-dazu", adresse: C, rechte: 8 }, { art: "schwelle", schwelle: 0 }, { art: "zeitschloss", sek: 60 },
+  ] as KassenAenderung[]) {
+    assert.throws(() => konfigurationVorschlagenAnweisungen({ kasse: KASSE, index: 6n, vorschlagender: A, aenderungen: [falsch] }), /ungültig|Zeitschloss/, JSON.stringify(falsch));
+  }
+  const ausfuehren = konfigurationAusfuehrenAnweisung({ kasse: KASSE, index: 6n, mitglied: B, mietZahler: C });
+  assert.deepEqual(ausfuehren.accounts!.map((k) => [k.address, k.role]), [
+    [KASSE, 1], [B, 2], [kassenVorschlagAdresse(KASSE, 6n), 1], [kassenTransaktionAdresse(KASSE, 6n), 0], [C, 3], [SYSTEM, 0],
+  ]);
+});
+
+test("A-12a3: Änderungen, mit denen die Kasse ihre Art behält – und der Stand danach wie beim Programm", () => {
+  const D = adresse(24), E = adresse(25);
+  const mehrheit = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 7 }], 2), zeitschlossSek: 0 };
+  assert.deepEqual(kassenAenderungen(mehrheit, { dazu: [C] }), [{ art: "mitglied-dazu", adresse: C, rechte: 7 }], "Mehrheit von drei bleibt 2");
+  assert.deepEqual(kassenAenderungen(mehrheit, { dazu: [C, D] }), [
+    { art: "mitglied-dazu", adresse: C, rechte: 7 }, { art: "mitglied-dazu", adresse: D, rechte: 7 }, { art: "schwelle", schwelle: 3 },
+  ]);
+  assert.deepEqual(kassenAenderungen({ ...mehrheit, mitglieder: [A, B, C, D].map((adresse) => ({ adresse, rechte: 7 })), schwelle: 3 }, { weg: [D] }), [
+    { art: "mitglied-weg", adresse: D }, { art: "schwelle", schwelle: 2 },
+  ]);
+  assert.deepEqual(kassenAenderungen(mehrheit, { zeitschlossSek: 3600 }), [{ art: "zeitschloss", sek: 3600 }]);
+  assert.throws(() => kassenAenderungen(mehrheit, {}), /keine Änderung/);
+  assert.throws(() => kassenAenderungen(mehrheit, { zeitschlossSek: 0 }), /keine Änderung/);
+  assert.throws(() => kassenAenderungen(mehrheit, { weg: [B] }), /Schwelle|Art/, "eine Mehrheit braucht zwei");
+  assert.throws(() => kassenAenderungen(mehrheit, { dazu: [A] }), /doppelt/);
+  assert.throws(() => kassenAenderungen(mehrheit, { weg: [E] }), /kein Mitglied/);
+
+  const gruender = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 1 }], 1), zeitschlossSek: 0 };
+  assert.deepEqual(kassenAenderungen(gruender, { dazu: [C] }), [{ art: "mitglied-dazu", adresse: C, rechte: 1 }], "dazu nur mit vorschlagen");
+  assert.deepEqual(kassenAenderungen(gruender, { weg: [B] }), [{ art: "mitglied-weg", adresse: B }]);
+  assert.throws(() => kassenAenderungen(gruender, { weg: [A] }), /Rechte fehlen|Art/, "der Gründer bleibt");
+  assert.throws(() => kassenAenderungen({ ...gruender, verwalter: C }, { dazu: [D] }), /keine Kasse dieser App/);
+
+  const nach = kassenStandNach(mehrheit, kassenAenderungen(mehrheit, { dazu: [C, D], zeitschlossSek: 86_400 }));
+  assert.equal(kassenArt(nach), "mehrheit");
+  assert.deepEqual([nach.schwelle, nach.zeitschlossSek, nach.mitglieder.length, nach.veraltetBis], [3, 86_400, 4, mehrheit.transaktionsIndex], "offene Vorschläge veraltet");
+  assert.equal(mehrheit.mitglieder.length, 2, "der alte Stand bleibt unverändert");
+  assert.throws(() => kassenStandNach(mehrheit, [{ art: "schwelle", schwelle: 3 }]), /Schwelle ungültig/, "mehr als Abstimmende");
+  assert.throws(() => kassenStandNach(gruender, [{ art: "mitglied-weg", adresse: A }]), /Rechte fehlen/);
+
+  // Das Konto wächst um zehn Plätze auf einmal und schrumpft nie (im Validator gegen beide Programme geprüft)
+  assert.equal(kassenKontoGroesseNach(kassenKontoGroesse(2), 4), kassenKontoGroesse(2) + 330);
+  assert.equal(kassenKontoGroesseNach(kassenKontoGroesse(2), 3), kassenKontoGroesse(2) + 330);
+  assert.equal(kassenKontoGroesseNach(kassenKontoGroesse(2), 20), kassenKontoGroesse(20), "mehr als zehn dazu");
+  assert.equal(kassenKontoGroesseNach(kassenKontoGroesse(5), 3), kassenKontoGroesse(5), "weniger Mitglieder: gleich groß");
+});
+
+test("A-12a3: Schritte einer Änderung – veraltet nicht mehr ausführen, angenommen dafür abschließen; unbekannte Form nur abschließen", () => {
+  const mehrheit = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 7 }, { adresse: C, rechte: 7 }], 2), veraltetBis: 0n, zeitschlossSek: 0 };
+  const veraltet = { ...mehrheit, veraltetBis: 1n };
+  const aenderung: KassenAenderung[] = [{ art: "zeitschloss", sek: 3600 }];
+  const schritte = (v: KassenVorschlag, s: KassenStand, konfiguration: KassenAenderung[] | null = aenderung) =>
+    vorschlagsSchritte({ stand: s, vorschlag: v, auszahlung: null, konfiguration, mitglied: A, jetztSek: 10_000 });
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), mehrheit), ["dafuer", "dagegen"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), mehrheit, null), [], "unbekannte Änderung: nicht abstimmen");
+  assert.deepEqual(schritte(vorschlagAus(1n, "angenommen"), mehrheit), ["ausfuehren"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "angenommen"), veraltet), ["abschliessen"], "veraltet: nur noch abschließen");
+  assert.deepEqual(schritte(vorschlagAus(1n, "aktiv"), veraltet), ["abschliessen"]);
+  assert.deepEqual(schritte(vorschlagAus(1n, "ausgefuehrt"), mehrheit, null), ["abschliessen"]);
+  // eine Auszahlung, angenommen und veraltet, bleibt ausführbar (A-12c1)
+  assert.deepEqual(vorschlagsSchritte({ stand: veraltet, vorschlag: vorschlagAus(1n, "angenommen"), auszahlung: { empfaenger: EMPF, lamports: 1n }, mitglied: A, jetztSek: 10_000 }), ["ausfuehren"]);
+});
+
+test("A-12a3: die jüngsten Vorschläge erkennen Änderungen – die Auszahlung ist dann null", async () => {
+  const sq = (daten: Uint8Array) => ({ eigentuemer: SQUADS_PROGRAMM_ID, daten });
+  const vorschlag = (index: bigint) => bytes("Proposal").pk(KASSE).zahl(index, 8).u8(1).zahl(1000n, 8).u8(255).zahl(0n, 4).zahl(0n, 4).zahl(0n, 4).fertig();
+  const aenderung = bytes("ConfigTransaction").pk(KASSE).pk(A).zahl(2n, 8).u8(254).zahl(1n, 4).u8(2).zahl(1n, 2).fertig();
+  const rpc = ketteMit({
+    [kassenVorschlagAdresse(KASSE, 2n)]: sq(vorschlag(2n)), [kassenTransaktionAdresse(KASSE, 2n)]: sq(aenderung),
+    [kassenVorschlagAdresse(KASSE, 1n)]: sq(vorschlag(1n)), [kassenTransaktionAdresse(KASSE, 1n)]: sq(transaktionBytes()),
+  });
+  const liste = await leseVorschlaege(rpc, KASSE, { ...stand([{ adresse: A, rechte: 7 }], 1), transaktionsIndex: 2n });
+  assert.deepEqual(liste[0], { index: 2n, vorschlag: leseVorschlag(vorschlag(2n)), auszahlung: null, konfiguration: [{ art: "schwelle", schwelle: 1 }] });
+  assert.equal("konfiguration" in liste[1]!, false, "eine Auszahlung hat keine Konfiguration");
+  assert.equal((await leseKonfigurationVonKette(rpc, KASSE, 2n))?.ersteller, A);
+  await assert.rejects(leseKonfigurationVonKette(rpc, KASSE, 1n), /kein ConfigTransaction/);
+  await assert.rejects(leseAuszahlungVonKette(rpc, KASSE, 2n), /kein VaultTransaction/, "eine Änderung ist keine Auszahlung");
 });

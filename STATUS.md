@@ -12804,3 +12804,24 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6, V7, W2, W3). Erster Teil von A-12c, auf A-1
 - **Gegenproben:** abstimmen trotz veraltet, ausführen vor der Wartezeit, dieselbe Stimme zweimal, vorschlagen ohne Recht im Menü, Schritt ohne Prüfung nach der Kette, Auszahlung nicht von der Kette – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12a3 – Kasse: Konfiguration ändern (Baustein)
+
+Spur A, `docs/KASSE-ENTWURF.md` (V2, W2, W3). Letzter Teil von A-12a; die App nutzt ihn ab A-12d (Mitglieder und Schwelle).
+
+**Neu** (`packages/protocol/src/kasse.ts`):
+- **Anweisungen nach der IDL:** `konfigurationVorschlagenAnweisungen()` (`config_transaction_create` und Vorschlag in einem Zug, Miete von `mietZahler`), `konfigurationAusfuehrenAnweisung()` (mit Zahler für den Zuwachs des Kontos), `konfigurationAbschliessenAnweisung()`. Erlaubt sind nur Mitglied dazu oder weg, Schwelle und Wartezeit (0, 1 h, 24 h) – keine Ausgabelimits, kein anderer `rent_collector`.
+- **Lesen:** `leseKonfiguration()`/`leseKonfigurationVonKette()`; eine Variante, die die App nicht anbietet, ergibt `aenderungen: null`. `leseVorschlaege()` erkennt am Diskriminator, ob unter einer Nummer eine Auszahlung oder eine Änderung steht – bisher hätte eine Änderung die ganze Liste scheitern lassen.
+- **Die Art bleibt:** `kassenAenderungen()` stellt die Änderungen so zusammen, dass die Kasse ihre Art behält (W2): Wer dazukommt, bekommt die Rechte der Art, die Schwelle folgt der Mehrheit, der Gründer bleibt. `kassenStandNach()` rechnet den Stand danach wie das Programm, mit dessen Prüfungen.
+- **Schritte:** `vorschlagsSchritte()` kennt Änderungen – veraltet nicht mehr ausführen, angenommen dafür abschließen.
+- **Konto wächst:** `kassenKontoGroesseNach()` – Squads vergrößert das Konto um zehn Plätze auf einmal; die Miete dafür zahlt, wer ausführt.
+- **App:** Änderungen erscheinen in „Kasse …“ als „Änderung der Kasse“, ohne Schritt im Menü (bis A-12d). Die Status heißen jetzt neutral „ausgeführt“ statt „ausgezahlt“.
+- **Doku:** Entwurf (Umsetzung), Fallstricke in `packages/protocol/CLAUDE.md` und `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand. Sieben Ausnahmen in `wiring-ausnahmen.txt` mit Grund „ab A-12d“.
+
+**Tests:**
+- **Validator +2 je Programm (18):** Mehrheit – zwei Mitglieder dazu, die Schwelle folgt, der Stand gleicht `kassenStandNach()`, das Konto wächst auf `kassenKontoGroesseNach()`, der Ausführende zahlt genau den Zuwachs der Miete, die offene Auszahlung veraltet (Stimme 6007, abschließen geht). Gründer – dazu nur mit vorschlagen, eine angenommene, veraltete Änderung lässt sich nicht ausführen (6007), nur abschließen; die Wartezeit hält danach jede Ausführung auf (6021).
+- **protocol +4:** Änderung bauen und lesen (fremde Variante, abgeschnitten, ungültige Werte), Änderungen mit erhaltener Art und Stand danach, Schritte einer Änderung, Liste mit Änderung; dazu drei Vektoren aus dem SDK von Squads im bestehenden Vektor-Test.
+- **app +1:** eine Änderung nur zeigen, kein Schritt im Menü.
+- **Gegenproben:** Rechte der Art falsch, veraltete Änderung ausführbar, Konto ohne zehn Plätze, Liste ohne Erkennung, Stand ohne Prüfung der Schwelle, falsche Nummer einer Variante, Menü mit Schritt für Änderungen – je ein Test rot.
+
+Knoten-Stand: keiner nötig.

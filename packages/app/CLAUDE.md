@@ -948,3 +948,5 @@ Fallstricke dieses Bereichs unten anhängen.
   kennt, nur Schritte, die `vorschlagsSchritte()` aus dem frisch gelesenen Stand erlaubt – nie aus dem Stand beim Öffnen des
   Dialogs; Empfänger und Betrag für Stimme und Ausführung nur aus `leseAuszahlungVonKette()` (V6). Gewählt wird nur, was
   `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
+  Änderungen der Kasse (`konfiguration` im Vorgang, seit A-12a3) zeigt die App bis A-12d nur – `kassenAktionen()` bietet für sie
+  keinen Schritt an, auch kein Abschließen (das bräuchte `konfigurationAbschliessenAnweisung()`, nie die der Auszahlung).

@@ -247,14 +247,19 @@ export function auszahlungVorschlagenAnweisungen(p: { kasse: string; index: bigi
       [miete, AccountRole.WRITABLE_SIGNER],
       [SYSTEM_PROGRAMM, AccountRole.READONLY],
     ], verbinde(diskriminator("global", "vault_transaction_create"), Uint8Array.of(0, 0), u32(nachricht.length), nachricht, Uint8Array.of(0))),
-    anweisung(SQUADS_PROGRAMM_ID, [
-      [p.kasse, AccountRole.READONLY],
-      [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
-      [p.vorschlagender, AccountRole.READONLY_SIGNER],
-      [miete, AccountRole.WRITABLE_SIGNER],
-      [SYSTEM_PROGRAMM, AccountRole.READONLY],
-    ], verbinde(diskriminator("global", "proposal_create"), u64(p.index), Uint8Array.of(0))),
+    vorschlagAnlegenAnweisung(p.kasse, p.index, p.vorschlagender, miete),
   ];
+}
+
+/** Der Vorschlag zur Transaktion `index` (`proposal_create`, kein Entwurf) – für Auszahlung und Konfiguration gleich. */
+function vorschlagAnlegenAnweisung(kasse: string, index: bigint, vorschlagender: string, miete: string): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [kasse, AccountRole.READONLY],
+    [kassenVorschlagAdresse(kasse, index), AccountRole.WRITABLE],
+    [vorschlagender, AccountRole.READONLY_SIGNER],
+    [miete, AccountRole.WRITABLE_SIGNER],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], verbinde(diskriminator("global", "proposal_create"), u64(index), Uint8Array.of(0)));
 }
 
 /** Abstimmen über den Vorschlag `index` – dafür oder dagegen; braucht das Recht „abstimmen“. */
@@ -473,12 +478,19 @@ export async function leseVorschlagVonKette(rpc: SolRpc, kasse: string, index: b
 /** Transaktion `index` von der Kette; null, solange es sie nicht (mehr) gibt. Nur Konten von Squads, nur zu dieser Kasse. */
 export async function leseAuszahlungVonKette(rpc: SolRpc, kasse: string, index: bigint): Promise<KassenTransaktion | null> {
   const k = await leseKonto(rpc, kassenTransaktionAdresse(kasse, index));
-  if (!k) return null;
+  return k ? auszahlungDesKontos(k, kasse, index) : null;
+}
+
+type Konto = { eigentuemer: string; daten: Uint8Array };
+
+function auszahlungDesKontos(k: Konto, kasse: string, index: bigint): KassenTransaktion {
   if (k.eigentuemer !== SQUADS_PROGRAMM_ID) throw new Error("Konto gehört nicht Squads");
   const t = leseAuszahlung(k.daten);
   if (t.kasse !== kasse || t.index !== index) throw new Error("Transaktion gehört nicht zu dieser Kasse");
   return t;
 }
+
+const istKonto = (daten: Uint8Array, art: string): boolean => daten.length >= 8 && diskriminator("account", art).every((b, i) => daten[i] === b);
 
 /** Was man mit einem Vorschlag tun kann (A-12c1). */
 export type KassenSchritt = "dafuer" | "dagegen" | "ausfuehren" | "abschliessen";
@@ -494,22 +506,30 @@ export function ausfuehrbarAb(stand: KassenStand, v: KassenVorschlag): bigint | 
  * angenommen, nach dem Zeitschloss, mit dem Recht; abschließen nur ausgeführt, abgelehnt, abgebrochen oder (als Entwurf
  * oder aktiv) veraltet, und nur mit `rent_collector`. Abstimmen und ausführen nur bei einer Auszahlung dieser App
  * (`auszahlung` aus `leseAuszahlung()`, V6) – sonst wüsste niemand, wofür er stimmt.
+ * Eine Änderung der Kasse (seit A-12a3, `konfiguration` gesetzt) gilt als bekannt, wenn `leseKonfiguration()` sie lesen
+ * konnte; veraltet lässt sie sich nicht mehr ausführen, angenommen dafür abschließen.
  */
 export function vorschlagsSchritte(p: {
-  stand: KassenStand; vorschlag: KassenVorschlag; auszahlung: Auszahlung | null; mitglied?: string; jetztSek: number;
+  stand: KassenStand; vorschlag: KassenVorschlag; auszahlung: Auszahlung | null; konfiguration?: readonly KassenAenderung[] | null;
+  mitglied?: string; jetztSek: number;
 }): KassenSchritt[] {
   const { stand, vorschlag: v } = p;
   const rechte = stand.mitglieder.find((m) => m.adresse === p.mitglied)?.rechte ?? 0;
   const veraltet = v.index <= stand.veraltetBis;
+  const istKonfiguration = p.konfiguration !== undefined;
+  const bekannt = istKonfiguration ? p.konfiguration !== null : p.auszahlung !== null;
   const schritte: KassenSchritt[] = [];
-  if (p.auszahlung && p.mitglied && v.status === "aktiv" && !veraltet && rechte & KASSEN_RECHT.abstimmen) {
+  if (bekannt && p.mitglied && v.status === "aktiv" && !veraltet && rechte & KASSEN_RECHT.abstimmen) {
     if (!v.dafuer.includes(p.mitglied)) schritte.push("dafuer");
     if (!v.dagegen.includes(p.mitglied)) schritte.push("dagegen");
   }
   const ab = ausfuehrbarAb(stand, v);
-  if (p.auszahlung && ab !== null && ab <= BigInt(Math.floor(p.jetztSek)) && rechte & KASSEN_RECHT.ausfuehren) schritte.push("ausfuehren");
+  if (bekannt && ab !== null && ab <= BigInt(Math.floor(p.jetztSek)) && rechte & KASSEN_RECHT.ausfuehren && !(istKonfiguration && veraltet)) {
+    schritte.push("ausfuehren");
+  }
   const fertig = v.status === "ausgefuehrt" || v.status === "abgelehnt" || v.status === "abgebrochen";
-  if (stand.mieteAn && (fertig || (veraltet && (v.status === "entwurf" || v.status === "aktiv")))) schritte.push("abschliessen");
+  const offen = v.status === "entwurf" || v.status === "aktiv" || (istKonfiguration && v.status === "angenommen");
+  if (stand.mieteAn && (fertig || (veraltet && offen))) schritte.push("abschliessen");
   return schritte;
 }
 
@@ -518,15 +538,194 @@ export interface KassenVorgang {
   vorschlag: KassenVorschlag;
   /** null: keine Auszahlung dieser App (oder die Transaktion fehlt) – nur zeigen, nie darüber abstimmen. */
   auszahlung: Auszahlung | null;
+  /** Nur bei einer Änderung der Kasse (A-12a3); null: eine Änderung, die die App nicht anbietet. */
+  konfiguration?: KassenAenderung[] | null;
 }
 
 /** Die jüngsten Vorschläge einer Kasse (höchstens `max`, neueste zuerst); abgeschlossene stehen nicht mehr auf der Kette. */
 export async function leseVorschlaege(rpc: SolRpc, kasse: string, stand: KassenStand, max = 10): Promise<KassenVorgang[]> {
   const indizes: bigint[] = [];
   for (let i = stand.transaktionsIndex; i >= 1n && indizes.length < max; i--) indizes.push(i);
-  const gelesen = await Promise.all(indizes.map(async (index) => {
-    const [vorschlag, t] = await Promise.all([leseVorschlagVonKette(rpc, kasse, index), leseAuszahlungVonKette(rpc, kasse, index)]);
-    return vorschlag ? { index, vorschlag, auszahlung: t?.auszahlung ?? null } : null;
+  const gelesen = await Promise.all(indizes.map(async (index): Promise<KassenVorgang | null> => {
+    const [vorschlag, konto] = await Promise.all([leseVorschlagVonKette(rpc, kasse, index), leseKonto(rpc, kassenTransaktionAdresse(kasse, index))]);
+    if (!vorschlag) return null;
+    // Unter derselben Adresse steht eine Auszahlung (VaultTransaction) oder eine Änderung (ConfigTransaction, A-12a3)
+    if (konto && istKonto(konto.daten, "ConfigTransaction")) {
+      return { index, vorschlag, auszahlung: null, konfiguration: konfigurationDesKontos(konto, kasse, index).aenderungen };
+    }
+    return { index, vorschlag, auszahlung: konto ? auszahlungDesKontos(konto, kasse, index).auszahlung : null };
   }));
   return gelesen.filter((g): g is KassenVorgang => g !== null);
+}
+
+// ---------------------------------------------------------------- A-12a3: Konfiguration ändern
+
+/**
+ * Eine Änderung der Kasse (`ConfigAction` von Squads) – nur, was die App anbietet: Mitglied dazu oder weg, Schwelle,
+ * Wartezeit (W3). Ausgabelimits und ein anderer `rent_collector` gibt es hier nicht.
+ */
+export type KassenAenderung =
+  | { art: "mitglied-dazu"; adresse: string; rechte: number }
+  | { art: "mitglied-weg"; adresse: string }
+  | { art: "schwelle"; schwelle: number }
+  | { art: "zeitschloss"; sek: number };
+
+/** Borsh: Nummer der Variante, dann ihre Felder. */
+function aenderungBytes(a: KassenAenderung): Uint8Array {
+  switch (a.art) {
+    case "mitglied-dazu":
+      if (!Number.isInteger(a.rechte) || a.rechte < 1 || a.rechte > ALLE_RECHTE) throw new Error("Rechte ungültig");
+      return verbinde(Uint8Array.of(0), schluessel(a.adresse), Uint8Array.of(a.rechte));
+    case "mitglied-weg":
+      return verbinde(Uint8Array.of(1), schluessel(a.adresse));
+    case "schwelle":
+      if (!Number.isInteger(a.schwelle) || a.schwelle < 1 || a.schwelle > 65_535) throw new Error("Schwelle ungültig");
+      return verbinde(Uint8Array.of(2), u16(a.schwelle));
+    case "zeitschloss":
+      if (!(KASSEN_ZEITSCHLOSS_SEK as readonly number[]).includes(a.sek)) throw new Error("Zeitschloss nur 0, 1 h oder 24 h");
+      return verbinde(Uint8Array.of(3), u32(a.sek));
+  }
+}
+
+/**
+ * Eine Änderung vorschlagen: die Konfigurations-Transaktion `index` (Stand der Kasse + 1) und ihr Vorschlag in einem Zug.
+ * Wie beim Auszahlen braucht `vorschlagender` das Recht „vorschlagen“, die Miete zahlt `mietZahler` (sonst er selbst).
+ * Die Änderungen nur aus `kassenAenderungen()` – dann behält die Kasse ihre Art (W2).
+ */
+export function konfigurationVorschlagenAnweisungen(p: {
+  kasse: string; index: bigint; vorschlagender: string; mietZahler?: string; aenderungen: readonly KassenAenderung[];
+}): Instruction[] {
+  if (!p.aenderungen.length) throw new Error("keine Änderung");
+  const miete = p.mietZahler ?? p.vorschlagender;
+  return [
+    anweisung(SQUADS_PROGRAMM_ID, [
+      [p.kasse, AccountRole.WRITABLE],
+      [kassenTransaktionAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+      [p.vorschlagender, AccountRole.READONLY_SIGNER],
+      [miete, AccountRole.WRITABLE_SIGNER],
+      [SYSTEM_PROGRAMM, AccountRole.READONLY],
+    ], verbinde(diskriminator("global", "config_transaction_create"), u32(p.aenderungen.length), ...p.aenderungen.map(aenderungBytes), Uint8Array.of(0))),
+    vorschlagAnlegenAnweisung(p.kasse, p.index, p.vorschlagender, miete),
+  ];
+}
+
+/**
+ * Eine angenommene Änderung ausführen; braucht das Recht „ausführen“. Kommt ein Mitglied dazu, wächst das Konto der Kasse
+ * – die Miete dafür zahlt `mietZahler`. Danach sind alle offenen Vorschläge veraltet (`veraltetBis`).
+ */
+export function konfigurationAusfuehrenAnweisung(p: { kasse: string; index: bigint; mitglied: string; mietZahler: string }): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [p.kasse, AccountRole.WRITABLE],
+    [p.mitglied, AccountRole.READONLY_SIGNER],
+    [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [kassenTransaktionAdresse(p.kasse, p.index), AccountRole.READONLY],
+    [p.mietZahler, AccountRole.WRITABLE_SIGNER],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], diskriminator("global", "config_transaction_execute"));
+}
+
+/**
+ * Größe des Kontos der Kasse, nachdem sie Platz für `mitglieder` braucht: Squads vergrößert es um zehn Plätze auf einmal,
+ * mindestens auf `kassenKontoGroesse()`, und verkleinert es nie (`realloc_if_needed`). Die Miete für den Zuwachs zahlt, wer
+ * die Änderung ausführt (`mietZahler`).
+ */
+export function kassenKontoGroesseNach(aktuell: number, mitglieder: number): number {
+  const noetig = kassenKontoGroesse(mitglieder);
+  return aktuell >= noetig ? aktuell : Math.max(aktuell + 10 * 33, noetig);
+}
+
+/** Eine Änderung abschließen (Miete an `rent_collector`) – ausgeführt, abgelehnt, abgebrochen oder veraltet. */
+export function konfigurationAbschliessenAnweisung(p: { kasse: string; index: bigint; mieteAn: string }): Instruction {
+  return anweisung(SQUADS_PROGRAMM_ID, [
+    [p.kasse, AccountRole.READONLY],
+    [kassenVorschlagAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [kassenTransaktionAdresse(p.kasse, p.index), AccountRole.WRITABLE],
+    [p.mieteAn, AccountRole.WRITABLE],
+    [SYSTEM_PROGRAMM, AccountRole.READONLY],
+  ], diskriminator("global", "config_transaction_accounts_close"));
+}
+
+export interface KassenKonfiguration {
+  kasse: string;
+  ersteller: string;
+  index: bigint;
+  /** null: mindestens eine Änderung, die die App nicht anbietet (Ausgabelimit, `rent_collector`) – nur zeigen. */
+  aenderungen: KassenAenderung[] | null;
+}
+
+/** Das Konto einer Änderung lesen (`ConfigTransaction`); wirft bei falscher Art oder Länge. */
+export function leseKonfiguration(daten: Uint8Array): KassenKonfiguration {
+  const l = new Leser(daten, "ConfigTransaction");
+  const kasse = l.adresse(), ersteller = l.adresse(), index = l.u64();
+  l.u8(); // bump
+  const anzahl = l.u32();
+  if (anzahl > 255) throw new Error("zu viele Änderungen");
+  const aenderungen: KassenAenderung[] = [];
+  for (let i = 0; i < anzahl; i++) {
+    const art = l.u8();
+    if (art === 0) aenderungen.push({ art: "mitglied-dazu", adresse: l.adresse(), rechte: l.u8() });
+    else if (art === 1) aenderungen.push({ art: "mitglied-weg", adresse: l.adresse() });
+    else if (art === 2) aenderungen.push({ art: "schwelle", schwelle: l.u16() });
+    else if (art === 3) aenderungen.push({ art: "zeitschloss", sek: l.u32() });
+    else return { kasse, ersteller, index, aenderungen: null }; // die übrigen Varianten haben andere Längen – nicht weiterlesen
+  }
+  return { kasse, ersteller, index, aenderungen };
+}
+
+function konfigurationDesKontos(k: Konto, kasse: string, index: bigint): KassenKonfiguration {
+  if (k.eigentuemer !== SQUADS_PROGRAMM_ID) throw new Error("Konto gehört nicht Squads");
+  const c = leseKonfiguration(k.daten);
+  if (c.kasse !== kasse || c.index !== index) throw new Error("Transaktion gehört nicht zu dieser Kasse");
+  return c;
+}
+
+/** Änderung `index` von der Kette; null, solange es sie nicht (mehr) gibt. */
+export async function leseKonfigurationVonKette(rpc: SolRpc, kasse: string, index: bigint): Promise<KassenKonfiguration | null> {
+  const k = await leseKonto(rpc, kassenTransaktionAdresse(kasse, index));
+  return k ? konfigurationDesKontos(k, kasse, index) : null;
+}
+
+/**
+ * Der Stand nach den Änderungen – der Reihe nach wie `config_transaction_execute`, danach die Prüfungen des Programms
+ * (keine doppelten Mitglieder, bekannte Rechte, je ein Mitglied, das vorschlägt, abstimmt und ausführt, Schwelle zwischen 1
+ * und der Zahl der Abstimmenden). Wirft, wo das Programm ablehnen würde; offene Vorschläge sind danach veraltet.
+ */
+export function kassenStandNach(stand: KassenStand, aenderungen: readonly KassenAenderung[]): KassenStand {
+  const neu: KassenStand = { ...stand, mitglieder: stand.mitglieder.map((m) => ({ ...m })), veraltetBis: stand.transaktionsIndex };
+  for (const a of aenderungen) {
+    aenderungBytes(a);
+    if (a.art === "mitglied-dazu") neu.mitglieder.push({ adresse: a.adresse, rechte: a.rechte });
+    else if (a.art === "mitglied-weg") {
+      const i = neu.mitglieder.findIndex((m) => m.adresse === a.adresse);
+      if (i < 0) throw new Error("kein Mitglied");
+      neu.mitglieder.splice(i, 1);
+    } else if (a.art === "schwelle") neu.schwelle = a.schwelle;
+    else neu.zeitschlossSek = a.sek;
+  }
+  const m = neu.mitglieder;
+  if (new Set(m.map((x) => x.adresse)).size !== m.length) throw new Error("Mitglied doppelt");
+  const mit = (recht: number) => m.filter((x) => x.rechte & recht).length;
+  if (!mit(KASSEN_RECHT.vorschlagen) || !mit(KASSEN_RECHT.ausfuehren) || !mit(KASSEN_RECHT.abstimmen)) throw new Error("Rechte fehlen");
+  if (neu.schwelle < 1 || neu.schwelle > mit(KASSEN_RECHT.abstimmen)) throw new Error("Schwelle ungültig");
+  return neu;
+}
+
+/**
+ * Die Änderungen, mit denen die Kasse ihre Art behält (W2): wer dazukommt, bekommt die Rechte der Art (bei „Gründer
+ * entscheidet“ nur vorschlagen, bei „Mehrheit“ alle), die Schwelle folgt der Mehrheit, der Gründer bleibt. Erst weg, dann
+ * dazu, dann Schwelle und Wartezeit. Wirft, wenn sich nichts ändert oder die Art nicht hielte.
+ */
+export function kassenAenderungen(stand: KassenStand, p: { dazu?: readonly string[]; weg?: readonly string[]; zeitschlossSek?: number }): KassenAenderung[] {
+  const art = kassenArt(stand);
+  if (!art) throw new Error("keine Kasse dieser App");
+  const aenderungen: KassenAenderung[] = [
+    ...(p.weg ?? []).map((adresse): KassenAenderung => ({ art: "mitglied-weg", adresse })),
+    ...(p.dazu ?? []).map((adresse): KassenAenderung => ({ art: "mitglied-dazu", adresse, rechte: art === "gruender" ? KASSEN_RECHT.vorschlagen : ALLE_RECHTE })),
+  ];
+  const anzahl = stand.mitglieder.length - (p.weg?.length ?? 0) + (p.dazu?.length ?? 0);
+  if (art === "mehrheit" && anzahl >= 2 && mehrheitVon(anzahl) !== stand.schwelle) aenderungen.push({ art: "schwelle", schwelle: mehrheitVon(anzahl) });
+  if (p.zeitschlossSek !== undefined && p.zeitschlossSek !== stand.zeitschlossSek) aenderungen.push({ art: "zeitschloss", sek: p.zeitschlossSek });
+  if (!aenderungen.length) throw new Error("keine Änderung");
+  if (kassenArt(kassenStandNach(stand, aenderungen)) !== art) throw new Error("die Kasse behielte ihre Art nicht");
+  return aenderungen;
 }
