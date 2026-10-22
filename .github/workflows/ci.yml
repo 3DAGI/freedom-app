@@ -18,7 +18,8 @@ jobs:
   test:
     name: Tests und Typpruefung
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 25 seit B-38b3: whisper-cli wird für den Sprach-Test gebaut (rund 2 min)
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +79,14 @@ jobs:
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
         # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
         run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
+
+      - name: whisper-cli fuer den Sprach-Test (B-38b3)
+        # Aus den Quellen in fester Fassung (scripts/whisper-bauen.sh, rund 2 min), dazu das Testmodell des Projekts
+        # (Gewichte ohne Sinn) – der Test prüft das echte Programm in der Sandbox. Ohne WHISPER_TEST_CLI überspringt er sich.
+        run: |
+          bash scripts/whisper-bauen.sh "$RUNNER_TEMP/whisper" --testmodell
+          echo "WHISPER_TEST_CLI=$RUNNER_TEMP/whisper/whisper-cli" >> "$GITHUB_ENV"
+          echo "WHISPER_TEST_MODELL=$RUNNER_TEMP/whisper/for-tests-ggml-tiny.bin" >> "$GITHUB_ENV"
 
       # VKk1: der Browser des Motors (Playwright MCP) läuft im Test gegen echtes Chrome in bubblewrap –
       # das Bild des Runners bringt es mit; fehlt es, soll das hier auffallen, nicht als übersprungener Test

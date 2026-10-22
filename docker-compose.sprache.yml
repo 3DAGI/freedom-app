@@ -1,0 +1,22 @@
+# Text aus Sprache auf dem eigenen Knoten unter Docker (B-38b3, docs/PROVIDER.md „Text aus Sprache“):
+#   docker compose -f docker-compose.yml -f docker-compose.sprache.yml up -d --build
+# Baut whisper-cli ins Bild (WHISPER=1, aus den Quellen in fester Fassung) und erlaubt dem Container, was bubblewrap für
+# die Sandbox braucht – dieselben Regeln wie docker-compose.vibecoden.yml (Whisper läuft je Auftrag in der Sandbox, ohne
+# Netz). Das Modell legt der Betreiber in das Volume freedom-state (Pfad unten); fehlt es, bleibt Text aus Sprache aus,
+# und das Log sagt es. Ohne diese Datei bleibt alles wie bisher.
+services:
+  node:
+    build:
+      args:
+        WHISPER: "1"
+    environment:
+      # ggml-Modell von whisper.cpp (SP-W4: large-v3-turbo-q5_0, ohne GPU base) – absoluter Pfad im Container
+      WHISPER_MODELL: "${WHISPER_MODELL:-/home/node/.freedom/whisper/ggml-large-v3-turbo-q5_0.bin}"
+      # Threads je Auftrag und Frist in Sekunden (ein Auftrag zur Zeit); GPU nur mit CUDA-Bau, siehe docs/PROVIDER.md
+      WHISPER_THREADS: "${WHISPER_THREADS:-4}"
+      WHISPER_FRIST_SEK: "${WHISPER_FRIST_SEK:-600}"
+      WHISPER_GPU: "${WHISPER_GPU:-0}"
+    security_opt:
+      - seccomp=docker/seccomp-vibecoden.json
+      - systempaths=unconfined
+      - apparmor=unconfined
