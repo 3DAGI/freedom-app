@@ -1658,3 +1658,11 @@ Ton und Text sind Inhalt: Der Knoten schreibt keins davon ins Log und hält beid
 fragt nur, wenn der Status des Knotens (§24) die Rolle `sprache` nennt – ein Knoten vor B-38b2 läse 5083 als
 gewöhnlichen Auftrag.
 
+**Im Knoten** (seit B-38b2): Den Ton holt er nur über genau das genannte Manifest – Stücke nur von dessen Autor, das
+zusammengesetzte Chiffrat muss die Blob-Id als SHA-256 haben –, öffnet ihn mit dem Schlüssel aus dem Kern (`ox` prüft den
+Klartext) und nimmt ihn nur nach `pruefeWav()`. Dann `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Programm und
+Modell nur lesbar), ein Auftrag zur Zeit. **Ablehnung** (7000, versiegelt) mit Tag `fall` aus `SPRACHE_FAELLE`:
+`sprache-auftrag` (Kern unlesbar), `sprache-ton` (Ton nicht vollständig zu holen oder zu öffnen), `sprache-wav` (nicht die
+Form aus `baueWav()`), `sprache-whisper` (Whisper scheitert), `sprache-zeit` (Frist um), `sprache-belegt` (schon ein Auftrag
+in Arbeit). Ohne Nachweis oder ohne Whisper beim Knoten antwortet er wie bei anderen Aufträgen des Besitzers.
+

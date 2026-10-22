@@ -213,9 +213,6 @@ kasse.ts|konfigurationAbschliessenAnweisung|Baustein der Kasse über Squads (A-1
 kasse.ts|konfigurationAusfuehrenAnweisung|Baustein der Kasse über Squads (A-12a3, Konfiguration ändern), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12d (Mitglieder und Schwelle)
 kasse.ts|konfigurationVorschlagenAnweisungen|Baustein der Kasse über Squads (A-12a3, Konfiguration ändern), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12d (Mitglieder und Schwelle)
 kasse.ts|leseKonfigurationVonKette|Baustein der Kasse über Squads (A-12a3, Konfiguration ändern), gegen beide Programme im Validator getestet; die App ruft ihn ab A-12d (Mitglieder und Schwelle)
-sprache-auftrag.ts|leseSpracheAuftrag|Text aus Sprache (B-38b1, nur Protokoll): der Knoten liest den Auftrag ab B-38b2
-sprache-auftrag.ts|pruefeWav|Text aus Sprache (B-38b1, nur Protokoll): der Knoten prüft den Ton ab B-38b2
-sprache-auftrag.ts|transkriptText|Text aus Sprache (B-38b1, nur Protokoll): der Knoten antwortet ab B-38b2
 sprache-auftrag.ts|baueSpracheAuftrag|Text aus Sprache (B-38b1, nur Protokoll): die App fragt ab B-38c („Als Text“, Diktieren)
 sprache-auftrag.ts|baueWav|Text aus Sprache (B-38b1, nur Protokoll): die App wandelt den Ton ab B-38c (SP-W5 A)
 sprache-auftrag.ts|leseTranskript|Text aus Sprache (B-38b1, nur Protokoll): die App liest die Antwort ab B-38c

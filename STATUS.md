@@ -12923,3 +12923,23 @@ Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, SP-W5 A). B-38b ist geteilt: b1 Prot
 gelesen, Antwort streng).
 
 Knoten-Stand: unverändert.
+
+## Schritt B-38b2 – Text aus Sprache: Whisper im eigenen Knoten
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A), auf B-38b1.
+
+- **`whisper.ts`** (neu): `whisperAusUmgebung()` (`WHISPER_MODELL`, `WHISPER_CLI`, `WHISPER_GPU`, `WHISPER_THREADS`,
+  `WHISPER_FRIST_SEK`; ungültig → aus mit Grund), `Whisper.transkribiere()` – `whisper-cli` je Auftrag über `fuehreAus()`
+  (ohne Netz, Modell und Programm als einzelne Dateien nur lesbar, schreibbar nur der Arbeitsordner), Text nur aus der
+  Ausgabedatei (`lstat`, `O_NOFOLLOW`, 64 KB), ein Auftrag zur Zeit, Ordner danach weg; `SpracheAbgelehnt` mit Kennung.
+- **`handleSprache()`** (`dvm-provider.ts`): 5083 nur versiegelt mit Nachweis; Ton über `holeVerschluesselt()` (neu
+  `blob-holen.ts`, aus `repo-bundle.ts` herausgelöst), nur nach `pruefeWav()`; Antwort versiegelt; Ablehnung mit `fall`.
+- **`main.ts`:** nur mit Modell und Sandbox, Rolle `sprache` (`STATUS_ROLLEN`, Text in der App).
+- **`sandbox.ts`:** `fuehreAus()` mit eigener Rechenzeit (`rechenzeitSek`) – `RLIMIT_CPU` zählt alle Threads.
+- **Protokoll:** `SPRACHE_FAELLE`, §43 um den Knoten und die Kennungen ergänzt.
+
+**Tests:** node +5 (`sprache.test.ts`: Umgebung, `whisper-cli` als Attrappe in echtem bubblewrap – Argumente, nur
+lesbares Modell, Verweis und Riesendatei abgelehnt, Frist, ein Auftrag zur Zeit –, Besitzer bekommt den Text ohne Log,
+Ablehnungen mit Kennung, Verdrahtung); Repo-Tests unverändert grün.
+
+Knoten-Stand: **neu nötig** für Text aus Sprache (nur mit `WHISPER_MODELL`); sonst verhält sich der Knoten wie bisher.
