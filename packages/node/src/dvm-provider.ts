@@ -54,6 +54,7 @@ import {
   KIND_DVM_WECKEN, leseWeckAnmeldung, weckAntwortText,
   KIND_DVM_TURN, turnZugangText, KIND_DVM_LIVEKIT, leseLivekitAnfrage, livekitZugaengeText,
   KIND_DVM_SIGNAL, leseSignalAnfrage, signalZugangText,
+  KIND_DVM_TEXT_AUS_SPRACHE, SPRACHE_GRENZEN, leseSpracheAuftrag, pruefeWav, transkriptText, type SpracheWahl,
   KIND_DVM_KNOTEN_CODE, codeAntwortText, codeSchrittText, leseCodeAuftrag, type CodeAktion, type CodeAntwort, type CodeSchritt,
   GRATIS_LEER, type GratisAngebot,
   leseAuftragsVerweis,
@@ -62,6 +63,8 @@ import type { WeckBuch } from "./wecken.js";
 import { type TurnDienst, turnZugang } from "./turn.js";
 import { type LivekitDienst, livekitZugaenge } from "./livekit.js";
 import type { SignalWeiterleitung } from "./signal-weiterleitung.js";
+import { holeVerschluesselt } from "./blob-holen.js";
+import { SpracheAbgelehnt } from "./whisper.js";
 import { AgentAbgelehnt, type AgentAuftrag, type KnotenAgent, type RepoFall } from "./knoten-agent.js";
 import type { PaketFall } from "./pakete.js";
 import { CodeAbgelehnt, type ProjektAblage } from "./projekte.js";
@@ -161,6 +164,8 @@ export interface ProviderConfig {
   livekit?: LivekitDienst;
   /** Signalverbindung zum Gruppenanruf weiterreichen (B-34e1, LK5 A) – nur mit eigenem Relay; ohne: keine Zeichen. */
   signal?: SignalWeiterleitung;
+  /** Text aus Sprache (B-38b2, SP-W1 A): `Whisper` in der Sandbox – nur mit Sandbox und Modell; ohne: Aufträge abgelehnt. */
+  sprache?: { transkribiere(wav: Uint8Array, sprache: SpracheWahl): Promise<string> };
   /** Projekte zum Vibecoden (A-31, VKc1, `VIBECODEN=1`) – ohne: Code-Aufträge mit `code-aus` abgelehnt. */
   projekte?: ProjektAblage;
   /** Läufe über einen ACP-Motor (VKc2) – nur mit Sandbox gebaut (VK4, VKc3); ohne: `code-ohne-motor`. */
@@ -655,7 +660,7 @@ export class DvmProvider {
           ["p", request.pubkey],
           ["status", "error"],
           // Kennung (A-14): Die App erkennt den Fall, ohne den Text zu lesen
-          ...(err instanceof GratisLeer || err instanceof AgentAbgelehnt || err instanceof CodeAbgelehnt ? [["fall", err.fall]] : []),
+          ...(err instanceof GratisLeer || err instanceof AgentAbgelehnt || err instanceof CodeAbgelehnt || err instanceof SpracheAbgelehnt ? [["fall", err.fall]] : []),
         ], `error: ${(err as Error).message.slice(0, 200)}`),
         this.cfg.keypair.sk,
       );
@@ -1057,6 +1062,55 @@ export class DvmProvider {
   }
 
   /**
+   * Text aus Sprache (5083, seit B-38b2, SP-W1 A): nur aus einem Umschlag und mit Nachweis (`istBesitzer()`). Den Ton holt
+   * der Knoten nur über `holeVerschluesselt()` – genau das genannte Manifest, Chiffrat = Blob-Id, höchstens 120 s WAV –
+   * und nimmt ihn nur in der Form von `pruefeWav()`; dann `whisper-cli` in der Sandbox. Ton und Text nie ins Log, nicht
+   * über die Antwort hinaus; abgelehnt nur mit Kennung (`SpracheAbgelehnt`).
+   */
+  private async handleSprache(request: NostrEvent, privat: boolean): Promise<ProcessedJob> {
+    const start = Date.now();
+    if (!privat || !istBesitzer(request, this.cfg.besitzer?.() ?? [], Math.floor(start / 1000))) throw new Error("Text aus Sprache nur für den Besitzer");
+    if (!this.cfg.sprache) throw new Error("kein Text aus Sprache");
+    const auftrag = leseSpracheAuftrag(getTag(request, "i") ?? "");
+    if (!auftrag) throw new SpracheAbgelehnt("sprache-auftrag");
+    const { blob, manifest, schluessel } = auftrag.ton;
+    const wav = await holeVerschluesselt(this.pool, { blob, manifest, schluessel, hoechstBytes: 44 + SPRACHE_GRENZEN.sekunden * SPRACHE_GRENZEN.abtastrate * 2 });
+    if (!wav) throw new SpracheAbgelehnt("sprache-ton");
+    let output: string;
+    let sekunden: number;
+    try {
+      const geprueft = pruefeWav(wav);
+      if (!geprueft.ok) throw new SpracheAbgelehnt("sprache-wav");
+      sekunden = geprueft.sekunden;
+      output = transkriptText({ text: await this.cfg.sprache.transkribiere(wav, auftrag.sprache), sekunden });
+    } finally {
+      wav.fill(0);
+    }
+    const resultEvent = signEvent(
+      buildJobResult({
+        providerPubkey: this.cfg.keypair.pk,
+        requestId: request.id,
+        requestKind: request.kind,
+        customerPubkey: request.pubkey,
+        output,
+        amountMsat: 0,
+      }),
+      this.cfg.keypair.sk,
+    );
+    await this.antworte(resultEvent, request, true);
+    return {
+      requestId: request.id,
+      resultEventId: resultEvent.id,
+      customerPubkey: request.pubkey,
+      amountMsat: 0,
+      providerMsat: 0,
+      aufteilung: [],
+      outputPreview: `Text aus Sprache (${Math.round(sekunden)} s Ton)`,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  /**
    * Zugänge zum Gruppenanruf (5081, seit B-34a, LK2–LK4 A): nur aus einem Umschlag und mit Nachweis
    * (`istBesitzer()`), je Teilnehmer ein frischer Zugang (`livekitZugaenge()`) für genau den gefragten Raum. Die
    * Zugänge reisen nur versiegelt und gehen nie ins Log; nach außen nur feste Texte.
@@ -1210,6 +1264,8 @@ export class DvmProvider {
     if (request.kind === KIND_DVM_LIVEKIT) return this.handleLivekit(request, privat);
     // Signalverbindung zum Gruppenanruf weiterreichen (5082, B-34e1): nur versiegelt und mit Nachweis
     if (request.kind === KIND_DVM_SIGNAL) return this.handleSignal(request, privat);
+    // Text aus Sprache (5083, B-38b2): nur versiegelt und mit Nachweis
+    if (request.kind === KIND_DVM_TEXT_AUS_SPRACHE) return this.handleSprache(request, privat);
     const input = getTag(request, "i");
     const bidMsat = Number(getTag(request, "bid") ?? "0");
     const sessionId = getTag(request, "session");

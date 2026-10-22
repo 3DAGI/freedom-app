@@ -75,6 +75,14 @@ export function leseSpracheAuftrag(text: string): SpracheAuftrag | null {
   return { ton: { blob, manifest, schluessel: { alg: s.alg, key: s.key, nonce: s.nonce, ox: s.ox } }, sprache: sprache as SpracheWahl };
 }
 
+/**
+ * Warum der Knoten ablehnt – nur über die Kennung (Tag `fall` der Rückmeldung), nie Text vom Knoten: Auftrag unlesbar,
+ * Ton nicht vollständig zu holen oder zu öffnen, keine WAV in der Form von `baueWav()`, Whisper scheitert, Frist um,
+ * schon ein Auftrag in Arbeit.
+ */
+export const SPRACHE_FAELLE = ["sprache-auftrag", "sprache-ton", "sprache-wav", "sprache-whisper", "sprache-zeit", "sprache-belegt"] as const;
+export type SpracheFall = (typeof SPRACHE_FAELLE)[number];
+
 /** Was der Knoten zurückgibt (6083). */
 export interface Transkript {
   text: string;

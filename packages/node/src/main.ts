@@ -39,6 +39,7 @@ import { type Befund, befundeText, holeJson, kettenBlick, pruefeEinrichtung } fr
 import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidDatei, weckDatei } from "./wecken.js";
 import { turnAusUmgebung } from "./turn.js";
 import { livekitAusUmgebung } from "./livekit.js";
+import { Whisper, whisperAusUmgebung } from "./whisper.js";
 import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { pruefeSandbox, sandboxText } from "./sandbox.js";
@@ -443,6 +444,15 @@ async function main(): Promise<void> {
   const { dienst: livekit, grund: livekitGrund } = livekitAusUmgebung(process.env);
   console.log(livekit ? `[livekit] Zugänge für den Besitzer an (je ${livekit.gueltigSek} s)` : `[livekit] ${livekitGrund}`);
   if (livekit) statusRollen.add("livekit");
+  // Text aus Sprache (B-38b2, SP-W1 A): whisper-cli je Auftrag in der Sandbox – nur mit Modell und nur, wenn die Sandbox geht
+  const { dienst: whisperDienst, grund: whisperGrund } = whisperAusUmgebung(process.env);
+  let sprache: Whisper | undefined;
+  if (whisperDienst) {
+    const sb = await pruefeSandbox();
+    if (sb.ok) sprache = new Whisper(whisperDienst);
+    console.log(sb.ok ? `[sprache] Text aus Sprache für den Besitzer an (${whisperDienst.gpu ? "GPU" : "CPU"}, ${whisperDienst.threads} Threads)` : `[sprache] aus – ${sandboxText(sb)}`);
+  } else console.log(`[sprache] ${whisperGrund}`);
+  if (sprache) statusRollen.add("sprache");
   // Signalverbindung zu fremden Gruppenanrufen (B-34e1, LK5 A): nur mit eigenem Relay – die App erreicht den Knoten über
   // dessen Port. Zum SFU über Tor, wenn der Knoten Tor nutzt; ohne Tor nur zu öffentlichen Adressen.
   const signal = process.env.RELAY_ENABLED === "1"
@@ -629,6 +639,7 @@ async function main(): Promise<void> {
       ...(vorschau ? { vorschau } : {}),
       livekit,
       signal,
+      ...(sprache ? { sprache } : {}),
       lud16,
       werber,
       besitzer: () => { const k = leseKopplung(kopplungOrt, keypair.pk); return k ? [k.geheimnis] : []; },
