@@ -12730,3 +12730,28 @@ Spur A, `docs/KASSE-ENTWURF.md` (V2, V4, V7, W2, W3). Zweiter App-Teil der Kasse
 - **Gegenproben:** falsche Größe (alle 12 Validator-Tests rot); App über den gemeinsamen Pool, Pool mit den eingebauten Endpunkten, private Definition ohne Kasse, Anlegen trotz vorhandener Kasse – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2c – Kasse im Raum: Stand und einzahlen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V2, V3, V4, V7, W2). Dritter App-Teil der Kasse im Raum, auf A-12b2b.
+
+**Neu:**
+- **Raum-Menü „Kasse …“** (`shell/raum-kasse-ui.ts`, `zeigeKasse()`), sichtbar, sobald der Raum eine Kasse hat; als Person, nie als Gerät:
+  - Liest die Kasse von der Kette – nur auf Devnet über eigene Endpunkte (`devnetRpc()`).
+  - Zeigt Tresor, Guthaben, Art, Wartezeit und Mitglieder (`kassenStandText()`, neu `kasse-anzeige.ts`, ohne DOM).
+  - Zeigt jede Abweichung zum Raum (`kassenAbweichungen()`, V3): Recht ohne Mitgliedschaft (mit oder ohne genannte Adresse), Mitgliedschaft ohne Recht (bekannt oder unbekannt). Es zählt die Kette.
+  - Eine Kasse anderer Form (etwa mit Verwalter) zeigt sie nur; einzahlen dort nie.
+- **Einzahlen** (`zahleInKasse()` in `shell/zahlschienen.ts`): an den Tresor, nur mit der eingebauten Wallet, nur auf Devnet, nur in Kassen, die `kassenArt()` kennt.
+  - Die erste Einzahlung muss die Miete des Tresors decken, sonst ein klarer Hinweis statt der Ablehnung der Kette.
+  - Erst die Rückfrage mit Betrag, Tresor und Zahler, dann das Tageslimit (`freigabe()`), dann senden mit Vorabsimulation.
+  - Bei „Gründer entscheidet“ sagt die Rückfrage, dass der Gründer allein verfügt (Entwurf, W2: bei jeder Einzahlung).
+  - Zahler wie beim Anlegen über `kassenZahler()` – am liebsten die eigene Adresse für die Kasse.
+- **Grenze „raum-kasse“:** Der Satz zum Zahler gilt jetzt für Anlegen und Einzahlen (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung), Fallstrick in `packages/app/CLAUDE.md`, OFFEN (b2c raus, Gerätetest ergänzt), FORTSCHRITT, Stand; 4 Ausnahmen in `wiring-ausnahmen.txt` fallen weg.
+
+**Tests:**
+- **app +2:** Text des Stands (beide Arten, fremde Form, Wartezeiten, alle vier Arten von Abweichung, „stimmen überein“); Verdrahtung (nur Devnet, nur Kassen der App, Miete, Reihenfolge Rückfrage → Tageslimit → bauen → senden, fremde Form nur zeigen, Hinweis bei „Gründer entscheidet“, Menüpunkt).
+- **protocol:** der Satz im Bericht (Test angepasst an „anlegt oder einzahlt“).
+- **Gegenproben:** vertauschte Abweichung, falsche Art, Einzahlen ohne Prüfung der Art, ohne Tageslimit – je ein Test rot.
+
+Knoten-Stand: keiner nötig.

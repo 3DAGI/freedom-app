@@ -172,6 +172,13 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   sonst sagt der Text, dass eine andere damit verbunden wird. Bei „Gründer entscheidet“ sagt er, dass der Gründer allein
   verfügt. Danach steht die Kasse in der Definition – offen eine neue des Gründers, privat über die Stelle mit den Ketten;
   scheitert das, fragt die App, bis es gelingt oder man abbricht.
+- **A-12b2c (22.10.2026):** Stand und Einzahlen. „Kasse …“ im Raum-Menü liest die Kasse von der Kette (nur Devnet, eigene
+  Endpunkte) und zeigt Tresor, Guthaben, Art, Wartezeit und Mitglieder, dazu jede Abweichung zum Raum (V3): Recht ohne
+  Mitgliedschaft (mit oder ohne genannte Adresse), Mitgliedschaft ohne Recht (bekannt oder unbekannt). Es zählt die Kette.
+  Eingezahlt wird an den Tresor, nur in eine Kasse, die die App so anlegen würde (`kassenArt()`, ohne Verwalter) – eine
+  andere zeigt sie nur. Vorher die Rückfrage mit dem Zahler (am liebsten die eigene Adresse für die Kasse), danach das
+  Tageslimit der Wallet; bei „Gründer entscheidet“ sagt sie, dass der Gründer allein verfügt (W2). Die erste Einzahlung
+  muss die Miete des Tresors decken.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,

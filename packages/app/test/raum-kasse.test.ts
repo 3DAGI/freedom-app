@@ -3,13 +3,15 @@
  * weist eine frische Adresse nach (nur den festen Text der Kasse), offen geht die Meldung an die Adresse des
  * Raums, privat nur in die Gruppe; die Neuschreib-Stellen der privaten Definition geben die Kasse mit.
  * A-12b2b: die Kasse anlegen – nur über eigene Devnet-Endpunkte, mit der eingebauten Wallet – und in die Definition schreiben.
+ * A-12b2c: Stand von der Kette mit Abweichungen zum Raum zeigen, einzahlen – ebenso nur Devnet, nur in Kassen der App.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { base58 } from "@scure/base";
-import { baueKasseAnlegen, deriveSolanaKey, kassenOrt, pruefeKassenNachweis, raumAdresse } from "@freedomstack/protocol";
+import { KASSEN_RECHT, baueKasseAnlegen, deriveSolanaKey, kassenOrt, kassenTresor, pruefeKassenNachweis, raumAdresse, type KassenStand } from "@freedomstack/protocol";
+import { kassenStandText, zeitschlossText } from "../src/kasse-anzeige.js";
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type WalletSpeicher } from "../src/sol-wallet.js";
 import { setLang } from "../src/i18n.js";
@@ -107,7 +109,8 @@ test("A-12b2b: Verdrahtet – anlegen nur über eigene Devnet-Endpunkte, erst Ko
   assert.match(anlegen, /if \(!eigene\.includes\(p\.gruender\)\) throw/);
   assert.ok(anlegen.indexOf("await bestaetige(") < anlegen.indexOf("baueKasseAnlegen("), "erst die Kosten, dann die Transaktion");
   assert.match(anlegen, /await sendeUndBestaetige\(rpc, e\.signiereTransaktion\(tx\), lebensdauer\.letzteHoehe\);/);
-  assert.match(anlegen, /waehleAbsender\(guthaben\.filter\(\(g\) => g\.adresse === p\.gruender\), betrag\)/, "am liebsten zahlt die Adresse für die Kasse");
+  assert.match(anlegen, /await kassenZahler\(rpc, e, miete \+ gebuehr \+ UEBERWEISUNG_GEBUEHR, p\.gruender\)/, "am liebsten zahlt die Adresse für die Kasse");
+  assert.match(zs, /waehleAbsender\(guthaben\.filter\(\(g\) => g\.adresse === bevorzugt\), betrag\)/);
   const st = lies("shell/state.ts");
   const devnet = st.slice(st.indexOf("export async function devnetRpc("), st.indexOf("/** Beste erreichbare RPC-URL"));
   assert.match(devnet, /await endpunkteImNetz\(eigene, GENESIS_DEVNET\)/);
@@ -129,4 +132,71 @@ test("A-12b2b: Verdrahtet – anlegen nur über eigene Devnet-Endpunkte, erst Ko
   assert.match(raeume, /getElementById\("space-kasse-anlegen"\)\?\.classList\.toggle\("hidden", !verwalten \|\| alsGeraet\(\) \|\| !agentOrt\(\) \|\| !st\?\.space \|\| !!st\.space\.kasse\);/);
   assert.match(raeume, /m\.legeKasseImRaumAn\(ort, /);
   assert.match(lies("shell/index.html"), /id="space-kasse-anlegen" class="menue-punkt hidden"[^>]*data-i18n="kasse\.anlegenMenue"/);
+});
+
+test("A-12b2c: der Stand nennt, was die Kette sagt – Tresor, Art, Wartezeit, Mitglieder – und jede Abweichung zum Raum", () => {
+  const KASSE = phantom(20), A = phantom(21), B = phantom(22), C = phantom(23);
+  const ALLE_RECHTE = KASSEN_RECHT.vorschlagen | KASSEN_RECHT.abstimmen | KASSEN_RECHT.ausfuehren;
+  const stand = (s: Partial<KassenStand>): KassenStand => ({
+    createKey: phantom(24), verwalter: null, schwelle: 1, zeitschlossSek: 0, transaktionsIndex: 0n, veraltetBis: 0n, mieteAn: kassenTresor(KASSE), bump: 255,
+    mitglieder: [{ adresse: A, rechte: ALLE_RECHTE }, { adresse: B, rechte: KASSEN_RECHT.vorschlagen }], ...s,
+  });
+  const name = (pk: string) => `~${pk.slice(0, 4)}`;
+  const leer = { rechtOhneMitgliedschaft: [], mitgliedschaftOhneRecht: [] };
+  const gruender = kassenStandText({ kasse: KASSE, stand: stand({}), guthaben: 1_500_000_000, abweichungen: leer, name });
+  assert.equal(gruender.split("\n")[0], `Tresor: ${kassenTresor(KASSE)}`);
+  assert.match(gruender, /Guthaben: 1,5 SOL/);
+  assert.match(gruender, /Der Gründer entscheidet allein/);
+  assert.match(gruender, /Wartezeit vor dem Auszahlen: keine/);
+  assert.match(gruender, /Mitglieder auf der Kette: 2/);
+  assert.match(gruender, /Raum und Kette stimmen überein\.$/);
+
+  const mehrheit = stand({ schwelle: 2, zeitschlossSek: 86_400, mitglieder: [A, B, C].map((adresse) => ({ adresse, rechte: ALLE_RECHTE })) });
+  const abw = {
+    rechtOhneMitgliedschaft: [{ pubkey: "aa".repeat(32), adresse: phantom(25) }, { pubkey: "bb".repeat(32) }],
+    mitgliedschaftOhneRecht: [{ adresse: B, pubkey: "cc".repeat(32) }, { adresse: C }],
+  };
+  const text = kassenStandText({ kasse: KASSE, stand: mehrheit, guthaben: 0, abweichungen: abw, name });
+  assert.match(text, /Art: Mehrheit – 2 von 3 Stimmen/);
+  assert.match(text, /Wartezeit vor dem Auszahlen: 24 Stunden/);
+  assert.match(text, /Abweichungen – es zählt die Kette:/);
+  assert.match(text, /· ~aaaa hat das Recht „kasse“ und eine Adresse genannt, ist aber nicht in der Kasse\./);
+  assert.match(text, /· ~bbbb hat das Recht „kasse“, aber keine Adresse genannt\./);
+  assert.ok(text.includes(`· ~cccc ist in der Kasse (${B}), hat das Recht „kasse“ aber nicht (mehr).`));
+  assert.ok(text.includes(`· ${C} ist in der Kasse, aber niemand im Raum nennt diese Adresse.`));
+  assert.doesNotMatch(text, /stimmen überein/);
+
+  assert.match(kassenStandText({ kasse: KASSE, stand: stand({ verwalter: D() }), guthaben: 0, abweichungen: leer, name }), /eine Form, die die App nicht anlegt/, "mit Verwalter: keine Art der App");
+  assert.equal(zeitschlossText(3600), "1 Stunde");
+  assert.equal(zeitschlossText(60), "60 Sekunden", "eine fremde Wartezeit in Sekunden");
+  function D() { return phantom(26); }
+});
+
+test("A-12b2c: Verdrahtet – Stand und Einzahlen nur über eigene Devnet-Endpunkte, nur in Kassen der App, erst Rückfrage, dann Tageslimit", () => {
+  const zs = lies("shell/zahlschienen.ts");
+  const ein = zs.slice(zs.indexOf("export async function zahleInKasse("), zs.indexOf("/** Den Wert neu lesen"));
+  assert.match(ein, /const rpc = await devnetRpc\(\);\n  if \(!rpc\) throw new Error\(t\("kasse\.nurDevnet"\)\);/);
+  assert.doesNotMatch(ein, /solRpc\(/, "nie über den gemeinsamen Pool");
+  assert.match(ein, /if \(!stand \|\| !kassenArt\(stand\)\) throw new Error\(t\("kasse\.nichtEinzahlen"\)\);/, "nur in Kassen ohne Verwalter");
+  assert.match(ein, /if \(vorher \+ p\.lamports < MIETE_LEERES_KONTO\) throw/);
+  assert.match(ein, /const tresor = kassenTresor\(p\.kasse\);/);
+  assert.match(ein, /await kassenZahler\(rpc, e, p\.lamports, p\.bevorzugt\)/);
+  const reihe = ["await bestaetige({ zahler, tresor })", "e.freigabe(p.lamports, tresor, bestaetigeUeberLimit)", "baueTransaktion(", "await sendeUndBestaetige(rpc, e.signiereTransaktion(tx)"].map((x) => ein.indexOf(x));
+  assert.ok(reihe.every((i, n) => i > 0 && (n === 0 || i > reihe[n - 1]!)), "erst Rückfrage, dann Tageslimit, dann bauen und senden");
+  assert.match(ein, /ueberweisungAnweisung\(\{ von: zahler, an: tresor, lamports: BigInt\(p\.lamports\) \}\)/);
+
+  const ui = lies("shell/raum-kasse-ui.ts");
+  const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("));
+  assert.match(zeige, /const rpc = await devnetRpc\(\);/);
+  assert.doesNotMatch(zeige, /solRpc\(/);
+  assert.match(zeige, /kassenAbweichungen\(\{ mitglieder: stand\.mitglieder, adressen, zustand \}\)/);
+  assert.ok(zeige.indexOf("if (!art) {") < zeige.indexOf("await dialog("), "eine fremde Form nur zeigen, nie einzahlen");
+  assert.ok(zeige.indexOf("await verlangeTresor(") < zeige.indexOf("await zahleInKasse("));
+  assert.match(zeige, /bevorzugt: adressen\.get\(ich\)/);
+  assert.match(zeige, /art === "gruender" \? \[t\("kasse\.ehrlichGruenderEinzahlen"\)\]/, "Gründer entscheidet: bei jeder Einzahlung gesagt");
+
+  const raeume = lies("shell/tabs/raeume.ts");
+  assert.match(raeume, /const kasseStand = !!agentOrt\(\) && !alsGeraet\(\) && !!state\.keypair && !!st\?\.space\?\.kasse;/);
+  assert.match(raeume, /m\.zeigeKasse\(ort, spacesUi\.state as SpaceState \| undefined, kontaktName\)/);
+  assert.match(lies("shell/index.html"), /id="space-kasse" class="menue-punkt hidden"[^>]*data-i18n="kasse\.menue"/);
 });
