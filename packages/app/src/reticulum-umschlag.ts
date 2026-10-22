@@ -12,6 +12,7 @@
  */
 import { MeshKind, pruefeMeshInhalt, type MeshPruefung } from "@freedomstack/protocol";
 import type { Identity } from "@reticulum/core";
+import type { Message } from "@reticulum/lxmf/src/message.js";
 
 export const LS_RETICULUM_IDENTITAET = "freedom.reticulum.identitaet";
 /** Kennung der Daten in `FIELD_CUSTOM_TYPE` – eine andere Form hieße eine neue Fassung. */
@@ -20,7 +21,7 @@ export const RETICULUM_ART = "freedom/mesh-1";
 export const RETICULUM_GRENZEN = Object.freeze({ nutzlast: 65_535, draht: 65_535 + 1024 });
 
 /** Warum etwas nicht ging – die App zeigt es ab B-32b über die Kennung, nie über die Meldung. */
-export type ReticulumFall = "identitaet-kaputt" | "adresse" | "zu-gross" | "inhalt";
+export type ReticulumFall = "identitaet-kaputt" | "adresse" | "zu-gross" | "inhalt" | "sendezeit";
 
 export class ReticulumFehler extends Error {
   constructor(readonly fall: ReticulumFall, readonly pruefung?: Extract<MeshPruefung, { ok: false }>) {
@@ -76,6 +77,13 @@ export async function lxmfAdresse(identitaet: Identity): Promise<Uint8Array> {
 export async function verpackeFuerReticulum(p: {
   payload: Uint8Array; kind: MeshKind; von: Identity; an: Uint8Array; eigeneSchluessel: readonly string[];
 }): Promise<Uint8Array> {
+  return (await (await baueReticulumNachricht(p)).serialize(p.von)).wireData;
+}
+
+/** Die LXMF-Nachricht selbst – geprüft wie `verpackeFuerReticulum()`; der Router (B-32b2) serialisiert sie beim Senden. */
+export async function baueReticulumNachricht(p: {
+  payload: Uint8Array; kind: MeshKind; von: Identity; an: Uint8Array; eigeneSchluessel: readonly string[];
+}): Promise<Message> {
   if (p.an.length !== 16) throw new ReticulumFehler("adresse");
   if (p.payload.length > RETICULUM_GRENZEN.nutzlast) throw new ReticulumFehler("zu-gross");
   const pruefung = pruefeMeshInhalt(p.payload, p.kind, { eigeneSchluessel: p.eigeneSchluessel });
@@ -84,12 +92,11 @@ export async function verpackeFuerReticulum(p: {
   const daten = new Uint8Array(1 + p.payload.length);
   daten[0] = p.kind;
   daten.set(p.payload, 1);
-  const m = new Message({
+  return new Message({
     sourceHash: await lxmfAdresse(p.von), destinationHash: p.an, title: "", content: "",
     // Zahlen als Schlüssel (wie die Python-Referenz) – ein Objekt machte daraus Text
     fields: new Map<number, unknown>([[FIELD_CUSTOM_TYPE, RETICULUM_ART], [FIELD_CUSTOM_DATA, daten]]),
   });
-  return (await m.serialize(p.von)).wireData;
 }
 
 /**
@@ -108,8 +115,17 @@ export async function entpackeAusReticulum(wire: Uint8Array, eigeneAdresse: Uint
   } catch {
     return null;
   }
+  return leseReticulumFelder(m.fields);
+}
+
+/**
+ * Die Daten der App aus den Feldern einer LXMF-Nachricht – nur `RETICULUM_ART`, nur was `pruefeMeshInhalt()`
+ * durchlässt; sonst null. Für Nachrichten, die der Router (B-32b2) schon ausgepackt hat.
+ */
+export function leseReticulumFelder(felder: unknown): { kind: MeshKind; payload: Uint8Array } | null {
+  if (typeof felder !== "object" || felder === null) return null;
   // der Decoder liefert Schlüssel als Text oder Zahl, je nach Herkunft
-  const f = m.fields as Map<unknown, unknown> | Record<string, unknown>;
+  const f = felder as Map<unknown, unknown> | Record<string, unknown>;
   const feld = (k: number): unknown => (f instanceof Map ? f.get(k) ?? f.get(String(k)) : f[String(k)]);
   const daten = feld(FIELD_CUSTOM_DATA);
   if (feld(FIELD_CUSTOM_TYPE) !== RETICULUM_ART || !(daten instanceof Uint8Array) || daten.length < 2) return null;

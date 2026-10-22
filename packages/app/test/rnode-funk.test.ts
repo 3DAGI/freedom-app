@@ -6,8 +6,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FUNK_REGIONEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, maxSendeleistungDbm, pruefeFunkParameter, rnodeOptionen, verbindeRNode,
-  type FunkParameter, type FunkWahl, type RNodePort,
+  type FunkParameter, type FunkWahl,
 } from "../src/rnode-funk.js";
+import { CMD, rnodeAttrappe } from "./rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN.find((r) => r.kennung === "eu-869")!;
 const wahl = (p: Partial<FunkParameter> = {}, region = "eu-869"): FunkWahl => ({
@@ -61,63 +62,6 @@ test("B-32b1: gemerkt wird nur eine bestätigte, gültige Wahl", () => {
   assert.deepEqual(rnodeOptionen(w), { ...w.parameter, airtimeLimitLong: 10 }, "die Firmware sperrt selbst bei 10 % Sendezeit");
   assert.throws(() => rnodeOptionen(wahl({ frequency: 1 })), RangeError);
 });
-
-// --- eine RNode zum Prüfen: antwortet wie die Firmware (KISS, Befehle zurückgemeldet) ---
-
-const FEND = 0xc0, FESC = 0xdb, TFEND = 0xdc, TFESC = 0xdd;
-const CMD = { FREQUENZ: 0x01, BANDBREITE: 0x02, LEISTUNG: 0x03, SF: 0x04, CR: 0x05, ZUSTAND: 0x06, DETECT: 0x08, LEAVE: 0x0a, ST_ALOCK: 0x0b, LT_ALOCK: 0x0c, PLATTFORM: 0x48, MCU: 0x49, FW: 0x50 };
-
-function rnodeAttrappe(o: { firmware?: [number, number]; leistungMeldet?: number } = {}) {
-  const befehle: Array<{ cmd: number; daten: number[] }> = [];
-  let ausgabe!: ReadableStreamDefaultController<Uint8Array>;
-  const sende = (cmd: number, daten: number[]) => {
-    const roh: number[] = [];
-    for (const b of daten) roh.push(...(b === FEND ? [FESC, TFEND] : b === FESC ? [FESC, TFESC] : [b]));
-    ausgabe.enqueue(Uint8Array.from([FEND, cmd, ...roh, FEND]));
-  };
-  let rahmen: number[] = [];
-  let esc = false;
-  const antworte = (cmd: number, daten: number[]) => {
-    befehle.push({ cmd, daten });
-    if (cmd === CMD.DETECT) return sende(cmd, [0x46]);
-    if (cmd === CMD.FW) return sende(cmd, o.firmware ?? [1, 82]);
-    if (cmd === CMD.PLATTFORM) return sende(cmd, [0x80]);
-    if (cmd === CMD.MCU) return sende(cmd, [0x81]);
-    if (cmd === CMD.LEISTUNG && o.leistungMeldet !== undefined) return sende(cmd, [o.leistungMeldet]);
-    if ([CMD.FREQUENZ, CMD.BANDBREITE, CMD.LEISTUNG, CMD.SF, CMD.CR, CMD.ZUSTAND, CMD.ST_ALOCK, CMD.LT_ALOCK].includes(cmd)) return sende(cmd, daten);
-  };
-  let offen = false;
-  const port: RNodePort & { geschlossen: boolean } = {
-    geschlossen: false,
-    readable: null,
-    writable: null,
-    async open() {
-      offen = true;
-      port.readable = new ReadableStream<Uint8Array>({ start: (c) => { ausgabe = c; } });
-      port.writable = new WritableStream<Uint8Array>({
-        write(stueck) {
-          for (const b of stueck) {
-            if (b === FEND) {
-              if (rahmen.length > 0) antworte(rahmen[0]!, rahmen.slice(1));
-              rahmen = [];
-              continue;
-            }
-            if (esc) {
-              rahmen.push(b === TFEND ? FEND : b === TFESC ? FESC : b);
-              esc = false;
-            } else if (b === FESC) esc = true;
-            else rahmen.push(b);
-          }
-        },
-      });
-    },
-    async close() {
-      offen = false;
-      port.geschlossen = true;
-    },
-  };
-  return { port, befehle, offen: () => offen };
-}
 
 const u32 = (d: number[]) => ((d[0]! << 24) >>> 0) + (d[1]! << 16) + (d[2]! << 8) + d[3]!;
 

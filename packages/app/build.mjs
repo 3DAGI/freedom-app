@@ -114,6 +114,29 @@ const result = await build({
       });
     },
   }, {
+    // Reticulum (B-32b2): wie livekit-client vorab minifiziert, sonst wüchse freedom.html um gepackt etwa 160 KB statt
+    // etwa 60 KB (W5: unter 150 KB). Alle Pfade in die Bibliothek führen auf EIN Modul – zwei Kopien von
+    // `@reticulum/core` hätten getrennte Tabellen für Wege und Ziele (die Bibliothek warnt dann selbst).
+    name: "reticulum-klein",
+    setup(b) {
+      b.onResolve({ filter: /^@reticulum\// }, () => ({ path: "reticulum", namespace: "freedom-ret" }));
+      b.onLoad({ filter: /^reticulum$/, namespace: "freedom-ret" }, async () => {
+        const ret = await build({
+          stdin: {
+            contents: [
+              'export * from "@reticulum/core";',
+              'export { RNodeWebSerialInterface } from "@reticulum/core/src/interfaces/rnode-webserial.js";',
+              'export { LXMRouter } from "@reticulum/lxmf/src/router.js";',
+              'export { Message } from "@reticulum/lxmf/src/message.js";',
+            ].join("\n"),
+            resolveDir: root, loader: "js",
+          },
+          bundle: true, format: "esm", platform: "browser", target: "es2020", minify: true, write: false, logLevel: "warning",
+        });
+        return { contents: ret.outputFiles[0].text, loader: "js", resolveDir: root };
+      });
+    },
+  }, {
     // Gruppenanrufe (B-34c2): der E2EE-Worker von livekit-client als Text im einen Skript –
     // die App startet ihn aus einer blob:-Adresse (die CSP erlaubt solche Worker seit B-12c). Kein eigenes Netz,
     // keine zweite Datei; gebaut wie das Bundle (iife, minifiziert, bitgleich).

@@ -71,8 +71,9 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 |---|---|---|
 | B-32a | Abhängigkeit gepinnt, Identität im Tresor, Umschlag in LXMF ein- und auspacken (`pruefeMeshInhalt()`), Größe gemessen | ~250 |
 | B-32b1 ✓ | App: Funkparameter je Region (RN-W6 A) mit Quelle, Prüfung der Grenzen, RNode über WebSerial verbinden (Sendezeit-Sperre der Region in der Firmware), Knopf im Funk-Bereich – die RNode hört nur zu | ~250 |
-| B-32b2 | App: Reticulum über die RNode – eigenes LXMF-Ziel, Umschläge senden und empfangen, Sendezeitkonto | ~300 |
-| B-32b3 | Oberfläche (abweichende Werte innerhalb der Grenzen, Adresse per QR), Datenschutz-Grenze „reticulum-ankuendigung“, Smoke-Test mit Attrappe | ~250 |
+| B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
+| B-32b3 | Senden: Gegenstelle (Adresse eintippen oder per QR), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
+| B-32b4 | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
@@ -132,6 +133,32 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
   älter als 1.52 ist. Im Funk-Bereich: Knopf „RNode (Reticulum)“ → Region bestätigen → Port → verbunden. Vorerst hört die
   RNode nur zu; gesendet wird über sie erst mit B-32b2.
 - **Größe (W5):** `freedom.html` +192 KB, gepackt +41 KB.
+
+## Stand B-32b2 (22.10.2026)
+
+- **Kern:** `starteReticulum()` (`app/src/reticulum-funk.ts`) – ein Reticulum-Kern (`@reticulum/core`, ohne Speicher: Pfade
+  und Identitäten nur für die Sitzung) mit der RNode als einziger Schnittstelle und dem LXMF-Router der Bibliothek
+  (`@reticulum/lxmf/src/router.js`, nicht der Sammelpunkt mit Propagation-Knoten). Das eigene Ziel ist `lxmf.delivery` der
+  Identität aus B-32a. Was ankommt, geht nur weiter, wenn `leseReticulumFelder()` es durchlässt – dann wie Funk über
+  `nimmFunkInhalt()` (`tabs/mesh.ts`, dieselbe Stelle wie Meshtastic).
+- **Sendezeit (V3):** Jedes Paket an die RNode geht durch `send()` der Schnittstelle – auch was der Kern von sich aus
+  schickt (Antwort auf eine Pfad-Anfrage, Bestätigung, Link). Dort bucht `RETICULUM_KONTO` (`Sendezeitkonto`, 1 % je
+  Stunde, eines je Sitzung) nach `rnodeSendezeit()` (Semtech, Präambel wie die Firmware: mindestens 18 Symbole, sonst
+  24 ms; über 254 Byte zwei Rahmen). Was nicht mehr hineinpasst, geht still verloren wie ein Paket im Funk – ein Fehler
+  ließe den Schreibstrom des Kerns für immer scheitern (Gegenprobe im Test). Vor dem Senden einer Nachricht prüft
+  `sende()` das Konto und meldet `sendezeit`.
+- **Gemessen** (zwei RNode-Attrappen, SF 8, 125 kHz): ein Umschlag von 2,9 KB kostet den Absender 12 Pakete und etwa
+  11,4 s Sendezeit (Pfad-Anfrage, Link, Ressource in Stücken), den Empfänger 5 Pakete und etwa 2 s. Mit 36 s je Stunde
+  sind das etwa drei solche Nachrichten je Stunde.
+- **Von sich aus nichts:** Die App kündigt ihr Ziel nicht an; erst wer nach der Adresse fragt, bekommt eine Antwort –
+  sie trägt Adresse und öffentlichen Schlüssel offen. Grenze „reticulum-ankuendigung“ im Datenschutzbericht.
+- **Senden** baut `sende()` schon (geprüft wie `verpackeFuerReticulum()`, `fallback: "opportunistic"`); aufgerufen wird es
+  erst mit B-32b3, wenn die App eine Gegenstelle kennt.
+- **Größe (W5):** Das Bundle der App ist nicht minifiziert – mit Kern und Router wäre `freedom.html` gepackt um weitere
+  117 KB gewachsen, zusammen mit b1 über die 150 KB aus W5. Deshalb wie bei `livekit-client` vorab minifiziert (Plugin
+  „reticulum-klein“ in `build.mjs`), und alle Pfade in die Bibliothek führen auf EIN Modul – zwei Kopien des Kerns
+  hätten getrennte Tabellen für Wege und Ziele. Reticulum insgesamt (b1 und b2) gegenüber dem Stand vor b1: +332 KB,
+  gepackt +80 KB. Die Tests liefen zusätzlich gegen genau dieses Modul (Umschlag A → B, Sendezeit).
 
 ## Quellen
 

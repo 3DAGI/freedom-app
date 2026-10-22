@@ -3,3 +3,7 @@
 declare module "@reticulum/lxmf/src/message.js" {
   export { Message } from "@reticulum/lxmf/types/src/message.js";
 }
+// Ebenso der Router allein (B-32b2) – nicht der Sammelpunkt mit Propagation-Knoten und Papier-Nachrichten.
+declare module "@reticulum/lxmf/src/router.js" {
+  export { LXMRouter } from "@reticulum/lxmf/types/src/router.js";
+}

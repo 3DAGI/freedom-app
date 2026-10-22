@@ -955,3 +955,14 @@ Fallstricke dieses Bereichs unten anhängen.
   dort nicht – nie eine Vorgabe raten. Neue Regionen oder Grenzen nur mit dem Primärtext (Beschluss der Kommission bzw. der
   Behörde des Landes) und Testfall. Verbunden wird nur über `verbindeRNode()` (`RNodeWebSerialInterface`, prüft das Echo der
   Firmware); Meldungen der Bibliothek nie zeigen. Im Test spricht eine Attrappe KISS wie die Firmware (`rnode-funk.test.ts`).
+- **Reticulum über die RNode nur über `starteReticulum()`** (seit B-32b2, `reticulum-funk.ts`): Jedes Paket an die RNode
+  geht durch das umgelegte `send()` der Schnittstelle und bucht `RETICULUM_KONTO` (`rnodeSendezeit()`); was nicht
+  hineinpasst, wird still verworfen und gezählt – nie dort werfen, ein Fehler im Schreibstrom des Kerns bliebe für immer.
+  Nie ein Paket an der Schnittstelle vorbei schreiben. Von sich aus kündigt die App nichts an (`announce()`/
+  `startAnnouncing()` nie aufrufen – die Grenze „reticulum-ankuendigung“ sagt „erst wer fragt“). Was ankommt, nur über
+  `leseReticulumFelder()` und dann `nimmFunkInhalt()` wie Meshtastic. Die Identität nur aus `geheim`
+  (`reticulumIdentitaet()`); ist der Tresor gesperrt, gar nicht erst verbinden. Im Test hören sich zwei RNode-Attrappen
+  über `luft` (`test/rnode-attrappe.ts`) – ein Umschlag geht wirklich über Pfad-Anfrage, Link und Ressource.
+  Im Build führen alle Pfade `@reticulum/…` auf EIN vorab minifiziertes Modul (Plugin „reticulum-klein“ in `build.mjs`):
+  Ein neuer Pfad, den die App lädt, gehört dort in die Liste (ein Test vergleicht) – sonst fehlte der Name zur Laufzeit,
+  und ein eigenes Modul je Pfad brächte zwei Kopien des Kerns.
