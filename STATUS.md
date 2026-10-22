@@ -12799,7 +12799,7 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6, V7, W2, W3). Erster Teil von A-12c, auf A-1
 
 **Tests:**
 - **Validator +2 (14):** gegen beide Programme. Ein Mitglied ohne Guthaben schlägt vor, ein anderes zahlt die Miete. Die Konten haben die Größe aus `auszahlungKontoGroessen()`. Eine Stimme lässt sich umkehren, dieselbe zweimal nicht (6010). Ausführen und abschließen gehen in einem Zug. `vorschlagsSchritte()` sagt in jedem Stand, was das Programm annimmt – auch nach Ablehnung und vor Ablauf der Wartezeit.
-- **protocol +5:** Miete von einem anderen Zahler, Größe der Konten, Schritte in jedem Stand, Vorschläge lesen, zwei Vektoren aus dem SDK, der Satz im Bericht.
+- **protocol +4:** Miete von einem anderen Zahler und Größe der Konten, Schritte in jedem Stand, Vorschläge lesen, der Satz im Bericht; dazu zwei Vektoren aus dem SDK im bestehenden Vektor-Test.
 - **app +3:** Text und Menü der Auszahlungen, Unterschrift der eingebauten Wallet als Mitglied mit anderem Zahler, Verdrahtung.
 - **Gegenproben:** abstimmen trotz veraltet, ausführen vor der Wartezeit, dieselbe Stimme zweimal, vorschlagen ohne Recht im Menü, Schritt ohne Prüfung nach der Kette, Auszahlung nicht von der Kette – je ein Test rot.
 
