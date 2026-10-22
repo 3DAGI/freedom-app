@@ -121,6 +121,10 @@ Bestehende Kinds sind reserviert und semantisch eingefroren:
 | **5077** | Status des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis, nur lesen (§24) |
 | **5078** | Wecken: Push-Adresse beim eigenen Knoten an- oder abmelden – nur versiegelt, nur mit Besitzer-Nachweis (§25) |
 | **5079** | Zugang zum TURN des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis (§26) |
+| **5080** | Vibecoden auf dem eigenen Knoten – nur versiegelt, nur mit Besitzer-Nachweis (§34) |
+| **5081** | Zugänge zum Gruppenanruf des eigenen Knotens – nur versiegelt, nur mit Besitzer-Nachweis (§39) |
+| **5082** | Signalverbindung zum Gruppenanruf über den eigenen Knoten – nur versiegelt, nur mit Besitzer-Nachweis (§41) |
+| **5083** | Text aus Sprache beim eigenen Knoten – nur versiegelt, nur mit Besitzer-Nachweis, Ton verschlüsselt im Blob-Netz (§43) |
 
 ### Freedom-spezifisch (38xxx)
 | Kind | Bedeutung |
@@ -1624,3 +1628,33 @@ für diesen Schlüssel keine Adresse, nie still eine ältere. Nennen mehrere Sch
 **Abweichungen** (`kassenAbweichungen()`, V3): „Recht ohne Mitgliedschaft“ – wer das Recht hat, aber mit keiner Adresse
 auf der Kette steht (oder keine genannt hat); „Mitgliedschaft ohne Recht“ – eine Adresse auf der Kette, deren Schlüssel
 das Recht nicht hat oder die niemand im Raum nennt. Die App zeigt sie nur an; ändern kann die Kasse nur eine Abstimmung.
+
+## 43. Text aus Sprache beim eigenen Knoten (Kind 5083, seit B-38b1)
+
+Entscheidungen SP-W1 A und SP-W5 A (`docs/SPRACHE-ENTWURF.md`): Sprache wird beim eigenen Knoten zu Text (Whisper in
+seiner Sandbox) oder auf diesem Gerät – nie bei fremden Providern, nie mit der Spracherkennung des Browsers. Den Ton
+wandelt die App selbst; der Knoten liest nie einen fremden Container.
+
+**Ton:** WAV in genau einer Form (`baueWav()`): 44 Byte Kopf (`RIFF`, Länge, `WAVE`, `fmt ` mit 16 Byte – PCM, mono,
+16 000 Hz, 32 000 Byte je Sekunde, 2 Byte je Probe, 16 Bit –, `data` mit Länge), danach die Proben, Kleinendian, bis zum
+Ende der Datei; höchstens 120 s (3 840 000 Byte Proben). `pruefeWav()` nimmt nichts anderes an – keine weiteren
+Abschnitte, keine andere Rate, kein Stereo (Kennungen `wav-form`, `wav-format`, `wav-leer`, `wav-lang`). Die App legt die
+Datei verschlüsselt ins Blob-Netz (wie Anhänge seit Schritt 2.4, `uploadAnhang()`); nur das Chiffrat liegt dort.
+
+**Kern** (DVM-Anfrage, nur versiegelt vom Sitzungsschlüssel an den gekoppelten Knoten, `baueSpracheAuftrag()`): `i` =
+`{"ton": {"blob": <64 Hex>, "manifest": <64 Hex>, "schluessel": {"alg": "aes-gcm", "key", "nonce", "ox"}}, "sprache":
+"de" | "en" | "auto"}`, `bid` = 0, `p` = Schlüssel des Knotens, `besitzer` = Nachweis nach §21. Gelesen nur mit
+`leseSpracheAuftrag()`. Der Schlüssel öffnet den Ton – er steht nur im versiegelten Kern. Der Knoten antwortet nur aus
+einem Umschlag mit gültigem Nachweis.
+
+**Antwort** (6083, versiegelt an den Sitzungsschlüssel), gelesen nur mit `leseTranskript()`:
+
+| Feld | Inhalt |
+|---|---|
+| `text` | der erkannte Text, höchstens 8000 Zeichen, ohne Steuerzeichen außer dem Zeilenumbruch |
+| `sekunden` | Länge des Tons aus der WAV-Datei (größer als 0, höchstens 120) |
+
+Ton und Text sind Inhalt: Der Knoten schreibt keins davon ins Log und hält beides nicht über die Antwort hinaus. Die App
+fragt nur, wenn der Status des Knotens (§24) die Rolle `sprache` nennt – ein Knoten vor B-38b2 läse 5083 als
+gewöhnlichen Auftrag.
+

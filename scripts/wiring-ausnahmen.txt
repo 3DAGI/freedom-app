@@ -208,3 +208,9 @@ channel.ts|rechneKanalAbIxs|web3.js-Fassung der Einlösung: der Knoten löst sei
 kit-bruecke.ts|alsWeb3|Brücke zu web3.js: seit A-21e1 nur noch in den Validator-Tests (contracts/solana-channel/tests) und den Vektoren, fällt mit A-21f
 kasse.ts|leseAuszahlungVonKette|Lesehilfe der Kasse für eine einzelne Auszahlung (A-12a2), gegen beide Programme im Validator getestet; die App liest Vorschläge seit A-12d1 über leseVorgang(), das Auszahlung und Änderung am Diskriminator unterscheidet
 kasse.ts|leseKonfigurationVonKette|Lesehilfe der Kasse für eine einzelne Änderung (A-12a3), gegen beide Programme im Validator getestet; die App liest Vorschläge seit A-12d1 über leseVorgang(), das Auszahlung und Änderung am Diskriminator unterscheidet
+sprache-auftrag.ts|leseSpracheAuftrag|Text aus Sprache (B-38b1, nur Protokoll): der Knoten liest den Auftrag ab B-38b2
+sprache-auftrag.ts|pruefeWav|Text aus Sprache (B-38b1, nur Protokoll): der Knoten prüft den Ton ab B-38b2
+sprache-auftrag.ts|transkriptText|Text aus Sprache (B-38b1, nur Protokoll): der Knoten antwortet ab B-38b2
+sprache-auftrag.ts|baueSpracheAuftrag|Text aus Sprache (B-38b1, nur Protokoll): die App fragt ab B-38c („Als Text“, Diktieren)
+sprache-auftrag.ts|baueWav|Text aus Sprache (B-38b1, nur Protokoll): die App wandelt den Ton ab B-38c (SP-W5 A)
+sprache-auftrag.ts|leseTranskript|Text aus Sprache (B-38b1, nur Protokoll): die App liest die Antwort ab B-38c
