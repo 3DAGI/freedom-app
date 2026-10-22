@@ -948,6 +948,8 @@ Fallstricke dieses Bereichs unten anhängen.
   kennt, nur Schritte, die `vorschlagsSchritte()` aus dem frisch gelesenen Stand erlaubt – nie aus dem Stand beim Öffnen des
   Dialogs; Empfänger und Betrag für Stimme und Ausführung nur aus `leseAuszahlungVonKette()` (V6). Gewählt wird nur, was
   `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
+  Änderungen der Kasse (`konfiguration` im Vorgang, seit A-12a3) zeigt die App bis A-12d nur – `kassenAktionen()` bietet für sie
+  keinen Schritt an, auch kein Abschließen (das bräuchte `konfigurationAbschliessenAnweisung()`, nie die der Auszahlung).
 - **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach

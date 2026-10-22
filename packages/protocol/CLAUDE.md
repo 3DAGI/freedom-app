@@ -180,3 +180,9 @@ Fallstricke dieses Bereichs unten anhängen.
   `auszahlungKontoGroessen()` (Validator vergleicht die Länge); ein anderer Zahler der Miete nur über `mietZahler` (Vektor
   „kasse-vorschlagen-mietzahler“ aus dem SDK). Ausführen und abschließen dürfen in eine Transaktion (Vektor
   „kasse-ausfuehren-abschliessen“) – das Programm sieht den Status „ausgeführt“ schon in der zweiten Anweisung.
+  Konfiguration ändern (seit A-12a3) nur über `konfigurationVorschlagenAnweisungen()` mit Änderungen aus `kassenAenderungen()` (die
+  Art bleibt), ausführen über `konfigurationAusfuehrenAnweisung()` (mit `mietZahler` – das Konto wächst um zehn Plätze auf einmal,
+  `kassenKontoGroesseNach()`), abschließen über `konfigurationAbschliessenAnweisung()` – nie die Anweisungen der Auszahlung: Unter
+  derselben Adresse steht eine VaultTransaction oder eine ConfigTransaction, gelesen nur über `leseVorschlaege()` (Diskriminator).
+  Eine veraltete Änderung führt das Programm nicht mehr aus (eine Auszahlung schon); es prüft die Wartezeit vor dem Veralten
+  (6021 vor 6007) – im Test Veralten ohne Wartezeit prüfen.

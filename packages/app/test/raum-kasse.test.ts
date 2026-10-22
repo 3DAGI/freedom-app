@@ -240,7 +240,7 @@ test("A-12c1: Auszahlungen im Text und im Menü – Betrag, Empfänger, Stimmen 
   assert.equal(text.split("\n")[0], "Auszahlungen (von der Kette):");
   assert.ok(text.includes(`· Nr. 3: 0,5 SOL an ${EMPF} – offen, dafür 1 von 2, dagegen 0`));
   assert.match(text, /· Nr\. 2: 0,1 SOL an \S+ – angenommen, dafür 2 von 2, dagegen 0 \(auszahlbar ab .+\)/, "mit Wartezeit: ab wann");
-  assert.match(text, /· Nr\. 1: keine Auszahlung, wie die App sie baut – ausgezahlt; darüber stimmt die App nicht ab\./);
+  assert.match(text, /· Nr\. 1: keine Auszahlung, wie die App sie baut – ausgeführt; darüber stimmt die App nicht ab\./);
   assert.equal(vorschlaegeText(stand, []), "Keine offenen Auszahlungen.");
 
   const werte = (mitglied: string | undefined, jetzt = 10_000, s = stand) => kassenAktionen(s, liste, mitglied, jetzt).map((a) => a.wert);
@@ -302,4 +302,21 @@ test("A-12c1: Verdrahtet – nur Devnet, nur Kassen der App, nur Schritte nach d
   assert.match(aus, /empfaenger: k\.auszahlung\?\.empfaenger \?\? ""/, "die Rückfrage zeigt, was auf der Kette steht");
   assert.match(aus, /\.\.\.\(k\.zahler === mitglied \? \[\] : \[mitglied \? t\("kasse\.zahlerVerbunden", \{ gruender: mitglied \}\) : t\("kasse\.zahlerVerbundenOhne"\)\]\)/,
     "zahlt eine andere Adresse, sagt die Rückfrage es");
+});
+
+test("A-12a3: eine Änderung der Kasse zeigt die App nur – kein Schritt im Menü, bis A-12d abstimmen kann", () => {
+  const KASSE = phantom(20), A = phantom(21), B = phantom(22);
+  const stand: KassenStand = {
+    createKey: phantom(24), verwalter: null, schwelle: 2, zeitschlossSek: 0, transaktionsIndex: 2n, veraltetBis: 0n, mieteAn: kassenTresor(KASSE), bump: 255,
+    mitglieder: [A, B].map((adresse) => ({ adresse, rechte: 7 })),
+  };
+  const v = (index: bigint, status: KassenVorschlag["status"]): KassenVorschlag => ({ kasse: KASSE, index, status, seit: 1000n, dafuer: [], dagegen: [], abgebrochen: [] });
+  const liste: KassenVorgang[] = [
+    { index: 2n, vorschlag: v(2n, "aktiv"), auszahlung: null, konfiguration: [{ art: "zeitschloss", sek: 3600 }] },
+    { index: 1n, vorschlag: v(1n, "ausgefuehrt"), auszahlung: null, konfiguration: null },
+  ];
+  const text = vorschlaegeText(stand, liste);
+  assert.match(text, /· Nr\. 2: Änderung der Kasse \(Mitglieder, Schwelle oder Wartezeit\) – offen; die App zeigt sie bisher nur\./);
+  assert.match(text, /· Nr\. 1: Änderung der Kasse .* – ausgeführt;/, "auch eine, die die App nicht lesen kann");
+  assert.deepEqual(kassenAktionen(stand, liste, A, 10_000).map((a) => a.wert), ["einzahlen", "vorschlagen"], "weder abstimmen noch abschließen");
 });

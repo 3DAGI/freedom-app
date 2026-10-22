@@ -15,6 +15,9 @@
  *  - Auszahlen in der App (A-12c1): die Miete zahlt auf Wunsch ein anderer als der Vorschlagende, die Konten
  *    haben die Größe aus `auszahlungKontoGroessen()`, eine Stimme lässt sich umkehren, ausführen und
  *    abschließen gehen in einer Transaktion, und `vorschlagsSchritte()` sagt in jedem Stand, was das Programm annimmt
+ *  - Konfiguration ändern (A-12a3): Mitglieder dazu und weg, Schwelle, Wartezeit nach `kassenAenderungen()` – der Stand danach
+ *    gleicht `kassenStandNach()`, das Konto wächst auf `kassenKontoGroesse()` (Miete vom Ausführenden), offene Vorschläge
+ *    veralten; eine veraltete Änderung lässt sich nicht mehr ausführen, nur abschließen
  *
  * Die Einstellungen des Programms legt der Test selbst an (eigene Gebühr, eigenes Schatzamt) – das
  * Konto von Mainnet zu kopieren hieße, im Test das Netz zu fragen. Die Programme lädt `pruefen.sh`
@@ -33,7 +36,8 @@ import {
   abschliessenAnweisung, abstimmenAnweisung, auszahlungKontoGroessen, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen,
   kassenKontoGroesse, kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
   leseProgrammEinstellungenVonKette, leseVorschlaege, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
-  type KassenArt,
+  kassenAenderungen, kassenKontoGroesseNach, kassenStandNach, konfigurationAbschliessenAnweisung, konfigurationAusfuehrenAnweisung, konfigurationVorschlagenAnweisungen,
+  leseKonfigurationVonKette, type KassenAenderung, type KassenArt, type KassenStand,
 } from "../../../packages/protocol/src/kasse.js";
 import {
   leseGuthaben, leseKonto, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
@@ -50,8 +54,9 @@ if (skip && process.env.SQUADS_TESTS_PFLICHT === "1") throw new Error(`Squads-Te
 
 const GEBUEHR = 1_000_000n;
 const SCHATZAMT = Keypair.generate().publicKey.toBase58();
-// Squads: 6004 Unauthorized, 6008 InvalidProposalStatus, 6010 AlreadyApproved, 6014 InvalidAccount, 6021 TimeLockNotReleased, 6033 InvalidRentCollector
-const F = { NichtBerechtigt: 6004, FalscherStatus: 6008, SchonDafuer: 6010, FalschesKonto: 6014, Zeitschloss: 6021, FalscheMiete: 6033 } as const;
+// Squads: 6004 Unauthorized, 6007 StaleProposal, 6008 InvalidProposalStatus, 6010 AlreadyApproved, 6014 InvalidAccount, 6021 TimeLockNotReleased,
+// 6033 InvalidRentCollector
+const F = { NichtBerechtigt: 6004, Veraltet: 6007, FalscherStatus: 6008, SchonDafuer: 6010, FalschesKonto: 6014, Zeitschloss: 6021, FalscheMiete: 6033 } as const;
 
 async function scheitert(p: Promise<unknown>, code: number): Promise<void> {
   await assert.rejects(p, (e: unknown) => {
@@ -338,6 +343,89 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       assert.equal((await v.solange(leseGuthaben(v.rpc, tresor))) - vorher, miete - 100_000_000n, "Betrag hinaus, Miete in den Tresor");
       assert.equal(await status(kasse), null);
       assert.deepEqual(await v.solange(leseVorschlaege(v.rpc, kasse, (await v.solange(leseKasse(v.rpc, kasse)))!)), []);
+    });
+
+    // ---- A-12a3: Konfiguration ändern ----
+    const stand = async (kasse: string) => (await v.solange(leseKasse(v.rpc, kasse)))!;
+    const sortiert = (s: KassenStand) => ({ ...s, mitglieder: [...s.mitglieder].sort((x, y) => x.adresse.localeCompare(y.adresse)) });
+    async function schritteVon(kasse: string, wer: string, index: bigint, jetztSek = 2 ** 40) {
+      const s = await stand(kasse);
+      const vg = (await v.solange(leseVorschlaege(v.rpc, kasse, s))).find((x) => x.index === index)!;
+      return vorschlagsSchritte({ stand: s, vorschlag: vg.vorschlag, auszahlung: vg.auszahlung, konfiguration: vg.konfiguration, mitglied: wer, jetztSek });
+    }
+
+    test("A-12a3 Mehrheit: zwei Mitglieder dazu, Schwelle folgt – Stand wie berechnet, Konto wächst, offene Vorschläge veralten", async () => {
+      const a = await v.neuesKonto(), b = await v.neuesKonto(1), x = Keypair.generate().publicKey.toBase58();
+      const c = Keypair.generate().publicKey.toBase58(), d = Keypair.generate().publicKey.toBase58();
+      const kasse = await kasseMitGeld("mehrheit", a, [b.adresse]);
+      await vorschlagen(kasse, a, x, 100_000_000n); // Auszahlung 1, gleich veraltet
+      const vorher = await stand(kasse);
+      const aenderungen = kassenAenderungen(vorher, { dazu: [c, d] });
+      assert.deepEqual(aenderungen.map((x) => x.art), ["mitglied-dazu", "mitglied-dazu", "schwelle"]);
+      await v.sende(a, konfigurationVorschlagenAnweisungen({ kasse, index: 2n, vorschlagender: a.adresse, aenderungen }));
+      assert.deepEqual((await v.solange(leseKonfigurationVonKette(v.rpc, kasse, 2n)))?.aenderungen, aenderungen, "so steht es auf der Kette");
+      assert.deepEqual(await schritteVon(kasse, b.adresse, 2n), ["dafuer", "dagegen"]);
+
+      const ausfuehren = () => v.sende(b, [konfigurationAusfuehrenAnweisung({ kasse, index: 2n, mitglied: b.adresse, mietZahler: b.adresse })]);
+      await stimme(kasse, a, true, 2n);
+      await scheitert(ausfuehren(), F.FalscherStatus);
+      await stimme(kasse, b, true, 2n);
+      assert.deepEqual(await schritteVon(kasse, b.adresse, 2n), ["ausfuehren"]);
+      assert.equal((await v.solange(leseKonto(v.rpc, kasse)))?.daten.length, kassenKontoGroesse(2));
+      const miete = async (bytes: number) => Number(await v.solange(v.rpc.getMinimumBalanceForRentExemption(BigInt(bytes)).send()));
+      const groesse = kassenKontoGroesseNach(kassenKontoGroesse(2), 4);
+      const zuwachs = (await miete(groesse)) - (await miete(kassenKontoGroesse(2)));
+      const bVorher = await v.solange(leseGuthaben(v.rpc, b.adresse));
+      await ausfuehren();
+      assert.equal(Number(bVorher - (await v.solange(leseGuthaben(v.rpc, b.adresse)))), zuwachs + 5000, "wer ausführt, zahlt die Miete für den Zuwachs");
+
+      const nach = await stand(kasse);
+      assert.deepEqual(sortiert(nach), sortiert({ ...kassenStandNach({ ...vorher, transaktionsIndex: 2n }, aenderungen) }), "der Stand, den kassenStandNach() rechnet");
+      assert.equal(kassenArt(nach), "mehrheit");
+      assert.deepEqual([nach.schwelle, nach.mitglieder.length, nach.veraltetBis], [3, 4, 2n]);
+      assert.equal((await v.solange(leseKonto(v.rpc, kasse)))?.daten.length, groesse, "das Konto ist um zehn Plätze gewachsen");
+
+      // Die offene Auszahlung ist veraltet: nicht mehr abstimmen, aber abschließen
+      assert.deepEqual(await schritteVon(kasse, a.adresse, 1n), ["abschliessen"]);
+      await scheitert(stimme(kasse, a, true, 1n), F.Veraltet);
+      await v.sende(a, [abschliessenAnweisung({ kasse, index: 1n, mieteAn: kassenTresor(kasse) })]);
+      assert.deepEqual(await schritteVon(kasse, a.adresse, 2n), ["abschliessen"]);
+      await v.sende(a, [konfigurationAbschliessenAnweisung({ kasse, index: 2n, mieteAn: kassenTresor(kasse) })]);
+      assert.equal(await status(kasse, 2n), null);
+    });
+
+    test("A-12a3 Gründer entscheidet: dazu nur mit vorschlagen, Wartezeit; eine angenommene, veraltete Änderung nur abschließen", async () => {
+      const g = await v.neuesKonto(), b = Keypair.generate().publicKey.toBase58(), c = Keypair.generate().publicKey.toBase58();
+      const kasse = await kasseMitGeld("gruender", g, []);
+      const vorher = await stand(kasse);
+      const erste = kassenAenderungen(vorher, { dazu: [b] }), zweite = kassenAenderungen(vorher, { dazu: [c] });
+      assert.deepEqual(erste, [{ art: "mitglied-dazu", adresse: b, rechte: 1 }]);
+      const vorschlagenUndDafuer = async (index: bigint, aenderungen: KassenAenderung[]) => {
+        await v.sende(g, konfigurationVorschlagenAnweisungen({ kasse, index, vorschlagender: g.adresse, aenderungen }));
+        await stimme(kasse, g, true, index);
+      };
+      const fuehreAusK = (index: bigint) => v.sende(g, [konfigurationAusfuehrenAnweisung({ kasse, index, mitglied: g.adresse, mietZahler: g.adresse })]);
+      await vorschlagenUndDafuer(1n, erste);
+      await vorschlagenUndDafuer(2n, zweite);
+      await fuehreAusK(2n);
+      const nach = await stand(kasse);
+      assert.deepEqual([kassenArt(nach), nach.mitglieder.length, nach.veraltetBis], ["gruender", 2, 2n]);
+      assert.equal(nach.mitglieder.find((m) => m.adresse === c)?.rechte, 1, "dazu nur mit vorschlagen");
+
+      // Die erste ist angenommen, aber jetzt veraltet: das Programm führt sie nicht mehr aus
+      assert.deepEqual(await schritteVon(kasse, g.adresse, 1n), ["abschliessen"]);
+      await scheitert(fuehreAusK(1n), F.Veraltet);
+      await v.sende(g, [konfigurationAbschliessenAnweisung({ kasse, index: 1n, mieteAn: kassenTresor(kasse) })]);
+      assert.equal(await status(kasse, 1n), null);
+      assert.ok(!(await stand(kasse)).mitglieder.some((m) => m.adresse === b), "b ist nicht dazugekommen");
+
+      // Wartezeit: danach hält sie jede Ausführung auf – auch die einer Änderung
+      await vorschlagenUndDafuer(3n, kassenAenderungen(await stand(kasse), { zeitschlossSek: 3600 }));
+      await fuehreAusK(3n);
+      assert.deepEqual([kassenArt(await stand(kasse)), (await stand(kasse)).zeitschlossSek], ["gruender", 3600]);
+      await vorschlagenUndDafuer(4n, kassenAenderungen(await stand(kasse), { weg: [c] }));
+      assert.deepEqual(await schritteVon(kasse, g.adresse, 4n, Date.now() / 1000), [], "vor Ablauf der Wartezeit nichts");
+      await scheitert(fuehreAusK(4n), F.Zeitschloss);
     });
   });
 }
