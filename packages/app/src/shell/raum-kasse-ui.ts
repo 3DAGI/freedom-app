@@ -8,6 +8,7 @@
  * schreibt sie in die Definition. Teil b2c: den Stand von der Kette zeigen (mit Abweichungen zum Raum) und einzahlen.
  * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – Empfänger und Betrag von der Kette (V6).
  * A-12c2: Einen neuen Vorschlag meldet die App im Raum – nur mit seiner Nummer (V6).
+ * A-12c3: Abstimmen und auszahlen auch mit einer verbundenen Wallet, deren Adresse die für die Kasse ist.
  * Die Oberfläche baut Spur C (A-12e). Als Gerät nie – die Kasse gehört der Person.
  */
 import {
@@ -274,6 +275,12 @@ async function vorgeschlagen(text: string, index: bigint, melde: Melde | undefin
   else toast(t("kasse.hinweisNicht", { nr: String(index) }), true);
 }
 
+/**
+ * Unterschreibt die verbundene Wallet für die Kasse (A-12c3)? Dann braucht es keinen Tresor – ihre Adresse ist die für die Kasse,
+ * eine Adresse der eingebauten Wallet kann sie nicht sein. Wer unterschreibt, entscheidet `kassenSchritt()` noch einmal selbst.
+ */
+const unterschreibtVerbundene = (mitglied: string | undefined): boolean => !!mitglied && verbundeneSolanaWallet()?.adresse === mitglied;
+
 /** Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit auf der Kette verbunden wird. */
 const zahlerHinweis = (zahler: string, mitglied: string | undefined): string[] =>
   zahler === mitglied ? [] : [mitglied ? t("kasse.zahlerVerbunden", { gruender: mitglied }) : t("kasse.zahlerVerbundenOhne")];
@@ -308,13 +315,14 @@ async function aendern(
       }
     },
   });
-  if (!w || !(await verlangeTresor(t("kasse.wofuer")))) return false;
+  if (!w || (!unterschreibtVerbundene(mitglied) && !(await verlangeTresor(t("kasse.wofuer"))))) return false;
   const { kassenSchritt } = await import("./zahlschienen.js");
   const index = await kassenSchritt({ kasse, mitglied, schritt: "aendern", ...wunsch(w) }, (k) => bestaetige({
     titel: t("kasse.titel"), ok: t("kasse.weiter"),
     text: [
       t("kasse.aendernFrage", { aenderungen: aenderungenText(k.konfiguration ?? [], wer), zahler: k.zahler, miete: solText(k.miete) }),
       ...zahlerHinweis(k.zahler, mitglied),
+      ...(k.verbunden ? [t("kasse.verbundenUnterschreibt")] : []),
       ...(melde ? [t("kasse.hinweisFolgt")] : []),
     ].join("\n\n"),
   }));
@@ -349,7 +357,7 @@ async function auszahlen(
     neu = { empfaenger: String(w.empfaenger).trim(), lamports: BigInt(solZuLamports(String(w.betrag))!) };
   }
   const [schritt, nr] = aktion.split(":") as [KassenSchritt | "vorschlagen", string | undefined];
-  if (!(await verlangeTresor(t("kasse.wofuer")))) return false;
+  if (!unterschreibtVerbundene(mitglied) && !(await verlangeTresor(t("kasse.wofuer")))) return false;
   const { kassenSchritt } = await import("./zahlschienen.js");
   let aenderung = false;
   const index = await kassenSchritt(
@@ -366,6 +374,7 @@ async function auszahlen(
         text: [
           t(schritt === "vorschlagen" ? "kasse.vorschlagenFrage" : (aenderung ? FRAGE_AENDERUNG : FRAGE)[schritt], werte),
           ...zahlerHinweis(k.zahler, mitglied),
+          ...(k.verbunden ? [t("kasse.verbundenUnterschreibt")] : []),
           ...(schritt === "vorschlagen" && melde ? [t("kasse.hinweisFolgt")] : []),
         ].join("\n\n"),
       });

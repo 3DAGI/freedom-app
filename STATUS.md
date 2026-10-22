@@ -13039,3 +13039,32 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6). Zweiter Teil von A-12c, auf A-12d1 (#570).
   - Text ohne Nummer
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12c3 – Kasse: abstimmen und auszahlen mit einer verbundenen Wallet
+
+Spur A, `docs/KASSE-ENTWURF.md` (V6, W1). Dritter Teil von A-12c, auf A-12c2 (#576) – A-12c fertig.
+
+**Neu:**
+- **App:** Ist die Adresse für die Kasse die einer verbundenen Wallet (A-12b2d), unterschreibt diese Vorschläge, Änderungen, Stimmen und
+  Ausführungen. Wer unterschreibt, entscheidet `kassenUnterschreiber()` (`kasse-anzeige.ts`): die eingebaute Wallet, wenn die Adresse eine
+  ihrer ist, sonst die verbundene mit genau dieser Adresse, die Transaktionen signieren kann – eine andere Adresse unterschreibt nie für
+  die Kasse. Die verbundene zahlt Gebühr und Miete selbst (`waehleAbsender()` auf ihr Guthaben) und signiert nur: gesendet wird über die
+  eigenen Devnet-Endpunkte (`devnetRpc()`), nie über die Wallet. Einen Tresor verlangt die App dafür nicht; die Rückfrage sagt, dass die
+  verbundene Wallet unterschreibt.
+- **Texte:** „Vorschlagen, abstimmen und auszahlen gehen nur …“ nennt beide Wallets; neuer Satz in der Rückfrage.
+- **Doku:** Entwurf (Umsetzung, c3 fertig), Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:**
+- **app +2:** Wer unterschreibt (zehn Fälle: eingebaute vor verbundener, nur mit genau der Adresse, ohne Signieren nie, ohne Mitglied nur
+  abschließen); Verdrahtung (signiert nur, gesendet über Devnet, zahlt selbst, Rückfrage, kein Tresor). Zwei Regex aus A-12c1/d1 auf die
+  neuen Zeilen angepasst – sie prüfen dasselbe.
+- **Gegenproben** – je mindestens ein Test rot:
+  - verbundene vor eingebauter
+  - eine Wallet ohne Signieren
+  - jede verbundene Wallet statt nur der mit der Adresse
+  - über die Wallet senden
+  - Zahler ohne Prüfung des Guthabens
+  - immer den Tresor verlangen
+  - Rückfrage ohne den Satz
+
+Knoten-Stand: keiner nötig.
