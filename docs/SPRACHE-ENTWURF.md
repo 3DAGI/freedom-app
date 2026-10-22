@@ -93,7 +93,7 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38a ✓ | Vorlesen auf dem Gerät: Knopf an den Antworten des Agenten, nur lokale Stimmen, Sprache passend, Smoke-Test mit Attrappe | ~150 |
 | B-38b | Knoten: `whisper-server` (Paket oder Bau aus den Quellen), Modell über Manifest, in der Sandbox; versiegelter Auftrag an den eigenen Knoten, Ton über den Blob-Weg | ~350 – geteilt in b1–b3 |
 | B-38b1 ✓ | Protokoll: Kind 5083, Ton als WAV in genau einer Form (`baueWav()`, `pruefeWav()`), Auftrag versiegelt mit Nachweis (`baueSpracheAuftrag()`), Antwort streng (`leseTranskript()`), `PROTOCOL.md` §43 | ~250 |
-| B-38b2 | Knoten: `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Modell nur lesbar), Ton aus dem Blob-Netz holen und prüfen, Antwort; Rolle `sprache` im Status | ~300 |
+| B-38b2 ✓ | Knoten: `whisper-cli` je Auftrag in der Sandbox (ohne Netz, Modell nur lesbar), Ton aus dem Blob-Netz holen und prüfen, Antwort; Rolle `sprache` im Status | ~300 |
 | B-38b3 | `whisper-cli` im Bild (Bau aus den Quellen, gepinnt), Modell über Manifest (V4), Vorgabe nach SP-W4 | ~250 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
@@ -128,6 +128,23 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
   Text bis 8000 Zeichen ohne Steuerzeichen und die Länge aus der WAV-Datei (`leseTranskript()`). `PROTOCOL.md` §43.
 - **Ältere Knoten:** Ein Knoten vor B-38b2 läse 5083 als gewöhnlichen Auftrag – die App fragt nur, wenn der Status die
   Rolle `sprache` nennt (B-38c).
+
+## Stand B-38b2 (22.10.2026)
+
+- **`whisper.ts`** (Knoten): `whisperAusUmgebung()` – `WHISPER_MODELL` (absoluter Pfad zu einem ggml-Modell, sonst aus),
+  `WHISPER_CLI` (Vorgabe `/usr/local/bin/whisper-cli`), `WHISPER_GPU`, `WHISPER_THREADS` (Vorgabe 4), `WHISPER_FRIST_SEK`
+  (Vorgabe 600); ungültig heißt aus, mit Grund im Log. `Whisper.transkribiere()` schreibt den Ton in einen eigenen
+  Arbeitsordner (0700, `/dev/shm`, wo es ihn gibt) und ruft `whisper-cli` über `fuehreAus()`: ohne Netz, Modell und Programm
+  nur als einzelne Dateien lesbar (nie ein Ordner darüber), schreibbar nur der Arbeitsordner, Rechenzeit Frist mal Threads.
+  Gelesen wird nur die Ausgabedatei (`lstat`, `O_NOFOLLOW`, höchstens 64 KB), Steuerzeichen und Farbfolgen fallen weg;
+  danach ist der Ordner weg. Ein Auftrag zur Zeit (`sprache-belegt`).
+- **Auftrag** (`handleSprache()` in `dvm-provider.ts`): nur versiegelt mit Nachweis; Ton über `holeVerschluesselt()`
+  (`blob-holen.ts`, aus `repo-bundle.ts` herausgelöst – Repo-Bundles nutzen denselben Abruf), nur nach `pruefeWav()`, dann
+  Whisper; Antwort versiegelt an den Sitzungsschlüssel. Abgelehnt nur mit Kennung (`SpracheAbgelehnt`, `SPRACHE_FAELLE`).
+- **`main.ts`:** nur mit Modell und nur, wenn die Sandbox geht; Rolle `sprache` im Status (die App hat einen Text dafür).
+- **Sandbox:** `fuehreAus()` nimmt eine eigene Rechenzeit (`rechenzeitSek`) – Whisper rechnet mit mehreren Threads, und
+  `RLIMIT_CPU` zählt alle zusammen.
+- **Noch offen:** `whisper-cli` und ein Modell im Bild (B-38b3); bis dahin legt der Betreiber beides selbst ab.
 
 ## Quellen
 

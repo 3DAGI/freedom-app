@@ -139,13 +139,15 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
 
 /**
  * Grenzen über `ulimit` (je Grenze ein Aufruf – dash nimmt nur eine), dann der Befehl – `sh` aus dem nur
- * lesbaren `/usr`. Der Motor läuft lange: für ihn keine Rechenzeit, die übrigen Grenzen erben seine Befehle.
+ * lesbaren `/usr`. Der Motor läuft lange: für ihn keine Rechenzeit, die übrigen Grenzen erben seine Befehle. Eine
+ * eigene Rechenzeit (Sekunden) nur für Programme des Knotens, die mehrere Kerne nutzen (Whisper, B-38b2).
  */
-function mitGrenzen(befehl: readonly string[], rechenzeit = true): string[] {
+function mitGrenzen(befehl: readonly string[], rechenzeit: boolean | number = true): string[] {
   const g = SANDBOX_GRENZEN;
   // Prozesse: bash und zsh nennen die Grenze `-u`, dash `-p` (bei bash heißt `-p` Pipe-Größe und scheitert – dann läuft nichts)
   const prozesse = `{ ulimit -u ${g.prozesse} 2>/dev/null || ulimit -p ${g.prozesse}; }`;
-  const grenzen = [...(rechenzeit ? [`ulimit -t ${g.cpuSek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`, prozesse];
+  const sek = rechenzeit === true ? g.cpuSek : rechenzeit;
+  const grenzen = [...(sek !== false ? [`ulimit -t ${sek}`] : []), `ulimit -f ${g.dateiKiB}`, `ulimit -n ${g.offeneDateien}`, `ulimit -d ${g.speicherKiB}`, prozesse];
   return ["/bin/sh", "-c", `${grenzen.join(" && ")} && exec "$@"`, "sandbox", ...befehl];
 }
 
@@ -193,11 +195,14 @@ export interface SandboxErgebnis {
  * Ausgabe (stdout und stderr zusammen) gekürzt wie im Code-Lauf (`kuerzeAusgabe()`); nach `befehlMs` endet die ganze
  * Prozessgruppe. Wirft nur, wenn bubblewrap gar nicht startet.
  */
-export function fuehreAus(befehl: readonly string[], o: SandboxOrt & { ohneSeccomp?: boolean }, zeitMs: number = SANDBOX_GRENZEN.befehlMs): Promise<SandboxErgebnis> {
+export function fuehreAus(
+  befehl: readonly string[], o: SandboxOrt & { ohneSeccomp?: boolean; rechenzeitSek?: number }, zeitMs: number = SANDBOX_GRENZEN.befehlMs,
+): Promise<SandboxErgebnis> {
   if (befehl.length === 0 || befehl.some((t) => typeof t !== "string" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
+  if (o.rechenzeitSek !== undefined && (!Number.isSafeInteger(o.rechenzeitSek) || o.rechenzeitSek < 1)) throw new Error("Rechenzeit ungültig");
   const etc = eigenesEtc(!o.ohneSeccomp);
   return new Promise((fertig, scheitern) => {
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl)], {
+    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, o.rechenzeitSek ?? true)], {
       stdio: ["ignore", "pipe", "pipe", ...(etc.fd === null ? [] : [etc.fd])], detached: true, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" },
     });
     let text = "";

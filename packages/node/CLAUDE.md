@@ -495,3 +495,12 @@ Bereichs unten anhängen.
   Antriebs in `main.ts`), Repo über `repoImPrivatenRaum()`, Verweis nur aus `raumReposPrivat()` – nie ein offener 38042; Patch nur
   über `raumRepoPatch()` in die Gruppe (`reicheEin()`), die Antwort über `raumAgentAntwort(…, repo)`. `MemoryRelay` beachtet
   `authors`: Prüfungen gegen Relays, die Filter übergehen, mit einem eigenen `query`, sonst prüft der Test nichts.
+- **Text aus Sprache nur über `Whisper`** (seit B-38b2, `whisper.ts`, SP-W1 A): `whisper-cli` nur über
+  `Whisper.transkribiere()` → `fuehreAus()` – nie `spawn` daneben, nie ein `whisper-server` (in der Sandbox ohne Netz wäre er
+  nicht erreichbar, außerhalb liefe er ohne). Modell und Programm nur als einzelne Dateien nur lesbar einbinden – nie ihren
+  Ordner (ein `WHISPER_CLI=~/whisper-cli` bände sonst das Home samt `~/.freedom` ein). Den Text nur aus der Ausgabedatei
+  (`lstat`, `O_NOFOLLOW`, begrenzt) – der Prozess darin könnte dort einen Verweis anlegen. Den Ton nur über
+  `holeVerschluesselt()` (genau das Manifest aus dem Auftrag) und nur nach `pruefeWav()`; Ton und Text nie ins Log, der
+  Arbeitsordner ist nach jedem Auftrag weg. Ablehnungen nur als `SpracheAbgelehnt` mit `fall` aus `SPRACHE_FAELLE`.
+  `RLIMIT_CPU` zählt alle Threads zusammen – Whisper bekommt `rechenzeitSek` = Frist mal Threads, sonst endet ein langer
+  Ton mit SIGXCPU.
