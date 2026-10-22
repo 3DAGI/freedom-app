@@ -186,3 +186,8 @@ Fallstricke dieses Bereichs unten anhängen.
   derselben Adresse steht eine VaultTransaction oder eine ConfigTransaction, gelesen nur über `leseVorschlaege()` (Diskriminator).
   Eine veraltete Änderung führt das Programm nicht mehr aus (eine Auszahlung schon); es prüft die Wartezeit vor dem Veralten
   (6021 vor 6007) – im Test Veralten ohne Wartezeit prüfen.
+- **Text aus Sprache nur über `sprache-auftrag.ts`** (seit B-38b1, SP-W1 A, SP-W5 A, `docs/PROTOCOL.md` §43): Ton nur als WAV
+  in genau der Form aus `baueWav()` (44 Byte Kopf, PCM, mono, 16 kHz, 16 Bit, höchstens 120 s) – `pruefeWav()` nimmt nichts
+  anderes an, nie einen weiteren Container „zur Sicherheit“ dazu (der Knoten gäbe ihn sonst dem Modell). Der Auftrag (5083) nur
+  über `baueSpracheAuftrag()`: versiegelt, mit Nachweis, ohne Gebot; der Schlüssel des Tons steht nur im Kern. Antworten nur über
+  `leseTranskript()`. Zahlen in WAV nur über `DataView` mit Kleinendian (Regel „Kein `readBigInt64LE` im Browser“ gilt auch hier).
