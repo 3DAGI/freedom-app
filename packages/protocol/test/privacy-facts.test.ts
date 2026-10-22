@@ -637,11 +637,12 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // „ki-verlauf“ (D1c): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – den Umfang prüft app/test/ki-kontext.test.ts
   // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
   // „mesh-geraet“ (7.5b): was ein Meshtastic-Gerät selbst funkt, ist Funk, kein Event – das prüft app/test/meshtastic-strecke.test.ts
+  // „reticulum-ankuendigung“ (B-32b2): was die App über die RNode funkt, ist Funk, kein Event – das prüft app/test/reticulum-funk.test.ts
   // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
   // „agent-geraet“ (11.3c3a): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – Pseudonyme und Umfang prüft app/test/agent-antwort.test.ts
   // „agent-knoten“ (11.3d1b2): was der Knoten nach dem Öffnen des Auftrags liest, sieht kein Mitschnitt – den Verweis im Kern prüft app/test/knoten-agent-fragen.test.ts
   // „agent-knoten-privat“ (11.3d2a): was der Knoten als Mitglied liest, sieht kein Mitschnitt – Ablage und Schalter prüft node/test/knoten-mls.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "agent-knoten-privat", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "werbe-name", "zeitanker"]);
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "agent-knoten-privat", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "reticulum-ankuendigung", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -795,6 +796,17 @@ test("7.5b: Meshtastic als Grenze – offene Gerätenummer, Name und Position, �
   for (const g of [/öffentlichen Schlüssel/, /Umschläge/, /Position schaltest du dort ab/]) assert.match(f?.grund ?? "", g);
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Über ein Meshtastic-Funkgerät trägt jedes Paket offen die Nummer deines Geräts/);
+});
+
+test("B-32b2: Reticulum als Grenze – die Antwort im Funk trägt Adresse und Schlüssel offen, von sich aus nichts", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "reticulum-ankuendigung");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, undefined, "Funk, kein Event");
+  assert.match(f?.aussage ?? "", /^Ist eine RNode verbunden, antwortet die App im Funk/);
+  assert.match(f?.aussage ?? "", /nicht deinem Schlüssel zuordnen/);
+  for (const g of [/RN2 A/, /kündigt die App nichts an/, /Umschläge/]) assert.match(f?.grund ?? "", g);
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ist eine RNode verbunden, antwortet die App im Funk/);
 });
 
 test("Grenzen nennen ihren Grund", () => {
