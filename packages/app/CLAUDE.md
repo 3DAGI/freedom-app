@@ -946,10 +946,14 @@ Fallstricke dieses Bereichs unten anhängen.
   `pruefeKassenNachweis()`. Nie Transaktions-Bytes über `signiereNachricht()` signieren lassen.
   Auszahlen (seit A-12c1) nur über `kassenSchritt()` (`shell/zahlschienen.ts`): nur `devnetRpc()`, nur Kassen, die `kassenArt()`
   kennt, nur Schritte, die `vorschlagsSchritte()` aus dem frisch gelesenen Stand erlaubt – nie aus dem Stand beim Öffnen des
-  Dialogs; Empfänger und Betrag für Stimme und Ausführung nur aus `leseAuszahlungVonKette()` (V6). Gewählt wird nur, was
+  Dialogs; Empfänger und Betrag für Stimme und Ausführung nur von der Kette (V6; seit A-12d1 über `leseVorgang()`). Gewählt wird nur, was
   `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
-  Änderungen der Kasse (`konfiguration` im Vorgang, seit A-12a3) zeigt die App bis A-12d nur – `kassenAktionen()` bietet für sie
-  keinen Schritt an, auch kein Abschließen (das bräuchte `konfigurationAbschliessenAnweisung()`, nie die der Auszahlung).
+  Änderungen der Kasse (seit A-12d1) nur über `kassenSchritt()` mit „aendern“: zusammengestellt aus dem frisch gelesenen Stand über
+  `kassenAenderungen()` (die Art bleibt, die Schwelle folgt – frei wählbar ist sie nicht), dazu im Dialog nur, wer im Raum das Recht
+  „kasse“ hat und eine Adresse nannte (V3). Einen Vorschlag liest `kassenSchritt()` nur über `leseVorgang()`; eine Änderung schließt nur
+  `konfigurationAbschliessenAnweisung()` ab, nie die Anweisung der Auszahlung. Für eine Änderung, nach der die Kasse eine andere Art hätte,
+  bieten `kassenAktionen()` und `kassenSchritt()` nur dagegen und abschließen an (`behaeltArt()`). Wächst beim Ausführen das Konto der
+  Kasse, zahlt der Ausführende die Miete (`kassenKontoGroesseNach()` mit der Länge des Kontos) – die Rückfrage nennt sie vorher.
 - **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach

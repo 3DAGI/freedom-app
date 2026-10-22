@@ -18,6 +18,8 @@
  *  - Konfiguration ändern (A-12a3): Mitglieder dazu und weg, Schwelle, Wartezeit nach `kassenAenderungen()` – der Stand danach
  *    gleicht `kassenStandNach()`, das Konto wächst auf `kassenKontoGroesse()` (Miete vom Ausführenden), offene Vorschläge
  *    veralten; eine veraltete Änderung lässt sich nicht mehr ausführen, nur abschließen
+ *  - Ändern in der App (A-12d1): die Konten einer Änderung haben die Größe aus `konfigurationKontoGroessen()`,
+ *    `leseVorgang()` liest sie, ausführen und abschließen gehen auch hier in einer Transaktion
  *
  * Die Einstellungen des Programms legt der Test selbst an (eigene Gebühr, eigenes Schatzamt) – das
  * Konto von Mainnet zu kopieren hieße, im Test das Netz zu fragen. Die Programme lädt `pruefen.sh`
@@ -37,7 +39,7 @@ import {
   kassenKontoGroesse, kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
   leseProgrammEinstellungenVonKette, leseVorschlaege, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
   kassenAenderungen, kassenKontoGroesseNach, kassenStandNach, konfigurationAbschliessenAnweisung, konfigurationAusfuehrenAnweisung, konfigurationVorschlagenAnweisungen,
-  leseKonfigurationVonKette, type KassenAenderung, type KassenArt, type KassenStand,
+  leseKonfigurationVonKette, konfigurationKontoGroessen, leseVorgang, type KassenAenderung, type KassenArt, type KassenStand,
 } from "../../../packages/protocol/src/kasse.js";
 import {
   leseGuthaben, leseKonto, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
@@ -364,6 +366,11 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       assert.deepEqual(aenderungen.map((x) => x.art), ["mitglied-dazu", "mitglied-dazu", "schwelle"]);
       await v.sende(a, konfigurationVorschlagenAnweisungen({ kasse, index: 2n, vorschlagender: a.adresse, aenderungen }));
       assert.deepEqual((await v.solange(leseKonfigurationVonKette(v.rpc, kasse, 2n)))?.aenderungen, aenderungen, "so steht es auf der Kette");
+      // A-12d1: die Miete rechnet die App nach der Größe beider Konten
+      const groessen = konfigurationKontoGroessen(aenderungen, 2);
+      assert.equal((await v.solange(leseKonto(v.rpc, kassenTransaktionAdresse(kasse, 2n))))?.daten.length, groessen.transaktion);
+      assert.equal((await v.solange(leseKonto(v.rpc, kassenVorschlagAdresse(kasse, 2n))))?.daten.length, groessen.vorschlag);
+      assert.deepEqual((await v.solange(leseVorgang(v.rpc, kasse, 2n)))?.konfiguration, aenderungen);
       assert.deepEqual(await schritteVon(kasse, b.adresse, 2n), ["dafuer", "dagegen"]);
 
       const ausfuehren = () => v.sende(b, [konfigurationAusfuehrenAnweisung({ kasse, index: 2n, mitglied: b.adresse, mietZahler: b.adresse })]);
@@ -419,9 +426,15 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       assert.equal(await status(kasse, 1n), null);
       assert.ok(!(await stand(kasse)).mitglieder.some((m) => m.adresse === b), "b ist nicht dazugekommen");
 
-      // Wartezeit: danach hält sie jede Ausführung auf – auch die einer Änderung
-      await vorschlagenUndDafuer(3n, kassenAenderungen(await stand(kasse), { zeitschlossSek: 3600 }));
-      await fuehreAusK(3n);
+      // Wartezeit: danach hält sie jede Ausführung auf – auch die einer Änderung. Ausführen und abschließen in einem Zug (A-12d1)
+      const wartezeit = kassenAenderungen(await stand(kasse), { zeitschlossSek: 3600 });
+      await vorschlagenUndDafuer(3n, wartezeit);
+      assert.equal((await v.solange(leseKonto(v.rpc, kassenTransaktionAdresse(kasse, 3n))))?.daten.length, konfigurationKontoGroessen(wartezeit, 2).transaktion);
+      await v.sende(g, [
+        konfigurationAusfuehrenAnweisung({ kasse, index: 3n, mitglied: g.adresse, mietZahler: g.adresse }),
+        konfigurationAbschliessenAnweisung({ kasse, index: 3n, mieteAn: kassenTresor(kasse) }),
+      ]);
+      assert.equal(await status(kasse, 3n), null, "im selben Zug abgeschlossen");
       assert.deepEqual([kassenArt(await stand(kasse)), (await stand(kasse)).zeitschlossSek], ["gruender", 3600]);
       await vorschlagenUndDafuer(4n, kassenAenderungen(await stand(kasse), { weg: [c] }));
       assert.deepEqual(await schritteVon(kasse, g.adresse, 4n, Date.now() / 1000), [], "vor Ablauf der Wartezeit nichts");

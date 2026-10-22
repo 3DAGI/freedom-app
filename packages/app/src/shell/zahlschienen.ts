@@ -7,10 +7,11 @@
 import {
   KASSEN_RECHT, MIETE_LEERES_KONTO, NONCE_KONTO_BYTES, abschliessenAnweisung, abstimmenAnweisung, alsDraht, auszahlungKontoGroessen,
   auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen, baueNonceKontoAnlegen, baueNonceKontoSchliessen, baueTransaktion,
-  kassenArt, kassenKontoGroesse, kassenTresor, leseAuszahlungVonKette, leseGuthaben, leseKasse, leseKonto, leseNonceKonto,
-  leseProgrammEinstellungenVonKette, leseVorschlagVonKette, neuerKontoSchluessel, neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung,
+  behaeltArt, kassenAenderungen, kassenArt, kassenKontoGroesse, kassenKontoGroesseNach, kassenStandNach, kassenTresor, konfigurationAbschliessenAnweisung,
+  konfigurationAusfuehrenAnweisung, konfigurationKontoGroessen, konfigurationVorschlagenAnweisungen, leseGuthaben, leseKasse, leseKonto, leseNonceKonto,
+  leseProgrammEinstellungenVonKette, leseVorgang, neuerKontoSchluessel, neuesterBlockhash, nonceKontoKosten, pruefeOfflineUeberweisung,
   sendeTransaktion, signiereMit, txFehlerText, ueberweisungAnweisung, vorschlagsSchritte, warteAufBestaetigung, type Auszahlung, type Instruction,
-  type KassenArt, type KassenSchritt, type PaymentRail, type SolRpc, type SolTransaktion,
+  type KassenAenderung, type KassenArt, type KassenSchritt, type PaymentRail, type SolRpc, type SolTransaktion,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { solText } from "../preis-anzeige.js";
@@ -259,10 +260,16 @@ export async function zahleInKasse(
  * Stimme oder Ausführung kommen von der Kette (V6), nie aus dem Raum. `mitglied` ist die eigene Adresse für die Kasse – sie
  * unterschreibt; Gebühr und Miete zahlt wie beim Anlegen am liebsten sie selbst (`kassenZahler()`). `bestaetige` zeigt
  * vorher Zahler, Miete und Auszahlung; ohne Zustimmung geht nichts hinaus. Gibt die Nummer des Vorschlags zurück.
+ * Seit A-12d1 ebenso Änderungen der Kasse: „aendern“ stellt sie mit `kassenAenderungen()` aus dem Stand auf der Kette zusammen
+ * (die Art bleibt), dafür stimmen und ausführen nur, wenn die Kasse ihre Art behält (`behaeltArt()`); wer ausführt, zahlt
+ * die Miete, wenn das Konto der Kasse wächst.
  */
 export async function kassenSchritt(
-  a: { kasse: string; mitglied?: string } & ({ schritt: "vorschlagen"; auszahlung: Auszahlung } | { schritt: KassenSchritt; index: bigint }),
-  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null }) => Promise<boolean>,
+  a: { kasse: string; mitglied?: string } & (
+    | { schritt: "vorschlagen"; auszahlung: Auszahlung }
+    | { schritt: "aendern"; dazu?: readonly string[]; weg?: readonly string[]; zeitschlossSek?: number }
+    | { schritt: KassenSchritt; index: bigint }),
+  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null; konfiguration?: KassenAenderung[] }) => Promise<boolean>,
 ): Promise<bigint> {
   const e = benutzbareEingebauteWallet();
   if (!e?.adresse()) throw new Error(t("kasse.nurEingebaut"));
@@ -273,34 +280,62 @@ export async function kassenSchritt(
   if (!rpc) throw new Error(t("kasse.nurDevnet"));
   const stand = await leseKasse(rpc, a.kasse);
   if (!stand || !kassenArt(stand)) throw new Error(t("kasse.nichtAuszahlen"));
+  const mieteFuer = async (bytes: number) => Number(await rpc.getMinimumBalanceForRentExemption(BigInt(bytes), { commitment: "confirmed" }).send());
   let miete = 0, index: bigint;
-  let auszahlung: Auszahlung | null;
+  let auszahlung: Auszahlung | null = null, konfiguration: KassenAenderung[] | null | undefined;
   let baue: (zahler: string) => Instruction[];
-  if (a.schritt === "vorschlagen") {
+  if (a.schritt === "vorschlagen" || a.schritt === "aendern") {
     if (!((stand.mitglieder.find((m) => m.adresse === eigen)?.rechte ?? 0) & KASSEN_RECHT.vorschlagen)) throw new Error(t("kasse.schrittNicht"));
-    // Danach muss der Tresor leer oder mietfrei sein – sonst lehnt die Kette die Ausführung ab
-    const rest = Number(await leseGuthaben(rpc, kassenTresor(a.kasse))) - Number(a.auszahlung.lamports);
-    if (rest !== 0 && rest < MIETE_LEERES_KONTO) throw new Error(t("kasse.zuViel"));
-    const groesse = auszahlungKontoGroessen(stand.mitglieder.length);
-    for (const b of [groesse.transaktion, groesse.vorschlag]) miete += Number(await rpc.getMinimumBalanceForRentExemption(BigInt(b), { commitment: "confirmed" }).send());
-    const p = { kasse: a.kasse, index: stand.transaktionsIndex + 1n, vorschlagender: eigen!, ...a.auszahlung };
+    const p = { kasse: a.kasse, index: stand.transaktionsIndex + 1n, vorschlagender: eigen! };
     index = p.index;
-    auszahlung = a.auszahlung;
-    baue = (zahler) => auszahlungVorschlagenAnweisungen({ ...p, mietZahler: zahler });
+    let groesse: { transaktion: number; vorschlag: number };
+    if (a.schritt === "aendern") {
+      // Aus dem frisch gelesenen Stand: ändert sich nichts mehr oder hielte die Art nicht, hat sich die Kette geändert
+      let aenderungen: KassenAenderung[];
+      try {
+        aenderungen = kassenAenderungen(stand, a);
+      } catch {
+        throw new Error(t("kasse.schrittNicht"));
+      }
+      konfiguration = aenderungen;
+      groesse = konfigurationKontoGroessen(aenderungen, stand.mitglieder.length);
+      baue = (zahler) => konfigurationVorschlagenAnweisungen({ ...p, mietZahler: zahler, aenderungen });
+    } else {
+      // Danach muss der Tresor leer oder mietfrei sein – sonst lehnt die Kette die Ausführung ab
+      const rest = Number(await leseGuthaben(rpc, kassenTresor(a.kasse))) - Number(a.auszahlung.lamports);
+      if (rest !== 0 && rest < MIETE_LEERES_KONTO) throw new Error(t("kasse.zuViel"));
+      auszahlung = a.auszahlung;
+      groesse = auszahlungKontoGroessen(stand.mitglieder.length);
+      baue = (zahler) => auszahlungVorschlagenAnweisungen({ ...p, mietZahler: zahler, ...a.auszahlung });
+    }
+    for (const b of [groesse.transaktion, groesse.vorschlag]) miete += await mieteFuer(b);
   } else {
     const { schritt } = a;
     index = a.index;
-    const [vorschlag, tx] = await Promise.all([leseVorschlagVonKette(rpc, a.kasse, index), leseAuszahlungVonKette(rpc, a.kasse, index)]);
-    auszahlung = tx?.auszahlung ?? null;
+    const vg = await leseVorgang(rpc, a.kasse, index);
+    auszahlung = vg?.auszahlung ?? null;
+    konfiguration = vg?.konfiguration;
     const jetztSek = Math.floor(Date.now() / 1000);
-    if (!vorschlag || !vorschlagsSchritte({ stand, vorschlag, auszahlung, mitglied: eigen, jetztSek }).includes(schritt)) throw new Error(t("kasse.schrittNicht"));
-    const abschliessen = stand.mieteAn ? [abschliessenAnweisung({ kasse: a.kasse, index, mieteAn: stand.mieteAn })] : [];
-    baue = () => schritt === "abschliessen" ? abschliessen
-      : schritt === "ausfuehren" ? [ausfuehrenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, auszahlung: auszahlung! }), ...abschliessen]
-      : [abstimmenAnweisung({ kasse: a.kasse, index, mitglied: eigen!, dafuer: schritt === "dafuer" })];
+    if (!vg || !vorschlagsSchritte({ stand, vorschlag: vg.vorschlag, auszahlung, konfiguration, mitglied: eigen, jetztSek }).includes(schritt)) throw new Error(t("kasse.schrittNicht"));
+    // Für eine Änderung, nach der die Kasse eine andere Art hätte, stimmt die App nicht und führt sie nicht aus
+    if (konfiguration && (schritt === "dafuer" || schritt === "ausfuehren") && !behaeltArt(stand, konfiguration)) throw new Error(t("kasse.schrittNicht"));
+    const geht = { kasse: a.kasse, index };
+    const abschliessen = !stand.mieteAn ? []
+      : [konfiguration !== undefined ? konfigurationAbschliessenAnweisung({ ...geht, mieteAn: stand.mieteAn }) : abschliessenAnweisung({ ...geht, mieteAn: stand.mieteAn })];
+    if (konfiguration && schritt === "ausfuehren") {
+      // Kommt ein Mitglied dazu, wächst das Konto der Kasse um zehn Plätze – die Miete dafür zahlt, wer ausführt
+      const konto = await leseKonto(rpc, a.kasse);
+      if (!konto) throw new Error(t("kasse.nichtAuszahlen"));
+      const neu = kassenKontoGroesseNach(konto.daten.length, kassenStandNach(stand, konfiguration).mitglieder.length);
+      if (neu > konto.daten.length) miete = Math.max(0, (await mieteFuer(neu)) - Number(konto.lamports));
+    }
+    baue = (zahler) => schritt === "abschliessen" ? abschliessen
+      : schritt === "ausfuehren" && konfiguration ? [konfigurationAusfuehrenAnweisung({ ...geht, mitglied: eigen!, mietZahler: zahler }), ...abschliessen]
+      : schritt === "ausfuehren" ? [ausfuehrenAnweisung({ ...geht, mitglied: eigen!, auszahlung: auszahlung! }), ...abschliessen]
+      : [abstimmenAnweisung({ ...geht, mitglied: eigen!, dafuer: schritt === "dafuer" })];
   }
   const zahler = await kassenZahler(rpc, e, miete, eigen);
-  if (!(await bestaetige({ zahler, miete, auszahlung }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  if (!(await bestaetige({ zahler, miete, auszahlung, ...(konfiguration ? { konfiguration } : {}) }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
   const lebensdauer = await neuesterBlockhash(rpc);
   const tx = baueTransaktion({ zahler, anweisungen: baue(zahler), lebensdauer });
   await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);

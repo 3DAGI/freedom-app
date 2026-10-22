@@ -6,6 +6,7 @@
  * A-12b2c: Stand von der Kette mit Abweichungen zum Raum zeigen, einzahlen – ebenso nur Devnet, nur in Kassen der App.
  * A-12b2d: ohne eingebaute Wallet die Adresse einer verbundenen – sie signiert den festen Text, die App prüft ihn vor dem Senden.
  * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – nur, was das Programm annimmt, Empfänger und Betrag von der Kette.
+ * A-12d1: die Kasse ändern (Mitglieder, Wartezeit) – die Art bleibt; abstimmen und ausführen über Änderungen wie bei Auszahlungen.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +17,7 @@ import {
   KASSEN_RECHT, abstimmenAnweisung, baueKasseAnlegen, baueTransaktion, deriveSolanaKey, kassenAdresse, kassenOrt, kassenTresor, pruefeKassenNachweis,
   raumAdresse, type KassenStand, type KassenVorgang, type KassenVorschlag,
 } from "@freedomstack/protocol";
-import { kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../src/kasse-anzeige.js";
+import { aenderungenText, kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../src/kasse-anzeige.js";
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type WalletSpeicher } from "../src/sol-wallet.js";
 import { setLang } from "../src/i18n.js";
@@ -237,20 +238,20 @@ test("A-12c1: Auszahlungen im Text und im Menü – Betrag, Empfänger, Stimmen 
     { index: 1n, vorschlag: v(1n, "ausgefuehrt"), auszahlung: null },
   ];
   const text = vorschlaegeText(stand, liste);
-  assert.equal(text.split("\n")[0], "Auszahlungen (von der Kette):");
+  assert.equal(text.split("\n")[0], "Vorschläge (von der Kette):");
   assert.ok(text.includes(`· Nr. 3: 0,5 SOL an ${EMPF} – offen, dafür 1 von 2, dagegen 0`));
   assert.match(text, /· Nr\. 2: 0,1 SOL an \S+ – angenommen, dafür 2 von 2, dagegen 0 \(auszahlbar ab .+\)/, "mit Wartezeit: ab wann");
   assert.match(text, /· Nr\. 1: keine Auszahlung, wie die App sie baut – ausgeführt; darüber stimmt die App nicht ab\./);
-  assert.equal(vorschlaegeText(stand, []), "Keine offenen Auszahlungen.");
+  assert.equal(vorschlaegeText(stand, []), "Keine offenen Vorschläge.");
 
   const werte = (mitglied: string | undefined, jetzt = 10_000, s = stand) => kassenAktionen(s, liste, mitglied, jetzt).map((a) => a.wert);
-  assert.deepEqual(werte(A), ["einzahlen", "vorschlagen", "dafuer:3", "dagegen:3", "ausfuehren:2", "abschliessen:1"]);
-  assert.deepEqual(werte(B), ["einzahlen", "vorschlagen", "dagegen:3", "ausfuehren:2", "abschliessen:1"], "dieselbe Stimme nicht zweimal");
-  assert.deepEqual(werte(A, 4599), ["einzahlen", "vorschlagen", "dafuer:3", "dagegen:3", "abschliessen:1"], "vor Ablauf der Wartezeit nicht auszahlen");
+  assert.deepEqual(werte(A), ["einzahlen", "vorschlagen", "aendern", "dafuer:3", "dagegen:3", "ausfuehren:2", "abschliessen:1"]);
+  assert.deepEqual(werte(B), ["einzahlen", "vorschlagen", "aendern", "dagegen:3", "ausfuehren:2", "abschliessen:1"], "dieselbe Stimme nicht zweimal");
+  assert.deepEqual(werte(A, 4599), ["einzahlen", "vorschlagen", "aendern", "dafuer:3", "dagegen:3", "abschliessen:1"], "vor Ablauf der Wartezeit nicht auszahlen");
   assert.deepEqual(werte(undefined), ["einzahlen", "abschliessen:1"], "ohne eigene Adresse: einzahlen und abschließen");
   assert.deepEqual(werte(phantom(40)), ["einzahlen", "abschliessen:1"], "nicht in der Kasse");
   const gruender = { ...stand, schwelle: 1, mitglieder: [{ adresse: A, rechte: ALLE }, { adresse: B, rechte: KASSEN_RECHT.vorschlagen }] };
-  assert.deepEqual(werte(B, 10_000, gruender), ["einzahlen", "vorschlagen", "abschliessen:1"], "wer nur vorschlägt, stimmt nicht ab und zahlt nicht aus");
+  assert.deepEqual(werte(B, 10_000, gruender), ["einzahlen", "vorschlagen", "aendern", "abschliessen:1"], "wer nur vorschlägt, stimmt nicht ab und zahlt nicht aus");
   const fertig: KassenVorgang = { index: 4n, vorschlag: v(4n, "abgelehnt"), auszahlung: { empfaenger: EMPF, lamports: 1n } };
   assert.deepEqual(kassenAktionen(stand, [fertig], undefined, 10_000).map((a) => [a.wert, a.text]), [
     ["einzahlen", "Einzahlen"], ["abschliessen:4", "Nr. 4: abschließen (Miete in den Tresor)"],
@@ -283,40 +284,82 @@ test("A-12c1: Verdrahtet – nur Devnet, nur Kassen der App, nur Schritte nach d
   assert.match(schritt, /& KASSEN_RECHT\.vorschlagen\)\) throw new Error\(t\("kasse\.schrittNicht"\)\);/);
   assert.match(schritt, /if \(rest !== 0 && rest < MIETE_LEERES_KONTO\) throw new Error\(t\("kasse\.zuViel"\)\);/);
   assert.match(schritt, /auszahlungKontoGroessen\(stand\.mitglieder\.length\)/, "Miete beider Konten vorher");
-  assert.match(schritt, /auszahlungVorschlagenAnweisungen\(\{ \.\.\.p, mietZahler: zahler \}\)/);
-  assert.match(schritt, /auszahlung = tx\?\.auszahlung \?\? null;/, "Empfänger und Betrag von der Kette (V6)");
-  assert.match(schritt, /!vorschlagsSchritte\(\{ stand, vorschlag, auszahlung, mitglied: eigen, jetztSek \}\)\.includes\(schritt\)\) throw new Error\(t\("kasse\.schrittNicht"\)\)/);
-  assert.match(schritt, /\[ausfuehrenAnweisung\(\{ kasse: a\.kasse, index, mitglied: eigen!, auszahlung: auszahlung! \}\), \.\.\.abschliessen\]/, "ausführen und abschließen in einem Zug");
+  assert.match(schritt, /auszahlungVorschlagenAnweisungen\(\{ \.\.\.p, mietZahler: zahler, \.\.\.a\.auszahlung \}\)/);
+  assert.match(schritt, /const vg = await leseVorgang\(rpc, a\.kasse, index\);\n    auszahlung = vg\?\.auszahlung \?\? null;/, "Empfänger und Betrag von der Kette (V6)");
+  assert.match(schritt, /!vorschlagsSchritte\(\{ stand, vorschlag: vg\.vorschlag, auszahlung, konfiguration, mitglied: eigen, jetztSek \}\)\.includes\(schritt\)\) throw new Error\(t\("kasse\.schrittNicht"\)\)/);
+  assert.match(schritt, /\[ausfuehrenAnweisung\(\{ \.\.\.geht, mitglied: eigen!, auszahlung: auszahlung! \}\), \.\.\.abschliessen\]/, "ausführen und abschließen in einem Zug");
   assert.match(schritt, /await kassenZahler\(rpc, e, miete, eigen\)/, "am liebsten zahlt die Adresse für die Kasse");
-  const reihe = ["await bestaetige({ zahler, miete, auszahlung })", "baueTransaktion(", "await sendeUndBestaetige(rpc, e.signiereTransaktion(tx)"].map((x) => schritt.indexOf(x));
+  const reihe = ["await bestaetige({ zahler, miete, auszahlung,", "baueTransaktion(", "await sendeUndBestaetige(rpc, e.signiereTransaktion(tx)"].map((x) => schritt.indexOf(x));
   assert.ok(reihe.every((i, n) => i > 0 && (n === 0 || i > reihe[n - 1]!)), "erst Rückfrage, dann bauen und senden");
 
   const ui = lies("shell/raum-kasse-ui.ts");
   const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
   assert.match(zeige, /const vorgaenge = await leseVorschlaege\(rpc, kasse, stand\);/);
   assert.match(zeige, /kassenAktionen\(stand, vorgaenge, mitglied, Math\.floor\(Date\.now\(\) \/ 1000\)\)/);
-  assert.match(zeige, /if \(aktion\.aktion !== "einzahlen"\) return await auszahlen\(kasse, String\(aktion\.aktion\), mitglied\);/);
+  assert.match(zeige, /if \(aktion\.aktion !== "einzahlen"\) return await auszahlen\(kasse, String\(aktion\.aktion\), mitglied, werName\);/);
   const aus = ui.slice(ui.indexOf("async function auszahlen("));
   assert.ok(aus.indexOf("await verlangeTresor(") < aus.indexOf("await kassenSchritt("), "erst der Tresor");
   assert.match(aus, /if \(!istSolAdresse\(an\) \|\| an === kassenTresor\(kasse\)\) return t\("kasse\.empfaengerFalsch"\);/);
   assert.match(aus, /empfaenger: k\.auszahlung\?\.empfaenger \?\? ""/, "die Rückfrage zeigt, was auf der Kette steht");
-  assert.match(aus, /\.\.\.\(k\.zahler === mitglied \? \[\] : \[mitglied \? t\("kasse\.zahlerVerbunden", \{ gruender: mitglied \}\) : t\("kasse\.zahlerVerbundenOhne"\)\]\)/,
-    "zahlt eine andere Adresse, sagt die Rückfrage es");
+  assert.match(ui, /zahler === mitglied \? \[\] : \[mitglied \? t\("kasse\.zahlerVerbunden", \{ gruender: mitglied \}\) : t\("kasse\.zahlerVerbundenOhne"\)\]/);
+  assert.match(aus, /\.\.\.zahlerHinweis\(k\.zahler, mitglied\),/, "zahlt eine andere Adresse, sagt die Rückfrage es");
 });
 
-test("A-12a3: eine Änderung der Kasse zeigt die App nur – kein Schritt im Menü, bis A-12d abstimmen kann", () => {
-  const KASSE = phantom(20), A = phantom(21), B = phantom(22);
+test("A-12d1: Änderungen der Kasse im Text und im Menü – was sich ändert, von der Kette; für eine andere Art stimmt die App nicht", () => {
+  const KASSE = phantom(20), A = phantom(21), B = phantom(22), C = phantom(23), D = phantom(25);
   const stand: KassenStand = {
-    createKey: phantom(24), verwalter: null, schwelle: 2, zeitschlossSek: 0, transaktionsIndex: 2n, veraltetBis: 0n, mieteAn: kassenTresor(KASSE), bump: 255,
+    createKey: phantom(24), verwalter: null, schwelle: 2, zeitschlossSek: 0, transaktionsIndex: 4n, veraltetBis: 0n, mieteAn: kassenTresor(KASSE), bump: 255,
     mitglieder: [A, B].map((adresse) => ({ adresse, rechte: 7 })),
   };
-  const v = (index: bigint, status: KassenVorschlag["status"]): KassenVorschlag => ({ kasse: KASSE, index, status, seit: 1000n, dafuer: [], dagegen: [], abgebrochen: [] });
+  const v = (index: bigint, status: KassenVorschlag["status"], dafuer: string[] = []): KassenVorschlag =>
+    ({ kasse: KASSE, index, status, seit: 1000n, dafuer, dagegen: [], abgebrochen: [] });
   const liste: KassenVorgang[] = [
-    { index: 2n, vorschlag: v(2n, "aktiv"), auszahlung: null, konfiguration: [{ art: "zeitschloss", sek: 3600 }] },
+    { index: 4n, vorschlag: v(4n, "aktiv"), auszahlung: null, konfiguration: [{ art: "mitglied-dazu", adresse: C, rechte: 7 }, { art: "zeitschloss", sek: 3600 }] },
+    { index: 3n, vorschlag: v(3n, "aktiv"), auszahlung: null, konfiguration: [{ art: "schwelle", schwelle: 1 }] },
+    { index: 2n, vorschlag: v(2n, "angenommen", [A, B]), auszahlung: null, konfiguration: [{ art: "mitglied-weg", adresse: B }, { art: "mitglied-dazu", adresse: D, rechte: 7 }] },
     { index: 1n, vorschlag: v(1n, "ausgefuehrt"), auszahlung: null, konfiguration: null },
   ];
-  const text = vorschlaegeText(stand, liste);
-  assert.match(text, /· Nr\. 2: Änderung der Kasse \(Mitglieder, Schwelle oder Wartezeit\) – offen; die App zeigt sie bisher nur\./);
-  assert.match(text, /· Nr\. 1: Änderung der Kasse .* – ausgeführt;/, "auch eine, die die App nicht lesen kann");
-  assert.deepEqual(kassenAktionen(stand, liste, A, 10_000).map((a) => a.wert), ["einzahlen", "vorschlagen"], "weder abstimmen noch abschließen");
+  const wer = (a: string) => (a === C ? "Clara" : undefined);
+  const text = vorschlaegeText(stand, liste, wer);
+  assert.ok(text.includes(`· Nr. 4: Änderung – Clara (${C}) kommt dazu (alle Rechte); Wartezeit 1 Stunde – offen, dafür 0 von 2, dagegen 0`), text);
+  assert.ok(text.includes("· Nr. 3: Änderung – Schwelle 1 – offen, dafür 0 von 2, dagegen 0 Danach hätte die Kasse eine andere Art – dafür stimmt die App nicht."));
+  assert.ok(text.includes(`· Nr. 2: Änderung – ${B} geht; ${D} kommt dazu (alle Rechte) – angenommen, dafür 2 von 2, dagegen 0`), "ohne Namen nur die Adresse");
+  assert.match(text, /· Nr\. 1: Änderung der Kasse, die die App nicht anbietet .* – ausgeführt; darüber stimmt die App nicht ab\./);
+  assert.equal(aenderungenText([{ art: "mitglied-dazu", adresse: C, rechte: 1 }, { art: "mitglied-dazu", adresse: D, rechte: 3 }]),
+    `${C} kommt dazu (darf nur vorschlagen); ${D} kommt dazu (Rechte 3 bei Squads)`);
+
+  const menue = kassenAktionen(stand, liste, A, 10_000);
+  assert.deepEqual(menue.map((a) => a.wert), ["einzahlen", "vorschlagen", "aendern", "dafuer:4", "dagegen:4", "dagegen:3", "ausfuehren:2", "abschliessen:1"],
+    "Nr. 3 machte aus der Mehrheit eine andere Art: nur dagegen");
+  assert.equal(menue.find((a) => a.wert === "ausfuehren:2")?.text, "Nr. 2: Änderung ausführen");
+  assert.equal(menue.find((a) => a.wert === "aendern")?.text, "Kasse ändern (Mitglieder, Wartezeit) …");
+  assert.deepEqual(kassenAktionen({ ...stand, veraltetBis: 4n }, liste, A, 10_000).map((a) => a.wert),
+    ["einzahlen", "vorschlagen", "aendern", "abschliessen:4", "abschliessen:3", "abschliessen:2", "abschliessen:1"], "veraltet: nur abschließen");
+  assert.deepEqual(kassenAktionen(stand, liste, undefined, 10_000).map((a) => a.wert), ["einzahlen", "abschliessen:1"], "ohne eigene Adresse nicht ändern");
+});
+
+test("A-12d1: Verdrahtet – ändern nur aus dem Stand der Kette mit erhaltener Art, Miete nach der Größe; ausführen mit Zuwachs, abschließen mit der Anweisung der Änderung", () => {
+  const zs = lies("shell/zahlschienen.ts");
+  const schritt = zs.slice(zs.indexOf("export async function kassenSchritt("), zs.indexOf("/** Den Wert neu lesen"));
+  assert.match(schritt, /aenderungen = kassenAenderungen\(stand, a\);\n      \} catch \{\n        throw new Error\(t\("kasse\.schrittNicht"\)\);/, "aus dem frisch gelesenen Stand, die Art bleibt");
+  assert.match(schritt, /groesse = konfigurationKontoGroessen\(aenderungen, stand\.mitglieder\.length\);/, "Miete beider Konten vorher");
+  assert.match(schritt, /konfigurationVorschlagenAnweisungen\(\{ \.\.\.p, mietZahler: zahler, aenderungen \}\)/);
+  assert.match(schritt, /if \(konfiguration && \(schritt === "dafuer" \|\| schritt === "ausfuehren"\) && !behaeltArt\(stand, konfiguration\)\) throw new Error\(t\("kasse\.schrittNicht"\)\);/,
+    "für eine andere Art nicht stimmen, sie nicht ausführen");
+  assert.match(schritt, /konfiguration !== undefined \? konfigurationAbschliessenAnweisung\(\{ \.\.\.geht, mieteAn: stand\.mieteAn \}\) : abschliessenAnweisung\(/,
+    "eine Änderung nie mit der Anweisung der Auszahlung abschließen");
+  assert.match(schritt, /const neu = kassenKontoGroesseNach\(konto\.daten\.length, kassenStandNach\(stand, konfiguration\)\.mitglieder\.length\);\n      if \(neu > konto\.daten\.length\) miete = Math\.max\(0, \(await mieteFuer\(neu\)\) - Number\(konto\.lamports\)\);/,
+    "wer ausführt, zahlt den Zuwachs");
+  assert.match(schritt, /\[konfigurationAusfuehrenAnweisung\(\{ \.\.\.geht, mitglied: eigen!, mietZahler: zahler \}\), \.\.\.abschliessen\]/);
+  assert.match(schritt, /await bestaetige\(\{ zahler, miete, auszahlung, \.\.\.\(konfiguration \? \{ konfiguration \} : \{\}\) \}\)/, "die Rückfrage zeigt die Änderungen");
+
+  const ui = lies("shell/raum-kasse-ui.ts");
+  const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
+  assert.match(zeige, /if \(aktion\.aktion === "aendern"\) return await aendern\(kasse, stand, abweichungen, mitglied, werName\);/);
+  const aendern = ui.slice(ui.indexOf("async function aendern("), ui.indexOf("async function auszahlen("));
+  assert.match(aendern, /const dazu = abw\.rechtOhneMitgliedschaft\.flatMap\(\(x\) => \(x\.adresse \? \[x\.adresse\] : \[\]\)\);/, "dazu nur mit Recht und genannter Adresse (V3)");
+  assert.match(aendern, /kassenAenderungen\(stand, wunsch\(w\)\);\n        return null;/, "geprüft, bevor der Dialog zugeht");
+  assert.ok(aendern.indexOf("await verlangeTresor(") < aendern.indexOf("await kassenSchritt("), "erst der Tresor");
+  assert.match(aendern, /aenderungenText\(k\.konfiguration \?\? \[\], wer\)/, "die Rückfrage zeigt, was gesendet wird");
+  assert.match(aendern, /\.\.\.zahlerHinweis\(k\.zahler, mitglied\),/);
 });

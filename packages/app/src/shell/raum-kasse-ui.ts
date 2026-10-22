@@ -11,13 +11,13 @@
  */
 import {
   KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, istSolAdresse,
-  kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor, leseGuthaben,
-  leseKasse, leseVorschlaege, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type Auszahlung, type KassenSchritt,
-  type SpaceState,
+  kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenAenderungen, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor,
+  leseGuthaben, leseKasse, leseVorschlaege, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type Auszahlung,
+  type KassenAbweichungen, type KassenSchritt, type KassenStand, type SpaceState,
 } from "@freedomstack/protocol";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { t } from "../i18n.js";
-import { kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../kasse-anzeige.js";
+import { aenderungenText, kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../kasse-anzeige.js";
 import type { SolAnbieter } from "../solana-connect.js";
 import { solText } from "../preis-anzeige.js";
 import { solZuLamports } from "../zahlungs-anforderung.js";
@@ -201,12 +201,16 @@ export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefine
     // Auszahlungen (A-12c1): Empfänger, Betrag und Stimmen von der Kette; wählbar nur, was das Programm jetzt annimmt
     const vorgaenge = await leseVorschlaege(rpc, kasse, stand);
     const mitglied = adressen.get(ich);
+    // Namen zu Adressen auf der Kette nur, wo jemand im Raum sie genannt hat (A-12d1)
+    const wer = (adresse: string) => [...adressen].find(([, a]) => a === adresse)?.[0];
+    const werName = (adresse: string) => (wer(adresse) ? name(wer(adresse)!) : undefined);
     const aktion = await dialog({
-      titel, text: `${text}\n\n${vorschlaegeText(stand, vorgaenge)}`, ok: t("kasse.weiter"), abbrechen: t("dlg.schliessen"),
+      titel, text: `${text}\n\n${vorschlaegeText(stand, vorgaenge, werName)}`, ok: t("kasse.weiter"), abbrechen: t("dlg.schliessen"),
       felder: [{ art: "wahl", name: "aktion", label: t("kasse.aktion"), optionen: kassenAktionen(stand, vorgaenge, mitglied, Math.floor(Date.now() / 1000)), wert: "einzahlen" }],
     });
     if (!aktion) return false;
-    if (aktion.aktion !== "einzahlen") return await auszahlen(kasse, String(aktion.aktion), mitglied);
+    if (aktion.aktion === "aendern") return await aendern(kasse, stand, abweichungen, mitglied, werName);
+    if (aktion.aktion !== "einzahlen") return await auszahlen(kasse, String(aktion.aktion), mitglied, werName);
     const w = await dialog({
       titel, ok: t("kasse.einzahlen"),
       felder: [{ art: "text", name: "betrag", label: t("kasse.betrag"), mono: true }],
@@ -234,16 +238,64 @@ export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefine
 const FRAGE: Record<KassenSchritt, string> = { // kein UI-Text
   dafuer: "kasse.dafuerFrage", dagegen: "kasse.dagegenFrage", ausfuehren: "kasse.ausfuehrenFrage", abschliessen: "kasse.abschliessenFrage",
 };
+const FRAGE_AENDERUNG: Record<KassenSchritt, string> = { // kein UI-Text
+  dafuer: "kasse.aeDafuerFrage", dagegen: "kasse.aeDagegenFrage", ausfuehren: "kasse.aeAusfuehrenFrage", abschliessen: "kasse.abschliessenFrage",
+};
 const ERLEDIGT: Record<KassenSchritt | "vorschlagen", string> = { // kein UI-Text
   vorschlagen: "kasse.vorgeschlagen", dafuer: "kasse.abgestimmt", dagegen: "kasse.abgestimmt", ausfuehren: "kasse.ausgezahlt", abschliessen: "kasse.abgeschlossen",
 };
+
+/** Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit auf der Kette verbunden wird. */
+const zahlerHinweis = (zahler: string, mitglied: string | undefined): string[] =>
+  zahler === mitglied ? [] : [mitglied ? t("kasse.zahlerVerbunden", { gruender: mitglied }) : t("kasse.zahlerVerbundenOhne")];
+
+/**
+ * Die Kasse ändern (A-12d1): dazu nur, wer im Raum das Recht „kasse“ hat und eine Adresse genannt hat (V3), weg jedes Mitglied,
+ * dazu die Wartezeit (W3). Die Art bleibt (`kassenAenderungen()`), die Schwelle folgt der Mehrheit; die Rückfrage zeigt die
+ * Änderungen, Zahler und Miete. Die Kasse ändert sich erst nach der Abstimmung.
+ */
+async function aendern(kasse: string, stand: KassenStand, abw: KassenAbweichungen, mitglied: string | undefined, wer: (adresse: string) => string | undefined): Promise<boolean> {
+  const mitName = (a: string) => (wer(a) ? t("kasse.aeWer", { name: wer(a)!, adresse: a }) : a);
+  const dazu = abw.rechtOhneMitgliedschaft.flatMap((x) => (x.adresse ? [x.adresse] : []));
+  const wunsch = (w: Record<string, string | string[]>) => ({
+    dazu: (w.dazu ?? []) as string[], weg: (w.weg ?? []) as string[], zeitschlossSek: Number(w.wartezeit),
+  });
+  const w = await dialog({
+    titel: t("kasse.aendernTitel"), ok: t("kasse.weiter"),
+    text: t(kassenArt(stand) === "gruender" ? "kasse.aendernGruender" : "kasse.aendernMehrheit"),
+    felder: [
+      ...(dazu.length ? [{ art: "mehrfach" as const, name: "dazu", label: t("kasse.aendernDazu"), optionen: dazu.map((a) => ({ wert: a, text: mitName(a) })) }] : []),
+      { art: "mehrfach", name: "weg", label: t("kasse.aendernWeg"), optionen: stand.mitglieder.map((m) => ({ wert: m.adresse, text: mitName(m.adresse) })) },
+      { art: "wahl", name: "wartezeit", label: t("kasse.zeitschloss"), wert: String(stand.zeitschlossSek), optionen: KASSEN_ZEITSCHLOSS_SEK.map((sek) => ({ wert: String(sek), text: zeitschlossText(sek) })) },
+    ],
+    pruefe: (w) => {
+      try {
+        kassenAenderungen(stand, wunsch(w));
+        return null;
+      } catch {
+        return t("kasse.aendernNicht");
+      }
+    },
+  });
+  if (!w || !(await verlangeTresor(t("kasse.wofuer")))) return false;
+  const { kassenSchritt } = await import("./zahlschienen.js");
+  const index = await kassenSchritt({ kasse, mitglied, schritt: "aendern", ...wunsch(w) }, (k) => bestaetige({
+    titel: t("kasse.titel"), ok: t("kasse.weiter"),
+    text: [
+      t("kasse.aendernFrage", { aenderungen: aenderungenText(k.konfiguration ?? [], wer), zahler: k.zahler, miete: solText(k.miete) }),
+      ...zahlerHinweis(k.zahler, mitglied),
+    ].join("\n\n"),
+  }));
+  toast(t("kasse.aenderungVorgeschlagen", { nr: String(index) }));
+  return true;
+}
 
 /**
  * Eine Auszahlung vorschlagen oder einen Schritt eines Vorschlags gehen (A-12c1, `kassenSchritt()`): „vorschlagen“ fragt
  * Empfänger und Betrag, „<schritt>:<nr>“ zeigt vor dem Senden, was auf der Kette steht – nie, was im Raum steht (V6).
  * Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit verbunden wird.
  */
-async function auszahlen(kasse: string, aktion: string, mitglied: string | undefined): Promise<boolean> {
+async function auszahlen(kasse: string, aktion: string, mitglied: string | undefined, wer: (adresse: string) => string | undefined): Promise<boolean> {
   const titel = t("kasse.titel");
   let neu: Auszahlung | undefined;
   if (aktion === "vorschlagen") {
@@ -265,19 +317,25 @@ async function auszahlen(kasse: string, aktion: string, mitglied: string | undef
   const [schritt, nr] = aktion.split(":") as [KassenSchritt | "vorschlagen", string | undefined];
   if (!(await verlangeTresor(t("kasse.wofuer")))) return false;
   const { kassenSchritt } = await import("./zahlschienen.js");
+  let aenderung = false;
   const index = await kassenSchritt(
     neu ? { kasse, mitglied, schritt: "vorschlagen", auszahlung: neu } : { kasse, mitglied, schritt: schritt as KassenSchritt, index: BigInt(nr ?? "") },
     (k) => {
-      const werte = { nr: nr ?? "", zahler: k.zahler, miete: solText(k.miete), betrag: solText(Number(k.auszahlung?.lamports ?? 0n)), empfaenger: k.auszahlung?.empfaenger ?? "" };
+      // Eine Änderung der Kasse (A-12d1): die Rückfrage nennt, was sich laut Kette ändert, statt Betrag und Empfänger
+      aenderung = !!k.konfiguration;
+      const werte = {
+        nr: nr ?? "", zahler: k.zahler, miete: solText(k.miete), betrag: solText(Number(k.auszahlung?.lamports ?? 0n)), empfaenger: k.auszahlung?.empfaenger ?? "",
+        aenderungen: k.konfiguration ? aenderungenText(k.konfiguration, wer) : "",
+      };
       return bestaetige({
         titel, ok: t("kasse.weiter"),
         text: [
-          t(schritt === "vorschlagen" ? "kasse.vorschlagenFrage" : FRAGE[schritt], werte),
-          ...(k.zahler === mitglied ? [] : [mitglied ? t("kasse.zahlerVerbunden", { gruender: mitglied }) : t("kasse.zahlerVerbundenOhne")]),
+          t(schritt === "vorschlagen" ? "kasse.vorschlagenFrage" : (aenderung ? FRAGE_AENDERUNG : FRAGE)[schritt], werte),
+          ...zahlerHinweis(k.zahler, mitglied),
         ].join("\n\n"),
       });
     },
   );
-  toast(t(ERLEDIGT[schritt], { nr: String(index) }));
+  toast(t(aenderung && schritt === "ausfuehren" ? "kasse.geaendert" : ERLEDIGT[schritt], { nr: String(index) }));
   return true;
 }

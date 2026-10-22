@@ -1,6 +1,6 @@
 /**
  * Gemeinsame Kasse über Squads v4 (A-12a1): Adressen, Arten, Anlegen, Konten lesen; seit A-12c1 Schritte eines Vorschlags,
- * seit A-12a3 Änderungen der Kasse.
+ * seit A-12a3 Änderungen der Kasse, seit A-12d1 ihre Miete und die Art bei fremden Änderungen.
  * Die erwarteten Adressen hat das SDK von Squads (`@sqds/multisig` 2.1.4) gerechnet, nicht `kasse.ts`;
  * die Bytes der Anweisung halten die Vektoren fest („kasse-anlegen-…“), das echte Programm prüft
  * `contracts/squads/tests/kasse.test.ts`.
@@ -14,6 +14,7 @@ import {
   kassenVorschlagAdresse, leseAuszahlung, leseAuszahlungVonKette, leseKasse, leseKassenStand, leseProgrammEinstellungen, leseVorschlag,
   leseVorschlaege, leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
   kassenAenderungen, kassenKontoGroesseNach, kassenStandNach, konfigurationAusfuehrenAnweisung, konfigurationVorschlagenAnweisungen, leseKonfiguration, leseKonfigurationVonKette,
+  behaeltArt, konfigurationKontoGroessen, leseVorgang,
   type KassenAenderung, type KassenStand, type KassenVorschlag,
 } from "../src/index.js";
 
@@ -416,4 +417,43 @@ test("A-12a3: die jüngsten Vorschläge erkennen Änderungen – die Auszahlung 
   assert.equal((await leseKonfigurationVonKette(rpc, KASSE, 2n))?.ersteller, A);
   await assert.rejects(leseKonfigurationVonKette(rpc, KASSE, 1n), /kein ConfigTransaction/);
   await assert.rejects(leseAuszahlungVonKette(rpc, KASSE, 2n), /kein VaultTransaction/, "eine Änderung ist keine Auszahlung");
+});
+
+// ---- A-12d1: Mitglieder und Wartezeit in der App ändern ----
+
+test("A-12d1: Miete einer Änderung, die Art bei fremden Änderungen, ein Vorgang von der Kette", async () => {
+  const D = adresse(24);
+  const alle: KassenAenderung[] = [
+    { art: "mitglied-dazu", adresse: C, rechte: 7 }, { art: "mitglied-weg", adresse: B }, { art: "schwelle", schwelle: 2 }, { art: "zeitschloss", sek: 3600 },
+  ];
+  // Kopf 85, dann je Änderung ihre Borsh-Länge: dazu 34, weg 33, Schwelle 3, Wartezeit 5 (im Validator gegen beide Programme geprüft)
+  assert.deepEqual(konfigurationKontoGroessen(alle, 3), { transaktion: 160, vorschlag: auszahlungKontoGroessen(3).vorschlag });
+  assert.equal(konfigurationKontoGroessen([{ art: "zeitschloss", sek: 0 }], 1).transaktion, 90);
+  const [anlegen] = konfigurationVorschlagenAnweisungen({ kasse: KASSE, index: 6n, vorschlagender: A, aenderungen: alle });
+  assert.equal(konfigurationKontoGroessen(alle, 3).transaktion, 8 + 32 + 32 + 8 + 1 + (anlegen!.data!.length - 8 - 1), "Kopf des Kontos und die Liste der Anweisung");
+  assert.throws(() => konfigurationKontoGroessen([{ art: "schwelle", schwelle: 0 }], 2), /Schwelle ungültig/);
+
+  // Die Art bleibt nur, wenn die Kasse danach dieselbe Form hat – was ein anderes Programm vorschlägt, kann sie ändern
+  const mehrheit = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 7 }, { adresse: C, rechte: 7 }], 2), zeitschlossSek: 0 };
+  const gruender = { ...stand([{ adresse: A, rechte: 7 }, { adresse: B, rechte: 1 }], 1), zeitschlossSek: 0 };
+  assert.equal(behaeltArt(mehrheit, kassenAenderungen(mehrheit, { dazu: [D] })), true);
+  assert.equal(behaeltArt(gruender, kassenAenderungen(gruender, { dazu: [C], zeitschlossSek: 86_400 })), true);
+  assert.equal(behaeltArt(mehrheit, [{ art: "schwelle", schwelle: 1 }]), false, "Schwelle 1 bei dreien ist keine Mehrheit");
+  assert.equal(behaeltArt(mehrheit, [{ art: "mitglied-dazu", adresse: D, rechte: 1 }]), false, "bei der Mehrheit hat jeder alle Rechte");
+  assert.equal(behaeltArt(mehrheit, [{ art: "schwelle", schwelle: 4 }]), false, "das Programm lehnte ab");
+  assert.equal(behaeltArt(gruender, [{ art: "mitglied-dazu", adresse: C, rechte: 7 }]), false, "ein zweiter mit allen Rechten");
+  assert.equal(behaeltArt({ ...gruender, verwalter: C }, [{ art: "zeitschloss", sek: 3600 }]), false, "keine Kasse dieser App");
+
+  // Ein Vorgang von der Kette: Änderung oder Auszahlung unter derselben Adresse, ohne Vorschlag keiner
+  const sq = (daten: Uint8Array) => ({ eigentuemer: SQUADS_PROGRAMM_ID, daten });
+  const vorschlag = (index: bigint) => bytes("Proposal").pk(KASSE).zahl(index, 8).u8(1).zahl(1000n, 8).u8(255).zahl(0n, 4).zahl(0n, 4).zahl(0n, 4).fertig();
+  const rpc = ketteMit({
+    [kassenVorschlagAdresse(KASSE, 2n)]: sq(vorschlag(2n)),
+    [kassenTransaktionAdresse(KASSE, 2n)]: sq(bytes("ConfigTransaction").pk(KASSE).pk(A).zahl(2n, 8).u8(254).zahl(1n, 4).u8(3).zahl(3600n, 4).fertig()),
+    [kassenVorschlagAdresse(KASSE, 1n)]: sq(vorschlag(1n)), [kassenTransaktionAdresse(KASSE, 1n)]: sq(transaktionBytes()),
+    [kassenTransaktionAdresse(KASSE, 3n)]: sq(transaktionBytes()),
+  });
+  assert.deepEqual((await leseVorgang(rpc, KASSE, 2n))?.konfiguration, [{ art: "zeitschloss", sek: 3600 }]);
+  assert.deepEqual((await leseVorgang(rpc, KASSE, 1n))?.auszahlung, { empfaenger: EMPF, lamports: 100_000_000n });
+  assert.equal(await leseVorgang(rpc, KASSE, 3n), null, "ohne Vorschlag kein Vorgang");
 });

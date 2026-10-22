@@ -203,7 +203,17 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   Miete dafür zahlt, wer ausführt. Jede Änderung macht offene Vorschläge veraltet; eine veraltete Auszahlung lässt sich noch
   ausführen, eine veraltete Änderung nicht mehr – nur abschließen. Das Programm prüft die Wartezeit vor dem Veralten. Die App
   liest Änderungen in der Liste der Vorschläge mit und zeigt sie bis A-12d nur.
+- **A-12d1 (22.10.2026):** Mitglieder und Wartezeit in der App ändern. „Kasse ändern …“ bietet dazu nur an, wer im Raum das Recht
+  „kasse“ hat und eine Adresse genannt hat (V3), weg jedes Mitglied, dazu die Wartezeit (W3); `kassenAenderungen()` stellt die Änderung
+  aus dem frisch gelesenen Stand so zusammen, dass die Art bleibt (W2) – die Schwelle folgt der Mehrheit, frei wählbar ist sie nicht.
+  Änderungen stehen in der Liste mit dem, was sich laut Kette ändert, und den Namen im Raum, wo jemand die Adresse genannt hat; abstimmen,
+  ausführen (im selben Zug abgeschlossen) und abschließen wie bei Auszahlungen. Für eine Änderung, nach der die Kasse eine andere Art hätte
+  (etwa aus einem anderen Programm), stimmt die App nicht und führt sie nicht aus (`behaeltArt()`). Die Miete eines Vorschlags rechnet
+  `konfigurationKontoGroessen()` (im Validator gegen beide Programme geprüft); wächst das Konto der Kasse, zahlt der Ausführende den Zuwachs –
+  die Rückfrage nennt ihn vorher.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d; fertig).
+  A-12d in d1 (Mitglieder dazu und weg, Wartezeit; fertig) und d2 (Wechsel der Art, Gründer ↔ Mehrheit – „ein Wechsel der Art ist
+  eine Änderung der Konfiguration“: die Rechte eines Mitglieds ändert Squads nur über weg und wieder dazu).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
   Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet). A-12c in c1 (Auszahlen mit der eingebauten Wallet), c2
