@@ -12755,3 +12755,27 @@ Spur A, `docs/KASSE-ENTWURF.md` (V2, V3, V4, V7, W2). Dritter App-Teil der Kasse
 - **Gegenproben:** vertauschte Abweichung, falsche Art, Einzahlen ohne Prüfung der Art, ohne Tageslimit – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2d – Kasse im Raum: Adresse aus einer verbundenen Wallet
+
+Spur A, `docs/KASSE-ENTWURF.md` (V4). Letzter App-Teil der Kasse im Raum (A-12b), auf A-12b2c.
+
+**Neu:**
+- **Nachricht signieren über verbundene Wallets** (`signiereNachricht()` am `SolAnbieter`):
+  - Wallet Standard (`wallet-standard.ts`): `solana:signMessage` mit dem verbundenen Konto. Die App nimmt die Signatur nur, wenn `signedMessage` genau ihre Bytes sind (manche Wallets setzen einen Vorspann davor – dann gälte der Nachweis nicht), der Typ Ed25519 ist und sie 64 Byte hat.
+  - `window.solana` (`solana-connect.ts`): `signMessage(…, "utf8")`, nur 64 Byte.
+  - Angeboten nur, was die Wallet kann.
+- **„Adresse für die Kasse nennen …“ mit verbundener Wallet** (`shell/raum-kasse-ui.ts`):
+  - Die eingebaute Wallet geht vor (frische Adresse aus dem Vorrat). Ist der Tresor gesperrt, sagt die App das, statt still die verbundene zu nehmen.
+  - Ohne eingebaute nimmt sie die Adresse der verbundenen Wallet; ohne Tresor verlangt sie dafür keinen.
+  - Die Rückfrage nennt die Adresse und rät zu einem eigenen, neuen Konto der Wallet (V4); offen sagt sie, dass der Schlüssel öffentlich mit der Adresse verbunden wird.
+  - Die Wallet signiert nur den festen Text (`kassenNachweisNachricht()`); vor dem Senden prüft die App den Nachweis (`pruefeKassenNachweis()`).
+- **Grenze „raum-kasse“:** nennt die verbundene Wallet (beide Sprachen).
+- **Doku:** Entwurf (Umsetzung, A-12b fertig), Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:**
+- **app +3:** Wallet Standard mit echter Ed25519-Signatur (Nachweis gilt; Vorspann, fremder Typ, kurze Signatur und fehlende Verbindung abgewiesen; ohne Feature nichts angeboten); `window.solana` ebenso; Verdrahtung (Vorrang der eingebauten, gesperrter Tresor, kein Tresor nötig, Rückfrage vor dem Signieren, Prüfung vor dem Senden).
+- **protocol +1:** der Satz im Bericht.
+- **Gegenproben:** ohne Vergleich der Bytes, ohne Längenprüfung, verbundene Wallet auch bei leerem Vorrat, Senden ohne Prüfung des Nachweises – je ein Test rot.
+
+Knoten-Stand: keiner nötig.

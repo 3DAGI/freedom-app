@@ -48,6 +48,7 @@ export const zahlung: Texte = {
   "zahl.walletOhneKette": { de: "{wallet} unterstützt {kette} nicht", en: "{wallet} doesn't support {kette}" },
   "zahl.walletOhneKonto": { de: "{wallet} gab kein Solana-Konto frei", en: "{wallet} shared no Solana account" },
   "zahl.walletOhneSignatur": { de: "{wallet} lieferte keine gültige Signatur", en: "{wallet} returned no valid signature" },
+  "zahl.walletNachrichtAnders": { de: "Die Wallet hat die Nachricht nicht so signiert, wie die App sie geschickt hat (etwa mit eigenem Vorspann) – der Nachweis gälte nicht.", en: "The wallet did not sign the message as the app sent it (for example with its own prefix) – the proof would not be valid." },
   "zahl.walletErkannt": { de: "Wallet erkannt: {namen}.", en: "Wallet detected: {namen}." },
   "zahl.walletBrowser": { de: "Wallet-Browser erkannt – Verbinden funktioniert direkt.", en: "Wallet browser detected – connecting works directly." },
   "zahl.browserWallet": { de: "Browser-Wallet erkannt (Phantom/Solflare).", en: "Browser wallet detected (Phantom/Solflare)." },

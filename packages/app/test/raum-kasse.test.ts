@@ -4,6 +4,7 @@
  * Raums, privat nur in die Gruppe; die Neuschreib-Stellen der privaten Definition geben die Kasse mit.
  * A-12b2b: die Kasse anlegen – nur über eigene Devnet-Endpunkte, mit der eingebauten Wallet – und in die Definition schreiben.
  * A-12b2c: Stand von der Kette mit Abweichungen zum Raum zeigen, einzahlen – ebenso nur Devnet, nur in Kassen der App.
+ * A-12b2d: ohne eingebaute Wallet die Adresse einer verbundenen – sie signiert den festen Text, die App prüft ihn vor dem Senden.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -59,7 +60,8 @@ test("A-12b2a: Verdrahtet – Menü nur mit „kasse“ und als Person, erst fra
   const ui = lies("shell/raum-kasse-ui.ts");
   assert.match(ui, /!alsGeraet\(\) && can\(ich, RAUM_KASSEN_RECHT, zustand\)/);
   assert.ok(ui.indexOf("await bestaetige(") < ui.indexOf("await frischeKassenAdresse("), "erst die Rückfrage, dann die Adresse");
-  assert.match(ui, /frischeKassenAdresse\(kassenOrt\(offen \? ziel\.adresse : ziel\.privat\.gruppe\), ich\)/);
+  assert.match(ui, /const ort = kassenOrt\(offen \? ziel\.adresse : ziel\.privat\.gruppe\);/);
+  assert.match(ui, /: await frischeKassenAdresse\(ort, ich\);/);
   const wallet = lies("shell/eingebaute-wallet.ts");
   const frisch = wallet.slice(wallet.indexOf("export async function frischeKassenAdresse("), wallet.indexOf("export function eingebauterHtlcSigner("));
   assert.match(frisch, /await frischeEmpfangsadresse\(\)/, "V4: frisch aus dem Vorrat");
@@ -199,4 +201,19 @@ test("A-12b2c: Verdrahtet – Stand und Einzahlen nur über eigene Devnet-Endpun
   assert.match(raeume, /const kasseStand = !!agentOrt\(\) && !alsGeraet\(\) && !!state\.keypair && !!st\?\.space\?\.kasse;/);
   assert.match(raeume, /m\.zeigeKasse\(ort, spacesUi\.state as SpaceState \| undefined, kontaktName\)/);
   assert.match(lies("shell/index.html"), /id="space-kasse" class="menue-punkt hidden"[^>]*data-i18n="kasse\.menue"/);
+});
+
+test("A-12b2d: Verdrahtet – die eingebaute Wallet geht vor; ohne sie die verbundene, nur mit signiereNachricht, Nachweis geprüft vor dem Senden", () => {
+  const ui = lies("shell/raum-kasse-ui.ts");
+  const nenne = ui.slice(ui.indexOf("export async function nenneKassenAdresse("), ui.indexOf("/** Darf ich hier die Kasse anlegen?"));
+  assert.ok(nenne.indexOf("tresorEingerichtet() && !tresorOffen()") < nenne.indexOf("kassenAdresseFehlt()"), "gesperrt: erst entsperren – die eingebaute ginge vor");
+  assert.match(nenne, /const kannVerbunden = !!verbunden\?\.provider\?\.signiereNachricht;/);
+  assert.match(nenne, /if \(!\(kannVerbunden && !tresorEingerichtet\(\)\) && !\(await verlangeTresor\(/, "ohne Tresor nur mit verbundener Wallet weiter");
+  assert.match(nenne, /const ueberVerbundene = fehlt === "ohne-wallet" && kannVerbunden;/, "nur ohne eingebaute – nie bei leerem Vorrat");
+  assert.ok(nenne.indexOf("await bestaetige(") < nenne.indexOf("await nachweisDerVerbundenen("), "erst die Rückfrage, dann signieren");
+  const verb = ui.slice(ui.indexOf("async function nachweisDerVerbundenen("), ui.indexOf("/** Die eigene Adresse für die Kasse nennen"));
+  assert.match(verb, /signiereNachricht!\(kassenNachweisNachricht\(ort, ich\)\)/, "nur der feste Text der Kasse");
+  assert.match(verb, /return pruefeKassenNachweis\(ort, ich, v\.adresse, nachweis\) \? \{ adresse: v\.adresse, nachweis \} : undefined;/);
+  const ws = lies("wallet-standard.ts");
+  assert.match(ws, /!gleicheBytes\(r\.signedMessage, nachricht\)/, "ein Vorspann der Wallet gilt nicht");
 });

@@ -10,11 +10,13 @@
  */
 import {
   KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, kassenAbweichungen,
-  kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenOrt, kassenTresor, leseGuthaben, leseKasse, mitKassenRecht, mitKassenTag,
-  raumKassenAdresse, type SpaceState,
+  kassenAdressenOffen, kassenAdressenPrivat, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor, leseGuthaben, leseKasse,
+  mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type SpaceState,
 } from "@freedomstack/protocol";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { t } from "../i18n.js";
 import { kassenStandText, zeitschlossText } from "../kasse-anzeige.js";
+import type { SolAnbieter } from "../solana-connect.js";
 import { solText } from "../preis-anzeige.js";
 import { solZuLamports } from "../zahlungs-anforderung.js";
 import { fehlerText } from "../protokoll-texte.js";
@@ -25,7 +27,8 @@ import type { AgentZiel } from "./raum-agenten-ui.js";
 import { gruenderDefinition } from "./raum-ketten-ui.js";
 import { setzePrivateKasse } from "./raum-mls.js";
 import { alsGeraet, devnetRpc, ensurePool, signiere, state } from "./state.js";
-import { verlangeTresor } from "./tresor.js";
+import { tresorEingerichtet, tresorOffen, verlangeTresor } from "./tresor.js";
+import { verbundeneSolanaWallet } from "./tabs/waehrung.js";
 import { toast } from "./ui.js";
 
 /** Die Adressen, die Mitglieder dem Raum genannt haben (Schlüssel → Adresse), nur mit gültigem Nachweis. */
@@ -41,6 +44,18 @@ export function darfKassenAdresse(zustand: SpaceState | undefined): boolean {
   return !!ich && !!zustand && !alsGeraet() && can(ich, RAUM_KASSEN_RECHT, zustand);
 }
 
+/**
+ * Nachweis aus einer verbundenen Wallet (A-12b2d): Sie signiert den festen Text der Kasse (`solana:signMessage`, bei
+ * `window.solana` `signMessage`); gilt er nicht für genau diese Adresse, Ort und Schlüssel, geht nichts hinaus.
+ */
+async function nachweisDerVerbundenen(
+  v: { adresse: string; provider?: SolAnbieter }, ort: string, ich: string,
+): Promise<{ adresse: string; nachweis: string } | undefined> {
+  const signatur = await v.provider!.signiereNachricht!(kassenNachweisNachricht(ort, ich));
+  const nachweis = bytesToHex(signatur);
+  return pruefeKassenNachweis(ort, ich, v.adresse, nachweis) ? { adresse: v.adresse, nachweis } : undefined;
+}
+
 /** Die eigene Adresse für die Kasse nennen – true, wenn eine hinausging. */
 export async function nenneKassenAdresse(ziel: AgentZiel, zustand: SpaceState | undefined): Promise<boolean> {
   const ich = state.keypair?.pk;
@@ -51,17 +66,30 @@ export async function nenneKassenAdresse(ziel: AgentZiel, zustand: SpaceState | 
       await hinweis(t("kasse.adresseTitel"), t("kasse.schonGenannt", { adresse: schon }));
       return false;
     }
-    if (!(await verlangeTresor(t("kasse.wofuer")))) return false;
+    // Gesperrt wüsste die App nicht, ob es eine eingebaute Wallet gibt – sie ginge vor (frisch aus dem Vorrat, V4)
+    if (tresorEingerichtet() && !tresorOffen()) {
+      toast(t("ein.tresorGesperrt"), true);
+      return false;
+    }
+    // A-12b2d: ohne eingebaute eine verbundene Wallet, die Nachrichten signiert – ohne Tresor auch ohne ihn zu verlangen
+    const verbunden = verbundeneSolanaWallet();
+    const kannVerbunden = !!verbunden?.provider?.signiereNachricht;
+    if (!(kannVerbunden && !tresorEingerichtet()) && !(await verlangeTresor(t("kasse.wofuer")))) return false;
     const fehlt = kassenAdresseFehlt();
-    if (fehlt) {
+    const ueberVerbundene = fehlt === "ohne-wallet" && kannVerbunden;
+    if (fehlt && !ueberVerbundene) {
       toast(t(fehlt === "ohne-wallet" ? "kasse.ohneWallet" : "kasse.ohneVorrat"), true);
       return false;
     }
     const offen = "adresse" in ziel;
-    if (!(await bestaetige({ titel: t("kasse.adresseTitel"), text: t(offen ? "kasse.offenText" : "kasse.privatText"), ok: t("kasse.nennen") }))) return false;
-    const neu = await frischeKassenAdresse(kassenOrt(offen ? ziel.adresse : ziel.privat.gruppe), ich);
+    const ort = kassenOrt(offen ? ziel.adresse : ziel.privat.gruppe);
+    const text = ueberVerbundene
+      ? t(offen ? "kasse.offenTextVerbunden" : "kasse.privatTextVerbunden", { adresse: verbunden!.adresse })
+      : t(offen ? "kasse.offenText" : "kasse.privatText");
+    if (!(await bestaetige({ titel: t("kasse.adresseTitel"), text, ok: t("kasse.nennen") }))) return false;
+    const neu = ueberVerbundene ? await nachweisDerVerbundenen(verbunden!, ort, ich) : await frischeKassenAdresse(ort, ich);
     if (!neu) {
-      toast(t("kasse.ohneVorrat"), true);
+      toast(t(ueberVerbundene ? "kasse.nachweisUngueltig" : "kasse.ohneVorrat"), true);
       return false;
     }
     const { adresse, nachweis } = neu;
