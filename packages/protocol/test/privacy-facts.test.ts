@@ -711,7 +711,7 @@ test("A-12b2b/c: der Bericht sagt, dass die zahlende Adresse beim Anlegen und Ei
 
 test("A-12b2d: der Bericht nennt die verbundene Wallet – deren gerade verbundene Adresse, mit Rat zu einem neuen Konto", () => {
   const f = PRIVACY_FACTS.find((x) => x.id === "raum-kasse");
-  assert.match(f?.aussage ?? "", /mit einer verbundenen Wallet deren gerade verbundene Adresse – sie rät dann zu einem eigenen, neuen Konto/);
+  assert.match(f?.aussage ?? "", /Mit einer verbundenen Wallet nennt sie deren gerade verbundene Adresse und rät zu einem eigenen, neuen Konto\./);
 });
 
 test("B-12d2: Wecken steht als Grenze im Bericht – die Anmeldung selbst ist versiegelt, die Push-Adresse nie offen", async () => {
