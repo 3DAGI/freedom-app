@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
-  auszahlungsNachricht, kasseAnlegenAnweisung, kassenAdresse, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
+  auszahlungsNachricht, baueKasseAnlegen, kasseAnlegenAnweisung, kassenAdresse, kassenKontoGroesse, leseNachricht, kassenArt, kassenMitglieder, kassenTransaktionAdresse, kassenTresor,
   kassenVorschlagAdresse, leseAuszahlung, leseAuszahlungVonKette, leseKasse, leseKassenStand, leseProgrammEinstellungen, leseVorschlag,
   leseVorschlagVonKette, mehrheitVon, poolRpc, programmEinstellungenAdresse, RpcPool, SQUADS_PROGRAMM_ID, type KassenStand,
 } from "../src/index.js";
@@ -201,4 +201,29 @@ test("A-12a2: von der Kette nur Konten von Squads und nur zur genannten Kasse", 
   await assert.rejects(leseAuszahlungVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: t }), KASSE, 2n), /nicht zu dieser Kasse/);
   await assert.rejects(leseVorschlagVonKette(kette({ eigentuemer: adresse(40), daten: vorschlagBytes(1) }), KASSE, 1n), /nicht Squads/);
   assert.equal((await leseVorschlagVonKette(kette({ eigentuemer: SQUADS_PROGRAMM_ID, daten: vorschlagBytes(1) }), KASSE, 1n))?.status, "aktiv");
+});
+
+test("A-12b2b: Anlegen mit frischem Create-Key – er hat unterschrieben, der Ersteller noch nicht; Größe des Kontos für die Miete", () => {
+  const lebensdauer = { blockhash: "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY", letzteHoehe: 100n };
+  const p = { ersteller: A, schatzamt: C, art: "mehrheit" as const, gruender: A, weitere: [B], lebensdauer };
+  const { tx, kasse } = baueKasseAnlegen(p);
+  const n = leseNachricht(tx);
+  assert.equal(n.zahler, A, "der Ersteller zahlt");
+  assert.equal(n.anweisungen.length, 1);
+  const ix = n.anweisungen[0]!;
+  assert.equal(ix.programm, SQUADS_PROGRAMM_ID);
+  const createKey = ix.konten[3]!;
+  assert.equal(createKey.signiert, true);
+  assert.notEqual(createKey.adresse, A);
+  assert.equal(ix.konten[2]!.adresse, kasse, "die Kasse folgt aus dem Create-Key");
+  assert.equal(kasse, kassenAdresse(createKey.adresse));
+  assert.deepEqual(ix.daten, Uint8Array.from(kasseAnlegenAnweisung({ ...p, createKey: createKey.adresse }).data!), "dieselben Bytes wie die Anweisung");
+  const signaturen = tx.signatures as Record<string, Uint8Array | null>;
+  assert.ok(signaturen[createKey.adresse], "der Create-Key hat unterschrieben");
+  assert.equal(signaturen[A], null, "der Ersteller noch nicht");
+  assert.notEqual(baueKasseAnlegen(p).kasse, kasse, "jedes Mal ein neuer Create-Key");
+  assert.throws(() => baueKasseAnlegen({ ...p, weitere: [] }), /mindestens zwei/);
+
+  assert.deepEqual([1, 2, 5].map(kassenKontoGroesse), [165, 198, 297]);
+  for (const x of [0, -1, 1.5, Number.NaN]) assert.throws(() => kassenKontoGroesse(x), /Mitglieder/);
 });

@@ -171,3 +171,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `kassenAdressenOffen()`/`kassenAdressenPrivat()` (Kind 34704, Nachweis: die Adresse signiert Ort und Schlüssel, eine doppelt genannte
   Adresse gilt für keinen), privat nur als inneres Event (`raumKassenAdresse()`); Abweichungen nur über `kassenAbweichungen()` – es
   zählt die Kette. `KASSEN_RECHT` (Bits bei Squads) ist nicht `RAUM_KASSEN_RECHT` (Recht im Raum).
+  Die Transaktion zum Anlegen (seit A-12b2b) nur über `baueKasseAnlegen()`: frischer Create-Key, unterschreibt dort und wird
+  genullt – er geht nie an die App. Miete nur nach `kassenKontoGroesse()` (der Validator-Test vergleicht sie mit der Länge des
+  Kontos). Wer nur auf einer Kette handeln darf, baut seinen Pool aus `endpunkteImNetz()` (Genesis-Hash je Endpunkt) und ohne
+  eingebaute Endpunkte (`new RpcPool([], …)`) – `new RpcPool()` ohne Liste nimmt `DEFAULT_MAINNET_RPCS`.

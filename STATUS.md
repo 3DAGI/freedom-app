@@ -12702,3 +12702,31 @@ Spur A, `docs/KASSE-ENTWURF.md` (V4, V5, W4). Erster App-Teil der Kasse im Raum.
 - **Gegenproben:** Signiert die Wallet mit dem ersten Schlüssel statt dem der Adresse oder vergisst die Definition die Kasse, ist je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12b2b – Kasse im Raum: anlegen
+
+Spur A, `docs/KASSE-ENTWURF.md` (V2, V4, V7, W2, W3). Zweiter App-Teil der Kasse im Raum, auf A-12b2a.
+
+**Neu:**
+- **Raum-Menü „Kasse anlegen …“** (`shell/raum-kasse-ui.ts`, Menüpunkt in `tabs/raeume.ts`):
+  - Offen nur der Gründer, privat nur ein Moderator (Admin); als Person, nie als Gerät; nur solange der Raum keine Kasse hat.
+  - Erst muss man selbst eine Adresse genannt haben (A-12b2a) – mit ihr steht man in der Kasse.
+  - Mitglieder: die eigene Adresse und die genannten Adressen derer mit dem Recht „kasse“. Wer keine genannt hat, fehlt; der Dialog nennt die Zahl.
+  - Wählbar: Art (Gründer entscheidet oder Mehrheit, W2) und Wartezeit (0, 1 h, 24 h, W3). Mehrheit braucht ein weiteres Mitglied.
+  - Danach die Kosten: Miete, Gebühr von Squads, Netzgebühr und die zahlende Adresse. Bei „Gründer entscheidet“ sagt der Text, dass der Gründer allein verfügt.
+- **Anlegen** (`legeKasseAn()` in `shell/zahlschienen.ts`): nur mit der eingebauten Wallet, nur auf Devnet (V7):
+  - Gefragt werden nur eigene Endpunkte, deren Genesis-Hash Devnet ist (`devnetRpc()` in `shell/state.ts`, `endpunkteImNetz()` im Protokoll) – nie der gemeinsame Pool, der bei einem Ausfall still auf Mainnet auswiche. Ohne solchen Endpunkt sagt die App, wo man ihn einträgt.
+  - Es zahlt am liebsten die Adresse für die Kasse (V4); zahlt eine andere eigene, sagt der Text, dass sie als Ersteller mit der Kasse verbunden wird.
+  - Der Create-Key ist frisch, unterschreibt im Protokoll (`baueKasseAnlegen()`) und wird gleich genullt. Die Miete rechnet `kassenKontoGroesse()`.
+- **In die Definition:** offen eine neue Definition des Gründers mit dem Tag `kasse` (`mitKassenTag()`, eine Sekunde nach der alten), privat `setzePrivateKasse()` über die Stelle mit den Ketten. Scheitert es, fragt die App erneut, statt still aufzugeben – die Kasse steht dann schon auf der Kette.
+- **Grenze „raum-kasse“** um einen Satz ergänzt (beide Sprachen): Die zahlende Adresse steht als Ersteller auf der Kette.
+- **Validator-Test** (`contracts/squads/tests/kasse.test.ts`): legt jede Kasse jetzt über `baueKasseAnlegen()` an, wie die App, und vergleicht die Länge des Kontos mit `kassenKontoGroesse()`.
+- **Doku:** Entwurf (Umsetzung), Fallstricke in `packages/app/CLAUDE.md` und `packages/protocol/CLAUDE.md`, OFFEN (b2b raus, Gerätetest Kasse auf Devnet), FORTSCHRITT, Stand; 9 Ausnahmen in `wiring-ausnahmen.txt` fallen weg (jetzt verdrahtet).
+
+**Tests:**
+- **protocol +4:** Anlegen mit frischem Create-Key (er hat unterschrieben, der Ersteller noch nicht; dieselben Bytes wie die Anweisung; Größe des Kontos); `endpunkteImNetz()` (nur Endpunkte mit diesem Genesis-Hash, je Endpunkt eine Frage, kein Ausweichen); `mitKassenTag()`; Satz im Bericht.
+- **app +2:** Die eingebaute Wallet unterschreibt das Anlegen als Ersteller (auch mit der Adresse für die Kasse), eine unvergebene Adresse nicht; Verdrahtung (nur Devnet-Endpunkte, erst Kosten, dann senden; Recht, eigene Adresse zuerst, Definition offen und privat, Menüpunkt).
+- **Kasse (Validator) 12:** wie bisher, jetzt über den Weg der App und mit der Länge des Kontos.
+- **Gegenproben:** falsche Größe (alle 12 Validator-Tests rot); App über den gemeinsamen Pool, Pool mit den eingebauten Endpunkten, private Definition ohne Kasse, Anlegen trotz vorhandener Kasse – je ein Test rot.
+
+Knoten-Stand: keiner nötig.

@@ -931,3 +931,8 @@ Fallstricke dieses Bereichs unten anhängen.
   könnten. Offen nur `baueKassenAdresse()` an die Adresse des Raums, privat nur `raumKassenAdresse()` über
   `mlsSendeEvent()`. Wer die private Definition neu schreibt, gibt `kasse` mit (`definitionMitKetten()`,
   `setzePrivateKetten()`) – eine neue Stelle, die `raumDefinition()` ruft, ebenso.
+  Angelegt (seit A-12b2b) nur über `legeKasseAn()` (`shell/zahlschienen.ts`) mit `devnetRpc()` – nur eigene Endpunkte mit dem
+  Genesis-Hash von Devnet, nie `solRpc()`: Der gemeinsame Pool wiche bei einem Ausfall still auf Mainnet aus, mit denselben
+  Schlüsseln (V7, bis M-8). Erst Kosten und Zahler bestätigen, dann bauen; am liebsten zahlt die Adresse für die Kasse (der
+  Zahler steht als Ersteller auf der Kette). In die Definition offen nur `mitKassenTag()` auf der neuesten des Gründers
+  (`gruenderDefinition()`, eine Sekunde danach), privat `setzePrivateKasse()`; scheitert es, fragen statt still aufgeben.

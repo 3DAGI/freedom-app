@@ -117,6 +117,13 @@ export function setzePrivateKetten(raum: PrivaterRaum, grenze: number | null): P
   return mlsSendeEvent(raum.gruppe, { ...d, tags: mitKetten(d.tags, grenze) });
 }
 
+/** Die Kasse in die Definition schreiben (A-12b2b) – nur Admins, über dieselbe Stelle wie Kanäle und Ketten. */
+export function setzePrivateKasse(raum: PrivaterRaum, kasse: string): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
+  return mlsSendeEvent(raum.gruppe, definitionMitKetten(raum, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels, kasse }));
+}
+
 /** Den Raumstand (Definition, Rollen, Zuweisungen) erneut senden – nach jeder Einladung (auch eines Agenten, 11.3c3a). */
 export async function sendeRaumstand(raum: PrivaterRaum): Promise<boolean> {
   const st = raum.zustand;

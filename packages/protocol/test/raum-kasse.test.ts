@@ -13,7 +13,7 @@ import { raumZustandFuer } from "../src/raum-repo.js";
 import { gruppenRaum, raumDefinition, raumRollen, type InneresEvent, type InneresSenden } from "../src/raum-gruppe.js";
 import {
   KIND_KASSEN_ADRESSE, baueKassenAdresse, kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenNachweisNachricht,
-  kassenOrt, mitKassenRecht, pruefeKassenNachweis, raumKassenAdresse, signiereKassenAdresse,
+  kassenOrt, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, signiereKassenAdresse,
 } from "../src/raum-kasse.js";
 import { kassenAdresse } from "../src/kasse.js";
 
@@ -179,4 +179,13 @@ test("A-12b1: Abweichungen – Recht ohne Mitgliedschaft, Mitgliedschaft ohne Re
 
   const ohneMeldung = kassenAbweichungen({ mitglieder: kette(a(besitzer, 1)), adressen: new Map([[besitzer.pk, a(besitzer, 1)]]), zustand });
   assert.deepEqual(ohneMeldung.rechtOhneMitgliedschaft, [{ pubkey: kassierer.pk }], "ohne genannte Adresse");
+});
+
+test("A-12b2b: mitKassenTag – die Kasse kommt dazu oder ersetzt die alte, alles andere bleibt", () => {
+  const tags = [["d", `space:${SPACE}`], ["name", "Werkstatt"], ["agentenketten", "10"]];
+  assert.deepEqual(mitKassenTag(tags, KASSE), [...tags, ["kasse", KASSE]]);
+  assert.deepEqual(mitKassenTag([...tags, ["kasse", ANDERE_KASSE]], KASSE), [...tags, ["kasse", KASSE]]);
+  assert.equal(parseSpace(s({ ...raum()[0]!, tags: mitKassenTag(raum()[0]!.tags, KASSE) }, besitzer)).kasse, KASSE);
+  assert.throws(() => mitKassenTag(tags, "kaputt"), /Kasse ungültig/);
+  assert.deepEqual(tags.length, 3, "die übergebenen Tags bleiben unverändert");
 });

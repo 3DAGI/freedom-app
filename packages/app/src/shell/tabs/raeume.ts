@@ -425,6 +425,8 @@ function zeigeRaumArt(spaceId: string): void {
   const st = spacesUi.state as SpaceState | null;
   const kasse = !!agentOrt() && !alsGeraet() && !!state.keypair && !!st && darf(state.keypair.pk, RAUM_KASSEN_RECHT, st);
   document.getElementById("space-kasse-adresse")?.classList.toggle("hidden", !kasse);
+  // Anlegen (A-12b2b): offen der Gründer, privat ein Moderator – nur ohne Kasse
+  document.getElementById("space-kasse-anlegen")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt() || !st?.space || !!st.space.kasse);
   document.querySelector("#space-menue .menue-trenner")?.classList.toggle("hidden", !verwalten && !kanaele && !repos && !agenten && !kasse);
   // Nie die Repos des vorigen Raums zeigen, solange der neue lädt
   zeigeRaumRepos();
@@ -1597,6 +1599,11 @@ export async function wireSpacesTab(): Promise<void> {
   document.getElementById("space-kasse-adresse")?.addEventListener("click", () => {
     const ort = agentOrt();
     if (ort) void import("../raum-kasse-ui.js").then(async (m) => { if ((await m.nenneKassenAdresse(ort, spacesUi.state as SpaceState | undefined)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
+  // Kasse anlegen (A-12b2b) – danach den Raum neu, damit die Definition sie nennt
+  document.getElementById("space-kasse-anlegen")?.addEventListener("click", () => {
+    const ort = agentOrt();
+    if (ort) void import("../raum-kasse-ui.js").then(async (m) => { if ((await m.legeKasseImRaumAn(ort, spacesUi.state as SpaceState | undefined)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
   });
   // Agent hinzufügen (11.3e1): neu oder vorhanden, mit Budget – danach den Raum neu, damit er in der Liste steht
   document.getElementById("space-agent-neu")?.addEventListener("click", () => {

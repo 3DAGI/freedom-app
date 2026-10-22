@@ -16,8 +16,8 @@ import { setzePrivateKetten } from "./raum-mls.js";
 import { ensurePool, signiere, state } from "./state.js";
 import { toast } from "./ui.js";
 
-/** Die neueste Definition des Gründers – nur er schreibt sie (B-7). */
-async function gruenderDefinition(adresse: string): Promise<{ tags: string[][]; zeit: number } | null> {
+/** Die neueste Definition des Gründers – nur er schreibt sie (B-7); auch für die Kasse (A-12b2b). */
+export async function gruenderDefinition(adresse: string): Promise<{ tags: string[][]; zeit: number } | null> {
   const ort = leseRaumAdresse(adresse);
   if (!ort) return null;
   const evs = await (await ensurePool()).query({ kinds: [KIND_SPACE], authors: [ort.besitzer], "#d": [`space:${ort.spaceId}`], limit: 10 });

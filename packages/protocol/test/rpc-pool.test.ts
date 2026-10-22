@@ -8,7 +8,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RpcPool, parseUserEndpoints, DEFAULT_MAINNET_RPCS } from "../src/rpc-pool.js";
+import { GENESIS_DEVNET, RpcPool, endpunkteImNetz, parseUserEndpoints, DEFAULT_MAINNET_RPCS } from "../src/rpc-pool.js";
 
 /** Erzeugt ein fetch, das je URL ein festgelegtes Verhalten zeigt. */
 function fakeFetch(verhalten: Record<string, "ok" | "tot" | "http500" | "rpcfehler">, log: string[] = []) {
@@ -375,4 +375,23 @@ test("Stichprobe veraendert die Ausfallhistorie des Pools nicht", async () => {
   const pool = new RpcPool(endpoints, { fetchImpl: rpcNetz({ [E(1)]: { tot: true }, [E(2)]: {}, [E(3)]: {} }) });
   await pool.stichprobe();
   assert.ok(pool.status().every((s) => s.available && s.failures === 0));
+});
+
+test("A-12b2b: endpunkteImNetz – nur Endpunkte, die selbst diesen Genesis-Hash nennen, je Endpunkt ohne Ausweichen", async () => {
+  const MAINNET = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+  const genesis: Record<string, string | "tot"> = { [E(1)]: GENESIS_DEVNET, [E(2)]: MAINNET, [E(3)]: "tot", [E(4)]: GENESIS_DEVNET };
+  const gefragt: string[] = [];
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    const u = url.toString();
+    gefragt.push(u);
+    assert.equal(JSON.parse(String(init?.body)).method, "getGenesisHash");
+    const g = genesis[u];
+    if (!g || g === "tot") throw new Error("ECONNREFUSED");
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: g }));
+  }) as unknown as typeof fetch;
+  const urls = [E(1), E(2), E(3), E(4), "ftp://kein.test"];
+  assert.deepEqual(await endpunkteImNetz(urls, GENESIS_DEVNET, { fetchImpl }), [E(1), E(4)]);
+  assert.ok(!gefragt.some((u) => DEFAULT_MAINNET_RPCS.some((d) => d.url === u)), "nie die eingebauten Endpunkte");
+  assert.ok(!gefragt.includes("ftp://kein.test"));
+  assert.deepEqual(await endpunkteImNetz([], GENESIS_DEVNET, { fetchImpl }), []);
 });
