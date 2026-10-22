@@ -12,7 +12,7 @@ import {
 import { raumZustandFuer } from "../src/raum-repo.js";
 import { gruppenRaum, raumDefinition, raumRollen, type InneresEvent, type InneresSenden } from "../src/raum-gruppe.js";
 import {
-  KIND_KASSEN_ADRESSE, baueKassenAdresse, kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenNachweisNachricht,
+  KIND_KASSEN_ADRESSE, baueKassenAdresse, kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenHinweisKanal, kassenNachweisNachricht,
   kassenOrt, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, signiereKassenAdresse,
 } from "../src/raum-kasse.js";
 import { kassenAdresse } from "../src/kasse.js";
@@ -188,4 +188,27 @@ test("A-12b2b: mitKassenTag – die Kasse kommt dazu oder ersetzt die alte, alle
   assert.equal(parseSpace(s({ ...raum()[0]!, tags: mitKassenTag(raum()[0]!.tags, KASSE) }, besitzer)).kasse, KASSE);
   assert.throws(() => mitKassenTag(tags, "kaputt"), /Kasse ungültig/);
   assert.deepEqual(tags.length, 3, "die übergebenen Tags bleiben unverändert");
+});
+
+test("A-12c2: Kanal für den Hinweis – der erste nach Position, in den man schreiben darf", () => {
+  const kanal = (id: string, position: number, writeRoles: string[]) => ({ id, name: id, privacy: "offen" as const, writeRoles, position });
+  const kanaele = [kanal("allgemein", 2, []), kanal("ankuendigungen", 0, ["kasse"]), kanal("plaudern", 1, ["mitglied"])];
+  const evs = raum(KASSE);
+  evs[0] = s(buildSpace({ spaceId: SPACE, name: "Werkstatt", ownerPubkey: besitzer.pk, channels: kanaele, kasse: KASSE }, ZEIT), besitzer);
+  const zustand = raumZustandFuer(RAUM, evs, ZEIT + 100)!;
+  assert.equal(kassenHinweisKanal(zustand, besitzer.pk), "ankuendigungen", "der Gründer schreibt überall");
+  assert.equal(kassenHinweisKanal(zustand, kassierer.pk), "ankuendigungen");
+  assert.equal(kassenHinweisKanal(zustand, mitglied.pk), "plaudern", "nicht in einen Kanal nur für andere Rollen");
+  assert.equal(kassenHinweisKanal(zustand, fremd.pk), "allgemein", "über die Rolle für alle nur, wo jeder schreibt");
+
+  const nurKasse = raum(KASSE);
+  nurKasse[0] = s(buildSpace({ spaceId: SPACE, name: "Werkstatt", ownerPubkey: besitzer.pk, channels: [kanal("ankuendigungen", 0, ["kasse"])], kasse: KASSE }, ZEIT), besitzer);
+  assert.equal(kassenHinweisKanal(raumZustandFuer(RAUM, nurKasse, ZEIT + 100)!, mitglied.pk), undefined, "kein Kanal zum Schreiben – kein Hinweis");
+  assert.equal(kassenHinweisKanal(raumZustandFuer(RAUM, raum(KASSE), ZEIT + 100)!, besitzer.pk), undefined, "ohne Kanäle kein Hinweis");
+
+  const GRUPPE = "5d0e8b2c41f97a3366c1e0b84a2d9f17";
+  const def = raumDefinition(GRUPPE, { name: "Familie", kanaele: [kanal("b", 1, []), kanal("a", 0, [])] });
+  const privat = gruppenRaum(GRUPPE, [{ id: "1".repeat(64), von: besitzer.pk, art: def.art, tags: def.tags, text: "", zeit: ZEIT }],
+    { admins: [besitzer.pk], mitglieder: [besitzer.pk, mitglied.pk] });
+  assert.equal(kassenHinweisKanal(privat.zustand, besitzer.pk), "a", "privat ebenso nach Position");
 });

@@ -1630,6 +1630,11 @@ für diesen Schlüssel keine Adresse, nie still eine ältere. Nennen mehrere Sch
 auf der Kette steht (oder keine genannt hat); „Mitgliedschaft ohne Recht“ – eine Adresse auf der Kette, deren Schlüssel
 das Recht nicht hat oder die niemand im Raum nennt. Die App zeigt sie nur an; ändern kann die Kasse nur eine Abstimmung.
 
+**Hinweis auf einen neuen Vorschlag** (seit A-12c2, V6): eine gewöhnliche Kanalnachricht – offen Kind 42
+(`buildChannelMessage()`), privat inneres Event der Gruppe – im ersten Kanal, in den der Vorschlagende schreiben darf
+(`kassenHinweisKanal()`), ohne Erwähnung, mit der Nummer des Vorschlags im Text. Kein eigenes Tag, kein eigenes Format:
+Empfänger, Betrag und Änderungen liest jeder nur von der Kette, nie aus dem Hinweis.
+
 ## 43. Text aus Sprache beim eigenen Knoten (Kind 5083, seit B-38b1)
 
 Entscheidungen SP-W1 A und SP-W5 A (`docs/SPRACHE-ENTWURF.md`): Sprache wird beim eigenen Knoten zu Text (Whisper in

@@ -13012,3 +13012,30 @@ Spur A, `docs/KASSE-ENTWURF.md` (V3, V6, W2, W3). Erster Teil von A-12d, auf A-1
   - Rückfrage ohne Änderungen
 
 Knoten-Stand: keiner nötig.
+
+## Schritt A-12c2 – Kasse: Hinweis im Raum auf neue Vorschläge
+
+Spur A, `docs/KASSE-ENTWURF.md` (V6). Zweiter Teil von A-12c, auf A-12d1 (#570).
+
+**Neu:**
+- **App:** Nach „vorschlagen“ und „Kasse ändern …“ schreibt die App eine gewöhnliche Nachricht mit der Nummer des Vorschlags in
+  den ersten Kanal, in den der Vorschlagende schreiben darf – offen signiert an den Raum (Kind 42), privat nur als inneres Event
+  der Gruppe, ohne Erwähnung. Empfänger und Betrag stehen nie darin; was ein Vorschlag tut, liest jedes Mitglied von der Kette (V6).
+  Die Rückfrage sagt vorher, dass der Hinweis folgt; ging er nicht hinaus, sagt die App es – der Vorschlag steht trotzdem auf der
+  Kette. Nach Stimmen, Ausführen und Abschließen kein Hinweis.
+- **Protokoll:** `kassenHinweisKanal()` – der erste Kanal, in den jemand schreiben darf (`canWriteTo()`).
+- **Doku:** Entwurf (Umsetzung), `PROTOCOL.md` §42 (kein eigenes Format), Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:**
+- **protocol +1:** Kanal für den Hinweis – Gründer, Rolle, Kanal nur für andere Rollen, Rolle für alle, kein Kanal, privat.
+- **app +2:** Verdrahtung (nur die Nummer, privat nur in die Gruppe, nur nach neuen Vorschlägen, Rückfrage und Meldung bei Fehler),
+  Texte in beiden Sprachen. Der Test aus A-12b2a zählt jetzt drei `publish(`-Stellen (dazu der Hinweis im offenen Raum).
+- **Gegenproben** – je mindestens ein Test rot:
+  - Kanal ohne Schreibrecht
+  - privat über das Relay
+  - Rückfrage ohne Hinweis
+  - Hinweis auch nach Stimmen
+  - Kanal ohne `kassenHinweisKanal()`
+  - Text ohne Nummer
+
+Knoten-Stand: keiner nötig.

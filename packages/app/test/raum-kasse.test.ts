@@ -7,6 +7,7 @@
  * A-12b2d: ohne eingebaute Wallet die Adresse einer verbundenen – sie signiert den festen Text, die App prüft ihn vor dem Senden.
  * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – nur, was das Programm annimmt, Empfänger und Betrag von der Kette.
  * A-12d1: die Kasse ändern (Mitglieder, Wartezeit) – die Art bleibt; abstimmen und ausführen über Änderungen wie bei Auszahlungen.
+ * A-12c2: einen neuen Vorschlag im Raum melden – nur mit seiner Nummer, im ersten Kanal, in den man schreiben darf (V6).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +21,7 @@ import {
 import { aenderungenText, kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../src/kasse-anzeige.js";
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type WalletSpeicher } from "../src/sol-wallet.js";
-import { setLang } from "../src/i18n.js";
+import { setLang, t } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen
 setLang("de");
@@ -74,7 +75,8 @@ test("A-12b2a: Verdrahtet – Menü nur mit „kasse“ und als Person, erst fra
   assert.doesNotMatch(frisch + ui, /\.adresse\(\)/, "V4: nie die Hauptadresse");
   assert.match(ui, /publish\(await signiere\(baueKassenAdresse\(\{ autor: ich, raum: ziel\.adresse, adresse, nachweis \}\)\)\)/);
   assert.match(ui, /mlsSendeEvent\(ziel\.privat\.gruppe, raumKassenAdresse\(ziel\.privat\.gruppe, adresse, nachweis\)\)/);
-  assert.equal((ui.match(/publish\(/g) ?? []).length, 2, "an Relays gehen nur die offene Meldung und (A-12b2b) die Definition des offenen Raums");
+  assert.equal((ui.match(/publish\(/g) ?? []).length, 3,
+    "an Relays gehen nur die offene Meldung, (A-12b2b) die Definition und (A-12c2) der Hinweis auf einen Vorschlag – alles im offenen Raum");
   const schreibe = ui.slice(ui.indexOf("async function schreibeKasse("));
   assert.ok(schreibe.indexOf('if ("privat" in ziel) return setzePrivateKasse(') < schreibe.indexOf("publish("), "privat nie an Relays");
 
@@ -296,7 +298,7 @@ test("A-12c1: Verdrahtet – nur Devnet, nur Kassen der App, nur Schritte nach d
   const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
   assert.match(zeige, /const vorgaenge = await leseVorschlaege\(rpc, kasse, stand\);/);
   assert.match(zeige, /kassenAktionen\(stand, vorgaenge, mitglied, Math\.floor\(Date\.now\(\) \/ 1000\)\)/);
-  assert.match(zeige, /if \(aktion\.aktion !== "einzahlen"\) return await auszahlen\(kasse, String\(aktion\.aktion\), mitglied, werName\);/);
+  assert.match(zeige, /if \(aktion\.aktion !== "einzahlen"\) return await auszahlen\(kasse, String\(aktion\.aktion\), mitglied, werName, melde\);/);
   const aus = ui.slice(ui.indexOf("async function auszahlen("));
   assert.ok(aus.indexOf("await verlangeTresor(") < aus.indexOf("await kassenSchritt("), "erst der Tresor");
   assert.match(aus, /if \(!istSolAdresse\(an\) \|\| an === kassenTresor\(kasse\)\) return t\("kasse\.empfaengerFalsch"\);/);
@@ -355,11 +357,46 @@ test("A-12d1: Verdrahtet – ändern nur aus dem Stand der Kette mit erhaltener 
 
   const ui = lies("shell/raum-kasse-ui.ts");
   const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
-  assert.match(zeige, /if \(aktion\.aktion === "aendern"\) return await aendern\(kasse, stand, abweichungen, mitglied, werName\);/);
+  assert.match(zeige, /if \(aktion\.aktion === "aendern"\) return await aendern\(kasse, stand, abweichungen, mitglied, werName, melde\);/);
   const aendern = ui.slice(ui.indexOf("async function aendern("), ui.indexOf("async function auszahlen("));
   assert.match(aendern, /const dazu = abw\.rechtOhneMitgliedschaft\.flatMap\(\(x\) => \(x\.adresse \? \[x\.adresse\] : \[\]\)\);/, "dazu nur mit Recht und genannter Adresse (V3)");
   assert.match(aendern, /kassenAenderungen\(stand, wunsch\(w\)\);\n        return null;/, "geprüft, bevor der Dialog zugeht");
   assert.ok(aendern.indexOf("await verlangeTresor(") < aendern.indexOf("await kassenSchritt("), "erst der Tresor");
   assert.match(aendern, /aenderungenText\(k\.konfiguration \?\? \[\], wer\)/, "die Rückfrage zeigt, was gesendet wird");
   assert.match(aendern, /\.\.\.zahlerHinweis\(k\.zahler, mitglied\),/);
+});
+
+test("A-12c2: Verdrahtet – nach einem neuen Vorschlag ein Hinweis im Raum, nur mit der Nummer; offen an den Raum, privat nur in die Gruppe", () => {
+  const ui = lies("shell/raum-kasse-ui.ts");
+  const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
+  assert.match(zeige, /const kanal = kassenHinweisKanal\(zustand, ich\);\n    const melde = kanal \? \(index: bigint\) => meldeVorschlag\(ziel, ich, kanal, index\) : undefined;/,
+    "nur, wo ich schreiben darf");
+  const melde = ui.slice(ui.indexOf("async function meldeVorschlag("), ui.indexOf("/** Nach einem neuen Vorschlag"));
+  assert.match(melde, /const text = t\("kasse\.hinweisRaum", \{ nr: String\(index\) \}\);/, "nur die Nummer – Empfänger und Betrag nie aus dem Hinweis (V6)");
+  assert.match(melde, /if \("privat" in ziel\) return !!\(await sendePrivat\(ziel\.privat\.gruppe, kanal, text\)\);/, "privat nur als inneres Event der Gruppe");
+  assert.ok(melde.indexOf('"privat" in ziel') < melde.indexOf("publish("), "privat nie veröffentlicht");
+  assert.match(melde, /buildChannelMessage\(\{ authorPubkey: ich, spaceId: raum\.spaceId, channelId: kanal, content: text, mentions: \[\] \}\)/, "niemand erwähnt");
+  assert.equal(ui.match(/\bmelde\(/g)?.length, 1, "gemeldet wird nur in vorgeschlagen()");
+  assert.match(ui, /else toast\(t\("kasse\.hinweisNicht", \{ nr: String\(index\) \}\), true\);/, "ging der Hinweis nicht hinaus, sagt die App es");
+
+  const aendern = ui.slice(ui.indexOf("async function aendern("), ui.indexOf("async function auszahlen("));
+  assert.match(aendern, /\.\.\.\(melde \? \[t\("kasse\.hinweisFolgt"\)\] : \[\]\),/, "die Rückfrage sagt es vorher");
+  assert.match(aendern, /await vorgeschlagen\("kasse\.aenderungVorgeschlagen", index, melde\);/);
+  const auszahlen = ui.slice(ui.indexOf("async function auszahlen("));
+  assert.match(auszahlen, /\.\.\.\(schritt === "vorschlagen" && melde \? \[t\("kasse\.hinweisFolgt"\)\] : \[\]\),/);
+  assert.match(auszahlen, /if \(schritt === "vorschlagen"\) await vorgeschlagen\(ERLEDIGT\.vorschlagen, index, melde\);\n  else toast\(/, "nach Stimmen, Ausführen und Abschließen kein Hinweis");
+});
+
+test("A-12c2: der Hinweis nennt nur die Nummer und den Weg zur Kasse – in beiden Sprachen", () => {
+  const de = t("kasse.hinweisRaum", { nr: "7" });
+  assert.match(de, /Nr\. 7/);
+  assert.match(de, /Kette/, "was er tut, steht auf der Kette");
+  assert.match(de, /„Kasse …“/, "derselbe Name wie im Menü");
+  setLang("en");
+  try {
+    assert.match(t("kasse.hinweisRaum", { nr: "7" }), /no\. 7.*“Treasury …”/);
+  } finally {
+    setLang("de");
+  }
+  assert.match(t("kasse.hinweisFolgt"), /nur die Nummer/);
 });
