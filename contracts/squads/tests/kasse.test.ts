@@ -12,6 +12,9 @@
  *  - Auszahlen (A-12a2): vorschlagen, abstimmen, ausführen, abschließen – Empfänger und Betrag von der
  *    Kette, ausgeführt erst ab der Schwelle, abgelehnt ab genug Gegenstimmen, die Miete zurück in den
  *    Tresor; bei „Gründer entscheidet“ stimmt und führt nur der Gründer aus, das Zeitschloss hält
+ *  - Auszahlen in der App (A-12c1): die Miete zahlt auf Wunsch ein anderer als der Vorschlagende, die Konten
+ *    haben die Größe aus `auszahlungKontoGroessen()`, eine Stimme lässt sich umkehren, ausführen und
+ *    abschließen gehen in einer Transaktion, und `vorschlagsSchritte()` sagt in jedem Stand, was das Programm annimmt
  *
  * Die Einstellungen des Programms legt der Test selbst an (eigene Gebühr, eigenes Schatzamt) – das
  * Konto von Mainnet zu kopieren hieße, im Test das Netz zu fragen. Die Programme lädt `pruefen.sh`
@@ -27,9 +30,10 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  abschliessenAnweisung, abstimmenAnweisung, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen, kassenKontoGroesse,
-  kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
-  leseProgrammEinstellungenVonKette, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, type KassenArt,
+  abschliessenAnweisung, abstimmenAnweisung, auszahlungKontoGroessen, auszahlungVorschlagenAnweisungen, ausfuehrenAnweisung, baueKasseAnlegen,
+  kassenKontoGroesse, kassenArt, kassenTransaktionAdresse, kassenTresor, kassenVorschlagAdresse, leseAuszahlungVonKette, leseKasse,
+  leseProgrammEinstellungenVonKette, leseVorschlaege, leseVorschlagVonKette, programmEinstellungenAdresse, SQUADS_PROGRAMM_ID, vorschlagsSchritte,
+  type KassenArt,
 } from "../../../packages/protocol/src/kasse.js";
 import {
   leseGuthaben, leseKonto, neuesterBlockhash, poolRpc, programmFehlerCode, sendeTransaktion, warteAufBestaetigung, txFehlerText, type SolRpc,
@@ -46,8 +50,8 @@ if (skip && process.env.SQUADS_TESTS_PFLICHT === "1") throw new Error(`Squads-Te
 
 const GEBUEHR = 1_000_000n;
 const SCHATZAMT = Keypair.generate().publicKey.toBase58();
-// Squads: 6004 Unauthorized, 6008 InvalidProposalStatus, 6014 InvalidAccount, 6021 TimeLockNotReleased, 6033 InvalidRentCollector
-const F = { NichtBerechtigt: 6004, FalscherStatus: 6008, FalschesKonto: 6014, Zeitschloss: 6021, FalscheMiete: 6033 } as const;
+// Squads: 6004 Unauthorized, 6008 InvalidProposalStatus, 6010 AlreadyApproved, 6014 InvalidAccount, 6021 TimeLockNotReleased, 6033 InvalidRentCollector
+const F = { NichtBerechtigt: 6004, FalscherStatus: 6008, SchonDafuer: 6010, FalschesKonto: 6014, Zeitschloss: 6021, FalscheMiete: 6033 } as const;
 
 async function scheitert(p: Promise<unknown>, code: number): Promise<void> {
   await assert.rejects(p, (e: unknown) => {
@@ -125,6 +129,14 @@ function mitValidator(netz: keyof typeof PROGRAMME, port: number) {
     await schicke(baueTransaktion({ zahler: zahler.adresse, anweisungen, lebensdauer }), zahler.geheim, lebensdauer.letzteHoehe);
   }
 
+  /** Wie `sende()`, mit weiteren Unterschriften (ein Mitglied ohne Guthaben, die Gebühr zahlt `zahler`) – wie die eingebaute Wallet. */
+  async function sendeMit(zahler: { geheim: Uint8Array; adresse: string }, weitere: Array<{ geheim: Uint8Array }>, anweisungen: Instruction[]) {
+    const lebensdauer = await solange(neuesterBlockhash(rpc));
+    let tx = baueTransaktion({ zahler: zahler.adresse, anweisungen, lebensdauer });
+    for (const w of weitere) tx = signiereMit(tx, w.geheim) ?? assert.fail("Schlüssel nicht verlangt");
+    await schicke(tx, zahler.geheim, lebensdauer.letzteHoehe);
+  }
+
   async function schicke(tx: SolTransaktion, geheim: Uint8Array, letzteHoehe: bigint) {
     const signiert = signiereMit(tx, geheim) ?? assert.fail("Schlüssel passt nicht");
     const signatur = await solange(sendeTransaktion(rpc, alsDraht(signiert)));
@@ -145,7 +157,7 @@ function mitValidator(netz: keyof typeof PROGRAMME, port: number) {
     return kasse;
   }
 
-  return { rpc, solange, neuesKonto, sende, legeAn };
+  return { rpc, solange, neuesKonto, sende, sendeMit, legeAn };
 }
 
 for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
@@ -250,6 +262,9 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       await stimme(kasse, c, false);
       assert.equal(await status(kasse), "abgelehnt");
       await scheitert(fuehreAus(kasse, a), F.FalscherStatus);
+      const stand = (await v.solange(leseKasse(v.rpc, kasse)))!;
+      const [vg] = await v.solange(leseVorschlaege(v.rpc, kasse, stand));
+      assert.deepEqual(vorschlagsSchritte({ stand, vorschlag: vg!.vorschlag, auszahlung: vg!.auszahlung, mitglied: a.adresse, jetztSek: 2 ** 40 }), ["abschliessen"]);
       await v.sende(a, [abschliessenAnweisung({ kasse, index: 1n, mieteAn: kassenTresor(kasse) })]);
       assert.equal(await status(kasse), null);
     });
@@ -272,6 +287,57 @@ for (const [netz, port] of [["mainnet", 21_000], ["devnet", 21_100]] as const) {
       assert.equal(await status(mitSchloss), "angenommen");
       await scheitert(fuehreAus(mitSchloss, g), F.Zeitschloss);
       assert.equal(await v.solange(leseGuthaben(v.rpc, x)), 200_000_000n, "vor Ablauf des Zeitschlosses geht nichts hinaus");
+      const s2 = (await v.solange(leseKasse(v.rpc, mitSchloss)))!;
+      const [vg] = await v.solange(leseVorschlaege(v.rpc, mitSchloss, s2));
+      assert.deepEqual(vorschlagsSchritte({ stand: s2, vorschlag: vg!.vorschlag, auszahlung: vg!.auszahlung, mitglied: g.adresse, jetztSek: Date.now() / 1000 }), [],
+        "vor Ablauf des Zeitschlosses kein Schritt");
+    });
+
+    test("A-12c1: Miete von einem anderen, Größe der Konten, Stimme umkehren, ausführen und abschließen in einem Zug – Schritte wie das Programm", async () => {
+      const a = await v.neuesKonto(), b = await v.neuesKonto(1), x = Keypair.generate().publicKey.toBase58();
+      const c = solSchluesselAus(Keypair.generate().secretKey); // Mitglied ohne Guthaben
+      const kasse = await kasseMitGeld("mehrheit", a, [b.adresse, c.adresse]);
+      const tresor = kassenTresor(kasse);
+      const schritte = async (wer: string) => {
+        const stand = (await v.solange(leseKasse(v.rpc, kasse)))!;
+        const [vg] = await v.solange(leseVorschlaege(v.rpc, kasse, stand));
+        return vorschlagsSchritte({ stand, vorschlag: vg!.vorschlag, auszahlung: vg!.auszahlung, mitglied: wer, jetztSek: 2 ** 40 });
+      };
+      const stimmeC = (dafuer: boolean) => v.sendeMit(a, [c], [abstimmenAnweisung({ kasse, index: 1n, mitglied: c.adresse, dafuer })]);
+
+      // c schlägt vor, a zahlt Miete und Gebühr
+      await v.sendeMit(a, [c], auszahlungVorschlagenAnweisungen({ kasse, index: 1n, vorschlagender: c.adresse, mietZahler: a.adresse, empfaenger: x, lamports: 100_000_000n }));
+      assert.equal(await v.solange(leseGuthaben(v.rpc, c.adresse)), 0n, "wer vorschlägt, zahlt hier nichts");
+      const groesse = auszahlungKontoGroessen(3);
+      assert.equal((await v.solange(leseKonto(v.rpc, kassenTransaktionAdresse(kasse, 1n))))?.daten.length, groesse.transaktion);
+      assert.equal((await v.solange(leseKonto(v.rpc, kassenVorschlagAdresse(kasse, 1n))))?.daten.length, groesse.vorschlag);
+      assert.equal((await v.solange(leseAuszahlungVonKette(v.rpc, kasse, 1n)))?.ersteller, c.adresse);
+
+      assert.deepEqual(await schritte(c.adresse), ["dafuer", "dagegen"]);
+      await stimmeC(true);
+      assert.deepEqual(await schritte(c.adresse), ["dagegen"]);
+      await scheitert(stimmeC(true), F.SchonDafuer);
+      await stimmeC(false);
+      const umgekehrt = await v.solange(leseVorschlagVonKette(v.rpc, kasse, 1n));
+      assert.deepEqual([umgekehrt?.dafuer, umgekehrt?.dagegen], [[], [c.adresse]], "die Stimme ist umgekehrt");
+      assert.deepEqual(await schritte(c.adresse), ["dafuer"]);
+
+      await stimme(kasse, a, true);
+      await stimme(kasse, b, true);
+      assert.deepEqual(await schritte(a.adresse), ["ausfuehren"]);
+      await scheitert(stimmeC(true), F.FalscherStatus);
+      const miete = (await v.solange(leseKonto(v.rpc, kassenVorschlagAdresse(kasse, 1n))))!.lamports
+        + (await v.solange(leseKonto(v.rpc, kassenTransaktionAdresse(kasse, 1n))))!.lamports;
+      const vorher = await v.solange(leseGuthaben(v.rpc, tresor));
+      const t = await v.solange(leseAuszahlungVonKette(v.rpc, kasse, 1n));
+      await v.sende(b, [
+        ausfuehrenAnweisung({ kasse, index: 1n, mitglied: b.adresse, auszahlung: t!.auszahlung! }),
+        abschliessenAnweisung({ kasse, index: 1n, mieteAn: tresor }),
+      ]);
+      assert.equal(await v.solange(leseGuthaben(v.rpc, x)), 100_000_000n);
+      assert.equal((await v.solange(leseGuthaben(v.rpc, tresor))) - vorher, miete - 100_000_000n, "Betrag hinaus, Miete in den Tresor");
+      assert.equal(await status(kasse), null);
+      assert.deepEqual(await v.solange(leseVorschlaege(v.rpc, kasse, (await v.solange(leseKasse(v.rpc, kasse)))!)), []);
     });
   });
 }

@@ -185,7 +185,17 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   `signMessage`); setzt sie einen eigenen Vorspann davor (`signedMessage` weicht ab) oder ist die Signatur nicht Ed25519
   mit 64 Byte, nimmt die App sie nicht. Vor dem Senden prüft sie den Nachweis gegen Adresse, Ort und Schlüssel. Ohne
   Tresor verlangt sie für diesen Weg keinen. Anlegen und einzahlen bleiben bei der eingebauten Wallet. Damit ist A-12b fertig.
+- **A-12c1 (22.10.2026):** Auszahlen in der App. „Kasse …“ zeigt die jüngsten zehn Vorschläge von der Kette – Betrag,
+  Empfänger, Status, Stimmen, bei Wartezeit ab wann (V6) – und bietet nur an, was das Programm jetzt annimmt
+  (`vorschlagsSchritte()`): vorschlagen (mit dem Recht), dafür oder dagegen (aktiv, nicht veraltet, nicht zum zweiten Mal
+  gleich; eine Stimme lässt sich umkehren), auszahlen (angenommen, nach der Wartezeit – im selben Zug abgeschlossen, die
+  Miete geht in den Tresor) und abschließen (ausgeführt, abgelehnt, abgebrochen oder veraltet; das darf jeder). Diese Regeln
+  prüft der Validator gegen beide Programme. Nur mit der eingebauten Wallet und nur auf Devnet; unterschrieben wird mit der
+  eigenen Adresse für die Kasse. Hat sie kein Guthaben, zahlt eine andere eigene Adresse Gebühr und Miete (`mietZahler`,
+  SDK-Vektor) – die Rückfrage sagt, dass sie damit verbunden wird. Ein Vorschlag, nach dem im Tresor weniger als die Miete
+  bliebe, geht nicht hinaus. Über eine Transaktion anderer Form stimmt die App nicht ab.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
-  Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet).
+  Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet). A-12c in c1 (Auszahlen mit der eingebauten Wallet), c2
+  (Hinweis im Raum auf neue Vorschläge, V6) und c3 (abstimmen und auszahlen mit einer verbundenen Wallet).
