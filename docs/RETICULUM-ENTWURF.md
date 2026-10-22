@@ -70,7 +70,9 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | Schritt | Inhalt | Umfang |
 |---|---|---|
 | B-32a | Abhängigkeit gepinnt, Identität im Tresor, Umschlag in LXMF ein- und auspacken (`pruefeMeshInhalt()`), Größe gemessen | ~250 |
-| B-32b | App: RNode über WebSerial, Sendezeit, Datenschutz-Grenze, Smoke-Test mit Attrappe | ~350 |
+| B-32b1 ✓ | App: Funkparameter je Region (RN-W6 A) mit Quelle, Prüfung der Grenzen, RNode über WebSerial verbinden (Sendezeit-Sperre der Region in der Firmware), Knopf im Funk-Bereich – die RNode hört nur zu | ~250 |
+| B-32b2 | App: Reticulum über die RNode – eigenes LXMF-Ziel, Umschläge senden und empfangen, Sendezeitkonto | ~300 |
+| B-32b3 | Oberfläche (abweichende Werte innerhalb der Grenzen, Adresse per QR), Datenschutz-Grenze „reticulum-ankuendigung“, Smoke-Test mit Attrappe | ~250 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
@@ -108,6 +110,28 @@ Was erlaubt ist, hängt von der Region ab (Frequenzbereich, höchste Sendeleistu
 
 **Entschieden 19.10.2026 (MENSCH):** RN-W6 **A** – Vorgaben je Region (Tabelle im Code mit Quelle), vor dem ersten Senden
 bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
+
+## Stand B-32b1 (19.10.2026)
+
+- **Regionen (RN-W6 A):** `FUNK_REGIONEN` in `app/src/rnode-funk.ts` – zwei Einträge, beide EU:
+  - `eu-869`: 869,400–869,650 MHz, 500 mW e.r.p., Sendezeit ≤ 10 %; Vorgabe 869,525 MHz, 125 kHz, SF 8, CR 4/5, 14 dBm.
+  - `eu-433`: 433,050–434,790 MHz, 10 mW e.r.p. bei Sendezeit ≤ 10 %; Vorgabe 433,775 MHz, 125 kHz, SF 8, CR 4/5, 10 dBm.
+  - Quelle je Zeile: Beschluss 2006/771/EG der Kommission (Kurzstreckengeräte), geändert durch Durchführungsbeschluss
+    (EU) 2019/1345; dazu ERC/REC 70-03 Anhang 1 und ETSI EN 300 220. **Den Primärtext erreicht diese Umgebung nicht**
+    (EUR-Lex, CEPT, legislation.gov.uk gesperrt) – die Werte stimmen mit den Zusammenfassungen überein, die erreichbar
+    waren: für 868 MHz The Things Network („Regional Limitations of RF Use“), Tektelic und Mobilefish (ETSI-Teilbänder
+    M bzw. g1: 25 mW, 1 %; P bzw. g3: 500 mW, 10 %), für 433 MHz die Fassung von Beschluss 2008/432/EG (10 mW e.r.p. bei
+    ≤ 10 %) und Analog Devices zu ERC/REC 70-03. Der MENSCH vergleicht sie vor dem ersten Senden mit dem Anhang des
+    konsolidierten Beschlusses.
+  - Andere Regionen (USA, Asien …) gibt es nicht: Ohne geprüfte Quelle sendet die App dort über RNode nicht.
+- **Grenzen:** `pruefeFunkParameter()` – das ganze Signal (Mitte ± halbe Bandbreite) im Band, Bandbreiten der LoRa-Chips,
+  SF 7–12, CR 5–8, Leistung höchstens die e.r.p.-Grenze abgerundet (für eine Antenne ohne Gewinn; der Text sagt das).
+  Die Sendezeit sperrt die Firmware selbst (`airtimeLimitLong` = Wert der Region).
+- **Verbinden:** `verbindeRNode()` über `RNodeWebSerialInterface` (`@reticulum/core` 0.9.12, schon gepinnt) – nur mit
+  bestätigter Wahl (`freedom.reticulum.funk`); die Schnittstelle bricht ab, wenn die Firmware andere Werte meldet oder
+  älter als 1.52 ist. Im Funk-Bereich: Knopf „RNode (Reticulum)“ → Region bestätigen → Port → verbunden. Vorerst hört die
+  RNode nur zu; gesendet wird über sie erst mit B-32b2.
+- **Größe (W5):** `freedom.html` +192 KB, gepackt +41 KB.
 
 ## Quellen
 

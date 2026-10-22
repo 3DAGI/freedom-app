@@ -950,3 +950,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `kassenAktionen()` anbietet; die Rückfrage zeigt Zahler und Miete, und zahlt nicht die Adresse für die Kasse, sagt sie es.
   Änderungen der Kasse (`konfiguration` im Vorgang, seit A-12a3) zeigt die App bis A-12d nur – `kassenAktionen()` bietet für sie
   keinen Schritt an, auch kein Abschließen (das bräuchte `konfigurationAbschliessenAnweisung()`, nie die der Auszahlung).
+- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
+  was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
+  Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
+  Bestätigung (`freedom.reticulum.funk`, `leseFunkWahl()`). Eine Region gibt es nur mit Quelle; ohne Eintrag sendet die App
+  dort nicht – nie eine Vorgabe raten. Neue Regionen oder Grenzen nur mit dem Primärtext (Beschluss der Kommission bzw. der
+  Behörde des Landes) und Testfall. Verbunden wird nur über `verbindeRNode()` (`RNodeWebSerialInterface`, prüft das Echo der
+  Firmware); Meldungen der Bibliothek nie zeigen. Im Test spricht eine Attrappe KISS wie die Firmware (`rnode-funk.test.ts`).
