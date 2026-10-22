@@ -448,5 +448,11 @@ export const raeume: Texte = {
   },
   "kasse.aenderungVorgeschlagen": { de: "Änderung Nr. {nr} vorgeschlagen.", en: "Change no. {nr} proposed." },
   "kasse.geaendert": { de: "Nr. {nr} ausgeführt – die Kasse ist geändert.", en: "No. {nr} carried out – the treasury has changed." },
+  "kasse.hinweisRaum": {
+    de: "Neuer Vorschlag Nr. {nr} in der Kasse. Was er auszahlt oder ändert, steht auf der Kette – ansehen und abstimmen über „Kasse …“ im Menü des Raums.",
+    en: "New proposal no. {nr} in the treasury. What it pays out or changes is on the chain – view and vote via “Treasury …” in the room menu.",
+  },
+  "kasse.hinweisFolgt": { de: "Danach schreibt die App einen Hinweis mit der Nummer in den Raum – nur die Nummer; was der Vorschlag tut, liest jedes Mitglied von der Kette.", en: "Afterwards the app posts a note with the number in the room – only the number; every member reads what the proposal does from the chain." },
+  "kasse.hinweisNicht": { de: "Vorschlag Nr. {nr} steht auf der Kette – der Hinweis im Raum ging aber nicht hinaus.", en: "Proposal no. {nr} is on the chain – but the note in the room did not go out." },
   "kasse.zuViel": { de: "So viel kann die Kasse nicht auszahlen: Danach bliebe im Tresor weniger als die Miete seines Kontos. Zahle alles aus oder weniger.", en: "The treasury cannot pay out that much: the vault would then hold less than the rent of its account. Pay out everything or less." },
 };

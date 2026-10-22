@@ -7,12 +7,13 @@
  * (offen) bzw. Admin (privat) legt die Kasse an – Mitglieder sind die genannten Adressen derer mit dem Recht – und
  * schreibt sie in die Definition. Teil b2c: den Stand von der Kette zeigen (mit Abweichungen zum Raum) und einzahlen.
  * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – Empfänger und Betrag von der Kette (V6).
+ * A-12c2: Einen neuen Vorschlag meldet die App im Raum – nur mit seiner Nummer (V6).
  * Die Oberfläche baut Spur C (A-12e). Als Gerät nie – die Kasse gehört der Person.
  */
 import {
-  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildEvent, can, istSolAdresse,
-  kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenAenderungen, kassenArt, kassenNachweisNachricht, kassenOrt, kassenTresor,
-  leseGuthaben, leseKasse, leseVorschlaege, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type Auszahlung,
+  KASSEN_ZEITSCHLOSS_SEK, KIND_KASSEN_ADRESSE, KIND_SPACE, RAUM_KASSEN_RECHT, baueKassenAdresse, buildChannelMessage, buildEvent, can, istSolAdresse,
+  kassenAbweichungen, kassenAdressenOffen, kassenAdressenPrivat, kassenAenderungen, kassenArt, kassenHinweisKanal, kassenNachweisNachricht, kassenOrt,
+  kassenTresor, leseGuthaben, leseKasse, leseRaumAdresse, leseVorschlaege, mitKassenRecht, mitKassenTag, pruefeKassenNachweis, raumKassenAdresse, type Auszahlung,
   type KassenAbweichungen, type KassenSchritt, type KassenStand, type SpaceState,
 } from "@freedomstack/protocol";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -27,7 +28,7 @@ import { frischeKassenAdresse, kassenAdresseFehlt } from "./eingebaute-wallet.js
 import { mlsSendeEvent } from "./mls-konto.js";
 import type { AgentZiel } from "./raum-agenten-ui.js";
 import { gruenderDefinition } from "./raum-ketten-ui.js";
-import { setzePrivateKasse } from "./raum-mls.js";
+import { sendePrivat, setzePrivateKasse } from "./raum-mls.js";
 import { alsGeraet, devnetRpc, ensurePool, signiere, state } from "./state.js";
 import { tresorEingerichtet, tresorOffen, verlangeTresor } from "./tresor.js";
 import { verbundeneSolanaWallet } from "./tabs/waehrung.js";
@@ -204,13 +205,16 @@ export async function zeigeKasse(ziel: AgentZiel, zustand: SpaceState | undefine
     // Namen zu Adressen auf der Kette nur, wo jemand im Raum sie genannt hat (A-12d1)
     const wer = (adresse: string) => [...adressen].find(([, a]) => a === adresse)?.[0];
     const werName = (adresse: string) => (wer(adresse) ? name(wer(adresse)!) : undefined);
+    // Neue Vorschläge meldet die App im Raum (A-12c2) – nur, wo ich schreiben darf
+    const kanal = kassenHinweisKanal(zustand, ich);
+    const melde = kanal ? (index: bigint) => meldeVorschlag(ziel, ich, kanal, index) : undefined;
     const aktion = await dialog({
       titel, text: `${text}\n\n${vorschlaegeText(stand, vorgaenge, werName)}`, ok: t("kasse.weiter"), abbrechen: t("dlg.schliessen"),
       felder: [{ art: "wahl", name: "aktion", label: t("kasse.aktion"), optionen: kassenAktionen(stand, vorgaenge, mitglied, Math.floor(Date.now() / 1000)), wert: "einzahlen" }],
     });
     if (!aktion) return false;
-    if (aktion.aktion === "aendern") return await aendern(kasse, stand, abweichungen, mitglied, werName);
-    if (aktion.aktion !== "einzahlen") return await auszahlen(kasse, String(aktion.aktion), mitglied, werName);
+    if (aktion.aktion === "aendern") return await aendern(kasse, stand, abweichungen, mitglied, werName, melde);
+    if (aktion.aktion !== "einzahlen") return await auszahlen(kasse, String(aktion.aktion), mitglied, werName, melde);
     const w = await dialog({
       titel, ok: t("kasse.einzahlen"),
       felder: [{ art: "text", name: "betrag", label: t("kasse.betrag"), mono: true }],
@@ -245,6 +249,31 @@ const ERLEDIGT: Record<KassenSchritt | "vorschlagen", string> = { // kein UI-Tex
   vorschlagen: "kasse.vorgeschlagen", dafuer: "kasse.abgestimmt", dagegen: "kasse.abgestimmt", ausfuehren: "kasse.ausgezahlt", abschliessen: "kasse.abgeschlossen",
 };
 
+type Melde = (index: bigint) => Promise<boolean>;
+
+/**
+ * Hinweis im Raum auf einen neuen Vorschlag (A-12c2, V6): eine gewöhnliche Nachricht mit seiner Nummer – offen signiert
+ * an den Raum, privat nur als inneres Event der Gruppe. Was er auszahlt oder ändert, liest jedes Mitglied von der Kette.
+ */
+async function meldeVorschlag(ziel: AgentZiel, ich: string, kanal: string, index: bigint): Promise<boolean> {
+  const text = t("kasse.hinweisRaum", { nr: String(index) });
+  try {
+    if ("privat" in ziel) return !!(await sendePrivat(ziel.privat.gruppe, kanal, text));
+    const raum = leseRaumAdresse(ziel.adresse);
+    if (!raum) return false;
+    await (await ensurePool()).publish(await signiere(buildChannelMessage({ authorPubkey: ich, spaceId: raum.spaceId, channelId: kanal, content: text, mentions: [] })));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Nach einem neuen Vorschlag: die Nummer, und ob der Hinweis im Raum hinausging. */
+async function vorgeschlagen(text: string, index: bigint, melde: Melde | undefined): Promise<void> {
+  if (!melde || (await melde(index))) toast(t(text, { nr: String(index) }));
+  else toast(t("kasse.hinweisNicht", { nr: String(index) }), true);
+}
+
 /** Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit auf der Kette verbunden wird. */
 const zahlerHinweis = (zahler: string, mitglied: string | undefined): string[] =>
   zahler === mitglied ? [] : [mitglied ? t("kasse.zahlerVerbunden", { gruender: mitglied }) : t("kasse.zahlerVerbundenOhne")];
@@ -254,7 +283,9 @@ const zahlerHinweis = (zahler: string, mitglied: string | undefined): string[] =
  * dazu die Wartezeit (W3). Die Art bleibt (`kassenAenderungen()`), die Schwelle folgt der Mehrheit; die Rückfrage zeigt die
  * Änderungen, Zahler und Miete. Die Kasse ändert sich erst nach der Abstimmung.
  */
-async function aendern(kasse: string, stand: KassenStand, abw: KassenAbweichungen, mitglied: string | undefined, wer: (adresse: string) => string | undefined): Promise<boolean> {
+async function aendern(
+  kasse: string, stand: KassenStand, abw: KassenAbweichungen, mitglied: string | undefined, wer: (adresse: string) => string | undefined, melde: Melde | undefined,
+): Promise<boolean> {
   const mitName = (a: string) => (wer(a) ? t("kasse.aeWer", { name: wer(a)!, adresse: a }) : a);
   const dazu = abw.rechtOhneMitgliedschaft.flatMap((x) => (x.adresse ? [x.adresse] : []));
   const wunsch = (w: Record<string, string | string[]>) => ({
@@ -284,9 +315,10 @@ async function aendern(kasse: string, stand: KassenStand, abw: KassenAbweichunge
     text: [
       t("kasse.aendernFrage", { aenderungen: aenderungenText(k.konfiguration ?? [], wer), zahler: k.zahler, miete: solText(k.miete) }),
       ...zahlerHinweis(k.zahler, mitglied),
+      ...(melde ? [t("kasse.hinweisFolgt")] : []),
     ].join("\n\n"),
   }));
-  toast(t("kasse.aenderungVorgeschlagen", { nr: String(index) }));
+  await vorgeschlagen("kasse.aenderungVorgeschlagen", index, melde);
   return true;
 }
 
@@ -295,7 +327,9 @@ async function aendern(kasse: string, stand: KassenStand, abw: KassenAbweichunge
  * Empfänger und Betrag, „<schritt>:<nr>“ zeigt vor dem Senden, was auf der Kette steht – nie, was im Raum steht (V6).
  * Zahlt eine andere Adresse als die für die Kasse, sagt die Rückfrage, dass sie damit verbunden wird.
  */
-async function auszahlen(kasse: string, aktion: string, mitglied: string | undefined, wer: (adresse: string) => string | undefined): Promise<boolean> {
+async function auszahlen(
+  kasse: string, aktion: string, mitglied: string | undefined, wer: (adresse: string) => string | undefined, melde: Melde | undefined,
+): Promise<boolean> {
   const titel = t("kasse.titel");
   let neu: Auszahlung | undefined;
   if (aktion === "vorschlagen") {
@@ -332,10 +366,12 @@ async function auszahlen(kasse: string, aktion: string, mitglied: string | undef
         text: [
           t(schritt === "vorschlagen" ? "kasse.vorschlagenFrage" : (aenderung ? FRAGE_AENDERUNG : FRAGE)[schritt], werte),
           ...zahlerHinweis(k.zahler, mitglied),
+          ...(schritt === "vorschlagen" && melde ? [t("kasse.hinweisFolgt")] : []),
         ].join("\n\n"),
       });
     },
   );
-  toast(t(aenderung && schritt === "ausfuehren" ? "kasse.geaendert" : ERLEDIGT[schritt], { nr: String(index) }));
+  if (schritt === "vorschlagen") await vorgeschlagen(ERLEDIGT.vorschlagen, index, melde);
+  else toast(t(aenderung && schritt === "ausfuehren" ? "kasse.geaendert" : ERLEDIGT[schritt], { nr: String(index) }));
   return true;
 }
