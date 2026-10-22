@@ -12960,3 +12960,21 @@ Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A), auf B-38b2. B-38b3 ist geteilt: b3a
 de/en/auto – Ordner danach leer, Modell unverändert; feste Fassung, Commit, Bau-Schalter, Docker-Stufe, Compose-Datei, CI).
 
 Knoten-Stand: unverändert (nur Bau und Doku); im Bild nur mit `WHISPER=1`.
+
+## Schritt B-38b3b1 – Text aus Sprache: Whisper-Modell über ein Manifest (Protokoll)
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (V4, SP-W4 C), auf B-38b3a. B-38b3b ist geteilt: b3b1 Protokoll, b3b2 Laden im Knoten,
+b3b3 Whisper nimmt das geprüfte Modell.
+
+- **`modell-whisper.ts`** (neu): Konvention `whisper:<name>` mit `upstream` `hf:ggerganov/whisper.cpp@<Commit>` und genau
+  einer Datei `ggml-<name>.bin` (`whisperQuelle()` für `vertrautesManifest()`), Namen (`leseWhisperName()`), Stand von
+  Hugging Face (`whisperStand()`: nur die eine Datei mit LFS-Summe), Adresse nur am Commit (`whisperDateiAdresse()`),
+  Kennung am Dateianfang (`istGgml()`, `6c 6d 67 67`), Vorgabe nach SP-W4 (`WHISPER_VORGABE`), Grenze 3,5 GB.
+- **Kein Pickle:** `.bin` nur auf diesem Weg (`WHISPER_DATEI`), `HF_DATEI` unverändert.
+- **Docs:** `PROTOCOL.md` §43 „Modell“ (und ein Satz in §31), Entwurf, Fallstrick, OFFEN, FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** protocol +6 (`modell-whisper.test.ts`: Namen, Adressen, Stand mit zwölf kaputten Antworten, Quelle mit zehn
+falschen Manifesten, Wahl über `vertrautesManifest()` samt Streit, Kennung `ggml` gegen Pickle, Zip und GGUF).
+Verdrahtung: vier Ausnahmen bis B-38b3b2.
+
+Knoten-Stand: unverändert (nur Protokoll).

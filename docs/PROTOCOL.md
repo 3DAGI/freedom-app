@@ -1011,6 +1011,7 @@ Modellkataloge nennen, denen er folgt (38080, viertes Feld im `model`-Tag;
   `.safetensors`, Konfiguration und Tokenizer (`HF_DATEI`: `.json`, `.model`,
   `.txt`, `.tiktoken`, `.jinja`). Pickle (`.bin`, `.pt`) und Python nie – beides
   kann beim Laden Code ausführen. Ohne `config.json` und safetensors kein Modell.
+  (Modelle für Whisper sind ein eigener Weg mit genau einer ggml-Datei, §43.)
 - **Festhalten:** Hugging Face nennt je Commit (`/api/models/<Kennung>/revision/<rev>?blobs=true`)
   für große Dateien (LFS) die SHA-256, für kleine nur die Git-Kennung (SHA-1
   über `blob <Länge>\0` und Inhalt). Wer festhält, lädt die kleinen, prüft
@@ -1665,4 +1666,18 @@ Modell nur lesbar), ein Auftrag zur Zeit. **Ablehnung** (7000, versiegelt) mit T
 `sprache-auftrag` (Kern unlesbar), `sprache-ton` (Ton nicht vollständig zu holen oder zu öffnen), `sprache-wav` (nicht die
 Form aus `baueWav()`), `sprache-whisper` (Whisper scheitert), `sprache-zeit` (Frist um), `sprache-belegt` (schon ein Auftrag
 in Arbeit). Ohne Nachweis oder ohne Whisper beim Knoten antwortet er wie bei anderen Aufträgen des Besitzers.
+
+**Modell** (seit B-38b3b1, Entwurf V4, Vorgabe SP-W4 C): ein Manifest (38057) wie für andere Modelle (§31), gewählt über
+`vertrautesManifest()` mit `whisperQuelle()` – das eigene oder eines aus einem abonnierten Katalog. Konvention:
+
+| Feld | Inhalt |
+|---|---|
+| `model` | `whisper:<name>`, Name wie bei whisper.cpp (`base`, `small.en`, `large-v3-turbo-q5_0`; `leseWhisperName()`) |
+| `upstream` | `hf:ggerganov/whisper.cpp@<Commit>` – das Repo, aus dem whisper.cpp selbst lädt, 40 Zeichen Hex, nie ein Zweig |
+| `file` | genau eine: `ggml-<name>.bin` mit SHA-256 und Größe, höchstens 3,5 GB (`WHISPER_MAX_BYTES`) |
+
+Festhalten liest den Stand am Commit (`whisperStand()`: die eine Datei mit LFS-Summe, sonst `whisper.fehlt` bzw.
+`whisper.form`); geladen wird nur `whisperDateiAdresse()`. `.bin` ist hier kein Pickle: Modelle von whisper.cpp beginnen
+mit der Kennung `ggml` (`0x67676d6c`, Kleinendian `6c 6d 67 67`, `istGgml()`), und gelesen werden sie nur von
+`whisper-cli` in der Sandbox ohne Netz. Vorgabe: mit GPU `large-v3-turbo-q5_0`, ohne `base` (`WHISPER_VORGABE`).
 
