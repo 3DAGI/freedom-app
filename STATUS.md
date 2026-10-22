@@ -12804,3 +12804,21 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6, V7, W2, W3). Erster Teil von A-12c, auf A-1
 - **Gegenproben:** abstimmen trotz veraltet, ausführen vor der Wartezeit, dieselbe Stimme zweimal, vorschlagen ohne Recht im Menü, Schritt ohne Prüfung nach der Kette, Auszahlung nicht von der Kette – je ein Test rot.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt B-32b1 – Funkparameter je Region und RNode verbinden
+
+Spur B, RN-W6 A (`docs/RETICULUM-ENTWURF.md`). B-32b geteilt: b1 Regionen und Verbindung, b2 Reticulum über die RNode, b3
+Oberfläche und Datenschutz.
+
+- **`rnode-funk.ts`:** `FUNK_REGIONEN` (EU 869,4–869,65 MHz: 500 mW, ≤ 10 %; EU 433,05–434,79 MHz: 10 mW, ≤ 10 %; je mit
+  Quelle, Vorgaben 14 bzw. 10 dBm), `pruefeFunkParameter()`, `leseFunkWahl()`/`funkWahlText()` (nur bestätigt),
+  `rnodeOptionen()` (Sendezeit-Sperre der Region für die Firmware), `verbindeRNode()` über `RNodeWebSerialInterface`.
+- **Oberfläche:** Knopf „RNode (Reticulum)“ im Funk-Bereich – Region bestätigen (Grenzen, Vorgabe, Quelle), Port wählen,
+  verbinden; ein zweiter Klick trennt. Die RNode hört vorerst nur zu.
+- **Quelle:** Den Primärtext (EUR-Lex) erreicht diese Umgebung nicht; die Werte stimmen mit mehreren Zusammenfassungen
+  überein. MENSCH vergleicht vor dem ersten Senden.
+
+**Tests:** app +6 (Regionen, Grenzen, gemerkte Wahl, Verbinden mit KISS-Attrappe, Ablehnungen: ungültige Wahl, alte
+Firmware, anderes Echo; Verdrahtung und Texte). `freedom.html` +41 KB gepackt.
+
+Knoten-Stand: unverändert.

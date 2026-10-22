@@ -139,7 +139,7 @@ test("B-32a: LXMF kostet wenig – die Grenze auf dem Draht trägt die größte 
   assert.ok(RETICULUM_GRENZEN.nutzlast + 1 + aufschlag + 2 <= RETICULUM_GRENZEN.draht);
 });
 
-test("B-32a: Bibliothek exakt gepinnt, EUPL-1.2, nur in reticulum-umschlag.ts und erst bei Bedarf geladen", async () => {
+test("B-32a: Bibliothek exakt gepinnt, EUPL-1.2, nur in reticulum-umschlag.ts (seit B-32b1 auch rnode-funk.ts) und erst bei Bedarf geladen", async () => {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { dependencies: Record<string, string> };
   for (const name of ["@reticulum/core", "@reticulum/lxmf"]) {
     assert.equal(pkg.dependencies[name], "0.9.12", `${name} exakt gepinnt`);
@@ -151,6 +151,8 @@ test("B-32a: Bibliothek exakt gepinnt, EUPL-1.2, nur in reticulum-umschlag.ts un
   const nutzer = (readdirSync(src, { recursive: true }) as string[])
     .filter((f) => /\.ts$/.test(f) && /@reticulum\//.test(readFileSync(new URL(f, src), "utf8")))
     .map((f) => f.replaceAll("\\", "/")).sort();
-  assert.deepEqual(nutzer, ["reticulum-typen.d.ts", "reticulum-umschlag.ts"]);
-  assert.doesNotMatch(lies("reticulum-umschlag.ts"), /^import (?!type )[^;]*@reticulum/m, "nur dynamisch – die Bibliothek lädt nie beim Start");
+  assert.deepEqual(nutzer, ["reticulum-typen.d.ts", "reticulum-umschlag.ts", "rnode-funk.ts"]);
+  for (const d of ["reticulum-umschlag.ts", "rnode-funk.ts"]) {
+    assert.doesNotMatch(lies(d), /^import (?!type )[^;]*@reticulum/m, `${d}: nur dynamisch – die Bibliothek lädt nie beim Start`);
+  }
 });

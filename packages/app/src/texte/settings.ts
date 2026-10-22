@@ -399,6 +399,33 @@ export const settings: Texte = {
   "set.funkGatewayGespeichert": { de: "Gateway gemerkt.", en: "Gateway saved." },
   "set.funkGatewayUngeeignet": { de: "Dieses Angebot taugt nicht als Gateway (verlangt zu viel Rechenarbeit).", en: "This offer is not usable as a gateway (demands too much proof of work)." },
   "set.usbGeraet": { de: "USB-Gerät", en: "USB device" },
+  "set.rnode": { de: "RNode (Reticulum)", en: "RNode (Reticulum)" },
+  "set.rnodeTitel": { de: "Funkparameter der RNode", en: "RNode radio parameters" },
+  "set.rnodeText": {
+    de: "Eine RNode sendet nur mit den Werten, die die App ihr gibt. Wähle die Region, in der du bist: Die App bleibt unter ihren Grenzen, und die RNode begrenzt die Sendezeit selbst. Die Leistung gilt für eine Antenne ohne Gewinn – mit Gewinn muss sie um ihn kleiner sein. Vorerst hört die RNode nur zu; Nachrichten über Reticulum kommen mit dem nächsten Schritt.",
+    en: "An RNode only transmits with the values the app gives it. Choose the region you are in: the app stays below its limits, and the RNode limits its own airtime. The power applies to an antenna without gain – with gain it has to be lower by that gain. For now the RNode only listens; messages over Reticulum come with the next step.",
+  },
+  "set.rnodeRegion": { de: "Region", en: "Region" },
+  "set.rnodeRegionZeile": { de: "EU {von}–{bis} MHz – bis {mw} mW, Sendezeit höchstens {prozent} %", en: "EU {von}–{bis} MHz – up to {mw} mW, airtime at most {prozent} %" },
+  "set.rnodeVorgabe": {
+    de: "Vorgabe: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm (höchstens {max} dBm). Quelle: {quelle}",
+    en: "Default: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm (at most {max} dBm). Source: {quelle}",
+  },
+  "set.rnodeQuelleEu869": {
+    de: "Beschluss 2006/771/EG (Kurzstreckengeräte), geändert durch (EU) 2019/1345, Band 869,400–869,650 MHz; ERC/REC 70-03; ETSI EN 300 220",
+    en: "Decision 2006/771/EC (short-range devices), amended by (EU) 2019/1345, band 869.400–869.650 MHz; ERC/REC 70-03; ETSI EN 300 220",
+  },
+  "set.rnodeQuelleEu433": {
+    de: "Beschluss 2006/771/EG (Kurzstreckengeräte), geändert durch (EU) 2019/1345, Band 433,050–434,790 MHz; ERC/REC 70-03",
+    en: "Decision 2006/771/EC (short-range devices), amended by (EU) 2019/1345, band 433.050–434.790 MHz; ERC/REC 70-03",
+  },
+  "set.rnodeBestaetigen": { de: "Bestätigen und verbinden", en: "Confirm and connect" },
+  "set.rnodeVerbunden": {
+    de: "RNode verbunden: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – Sendezeit höchstens {prozent} %. Sie hört vorerst nur zu.",
+    en: "RNode connected: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – airtime at most {prozent} %. For now it only listens.",
+  },
+  "set.rnodeNicht": { de: "RNode nicht verbunden – Gerät, Kabel und Firmware (ab 1.52) prüfen", en: "RNode not connected – check device, cable and firmware (1.52 or later)" },
+  "set.rnodeGetrennt": { de: "RNode getrennt", en: "RNode disconnected" },
   "set.alsDatei": { de: "als Datei ausgeben", en: "export as file" },
   "set.dateiEinlesen": { de: "Datei einlesen", en: "Import file" },
   "set.wasOffline": { de: "Was geht ohne Internet?", en: "What works without internet?" },
