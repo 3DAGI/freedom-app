@@ -12823,6 +12823,30 @@ Firmware, anderes Echo; Verdrahtung und Texte). `freedom.html` +41 KB gepackt.
 
 Knoten-Stand: unverändert.
 
+## Schritt B-32b2 – Reticulum über die RNode: empfangen, Sendezeitkonto, Grenze im Bericht
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (V1–V3, RN2 A). B-32b neu geteilt: b2 Kern und Empfang, b3 Senden an eine Gegenstelle,
+b4 abweichende Werte und Smoke-Test.
+
+- **`reticulum-funk.ts`:** `starteReticulum()` – Kern ohne Speicher, die RNode als einzige Schnittstelle, LXMF-Router der
+  Bibliothek, eigenes Ziel `lxmf.delivery`; Empfang nur über `leseReticulumFelder()` → `nimmFunkInhalt()` (aus
+  `tabs/mesh.ts` herausgelöst, Meshtastic nutzt dieselbe Stelle). Jedes Paket an die RNode bucht `RETICULUM_KONTO` nach
+  `rnodeSendezeit()`; was nicht passt, geht still verloren. `sende()` prüft vorab und meldet `sendezeit` (aufgerufen ab b3).
+- **Oberfläche:** Nach dem Verbinden läuft Reticulum, die Anzeige nennt die eigene Adresse; gesperrter Tresor → gar nicht
+  erst verbinden; ein zweiter Klick stoppt Kern und RNode.
+- **Datenschutz:** Grenze „reticulum-ankuendigung“ (Protokoll, beide Sprachen der App): erst wer fragt, bekommt eine
+  Antwort mit Adresse und Schlüssel; von sich aus kündigt die App nichts an.
+- **Gemessen:** ein Umschlag von 2,9 KB kostet den Absender 12 Pakete und etwa 11,4 s Sendezeit (SF 8, 125 kHz) – etwa drei
+  je Stunde bei 1 %.
+- **Größe (W5):** Reticulum jetzt vorab minifiziert (Plugin „reticulum-klein“, alle Pfade auf ein Modul) – unminifiziert
+  wären es mit b1 über 150 KB gepackt gewesen; insgesamt seit vor b1 +332 KB, gepackt +80 KB.
+
+**Tests:** app +6 (`reticulum-funk.test.ts`: Sendezeit-Formel, ein Umschlag über zwei RNode-Attrappen in derselben Luft,
+Sendezeit aufgebraucht samt Erholung, nur geprüfte Inhalte, nichts von sich aus, Verdrahtung samt Build-Modul); die KISS-Attrappe ist nach
+`test/rnode-attrappe.ts` umgezogen. protocol +1 (Grenze im Bericht).
+
+Knoten-Stand: unverändert.
+
 ## Schritt A-12a3 – Kasse: Konfiguration ändern (Baustein)
 
 Spur A, `docs/KASSE-ENTWURF.md` (V2, W2, W3). Letzter Teil von A-12a; die App nutzt ihn ab A-12d (Mitglieder und Schwelle).

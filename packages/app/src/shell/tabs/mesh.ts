@@ -78,6 +78,31 @@ export async function sendeUeberFunk(
 }
 
 /**
+ * Was über Funk ankam – über Meshtastic oder Reticulum (B-32b2). Hier kommt nur an, was pruefeMeshInhalt()
+ * durchliess (7.1): gueltig signierte Umschlaege und signierte Solana-Transaktionen.
+ */
+export function nimmFunkInhalt(payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind): void {
+  void (async () => {
+    const [{ MeshKind }, { meshToEvent }] = await Promise.all([import("@freedomstack/protocol"), import("../../mesh-radio.js")]);
+    if (kind === MeshKind.NostrEvent) {
+      try {
+        const ev = meshToEvent(payload);
+        // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
+        const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
+        if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
+        // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
+        // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
+        const pool = await ensurePool();
+        await pool.publish(ev as never).catch(() => { /* offline */ });
+        toast(t("set.funkEmpfangen"));
+      } catch { toast(t("set.paketUnlesbar"), true); }
+    } else if (kind === MeshKind.SolanaTx) {
+      void reicheSolEin(payload);
+    }
+  })();
+}
+
+/**
  * Mesh-Knoten aufsetzen.
  *
  * Empfangene Nachrichten werden wie ganz normale Nostr-Events behandelt — die
@@ -91,31 +116,10 @@ async function ensureMeshNode(): Promise<import("../../mesh-radio.js").MeshNode>
     meshNode.setEigeneSchluessel(state.keypair ? [state.keypair.pk] : []);
     return meshNode;
   }
-  const { MeshNode, meshToEvent } = await import("../../mesh-radio.js");
+  const { MeshNode } = await import("../../mesh-radio.js");
 
   meshNode = new MeshNode({
-    onMessage: (payload, kind) => {
-      void (async () => {
-        // Hier kommt nur an, was pruefeMeshInhalt() durchliess (7.1):
-        // gueltig signierte Umschlaege und signierte Solana-Transaktionen.
-        const { MeshKind } = await import("@freedomstack/protocol");
-        if (kind === MeshKind.NostrEvent) {
-          try {
-            const ev = meshToEvent(payload);
-            // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
-            const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
-            if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
-            // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
-            // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
-            const pool = await ensurePool();
-            await pool.publish(ev as never).catch(() => { /* offline */ });
-            toast(t("set.funkEmpfangen"));
-          } catch { toast(t("set.paketUnlesbar"), true); }
-        } else if (kind === MeshKind.SolanaTx) {
-          void reicheSolEin(payload);
-        }
-      })();
-    },
+    onMessage: nimmFunkInhalt,
     onProgress: (info) => {
       const el = $("#mesh-status");
       if (!el) return;

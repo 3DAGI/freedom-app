@@ -1,16 +1,19 @@
 /**
  * RNode verbinden (B-32b1, RN-W6 A): Region wählen und bestätigen, dann über WebSerial verbinden. Die Werte kommen nur
- * aus `FUNK_REGIONEN` (Vorgabe der Region); gemerkt wird die bestätigte Wahl (`freedom.reticulum.funk`). Bis B-32b2
- * hört die RNode nur zu – gesendet wird über sie noch nichts. Ein zweiter Klick trennt.
+ * aus `FUNK_REGIONEN` (Vorgabe der Region); gemerkt wird die bestätigte Wahl (`freedom.reticulum.funk`). Danach läuft
+ * Reticulum über die RNode (B-32b2, `starteReticulum()`): Was an die eigene LXMF-Adresse kommt, geht wie Funk weiter
+ * (`nimmFunkInhalt()`); eigene Nachrichten sendet die App über sie erst mit B-32b3. Ein zweiter Klick trennt.
  */
 import { t } from "../i18n.js";
 import {
   FUNK_REGIONEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, maxSendeleistungDbm, verbindeRNode, type FunkWahl, type RNodePort,
 } from "../rnode-funk.js";
 import { dialog } from "./dialog.js";
+import { geheim, tresorEingerichtet, tresorOffen } from "./tresor.js";
 import { toast } from "./ui.js";
 
-let verbunden: { disconnect(): Promise<void> } | null = null;
+let verbunden: { stoppe(): Promise<void> } | null = null;
+const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 const mhz = (hz: number): string => (hz / 1e6).toLocaleString(undefined, { maximumFractionDigits: 3 });
 
@@ -45,23 +48,37 @@ export async function rnodeKnopf(status: HTMLElement | null): Promise<void> {
   if (verbunden) {
     const r = verbunden;
     verbunden = null;
-    await r.disconnect().catch(() => undefined);
+    await r.stoppe().catch(() => undefined);
     if (status) status.textContent = t("set.rnodeGetrennt");
     return;
   }
   const serial = (navigator as Navigator & { serial?: { requestPort(): Promise<RNodePort> } }).serial;
   if (!serial) return toast(t("set.keinGeraetezugriff"), true);
+  // Die Identität liegt in `geheim` – ein gesperrter Tresor gäbe keine und nähme keine neue an
+  if (tresorEingerichtet() && !tresorOffen()) return toast(t("ein.tresorGesperrt"), true);
   const wahl = await waehleFunkRegion();
   if (!wahl) return;
   try {
     const port = await serial.requestPort();
-    verbunden = await verbindeRNode(port, wahl);
-    const p = wahl.parameter;
-    if (status) {
-      status.textContent = t("set.rnodeVerbunden", {
-        f: mhz(p.frequency), bw: p.bandwidth / 1000, sf: p.spreadingFactor, dbm: p.txPower,
-        prozent: FUNK_REGIONEN.find((r) => r.kennung === wahl.region)!.maxSendezeitProzent,
+    const rnode = await verbindeRNode(port, wahl);
+    try {
+      const [{ reticulumIdentitaet }, { starteReticulum }, { nimmFunkInhalt }] = await Promise.all([
+        import("../reticulum-umschlag.js"), import("../reticulum-funk.js"), import("./tabs/mesh.js"),
+      ]);
+      const funk = await starteReticulum({
+        rnode, identitaet: await reticulumIdentitaet(geheim), parameter: wahl.parameter, beiEmpfang: nimmFunkInhalt,
       });
+      verbunden = funk;
+      const p = wahl.parameter;
+      if (status) {
+        status.textContent = t("set.rnodeVerbunden", {
+          f: mhz(p.frequency), bw: p.bandwidth / 1000, sf: p.spreadingFactor, dbm: p.txPower,
+          prozent: FUNK_REGIONEN.find((r) => r.kennung === wahl.region)!.maxSendezeitProzent, adresse: hex(funk.adresse),
+        });
+      }
+    } catch (e) {
+      await rnode.disconnect().catch(() => undefined);
+      throw e;
     }
     toast(t("set.funkVerbunden"));
   } catch (e) {

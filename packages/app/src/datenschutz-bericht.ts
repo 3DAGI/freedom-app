@@ -66,6 +66,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "agent-knoten-privat": ["ds.fAgentKnotenPrivat", "ds.gAgentKnotenPrivat"],
   "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
   "mesh-geraet": ["ds.fMeshGeraet", "ds.gMeshGeraet"],
+  "reticulum-ankuendigung": ["ds.fReticulum", "ds.gReticulum"],
   "ki-zahlung": ["ds.fKiZahlung"],
   "ki-reklamation": ["ds.fKiReklamation"],
   "ruf-kontakte": ["ds.fRufKontakte"],

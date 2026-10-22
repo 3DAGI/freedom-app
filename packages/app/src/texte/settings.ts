@@ -402,8 +402,8 @@ export const settings: Texte = {
   "set.rnode": { de: "RNode (Reticulum)", en: "RNode (Reticulum)" },
   "set.rnodeTitel": { de: "Funkparameter der RNode", en: "RNode radio parameters" },
   "set.rnodeText": {
-    de: "Eine RNode sendet nur mit den Werten, die die App ihr gibt. Wähle die Region, in der du bist: Die App bleibt unter ihren Grenzen, und die RNode begrenzt die Sendezeit selbst. Die Leistung gilt für eine Antenne ohne Gewinn – mit Gewinn muss sie um ihn kleiner sein. Vorerst hört die RNode nur zu; Nachrichten über Reticulum kommen mit dem nächsten Schritt.",
-    en: "An RNode only transmits with the values the app gives it. Choose the region you are in: the app stays below its limits, and the RNode limits its own airtime. The power applies to an antenna without gain – with gain it has to be lower by that gain. For now the RNode only listens; messages over Reticulum come with the next step.",
+    de: "Eine RNode sendet nur mit den Werten, die die App ihr gibt. Wähle die Region, in der du bist: Die App bleibt unter ihren Grenzen, und die RNode begrenzt die Sendezeit selbst. Die Leistung gilt für eine Antenne ohne Gewinn – mit Gewinn muss sie um ihn kleiner sein. Über sie empfängt die App Nachrichten an deine Reticulum-Adresse; wer nach ihr fragt, bekommt im Funk eine Antwort mit der Adresse (Datenschutzbericht). Eigene Nachrichten sendet sie erst mit dem nächsten Schritt.",
+    en: "An RNode only transmits with the values the app gives it. Choose the region you are in: the app stays below its limits, and the RNode limits its own airtime. The power applies to an antenna without gain – with gain it has to be lower by that gain. Through it the app receives messages to your Reticulum address; whoever asks for it gets an answer over the air that carries the address (privacy report). It sends your own messages only from the next step on.",
   },
   "set.rnodeRegion": { de: "Region", en: "Region" },
   "set.rnodeRegionZeile": { de: "EU {von}–{bis} MHz – bis {mw} mW, Sendezeit höchstens {prozent} %", en: "EU {von}–{bis} MHz – up to {mw} mW, airtime at most {prozent} %" },
@@ -421,8 +421,8 @@ export const settings: Texte = {
   },
   "set.rnodeBestaetigen": { de: "Bestätigen und verbinden", en: "Confirm and connect" },
   "set.rnodeVerbunden": {
-    de: "RNode verbunden: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – Sendezeit höchstens {prozent} %. Sie hört vorerst nur zu.",
-    en: "RNode connected: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – airtime at most {prozent} %. For now it only listens.",
+    de: "RNode verbunden: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – Sendezeit höchstens {prozent} %. Reticulum empfängt an deine Adresse {adresse}.",
+    en: "RNode connected: {f} MHz, {bw} kHz, SF {sf}, {dbm} dBm – airtime at most {prozent} %. Reticulum receives at your address {adresse}.",
   },
   "set.rnodeNicht": { de: "RNode nicht verbunden – Gerät, Kabel und Firmware (ab 1.52) prüfen", en: "RNode not connected – check device, cable and firmware (1.52 or later)" },
   "set.rnodeGetrennt": { de: "RNode getrennt", en: "RNode disconnected" },
