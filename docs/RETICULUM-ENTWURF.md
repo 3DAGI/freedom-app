@@ -72,7 +72,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32a | Abhängigkeit gepinnt, Identität im Tresor, Umschlag in LXMF ein- und auspacken (`pruefeMeshInhalt()`), Größe gemessen | ~250 |
 | B-32b1 ✓ | App: Funkparameter je Region (RN-W6 A) mit Quelle, Prüfung der Grenzen, RNode über WebSerial verbinden (Sendezeit-Sperre der Region in der Firmware), Knopf im Funk-Bereich – die RNode hört nur zu | ~250 |
 | B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
-| B-32b3 | Senden: Gegenstelle (Adresse eintippen oder per QR), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
+| B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
@@ -159,6 +159,21 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
   „reticulum-klein“ in `build.mjs`), und alle Pfade in die Bibliothek führen auf EIN Modul – zwei Kopien des Kerns
   hätten getrennte Tabellen für Wege und Ziele. Reticulum insgesamt (b1 und b2) gegenüber dem Stand vor b1: +332 KB,
   gepackt +80 KB. Die Tests liefen zusätzlich gegen genau dieses Modul (Umschlag A → B, Sendezeit).
+
+## Stand B-32b3 (22.10.2026)
+
+- **Gegenstelle:** die LXMF-Adresse, an die die App über Reticulum sendet – heute eine Freedom-App mit Internet, die
+  weiterreicht (sie nimmt den Umschlag über `nimmFunkInhalt()` an und gibt ihn an den Pool bzw. reicht die Zahlung ein),
+  ab B-32d auch der eigene Knoten. Gelesen nur über `leseLxmfAdresse()` (32 Zeichen Hex, wie Reticulum sie zeigt auch in
+  spitzen Klammern), gemerkt nur in `geheim` (`freedom.reticulum.gegenstelle` – sie verrät, mit wem man funkt).
+- **Oberfläche:** Knopf „Reticulum-Adressen“ im Funk-Bereich (`adressenDialog()`): die eigene Adresse als Text und
+  QR-Code (nicht geheim – jede Antwort im Funk trägt sie), die Gegenstelle eintippen oder scannen, leer = keine.
+- **Senden:** `sendeUeberFunk()` nimmt ohne Meshtastic-Gerät `sendeUeberReticulum()` – nur mit laufender RNode und
+  gemerkter Gegenstelle, sonst wie bisher der Datei-Weg. Heute geht das so: SOL-Zahlungen ohne Internet. KI über Funk
+  bleibt bei Meshtastic (`funkGeraetVerbunden()`): Die Antwort käme nur über ein Gateway im Knoten zurück (B-32d).
+  Fehler nur über ihre Kennung (`reticulumFehlerText()`, je Fall ein Text).
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt jetzt auch das Senden – jedes Paket an die Gegenstelle trägt
+  deren Adresse offen; sie selbst erfährt deine.
 
 ## Quellen
 
