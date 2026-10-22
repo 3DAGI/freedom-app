@@ -90,8 +90,11 @@ test("5.5a: Zusammenfassung je Provider – versiegelt an Kontakte, Relays sehen
   const wraps = await baueRufUmschlaege({ von: ich, an: [kontakt.publicKey(), ich.publicKey(), "zz"], zeilen, nowSecs: JETZT });
   assert.equal(wraps.length, 1, "nicht an sich selbst, nichts Ungültiges");
   const offen = JSON.stringify(wraps[0]);
-  for (const nadel of [PROVIDER, ich.publicKey(), "50000", String(KIND_RUF_ZUSAMMENFASSUNG)]) assert.ok(!offen.includes(nadel), nadel);
-  assert.equal(wraps[0]!.kind, 1059);
+  for (const nadel of [PROVIDER, ich.publicKey()]) assert.ok(!offen.includes(nadel), nadel);
+  // Kurze Zahlen (50000 msat, Kind 38075) nur über die Struktur – in Signatur und Chiffrat stehen sie gelegentlich zufällig
+  assert.equal(wraps[0]!.kind, 1059, `nicht ${KIND_RUF_ZUSAMMENFASSUNG}`);
+  assert.deepEqual(wraps[0]!.tags, [["p", kontakt.publicKey()]], "offen nur der Empfänger – keine Zahlen, kein Kind in den Tags");
+  assert.ok(!/umfangMsat|auftraege|reklamationen/.test(offen), "keine Felder der Zusammenfassung im Klartext");
 
   const gelesen = await oeffneRufUmschlag(wraps[0]!, kontakt, new Set([ich.publicKey()]));
   assert.deepEqual(gelesen, { von: ich.publicKey(), zeit: JETZT, zeilen });

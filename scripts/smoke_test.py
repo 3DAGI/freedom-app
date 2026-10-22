@@ -3840,6 +3840,151 @@ def meshtastic_pruefen(browser, url: str) -> dict:
     return erg
 
 
+# RNode über USB (seit B-32b4): antwortet wie die Firmware (KISS, Befehle zurückgemeldet, wie `test/rnode-attrappe.ts`)
+# und zählt Befehle und Datenrahmen – was die App funkt, kommt hier als Datenrahmen an.
+RNODE_ATTRAPPE = """
+(() => {
+  const FEND = 0xc0, FESC = 0xdb, TFEND = 0xdc, TFESC = 0xdd;
+  const st = window.__rn = { geoeffnet: 0, geschlossen: 0, befehle: [], daten: 0 };
+  let ctrl, rahmen = [], esc = false;
+  const sende = (cmd, d) => {
+    const roh = [];
+    for (const b of d) roh.push(...(b === FEND ? [FESC, TFEND] : b === FESC ? [FESC, TFESC] : [b]));
+    ctrl.enqueue(Uint8Array.from([FEND, cmd, ...roh, FEND]));
+  };
+  const antworte = (cmd, d) => {
+    if (cmd === 0x00) { st.daten++; return; }
+    st.befehle.push([cmd, d]);
+    if (cmd === 0x08) return sende(cmd, [0x46]);
+    if (cmd === 0x50) return sende(cmd, [1, 82]);
+    if (cmd === 0x48) return sende(cmd, [0x80]);
+    if (cmd === 0x49) return sende(cmd, [0x81]);
+    if ([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0b, 0x0c].includes(cmd)) return sende(cmd, d);
+  };
+  const port = {
+    readable: null, writable: null,
+    async open() {
+      st.geoeffnet++;
+      port.readable = new ReadableStream({ start(c) { ctrl = c; } });
+      port.writable = new WritableStream({ write(stueck) {
+        for (const b of stueck) {
+          if (b === FEND) { if (rahmen.length) antworte(rahmen[0], rahmen.slice(1)); rahmen = []; continue; }
+          if (esc) { rahmen.push(b === TFEND ? FEND : b === TFESC ? FESC : b); esc = false; } else if (b === FESC) esc = true; else rahmen.push(b);
+        }
+      } });
+    },
+    async close() { st.geschlossen++; },
+  };
+  Object.defineProperty(navigator, 'serial', { value: { requestPort: async () => port, getPorts: async () => [] } });
+})();
+"""
+
+
+def rnode_pruefen(browser, url: str) -> dict:
+    """RNode (B-32b1–b4): eigene Werte nur in den Grenzen der Region (der Port erst danach), die RNode bekommt genau sie, die
+    App funkt von sich aus nichts; Reticulum-Adressen mit QR und geprüfter Gegenstelle; ein zweiter Klick trennt, gemerkte
+    eigene Werte sind beim nächsten Mal vorgewählt."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=RNODE_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    rn = "() => JSON.parse(JSON.stringify(window.__rn))"
+    titel = "Funkparameter der RNode"
+    knopf = "Bestätigen und verbinden"
+    waehle = ("([legende, wert]) => [...document.querySelectorAll('[role=dialog] fieldset')]"
+              ".find(f => f.querySelector('legend').textContent === legende).querySelector(`input[value=\"${wert}\"]`).click()")
+    felder = "(w) => document.querySelectorAll('[role=dialog] input:not([type=radio])').forEach((e, i) => { e.value = w[i]; })"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-rnode", state="visible", timeout=10000)
+    s.click("#mesh-rnode")
+    erg["region"] = seite.warte_dialog(titel)
+    ev(waehle, ["Werte", "eigene"])
+    dialog_ok(seite, knopf)
+    erg["eigene"] = seite.warte_dialog("Eigene Funkwerte")
+    meldungen = {}
+    for name, werte in (("leistung", ["869,4625", "27"]), ("frequenz", ["869,46", "20"]), ("form", ["869.4625 MHz", "20"])):
+        ev(felder, werte)
+        dialog_ok(seite, knopf)
+        s.wait_for_function("() => !!document.querySelector('[role=dialog] [role=alert]')?.textContent", timeout=5000)
+        meldungen[name] = seite.stand()["meldung"]
+    erg["meldungen"] = meldungen
+    erg["vor_dem_port"] = ev(rn)
+    ev(felder, ["869,4625", "20"])
+    ev(waehle, ["Spreizfaktor", "10"])
+    dialog_ok(seite, knopf)
+    seite.warte_zu()
+    s.wait_for_function("() => /RNode verbunden/.test(document.getElementById('mesh-status').textContent)", timeout=30000)
+    erg["status"] = ev("() => document.getElementById('mesh-status').textContent")
+    erg["gemerkt"] = ev("() => JSON.parse(localStorage.getItem('freedom.reticulum.funk')).parameter")
+    s.wait_for_timeout(1500)  # was die App von sich aus funken würde, käme in dieser Zeit
+    erg["verbunden"] = ev(rn)
+    adresse = (re.search(r"Adresse ([0-9a-f]{32})", erg["status"]) or [None, ""])[1]
+    # Adressen: die eigene mit QR, die Gegenstelle nur geprüft
+    s.click("#mesh-rnode-adressen")
+    erg["adressen"] = seite.warte_dialog("Reticulum-Adressen")
+    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    erg["qr_knopf"] = ev("() => document.querySelector('[role=dialog] svg.qr-bild')?.getAttribute('aria-label') ?? null")
+    gegen = {}
+    for name, wert in (("kaputt", "xyz"), ("eigene", adresse)):
+        ev("(v) => { document.querySelector('[role=dialog] input').value = v; }", wert)
+        dialog_ok(seite, "Merken")
+        s.wait_for_function("() => !!document.querySelector('[role=dialog] [role=alert]')?.textContent", timeout=5000)
+        gegen[name] = seite.stand()["meldung"]
+    ev("() => { document.querySelector('[role=dialog] input').value = ' <0123456789ABCDEF0123456789abcdef> '; }")
+    dialog_ok(seite, "Merken")
+    seite.warte_zu()
+    erg["gegenstelle"] = {**gegen, "gemerkt": ev("() => localStorage.getItem('freedom.reticulum.gegenstelle')")}
+    # Trennen, dann sind die eigenen Werte vorgewählt
+    s.click("#mesh-rnode")
+    s.wait_for_function("() => document.getElementById('mesh-status').textContent === 'RNode getrennt'", timeout=10000)
+    erg["getrennt"] = ev(rn)
+    s.click("#mesh-rnode")
+    seite.warte_dialog(titel)
+    erg["wieder"] = ev("() => document.querySelector('[role=dialog] input[value=\"eigene\"]').checked")
+    s.keyboard.press("Escape")
+    seite.warte_zu()
+
+    f = erg["fehler"]
+    if not ({"Region", "Werte"} <= set(erg["region"]["felder"]) and "eigenen Werten" in (erg["region"]["text"] or "")):
+        f.append(f"Region {erg['region']}")
+    if not ("869,4 und 869,65 MHz" in (erg["eigene"]["text"] or "") and "höchstens 26 dBm" in erg["eigene"]["text"]):
+        f.append(f"eigene {erg['eigene']}")
+    if meldungen != {"leistung": "Sendeleistung nur von 0 dBm bis zur Grenze der Region",
+                     "frequenz": "Das Signal liegt nicht ganz im Band – Mitte ± halbe Bandbreite muss hineinpassen",
+                     "form": "Frequenz in MHz (etwa 869,525), Leistung als ganze Zahl"}:
+        f.append(f"Meldungen {meldungen}")
+    if erg["vor_dem_port"]["geoeffnet"] != 0:
+        f.append("Port vor dem Bestätigen geöffnet")
+    v = erg["verbunden"]
+    zuletzt = lambda cmd: next((d for c, d in reversed(v["befehle"]) if c == cmd), None)
+    if not (zuletzt(0x01) == [0x33, 0xd2, 0xf1, 0xe4] and zuletzt(0x04) == [10] and zuletzt(0x03) == [20] and zuletzt(0x0c) is not None):
+        f.append(f"Befehle {v['befehle']}")
+    if v["daten"] != 0:
+        f.append(f"die App funkt von sich aus: {v['daten']} Rahmen")
+    if not ("869,4625 MHz, 125 kHz, SF 10, 20 dBm" in erg["status"] and adresse):
+        f.append(f"Status {erg['status']!r}")
+    if erg["gemerkt"] != {"frequency": 869462500, "bandwidth": 125000, "spreadingFactor": 10, "codingRate": 5, "txPower": 20}:
+        f.append(f"gemerkt {erg['gemerkt']}")
+    a = erg["adressen"]
+    if not (adresse in a["werte"] and erg["qr_knopf"] == "Deine Adresse als QR-Code"):
+        f.append(f"Adressen {a} qr={erg['qr_knopf']}")
+    g = erg["gegenstelle"]
+    if g != {"kaputt": "Keine Reticulum-Adresse – 32 Zeichen 0–9 und a–f", "eigene": "Das ist deine eigene Adresse",
+             "gemerkt": "0123456789abcdef0123456789abcdef"}:
+        f.append(f"Gegenstelle {g}")
+    if not (erg["getrennt"]["geschlossen"] == 1 and erg["getrennt"]["geoeffnet"] == 1):
+        f.append(f"getrennt {erg['getrennt']}")
+    if erg["wieder"] is not True:
+        f.append("eigene Werte beim nächsten Mal nicht vorgewählt")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        f.append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not f
+    return erg
+
+
 ANTWORT_MD = "**fett** <img src=x onerror=alert(1)>\n\n```ts\nconst a = \"<b>\"; // x\n```"
 
 # B-38a: Stimmen wie in Chrome – die Vorgabe ist eine Netzstimme („Google …“), daneben eine lokale. Die App darf nur die
@@ -6842,6 +6987,10 @@ def main() -> int:
             except Exception as e:
                 erg["meshtastic"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["rnode"] = rnode_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rnode"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -6906,6 +7055,7 @@ def main() -> int:
           and erg.get("kopfgeld", {}).get("bestanden") is True
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
+          and erg.get("rnode", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)

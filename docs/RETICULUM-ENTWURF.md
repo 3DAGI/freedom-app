@@ -73,7 +73,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b1 ✓ | App: Funkparameter je Region (RN-W6 A) mit Quelle, Prüfung der Grenzen, RNode über WebSerial verbinden (Sendezeit-Sperre der Region in der Firmware), Knopf im Funk-Bereich – die RNode hört nur zu | ~250 |
 | B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
-| B-32b4 | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
+| B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
@@ -174,6 +174,19 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
   Fehler nur über ihre Kennung (`reticulumFehlerText()`, je Fall ein Text).
 - **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt jetzt auch das Senden – jedes Paket an die Gegenstelle trägt
   deren Adresse offen; sie selbst erfährt deine.
+
+## Stand B-32b4 (22.10.2026)
+
+- **Eigene Werte:** Im Dialog der Region „Werte“: Vorgabe der Region oder eigene. Eigene stehen in einem zweiten Dialog
+  (Frequenz in MHz, Bandbreite, Spreizfaktor, Kodierrate, Sendeleistung), vorbelegt mit den gemerkten eigenen Werten
+  derselben Region, sonst mit der Vorgabe. Angenommen wird nur, was `pruefeFunkParameter()` besteht – der Dialog bleibt
+  offen und nennt den Fall (`funkFallText()`, je `FUNK_FAELLE` ein Text). Bandbreiten stehen nur zur Wahl, wenn sie ins
+  Band passen. Gelesen über `leseFunkEingabe()` (Hz genau, ohne Rundung). Den Port wählt man erst danach.
+- **Sendezeit:** Das Konto (1 % je Stunde) rechnet mit den gewählten Werten – SF 12 bei 62,5 kHz kostet je Paket mehr als
+  das Achtfache der Vorgabe. Die Sperre der Firmware bleibt die der Region.
+- **Smoke-Test „rnode“:** Eine KISS-Attrappe spielt die RNode im Browser: Grenzen im Dialog, Port erst nach dem
+  Bestätigen, die Firmware bekommt genau die eigenen Werte samt Sperre (10 %), die App funkt von sich aus nichts,
+  Reticulum-Adressen mit QR-Code und geprüfter Gegenstelle, Trennen, gemerkte eigene Werte beim nächsten Mal vorgewählt.
 
 ## Quellen
 

@@ -12885,3 +12885,24 @@ Spur B, `docs/RETICULUM-ENTWURF.md` (Aufteilung aus B-32b2).
 Verdrahtung, Grenze im Bericht); protocol: Test der Grenze erweitert.
 
 Knoten-Stand: unverändert.
+
+## Schritt B-32b4 – Reticulum: eigene Funkwerte in den Grenzen, Smoke-Test mit Attrappe
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (Aufteilung aus B-32b2).
+
+- **Eigene Werte:** Dialog der Region mit „Werte“ (Vorgabe oder eigene); eigene in einem zweiten Dialog, vorbelegt aus
+  derselben Region, gelesen über `leseFunkEingabe()`, angenommen nur nach `pruefeFunkParameter()` – sonst bleibt der
+  Dialog offen und nennt den Fall (`funkFallText()`, `FUNK_FAELLE`). Bandbreiten nur, wenn sie ins Band passen; der Port
+  erst danach. Sendezeitkonto und Anzeige rechnen mit den gewählten Werten.
+- **Smoke-Test „rnode“:** KISS-Attrappe im Browser – Grenzen, Port erst nach dem Bestätigen, Befehle an die Firmware
+  (Frequenz, SF, Leistung, Sperre), nichts von sich aus gefunkt, Reticulum-Adressen mit QR und geprüfter Gegenstelle,
+  Trennen, eigene Werte beim nächsten Mal vorgewählt.
+
+**Tests:** app +5 (`rnode-werte.test.ts`: Eingaben lesen, jede Grenze, gemerkt und an die RNode, Texte je Fall,
+Verdrahtung); `rnode-funk.test.ts` an die eigenen Werte angepasst (Vorgabe bleibt der Ausgangspunkt).
+**Nebenbei:** `quittung.test.ts` (5.5a) suchte „50000“ und „38075“ im ganzen Umschlag – im vollen Lauf einmal rot, weil
+„50000“ zufällig in der Hex-Signatur stand (nachgestellt: 2 von 350 Umschlägen). Jetzt über die Struktur (Kind, Tags genau)
+nach dem Fallstrick „In Zufallsdaten nie nach kurzen Zeichenfolgen suchen“; dasselbe Muster steht noch in
+`app/test/leak/ki-anfrage.test.ts` („21000“/„34000“) – im Pull Request genannt.
+
+Knoten-Stand: unverändert.

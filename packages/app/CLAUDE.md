@@ -973,3 +973,6 @@ Fallstricke dieses Bereichs unten anhängen.
   wenn kein Meshtastic-Gerät verbunden ist – sonst der Datei-Weg, nie still woanders hin. KI über Funk bleibt an
   `funkGeraetVerbunden()` (nur Meshtastic), bis der Knoten Reticulum-Gateway ist (B-32d). Fehler nur über
   `reticulumFehlerText()` (je `RETICULUM_FAELLE` ein Text).
+  Eigene Funkwerte (seit B-32b4) nur über den zweiten Dialog in `waehleFunkRegion()`: gelesen über `leseFunkEingabe()`,
+  angenommen nur nach `pruefeFunkParameter()` für die gewählte Region (der Dialog bleibt offen, `funkFallText()` je
+  `FUNK_FAELLE`), erst danach der Port. Ein neuer Fall in `pruefeFunkParameter()` braucht Kennung und Text.
