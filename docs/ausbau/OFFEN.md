@@ -57,6 +57,17 @@ Quelle: [`MINI-APP-TMA.md`](../MINI-APP-TMA.md), „Offen“.
 
 Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 
+### 1.5 Werkbank-Knoten (VKj, Spur A, 23.10.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| VKj-W1 | Wie reden GX10 und Werkbank? A ContextVM-Format (Art 25910 im Umschlag, CEP-4), selbst gebaut, über die Relays · B eigenes Format über einen direkten Kanal (WebRTC über den eigenen TURN) · C Tor-Dienst auf der Werkbank | **A** – offener Standard, keine Abhängigkeit (das SDK ist LGPL/GPL), durch jedes NAT; große Antworten in Stücken (CEP-22); B nur für die Vorschau |
+| VKj-W2 | Wer koppelt die Werkbank mit dem GX10? A der Besitzer mit dem Handy · B die Werkbank direkt mit einem Code des GX10 | **A** – das Handy ist schon der Schlüssel für beide |
+| VKj-W3 | Was darf der Agent auf der Werkbank ohne Rückfrage? A nur Werkzeuge der Liste, alle wie Befehle · B lesen ohne Frage, ändern mit Frage · C alles aus der Liste ohne Frage | **B** – auf der Werkbank gibt es keine Sandbox |
+| VKj-W4 | Womit anfangen? A Unity unter Windows · B Xcode und iOS auf dem Mac · C Android Studio auf x86-Linux | **A** – größter Bedarf, `unity-mcp` (MIT) fertig |
+
+Quelle: [`WERKBANK-ENTWURF.md`](../WERKBANK-ENTWURF.md), „Fragen an den MENSCHEN“.
+
 ### 1.3 Oberfläche (Spur C, 15.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -153,7 +164,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 |---|---|---|
 | VKd2 | Freedom-MCP: Sprache (mit B-38; SP-W6 A „MCP später“), Bilder über Freedom-Provider (5070) später – VKd2b2 ✓: Bilder über die eigene ComfyUI, VKd2b1 ✓: je Projekt ein eigenes Zeichen, Lese-Freigaben nur im Projekt, VKd2a ✓: Kiwix mit den ZIM-Dateien aus `mcp.json` (B-31), die Seiten-Bedienung kam mit VKk1 (Playwright MCP), VKd1 ✓: Websuche und Seite lesen, VKd1b ✓: gelesen wird nur, was im Auftrag oder in Suchergebnissen steht, VKd3 ✓: Pakete (npm, PyPI) über die Brücke | frei |
 | VKg2 | Vorschau als Bildstrom für Programme ohne Web (Linux, später Android, Windows): virtueller Bildschirm, GStreamer `webrtcbin`, NVENC, über den eigenen TURN – mit Spur B. Teile ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), VKg2): a1 Tunnel zum TURN, a2 Bildstrom im Knoten (Xvfb, Programm, `webrtcbin`; Code-Aktionen `bild`, `bild-ende`), a3 Eingaben über XTest, b App (Bild ansehen und bedienen), c Docker-Pakete, Chromium ins Bild, NVENC, Messung | VKg2a1 ✓ (Tunnel mit Filter), VKg2a2 ✓ (Bild in zwei Sandboxen), VKg2a3 ✓ (Eingaben), VKg2b ✓ (App), VKg2c1 ✓ (Docker, Chromium im Bild), VKg2c2 ✓ (Kodierer nach dem Angebot, NVENC) – im Code fertig; NVENC prüft der MENSCH auf dem GX10 |
-| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) | frei, nach VKd |
+| VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger (mit Spur B) – Entwurf ✓ ([`WERKBANK-ENTWURF.md`](../WERKBANK-ENTWURF.md)) | wartet auf VKj-W1–W4 (1.5) |
 | 11.5c4 | Schalter „Pakete holen“ im privaten Raum (P3, Vorgabe aus): ein Admin schaltet Phase 1 ein (Format in der Definition des Raums zuerst), der Knoten liest ihn; `paket_holen` bleibt privat aus (11.5c1–c3 ✓) | frei, Format vorher klären |
 | 11.5d | App: „Agent beauftragen“, Obergrenze, Antwort mit Patch (`fall`, `["e", …, "mention"]`, seit 11.5c3 `pakete`) zeigen (Oberfläche mit Spur C) | frei (offen und privat) |
 | A-21f | Aufräumen (A-21b ✓: Anweisungen als kit; A-21c ✓: Lesen über kit auf dem RpcPool; A-21d1 ✓: Transaktionen über kit, SOL ohne Internet; A-21d2 ✓: Wallets und alle Bauer der App über kit; A-21d3a ✓: Senden und Bestätigen als Baustein, Zahlschienen über den Pool; A-21d3b ✓: HTLC, Tausch, Relayer, Zahlkanal, Wächter, Quittungen und Hinterlegen über den Pool; A-21d3c ✓: Relayer-Prüfung über kit; A-21e1 ✓: Zahlkanal-Kasse, Auszahlung und Einrichtung des Knotens über kit; A-21e2 ✓: Relayer-Dienst, Senden im `main.ts`, HTLC-Adapter des LP – der Knoten ohne web3.js) | A-21f nach W4 ([`KIT-PLAN.md`](../KIT-PLAN.md)) |

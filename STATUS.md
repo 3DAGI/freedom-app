@@ -13247,6 +13247,19 @@ prüft jetzt auch `auto`.
 
 Knoten-Stand: wie B-38c1 – ein Knoten mit der Rolle `sprache`.
 
+## Schritt VKj-Entwurf – Werkbank-Knoten
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W7 A: weitere eigene Rechner per QR für Programme ohne ARM64). Nur Doku – gebaut
+wird nach Freigabe, weil das Format zwischen den Knoten neu ist.
+
+**Neu:** `docs/WERKBANK-ENTWURF.md` – Ausgangslage (was auf dem GX10 nicht läuft, Kopplung aus B-8, keine Sandbox
+außerhalb von Linux), Befunde (ContextVM: MCP über Nostr, Art 25910 im Umschlag nach CEP-4, große Nachrichten nach CEP-22;
+das SDK steht unter LGPL/GPL, das Format lässt sich ohne Abhängigkeit bauen), Vorschlag (schlanker Werkbank-Knoten,
+Kopplung über das Handy, Werkzeuge an der Brücke des GX10, Freigaben wie Befehle), vier Fragen VKj-W1–W4 mit Empfehlung,
+Aufteilung VKj1–VKj5. OFFEN 1.5 und die Zeile VKj, Entwurf, FORTSCHRITT, Stand.
+
+**Tests:** keine (nur Doku); alle Prüfungen gelaufen.
+
 ## Schritt B-38c3 – Text aus Sprache: „Dieses Gerät“ (whisper-server auf diesem Rechner)
 
 Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, V2), auf B-38c2. Damit ist B-38c fertig – und B-38 bis auf die Proben des MENSCHEN.
