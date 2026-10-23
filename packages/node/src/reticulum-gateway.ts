@@ -71,7 +71,8 @@ export function identitaetsSpeicher(datei: string): { getItem(k: string): string
 
 /**
  * Die RNode hinter der TCP-Brücke verbinden – mit den geprüften Werten und der Sendezeit-Sperre der Region. Nach einer
- * Trennung verbindet die Bibliothek neu (alle `neuSek`); die Schnittstelle prüft das Echo der Firmware selbst.
+ * Trennung verbindet die Bibliothek neu (alle `neuSek`); die Schnittstelle prüft das Echo der Firmware selbst. Scheitert
+ * schon das erste Verbinden, endet auch ihr Versuch im Hintergrund – ohne Kern hätte er keinen Zweck.
  */
 export async function verbindeRNodeTcp(
   e: ReticulumEinstellung, o: { postOpenDelayMs?: number; detectTimeout?: number; neuSek?: number } = {},
@@ -112,7 +113,12 @@ export async function verbindeRNodeTcp(
     ...rnodeOptionen(e), name: "freedom-rnode-tcp", autoReconnect: true, reconnectWait: o.neuSek ?? 30,
     postOpenDelayMs: o.postOpenDelayMs ?? 2000, detectTimeout: o.detectTimeout ?? 15,
   });
-  await rnode.connect();
+  try {
+    await rnode.connect();
+  } catch (e) {
+    await rnode.disconnect().catch(() => undefined);
+    throw e;
+  }
   return rnode;
 }
 

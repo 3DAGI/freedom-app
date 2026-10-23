@@ -15,7 +15,7 @@ import {
 } from "@freedomstack/protocol";
 import { UmschlagAnnahme } from "../src/gateway-role.js";
 import {
-  identitaetsSpeicher, reticulumAusUmgebung, reticulumIdentitaetDatei, starteReticulumGateway, type ReticulumEinstellung,
+  identitaetsSpeicher, reticulumAusUmgebung, reticulumIdentitaetDatei, starteReticulumGateway, verbindeRNodeTcp, type ReticulumEinstellung,
 } from "../src/reticulum-gateway.js";
 import { rnodeAttrappe, type Luft } from "../../protocol/test/rnode-attrappe.js";
 
@@ -142,6 +142,21 @@ test("B-32d2: über die Luft – ein Umschlag vom Telefon geht ins Netz, einmal;
     await gateway.stoppe().catch(() => undefined);
     server.close();
   }
+});
+
+test("B-32d2: ohne Brücke kein Gateway – das erste Verbinden scheitert und hinterlässt keinen Versuch im Hintergrund", async () => {
+  const zu = net.createServer();
+  await new Promise<void>((fertig) => zu.listen(0, "127.0.0.1", fertig));
+  const port = (zu.address() as net.AddressInfo).port;
+  await new Promise<void>((fertig) => zu.close(() => fertig()));
+  await assert.rejects(verbindeRNodeTcp({ host: "127.0.0.1", port, region: EU.kennung, parameter: EU.vorgabe }, { postOpenDelayMs: 0, detectTimeout: 1, neuSek: 1 }));
+  // Lauscht jetzt jemand auf dem Port, ruft niemand mehr an
+  let anrufe = 0;
+  const spaeter = net.createServer((s) => { anrufe++; s.destroy(); });
+  await new Promise<void>((fertig) => spaeter.listen(port, "127.0.0.1", fertig));
+  await new Promise((r) => setTimeout(r, 2500));
+  await new Promise<void>((fertig) => spaeter.close(() => fertig()));
+  assert.equal(anrufe, 0);
 });
 
 test("B-32d2: verdrahtet – rnode: vor den anderen Wegen, Rolle erst nach dem Start, das Angebot nennt kein Funk-Gateway", () => {

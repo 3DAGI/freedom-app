@@ -13416,6 +13416,8 @@ mit `@reticulum/core` 0.9.12 wie App und Protokoll – und reicht Umschläge aus
   `RETICULUM_WERTE` durch; `docs/PROVIDER.md` beschreibt Brücke, Region, Werte, Identität und Adresse.
 - Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/node/CLAUDE.md`, Stand-Zeile.
 
-**Tests:** node +4 (`reticulum-gateway.test.ts`: Umgebung mit sechs Fehlfällen, Identitätsdatei 0600 und kaputt nie
+**Tests:** node +5 (`reticulum-gateway.test.ts`: Umgebung mit sechs Fehlfällen, Identitätsdatei 0600 und kaputt nie
 ersetzt, über die Luft – Telefon mit RNode über WebSerial, Knoten über eine echte TCP-Brücke: der Umschlag einmal im Netz,
-die Weiterleitung nur im Buch –, Verdrahtung).
+die Weiterleitung nur im Buch –, ohne Brücke kein Gateway und kein Versuch im Hintergrund, Verdrahtung). Der Fall „ohne
+Brücke“ fand einen Fehler: Scheiterte das erste Verbinden, versuchte es die Bibliothek ohne Ende weiter (der Test hing) –
+jetzt beendet `disconnect()` den Versuch.
