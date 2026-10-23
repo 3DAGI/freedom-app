@@ -988,6 +988,11 @@ Fallstricke dieses Bereichs unten anhängen.
   Eigene Funkwerte (seit B-32b4) nur über den zweiten Dialog in `waehleFunkRegion()`: gelesen über `leseFunkEingabe()`,
   angenommen nur nach `pruefeFunkParameter()` für die gewählte Region (der Dialog bleibt offen, `funkFallText()` je
   `FUNK_FAELLE`), erst danach der Port. Ein neuer Fall in `pruefeFunkParameter()` braucht Kennung und Text.
+  Die eigene Adresse an Kontakte (seit B-32c1, W2 A) nur über `FunkAdressVersand` (`funk-adressen.ts`, Glue
+  `shell/funk-kontakte.ts`): nur mit Zustimmung (`freedom.reticulum.teilen`), als Person, je Schlag ein Umschlag aus
+  `baueFunkAdresseUmschlaege()` – nie offen, nie im Profil, nie alle auf einmal. Die eigene Adresse erst rechnen, wenn es
+  etwas zu senden gibt (sonst lädt die Bibliothek für alle). Adressen von Kontakten nur über `alsFunkAdresse()` →
+  `FunkAdressBuch` (je Kontakt die neueste, nur Kontakte); alle drei Schlüssel in `geheim` und `GEHEIM_FEST`.
 - **Text aus Sprache nur über `sprache-text-ui.ts`** (seit B-38c1, SP-W1 A, SP-W5 A): den Ton nur über `alsSpracheWav()`
   (`ton-wandeln.ts`) – nie die Datei, wie sie ist, an den Knoten; der Knoten nimmt nur die Form aus `baueWav()`. Gefragt wird
   nur ein gekoppelter Knoten, dessen Status `sprache` nennt; Ton und Auftrag nur über `wegZumKnoten()`, die Stücke nur unter

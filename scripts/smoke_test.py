@@ -4098,8 +4098,8 @@ RNODE_ATTRAPPE = """
 
 def rnode_pruefen(browser, url: str) -> dict:
     """RNode (B-32b1–b4): eigene Werte nur in den Grenzen der Region (der Port erst danach), die RNode bekommt genau sie, die
-    App funkt von sich aus nichts; Reticulum-Adressen mit QR und geprüfter Gegenstelle; ein zweiter Klick trennt, gemerkte
-    eigene Werte sind beim nächsten Mal vorgewählt."""
+    App funkt von sich aus nichts; Reticulum-Adressen mit QR und geprüfter Gegenstelle, die eigene Adresse an Kontakte nur mit
+    Haken (B-32c1); ein zweiter Klick trennt, gemerkte eigene Werte sind beim nächsten Mal vorgewählt."""
     erg = {"fehler": []}
     seite = DialogSeite(browser, url, ProbeRelay(), erg, init=RNODE_ATTRAPPE)
     s, ev = seite.s, seite.ev
@@ -4148,9 +4148,21 @@ def rnode_pruefen(browser, url: str) -> dict:
         s.wait_for_function("() => !!document.querySelector('[role=dialog] [role=alert]')?.textContent", timeout=5000)
         gegen[name] = seite.stand()["meldung"]
     ev("() => { document.querySelector('[role=dialog] input').value = ' <0123456789ABCDEF0123456789abcdef> '; }")
+    erg["teilen_vorher"] = seite.stand()["haken"]
+    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")  # B-32c1: die eigene Adresse an Kontakte – nur mit Haken
     dialog_ok(seite, "Merken")
     seite.warte_zu()
     erg["gegenstelle"] = {**gegen, "gemerkt": ev("() => localStorage.getItem('freedom.reticulum.gegenstelle')")}
+    # Ohne Tresor liegt `geheim` in localStorage; der Haken bleibt, abschalten nimmt ihn zurück
+    teilen = {"an": ev("() => localStorage.getItem('freedom.reticulum.teilen')")}
+    s.click("#mesh-rnode-adressen")
+    zweit = seite.warte_dialog("Reticulum-Adressen")
+    teilen["dialog"] = {"haken": zweit["haken"], "stand": [w for w in zweit["werte"] if "gegeben" in w]}
+    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")
+    dialog_ok(seite, "Merken")
+    seite.warte_zu()
+    teilen["aus"] = ev("() => localStorage.getItem('freedom.reticulum.teilen')")
+    erg["teilen"] = teilen
     # Trennen, dann sind die eigenen Werte vorgewählt
     s.click("#mesh-rnode")
     s.wait_for_function("() => document.getElementById('mesh-status').textContent === 'RNode getrennt'", timeout=10000)
@@ -4191,6 +4203,9 @@ def rnode_pruefen(browser, url: str) -> dict:
         f.append(f"Gegenstelle {g}")
     if not (erg["getrennt"]["geschlossen"] == 1 and erg["getrennt"]["geoeffnet"] == 1):
         f.append(f"getrennt {erg['getrennt']}")
+    if not ("Kontakte" in a["felder"] and erg["teilen_vorher"] == [False]
+            and erg["teilen"] == {"an": "1", "dialog": {"haken": [True], "stand": ["an 0 gegeben, von 0 erhalten"]}, "aus": None}):
+        f.append(f"Adresse an Kontakte: vorher={erg['teilen_vorher']} {erg['teilen']}")
     if erg["wieder"] is not True:
         f.append("eigene Werte beim nächsten Mal nicht vorgewählt")
     erg["browser_dialoge"] = seite.browser_dialoge

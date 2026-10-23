@@ -5,7 +5,7 @@
  * Reticulum über die RNode (B-32b2, `starteReticulum()`): Was an die eigene LXMF-Adresse kommt, geht wie Funk weiter
  * (`nimmFunkInhalt()`). Gesendet wird (B-32b3) nur an die gemerkte Gegenstelle (`freedom.reticulum.gegenstelle`, in
  * `geheim`) über `sendeUeberReticulum()` – aus `sendeUeberFunk()`, wenn kein Meshtastic-Gerät verbunden ist. Ein zweiter
- * Klick trennt.
+ * Klick trennt. Im Adressen-Dialog gibt man die eigene Adresse auf Wunsch versiegelt an Kontakte (B-32c1, `funk-kontakte.ts`).
  */
 import { t } from "../i18n.js";
 import {
@@ -17,6 +17,7 @@ import { ReticulumFehler, type ReticulumFall } from "../reticulum-umschlag.js";
 import type { MeshKind } from "@freedomstack/protocol";
 import { dialog } from "./dialog.js";
 import { geheim, tresorEingerichtet, tresorOffen } from "./tresor.js";
+import { alsGeraet } from "./state.js";
 import { toast } from "./ui.js";
 
 let verbunden: ReticulumFunk | null = null;
@@ -179,6 +180,8 @@ export async function adressenDialog(): Promise<void> {
   const { reticulumIdentitaet, lxmfAdresse } = await import("../reticulum-umschlag.js");
   const eigene = hex(verbunden?.adresse ?? await lxmfAdresse(await reticulumIdentitaet(geheim)));
   const gemerkt = leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE));
+  const { funkAdressStand, funkTeilenAn, setzeFunkTeilen } = await import("./funk-kontakte.js");
+  const stand = funkAdressStand();
   const w = await dialog({
     titel: t("set.rnodeAdressenTitel"),
     text: t("set.rnodeAdressenText"),
@@ -186,6 +189,12 @@ export async function adressenDialog(): Promise<void> {
       { art: "qr", name: "qr", label: t("set.rnodeEigeneQr"), wert: eigene },
       { art: "nurlesen", name: "eigene", label: t("set.rnodeEigene"), wert: eigene },
       { art: "text", name: "gegenstelle", label: t("set.rnodeGegenstelle"), wert: gemerkt ? hex(gemerkt) : "", mono: true, scannen: true },
+      // B-32c1 (W2 A): nur als Person – Kontakte kennen den Geräteschlüssel nicht
+      ...(alsGeraet() ? [] : [
+        { art: "mehrfach" as const, name: "teilen", label: t("set.rnodeTeilen"), werte: funkTeilenAn() ? ["ja"] : [],
+          optionen: [{ wert: "ja", text: t("set.rnodeTeilenJa"), hinweis: t("set.rnodeTeilenHinweis") }] },
+        { art: "nurlesen" as const, name: "stand", label: t("set.rnodeKontakteStand"), wert: t("set.rnodeKontakteZahl", stand) },
+      ]),
     ],
     pruefe: (w) => {
       const roh = String(w.gegenstelle ?? "").trim();
@@ -196,6 +205,7 @@ export async function adressenDialog(): Promise<void> {
     ok: t("set.rnodeGegenstelleMerken"),
   });
   if (!w) return;
+  if (!alsGeraet()) await setzeFunkTeilen(Array.isArray(w.teilen) && w.teilen.includes("ja"));
   const neu = leseLxmfAdresse(String(w.gegenstelle ?? ""));
   if (neu) await geheim.setItem(LS_RETICULUM_GEGENSTELLE, hex(neu));
   else await geheim.removeItem(LS_RETICULUM_GEGENSTELLE);
