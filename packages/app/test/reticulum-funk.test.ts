@@ -6,10 +6,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { finalizeEvent, generateSecretKey } from "nostr-tools/pure";
-import { MeshKind, Sendezeitkonto, buildPrivateDm, generateKeypair } from "@freedomstack/protocol";
-import { FUNK_REGIONEN, verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
-import { rnodeSendezeit, starteReticulum, type ReticulumFunk } from "../src/reticulum-funk.js";
-import { reticulumIdentitaet, ReticulumFehler } from "../src/reticulum-umschlag.js";
+import {
+  FUNK_REGIONEN, MeshKind, ReticulumFehler, Sendezeitkonto, buildPrivateDm, generateKeypair, reticulumIdentitaet, rnodeSendezeit,
+  starteReticulum, type ReticulumFunk,
+} from "@freedomstack/protocol";
+import { verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
 import { rnodeAttrappe, type Luft } from "./rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN[0]!;
@@ -153,12 +154,15 @@ test("B-32b2: verdrahtet – nach dem Verbinden läuft Reticulum, Empfang wie Fu
   const bau = lies("build.mjs");
   assert.match(bau, /b\.onResolve\(\{ filter: \/\^@reticulum\\\/\/ \}, \(\) => \(\{ path: "reticulum", namespace: "freedom-ret" \}\)\)/);
   const { readdirSync } = await import("node:fs");
-  const src = new URL("../src/", import.meta.url);
-  const pfade = new Set((readdirSync(src, { recursive: true }) as string[]).filter((f) => f.endsWith(".ts"))
-    .flatMap((f) => [...readFileSync(new URL(f, src), "utf8").matchAll(/import\("(@reticulum\/[^"]+)"\)/g)].map((m) => m[1]!)));
+  // seit B-32d1 laden auch Umschlag und Kern im Protokoll die Bibliothek – im Build über dasselbe Modul
+  const pfade = new Set(["../src/", "../../protocol/src/"].flatMap((ordner) => {
+    const src = new URL(ordner, import.meta.url);
+    return (readdirSync(src, { recursive: true }) as string[]).filter((f) => f.endsWith(".ts"))
+      .flatMap((f) => [...readFileSync(new URL(f, src), "utf8").matchAll(/import\("(@reticulum\/[^"]+)"\)/g)].map((m) => m[1]!));
+  }));
   assert.deepEqual([...pfade].sort(), ["@reticulum/core", "@reticulum/core/src/interfaces/rnode-webserial.js", "@reticulum/lxmf/src/message.js", "@reticulum/lxmf/src/router.js"]);
   for (const pfad of pfade) assert.ok(bau.includes(`from "${pfad}";`), `${pfad} steht im Modul „reticulum-klein“`);
-  const funk = lies("src/reticulum-funk.ts");
+  const funk = lies("../protocol/src/reticulum-kern.ts");
   assert.doesNotMatch(funk, /\.announce\(|startAnnouncing|console\./, "von sich aus keine Ankündigung, nichts ins Log");
   const { setLang, t } = await import("../src/i18n.js");
   for (const sprache of ["de", "en"] as const) {

@@ -5,18 +5,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MeshKind, SICHERUNG_NIE, buildPrivateDm, generateKeypair, waehleSicherung } from "@freedomstack/protocol";
+import {
+  LS_RETICULUM_IDENTITAET, MeshKind, RETICULUM_ART, RETICULUM_GRENZEN, ReticulumFehler, SICHERUNG_NIE, buildPrivateDm, entpackeAusReticulum,
+  generateKeypair, lxmfAdresse, reticulumIdentitaet, verpackeFuerReticulum, waehleSicherung,
+} from "@freedomstack/protocol";
 import { Identity } from "@reticulum/core";
 import { waehleExport } from "../src/datenexport.js";
 import { eventToMesh } from "../src/mesh-radio.js";
-import {
-  LS_RETICULUM_IDENTITAET, RETICULUM_ART, RETICULUM_GRENZEN, ReticulumFehler, entpackeAusReticulum, lxmfAdresse, reticulumIdentitaet, verpackeFuerReticulum,
-} from "../src/reticulum-umschlag.js";
 
 /** Fehler nur über die Kennung – die Meldung ist kein Text für Nutzer. */
 const mitFall = (fall: string, meshFall?: string) => (e: unknown) =>
   e instanceof ReticulumFehler && e.fall === fall && (meshFall === undefined || e.pruefung?.fall === meshFall);
 const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
+/** Seit B-32d1 stehen Umschlag, Kern und Funkwerte im Protokoll. */
+const liesProtokoll = (p: string) => readFileSync(new URL(`../../protocol/src/${p}`, import.meta.url), "utf8");
 const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
 
 function speicher(start: Record<string, string> = {}) {
@@ -52,7 +54,9 @@ test("B-32a: Identität je Gerät – zufällig, nur in geheim, beim zweiten Mal
   assert.ok(!(LS_RETICULUM_IDENTITAET in waehleExport([LS_RETICULUM_IDENTITAET], () => gemerkt)));
   const tresor = lies("shell/tresor.ts");
   assert.match(tresor.slice(tresor.indexOf("const GEHEIM_FEST"), tresor.indexOf("const GEHEIM_PRAEFIXE")), /"freedom\.reticulum\.identitaet"/);
-  assert.doesNotMatch(lies("reticulum-umschlag.ts"), /localStorage|console\./, "nur über geheim, nichts ins Log");
+  for (const d of ["reticulum-umschlag.ts", "reticulum-kern.ts", "funk-region.ts"]) {
+    assert.doesNotMatch(liesProtokoll(d), /localStorage|console\./, `${d}: nur über den übergebenen Speicher, nichts ins Log`);
+  }
 });
 
 test("B-32a: ein kaputter Eintrag wird nie ersetzt – sonst wäre die Adresse still eine andere", async () => {
@@ -139,20 +143,26 @@ test("B-32a: LXMF kostet wenig – die Grenze auf dem Draht trägt die größte 
   assert.ok(RETICULUM_GRENZEN.nutzlast + 1 + aufschlag + 2 <= RETICULUM_GRENZEN.draht);
 });
 
-test("B-32a: Bibliothek exakt gepinnt, EUPL-1.2, nur in reticulum-umschlag.ts (seit B-32b1 auch rnode-funk.ts, seit B-32b2 reticulum-funk.ts) und erst bei Bedarf geladen", async () => {
-  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { dependencies: Record<string, string> };
+test("B-32a: Bibliothek exakt gepinnt, EUPL-1.2, in der App nur in rnode-funk.ts, im Protokoll nur in Umschlag und Kern (seit B-32d1) – und erst bei Bedarf geladen", async () => {
+  for (const paket of ["../package.json", "../../protocol/package.json"]) {
+    const pkg = JSON.parse(readFileSync(new URL(paket, import.meta.url), "utf8")) as { dependencies: Record<string, string> };
+    for (const name of ["@reticulum/core", "@reticulum/lxmf"]) assert.equal(pkg.dependencies[name], "0.9.12", `${paket}: ${name} exakt gepinnt`);
+  }
   for (const name of ["@reticulum/core", "@reticulum/lxmf"]) {
-    assert.equal(pkg.dependencies[name], "0.9.12", `${name} exakt gepinnt`);
     const da = JSON.parse(readFileSync(new URL(`../../../node_modules/${name}/package.json`, import.meta.url), "utf8")) as { version: string; license: string };
     assert.deepEqual([da.version, da.license], ["0.9.12", "EUPL-1.2"], name);
   }
   const { readdirSync } = await import("node:fs");
-  const src = new URL("../src/", import.meta.url);
-  const nutzer = (readdirSync(src, { recursive: true }) as string[])
-    .filter((f) => /\.ts$/.test(f) && /@reticulum\//.test(readFileSync(new URL(f, src), "utf8")))
-    .map((f) => f.replaceAll("\\", "/")).sort();
-  assert.deepEqual(nutzer, ["reticulum-funk.ts", "reticulum-typen.d.ts", "reticulum-umschlag.ts", "rnode-funk.ts"]);
-  for (const d of ["reticulum-funk.ts", "reticulum-umschlag.ts", "rnode-funk.ts"]) {
-    assert.doesNotMatch(lies(d), /^import (?!type )[^;]*@reticulum/m, `${d}: nur dynamisch – die Bibliothek lädt nie beim Start`);
+  const nutzer = (ordner: string) => {
+    const src = new URL(ordner, import.meta.url);
+    return (readdirSync(src, { recursive: true }) as string[])
+      .filter((f) => /\.ts$/.test(f) && /@reticulum\//.test(readFileSync(new URL(f, src), "utf8")))
+      .map((f) => f.replaceAll("\\", "/")).sort();
+  };
+  assert.deepEqual(nutzer("../src/"), ["rnode-funk.ts"]);
+  assert.deepEqual(nutzer("../../protocol/src/"), ["reticulum-kern.ts", "reticulum-typen.d.ts", "reticulum-umschlag.ts"]);
+  assert.doesNotMatch(lies("rnode-funk.ts"), /^import (?!type )[^;]*@reticulum/m, "rnode-funk.ts: nur dynamisch – die Bibliothek lädt nie beim Start");
+  for (const d of ["reticulum-kern.ts", "reticulum-umschlag.ts"]) {
+    assert.doesNotMatch(liesProtokoll(d), /^import (?!type )[^;]*@reticulum/m, `${d}: nur dynamisch – die Bibliothek lädt nie beim Start`);
   }
 });

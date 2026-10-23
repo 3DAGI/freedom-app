@@ -68,18 +68,6 @@ Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 
 Quelle: [`WERKBANK-ENTWURF.md`](../WERKBANK-ENTWURF.md), „Fragen an den MENSCHEN“.
 
-### 1.6 Reticulum-Gateway im Knoten (B-32d, Spur B, 23.10.2026)
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| RN-W7 | Wie erreicht der Knoten den Funk? A RNode über eine TCP-Brücke (`socat`/`ser2net`), KISS im Knoten selbst, kein `rnsd` · B TCP zu `rnsd` (Python-Referenz mit Klausel gegen KI) · C beides | **A** – keine Fremdlizenz auf einem KI-Knoten, dieselbe Technik wie in der App |
-| RN-W8 | Welche Bibliothek im Knoten? A `@reticulum/core` und `@reticulum/lxmf` 0.9.12 wie die App, TCP-Hülle selbst · B `@reticulum/node` 0.9.13 (bringt `@reticulum/rfed` mit) | **A** – keine neuen Pakete |
-| RN-W9 | Was macht das Gateway über Reticulum? A wie Meshtastic: Umschläge ins Netz, KI-Antworten an die Adresse des Auftrags · B dazu Post für Funk-Nutzer halten | **A** – B später als eigener Schritt |
-| RN-W10 | Funkwerte im Knoten? A wie in der App (Region, Grenzen, 1 % je Stunde) · B der Knoten setzt nichts | **A** |
-
-Quelle: [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md), „Fragen vor B-32d“. Teilung bei den Empfehlungen: d1 Bausteine ins
-Protokoll, d2 Knoten mit RNode, d3 KI-Antworten zurück.
-
 ### 1.3 Oberfläche (Spur C, 15.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -196,7 +184,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | 11.5s4b | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt) (11.5s3 ✓: 4 GiB je Prozess über `ulimit -d`; 11.5s4a ✓: höchstens 1024 Prozesse je Befehl) | später, nachrangig |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
-| B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b1 ✓ Funkparameter je Region und RNode verbinden, b2 ✓ Reticulum über die RNode – empfangen, Sendezeitkonto, Datenschutz-Grenze, b3 ✓ Senden an eine Gegenstelle (Adresse eintippen oder per QR), b4 ✓ abweichende Werte in den Grenzen und Smoke-Test, c geteilt: c1 ✓ Adresse versiegelt an Kontakte (Kind 38082), c2 ✓ Nachrichten an Kontakte über Reticulum (direkt, sonst Gegenstelle), d Gateway – wartet auf RN-W7–W10, 1.6) | frei (RN-W1–W5 A, 18.10.; RN-W6 A, 19.10.: Funkparameter je Region; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
+| B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b1 ✓ Funkparameter je Region und RNode verbinden, b2 ✓ Reticulum über die RNode – empfangen, Sendezeitkonto, Datenschutz-Grenze, b3 ✓ Senden an eine Gegenstelle (Adresse eintippen oder per QR), b4 ✓ abweichende Werte in den Grenzen und Smoke-Test, c geteilt: c1 ✓ Adresse versiegelt an Kontakte (Kind 38082), c2 ✓ Nachrichten an Kontakte über Reticulum (direkt, sonst Gegenstelle), d Gateway – RN-W7–W10 A (23.10.): d1 ✓ Bausteine ins Protokoll, d2 Knoten mit RNode über TCP-Brücke, d3 KI-Antworten zurück) | frei (RN-W1–W5 A, 18.10.; RN-W6 A, 19.10.: Funkparameter je Region; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop – b1 Logik, b2 Pakete –, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“), b1 ✓ (`bruecken.rs`: arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen, Test mit Attrappe), b2 ✓ (Programme in den Paketen, geprüft gegen den Bau), c ✓ (Schalter „Über eine Brücke“, eigene Zeilen auch per QR-Code, ehrliche Texte), d ✓ (Android: Programme als `lib<name>.so` im APK, mit cgo für DNS, im APK geprüft) | Code fertig; MENSCH: Live-Test mit einem Paket aus dem Lauf, Desktop und Android ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App: als Text und Diktieren) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | frei (SP-W1–W6, 19.10.) – a ✓ (Vorlesen nur mit lokalen Stimmen), b geteilt: b1 ✓ (Protokoll: Kind 5083, WAV in einer Form), b2 ✓ (Knoten: whisper-cli je Auftrag in der Sandbox, Rolle `sprache`), b3 geteilt: b3a ✓ (whisper-cli aus den Quellen, Stufe im Docker-Bild, die CI prüft das echte Programm), b3b geteilt: b3b1 ✓ (Protokoll: Whisper-Manifest mit genau einer ggml-Datei), b3b2 ✓ (Knoten lädt es geprüft: `npm run modell -- --whisper`), b3b3 ✓ (Whisper nimmt je Auftrag das geprüfte Modell) – b fertig; c App geteilt: c1 ✓ („Als Text“ an Sprachnachrichten über den eigenen Knoten, Ton im Browser zu WAV), c2 ✓ (Diktieren im Agenten), c3 ✓ („Dieses Gerät“: whisper-server auf diesem Rechner) – B-38 fertig bis auf die Proben (MENSCH) |

@@ -10,12 +10,14 @@
  */
 import { t } from "../i18n.js";
 import {
-  FUNK_REGIONEN, LORA_BANDBREITEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkEingabe, leseFunkWahl, maxSendeleistungDbm, pruefeFunkParameter,
-  verbindeRNode, type FunkFall, type FunkParameter, type FunkRegion, type FunkWahl, type RNodePort,
+  FUNK_QUELLE, LS_RETICULUM_FUNK, funkWahlText, leseFunkEingabe, leseFunkWahl, verbindeRNode, type FunkWahl, type RNodePort,
 } from "../rnode-funk.js";
-import { LS_RETICULUM_GEGENSTELLE, funkZiele, leseLxmfAdresse, stelleUeberFunkZu, type ReticulumFunk } from "../reticulum-funk.js";
-import { ReticulumFehler, type ReticulumFall } from "../reticulum-umschlag.js";
-import { MeshKind, type NostrEvent } from "@freedomstack/protocol";
+import { LS_RETICULUM_GEGENSTELLE, RETICULUM_KONTO, funkZiele, stelleUeberFunkZu } from "../reticulum-funk.js";
+import {
+  FUNK_REGIONEN, LORA_BANDBREITEN, MeshKind, ReticulumFehler, leseLxmfAdresse, lxmfAdresse, maxSendeleistungDbm, pruefeFunkParameter,
+  reticulumIdentitaet, starteReticulum, type FunkFall, type FunkParameter, type FunkRegion, type NostrEvent, type ReticulumFall,
+  type ReticulumFunk,
+} from "@freedomstack/protocol";
 import { dialog } from "./dialog.js";
 import { geheim, tresorEingerichtet, tresorOffen } from "./tresor.js";
 import { alsGeraet } from "./state.js";
@@ -76,7 +78,7 @@ export async function waehleFunkRegion(): Promise<FunkWahl | null> {
         text: t("set.rnodeRegionZeile", { von: mhz(r.von), bis: mhz(r.bis), mw: r.maxErpMw, prozent: r.maxSendezeitProzent }),
         hinweis: t("set.rnodeVorgabe", {
           f: mhz(r.vorgabe.frequency), bw: r.vorgabe.bandwidth / 1000, sf: r.vorgabe.spreadingFactor, dbm: r.vorgabe.txPower,
-          max: maxSendeleistungDbm(r), quelle: t(r.quelle),
+          max: maxSendeleistungDbm(r), quelle: t(FUNK_QUELLE[r.kennung]!),
         }),
       })),
     }, {
@@ -118,11 +120,10 @@ export async function rnodeKnopf(status: HTMLElement | null): Promise<void> {
     const port = await serial.requestPort();
     const rnode = await verbindeRNode(port, wahl);
     try {
-      const [{ reticulumIdentitaet }, { starteReticulum }, { nimmFunkInhalt }] = await Promise.all([
-        import("../reticulum-umschlag.js"), import("../reticulum-funk.js"), import("./tabs/mesh.js"),
-      ]);
+      const { nimmFunkInhalt } = await import("./tabs/mesh.js");
       const funk = await starteReticulum({
         rnode, identitaet: await reticulumIdentitaet(geheim), parameter: wahl.parameter, beiEmpfang: nimmFunkInhalt,
+        konto: RETICULUM_KONTO,
       });
       verbunden = funk;
       const p = wahl.parameter;
@@ -202,7 +203,6 @@ export async function dmUeberReticulum(wrap: NostrEvent, an: string, eigeneSchlu
  */
 export async function adressenDialog(): Promise<void> {
   if (tresorEingerichtet() && !tresorOffen()) return toast(t("ein.tresorGesperrt"), true);
-  const { reticulumIdentitaet, lxmfAdresse } = await import("../reticulum-umschlag.js");
   const eigene = hex(verbunden?.adresse ?? await lxmfAdresse(await reticulumIdentitaet(geheim)));
   const gemerkt = leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE));
   const { funkAdressStand, funkTeilenAn, setzeFunkTeilen } = await import("./funk-kontakte.js");

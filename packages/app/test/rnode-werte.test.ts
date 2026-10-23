@@ -5,10 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import {
-  FUNK_FAELLE, FUNK_REGIONEN, funkWahlText, leseFunkEingabe, leseFunkWahl, pruefeFunkParameter, rnodeOptionen, verbindeRNode, type FunkWahl,
-} from "../src/rnode-funk.js";
-import { rnodeSendezeit } from "../src/reticulum-funk.js";
+import { FUNK_FAELLE, FUNK_REGIONEN, pruefeFunkParameter, rnodeOptionen, rnodeSendezeit } from "@freedomstack/protocol";
+import { funkWahlText, leseFunkEingabe, leseFunkWahl, verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
 import { CMD, rnodeAttrappe } from "./rnode-attrappe.js";
 
 const ls = new Map<string, string>();

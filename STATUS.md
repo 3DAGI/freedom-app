@@ -13367,3 +13367,30 @@ der Job riss seine Grenze von 25 min), in „Browser-Test (Smoke)“ der Schritt
 
 **Tests:** keine neuen (nur `ci.yml`); alle Prüfungen gelaufen. Wirksam erst, wenn `main` einmal mit dem Cache gelaufen ist –
 ein PR liest nur Caches seines Basis-Branches.
+
+## Schritt B-32d1 – Reticulum: Bausteine ins Protokoll
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d1“). Entschieden 23.10.2026 (MENSCH: „Wie empfohlen“): RN-W7 A (RNode über
+eine TCP-Brücke, kein `rnsd`), RN-W8 A (`@reticulum/core` und `@reticulum/lxmf` 0.9.12 wie die App), RN-W9 A (wie Meshtastic),
+RN-W10 A (Region und Grenzen wie in der App). Erster Teil: Was der Knoten in d2 braucht, zieht aus der App ins Protokoll.
+
+- **`protocol/src/funk-region.ts`:** Regionen, Bandbreiten, Grenzen, `pruefeFunkParameter()`, `rnodeOptionen()` (nimmt Region
+  und Parameter – der Knoten hat keine bestätigte Wahl) und `rnodeSendezeit()`.
+- **`protocol/src/reticulum-umschlag.ts`** (verschoben aus der App, dazu `leseLxmfAdresse()`): Identität mit beliebigem
+  Speicher, Umschlag, Felder, `ReticulumFehler`; die Typen der LXMF-Unterpfade aus `reticulum-typen.d.ts` (`/// <reference>`).
+- **`protocol/src/reticulum-kern.ts`:** `starteReticulum()` über einer RNode-Schnittstelle; das Sendezeitkonto gibt der
+  Aufrufer mit (die App `RETICULUM_KONTO`).
+- **App:** `rnode-funk.ts` behält Wahl, WebSerial und die Texte zur Quelle je Region (`FUNK_QUELLE` – das Protokoll trägt
+  keine Schlüssel der Oberfläche), `reticulum-funk.ts` Gegenstelle, Ziele und Konto; `rnode-ui.ts` und
+  `funk-kontakte.ts` nehmen den Rest aus dem Protokoll. Verhalten gleich, der Build bleibt bei einem Modul „reticulum-klein“.
+- `protocol/package.json`: beide Pakete exakt 0.9.12 (Sperrdatei nur über `npm install --package-lock-only`, zwei Zeilen).
+- `wiring-ausnahmen.txt`: `verpackeFuerReticulum()` und `entpackeAusReticulum()` – Draht-Form für Tests, App und Knoten
+  senden über den Router.
+- Entwurf (Entscheidung, Stand), OFFEN (1.6 gestrichen, Zeile B-32), Fallstricke in `packages/protocol/CLAUDE.md` und
+  `packages/app/CLAUDE.md`, FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** protocol +2 (`reticulum.test.ts`: Funkwerte ohne App, Identität und Umschlag mit beliebigem Speicher); die Tests
+der App laufen unverändert gegen die verschobenen Bausteine – geändert nur Importe und die Prüfungen, die Quelltexte lesen
+(Bibliothek nur in App `rnode-funk.ts` und Protokoll `reticulum-umschlag.ts`/`reticulum-kern.ts`, Pfade für „reticulum-klein“
+aus App und Protokoll). Erster Lauf rot: Der i18n-Test fand die Texte zur Quelle der Regionen nicht mehr in der App – die
+Schlüssel standen mit `FUNK_REGIONEN` im Protokoll. Jetzt nennt sie die App selbst (`FUNK_QUELLE`).

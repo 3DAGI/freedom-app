@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MeshKind } from "@freedomstack/protocol";
+import { MeshKind, RETICULUM_FAELLE, ReticulumFehler, leseLxmfAdresse } from "@freedomstack/protocol";
 
 const ls = new Map<string, string>();
 (globalThis as { localStorage?: unknown }).localStorage = {
@@ -13,8 +13,7 @@ const ls = new Map<string, string>();
   removeItem: (k: string) => void ls.delete(k), key: (i: number) => [...ls.keys()][i] ?? null,
   get length() { return ls.size; },
 };
-const { LS_RETICULUM_GEGENSTELLE, leseLxmfAdresse } = await import("../src/reticulum-funk.js");
-const { RETICULUM_FAELLE, ReticulumFehler } = await import("../src/reticulum-umschlag.js");
+const { LS_RETICULUM_GEGENSTELLE } = await import("../src/reticulum-funk.js");
 const { reticulumFehlerText, sendeUeberReticulum } = await import("../src/shell/rnode-ui.js");
 const { setLang, t } = await import("../src/i18n.js");
 const lies = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");

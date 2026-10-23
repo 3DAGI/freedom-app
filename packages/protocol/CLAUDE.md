@@ -200,3 +200,11 @@ Fallstricke dieses Bereichs unten anhängen.
   `vertrautesManifest(…, whisperQuelle)`, nie über `hfQuelle()`. `.bin` gilt nur hier (`WHISPER_DATEI`) und nur mit der
   Kennung `ggml` am Anfang (`istGgml()`); `HF_DATEI` bekommt nie `.bin` dazu – dort wäre es Pickle. Der Stand von Hugging Face
   nur über `whisperStand()` (die eine Datei, nur mit LFS-Summe), geladen nur `whisperDateiAdresse()` (am Commit, nur dieses Repo).
+- **Reticulum-Bausteine nur hier** (seit B-32d1, RN-W8 A, RN-W10 A): Regionen, Grenzen und Sendezeit in `funk-region.ts`,
+  Identität und LXMF-Umschlag in `reticulum-umschlag.ts`, der Kern über der RNode in `reticulum-kern.ts` – App und Knoten
+  (B-32d2) nehmen sie von hier, nie eine zweite Fassung. Die Bibliothek nur dynamisch laden (`import("@reticulum/…")`); ein
+  App-Test zählt die Dateien, in denen der Name `@reticulum/` steht, und prüft, dass keine ihn statisch importiert – also auch
+  im Kommentar nicht nennen. Jeder Pfad, den das Protokoll lädt, muss im Modul „reticulum-klein“ in `app/build.mjs` stehen.
+  Die Typen der LXMF-Unterpfade kommen aus `reticulum-typen.d.ts` über `/// <reference path>` – App und Knoten übersetzen
+  die Quellen des Protokolls mit, ohne die Referenz fänden sie die Deklaration nicht. Das Konto (`Sendezeitkonto`) gibt der
+  Aufrufer mit: eines je Gerät und Sitzung.
