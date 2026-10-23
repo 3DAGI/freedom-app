@@ -157,3 +157,4 @@ export * from "./funk-adresse.js";
 export * from "./funk-region.js";
 export * from "./reticulum-umschlag.js";
 export * from "./reticulum-kern.js";
+export * from "./bitchat-paket.js";

@@ -87,6 +87,27 @@ Noise-Sitzungen, die Bitchat ungelesen weiterreicht.
   (dann einen Typ wählen, den Bitchat nie vergibt, und das beim Projekt anfragen).
 - Akku: Bitchat scannt mit Pausen; Freedom übernimmt die Werte aus dem Swift-Code.
 
+## Entscheidungen vom 23.10.2026 (MENSCH)
+
+BC-W1 bis BC-W4: jeweils **A** – eigene Umsetzung, nur Umschläge zwischen Freedom-Geräten, Finden über Kontakte, eine
+Identität je Gerät mit Grenze im Bericht.
+
+## Stand B-36a1 (23.10.2026)
+
+- **Paketformat im Protokoll** (`bitchat-paket.ts`, `docs/PROTOCOL.md` §45): Kopf in Fassung 1 und 2, Polster, Signierdaten
+  und Ed25519, Peer-ID – Byte für Byte wie bitchat-android. Die Referenz enthält schon Ankündigungen und Fragmente.
+- **TypeScript statt Rust:** Die Bausteine für Noise (X25519, ChaCha20-Poly1305, SHA-256) und Ed25519 liegen mit `@noble/…`
+  schon im Protokoll – keine neue Abhängigkeit (kein `snow`), Tests in Node wie bei Reticulum. Kotlin in der Hülle reicht
+  ab B-36b nur Bytes zwischen Bluetooth und der App weiter.
+- **Vektoren:** `scripts/bitchat-referenz.sh` lädt kotlinc (feste Prüfsumme) und bitchat-android am Commit `dfc67da`, übersetzt
+  dessen Kodierer mit Attrappen für Android und schreibt `protocol/test/fixtures/bitchat-referenz.json`. Ins Repository kommen
+  nur die Bytes, kein Code. Swift ließ sich hier nicht laden (der Proxy sperrt swift.org).
+- **Befund Packen:** Bitchat signiert über eine neue Kodierung und packt dabei Nutzlasten ab 100 Byte (raw deflate, nicht
+  eindeutig). Freedom packt nie, die Ankündigung bleibt unter 100 Byte – sonst prüfte ein Bitchat-Gerät gegen andere Bytes.
+- **Weiter (geteilt, je unter 400 Zeilen):** B-36a2 Ankündigung und Fragmente (zerlegen, zusammensetzen mit Grenzen);
+  B-36a3 Noise `XX` (`Noise_XX_25519_ChaChaPoly_SHA256`, Vektoren aus der Noise-Spezifikation); B-36a4 Fluten
+  (Doppel-Erkennung, TTL, Weiterreichen); dann b (Bluetooth in Kotlin), c (App), d (Probe, MENSCH).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
