@@ -31,7 +31,7 @@ ohne Fragen), VKg-W1 (Vorschau wie Replit), VKg-W2 (ja) – eingetragen in
 [`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md). Ebenfalls am 18.10.2026 (Spur B, Entscheidungsvorlage): MC1-Größe B, NG2 A,
 AG-W1–W4 A, PT2 A, PT3 A, RN-W1–W5 A, LK2–LK4 A, MCO-W2 B – eingetragen in den Entwürfen; MCO-W1 zurückgestellt
 (1.2). Am 19.10.2026 entschieden (Spur B, MENSCH: „alle nach deinen Empfehlungen“): AG-W5 A, LK5 A, SP-W1–W6
-(A, A, A, C, A, A), RN-W6 A – eingetragen in den Entwürfen. Offen sind nur noch die Punkte unten.
+(A, A, A, C, A, A), RN-W6 A – eingetragen in den Entwürfen. Am 23.10.2026: RN-W7–W10 A, BC1 A (vorher B) und BC-W1–W4 A – eingetragen in den Entwürfen. Offen sind nur noch die Punkte unten.
 
 ### 1.0 Telegram-Mini-App (TMA-1, 14.10.2026)
 
@@ -67,20 +67,6 @@ Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 | VKj-W4 | Womit anfangen? A Unity unter Windows · B Xcode und iOS auf dem Mac · C Android Studio auf x86-Linux | **A** – größter Bedarf, `unity-mcp` (MIT) fertig |
 
 Quelle: [`WERKBANK-ENTWURF.md`](../WERKBANK-ENTWURF.md), „Fragen an den MENSCHEN“.
-
-### 1.6 Bitchat in der Android-Hülle (B-36, Spur B, 23.10.2026)
-
-BC1 steht seit 23.10. auf A (MENSCH: „ja, nach B-32, mit Grenze im Datenschutzbericht“; vorher B, „erst nach einem
-Audit“). Gebaut wird nach diesen Fragen:
-
-| Nr. | Frage | Empfehlung |
-|---|---|---|
-| BC-W1 | Umsetzung: A eigene nach Whitepaper und gemeinfreiem Swift-Code (Rust + Kotlin), Vektoren aus dessen Tests · B `bitchat-android` in der letzten MIT-Fassung (27.02.2026) · C eigenes BLE-Format ohne Bitchat | **A** – `bitchat-android` steht seit 28.02.2026 unter GPL-3.0; die MIT-Fassung ist acht Monate alt |
-| BC-W2 | Was geht über Bitchat? A nur Umschläge zwischen Freedom-Geräten, in Noise-Sitzungen; Bitchat-Pakete reicht Freedom weiter · B dazu Chat mit Bitchat-Nutzern | **A** – öffentlicher Bitchat-Chat ist Klartext und bräche „Mesh nur verschlüsselt“ |
-| BC-W3 | Wie finden sich Freedom-Geräte? A Schlüssel versiegelt an Kontakte, mit Zustimmung (wie 38082) · B eigenes Bit in der Ankündigung | **A** – ein Bit zeigte jedem im Funk „hier läuft Freedom“ |
-| BC-W4 | Identität im Funk: A eine je Gerät, im Tresor, Grenze im Bericht · B neu bei jedem Start | **A** – Kontakte erkennen das Gerät wieder; die feste Kennung steht im Bericht |
-
-Quelle: [`BITCHAT-ENTWURF.md`](../BITCHAT-ENTWURF.md), „Fragen an den MENSCHEN“.
 
 ### 1.3 Oberfläche (Spur C, 15.10.2026)
 
@@ -199,7 +185,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b1 ✓ Funkparameter je Region und RNode verbinden, b2 ✓ Reticulum über die RNode – empfangen, Sendezeitkonto, Datenschutz-Grenze, b3 ✓ Senden an eine Gegenstelle (Adresse eintippen oder per QR), b4 ✓ abweichende Werte in den Grenzen und Smoke-Test, c geteilt: c1 ✓ Adresse versiegelt an Kontakte (Kind 38082), c2 ✓ Nachrichten an Kontakte über Reticulum (direkt, sonst Gegenstelle), d Gateway – RN-W7–W10 A (23.10.): d1 ✓ Bausteine ins Protokoll, d2 ✓ Knoten mit RNode über TCP-Brücke (Umschläge ins Netz), d3 geteilt: d3a ✓ Knoten funkt KI-Antworten zurück, d3b ✓ App fragt KI über Funk mit RNode an den eigenen Knoten) – fertig; offen nur die Probe mit Geräten (MENSCH) | frei (RN-W1–W5 A, 18.10.; RN-W6 A, 19.10.: Funkparameter je Region; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)) |
 | B-33 | Tor über Brücken: Snowflake und WebTunnel (a CI-Bau, b Hülle Desktop – b1 Logik, b2 Pakete –, c Oberfläche, d Android) – a ✓ (`scripts/pt-bauen.sh`: reproduzierbar aus den Quellen, vier Plattformen, Lizenztexte, Workflow „Tor-Brücken“), b1 ✓ (`bruecken.rs`: arti mit `pt-client`, eingebaute Snowflake-Zeilen, Prüfung eingefügter Zeilen, Test mit Attrappe), b2 ✓ (Programme in den Paketen, geprüft gegen den Bau), c ✓ (Schalter „Über eine Brücke“, eigene Zeilen auch per QR-Code, ehrliche Texte), d ✓ (Android: Programme als `lib<name>.so` im APK, mit cgo für DNS, im APK geprüft) | Code fertig; MENSCH: Live-Test mit einem Paket aus dem Lauf, Desktop und Android ([`TOR-BRUECKEN-ENTWURF.md`](../TOR-BRUECKEN-ENTWURF.md)) |
-| B-36 | Bitchat in der Android-Hülle (BC1 A, 23.10.) – Entwurf ✓ ([`BITCHAT-ENTWURF.md`](../BITCHAT-ENTWURF.md)): Protokoll gemeinfrei, `bitchat-android` GPL-3.0, Kennung im Funk fest | wartet auf BC-W1–W4 (1.6) |
+| B-36 | Bitchat in der Android-Hülle (BC1 A, BC-W1–W4 A, 23.10.) – Entwurf ✓ ([`BITCHAT-ENTWURF.md`](../BITCHAT-ENTWURF.md)); a1 ✓ Paketformat im Protokoll: Kopf, Polster, Signatur, Peer-ID (gegen bitchat-android geprüft); a2 Ankündigung und Fragmente, a3 Noise XX, a4 Fluten, b Bluetooth in Kotlin, c App, d Probe (MENSCH) | frei |
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App: als Text und Diktieren) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | frei (SP-W1–W6, 19.10.) – a ✓ (Vorlesen nur mit lokalen Stimmen), b geteilt: b1 ✓ (Protokoll: Kind 5083, WAV in einer Form), b2 ✓ (Knoten: whisper-cli je Auftrag in der Sandbox, Rolle `sprache`), b3 geteilt: b3a ✓ (whisper-cli aus den Quellen, Stufe im Docker-Bild, die CI prüft das echte Programm), b3b geteilt: b3b1 ✓ (Protokoll: Whisper-Manifest mit genau einer ggml-Datei), b3b2 ✓ (Knoten lädt es geprüft: `npm run modell -- --whisper`), b3b3 ✓ (Whisper nimmt je Auftrag das geprüfte Modell) – b fertig; c App geteilt: c1 ✓ („Als Text“ an Sprachnachrichten über den eigenen Knoten, Ton im Browser zu WAV), c2 ✓ (Diktieren im Agenten), c3 ✓ („Dieses Gerät“: whisper-server auf diesem Rechner) – B-38 fertig bis auf die Proben (MENSCH) |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium) | frei – ohne Bildschirm zuerst (Jupyter, Referenz-Server für git und Dateien); grafische Programme (Godot, Blender, FreeCAD, KiCad …) nach VKg2 (virtueller Bildschirm) |

@@ -1718,3 +1718,24 @@ Adressen der Kontakte (`freedom.reticulum.kontakte`, höchstens 200). Wer sie ha
 
 **Zustellen** (seit B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger einer Direktnachricht, geht derselbe Umschlag über
 Reticulum (§40) – erst an die Adresse des Kontakts, sonst an die Gegenstelle, die ihn ins Netz gibt. Kein neues Format.
+
+## 45. Bitchat über Bluetooth (Paketformat, seit B-36a1)
+
+Entscheidungen BC1 A und BC-W1–W4 A vom 23.10.2026 (`docs/BITCHAT-ENTWURF.md`): Freedom spricht das Drahtformat von Bitchat
+(Whitepaper 2.0, gemeinfrei) in eigener Umsetzung (`bitchat-paket.ts`) und nur in der Android-Hülle. Über Bitchat gehen nur
+Umschläge zwischen Freedom-Geräten, in Noise-Sitzungen (ab B-36a2); Bitchat-Geräte dazwischen reichen sie ungelesen weiter.
+
+**Paket** (Fassung 1: 14 Byte Kopf, Fassung 2: 16 Byte und Route), alle Zahlen Großendian: Fassung, Typ, TTL, Zeit (UInt64,
+ms), Flags (0x01 Empfänger, 0x02 Signatur, 0x04 gepackt, 0x08 Route), Länge der Nutzlast (UInt16 bzw. UInt32); dann Absender
+(8 Byte Peer-ID), Empfänger (8), Route (Anzahl + je 8 Byte, nur Fassung 2), Nutzlast, Signatur (Ed25519, 64). Noise-Pakete
+werden mit PKCS#7 auf 256/512/1024/2048 Byte aufgefüllt, wenn höchstens 255 Byte fehlen.
+
+**Signatur** über das Paket ohne Signatur, mit TTL 0 und aufgefüllt (`bitchatSignierDaten()`) – Weiterreichen ändert nur die
+TTL. Freedom packt nie; Bitchat packt Nutzlasten ab 100 Byte selbst (raw deflate) und signiert über eine neue Kodierung –
+deshalb signiert Freedom keine Ankündigung ab 100 Byte, und über gepackte Nutzlast prüft es keine Signatur.
+
+**Peer-ID:** die ersten 8 Byte von SHA-256 über den statischen Noise-Schlüssel – fest je Identität (BC-W4 A, Grenze im Bericht).
+
+Ankündigung (Typ 0x01) und Fragmente (Typ 0x20) beschreibt dieser Abschnitt mit B-36a2.
+
+Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt.

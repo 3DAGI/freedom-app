@@ -208,3 +208,10 @@ Fallstricke dieses Bereichs unten anhängen.
   Die Typen der LXMF-Unterpfade kommen aus `reticulum-typen.d.ts` über `/// <reference path>` – App und Knoten übersetzen
   die Quellen des Protokolls mit, ohne die Referenz fänden sie die Deklaration nicht. Das Konto (`Sendezeitkonto`) gibt der
   Aufrufer mit: eines je Gerät und Sitzung.
+- **Bitchat nur über `bitchat-paket.ts`** (seit B-36a1, BC-W1–W4 A, `docs/PROTOCOL.md` §45): eigene Umsetzung nach dem
+  gemeinfreien Whitepaper – nie Code aus bitchat-android (GPL-3.0 seit 28.02.2026). Die Vektoren
+  (`test/fixtures/bitchat-referenz.json`) nur mit `scripts/bitchat-referenz.sh` neu erzeugen (kotlinc und Commit gepinnt; der
+  GPL-Code wird nur ausgeführt). Freedom packt nie: Bitchat signiert über eine neue Kodierung und packt dabei Nutzlasten ab
+  100 Byte selbst – eine gepackte Fassung sähe anders aus als unsere, die Signatur gälte nicht. Eine Ankündigung ab 100 Byte
+  signiert `signiereBitchat()` darum nie (ohne Nachbarn und Fähigkeiten bleibt sie darunter), über gepackte Nutzlast prüft
+  `pruefeBitchatSignatur()` nie. Signiert wird mit TTL 0 und aufgefüllt (`bitchatSignierDaten()`), wie `toBinaryDataForSigning()`.

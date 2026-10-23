@@ -13478,3 +13478,22 @@ mit Grenze im Datenschutzbericht“). Nur Dokumente, kein Code.
     nimmt nur Geohash-Events, keine Umschläge.
   - Vorschläge V1–V5 und Fragen BC-W1–W4 (Umsetzung, Inhalt, Finden, Identität), Aufteilung a–d.
 - OFFEN (1.6 neu, Zeile aus 1.2 raus, Spur B), Sammlung (B-36, BC1), FORTSCHRITT, Stand-Zeile.
+
+## Schritt B-36a1 – Bitchat: Paketformat im Protokoll
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a1“). Am 23.10.2026 entschied der MENSCH BC-W1–W4 jeweils A.
+
+- **`packages/protocol/src/bitchat-paket.ts`:** Paket in Fassung 1 und 2 kodieren und lesen (nie packen; gepackte Pakete
+  anderer nur bis zum Kopf), PKCS#7-Polster, Signierdaten (TTL 0, aufgefüllt) mit Ed25519 (keine Ankündigung ab 100 Byte),
+  Peer-ID aus dem Noise-Schlüssel. Geteilt, damit jeder Schritt unter 400 Zeilen bleibt: Ankündigung und Fragmente folgen
+  in B-36a2, Noise XX in a3, Fluten in a4.
+- **TypeScript statt Rust** (wie Reticulum): `@noble/…` ist schon da – keine neue Abhängigkeit.
+- **`scripts/bitchat-referenz.sh`:** Vektoren aus bitchat-android am Commit `dfc67da` (kotlinc 2.2.20 mit Prüfsumme, Attrappen
+  für Android) – nur die Bytes kommen ins Repository.
+- `docs/PROTOCOL.md` §45, Entwurf (Entscheidungen, Stand), OFFEN (1.6 raus), Sammlung, FORTSCHRITT, Fallstrick in
+  `packages/protocol/CLAUDE.md`, Ausnahmen in `wiring-ausnahmen.txt` (verdrahtet ab B-36b/c), Stand-Zeile.
+
+**Tests:** protocol +7 (`bitchat-paket.test.ts`): sieben Pakete roh, gepolstert und als Signierdaten Byte für Byte wie
+bitchat-android und zurückgelesen; gepackte Pakete; Polster; Signatur (TTL darf sich ändern, sonst nichts; keine Ankündigung
+ab 100 Byte); Peer-ID; Gegenproben für Unlesbares und falsche Form. Ein absichtlicher Fehler (Signierdaten ohne Polster)
+machte die Tests rot.
