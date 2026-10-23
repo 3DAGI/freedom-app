@@ -7,14 +7,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { request } from "node:http";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { KIND_DVM_BROWSER, KIND_DVM_WEB_SEARCH } from "@freedomstack/protocol";
 import { CodeLaeufe } from "../src/code-motor.js";
-import { LESE_FREIGABEN_MAX, LeseFreigaben, MCP_FASSUNGEN, adressenIn, mcpAntwort } from "../src/freedom-mcp.js";
+import { LESE_FREIGABEN_MAX, LeseFreigaben, MCP_FASSUNGEN, MCP_ZEICHEN, McpProjekte, adressenIn, mcpAntwort } from "../src/freedom-mcp.js";
 import { ProjektAblage } from "../src/projekte.js";
-import { STARTSKRIPT, hermesKonfiguration } from "../src/hermes-motor.js";
+import { STARTSKRIPT, hermesHeim, hermesKonfiguration, hermesMotor } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { fuehreAus, pruefeSandbox } from "../src/sandbox.js";
 import { WERKZEUG_GRENZEN, type ToolCall, type ToolResult } from "../src/tools.js";
@@ -29,6 +29,11 @@ function attrappe(antwort: (c: ToolCall) => Promise<{ ok: boolean; output: strin
 }
 
 const anfrage = (id: unknown, method: string, params?: unknown) => ({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
+
+/** Ein Zeichen für die Brücke (VKd2b1) – im Test fest, im Knoten aus `McpProjekte`. */
+const Z = "ab".repeat(32);
+const nurZ = (frei: LeseFreigaben, w: Pick<ToolRegistryLike, "run">) => (z: string) => (z === Z ? (n: unknown) => mcpAntwort(n, w, frei) : undefined);
+type ToolRegistryLike = { run: (c: ToolCall) => Promise<ToolResult> };
 
 test("VKd: initialize, ping, tools/list – Fassung ausgehandelt, genau zwei Werkzeuge mit Grenze", async () => {
   const w = attrappe();
@@ -100,27 +105,44 @@ function ueberSockel(sockel: string, methode: string, pfad: string, koerper?: st
   });
 }
 
-test("VKd: Brücke – POST /mcp im Knoten, nie zum Antrieb; GET 405, kaputtes JSON 400, zu groß 413, ohne MCP nicht hier", async () => {
+test("VKd: Brücke – POST /mcp/<zeichen> im Knoten, nie zum Antrieb; GET 405, kaputtes JSON 400, zu groß 413, ohne MCP nicht hier", async () => {
   const w = attrappe();
   const frei = new LeseFreigaben();
   let zumAntrieb = 0;
   const fetchImpl = (async () => (zumAntrieb++, new Response("{}"))) as typeof fetch;
-  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl, mcp: (n) => mcpAntwort(n, w, frei) });
+  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl, mcp: nurZ(frei, w) });
   try {
-    const liste = await ueberSockel(bruecke.sockel, "POST", "/mcp", JSON.stringify(anfrage(1, "tools/list")));
+    const liste = await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}`, JSON.stringify(anfrage(1, "tools/list")));
     assert.equal(liste.status, 200);
     assert.match(String(liste.kopf["content-type"]), /^application\/json/);
     assert.equal(JSON.parse(liste.text).result.tools.length, 2);
-    const ruf = await ueberSockel(bruecke.sockel, "POST", "/mcp", JSON.stringify(anfrage(2, "tools/call", { name: "web_search", arguments: { query: "x" } })));
+    const ruf = await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}`, JSON.stringify(anfrage(2, "tools/call", { name: "web_search", arguments: { query: "x" } })));
     assert.equal(JSON.parse(ruf.text).result.content[0].text, "Treffer für x");
-    const note = await ueberSockel(bruecke.sockel, "POST", "/mcp", JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }));
+    const note = await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}`, JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }));
     assert.deepEqual([note.status, note.text], [202, ""]);
-    const get = await ueberSockel(bruecke.sockel, "GET", "/mcp");
+    const get = await ueberSockel(bruecke.sockel, "GET", `/mcp/${Z}`);
     assert.deepEqual([get.status, get.kopf.allow], [405, "POST"]);
-    assert.equal((await ueberSockel(bruecke.sockel, "DELETE", "/mcp")).status, 405);
-    assert.deepEqual(await ueberSockel(bruecke.sockel, "POST", "/mcp", "{kein json").then((r) => [r.status, r.text]), [400, "kein JSON"]);
-    assert.equal((await ueberSockel(bruecke.sockel, "POST", "/mcp", Buffer.alloc(BRUECKE_GRENZEN.mcpBytes + 1, 0x20))).status, 413);
-    assert.equal((await ueberSockel(bruecke.sockel, "POST", "/mcp/../v1/models", "{}")).status, 404, "nur genau /mcp");
+    assert.equal((await ueberSockel(bruecke.sockel, "DELETE", `/mcp/${Z}`)).status, 405);
+    assert.deepEqual(await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}`, "{kein json").then((r) => [r.status, r.text]), [400, "kein JSON"]);
+    assert.equal((await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}`, Buffer.alloc(BRUECKE_GRENZEN.mcpBytes + 1, 0x20))).status, 413);
+    assert.equal((await ueberSockel(bruecke.sockel, "POST", `/mcp/${Z}/../../v1/models`, "{}")).status, 404, "nur genau /mcp/<zeichen>");
+    // ohne Zeichen, mit fremdem oder falsch geschriebenem: nicht hier – nichts gelesen, nichts ausgeführt
+    for (const pfad of ["/mcp", "/mcp/", `/mcp/${"cd".repeat(32)}`, `/mcp/${Z.toUpperCase()}`, `/mcp/${Z}0`, `/mcp/${Z}?x=1`]) {
+      assert.equal((await ueberSockel(bruecke.sockel, "POST", pfad, JSON.stringify(anfrage(9, "tools/list")))).status, 404, pfad);
+    }
+    // die Form prüft die Brücke selbst, bevor sie nachschlägt – auch wenn das Nachschlagen alles nähme
+    const gefragt: string[] = [];
+    const offen = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl, mcp: (z) => (gefragt.push(z), (n) => mcpAntwort(n, w, frei)) });
+    try {
+      for (const pfad of ["/mcp", "/mcp/", `/mcp/${Z.toUpperCase()}`, `/mcp/${Z}0`, `/mcp/${Z}/x`, `/mcp/${Z}?x=1`]) {
+        assert.equal((await ueberSockel(offen.sockel, "POST", pfad, JSON.stringify(anfrage(9, "tools/list")))).status, 404, pfad);
+      }
+      assert.deepEqual(gefragt, []);
+      assert.equal((await ueberSockel(offen.sockel, "POST", `/mcp/${Z}`, JSON.stringify(anfrage(9, "tools/list")))).status, 200);
+      assert.deepEqual(gefragt, [Z]);
+    } finally {
+      offen.schliesse();
+    }
     assert.equal(zumAntrieb, 0, "nichts davon erreicht den Antrieb");
     assert.equal(w.gesehen.length, 1);
   } finally {
@@ -128,30 +150,34 @@ test("VKd: Brücke – POST /mcp im Knoten, nie zum Antrieb; GET 405, kaputtes J
   }
   const ohneMcp = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { fetchImpl });
   try {
-    assert.equal((await ueberSockel(ohneMcp.sockel, "POST", "/mcp", JSON.stringify(anfrage(1, "tools/list")))).status, 404);
+    assert.equal((await ueberSockel(ohneMcp.sockel, "POST", `/mcp/${Z}`, JSON.stringify(anfrage(1, "tools/list")))).status, 404);
   } finally {
     ohneMcp.schliesse();
   }
 });
 
 test("VKd: Hermes findet Freedom-MCP über die Konfiguration – dieselbe Brücke, kein anderer Server", () => {
-  const k = JSON.parse(hermesKonfiguration("coder:7b"));
-  assert.deepEqual(k.mcp_servers, { freedom: { url: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp` } });
-  // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens
+  const k = JSON.parse(hermesKonfiguration("coder:7b", [], Z));
+  assert.deepEqual(k.mcp_servers, { freedom: { url: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp/${Z}` } });
+  // ohne Zeichen kein Freedom-MCP (VKd2b1), nie eines in anderer Form
+  assert.deepEqual(JSON.parse(hermesKonfiguration("coder:7b")).mcp_servers, {});
+  for (const falsch of ["", "ab", Z.toUpperCase(), `${Z}/../x`, `${Z}0`]) assert.throws(() => hermesKonfiguration("coder:7b", [], falsch), falsch);
+  // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens, je Projekt unter seinem Zeichen
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   // seit VKd3 dazu der Spiegel für Pakete an derselben Brücke
-  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(n\) => mcpAntwort\(n, werkzeuge, freigaben\),\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
-  assert.match(main, /beimAuftrag: \(t\) => freigaben\.ausAuftrag\(t\)/);
+  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(zeichen\) => \{\s*const freigaben = mcpProjekte\.zu\(zeichen\);\s*return freigaben && \(\(n\) => mcpAntwort\(n, werkzeuge, freigaben\)\);\s*\},\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
+  assert.match(main, /beimAuftrag: \(t, p\) => mcpProjekte\.freigaben\(p\)\.ausAuftrag\(t\)/);
+  assert.match(main, /mcpZeichen: \(p\) => mcpProjekte\.zeichen\(p\)/);
   assert.match(main, /werkzeuge\.register\(new WebSearchExecutor\(\)\);\n\s+werkzeuge\.register\(new BrowserExecutor\(\)\);/);
 });
 
 test("VKd (bubblewrap): aus der Sandbox über das Startskript an Freedom-MCP – ohne Netz", { skip: ohne }, async () => {
   const w = attrappe();
   const frei = new LeseFreigaben();
-  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { mcp: (n) => mcpAntwort(n, w, frei) });
+  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, { mcp: nurZ(frei, w) });
   try {
     const nachricht = JSON.stringify(anfrage(1, "tools/call", { name: "web_search", arguments: { query: "aus der sandbox" } }));
-    const holen = `import urllib.request; r = urllib.request.Request("http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp", data=${JSON.stringify(nachricht)}.encode(), headers={"content-type": "application/json"}); print(urllib.request.urlopen(r, timeout=10).read().decode())`;
+    const holen = `import urllib.request; r = urllib.request.Request("http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp/${Z}", data=${JSON.stringify(nachricht)}.encode(), headers={"content-type": "application/json"}); print(urllib.request.urlopen(r, timeout=10).read().decode())`;
     const nurLesbar = [{ quelle: STARTSKRIPT, ziel: "/freedom/motor.py" }, { quelle: bruecke.ordner, ziel: BRUECKE_IN_SANDBOX.ordner }];
     const r = await fuehreAus(["python3", "/freedom/motor.py", BRUECKE_IN_SANDBOX.sockel, String(BRUECKE_IN_SANDBOX.port), "--", "python3", "-c", holen], { arbeit: mkdtempSync(join(tmpdir(), "vkd-")), nurLesbar });
     assert.equal(r.code, 0);
@@ -197,8 +223,62 @@ test("VKd-W1: read_page nur für Adressen aus dem Auftrag oder der Suche – nie
 
 test("VKd-W1: CodeLaeufe gibt den Text jedes Auftrags vor dem Start an die Freigaben", async () => {
   const ablage = new ProjektAblage(join(mkdtempSync(join(tmpdir(), "vkd-w1-")), "projekte"));
-  const gesehen: string[] = [];
-  const l = new CodeLaeufe({ ablage, beimAuftrag: (t) => gesehen.push(t), motor: () => { throw new Error("kein Motor"); } });
+  const gesehen: string[][] = [];
+  const l = new CodeLaeufe({ ablage, beimAuftrag: (t, p) => gesehen.push([t, p]), motor: () => { throw new Error("kein Motor"); } });
   await l.starte("a".repeat(64), { projekt: "app", text: "Wie https://example.org/ bitte", modus: "fragen" }, () => {});
-  assert.deepEqual(gesehen, ["Wie https://example.org/ bitte"]);
+  await l.starte("b".repeat(64), { projekt: "spiel", text: "Und https://example.org/b", modus: "fragen" }, () => {});
+  assert.deepEqual(gesehen, [["Wie https://example.org/ bitte", "app"], ["Und https://example.org/b", "spiel"]], "mit dem Projekt (VKd2b1)");
+});
+
+test("VKd2b1: Freedom-MCP je Projekt – eigenes Zeichen, Lese-Freigaben nur im Projekt des Auftrags", async () => {
+  const projekte = new McpProjekte();
+  const a = projekte.zeichen("app");
+  const b = projekte.zeichen("spiel");
+  assert.match(a, MCP_ZEICHEN);
+  assert.match(b, MCP_ZEICHEN);
+  assert.notEqual(a, b);
+  assert.equal(projekte.zeichen("app"), a, "je Projekt dasselbe, solange der Knoten läuft");
+  assert.notEqual(new McpProjekte().zeichen("app"), a, "nach einem Neustart ein neues");
+  assert.equal(projekte.zu(a), projekte.freigaben("app"));
+  for (const falsch of ["cd".repeat(32), a.toUpperCase(), `${a}0`, a.slice(1), ""]) assert.equal(projekte.zu(falsch), undefined, falsch);
+  // eine Adresse aus dem Auftrag von „app“ liest nur „app“ – „spiel“ nicht, auch nicht über die Brücke
+  const w = attrappe();
+  projekte.freigaben("app").ausAuftrag("Baue es wie https://example.org/vorlage");
+  const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, {
+    mcp: (z) => { const f = projekte.zu(z); return f && ((n) => mcpAntwort(n, w, f)); },
+  });
+  try {
+    const lies = async (z: string) => JSON.parse((await ueberSockel(bruecke.sockel, "POST", `/mcp/${z}`, JSON.stringify(anfrage(1, "tools/call", { name: "read_page", arguments: { url: "https://example.org/vorlage" } })))).text).result.isError;
+    assert.equal(await lies(b), true, "nicht im anderen Projekt");
+    assert.equal(await lies(a), false, "im eigenen Projekt");
+    assert.deepEqual(w.gesehen.map((c) => c.input), ["https://example.org/vorlage"]);
+  } finally {
+    bruecke.schliesse();
+  }
+});
+
+test("VKd2b1: der Motor schreibt das Zeichen seines Projekts in config.yaml – nie das eines anderen", async () => {
+  const d = mkdtempSync(join(tmpdir(), "vkd2b1-"));
+  try {
+    // statt bubblewrap ein Skript, das nichts tut
+    const bwrap = join(d, "bwrap");
+    writeFileSync(bwrap, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const ablage = new ProjektAblage(join(d, "projekte"));
+    for (const p of ["app", "spiel"]) mkdirSync(ablage.ort(p), { recursive: true });
+    const projekte = new McpProjekte();
+    const gefragt: string[] = [];
+    const start = hermesMotor({
+      hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: join(d, "b") }, modell: () => "coder:7b", bwrap,
+      mcpZeichen: (p) => (gefragt.push(p), projekte.zeichen(p)),
+    });
+    for (const p of ["app", "spiel"]) start(ablage.ort(p)).beende();
+    const url = (p: string) => (JSON.parse(readFileSync(join(hermesHeim(ablage, ablage.ort(p)), ".hermes", "config.yaml"), "utf8")) as { mcp_servers: { freedom: { url: string } } }).mcp_servers.freedom.url;
+    assert.deepEqual(gefragt, ["app", "spiel"], "mit dem Namen des Projekts");
+    assert.equal(url("app"), `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp/${projekte.zeichen("app")}`);
+    assert.equal(url("spiel"), `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}/mcp/${projekte.zeichen("spiel")}`);
+    assert.ok(!readFileSync(join(hermesHeim(ablage, ablage.ort("spiel")), ".hermes", "config.yaml"), "utf8").includes(projekte.zeichen("app")));
+    assert.ok(existsSync(join(d, "bwrap")));
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
 });

@@ -13147,3 +13147,29 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd, „Freedom statt Nous Portal“: „da
   - `main.ts` ohne die Dateien aus `mcp.json`
 
 Knoten-Stand: `main` mit VKd2a für Kiwix beim Vibecoden (ohne Update läuft der Motor wie bisher, ohne Kiwix).
+
+## Schritt VKd2b1 – Freedom-MCP je Projekt
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd). Erster Teil von VKd2b (Bilder) – die Grundlage, damit der Knoten weiß, für welches
+Projekt ein Werkzeug arbeitet.
+
+**Neu:**
+- **Knoten:** Jedes Projekt erreicht Freedom-MCP unter einer eigenen Adresse der Brücke (`/mcp/<zeichen>`, 32 Zufallsbyte,
+  `McpProjekte` in `freedom-mcp.ts`). Das Zeichen steht nur in der `config.yaml` des Projekts, die der Motor vor jedem Lauf neu
+  schreibt (`hermesMotor({ mcpZeichen })`) – also nur in dessen Sandbox. `/mcp` allein, ein fremdes oder falsch geschriebenes
+  Zeichen: 404, nichts gelesen, nichts ausgeführt.
+- **Lese-Freigaben je Projekt:** Eine Adresse aus dem Auftrag oder der Suche von Projekt A liest nur A (`CodeLaeufe` meldet den
+  Auftrag mit dem Projekt, `McpProjekte.freigaben()`); bisher galten sie für alle Projekte des Knotens.
+- Nur im Speicher: Nach einem Neustart bekommt jedes Projekt beim nächsten Lauf ein neues Zeichen.
+- **Doku:** `PROVIDER.md`, Entwurf, Fallstrick in `packages/node/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests:**
+- **Neu (+2, `freedom-mcp.test.ts`):** Zeichen je Projekt (Form, je Projekt dasselbe, neu nach Neustart, fremde und falsche
+  unbekannt), Freigabe aus A über die Brücke in B nicht lesbar, in A lesbar; der Motor schreibt je Projekt dessen Zeichen in
+  `config.yaml`, nie das eines anderen.
+- **Angepasst:** Brücke (dazu `/mcp`, `/mcp/`, fremdes Zeichen, Großbuchstaben, zu lang, mit Abfrage – je 404),
+  Konfiguration (ohne Zeichen kein Freedom-MCP, falsche Zeichen werfen), Verdrahtung in `main.ts`, `CodeLaeufe` meldet das
+  Projekt mit; in den Tests aus VKk1 und VKd2a bekommt `hermesKonfiguration()` ein Zeichen.
+- **Gegenproben** – je mindestens ein Test rot: siehe Pull Request.
+
+Knoten-Stand: `main` mit VKd2b1 – ohne Update bleiben die Lese-Freigaben für alle Projekte gemeinsam.

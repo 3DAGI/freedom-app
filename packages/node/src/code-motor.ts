@@ -143,8 +143,8 @@ export class CodeLaeufe {
   private readonly laeufe = new Map<string, Lauf>();
   private readonly g: typeof LAUF_GRENZEN;
 
-  /** `beimAuftrag` sieht den Text jedes Auftrags vor dem Start – für die Lese-Freigaben von Freedom-MCP (VKd-W1). */
-  constructor(private readonly o: { ablage: ProjektAblage; motor: MotorStart; grenzen?: Partial<typeof LAUF_GRENZEN>; beimAuftrag?: (text: string) => void }) {
+  /** `beimAuftrag` sieht den Text jedes Auftrags vor dem Start – für die Lese-Freigaben von Freedom-MCP (VKd-W1, je Projekt seit VKd2b1). */
+  constructor(private readonly o: { ablage: ProjektAblage; motor: MotorStart; grenzen?: Partial<typeof LAUF_GRENZEN>; beimAuftrag?: (text: string, projekt: string) => void }) {
     this.g = { ...LAUF_GRENZEN, ...o.grenzen };
   }
 
@@ -158,7 +158,7 @@ export class CodeLaeufe {
       offen: new Map(), sicherung: Promise.resolve(), gestoppt: false, grenze: false,
     };
     this.laeufe.set(id, lauf);
-    this.o.beimAuftrag?.(a.text);
+    this.o.beimAuftrag?.(a.text, a.projekt);
     return this.fuehre(lauf, a.text).finally(() => {
       this.laeufe.delete(id);
       for (const f of [...lauf.offen.values()]) f(null);
