@@ -28,8 +28,8 @@ const TEXT_BYTES = 64 * 1024;
 export interface WhisperDienst {
   /** `whisper-cli` – absolut; unter `/usr` sieht ihn die Sandbox ohnehin, sonst wird nur die Datei eingebunden (statisch gebaut, B-38b3). */
   cli: string;
-  /** ggml-Modell (`.bin`), absolut. */
-  modell: string;
+  /** ggml-Modell (`.bin`), absolut – fest aus `WHISPER_MODELL` oder (seit B-38b3b3) je Auftrag das geprüfte (`gepruefterWhisper()`). */
+  modell: string | (() => string | null);
   /** GPU in die Sandbox (`WHISPER_GPU=1`); sonst `-ng`. */
   gpu: boolean;
   threads: number;
@@ -41,22 +41,27 @@ export interface WhisperDienst {
 
 const datei = (p: string): boolean => { try { return statSync(p).isFile(); } catch { return false; } };
 
-/** Aus der Umgebung – nie halb: ohne `WHISPER_MODELL` aus, mit ungültigen Werten aus samt Grund fürs Log. */
+/**
+ * Aus der Umgebung – nie halb, mit ungültigen Werten aus samt Grund fürs Log. Das Modell nennt `WHISPER_MODELL` fest; ohne
+ * die Variable nimmt der Knoten seit B-38b3b3 je Auftrag das geprüfte (`geprueft`, `npm run modell -- --whisper`).
+ */
 export function whisperAusUmgebung(env: {
   WHISPER_MODELL?: string; WHISPER_CLI?: string; WHISPER_GPU?: string; WHISPER_THREADS?: string; WHISPER_FRIST_SEK?: string;
-}): { dienst?: WhisperDienst; grund?: string } {
+}, geprueft?: () => string | null): { dienst?: WhisperDienst; grund?: string } {
   const modell = (env.WHISPER_MODELL ?? "").trim();
-  if (!modell) return { grund: "aus (WHISPER_MODELL setzen)" };
-  if (!isAbsolute(modell) || !modell.endsWith(".bin") || !datei(modell)) return { grund: "WHISPER_MODELL ungültig (absoluter Pfad zu einer .bin-Datei)" };
+  if (!modell && !geprueft) return { grund: "aus (WHISPER_MODELL setzen)" };
+  if (modell && (!isAbsolute(modell) || !modell.endsWith(".bin") || !datei(modell))) return { grund: "WHISPER_MODELL ungültig (absoluter Pfad zu einer .bin-Datei)" };
   const cli = (env.WHISPER_CLI ?? "/usr/local/bin/whisper-cli").trim();
-  if (!isAbsolute(cli) || !datei(cli)) return { grund: "whisper-cli fehlt (WHISPER_CLI, Vorgabe /usr/local/bin/whisper-cli)" };
+  if (!isAbsolute(cli) || !datei(cli)) {
+    return { grund: modell ? "whisper-cli fehlt (WHISPER_CLI, Vorgabe /usr/local/bin/whisper-cli)" : "aus – whisper-cli fehlt (scripts/whisper-bauen.sh, WHISPER_CLI)" };
+  }
   const gpu = (env.WHISPER_GPU ?? "0").trim();
   if (gpu !== "0" && gpu !== "1") return { grund: "WHISPER_GPU ungültig (0 oder 1)" };
   const threads = env.WHISPER_THREADS ? Number(env.WHISPER_THREADS) : 4;
   if (!Number.isSafeInteger(threads) || threads < 1 || threads > 64) return { grund: "WHISPER_THREADS ungültig (1 bis 64)" };
   const frist = env.WHISPER_FRIST_SEK ? Number(env.WHISPER_FRIST_SEK) : 600;
   if (!Number.isSafeInteger(frist) || frist < 10 || frist > 3600) return { grund: "WHISPER_FRIST_SEK ungültig (10 bis 3600)" };
-  return { dienst: { cli, modell, gpu: gpu === "1", threads, fristSek: frist } };
+  return { dienst: { cli, modell: modell || geprueft!, gpu: gpu === "1", threads, fristSek: frist } };
 }
 
 /** Den Text aus der Ausgabedatei lesen – nur eine echte Datei (`lstat`, `O_NOFOLLOW`), begrenzt, Steuerzeichen weg. */
@@ -90,9 +95,16 @@ export class Whisper {
   private belegt = false;
   constructor(private readonly d: WhisperDienst, private readonly basis?: string) {}
 
+  /** Das Modell für diesen Auftrag – fest oder das geprüfte, dessen Datei unverändert ist; sonst null. */
+  private modell(): string | null { return typeof this.d.modell === "string" ? this.d.modell : this.d.modell(); }
+  /** Gibt es ein Modell? Ohne nennt der Status die Rolle `sprache` nicht (B-38b3b3). */
+  bereit(): boolean { return this.modell() !== null; }
+
   /** Ton (schon mit `pruefeWav()` geprüft) in Text – eine Datei hinein, eine heraus; der Ordner ist danach weg. */
   async transkribiere(wav: Uint8Array, sprache: SpracheWahl): Promise<string> {
     if (this.belegt) throw new SpracheAbgelehnt("sprache-belegt");
+    const modell = this.modell();
+    if (!modell) throw new SpracheAbgelehnt("sprache-whisper");
     this.belegt = true;
     const { ordner, weg } = neuerArbeitsordner(...(this.basis ? [this.basis] : []));
     try {
@@ -106,7 +118,7 @@ export class Whisper {
       try {
         r = await fuehreAus(befehl, {
           arbeit: ordner, gpu: this.d.gpu, rechenzeitSek: this.d.fristSek * this.d.threads,
-          nurLesbar: [{ quelle: this.d.modell, ziel: MODELL_INNEN }, ...(unterUsr ? [] : [{ quelle: this.d.cli, ziel: CLI_INNEN }])],
+          nurLesbar: [{ quelle: modell, ziel: MODELL_INNEN }, ...(unterUsr ? [] : [{ quelle: this.d.cli, ziel: CLI_INNEN }])],
           ...(this.d.bwrap ? { bwrap: this.d.bwrap } : {}),
         }, this.d.fristSek * 1000);
       } catch {

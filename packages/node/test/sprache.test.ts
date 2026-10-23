@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -92,6 +92,45 @@ test("B-38b2: whisper-cli in der Sandbox – eine Datei hinein, Text heraus, Ste
     const erster = w.transkribiere(sinus(1), "de").catch((e: SpracheAbgelehnt) => e.fall);
     await assert.rejects(w.transkribiere(sinus(1), "de"), (e: unknown) => e instanceof SpracheAbgelehnt && e.fall === "sprache-belegt");
     assert.equal(await erster, "sprache-zeit");
+  } finally {
+    rmSync(ordner, { recursive: true, force: true });
+    rmSync(basis, { recursive: true, force: true });
+  }
+});
+
+test("B-38b3b3: ohne WHISPER_MODELL das geprüfte Modell – je Auftrag gefragt; ohne Modell kein Lauf und keine Rolle", async (t) => {
+  const ordner = mkdtempSync(join(tmpdir(), "freedom-whisper-geprueft-"));
+  const basis = mkdtempSync(join(tmpdir(), "freedom-whisper-arbeit-"));
+  try {
+    const leer = join(ordner, "whisper-cli-leer");
+    writeFileSync(leer, "#!/bin/sh\n");
+    let geprueft: string | null = null;
+    const r = whisperAusUmgebung({ WHISPER_CLI: leer, WHISPER_THREADS: "2", WHISPER_FRIST_SEK: "20" }, () => geprueft);
+    assert.equal(typeof r.dienst?.modell, "function", "ohne WHISPER_MODELL: je Auftrag gefragt");
+    assert.match(whisperAusUmgebung({ WHISPER_CLI: join(ordner, "fehlt") }, () => null).grund!, /^aus – whisper-cli fehlt/);
+    const fest = join(ordner, "ggml-fest.bin");
+    writeFileSync(fest, "m");
+    assert.equal(whisperAusUmgebung({ WHISPER_MODELL: fest, WHISPER_CLI: leer }, () => "/anders.bin").dienst?.modell, fest, "WHISPER_MODELL geht vor");
+    // Ohne geprüftes Modell: nicht bereit, abgelehnt, bevor die Sandbox überhaupt startet
+    const marke = join(ordner, "bwrap-lief");
+    const bwrap = join(ordner, "bwrap");
+    writeFileSync(bwrap, `#!/bin/sh\ntouch ${marke}\nexit 1\n`);
+    chmodSync(bwrap, 0o755);
+    const ohne = new Whisper({ ...r.dienst!, bwrap }, basis);
+    assert.equal(ohne.bereit(), false);
+    await assert.rejects(ohne.transkribiere(sinus(1), "de"), (e: unknown) => e instanceof SpracheAbgelehnt && e.fall === "sprache-whisper");
+    assert.equal(existsSync(marke), false, "kein Lauf ohne Modell");
+    assert.deepEqual(readdirSync(basis), []);
+    // Mit geprüftem Modell: dasselbe Objekt nimmt es beim nächsten Auftrag
+    const modell = join(ordner, "ggml-geprueft.bin");
+    writeFileSync(modell, "modell");
+    geprueft = modell;
+    assert.equal(ohne.bereit(), true);
+    if (!(await pruefeSandbox()).ok) return t.skip("bubblewrap geht hier nicht");
+    const w = new Whisper({ ...r.dienst!, cli: attrappe(ordner, "gut") }, basis);
+    assert.equal(await w.transkribiere(sinus(1), "de"), "Hallo Welt.\nrot\nZweite Zeile");
+    geprueft = null; // die Datei änderte sich – `gepruefterWhisper()` nennt keins mehr
+    await assert.rejects(w.transkribiere(sinus(1), "de"), (e: unknown) => e instanceof SpracheAbgelehnt && e.fall === "sprache-whisper");
   } finally {
     rmSync(ordner, { recursive: true, force: true });
     rmSync(basis, { recursive: true, force: true });
@@ -202,7 +241,8 @@ test("B-38b2: abgelehnt nur mit Kennung – Ton fehlt oder falsch, keine WAV, fr
 test("B-38b2: verdrahtet – main.ts nur mit Modell und Sandbox, Rolle „sprache“, Repo-Bundles über denselben Abruf", () => {
   const lies = (p: string) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
   const main = lies("main.ts");
-  assert.match(main, /const \{ dienst: whisperDienst, grund: whisperGrund \} = whisperAusUmgebung\(process\.env\);/);
+  assert.match(main, /const \{ dienst: whisperDienst, grund: whisperGrund \} = whisperAusUmgebung\(process\.env, \(\) => gepruefterWhisper\(leseStand\(modellDatei\(\)\)\)\);/);
+  assert.match(main, /rollen: \[\.\.\.statusRollen\]\.filter\(\(r\) => r !== "sprache" \|\| !!sprache\?\.bereit\(\)\)/, "B-38b3b3: die Rolle nur mit Modell");
   assert.match(main, /const sb = await pruefeSandbox\(\);\n\s+if \(sb\.ok\) sprache = new Whisper\(whisperDienst\);/);
   assert.match(main, /if \(sprache\) statusRollen\.add\("sprache"\);/);
   assert.match(main, /\.\.\.\(sprache \? \{ sprache \} : \{\}\),/);

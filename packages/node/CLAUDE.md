@@ -511,3 +511,6 @@ Bereichs unten anhängen.
   (`ladeGepruefteDatei()`), dazu die Kennung `ggml` am Anfang (sonst löschen). Mit jedem Antrieb (`whisper` in den
   `LaderHilfen`, nicht an `hf` gebunden); im Stand mit `datei` und `abdruck` (`dateiAbdruck()`, nie einem Verweis folgen).
   Ein Whisper-Modell steht nie im Angebot für KI – `imAngebot()` und `pruefeModelle()` behandeln es vor allen anderen.
+  Das Modell (seit B-38b3b3): ohne `WHISPER_MODELL` je Auftrag über `gepruefterWhisper()` (zuletzt geprüft, Datei unverändert) –
+  nie einmal beim Start merken, sonst gälte eine veränderte Datei weiter. Die Rolle `sprache` im Status nur mit
+  `Whisper.bereit()`.
