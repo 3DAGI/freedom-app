@@ -103,7 +103,7 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 – geteilt in c1–c3 |
 | B-38c1 ✓ | „Als Text“ an Sprachnachrichten über den eigenen Knoten: Ton im Browser zu WAV (`ton-wandeln.ts`), Ton unter einem Sitzungsschlüssel, nur mit Rolle `sprache`, Smoke-Test „als_text“ | ~300 |
 | B-38c2 ✓ | Diktieren im Agenten (Aufnahme → Text ins Eingabefeld, Sprache der App) | ~150 |
-| B-38c3 | „Dieses Gerät“: ein whisper-server auf diesem Rechner (`lokaleKiAdresse()`, erst auf Klick) | ~200 |
+| B-38c3 ✓ | „Dieses Gerät“: ein whisper-server auf diesem Rechner (`lokaleKiAdresse()`, erst auf Klick) | ~200 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
 Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENSCH.
@@ -236,6 +236,23 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
   gesendet wird erst mit „Senden“. Stille fügt nichts ein. Die Aufnahme bleibt nur im Speicher.
 - **Smoke-Test „als_text“** um das Diktat erweitert: echte Aufnahme der Mikrofon-Attrappe, die Rolle aus „Als Text“ ist für die
   Sitzung gemerkt – hinaus geht nur der Auftrag; im Feld steht danach „Bitte: Probe: 440 Hz, Sprache de“.
+
+## Stand B-38c3 (23.10.2026)
+
+- **„Dieses Gerät“** (`sprache-lokal.ts`, ohne DOM): ein `whisper-server` (whisper.cpp) auf diesem Rechner, nur Adressen aus
+  `lokaleKiAdresse()`. Gelesen in whisper.cpp v1.9.5 (`examples/server/server.cpp`): `GET /health` (`{"status":"ok"}`, 503 solange
+  das Modell lädt), `POST /inference` mit `file`, `language` und `response_format=json` → `{"text": …}`; CORS (`*`) sendet der
+  Server selbst. Die App schickt die WAV-Datei aus `alsSpracheWav()` – der Server braucht kein `--convert` (kein ffmpeg).
+  Antwort streng wie `leseTranskript()`; Fehler mit eigenen Sätzen, nie Text des Servers.
+- **Erst auf Klick:** Einstellungen › Geräte, Karte „Text aus Sprache auf diesem Gerät“ – „prüfen und merken“ fragt `/health`
+  (Vorgabe `http://127.0.0.1:8080`); gemerkt wird nur eine Adresse, die „bereit“ meldet (`freedom.sprache.lokal`, nicht geheim).
+  „vergessen“ nimmt es zurück.
+- **Vorrang:** Ist ein Server gemerkt, gehen „Als Text“ und Diktieren nur an ihn – der Ton verlässt den Rechner nicht, kein
+  Blob-Stück, kein Umschlag. Sonst der eigene Knoten wie bisher. „Als Text“ und Diktieren gibt es mit einem der beiden.
+- **Echt geprüft:** `whisper-server` v1.9.5, hier gebaut, mit dem Testmodell auf 127.0.0.1 – das Modul und der ganze Weg im
+  Chromium (Aufnahme, Wandlung, CORS, `/inference`, Anzeige) laufen; der Text ist beim Testmodell leer. Im Smoke-Test
+  („als_text_lokal“) spielt `whisper_attrappe()` den Server und misst die Tonhöhe.
+- **B-38c fertig** – damit B-38 bis auf die Proben des MENSCHEN.
 
 ## Quellen
 

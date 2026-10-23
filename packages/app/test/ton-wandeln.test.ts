@@ -77,7 +77,8 @@ test("B-38c1: verdrahtet – erst wandeln, dann die Rolle `sprache`, dann Ton un
   assert.match(ui, /warteAufKnoten\(weg, sitzung, requestId, KIND_DVM_TEXT_AUS_SPRACHE \+ 1000/);
   assert.match(ui, /aus\.textContent = "text" in r \? r\.text \|\| t\("komm\.alsTextStille"\) : r\.grund/, "der Text nur als textContent");
   assert.match(ui, /textAusSprache\(await bytes\(\), "auto"\)/, "Nachrichten von Kontakten: Whisper erkennt die Sprache");
-  assert.doesNotMatch(ui, /innerHTML|localStorage|geheim\./, "nichts gespeichert");
+  // Seit B-38c3 liest sie die Adresse des Servers auf diesem Rechner – geschrieben wird nichts
+  assert.doesNotMatch(ui, /innerHTML|\.setItem\(|\.removeItem\(|geheim\./, "nichts gespeichert");
 
   const chat = readFileSync(new URL("../src/shell/tabs/chat-anhaenge.ts", import.meta.url), "utf8");
   assert.match(chat, /if \(v\.art === "audio" && v\.url\.startsWith\("data:"\)\) \{/, "nur Ton aus der Nachricht selbst – nie eine Adresse im Netz");
@@ -99,7 +100,10 @@ test("B-38c1: für jede Kennung des Knotens und jeden Ausgang ein Satz in beiden
 
 test("B-38c2: Diktieren – nur gekoppelt, dieselbe Aufnahme, Text in der Sprache der App ins Eingabefeld, nicht gesendet", () => {
   const d = readFileSync(new URL("../src/shell/diktieren-ui.ts", import.meta.url), "utf8");
-  assert.match(d, /k\.hidden = !meineKopplung\(\) \|\| !navigator\.mediaDevices\?\.getUserMedia/, "ohne Kopplung oder Mikrofon kein Knopf");
+  // Seit B-38c3: ein Weg heißt Server auf diesem Rechner oder gekoppelter Knoten
+  assert.match(d, /k\.hidden = !textAusSpracheMoeglich\(\) \|\| !navigator\.mediaDevices\?\.getUserMedia/, "ohne Weg oder Mikrofon kein Knopf");
+  assert.match(readFileSync(new URL("../src/shell/sprache-text-ui.ts", import.meta.url), "utf8"),
+    /return !!lokaleSprachAdresse\(localStorage\) \|\| !!meineKopplung\(\);/);
   assert.match(d, /new SprachAufnahme\(browserUmgebung\(\),/, "dieselbe Aufnahme wie Sprachnachrichten – Mikrofon erst beim Klick");
   assert.match(d, /textAusSprache\(new Uint8Array\(await e\.datei\.arrayBuffer\(\)\), getLang\(\)\)/, "Sprache der App");
   assert.match(d, /if \(!r\.text\) return toast\(t\("komm\.alsTextStille"\), true\)/, "Stille fügt nichts ein");
