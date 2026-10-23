@@ -49,6 +49,7 @@ import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
+import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js";
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
@@ -561,6 +562,13 @@ async function main(): Promise<void> {
       console.error(`[code] ${mcpWahl.ungueltig} – der Knoten startet nicht`);
       process.exit(1);
     }
+    // Bilder (VKd2b2): ComfyUI nur auf diesem Rechner oder im Heimnetz – ungültig → kein Start
+    const bilderWahl = bilderAusUmgebung(process.env);
+    if ("ungueltig" in bilderWahl) {
+      console.error(`[code] ${bilderWahl.ungueltig} – der Knoten startet nicht`);
+      process.exit(1);
+    }
+    const bilder = bilderWahl.dienst;
     if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
     else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
     else {
@@ -574,8 +582,9 @@ async function main(): Promise<void> {
       const spiegelKonto = new SpiegelKonto();
       const bruecke = await oeffneModellBruecke(antrieb, {
         mcp: (zeichen) => {
-          const freigaben = mcpProjekte.zu(zeichen);
-          return freigaben && ((n) => mcpAntwort(n, werkzeuge, freigaben));
+          const p = mcpProjekte.zu(zeichen);
+          const bild = p && bilder ? (prompt: string) => erzeugeBild(bilder, bilderOrdner(projekte, p.projekt), prompt) : undefined;
+          return p && ((n) => mcpAntwort(n, werkzeuge, p.freigaben, bild));
         },
         spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
       });
@@ -584,12 +593,13 @@ async function main(): Promise<void> {
         ablage: projekte, beimAuftrag: (t, p) => mcpProjekte.freigaben(p).ausAuftrag(t),
         motor: hermesMotor({
           hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server,
-          mcpZeichen: (p) => mcpProjekte.zeichen(p),
+          mcpZeichen: (p) => mcpProjekte.zeichen(p), ...(bilder ? { bilder: (p: string) => bilderOrdner(projekte, p) } : {}),
         }),
       });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
       for (const s of mcpWahl.server) console.log(`[code] für den Motor: ${s.name} (MCP, in der Sandbox)`);
       for (const f of mcpWahl.fehlt) console.log(`[code] ${MCP_TEXT[f]}`);
+      if (bilder) console.log("[code] für den Motor: Bilder über die eigene ComfyUI (generate_image)");
     }
   }
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start

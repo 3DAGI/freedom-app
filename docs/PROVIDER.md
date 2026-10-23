@@ -717,6 +717,14 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Bilder (seit VKd2b2):** Mit `COMFYUI_URL` (deine ComfyUI, nur auf diesem Rechner
+  oder im Heimnetz, etwa `http://127.0.0.1:8188`) bekommt Hermes `generate_image`: Der
+  Knoten fragt deine ComfyUI (SDXL, Checkpoint über `COMFYUI_CHECKPOINT`, Vorgabe
+  `sd_xl_base_1.0.safetensors`) und legt das PNG in `~/.freedom/bilder/<projekt>`. Die
+  Sandbox des Projekts sieht nur diesen Ordner, nur lesbar unter `/freedom/bilder`;
+  ins Projekt kopiert der Agent das Bild selbst. Der Prompt verlässt dein Netz nicht.
+  Je Bild höchstens 20 MB, je Projekt die letzten 50. Ohne `COMFYUI_URL` gibt es das
+  Werkzeug nicht; eine Adresse außerhalb des Heimnetzes heißt kein Start.
 - **Kiwix (seit VKd2a):** Stehen in `mcp.json` ZIM-Dateien (oben, „Wikipedia ohne
   Internet“), bekommt Hermes sie von selbst – dieselben Dateien und dieselbe Brücke,
   als Kind des Motors in dessen Sandbox, ohne Netz, die Ordner nur lesbar. Der Agent
