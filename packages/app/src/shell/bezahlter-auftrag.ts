@@ -9,8 +9,9 @@
  * - Bezahlt über `ki-zahlung.ts`: Lightning mit Deklaration nach A+, abgerechnet
  *   höchstens das Gebot – oder eine Gutschrift im Zahlkanal (`kanal`). Ohne
  *   deckenden Kanal geht nichts hinaus.
- * - Wartet höchstens `WARTEN_MS` – nur auf diesen Sitzungsschlüssel und Auftrag.
- *   Eine Ablehnung liefert ihre Kennung (`fall`), nie den Text des Providers.
+ * - Wartet höchstens `WARTEN_MS` (Repo-Aufträge länger, `wartenMs`, 11.5d1) – nur auf
+ *   diesen Sitzungsschlüssel und Auftrag. Eine Ablehnung liefert ihre Kennung (`fall`),
+ *   nie den Text des Providers.
  */
 import { KIND_GIFT_WRAP, buildJobRequest, buildPrivateJobRequest, getTag, parseJobResult, type NostrEvent } from "@freedomstack/protocol";
 import type { KiSitzungen } from "../ki-sitzung.js";
@@ -38,6 +39,8 @@ export async function bezahlterAuftrag(p: {
   kanal: boolean;
   /** Weitere Tags für den versiegelten Kern (Verweis, Modell). */
   extraTags?: string[][];
+  /** So lange auf das Ergebnis warten – Vorgabe `WARTEN_MS`; ein Repo-Auftrag läuft bis zu 30 min (11.5d1). */
+  wartenMs?: number;
 }): Promise<AuftragsAusgang> {
   const pool = await ensurePool();
   const sitzung = p.sitzungen.fuer(p.provider);
@@ -58,10 +61,13 @@ export async function bezahlterAuftrag(p: {
 
   // Antwort abwarten – nur an diesen Sitzungsschlüssel, nur zu diesem Auftrag
   const cache: AntwortCache = new Map();
-  const ende = Date.now() + WARTEN_MS;
+  const warten = p.wartenMs ?? WARTEN_MS;
+  const ende = Date.now() + warten;
+  // Wer lange wartet, fragt seltener – jede Abfrage nennt den Relays den Sitzungsschlüssel
+  const takt = warten > WARTEN_MS ? 15_000 : 3000;
   let antwort: NostrEvent | undefined;
   while (!antwort && Date.now() < ende) {
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, takt));
     const umschlaege = await pool.query({ kinds: [KIND_GIFT_WRAP], "#p": [sitzung.publicKey()], since: seit }).catch(() => []);
     const r = await oeffneAntworten(umschlaege, p.sitzungen, new Set([auftrag.requestId]), cache);
     antwort = r.ergebnisse.find((x) => x.pubkey === p.provider);

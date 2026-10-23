@@ -107,7 +107,9 @@ test("11.3d1b2: verdrahtet – nach dem Senden im offenen Raum, Preis vor dem Au
   assert.ok(stelle("const { grund } = await providerZahlung(k.provider);") < stelle("await bestaetige("), "ohne Wallet keine Frage");
   assert.ok(stelle("if (!ok) return;") < stelle("await bezahlterAuftrag("), "ohne Bestätigung geht nichts hinaus");
   assert.match(q, /sitzungen: new KiSitzungen\(\), input: EINGABE, hoechstMsat: hoechst, kanal: weg === "kanal",\n    extraTags: auftragsVerweisTags\(\{ raum, erwaehnung \}\),/, "frischer Schlüssel, feste Eingabe, Verweis");
-  assert.match(q, /const hoechst = hoechstMsat\(AGENT_GEBOT_SATS, \[\]\);/, "dasselbe Gebot wie Agenten auf dem Gerät");
+  // Fragen ohne Repo (11.5d1: dort die Obergrenze des Fragenden): dasselbe Gebot wie Agenten auf dem Gerät
+  assert.match(q, /const hoechst = hoechstMsat\(repo\?\.gebotSats \?\? AGENT_GEBOT_SATS, \[\]\);/, "dasselbe Gebot wie Agenten auf dem Gerät");
+  assert.match(q, /await frageEinen\(p\.raum, p\.erwaehnung, k\)\.catch\(/, "Fragen im Raum ohne Repo-Wunsch");
   assert.doesNotMatch(q, /state\.keypair\.pk|signiere\(|publish\(/, "keine Identität, nichts offen");
 
   const b = lies("shell/bezahlter-auftrag.ts");

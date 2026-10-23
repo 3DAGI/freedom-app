@@ -1004,3 +1004,9 @@ Fallstricke dieses Bereichs unten anhängen.
   „Dieses Gerät“ (seit B-38c3) nur über `sprache-lokal.ts`: Adressen nur aus `lokaleKiAdresse()`, gefragt erst auf Klick in
   der Karte (`pruefeSprachServer()`), gemerkt nur nach „bereit“; ist einer gemerkt, geht der Ton nur dorthin, nie zusätzlich
   zum Knoten. Nie `--convert` voraussetzen – der Server bekommt nur die WAV-Datei aus `alsSpracheWav()`.
+- **Agenten am Repo beauftragen nur über `shell/repo-agent-ui.ts`** (seit 11.5d1, W5 A): nur für Repos mit Raum (offen
+  `raumBestaetigt`, privat `privatRaum`) und nur Agenten aus `repoAgenten()`. Die Nachricht mit Repo-Tag geht erst nach der
+  Bestätigung des Preises hinaus (`beauftrageAmRepo()` → `RepoWunsch.sende()`), nur in einen Kanal aus `auftragsKanal()` – dort
+  schreiben ich und der Agent, sonst schwiege er –, privat nur über `mlsSendeEventId()`. Repo-Aufträge warten mit
+  `wartenMs: REPO_WARTEN_MS`: kürzer als der Lauf beim Knoten (`REPO_LAUF_GRENZEN.zeitMs`) hieße, der Patch steht im Raum und
+  bezahlt wird nie (ein Test vergleicht beide).
