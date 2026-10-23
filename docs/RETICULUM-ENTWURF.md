@@ -75,7 +75,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
-| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum | ~300 je Teil |
+| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum, geteilt: **d3a** ✓ Knoten funkt zurück, **d3b** App fragt KI über Funk mit RNode | ~300 je Teil |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
@@ -284,6 +284,22 @@ Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`
   die App fragt KI über Funk weiter nur über Meshtastic.
 - **Test:** Die RNode-Attrappe liegt jetzt in `protocol/test` – die App hängt sie an WebSerial, der Knoten über eine echte
   TCP-Brücke an dieselbe Luft; ein Telefon funkt einen Umschlag an die Adresse des Knotens, er landet einmal im Netz.
+
+## Stand B-32d3a (23.10.2026)
+
+- **Teilung:** d3a der Knoten (zurückfunken), d3b die App (KI über Funk mit RNode, wenn die Gegenstelle der eigene Knoten
+  ist – die App muss dafür die Adresse ihres Knotens kennen).
+- **Absender:** `starteReticulum()` gibt `beiEmpfang` die LXMF-Adresse des Absenders mit (`von`, 16 Byte, aus der
+  Nachricht). LXMF prüft sie nur, wenn der Kern die Identität kennt – wer eine fremde nennt, lenkt höchstens die Antworten
+  seiner eigenen Sitzung um: versiegelt, auf Kosten des Kontos des Knotens. Die App nimmt `von` nicht.
+- **Rückweg:** `ReticulumRueckweg` merkt je Weiterleitung (25030) die Adresse, die sie brachte; der Takt (5 s) holt über
+  `UmschlagAnnahme.postZurueck()` – dieselbe Regel wie bei Meshtastic (`GatewayBuch`: höchstens drei Umschläge je
+  Auftrag, nur ab dem Auftrag) – und funkt jeden Umschlag an diese Adresse. Ohne Adresse nichts; Fehler nur mit Kennung
+  ins Log; ein Takt nie zweimal zugleich. Gesendet über `ReticulumFunk.sende()` – Pfad-Anfrage, Link oder einzelnes Paket
+  macht der Router, jedes Paket bucht das Konto.
+- **Angebot:** weiter kein Funk-Gateway für Reticulum – das Flag sagt Meshtastic-Nutzern, wen sie im Funk erreichen.
+- **Test:** Telefon und Knoten in derselben Luft – Weiterleitung hin, Antwort aus dem Netz zurück ans Telefon; Post für
+  eine Sitzung ohne Weiterleitung bleibt im Netz; jede Antwort einmal.
 
 ## Quellen
 

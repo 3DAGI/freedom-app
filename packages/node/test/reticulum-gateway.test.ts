@@ -10,12 +10,13 @@ import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  FUNK_REGIONEN, LocalSigner, MeshKind, ReticulumFehler, Sendezeitkonto, baueWeiterleitung, buildPrivateDm, generateKeypair,
-  lxmfAdresse, reticulumIdentitaet, rnodeOptionen, starteReticulum, type NostrEvent, type ReticulumFunk,
+  FUNK_REGIONEN, LocalSigner, MeshKind, ReticulumFehler, Sendezeitkonto, baueWeiterleitung, buildPrivateDm, generateKeypair, getTag,
+  giftWrapMitSigner, lxmfAdresse, reticulumIdentitaet, rnodeOptionen, starteReticulum, type NostrEvent, type ReticulumFunk,
 } from "@freedomstack/protocol";
 import { UmschlagAnnahme } from "../src/gateway-role.js";
 import {
-  identitaetsSpeicher, reticulumAusUmgebung, reticulumIdentitaetDatei, starteReticulumGateway, verbindeRNodeTcp, type ReticulumEinstellung,
+  ReticulumRueckweg, identitaetsSpeicher, reticulumAusUmgebung, reticulumIdentitaetDatei, starteReticulumGateway, verbindeRNodeTcp,
+  type ReticulumEinstellung,
 } from "../src/reticulum-gateway.js";
 import { rnodeAttrappe, type Luft } from "../../protocol/test/rnode-attrappe.js";
 
@@ -54,8 +55,8 @@ async function bruecke(luft: Luft): Promise<{ port: number; server: net.Server }
   return { port: (server.address() as net.AddressInfo).port, server };
 }
 
-/** Ein Telefon mit RNode über WebSerial – wie die App. */
-async function telefon(luft: Luft): Promise<ReticulumFunk> {
+/** Ein Telefon mit RNode über WebSerial – wie die App; `angekommen` sammelt, was der Kern durchließ. */
+async function telefon(luft: Luft, angekommen: Uint8Array[] = []): Promise<ReticulumFunk> {
   const { RNodeWebSerialInterface } = await import("@reticulum/core/src/interfaces/rnode-webserial.js");
   const rnode = new RNodeWebSerialInterface({
     ...rnodeOptionen({ region: EU.kennung, parameter: EU.vorgabe }), serialPort: rnodeAttrappe({ luft }).port, name: "telefon",
@@ -64,7 +65,7 @@ async function telefon(luft: Luft): Promise<ReticulumFunk> {
   await rnode.connect();
   const m = new Map<string, string>();
   return starteReticulum({
-    rnode, parameter: EU.vorgabe, konto: new Sendezeitkonto(), sendeFristMs: 5000, beiEmpfang: () => undefined,
+    rnode, parameter: EU.vorgabe, konto: new Sendezeitkonto(), sendeFristMs: 5000, beiEmpfang: (payload) => void angekommen.push(payload),
     identitaet: await reticulumIdentitaet({ getItem: (k) => m.get(k) ?? null, setItem: async (k, v) => void m.set(k, v) }),
   });
 }
@@ -102,22 +103,26 @@ test("B-32d2: Identität in einer Datei (0600) – beim zweiten Mal dieselbe, ei
   assert.equal(readFileSync(datei, "utf8"), "kaputt\n", "nie still eine neue Adresse");
 });
 
-test("B-32d2: über die Luft – ein Umschlag vom Telefon geht ins Netz, einmal; die Weiterleitung bleibt beim Knoten", { timeout: 90_000 }, async () => {
+test("B-32d2/d3a: über die Luft – ein Umschlag vom Telefon geht ins Netz, einmal; die Weiterleitung bleibt beim Knoten, die Antwort kommt zurück", { timeout: 120_000 }, async () => {
   const luft: Luft = new Set();
   const { port, server } = await bruecke(luft);
   const knoten = generateKeypair();
   const imNetz: NostrEvent[] = [];
+  const post: NostrEvent[] = [];
   const log: string[] = [];
   const annahme = new UmschlagAnnahme({
     gateway: new LocalSigner(knoten.sk), log: (z) => log.push(z),
-    netz: { publish: async (ev) => void imNetz.push(ev), query: async () => [] },
+    netz: { publish: async (ev) => void imNetz.push(ev), query: async (f) => post.filter((ev) => f["#p"]?.includes(getTag(ev, "p") ?? "")) },
   });
   const einstellung: ReticulumEinstellung = { host: "127.0.0.1", port, region: EU.kennung, parameter: { ...EU.vorgabe } };
   const ordner = mkdtempSync(join(tmpdir(), "freedom-ret-"));
-  const gateway = await starteReticulumGateway({
-    einstellung, annahme, datei: reticulumIdentitaetDatei(ordner), log: (z) => log.push(z), rnode: { postOpenDelayMs: 0, detectTimeout: 2 },
+  const gw = await starteReticulumGateway({
+    einstellung, annahme, datei: reticulumIdentitaetDatei(ordner), gatewayPk: knoten.pk, log: (z) => log.push(z),
+    rnode: { postOpenDelayMs: 0, detectTimeout: 2 }, sendeFristMs: 5000, postMs: 3_600_000,
   });
-  const tel = await telefon(luft);
+  const gateway = gw.funk;
+  const zurueck: Uint8Array[] = [];
+  const tel = await telefon(luft, zurueck);
   try {
     const [alice, bob] = [generateKeypair(), generateKeypair()];
     const dm = await buildPrivateDm({ senderSk: alice.sk, senderPk: alice.pk, recipientPk: bob.pk, content: "Treffen um 19 Uhr" });
@@ -136,12 +141,74 @@ test("B-32d2: über die Luft – ein Umschlag vom Telefon geht ins Netz, einmal;
     await tel.sende(gateway.adresse, roh, MeshKind.NostrEvent, [alice.pk]);
     await new Promise((r) => setTimeout(r, 300));
     assert.deepEqual(imNetz.map((e) => e.id), [dm.toRecipient.id], "nur der Umschlag, einmal – die Weiterleitung nie");
+
+    // B-32d3a: Die Antwort an die Sitzung kommt aus dem Netz zurück an das Telefon, das die Weiterleitung brachte
+    const jetzt = Math.floor(Date.now() / 1000);
+    const antwort = await antwortAn(knoten.sk, sitzung.publicKey(), jetzt, "Wasser abkochen.");
+    post.push(antwort, await antwortAn(knoten.sk, generateKeypair().pk, jetzt, "an niemanden hier"));
+    assert.equal(await gw.rueckweg.holePost(), 1, "nur für die gemerkte Sitzung");
+    await bis(() => zurueck.length > 0);
+    assert.deepEqual(zurueck, [new TextEncoder().encode(JSON.stringify(antwort))]);
+    assert.equal(await gw.rueckweg.holePost(), 0, "jede Antwort einmal");
     assert.ok(!log.some((z) => /[0-9a-f]{32}/.test(z)), "nichts mit Adressen oder Kennungen ins Log");
   } finally {
     await tel.stoppe().catch(() => undefined);
-    await gateway.stoppe().catch(() => undefined);
+    await gw.stoppe().catch(() => undefined);
     server.close();
   }
+});
+
+/** Post des Providers an eine Sitzung – versiegelt, mit der echten Zeit wie jede Antwort. */
+async function antwortAn(providerSk: Uint8Array, an: string, nowSecs: number, inhalt: string): Promise<NostrEvent> {
+  const p = new LocalSigner(providerSk);
+  return giftWrapMitSigner({ pubkey: p.publicKey(), kind: 6050, created_at: nowSecs, tags: [["p", an]], content: inhalt }, p, an, { fixedJitter: 0, nowSecs });
+}
+
+test("B-32d3a: Rückweg – nur an die Adresse der Weiterleitung, nie ohne; „sendezeit“ nur mit Kennung ins Log; nie zweimal zugleich", async () => {
+  const knoten = generateKeypair();
+  const post: NostrEvent[] = [];
+  const log: string[] = [];
+  const annahme = new UmschlagAnnahme({
+    gateway: new LocalSigner(knoten.sk), log: (z) => log.push(z), netz: { publish: async () => undefined, query: async () => post },
+  });
+  const gesendet: Array<[string, Uint8Array]> = [];
+  let fehler: Error | null = null;
+  let warte: Promise<void> | null = null;
+  const rueckweg = new ReticulumRueckweg({
+    annahme, log: (z) => log.push(z),
+    sende: async (an, bytes) => {
+      if (warte) await warte;
+      if (fehler) throw fehler;
+      gesendet.push([hex(an), bytes]);
+    },
+  });
+  const jetzt = Math.floor(Date.now() / 1000);
+  const roh = (ev: NostrEvent) => new TextEncoder().encode(JSON.stringify(ev));
+  const [a, b] = [new LocalSigner(generateKeypair().sk), new LocalSigner(generateKeypair().sk)];
+  const adresse = new Uint8Array(16).fill(0xab);
+  await rueckweg.empfange(roh((await baueWeiterleitung({ sitzung: a, gatewayPk: knoten.pk, nowSecs: jetzt })).wrap), MeshKind.NostrEvent, adresse);
+  // Ohne Absender gemerkt, aber ohne Rückweg – dorthin geht nichts
+  await rueckweg.empfange(roh((await baueWeiterleitung({ sitzung: b, gatewayPk: knoten.pk, nowSecs: jetzt })).wrap), MeshKind.NostrEvent);
+  post.push(await antwortAn(knoten.sk, a.publicKey(), jetzt, "für a"), await antwortAn(knoten.sk, b.publicKey(), jetzt, "für b"));
+  assert.equal(await rueckweg.holePost(), 1);
+  assert.deepEqual(gesendet.map(([an]) => an), [hex(adresse)]);
+  assert.equal(JSON.parse(new TextDecoder().decode(gesendet[0]![1])).id, post[0]!.id);
+
+  // Reicht die Sendezeit nicht, steht nur die Kennung im Log
+  post.push(await antwortAn(knoten.sk, a.publicKey(), jetzt, "noch eine"));
+  fehler = new ReticulumFehler("sendezeit");
+  assert.equal(await rueckweg.holePost(), 0);
+  assert.ok(log.includes("[funk] Reticulum: sendezeit"));
+
+  // Zwei Takte zugleich: der zweite tut nichts
+  fehler = null;
+  post.push(await antwortAn(knoten.sk, a.publicKey(), jetzt, "die dritte"));
+  let frei!: () => void;
+  warte = new Promise((r) => { frei = r; });
+  const erster = rueckweg.holePost();
+  assert.equal(await rueckweg.holePost(), 0);
+  frei();
+  assert.equal(await erster, 1);
 });
 
 test("B-32d2: ohne Brücke kein Gateway – das erste Verbinden scheitert und hinterlässt keinen Versuch im Hintergrund", async () => {
@@ -162,9 +229,10 @@ test("B-32d2: ohne Brücke kein Gateway – das erste Verbinden scheitert und hi
 test("B-32d2: verdrahtet – rnode: vor den anderen Wegen, Rolle erst nach dem Start, das Angebot nennt kein Funk-Gateway", () => {
   const main = lies("src/main.ts");
   assert.ok(main.indexOf('process.env.FUNK_GATEWAY?.startsWith("rnode:")') < main.indexOf("} else if (process.env.FUNK_GATEWAY) {"));
-  assert.match(main, /const funk = await starteReticulumGateway\(\{ einstellung: r\.einstellung, annahme, datei: reticulumIdentitaetDatei\(\), log \}\);\n\s+statusRollen\.add\("gateway"\);/);
+  assert.match(main, /const gw = await starteReticulumGateway\(\{ einstellung: r\.einstellung, annahme, datei: reticulumIdentitaetDatei\(\), gatewayPk: keypair\.pk, log \}\);\n\s+statusRollen\.add\("gateway"\);/);
   assert.match(main, /if \("grund" in r\) \{\n\s+console\.error\(`\[funk\] Reticulum aus – \$\{r\.grund\}`\);/, "ungültig → kein Start");
-  // KI-Antworten funkt der Knoten über Reticulum erst ab B-32d3 zurück – bis dahin wählt die App ihn dafür nicht
+  // Das Angebot nennt nur das Gateway für Meshtastic und die Brücke – über Reticulum fragt nur, wer den Knoten als
+  // Gegenstelle kennt (B-32d3b); ein Meshtastic-Gerät erreichte ihn nicht
   assert.match(main, /funkGateway: funkGateway !== undefined,/);
   const gw = lies("src/gateway-role.ts");
   assert.match(gw, /await this\.annahme\.nimm\(JSON\.parse\(new TextDecoder\(\)\.decode\(st\.payload\)\) as NostrEvent, now\);/, "Meshtastic und Reticulum nehmen gleich an");

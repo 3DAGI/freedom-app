@@ -530,6 +530,9 @@ Bereichs unten anhängen.
   Firmware) – kein `rnsd`, kein `@reticulum/node`. Der Kern nur über `starteReticulum()` aus dem Protokoll mit eigenem
   `Sendezeitkonto`; die Identität nur über `identitaetsSpeicher()` (`~/.freedom/reticulum-identitaet`, 0600, „wx“ – eine
   kaputte nie ersetzen). Umschläge nimmt nur `UmschlagAnnahme` an (dieselbe wie `GatewayRolle`) – keine zweite Annahme
-  daneben. Antworten zurück über Reticulum erst ab B-32d3: bis dahin nennt das Angebot kein Funk-Gateway dafür
-  (`funkGateway` bleibt `GatewayRolle`). Die Bibliothek protokolliert selbst ab „error“ – im Test schreiben Links nach dem
-  Stoppen noch ein paar Sekunden Fehler; der Test endet trotzdem.
+  daneben. Zurück (seit B-32d3a) nur über `ReticulumRueckweg`: Post nur aus `postZurueck()` (dieselbe wie `GatewayRolle`,
+  `GatewayBuch` zählt) und nur an die LXMF-Adresse, die die Weiterleitung brachte (`von` aus `starteReticulum()`); ohne
+  Adresse nichts, Fehler nur mit Kennung (`sendezeit`) ins Log, ein Takt nie zweimal zugleich. Das Angebot nennt weiter
+  kein Funk-Gateway dafür (`funkGateway` bleibt `GatewayRolle`) – ein Meshtastic-Gerät erreichte den Knoten so nicht. Die
+  Bibliothek protokolliert selbst ab „error“ – im Test schreiben Links nach dem Stoppen noch ein paar Sekunden Fehler; der
+  Test endet trotzdem.

@@ -897,7 +897,8 @@ async function main(): Promise<void> {
   // ein Meshtastic-Gerät mit WLAN direkt. Reicht versiegelte KI-Aufträge aus dem
   // Funk ins Netz und funkt die Antworten gemerkter Sitzungen in der Sendezeit zurück.
   // Seit B-32d2 FUNK_GATEWAY=rnode:host:port mit RETICULUM_REGION – eine RNode über
-  // eine TCP-Brücke, Reticulum im Knoten; Umschläge ins Netz, zurück erst ab B-32d3.
+  // eine TCP-Brücke, Reticulum im Knoten; Umschläge ins Netz, seit B-32d3a Antworten
+  // gemerkter Sitzungen zurück an die LXMF-Adresse ihrer Weiterleitung.
   let funkGateway: import("./gateway-role.js").GatewayRolle | undefined;
   if (process.env.FUNK_GATEWAY?.startsWith("rnode:")) {
     const { UmschlagAnnahme } = await import("./gateway-role.js");
@@ -910,10 +911,10 @@ async function main(): Promise<void> {
       const log = (z: string) => console.log(z);
       const annahme = new UmschlagAnnahme({ gateway: new LocalSigner(keypair.sk), netz: pool, log });
       try {
-        const funk = await starteReticulumGateway({ einstellung: r.einstellung, annahme, datei: reticulumIdentitaetDatei(), log });
+        const gw = await starteReticulumGateway({ einstellung: r.einstellung, annahme, datei: reticulumIdentitaetDatei(), gatewayPk: keypair.pk, log });
         statusRollen.add("gateway");
         // Die Adresse ist nicht geheim – sie steht in jeder Antwort im Funk; die App braucht sie als Gegenstelle
-        console.log(`[funk] Gateway an (RNode über TCP, Reticulum, ${r.einstellung.region}) – LXMF-Adresse ${toHex(funk.adresse)}`);
+        console.log(`[funk] Gateway an (RNode über TCP, Reticulum, ${r.einstellung.region}) – LXMF-Adresse ${toHex(gw.funk.adresse)}`);
       } catch (e) {
         console.error(`[funk] Reticulum aus – ${(e as Error).name}${(e as { fall?: string }).fall ? ` (${(e as { fall?: string }).fall})` : ""}`);
       }
