@@ -988,3 +988,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Eigene Funkwerte (seit B-32b4) nur über den zweiten Dialog in `waehleFunkRegion()`: gelesen über `leseFunkEingabe()`,
   angenommen nur nach `pruefeFunkParameter()` für die gewählte Region (der Dialog bleibt offen, `funkFallText()` je
   `FUNK_FAELLE`), erst danach der Port. Ein neuer Fall in `pruefeFunkParameter()` braucht Kennung und Text.
+- **Text aus Sprache nur über `sprache-text-ui.ts`** (seit B-38c1, SP-W1 A, SP-W5 A): den Ton nur über `alsSpracheWav()`
+  (`ton-wandeln.ts`) – nie die Datei, wie sie ist, an den Knoten; der Knoten nimmt nur die Form aus `baueWav()`. Gefragt wird
+  nur ein gekoppelter Knoten, dessen Status `sprache` nennt; Ton und Auftrag nur über `wegZumKnoten()`, die Stücke nur unter
+  dem Sitzungsschlüssel (`uploadAnhang(…, weg, sitzung)`), nie unter `state.signer`. Ton nur aus der Nachricht selbst
+  (`data:`) oder entschlüsselt aus dem Blob-Netz – nie von einer Adresse im Netz. Der Text nur als `textContent`, nie
+  gespeichert; Kennungen des Knotens nur über `SPRACHE_FALL_TEXT` (je `SPRACHE_FAELLE` ein Satz). Nie `SpeechRecognition`.
