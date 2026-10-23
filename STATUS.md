@@ -13110,3 +13110,27 @@ Neustart, danach ohne wieder abgelehnt – mit echtem bubblewrap; `modell-whispe
 Datei, andere Quellen); die Verdrahtung prüft Aufruf und Rolle.
 
 Knoten-Stand: **neu nötig**, wenn Whisper das geprüfte Modell nehmen soll; mit `WHISPER_MODELL` wie bisher.
+
+## Schritt B-38c1 – Text aus Sprache: „Als Text“ an Sprachnachrichten über den eigenen Knoten
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, SP-W5 A), auf B-38b. B-38c ist geteilt: c1 „Als Text“, c2 Diktieren im
+Agenten, c3 „Dieses Gerät“.
+
+- **`ton-wandeln.ts`** (ohne DOM): `browserDekoder()` dekodiert mit `decodeAudioData` eines Offline-Kontexts bei 16 kHz;
+  `alsSpracheWav()` mischt auf mono, wandelt in 16 Bit und baut `baueWav()` – bis 121 s (auf 120 s geschnitten), länger
+  `ton-lang`, unlesbar `ton-unlesbar`, leer `ton-leer`.
+- **`shell/sprache-text-ui.ts`:** `mitAlsText()` – Knopf „Als Text“ unter dem Abspieler, nur gekoppelt. Beim Klick: wandeln,
+  Status (Rolle `sprache`, für die Sitzung gemerkt), Ton über `wegZumKnoten()` ins Blob-Netz unter dem Sitzungsschlüssel,
+  5083 versiegelt (`sprache: auto`), Antwort über `leseTranskript()` als `textContent`; Kennungen mit eigenen Sätzen.
+- **Chat** (`chat-anhaenge.ts`): an Sprachnachrichten aus der Nachricht (`data:`) und an entschlüsselten aus dem Blob-Netz –
+  nie an Ton von einer Adresse im Netz. Texte de/en, CSS.
+- **Smoke-Test „als_text“** mit `scripts/sprache-probe.mts` (Knoten-Attrappe: Status, Ton holen wie der Knoten,
+  `pruefeWav()`, Tonhöhe): ohne Rolle kein Ton hinaus; mit Rolle 440 Hz – der Browser wandelt richtig.
+- **Docs:** Entwurf („Stand B-38c1“, Aufteilung), `PROTOCOL.md` §43 „In der App“, Fallstrick in `packages/app/CLAUDE.md`,
+  OFFEN, FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** app +6 (`ton-wandeln.test.ts`: mischen und wandeln, WAV besteht `pruefeWav()`, Schnitt an der Grenze, zu lang,
+leer, fremde Rate, unlesbar, Dekoder mit Kopie bei 16 kHz, Verdrahtung und Reihenfolge, Texte je Kennung in beiden Sprachen);
+Smoke-Teil „als_text“.
+
+Knoten-Stand: B-38b3b3 (Rolle `sprache` nur mit Modell); ein älterer Knoten nennt die Rolle nicht – dann fragt die App nicht.
