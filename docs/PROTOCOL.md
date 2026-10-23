@@ -1736,6 +1736,13 @@ deshalb signiert Freedom keine Ankündigung ab 100 Byte, und über gepackte Nutz
 
 **Peer-ID:** die ersten 8 Byte von SHA-256 über den statischen Noise-Schlüssel – fest je Identität (BC-W4 A, Grenze im Bericht).
 
-Ankündigung (Typ 0x01) und Fragmente (Typ 0x20) beschreibt dieser Abschnitt mit B-36a2.
+**Ankündigung** (Typ 0x01, TLV mit 1 Byte Typ und 1 Byte Länge, seit B-36a2): 0x01 Name (UTF-8), 0x02 Noise-Schlüssel
+(32), 0x03 Signierschlüssel (32); gelesen auch 0x05 Fähigkeiten (Little Endian) und 0x04 Nachbarn (je 8 Byte). Freedom sendet
+nur die ersten drei (BC-W3 A: kein Merkmal „Freedom“) und bleibt so unter 100 Byte; unbekannte Typen werden übersprungen.
+
+**Fragmente** (Typ 0x20, ohne Signatur, gleicher Absender, Empfänger, Zeit und TTL): Nutzlast = 8 Byte Kennung, Index und
+Gesamtzahl (UInt16), ursprünglicher Typ, Daten. Zerlegt wird das ungepolsterte Paket, wenn es größer als 512 Byte ist, in
+höchstens 256 Teile. Zusammengesetzt (`BitchatZusammensetzer`) je Absender und Kennung, mit den Grenzen von bitchat-android:
+64 offene Sätze, je Satz 1 MiB, insgesamt 4 MiB, 30 s; das Ganze kommt mit TTL 0 heraus – weitergereicht werden die Fragmente.
 
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt.

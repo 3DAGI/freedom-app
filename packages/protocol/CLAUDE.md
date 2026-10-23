@@ -215,3 +215,6 @@ Fallstricke dieses Bereichs unten anhängen.
   100 Byte selbst – eine gepackte Fassung sähe anders aus als unsere, die Signatur gälte nicht. Eine Ankündigung ab 100 Byte
   signiert `signiereBitchat()` darum nie (ohne Nachbarn und Fähigkeiten bleibt sie darunter), über gepackte Nutzlast prüft
   `pruefeBitchatSignatur()` nie. Signiert wird mit TTL 0 und aufgefüllt (`bitchatSignierDaten()`), wie `toBinaryDataForSigning()`.
+  Fragmente (seit B-36a2) höchstens 256 je Paket – mehr nimmt bitchat-android nicht an (das Format erlaubte 65 535);
+  zusammengesetzt nur über `BitchatZusammensetzer` (Grenzen aus `BITCHAT_ZUSAMMENSETZEN`), das Ganze mit TTL 0: Weitergereicht
+  werden die Fragmente, nie das zusammengesetzte Paket.
