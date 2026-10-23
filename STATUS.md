@@ -13348,3 +13348,22 @@ TCP-Brücke (`socat`/`ser2net`, wie 7.4b2) selbst steuern.
 - Entwurf, OFFEN (1.6, Zeile B-32), FORTSCHRITT, Sammlung, Stand-Zeile.
 
 **Tests:** keine (nur Doku); alle Prüfungen gelaufen.
+
+## Schritt B-42 – CI: Pakete zwischenspeichern
+
+Spur B, auf Wunsch des MENSCHEN (23.10.2026: „Pakete zwischenspeichern, sonst dauert jede PR ewig“). Der Ubuntu-Spiegel des
+Runners lieferte nur 35 kB/s. In „Tests und Typpruefung“ brauchte `apt-get install … gstreamer…` 20 min 39 s (#589, #590 –
+der Job riss seine Grenze von 25 min), in „Browser-Test (Smoke)“ der Schritt mit Playwright und Chromium 9 min 37 s.
+
+- **apt über einen Zwischenspeicher:** In beiden Jobs zeigt `/etc/apt/apt.conf.d/99-freedom-zwischenspeicher` die Pakete nach
+  `/var/cache/freedom-apt`; `actions/cache` hebt den Ordner auf (Schlüssel je Job, Bild des Runners und Fassung von `ci.yml`,
+  sonst der neueste des Jobs). Geladen wird nur, was dort fehlt. Vor dem Speichern fällt `lock` (0640, root) weg.
+- **Smoke:** Chromium von Playwright im Cache (Schlüssel mit der festen Version 1.56.0). Die Systempakete holt der Job ohne
+  `apt-get update` über denselben Zwischenspeicher – die Liste aus `playwright install-deps --dry-run`; nur wenn die Listen
+  des Bildes ein Paket nicht mehr finden, doch mit `update`.
+- Lokal geprüft: `apt-get` mit eigenem Archiv-Ordner lädt beim zweiten Lauf nichts („Need to get 0 B“), legt `partial` selbst
+  an; die Paketliste aus dem Probelauf von Playwright 1.56.0 (33 Pakete).
+- Fallstrick in `scripts/CLAUDE.md`, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** keine neuen (nur `ci.yml`); alle Prüfungen gelaufen. Wirksam erst, wenn `main` einmal mit dem Cache gelaufen ist –
+ein PR liest nur Caches seines Basis-Branches.
