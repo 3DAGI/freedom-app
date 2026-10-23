@@ -1694,3 +1694,23 @@ die Stücke des Tons signiert der Sitzungsschlüssel des Auftrags, nie die Ident
 Kontakten und beim Diktieren (seit B-38c2) die Sprache der App. Ist ein whisper-server auf diesem Rechner geprüft (seit B-38c3),
 geht dieselbe WAV-Datei nur an ihn (`POST /inference`) – dann gibt es keinen Auftrag 5083.
 
+
+## 44. Reticulum-Adresse für Kontakte (Kind 38082, seit B-32c1)
+
+Entscheidung RN-W2 A (`docs/RETICULUM-ENTWURF.md`, V4): Wer jemandem über Reticulum schreiben will, braucht dessen
+LXMF-Adresse (§40). Die App gibt die eigene nur Kontakten und nur versiegelt – nie offen im Profil, sonst verbände jeder den
+Nostr-Schlüssel mit einer Funk-Adresse. Persönlich per QR-Code (W2 B) geht es weiter im Adressen-Dialog.
+
+**Kern** (im Umschlag, NIP-59, je Kontakt einer; `baueFunkAdresseUmschlaege()`): Autor ist die Person, Inhalt leer, genau ein Tag.
+
+```json
+{ "kind": 38082, "pubkey": "<Person>", "content": "", "tags": [["lxmf", "<32 Zeichen Hex, Kleinbuchstaben>"]] }
+```
+
+**Lesen** nur über `oeffneFunkAdresseUmschlag()`: der Kern vom Siegel-Autor, der ein Kontakt ist, Kind 38082, leerer Inhalt,
+genau dieses eine Tag – sonst nichts. Je Kontakt gilt die neueste (`created_at`); eine gleich alte ersetzt nichts.
+
+**In der App:** nur mit Zustimmung (`freedom.reticulum.teilen`, in `geheim`) und als Person, nie als Gerät. Im Abruftakt je Schlag
+höchstens ein Umschlag an den Posteingang eines Kontakts (`FunkAdressVersand`); jeder bekommt die Adresse einmal, neue Kontakte
+später auch, nach einer neuen Identität alle neu. Gemerkt in `geheim`: an wen sie ging (`freedom.reticulum.verteilt`) und die
+Adressen der Kontakte (`freedom.reticulum.kontakte`, höchstens 200). Wer sie hat, behält sie, auch wenn man abschaltet.
