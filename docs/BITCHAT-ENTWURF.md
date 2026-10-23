@@ -139,8 +139,10 @@ Identität je Gerät mit Grenze im Bericht.
   vorher, was nicht in die Grenze der Verbindung passt (MTU − 3; `fragmentChunkSize(forLinkLimit:)`); bitchat-android liest
   jeden Wert für sich. `zerlegeBitchat()` nimmt dafür eine Grenze und zerlegt Noise-Pakete gepolstert. Die Hülle setzt keine
   Stücke zusammen und verteilt kein Paket auf zwei Werte.
-- **Damit sind die Bausteine im Protokoll fertig** (a1–a4). Weiter: b – Bluetooth in Kotlin in der Hülle (Central und
-  Peripheral, Dienst und Merkmal von Bitchat), c – App, d – Probe (MENSCH).
+- **Damit sind die Bausteine im Protokoll fertig** (a1–a4). Weiter: b – Bluetooth in Kotlin in der Hülle, geteilt, weil die
+  Klasse allein über 400 Zeilen hätte: b1 Peripheral (Dienst und Merkmal von Bitchat anbieten, Schreiben annehmen, melden),
+  b2 Central (suchen mit Pausen, verbinden, Meldungen abonnieren, schreiben), b3 Brücke Rust ↔ App (JNI, Kommandos der
+  Hülle); c – App, d – Probe (MENSCH).
 
 ## Quellen
 
