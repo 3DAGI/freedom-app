@@ -99,7 +99,7 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b3b | Modell geprüft laden: über ein Manifest (38057) wie andere Modelle (`npm run modell`), Vorgabe nach SP-W4 | ~500 – geteilt in b3b1–b3b3 |
 | B-38b3b1 ✓ | Protokoll: Konvention `whisper:<name>` mit genau einer Datei `ggml-<name>.bin` aus `ggerganov/whisper.cpp` am Commit (`whisperQuelle()`), Stand von Hugging Face (`whisperStand()`), Adresse, Kennung `ggml` (`istGgml()`), Vorgabe | ~200 |
 | B-38b3b2 ✓ | Knoten: `npm run modell -- --whisper [name] [--aus-hf]`, Laden und Prüfen im `ModellDienst` (nie im Angebot für KI), Selbstprüfung | ~300 |
-| B-38b3b3 | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
+| B-38b3b3 ✓ | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
@@ -192,6 +192,15 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
   sagt `modell.whisper` bzw. `modell.whisperVeraendert` – im Status an den Besitzer und in `npm run pruefen`.
 - **Nie im Angebot für KI** (`imAngebot()` lässt Whisper aus).
 - **Noch offen (B-38b3b3):** Whisper nimmt das geprüfte Modell von selbst; bis dahin zeigt `WHISPER_MODELL` darauf.
+
+## Stand B-38b3b3 (22.10.2026)
+
+- **Modell je Auftrag:** Ohne `WHISPER_MODELL` fragt `Whisper` vor jedem Auftrag `gepruefterWhisper()` – das zuletzt geprüfte
+  Whisper-Modell, dessen Datei unverändert ist (`dateiAbdruck()`). Ein neu geprüftes Modell gilt ohne Neustart; eine
+  veränderte Datei gilt nicht mehr (Ablehnung `sprache-whisper`, bevor die Sandbox startet). `WHISPER_MODELL` geht vor.
+- **Rolle:** Der Status nennt `sprache` nur, wenn es ein Modell gibt (`Whisper.bereit()`) – die App fragt erst dann (§43).
+- **Docker:** `docker-compose.sprache.yml` setzt keinen Pfad mehr; das Modell kommt über `npm run modell -- --whisper`.
+- **B-38b fertig.** Als Nächstes B-38c (App: „Als Text“, Diktieren).
 
 ## Quellen
 

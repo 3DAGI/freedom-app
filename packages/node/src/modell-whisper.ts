@@ -18,7 +18,7 @@ import {
   whisperDatei, whisperDateiAdresse, whisperKennung, whisperQuelle, whisperStand, WHISPER_HF,
 } from "@freedomstack/protocol";
 import { holeStandJson, ladeGepruefteDatei } from "./modell-hf.js";
-import type { LadeErgebnis, LaderHilfen, Schritt } from "./modell-laden.js";
+import type { LadeErgebnis, LaderHilfen, ModellStand, Schritt } from "./modell-laden.js";
 
 type Holen = (url: string, init: RequestInit) => Promise<Response>;
 const fehler = (name: string): Error => Object.assign(new Error(name), { name });
@@ -134,4 +134,13 @@ export async function ladeWhisperModell(
       quelle: "whisper", datei, abdruck,
     },
   };
+}
+
+/**
+ * Das Modell für Text aus Sprache (B-38b3b3): das zuletzt geprüfte Whisper-Modell, dessen Datei unverändert ist – je
+ * Auftrag neu gefragt; sonst null (dann nennt der Status die Rolle `sprache` nicht).
+ */
+export function gepruefterWhisper(stand: ModellStand, abdruck: (datei: string) => string | null = dateiAbdruck): string | null {
+  const m = stand.modelle.filter((x) => x.quelle === "whisper" && !!x.datei && abdruck(x.datei) === x.abdruck).sort((a, b) => b.geprueft - a.geprueft)[0];
+  return m?.datei ?? null;
 }

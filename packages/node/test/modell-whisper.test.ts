@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildModelManifest, generateKeypair, signEvent, type ModelFile, type NostrEvent } from "@freedomstack/protocol";
 import { type LaderHilfen, ModellDienst, leseStand, leseWuensche, merkeWunsch, quellName } from "../src/modell-laden.js";
-import { dateiAbdruck, holeWhisperStand, ladeWhisperDatei, ladeWhisperModell } from "../src/modell-whisper.js";
+import { dateiAbdruck, gepruefterWhisper, holeWhisperStand, ladeWhisperDatei, ladeWhisperModell } from "../src/modell-whisper.js";
 import { pruefeModelle } from "../src/modell-pruefung.js";
 
 const COMMIT = "c".repeat(40);
@@ -209,4 +209,20 @@ test("Wünsche und Stand: whisper:<name> mit Vorsatz, ohne Whisper-Weg bleibt de
     ergebnisse: [],
   }));
   assert.deepEqual(leseStand(dateien.stand).modelle.map((m) => m.name), ["whisper:base"]);
+});
+
+test("B-38b3b3: das geprüfte Modell für Whisper – das zuletzt geprüfte mit unveränderter Datei, sonst keins", () => {
+  const m = (name: string, geprueft: number, abdruck: string, quelle?: "whisper" | "hf") => ({
+    name, manifest: "m", herausgeber: KNOTEN.pk, dateien: 1, bytes: 1, ollama: "", geprueft, abdruck,
+    ...(quelle === "hf" ? { quelle, ordner: `/m/${name}` } : quelle ? { quelle, datei: `/w/${name}.bin` } : {}),
+  });
+  const abdrucke: Record<string, string> = { "/w/whisper:base.bin": "a", "/w/whisper:large-v3-turbo-q5_0.bin": "b", "/m/Qwen/Q": "c" };
+  const stand = (...modelle: ReturnType<typeof m>[]) => ({ modelle, ergebnisse: [] });
+  const nimm = (s: ReturnType<typeof stand>) => gepruefterWhisper(s, (d) => abdrucke[d] ?? null);
+  const base = m("whisper:base", T, "a", "whisper"), turbo = m("whisper:large-v3-turbo-q5_0", T + 5, "b", "whisper");
+  assert.equal(nimm(stand(base, turbo)), "/w/whisper:large-v3-turbo-q5_0.bin", "das zuletzt geprüfte");
+  assert.equal(nimm(stand(base, { ...turbo, abdruck: "verändert" })), "/w/whisper:base.bin", "eine veränderte Datei zählt nicht");
+  assert.equal(nimm(stand({ ...base, abdruck: "x" })), null);
+  assert.equal(nimm(stand(m("Qwen/Q", T + 9, "c", "hf"), m("qwen2.5:0.5b", T + 9, "c"))), null, "andere Modelle nie");
+  assert.equal(nimm(stand()), null);
 });
