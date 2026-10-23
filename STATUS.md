@@ -13225,6 +13225,28 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd: „Bilder | ComfyUI auf dem GX10“). 
 
 Knoten-Stand: `main` mit VKd2b2 und `COMFYUI_URL`, wenn der Agent Bilder machen soll; ohne bleibt alles wie bisher.
 
+## Schritt B-38c2 – Text aus Sprache: Diktieren im Agenten
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, SP-W5 A), auf B-38c1.
+
+- **`shell/diktieren-ui.ts`:** Mikrofon-Knopf neben „Senden“, nur gekoppelt und mit Mikrofon (beim Start und bei jedem
+  Wechsel zum Agenten geprüft). Dieselbe Aufnahme wie Sprachnachrichten (`SprachAufnahme` mit `browserUmgebung()`, jetzt
+  exportiert); nach dem Beenden schreibt der eigene Knoten den Text über `textAusSprache(…, getLang())`, die App hängt ihn ans
+  Eingabefeld an. Gesendet wird erst mit „Senden“; Stille fügt nichts ein.
+- **`sprache-text-ui.ts`:** `textAusSprache()` nimmt die Sprache (Nachrichten `auto`, Diktat die Sprache der App) und gibt den
+  Text roh zurück – „Kein gesprochenes Wort erkannt.“ setzt jetzt der Aufrufer.
+- **Oberfläche:** Knopf und Stand im Agenten (`index.html`, versteckt bis feststeht, dass es geht), vier Texte de/en, CSS.
+- **Smoke-Test „als_text“** um das Diktat erweitert: echte Aufnahme, nur der Auftrag geht hinaus (die Rolle ist gemerkt), im
+  Feld „Bitte: Probe: 440 Hz, Sprache de“, Mikrofon danach aus.
+- **Docs:** Entwurf („Stand B-38c2“), `PROTOCOL.md` §43, Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT,
+  Sammlung, Stand-Zeile.
+
+**Tests:** app +1 (`ton-wandeln.test.ts`: Diktieren nur gekoppelt, dieselbe Aufnahme, Sprache der App, angehängt statt
+ersetzt, nichts gesendet, Wechsel zum Agenten, versteckter Knopf, Texte in beiden Sprachen); die Verdrahtung von „Als Text“
+prüft jetzt auch `auto`.
+
+Knoten-Stand: wie B-38c1 – ein Knoten mit der Rolle `sprache`.
+
 ## Schritt VKj-Entwurf – Werkbank-Knoten
 
 Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W7 A: weitere eigene Rechner per QR für Programme ohne ARM64). Nur Doku – gebaut

@@ -1473,7 +1473,8 @@ def als_text_pruefen(browser, url: str) -> dict:
     Klick fragt den Status des Knotens – ohne die Rolle `sprache` geht kein Ton hinaus. Mit ihr wandelt der Browser die
     Aufnahme in WAV (16 kHz, mono), legt sie verschlüsselt unter einem Sitzungsschlüssel ins Blob-Netz und schickt den
     Auftrag versiegelt. Der Knoten ist `scripts/sprache-probe.mts`: Er misst die Tonhöhe der Mikrofon-Attrappe (440 Hz) –
-    stimmt sie, hat der Browser richtig gewandelt."""
+    stimmt sie, hat der Browser richtig gewandelt. Seit B-38c2 auch Diktieren im Agenten: Text in der Sprache der App ans
+    Eingabefeld angehängt, nichts gesendet, das Mikrofon danach aus."""
     erg = {"fehler": []}
     wurzel = Path(__file__).resolve().parent.parent
     probe = json.loads(subprocess.run(["npx", "tsx", "scripts/sprache-probe.mts"], cwd=wurzel, capture_output=True, text=True,
@@ -1539,6 +1540,19 @@ def als_text_pruefen(browser, url: str) -> dict:
                         "hinweis": ev("() => document.querySelector('#chat-thread .ton-text').classList.contains('ton-text-hinweis')"),
                         "umschlaege": len(an_knoten()) - vorher, "manifeste": sum(1 for e in blob() if e["kind"] == 38040),
                         "ein_autor": len(autoren) == 1, "nicht_ich": bool(relay.ich) and relay.ich not in autoren}
+    # Diktieren (B-38c2): im Agenten derselbe Weg – die Rolle ist für die Sitzung gemerkt, hinaus geht nur der Auftrag
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_selector("#ai-diktieren", state="visible", timeout=15000)
+    s.fill("#ai-prompt", "Bitte:")
+    n = len(an_knoten())
+    s.click("#ai-diktieren")
+    s.wait_for_function("() => /Diktat 0:02 von 2:00/.test(document.getElementById('ai-diktat-stand').textContent)", timeout=10000)
+    s.click("#ai-diktieren")
+    arten = antworte(n + 1, "sprache")
+    s.wait_for_function("() => document.getElementById('ai-prompt').value.startsWith('Bitte: Probe')", timeout=30000)
+    erg["diktat"] = {"antworten": arten, "feld": ev("() => document.getElementById('ai-prompt').value"), "umschlaege": len(an_knoten()) - n,
+                     "mikro_aus": ev("() => window.__mikro.spuren.every(t => t.readyState === 'ended')"),
+                     "knopf": ev("() => [document.getElementById('ai-diktieren').getAttribute('aria-pressed'), document.getElementById('ai-diktat-stand').hidden]")}
     if erg["knopf"] != ["data:audio/webm", "Als Text", ""]:
         erg["fehler"].append(f"Knopf {erg['knopf']}")
     o = erg["ohne_rolle"]
@@ -1548,6 +1562,10 @@ def als_text_pruefen(browser, url: str) -> dict:
     if not re.fullmatch(r"Probe: 4[34]\d Hz, Sprache auto", m["text"]) or m["hinweis"] or m["antworten"] != ["status", "sprache"] \
             or m["umschlaege"] != 3 or m["manifeste"] != 1 or not m["ein_autor"] or not m["nicht_ich"]:
         erg["fehler"].append(f"mit Rolle {m}")
+    d = erg["diktat"]
+    if d["antworten"] != ["sprache"] or d["umschlaege"] != 1 or not re.fullmatch(r"Bitte: Probe: 4[34]\d Hz, Sprache de", d["feld"]) \
+            or not d["mikro_aus"] or d["knopf"] != ["false", True]:
+        erg["fehler"].append(f"Diktat {d}")
     erg["browser_dialoge"] = seite.browser_dialoge
     if seite.browser_dialoge:
         erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")

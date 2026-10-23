@@ -82,6 +82,11 @@ export const agent: Texte = {
   "agent.vorlesenTitel": { de: "Antwort mit einer Stimme dieses Geräts vorlesen – Stimmen, die über das Netz sprechen, nimmt die App nicht", en: "Read the answer aloud with a voice on this device – the app never uses voices that speak over the network" },
   "agent.vorlesenKeineStimme": { de: "Keine Stimme auf diesem Gerät für diese Sprache. Stimmen, die über das Netz sprechen, nimmt die App nicht – im Betriebssystem eine Stimme installieren.", en: "No voice on this device for this language. The app never uses voices that speak over the network – install a voice in your operating system." },
   "agent.vorlesenCode": { de: "Code ausgelassen.", en: "Code skipped." },
+  // B-38c2: Diktieren – dein Knoten schreibt mit
+  "agent.diktieren": { de: "Diktieren – dein Knoten schreibt mit", en: "Dictate – your node transcribes" },
+  "agent.diktatBeenden": { de: "Diktat beenden", en: "Stop dictating" },
+  "agent.diktatLaeuft": { de: "● Diktat {zeit} von {grenze}", en: "● Dictating {zeit} of {grenze}" },
+  "agent.diktatLeer": { de: "Die Aufnahme ist leer – nichts eingefügt.", en: "The recording is empty – nothing inserted." },
   "agent.unterhaltung": { de: "Unterhaltung", en: "Conversation" },
   "agent.kopierenAlle": { de: "Ganze Unterhaltung kopieren", en: "Copy whole conversation" },
   "agent.modellWaehlen": { de: "Modell wählen", en: "Choose model" },

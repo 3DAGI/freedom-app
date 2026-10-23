@@ -994,3 +994,5 @@ Fallstricke dieses Bereichs unten anhängen.
   dem Sitzungsschlüssel (`uploadAnhang(…, weg, sitzung)`), nie unter `state.signer`. Ton nur aus der Nachricht selbst
   (`data:`) oder entschlüsselt aus dem Blob-Netz – nie von einer Adresse im Netz. Der Text nur als `textContent`, nie
   gespeichert; Kennungen des Knotens nur über `SPRACHE_FALL_TEXT` (je `SPRACHE_FAELLE` ein Satz). Nie `SpeechRecognition`.
+  Diktieren (seit B-38c2, `diktieren-ui.ts`) nur über dieselbe Aufnahme (`SprachAufnahme` mit `browserUmgebung()`) und
+  `textAusSprache(…, getLang())`; der Text kommt nur ins Eingabefeld, nie gesendet – das bleibt „Senden“.
