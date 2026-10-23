@@ -251,17 +251,18 @@ export async function pruefeSandbox(bwrap = "bwrap"): Promise<SandboxPruefung> {
 /**
  * Der Motor eines Code-Laufs (VKc2) in der Sandbox – die einzige `MotorStart`, die
  * `main.ts` bauen darf (VK4). Der Projektordner ist `/arbeit`, `.git` nur lesbar;
- * `home(ordner)` nennt ein eigenes Home außerhalb des Repos (VKc3: `~/.hermes` je Projekt).
- * stderr des Motors geht nirgends hin – er kann Fremdtext tragen.
+ * `home(ordner)` nennt ein eigenes Home außerhalb des Repos (VKc3: `~/.hermes` je Projekt), `nurLesbar` darf je Projekt
+ * entstehen (VKd2b2: die Bilder des Projekts). stderr des Motors geht nirgends hin – er kann Fremdtext tragen.
  */
 export function sandboxMotor(befehl: readonly string[], o: {
-  home?: (ordner: string) => string; nurLesbar?: SandboxOrt["nurLesbar"]; gpu?: boolean; bwrap?: string;
+  home?: (ordner: string) => string; nurLesbar?: SandboxOrt["nurLesbar"] | ((ordner: string) => SandboxOrt["nurLesbar"]); gpu?: boolean; bwrap?: string;
 } = {}): MotorStart {
   if (befehl.length === 0 || befehl.some((t) => t === "")) throw new Error("Motor-Befehl leer");
   return (ordner) => {
     const etc = eigenesEtc();
+    const nurLesbar = typeof o.nurLesbar === "function" ? o.nurLesbar(ordner) : o.nurLesbar;
     const ort: SandboxOrt = {
-      arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(o.nurLesbar ? { nurLesbar: o.nurLesbar } : {}),
+      arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(nurLesbar ? { nurLesbar } : {}),
       ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}),
     };
     const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {

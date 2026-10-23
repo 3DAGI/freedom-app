@@ -13198,6 +13198,33 @@ Projekt ein Werkzeug arbeitet.
 
 Knoten-Stand: `main` mit VKd2b1 – ohne Update bleiben die Lese-Freigaben für alle Projekte gemeinsam.
 
+## Schritt VKd2b2 – Bilder für den Motor
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd: „Bilder | ComfyUI auf dem GX10“). Zweiter Teil von VKd2b, auf VKd2b1.
+
+**Neu:**
+- **Knoten (`bilder-motor.ts`):** Mit `COMFYUI_URL` (nur dieser Rechner oder das Heimnetz, `lokaleAntriebAdresse()`; sonst kein
+  Start) bekommt Hermes über Freedom-MCP `generate_image`. Der Knoten fragt die ComfyUI (SDXL, `COMFYUI_CHECKPOINT`), liest das
+  Bild höchstens bis 20 MB – gleich, was die Kopfzeilen sagen –, nimmt nur PNG und legt es unter neuem Namen in
+  `~/.freedom/bilder/<projekt>` (0700, Datei 0600); je Projekt die letzten 50.
+- **Sandbox:** Der Ordner des Projekts kommt nur lesbar unter `/freedom/bilder` hinein (`hermesMotor({ bilder })`,
+  `sandboxMotor()` nimmt `nurLesbar` jetzt auch je Projekt); ins Projekt kopiert der Agent das Bild selbst. Der Knoten schreibt
+  nie in den Ordner des Projekts.
+- **Freedom-MCP:** `generate_image` nur, wenn der Knoten Bilder hat; das Zeichen nennt jetzt auch sein Projekt
+  (`McpProjekte.zu()`), damit das Bild ins richtige Projekt geht. Das Werkzeug läuft nicht über die `ToolRegistry`.
+- **Doku:** `PROVIDER.md`, Entwurf, Fallstrick in `packages/node/CLAUDE.md`, OFFEN, FORTSCHRITT, Stand.
+
+**Tests (`test/bilder-motor.test.ts`, +5; ComfyUI als Attrappe mit derselben API):**
+- Umgebung: ohne Adresse aus, nur Heimnetz, Checkpoint ohne `..`, Ordner neben den Projekten.
+- Ein Bild: Prompt kommt an, PNG unter neuem Namen, Rechte, Pfad wie in der Sandbox; kein PNG, zu groß (gestückelt, ohne
+  Länge), ComfyUI fort, Prompt zu lang – nichts gespeichert.
+- Höchstens 50 je Projekt, die ältesten fallen heraus, fremde Dateien bleiben.
+- Freedom-MCP: das Werkzeug nur mit Bildern, Prompt an das Projekt, nie über die `ToolRegistry`.
+- Der Motor bindet nur den Ordner seines Projekts ein, nur lesbar, angelegt vor dem Start; ohne Bilder nichts; Verdrahtung.
+- **Gegenproben** – je mindestens ein Test rot: siehe Pull Request.
+
+Knoten-Stand: `main` mit VKd2b2 und `COMFYUI_URL`, wenn der Agent Bilder machen soll; ohne bleibt alles wie bisher.
+
 ## Schritt B-38c2 – Text aus Sprache: Diktieren im Agenten
 
 Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, SP-W5 A), auf B-38c1.

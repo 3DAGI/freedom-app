@@ -5,7 +5,8 @@
  * `tools/list`, `tools/call`; Benachrichtigungen bekommen 202, ein Strom vom Server (GET) gibt es nicht.
  *
  * Ausgeführt wird nur über die `ToolRegistry` (Grenzen aus `WERKZEUG_GRENZEN`, Netz nur über `safeFetch`): heute Websuche und
- * Seite lesen. Bilder und Sprache kommen dazu, wenn der Knoten sie hat; Kiwix bekommt der Motor seit VKd2a als eigenen
+ * Seite lesen, seit VKd2b2 Bilder (`generate_image`, wenn der Knoten eine ComfyUI hat – nicht über die `ToolRegistry`, das Bild
+ * gehört ins Projekt); Sprache kommt dazu, wenn der Knoten sie hat. Kiwix bekommt der Motor seit VKd2a als eigenen
  * Server aus dem Katalog (`mcp-katalog.ts`, in seiner Sandbox). Was durchfließt, ist Inhalt des eigenen Projekts: nie ins Log.
  *
  * Gefragt wird nie (VKd-W1, MENSCH 18.10.: „wie Claude und OpenAI“). Lesen darf der Motor nur Adressen, die im Auftrag
@@ -32,6 +33,13 @@ const WERKZEUGE: readonly Werkzeug[] = [
   { name: "web_search", description: "Search the web through the owner's Freedom node (DuckDuckGo instant answers only, no result lists). Returns a short answer with its source.", feld: "query", kind: KIND_DVM_WEB_SEARCH },
   { name: "read_page", description: "Fetch a public web page through the owner's Freedom node and return its text (http or https, no private addresses, text only, size-limited). Only URLs that appear in the task or in web_search results can be read – not links found inside pages.", feld: "url", kind: KIND_DVM_BROWSER },
 ];
+
+/** Bilder (VKd2b2) – nur, wenn der Knoten eine ComfyUI hat (`bilder-motor.ts`); das Ergebnis liegt im Ordner des Projekts. */
+const BILD_WERKZEUG = {
+  name: "generate_image",
+  description: "Generate an image (PNG) from a text prompt on the owner's Freedom node (ComfyUI on the owner's own machine – the prompt does not leave the home network). The image is saved read-only under /freedom/bilder; copy it into the project to use it.",
+  feld: "prompt",
+} as const;
 
 /** Höchstens so viele freigegebene Adressen – die ältesten fallen heraus. */
 export const LESE_FREIGABEN_MAX = 500;
@@ -96,7 +104,7 @@ export const MCP_ZEICHEN = /^[0-9a-f]{64}$/;
  */
 export class McpProjekte {
   private readonly zeichenJe = new Map<string, string>();
-  private readonly je = new Map<string, LeseFreigaben>();
+  private readonly je = new Map<string, { projekt: string; freigaben: LeseFreigaben }>();
 
   /** Das Zeichen des Projekts (Name wie in `ProjektAblage`) – beim ersten Mal neu gewürfelt. */
   zeichen(projekt: string): string {
@@ -104,18 +112,18 @@ export class McpProjekte {
     if (!z) {
       z = randomBytes(32).toString("hex");
       this.zeichenJe.set(projekt, z);
-      this.je.set(z, new LeseFreigaben());
+      this.je.set(z, { projekt, freigaben: new LeseFreigaben() });
     }
     return z;
   }
 
   /** Die Lese-Freigaben des Projekts – für die Adressen aus seinen Aufträgen. */
   freigaben(projekt: string): LeseFreigaben {
-    return this.je.get(this.zeichen(projekt))!;
+    return this.je.get(this.zeichen(projekt))!.freigaben;
   }
 
-  /** Die Lese-Freigaben zu einem Zeichen – undefined, wenn es kein Zeichen dieses Knotens ist. */
-  zu(zeichen: string): LeseFreigaben | undefined {
+  /** Projekt und Lese-Freigaben zu einem Zeichen – undefined, wenn es kein Zeichen dieses Knotens ist. */
+  zu(zeichen: string): { projekt: string; freigaben: LeseFreigaben } | undefined {
     return this.je.get(zeichen);
   }
 }
@@ -131,7 +139,11 @@ const istId = (id: unknown): boolean => typeof id === "string" || (typeof id ===
  * 2025-06-18 gibt es keine Stapel mehr. Wirft nie; Fehler der Werkzeuge stehen im Ergebnis (`isError`), nie mit Text von außen
  * im Log.
  */
-export async function mcpAntwort(nachricht: unknown, werkzeuge: Pick<ToolRegistry, "run">, freigaben: LeseFreigaben): Promise<object | null> {
+export async function mcpAntwort(
+  nachricht: unknown, werkzeuge: Pick<ToolRegistry, "run">, freigaben: LeseFreigaben,
+  /** Bilder für dieses Projekt (VKd2b2) – ohne kein `generate_image`. */
+  bild?: (prompt: string) => Promise<{ ok: boolean; output: string }>,
+): Promise<object | null> {
   if (typeof nachricht !== "object" || nachricht === null || Array.isArray(nachricht)) return fehler(null, -32600, "invalid request");
   const m = nachricht as JsonRpc;
   if (m.jsonrpc !== "2.0" || typeof m.method !== "string") return fehler(m.id, -32600, "invalid request");
@@ -148,12 +160,18 @@ export async function mcpAntwort(nachricht: unknown, werkzeuge: Pick<ToolRegistr
       return antwort(m.id, {});
     case "tools/list":
       return antwort(m.id, {
-        tools: WERKZEUGE.map((w) => ({
+        tools: [...WERKZEUGE, ...(bild ? [BILD_WERKZEUG] : [])].map((w) => ({
           name: w.name, description: w.description,
           inputSchema: { type: "object", properties: { [w.feld]: { type: "string", maxLength: WERKZEUG_GRENZEN.eingabeZeichen } }, required: [w.feld], additionalProperties: false },
         })),
       });
     case "tools/call": {
+      if (bild && p.name === BILD_WERKZEUG.name) {
+        const prompt = (p.arguments as Record<string, unknown> | null | undefined)?.prompt;
+        if (typeof prompt !== "string" || prompt.trim() === "") return fehler(m.id, -32602, "prompt missing");
+        const r = await bild(prompt).catch((e: unknown) => ({ ok: false, output: `error: ${(e as Error).name}` }));
+        return antwort(m.id, { content: [{ type: "text", text: r.output }], isError: !r.ok });
+      }
       const w = WERKZEUGE.find((x) => x.name === p.name);
       if (!w) return fehler(m.id, -32602, "unknown tool");
       const args = (typeof p.arguments === "object" && p.arguments !== null ? p.arguments : {}) as Record<string, unknown>;

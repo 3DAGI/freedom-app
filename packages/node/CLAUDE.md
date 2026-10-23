@@ -411,6 +411,12 @@ Bereichs unten anhängen.
   (32 Zufallsbyte, `McpProjekte.zeichen()`) steht nur in der `config.yaml` des Projekts (`hermesMotor({ mcpZeichen })`), nie
   `/mcp` allein, nie ein Zeichen für mehrere Projekte. Lese-Freigaben nur über `McpProjekte.freigaben(projekt)` bzw. `zu(zeichen)`
   – eine Freigabe aus dem Auftrag von A liest B nicht. Was später je Projekt schreibt (Bilder, VKd2b2), hängt am selben Zeichen.
+- **Bilder für den Motor nur über `bilder-motor.ts`** (seit VKd2b2): ComfyUI nur aus `bilderAusUmgebung()` (`COMFYUI_URL`
+  über `lokaleAntriebAdresse()`), das Bild nur über `erzeugeBild()` – gelesen bis zur Grenze, nie nach `content-length`,
+  nur PNG – in den Ordner des Projekts aus `bilderOrdner()` (neben den Projekten); in die Sandbox nur lesbar unter
+  `/freedom/bilder` (`hermesMotor({ bilder })`). Nie in den Ordner des Projekts schreiben: Dort legt der Agent fest, wohin
+  ein Pfad zeigt. Das Werkzeug läuft nicht über die `ToolRegistry` (es braucht das Projekt) – Grenzen aus `WERKZEUG_GRENZEN`
+  selbst anwenden. ComfyUI fragt alle 2 s nach – ein Test mit Attrappe dauert so lange.
 - **MCP-Server für das Modell nur über `mcp-client.ts`** (seit B-31a, MC1-Größe B): eigener Client ohne SDK – keine
   Abhängigkeit dafür einführen. Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`), gestartet nur über
   `starteMcpServer()` in `sandboxMotor()` – nie ein Server außerhalb der Sandbox, nie mit Netz. Eingebunden wird nur
