@@ -98,7 +98,7 @@ test("B-38c3: verdrahtet – dieses Gerät vor dem Knoten, Karte nur auf Klick, 
   assert.match(readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8"), /wireSpracheLokal\(\);/);
   for (const sprache of ["de", "en"] as const) {
     setLang(sprache);
-    for (const k of ["set.spracheLokalTitel", "set.spracheLokalText", "set.spracheLokalAdresse", "set.spracheLokalPruefen", "set.spracheLokalVergessen",
+    for (const k of ["set.spracheLokalTitel", "set.spracheLokalText", "set.spracheLokalAdresse", "set.spracheLokalPh", "set.spracheLokalPruefen", "set.spracheLokalVergessen",
       "set.spracheLokalFragt", "set.spracheLokalBereit", "set.spracheLokalLaedt", "set.spracheLokalNichtErreichbar", "set.spracheLokalFremd",
       "set.spracheLokalHttp", "set.spracheLokalVergessenOk"]) assert.notEqual(t(k), k, `${k} (${sprache})`);
   }

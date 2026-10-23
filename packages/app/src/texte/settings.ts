@@ -757,6 +757,7 @@ export const settings: Texte = {
   "set.spracheLokalTitel": { de: "Text aus Sprache auf diesem Gerät", en: "Speech to text on this device" },
   "set.spracheLokalText": { de: "Ein whisper-server auf diesem Rechner schreibt Sprachnachrichten und Diktate mit – der Ton verlässt das Gerät nicht. Die App fragt ihn erst, wenn du hier prüfst; ist er gemerkt, geht er vor deinem Knoten.", en: "A whisper-server on this computer transcribes voice messages and dictation – the audio never leaves the device. The app only contacts it once you check it here; once remembered, it comes before your node." },
   "set.spracheLokalAdresse": { de: "Adresse des whisper-server", en: "Address of the whisper-server" },
+  "set.spracheLokalPh": { de: "http://127.0.0.1:8080", en: "http://127.0.0.1:8080" },
   "set.spracheLokalPruefen": { de: "prüfen und merken", en: "check and remember" },
   "set.spracheLokalVergessen": { de: "vergessen", en: "forget" },
   "set.spracheLokalFragt": { de: "Frage den Server …", en: "Asking the server …" },
