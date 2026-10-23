@@ -996,3 +996,6 @@ Fallstricke dieses Bereichs unten anhängen.
   gespeichert; Kennungen des Knotens nur über `SPRACHE_FALL_TEXT` (je `SPRACHE_FAELLE` ein Satz). Nie `SpeechRecognition`.
   Diktieren (seit B-38c2, `diktieren-ui.ts`) nur über dieselbe Aufnahme (`SprachAufnahme` mit `browserUmgebung()`) und
   `textAusSprache(…, getLang())`; der Text kommt nur ins Eingabefeld, nie gesendet – das bleibt „Senden“.
+  „Dieses Gerät“ (seit B-38c3) nur über `sprache-lokal.ts`: Adressen nur aus `lokaleKiAdresse()`, gefragt erst auf Klick in
+  der Karte (`pruefeSprachServer()`), gemerkt nur nach „bereit“; ist einer gemerkt, geht der Ton nur dorthin, nie zusätzlich
+  zum Knoten. Nie `--convert` voraussetzen – der Server bekommt nur die WAV-Datei aus `alsSpracheWav()`.

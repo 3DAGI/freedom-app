@@ -753,4 +753,18 @@ export const settings: Texte = {
   "set.brueckeGrundParameter": { de: "Angaben nur als name=wert", en: "settings only as name=value" },
   "set.brueckeGrundArti": { de: "Tor kann die Zeile nicht lesen", en: "Tor can't read the line" },
   "set.brueckenFehlen": { de: "Die Programme für Brücken liegen dieser App nicht bei.", en: "The bridge programs aren't included with this app." },
+  // B-38c3: Text aus Sprache auf diesem Gerät (whisper-server)
+  "set.spracheLokalTitel": { de: "Text aus Sprache auf diesem Gerät", en: "Speech to text on this device" },
+  "set.spracheLokalText": { de: "Ein whisper-server auf diesem Rechner schreibt Sprachnachrichten und Diktate mit – der Ton verlässt das Gerät nicht. Die App fragt ihn erst, wenn du hier prüfst; ist er gemerkt, geht er vor deinem Knoten.", en: "A whisper-server on this computer transcribes voice messages and dictation – the audio never leaves the device. The app only contacts it once you check it here; once remembered, it comes before your node." },
+  "set.spracheLokalAdresse": { de: "Adresse des whisper-server", en: "Address of the whisper-server" },
+  "set.spracheLokalPh": { de: "http://127.0.0.1:8080", en: "http://127.0.0.1:8080" },
+  "set.spracheLokalPruefen": { de: "prüfen und merken", en: "check and remember" },
+  "set.spracheLokalVergessen": { de: "vergessen", en: "forget" },
+  "set.spracheLokalFragt": { de: "Frage den Server …", en: "Asking the server …" },
+  "set.spracheLokalBereit": { de: "Bereit – Sprachnachrichten und Diktate schreibt jetzt dieser Rechner mit ({adresse}).", en: "Ready – this computer now transcribes voice messages and dictation ({adresse})." },
+  "set.spracheLokalLaedt": { de: "Der Server lädt noch sein Modell – gleich noch einmal prüfen.", en: "The server is still loading its model – check again in a moment." },
+  "set.spracheLokalNichtErreichbar": { de: "Kein whisper-server unter {adresse} – läuft er (whisper-server --host 127.0.0.1 --port 8080)?", en: "No whisper-server at {adresse} – is it running (whisper-server --host 127.0.0.1 --port 8080)?" },
+  "set.spracheLokalFremd": { de: "Nur eine Adresse dieses Rechners (localhost, 127.0.0.1, [::1]) – der Ton geht nie an einen anderen.", en: "Only an address on this computer (localhost, 127.0.0.1, [::1]) – the audio never goes anywhere else." },
+  "set.spracheLokalHttp": { de: "Der whisper-server antwortet mit {status}.", en: "The whisper-server answers with {status}." },
+  "set.spracheLokalVergessenOk": { de: "Vergessen – Text aus Sprache wieder nur über deinen Knoten.", en: "Forgotten – speech to text only via your node again." },
 };

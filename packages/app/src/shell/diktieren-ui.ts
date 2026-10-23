@@ -1,6 +1,6 @@
 /**
  * Diktieren im Agenten (Sammlung B-38c2, SP-W1 A, SP-W5 A, `docs/SPRACHE-ENTWURF.md`): Mikrofon-Knopf neben „Senden“ –
- * nur gekoppelt mit einem eigenen Knoten. Erst der Klick fragt das Mikrofon an (dieselbe Aufnahme wie Sprachnachrichten,
+ * nur mit einem Weg für Text aus Sprache (seit B-38c3 auch ein Server auf diesem Rechner, sonst der eigene Knoten). Erst der Klick fragt das Mikrofon an (dieselbe Aufnahme wie Sprachnachrichten,
  * `SprachAufnahme`); beenden, die Grenze, eine Seite im Hintergrund – danach ist es aus. Den Text schreibt der eigene
  * Knoten (`textAusSprache()` in der Sprache der App), die App setzt ihn ins Eingabefeld; gesendet wird erst mit „Senden“.
  * Die Aufnahme bleibt nur im Speicher.
@@ -8,8 +8,7 @@
 import { getLang, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { SPRACH_GRENZEN, SprachAufnahme, type SprachErgebnis, dauerText } from "../sprachnachricht.js";
-import { meineKopplung } from "./mein-knoten.js";
-import { textAusSprache } from "./sprache-text-ui.js";
+import { textAusSprache, textAusSpracheMoeglich } from "./sprache-text-ui.js";
 import { browserUmgebung } from "./sprachnachricht-ui.js";
 import { toast } from "./ui.js";
 
@@ -20,10 +19,10 @@ let schreibt = false;
 const knopf = () => document.getElementById("ai-diktieren") as HTMLButtonElement | null;
 const stand = () => document.getElementById("ai-diktat-stand");
 
-/** Den Knopf nur zeigen, wenn es einen gekoppelten Knoten und ein Mikrofon gibt – beim Start und bei jedem Wechsel zum Agenten. */
+/** Den Knopf nur mit einem Weg (Server auf diesem Rechner, gekoppelter Knoten) und Mikrofon – beim Start und bei jedem Wechsel zum Agenten. */
 export function zeigeDiktieren(): void {
   const k = knopf();
-  if (k) k.hidden = !meineKopplung() || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined";
+  if (k) k.hidden = !textAusSpracheMoeglich() || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined";
 }
 
 export function wireDiktieren(): void {

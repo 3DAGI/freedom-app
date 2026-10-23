@@ -1691,5 +1691,6 @@ Hugging Face am Commit des Manifests (eine andere Datei dort: nichts laden), und
 **In der App** (seit B-38c1): Die Sprachnachricht dekodiert der Browser bei 16 kHz (`decodeAudioData`), `alsSpracheWav()`
 mischt auf mono und baut `baueWav()` – länger als 121 s: keine Anfrage. Ton und Auftrag gehen über denselben Weg zum Knoten;
 die Stücke des Tons signiert der Sitzungsschlüssel des Auftrags, nie die Identität. `sprache` ist `auto` für Sprachnachrichten von
-Kontakten und beim Diktieren (seit B-38c2) die Sprache der App.
+Kontakten und beim Diktieren (seit B-38c2) die Sprache der App. Ist ein whisper-server auf diesem Rechner geprüft (seit B-38c3),
+geht dieselbe WAV-Datei nur an ihn (`POST /inference`) – dann gibt es keinen Auftrag 5083.
 

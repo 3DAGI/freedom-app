@@ -4,8 +4,8 @@
  * signiert mit einem frischen Sitzungsschlüssel, nie mit der eigenen Identität. Der Auftrag (5083) geht versiegelt mit
  * Nachweis nur an den gekoppelten Knoten (`baueSpracheAuftrag()`) und nur, wenn sein Status die Rolle `sprache` nennt –
  * ein älterer Knoten läse 5083 als gewöhnlichen Auftrag. Der Text erscheint nur als `textContent` unter dem Abspieler und
- * wird nirgends gespeichert. Diktieren im Agenten (B-38c2, `diktieren-ui.ts`) geht denselben Weg. „Dieses Gerät“ kommt mit
- * B-38c3.
+ * wird nirgends gespeichert. Diktieren im Agenten (B-38c2, `diktieren-ui.ts`) geht denselben Weg. Ist ein whisper-server
+ * auf diesem Rechner geprüft (B-38c3, `sprache-lokal.ts`), geht der Ton nur dorthin – nicht zum Knoten.
  */
 import {
   KIND_DVM_TEXT_AUS_SPRACHE, LocalSigner, SPRACHE_FAELLE, baueSpracheAuftrag, generateKeypair, leseTranskript, type Kopplung, type SpracheFall,
@@ -16,6 +16,7 @@ import { ablehnungsGrund } from "../knoten-halten.js";
 import { STATUS_TAKT_MS } from "../knoten-status-ansicht.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { type TonFall, alsSpracheWav, browserDekoder } from "../ton-wandeln.js";
+import { lokaleSprachAdresse, textAufDiesemGeraet } from "../sprache-lokal.js";
 import { frageKnotenStatus, powFuerKnoten } from "./knoten-status-ui.js";
 import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
@@ -47,18 +48,35 @@ async function grundGegenKnoten(k: Kopplung): Promise<string | null> {
   return null;
 }
 
+/** Gibt es einen Weg für Text aus Sprache – ein geprüfter Server auf diesem Rechner oder ein gekoppelter Knoten? */
+export function textAusSpracheMoeglich(): boolean {
+  return !!lokaleSprachAdresse(localStorage) || !!meineKopplung();
+}
+
 /**
- * Text zu einer Aufnahme vom eigenen Knoten – oder ein Satz, warum es keinen gibt. Der Text kann leer sein (Stille);
- * `sprache` ist `auto` für Nachrichten von Kontakten, beim Diktieren die Sprache der App.
+ * Text zu einer Aufnahme – vom Server auf diesem Rechner, sonst vom eigenen Knoten – oder ein Satz, warum es keinen gibt.
+ * Der Text kann leer sein (Stille); `sprache` ist `auto` für Nachrichten von Kontakten, beim Diktieren die Sprache der App.
  */
 export async function textAusSprache(bytes: Uint8Array, sprache: SpracheWahl = "auto"): Promise<{ text: string } | { grund: string }> {
+  const lokal = lokaleSprachAdresse(localStorage);
   const k = meineKopplung();
-  if (!k) return { grund: t("komm.alsTextOhneKnoten") };
+  if (!lokal && !k) return { grund: t("komm.alsTextOhneKnoten") };
   const dekoder = browserDekoder();
   if (!dekoder) return { grund: t("komm.alsTextUnlesbar") };
-  // Erst wandeln: was der Browser nicht lesen kann, fragt den Knoten gar nicht erst
+  // Erst wandeln: was der Browser nicht lesen kann, fragt weder Server noch Knoten
   const ton = await alsSpracheWav(bytes, dekoder);
   if (!ton.ok) return { grund: t(TON_TEXT[ton.fall]) };
+  // Dieses Gerät geht vor: der Ton verlässt den Rechner nicht (B-38c3)
+  if (lokal) {
+    try {
+      return { text: await textAufDiesemGeraet({ adresse: lokal, wav: ton.wav, sprache }) };
+    } catch (e) {
+      return { grund: fehlerText(e) };
+    } finally {
+      ton.wav.fill(0);
+    }
+  }
+  if (!k) return { grund: t("komm.alsTextOhneKnoten") };
   const nein = await grundGegenKnoten(k);
   if (nein) return { grund: nein };
   const powBits = await powFuerKnoten(k.knoten);
@@ -91,11 +109,11 @@ export async function textAusSprache(bytes: Uint8Array, sprache: SpracheWahl = "
 }
 
 /**
- * Den Abspieler einer Sprachnachricht um „Als Text“ ergänzen – nur gekoppelt mit einem eigenen Knoten, sonst bleibt er,
- * wie er ist. Gefragt wird erst beim Klick; die Bytes holt `bytes()` erst dann.
+ * Den Abspieler einer Sprachnachricht um „Als Text“ ergänzen – nur mit einem Weg dafür (Server auf diesem Rechner oder
+ * eigener Knoten), sonst bleibt er, wie er ist. Gefragt wird erst beim Klick; die Bytes holt `bytes()` erst dann.
  */
 export function mitAlsText(ton: HTMLElement, bytes: () => Promise<Uint8Array>): HTMLElement {
-  if (!meineKopplung()) return ton;
+  if (!textAusSpracheMoeglich()) return ton;
   const knopf = el("button", t("komm.alsText"), "ghost mini ton-als-text");
   knopf.type = "button";
   knopf.title = t("komm.alsTextTitel");
