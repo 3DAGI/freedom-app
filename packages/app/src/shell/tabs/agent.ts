@@ -612,15 +612,32 @@ async function frageUeberFunk(prompt: string, bid: number): Promise<void> {
   addAiMessage("user", prompt, "");
   ($("#ai-prompt") as HTMLTextAreaElement).value = "";
   try {
-    // Erst das Gerät prüfen – sonst wäre eine Gutschrift gemerkt, die nie hinausgeht
-    if (!funkGeraetVerbunden()) throw new EigeneMeldung(t("agent.funkKeinGeraet"));
     const { MeshKind, MeshPriority } = await import("@freedomstack/protocol");
     const { eventToMesh } = await import("../../mesh-radio.js");
-    await sendeKiUeberFunk(prompt, gebot, (w) => sendeUeberFunk(eventToMesh(w), MeshKind.NostrEvent, t("agent.funkLabel"), MeshPriority.Nachricht));
+    // Ohne Meshtastic mit RNode an den eigenen Knoten (B-32d3b) – als Besitzer gratis, an seine Adresse aus dem Status
+    const knoten = funkGeraetVerbunden() ? null : await kiFunkUeberKnoten();
+    // Erst das Gerät prüfen – sonst wäre eine Gutschrift gemerkt, die nie hinausgeht
+    if (!funkGeraetVerbunden() && !knoten) throw new EigeneMeldung(t("agent.funkKeinGeraet"));
+    if (knoten) {
+      const eigene = state.keypair ? [state.keypair.pk] : [];
+      await sendeKiUeberFunk(prompt, 0, (w) => knoten.senden(eventToMesh(w), MeshKind.NostrEvent, eigene), knoten);
+    } else {
+      await sendeKiUeberFunk(prompt, gebot, (w) => sendeUeberFunk(eventToMesh(w), MeshKind.NostrEvent, t("agent.funkLabel"), MeshPriority.Nachricht));
+    }
     addAiMessage("ai", t("agent.funkUnterwegs"), "");
   } catch (e) {
     addAiMessage("ai", fehlerText(e), "");
   }
+}
+
+/** Der eigene Knoten als Gateway über Reticulum – nur mit laufender RNode und bekannter Adresse (B-32d3b). */
+async function kiFunkUeberKnoten() {
+  const [{ funkKnotenGateway }, { rnodeLaeuft, sendeAnKnotenUeberReticulum }] = await Promise.all([
+    import("../ki-ueber-funk.js"), import("../rnode-ui.js"),
+  ]);
+  const k = funkKnotenGateway();
+  if (!k || !rnodeLaeuft()) return null;
+  return { ...k, senden: (payload: Uint8Array, kind: import("@freedomstack/protocol").MeshKind, eigene: string[]) => sendeAnKnotenUeberReticulum(k.lxmf, payload, kind, eigene) };
 }
 
 /**

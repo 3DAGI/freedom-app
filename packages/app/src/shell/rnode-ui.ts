@@ -174,6 +174,27 @@ export async function sendeUeberReticulum(payload: Uint8Array, kind: MeshKind, e
 }
 
 /**
+ * KI über Funk mit RNode (B-32d3b): ein Umschlag direkt an den eigenen Knoten – an die LXMF-Adresse aus seinem Status,
+ * nicht an die Gegenstelle. Nur mit laufender RNode, sonst false; scheitert es, sagt ein Text warum.
+ */
+export async function sendeAnKnotenUeberReticulum(lxmf: string, payload: Uint8Array, kind: MeshKind, eigeneSchluessel: readonly string[]): Promise<boolean> {
+  const funk = verbunden;
+  const an = leseLxmfAdresse(lxmf);
+  if (!funk || !an) return false;
+  toast(t("set.rnodeSendet"));
+  try {
+    await funk.sende(an, payload, kind, eigeneSchluessel);
+    return true;
+  } catch (e) {
+    toast(reticulumFehlerText(e), true);
+    return false;
+  }
+}
+
+/** Läuft Reticulum über eine RNode? */
+export const rnodeLaeuft = (): boolean => verbunden !== null;
+
+/**
  * Eine Direktnachricht über Reticulum (B-32c2, W3 A) – nur, wenn kein Relay sie nahm, und nur mit laufender RNode: erst
  * direkt an die Adresse des Kontakts (B-32c1), sonst an die Gegenstelle, die weiterreicht. false ohne Weg oder wenn
  * beide scheitern – dann bleibt es beim Fehler des Netzes. Nie die eigene Kopie (`pruefeMeshInhalt()` mit den eigenen Schlüsseln).

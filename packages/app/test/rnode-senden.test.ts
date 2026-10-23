@@ -48,13 +48,16 @@ test("B-32b3: jeder Fall hat einen eigenen Text in beiden Sprachen – nie die M
   setLang("en");
 });
 
-test("B-32b3: verdrahtet – ohne Meshtastic über Reticulum an die Gegenstelle, gemerkt nur in geheim, KI über Funk bleibt bei Meshtastic", () => {
+test("B-32b3: verdrahtet – ohne Meshtastic über Reticulum an die Gegenstelle, gemerkt nur in geheim, KI über Funk mit RNode nur an den eigenen Knoten (B-32d3b)", () => {
   const mesh = lies("src/shell/tabs/mesh.ts");
   assert.match(mesh, /if \(!meshNode \|\| !funkGeraetVerbunden\(\)\) \{\n[^\n]*\n\s+const \{ sendeUeberReticulum \} = await import\("\.\.\/rnode-ui\.js"\);\n\s+return sendeUeberReticulum\(payload, kind, state\.keypair \? \[state\.keypair\.pk\] : \[\]\);/);
   assert.match(mesh, /const rnodeAdressen = \$\("#mesh-rnode-adressen"\);/);
   assert.match(lies("src/shell/index.html"), /<button id="mesh-rnode-adressen" class="ghost"[^>]*data-i18n="set\.rnodeAdressen">/);
-  // KI über Funk braucht das Gateway im Knoten (B-32d) – bis dahin nur Meshtastic
-  assert.match(lies("src/shell/tabs/agent.ts"), /if \(!funkGeraetVerbunden\(\)\) throw new EigeneMeldung\(t\("agent\.funkKeinGeraet"\)\);/);
+  // KI über Funk ohne Meshtastic nur mit RNode an den eigenen Knoten (B-32d3b) – nie an die Gegenstelle
+  const agent = lies("src/shell/tabs/agent.ts");
+  assert.match(agent, /const knoten = funkGeraetVerbunden\(\) \? null : await kiFunkUeberKnoten\(\);/);
+  assert.match(agent, /if \(!funkGeraetVerbunden\(\) && !knoten\) throw new EigeneMeldung\(t\("agent\.funkKeinGeraet"\)\);/);
+  assert.match(agent, /sendeAnKnotenUeberReticulum\(k\.lxmf, payload, kind, eigene\)/);
   assert.match(mesh, /export function funkGeraetVerbunden\(\): boolean \{\n\s+const art = meshNode\?\.transportArt;\n\s+return art === "seriell" \|\| art === "bluetooth";/);
   const ui = lies("src/shell/rnode-ui.ts");
   assert.match(ui, /const an = leseLxmfAdresse\(geheim\.getItem\(LS_RETICULUM_GEGENSTELLE\)\);\n\s+if \(!funk \|\| !an\) return false;/);

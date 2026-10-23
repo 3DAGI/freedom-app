@@ -811,6 +811,8 @@ test("B-32b2: Reticulum als Grenze – die Antwort im Funk trägt Adresse und Sc
   assert.match(f?.grund ?? "", /nur, wenn du zustimmst, und nur versiegelt, je Kontakt ein Umschlag/, "B-32c1: app/test/leak/funk-adresse.test.ts");
   assert.match(f?.aussage ?? "", /ebenso jedes an einen Kontakt dessen Adresse/, "B-32c2: direkt an Kontakte");
   assert.match(f?.grund ?? "", /nur, wenn kein Relay sie nimmt und du seine Adresse hast/, "B-32c2: app/test/funk-zustellen.test.ts");
+  assert.match(f?.aussage ?? "", /jede Frage über Funk an deinen Knoten seine Adresse/, "B-32d3b: KI über Funk an den eigenen Knoten");
+  assert.match(f?.grund ?? "", /KI-Fragen über Funk gehen nur an deinen eigenen Knoten, an die Adresse aus seinem Status/, "B-32d3b: app/test/funk-knoten.test.ts");
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ist eine RNode verbunden, antwortet die App im Funk/);
 });

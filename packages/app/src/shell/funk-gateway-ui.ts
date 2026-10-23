@@ -9,7 +9,7 @@
 import { gebietsschema, t } from "../i18n.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { pkShort } from "../shell-logic.js";
-import { funkGateway, merkeFunkGateway, vergissFunkGateway } from "./ki-ueber-funk.js";
+import { funkGateway, funkKnotenGateway, merkeFunkGateway, vergissFunkGateway } from "./ki-ueber-funk.js";
 import { alleAngebote } from "./state.js";
 import { toast } from "./ui.js";
 
@@ -27,10 +27,12 @@ export function zeigeFunkGateway(): void {
   }
   const vergessen = el("funk-gateway-vergessen") as HTMLButtonElement | null;
   if (vergessen) vergessen.disabled = !g;
+  // „über Funk“ auch ohne gemerktes Gateway, wenn der eigene Knoten über Reticulum erreichbar ist (B-32d3b)
+  const moeglich = !!g || funkKnotenGateway() !== null;
   const wahl = el("ai-funk-wahl");
-  if (wahl) wahl.style.display = g ? "" : "none";
+  if (wahl) wahl.style.display = moeglich ? "" : "none";
   const haken = el("ai-funk") as HTMLInputElement | null;
-  if (haken && !g) haken.checked = false;
+  if (haken && !moeglich) haken.checked = false;
 }
 
 export function wireFunkGateway(): void {

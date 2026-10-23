@@ -161,3 +161,15 @@ test("E9-3b: der Knoten schickt nie, was der Leser abwiese – ein Name aus der 
   assert.ok(!gelesen.modellPruefung!.befunde.some((b) => b.name.includes("\n") || b.name === "b:1"), "Unlesbares fällt weg");
   assert.equal(gelesen.modellPruefung!.laeuft, undefined, "ein unbekannter Schritt fällt weg");
 });
+
+test("B-32d3b: LXMF-Adresse im Status – darf fehlen; ist sie da, nur 32 Zeichen Hex, klein; der Knoten schickt nichts anderes", () => {
+  const mit = { ...beispiel(), lxmf: "7f3a".repeat(8) };
+  assert.deepEqual(leseKnotenStatus(knotenStatusText(mit)), mit);
+  assert.equal(leseKnotenStatus(knotenStatusText(beispiel()))!.lxmf, undefined, "Knoten ohne Reticulum");
+  const gut = JSON.parse(knotenStatusText(beispiel())) as Record<string, unknown>;
+  for (const lxmf of ["7F3A".repeat(8), "7f3a".repeat(7), `<${"7f3a".repeat(8)}>`, 7, null, ["7f3a".repeat(8)]]) {
+    assert.equal(leseKnotenStatus(JSON.stringify({ ...gut, lxmf })), null, JSON.stringify(lxmf));
+  }
+  // Was der Leser abwiese, geht gar nicht erst hinaus – der Status bleibt lesbar
+  assert.equal(leseKnotenStatus(knotenStatusText({ ...beispiel(), lxmf: "keine adresse" }))!.lxmf, undefined);
+});
