@@ -107,7 +107,7 @@ test("B-38c2: Diktieren – nur gekoppelt, dieselbe Aufnahme, Text in der Sprach
   assert.doesNotMatch(d, /askAi|ai-send|\.click\(\)|innerHTML|localStorage/, "nichts gesendet, nichts gespeichert");
   const app = readFileSync(new URL("../src/shell/app.ts", import.meta.url), "utf8");
   assert.match(app, /wireDiktieren\(\);/);
-  assert.match(app, /if \(name === "ai"\) \{[^}]*zeigeDiktieren\(\); \}/, "bei jedem Wechsel zum Agenten neu – die Kopplung kann neu sein");
+  assert.match(app, /if \(name === "ai"\) \{[^}]*zeigeDiktieren\(\);[^}]*\}/, "bei jedem Wechsel zum Agenten neu – die Kopplung kann neu sein");
   const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
   assert.match(html, /<button type="button" id="ai-diktieren" class="ghost plus-knopf" aria-pressed="false" hidden /, "versteckt, bis feststeht, dass es geht");
   for (const sprache of ["de", "en"] as const) {
