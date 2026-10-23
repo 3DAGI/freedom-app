@@ -524,3 +524,12 @@ Bereichs unten anhängen.
   Das Modell (seit B-38b3b3): ohne `WHISPER_MODELL` je Auftrag über `gepruefterWhisper()` (zuletzt geprüft, Datei unverändert) –
   nie einmal beim Start merken, sonst gälte eine veränderte Datei weiter. Die Rolle `sprache` im Status nur mit
   `Whisper.bereit()`.
+- **Reticulum im Knoten nur über `reticulum-gateway.ts`** (seit B-32d2, RN-W7–W10 A): eingeschaltet nur über
+  `reticulumAusUmgebung()` (`FUNK_GATEWAY=rnode:host:port`, `RETICULUM_REGION` Pflicht, `RETICULUM_WERTE` nur in den Grenzen
+  – ungültig → kein Gateway), die RNode nur über `verbindeRNodeTcp()` (TCP-Brücke, KISS im Knoten, Sperre der Region in der
+  Firmware) – kein `rnsd`, kein `@reticulum/node`. Der Kern nur über `starteReticulum()` aus dem Protokoll mit eigenem
+  `Sendezeitkonto`; die Identität nur über `identitaetsSpeicher()` (`~/.freedom/reticulum-identitaet`, 0600, „wx“ – eine
+  kaputte nie ersetzen). Umschläge nimmt nur `UmschlagAnnahme` an (dieselbe wie `GatewayRolle`) – keine zweite Annahme
+  daneben. Antworten zurück über Reticulum erst ab B-32d3: bis dahin nennt das Angebot kein Funk-Gateway dafür
+  (`funkGateway` bleibt `GatewayRolle`). Die Bibliothek protokolliert selbst ab „error“ – im Test schreiben Links nach dem
+  Stoppen noch ein paar Sekunden Fehler; der Test endet trotzdem.

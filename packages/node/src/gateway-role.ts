@@ -39,7 +39,7 @@ export interface GatewayNetz {
 }
 
 /** `host:port` (mit Standard-Port auch nur `host`); IPv6 in eckigen Klammern. */
-function leseAdresse(adresse: string, standardPort?: number): { host: string; port: number } {
+export function leseAdresse(adresse: string, standardPort?: number): { host: string; port: number } {
   const m = /^([A-Za-z0-9.-]+|\[[0-9a-fA-F:]+\])(?::(\d{1,5}))?$/.exec(adresse);
   const port = m?.[2] === undefined ? standardPort : Number(m[2]);
   if (!m || port === undefined || port < 1 || port > 65535) throw new Error("FUNK_GATEWAY: host:port erwartet");
@@ -164,12 +164,47 @@ export interface GatewayOptionen {
   log?: (zeile: string) => void;
 }
 
+/**
+ * Ein Umschlag aus dem Funk (7.4b2): Ein Weiterleitungsauftrag an das Gateway kommt nur ins Buch, alles andere einmal ins
+ * Netz. Meshtastic und die TCP-Brücke (`GatewayRolle`) und Reticulum (B-32d2) nehmen Umschläge nur hierüber an.
+ */
+export class UmschlagAnnahme {
+  readonly buch = new GatewayBuch();
+  private imNetz = new Set<string>();
+
+  constructor(private o: { gateway: Signer; netz: GatewayNetz; log: (zeile: string) => void }) {}
+
+  async nimm(ev: NostrEvent, now: number): Promise<void> {
+    if (getTag(ev, "p") === this.o.gateway.publicKey()) {
+      // Weiterleitungsauftrag: nur fürs Buch, nie ins Netz
+      const w = await oeffneWeiterleitung(ev, this.o.gateway, now);
+      if (w) {
+        this.o.log(this.buch.merke(w, now) ? "[funk] Sitzung gemerkt" : "[funk] Buch voll – nichts zurück");
+        return;
+      }
+      // Auch ein ungültiger (abgelaufen, fremd signiert) bleibt hier. Anderes an
+      // diesen Schlüssel – ein Auftrag an den Provider auf demselben Knoten – geht ins Netz.
+      const r = await giftUnwrapMitSigner(ev, this.o.gateway);
+      if (!r.ok || r.inner?.kind === KIND_FUNK_WEITERLEITUNG) return this.o.log("[funk] Weiterleitung ungültig");
+    }
+    if (this.imNetz.has(ev.id)) return;
+    this.imNetz.add(ev.id);
+    if (this.imNetz.size > 1000) this.imNetz.delete(this.imNetz.values().next().value!);
+    try {
+      await this.o.netz.publish(ev);
+    } catch (e) {
+      // Später noch einmal möglich, wenn der Umschlag erneut kommt
+      this.imNetz.delete(ev.id);
+      this.o.log(`[funk] Netz: ${(e as Error).name}`);
+    }
+  }
+}
+
 export class GatewayRolle {
   private queue = new MeshQueue();
   private sammler = new Reassembler();
   private gedaechtnis = new Sendegedaechtnis();
-  private buch = new GatewayBuch();
-  private imNetz = new Set<string>();
+  private readonly annahme: UmschlagAnnahme;
   private laeuft: Promise<void> | null = null;
   private takte: ReturnType<typeof setInterval>[] = [];
   private gestoppt = false;
@@ -185,6 +220,7 @@ export class GatewayRolle {
     this.jetzt = o.jetzt ?? (() => Math.floor(Date.now() / 1000));
     this.schlafe = o.schlafe ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.log = o.log ?? ((z) => console.log(z));
+    this.annahme = new UmschlagAnnahme({ gateway: o.gateway, netz: o.netz, log: (z) => this.log(z) });
   }
 
   /** Sendezeit eines Rahmens: vom Gerät (Meshtastic, 7.5d) oder aus dem Durchsatz. */
@@ -218,42 +254,20 @@ export class GatewayRolle {
     if (pr.art === "nachforderung") return this.beantworte(st.payload, st.priority, now);
     // Bestand und Solana-Transaktionen sind nicht Sache des Gateways
     if (pr.art !== "umschlag") return;
-    const ev = JSON.parse(new TextDecoder().decode(st.payload)) as NostrEvent;
-    if (getTag(ev, "p") === this.o.gateway.publicKey()) {
-      // Weiterleitungsauftrag: nur fürs Buch, nie ins Netz
-      const w = await oeffneWeiterleitung(ev, this.o.gateway, now);
-      if (w) {
-        this.log(this.buch.merke(w, now) ? "[funk] Sitzung gemerkt" : "[funk] Buch voll – nichts zurück");
-        return;
-      }
-      // Auch ein ungültiger (abgelaufen, fremd signiert) bleibt hier. Anderes an
-      // diesen Schlüssel – ein Auftrag an den Provider auf demselben Knoten – geht ins Netz.
-      const r = await giftUnwrapMitSigner(ev, this.o.gateway);
-      if (!r.ok || r.inner?.kind === KIND_FUNK_WEITERLEITUNG) return this.log("[funk] Weiterleitung ungültig");
-    }
-    if (this.imNetz.has(ev.id)) return;
-    this.imNetz.add(ev.id);
-    if (this.imNetz.size > 1000) this.imNetz.delete(this.imNetz.values().next().value!);
-    try {
-      await this.o.netz.publish(ev);
-    } catch (e) {
-      // Später noch einmal möglich, wenn der Umschlag erneut kommt
-      this.imNetz.delete(ev.id);
-      this.log(`[funk] Netz: ${(e as Error).name}`);
-    }
+    await this.annahme.nimm(JSON.parse(new TextDecoder().decode(st.payload)) as NostrEvent, now);
   }
 
   /** Post für gemerkte Sitzungen holen und zurückfunken; Zahl der eingereihten Umschläge. */
   async holePost(): Promise<number> {
     const now = this.jetzt();
-    const offene = this.buch.offene(now);
+    const offene = this.annahme.buch.offene(now);
     if (offene.length === 0) return 0;
     const post = await this.o.netz.query({ kinds: [KIND_GIFT_WRAP], "#p": offene, since: now - WEITERLEITUNG_MAX_SECS - 600 }).catch(() => []);
     let n = 0;
     for (const ev of post.sort((a, b) => a.created_at - b.created_at)) {
       const bytes = new TextEncoder().encode(JSON.stringify(ev));
       if (!pruefeMeshInhalt(bytes, MeshKind.NostrEvent, { eigeneSchluessel: [this.o.gateway.publicKey()] }).ok) continue;
-      if (!this.buch.zurueck(ev, now)) continue;
+      if (!this.annahme.buch.zurueck(ev, now)) continue;
       this.reiheEin(bytes, MeshPriority.Nachricht, now);
       n++;
     }

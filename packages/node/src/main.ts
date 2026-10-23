@@ -896,8 +896,29 @@ async function main(): Promise<void> {
   // Funkgerät (z. B. ser2net); seit 7.5d FUNK_GATEWAY=meshtastic:host[:4403] –
   // ein Meshtastic-Gerät mit WLAN direkt. Reicht versiegelte KI-Aufträge aus dem
   // Funk ins Netz und funkt die Antworten gemerkter Sitzungen in der Sendezeit zurück.
+  // Seit B-32d2 FUNK_GATEWAY=rnode:host:port mit RETICULUM_REGION – eine RNode über
+  // eine TCP-Brücke, Reticulum im Knoten; Umschläge ins Netz, zurück erst ab B-32d3.
   let funkGateway: import("./gateway-role.js").GatewayRolle | undefined;
-  if (process.env.FUNK_GATEWAY) {
+  if (process.env.FUNK_GATEWAY?.startsWith("rnode:")) {
+    const { UmschlagAnnahme } = await import("./gateway-role.js");
+    const { reticulumAusUmgebung, reticulumIdentitaetDatei, starteReticulumGateway } = await import("./reticulum-gateway.js");
+    const { LocalSigner, toHex } = await import("@freedomstack/protocol");
+    const r = reticulumAusUmgebung(process.env);
+    if ("grund" in r) {
+      console.error(`[funk] Reticulum aus – ${r.grund}`);
+    } else {
+      const log = (z: string) => console.log(z);
+      const annahme = new UmschlagAnnahme({ gateway: new LocalSigner(keypair.sk), netz: pool, log });
+      try {
+        const funk = await starteReticulumGateway({ einstellung: r.einstellung, annahme, datei: reticulumIdentitaetDatei(), log });
+        statusRollen.add("gateway");
+        // Die Adresse ist nicht geheim – sie steht in jeder Antwort im Funk; die App braucht sie als Gegenstelle
+        console.log(`[funk] Gateway an (RNode über TCP, Reticulum, ${r.einstellung.region}) – LXMF-Adresse ${toHex(funk.adresse)}`);
+      } catch (e) {
+        console.error(`[funk] Reticulum aus – ${(e as Error).name}${(e as { fall?: string }).fall ? ` (${(e as { fall?: string }).fall})` : ""}`);
+      }
+    }
+  } else if (process.env.FUNK_GATEWAY) {
     const { GatewayRolle, funkBruecke, meshtasticTcp } = await import("./gateway-role.js");
     const { LocalSigner } = await import("@freedomstack/protocol");
     // Fehler nie unbehandelt: Ein kaputtes Paket darf den Knoten nicht beenden (nur der Fehlername ins Log)

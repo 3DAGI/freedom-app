@@ -75,7 +75,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
-| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum | ~300 je Teil |
+| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum | ~300 je Teil |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
@@ -264,6 +264,26 @@ Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`
   (`reticulum-funk.ts`). Ihr Verhalten ist dasselbe; die bestehenden Tests prüfen es weiter.
 - **Bibliothek:** weiter nur dynamisch geladen; im Build führen auch die Pfade aus dem Protokoll auf das eine Modul
   „reticulum-klein“ (der Test liest jetzt App und Protokoll).
+
+## Stand B-32d2 (23.10.2026)
+
+- **Einschalten:** `FUNK_GATEWAY=rnode:host:port` (Port Pflicht) und `RETICULUM_REGION` (Kennung aus `FUNK_REGIONEN`);
+  eigene Werte frei über `RETICULUM_WERTE` (Frequenz Hz, Bandbreite Hz, SF, CR, dBm), nur nach `pruefeFunkParameter()`.
+  Was nicht passt, startet das Gateway nicht (`reticulumAusUmgebung()`) – nie still die Vorgabe statt eigener Werte.
+- **RNode über TCP:** `verbindeRNodeTcp()` – eine Unterklasse von `RNodeInterface` mit `node:net` als Transport (Brücke
+  wie `socat … FILE:/dev/ttyACM0,raw,b115200`), Sendezeit-Sperre der Region in der Firmware (`rnodeOptionen()`), nach
+  einer Trennung verbindet die Bibliothek neu (30 s). Kein `rnsd`, nichts Neues: `@reticulum/core` 0.9.12 wie App und
+  Protokoll.
+- **Kern:** `starteReticulum()` aus dem Protokoll mit eigenem Sendezeitkonto (1 % je Stunde, jedes Paket an die RNode).
+- **Identität:** `~/.freedom/reticulum-identitaet` (0600, „wx“); eine kaputte Datei wird nie ersetzt. Die LXMF-Adresse
+  steht beim Start im Log – man trägt sie in der App als Gegenstelle ein.
+- **Empfang:** wie über Funk – `UmschlagAnnahme` (aus `GatewayRolle` gelöst, Meshtastic und Reticulum teilen sie):
+  Weiterleitungsaufträge (25030) ins Buch, Umschläge einmal ins Netz. Nachforderungen und Solana-Transaktionen sind nicht
+  Sache des Gateways.
+- **Noch nicht:** Antworten zurück über Reticulum (B-32d3). Bis dahin nennt das Angebot kein Funk-Gateway für Reticulum;
+  die App fragt KI über Funk weiter nur über Meshtastic.
+- **Test:** Die RNode-Attrappe liegt jetzt in `protocol/test` – die App hängt sie an WebSerial, der Knoten über eine echte
+  TCP-Brücke an dieselbe Luft; ein Telefon funkt einen Umschlag an die Adresse des Knotens, er landet einmal im Netz.
 
 ## Quellen
 

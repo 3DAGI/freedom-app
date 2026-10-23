@@ -846,6 +846,17 @@ Frage noch Antwort noch wer fragt.
   TCP-Brücke zum Gerät, z. B.
   `socat TCP-LISTEN:4403,reuseaddr FILE:/dev/ttyUSB0,raw`; je Rahmen zwei Byte
   Länge, dann der Rahmen.
+- **RNode mit Reticulum (seit B-32d2):** `FUNK_GATEWAY=rnode:host:port` und
+  `RETICULUM_REGION=eu-869` (oder `eu-433`) – eine TCP-Brücke zur RNode, z. B.
+  `socat TCP-LISTEN:4404,reuseaddr FILE:/dev/ttyACM0,raw,b115200`. Der Knoten
+  spricht KISS selbst, ohne `rnsd`. Er sendet mit den Vorgaben der Region;
+  eigene Werte nur über `RETICULUM_WERTE=<Frequenz Hz>,<Bandbreite Hz>,<SF>,<CR>,<dBm>`
+  und nur in den Grenzen der Region (sonst startet das Gateway nicht). Die
+  Identität liegt in `~/.freedom/reticulum-identitaet` (0600); die LXMF-Adresse
+  steht beim Start im Log (`[funk] Gateway an … – LXMF-Adresse …`) – in der App
+  unter Netz › Mesh › „Reticulum-Adressen“ als Gegenstelle eintragen. Bis jetzt
+  reicht der Knoten über Reticulum nur Umschläge ins Netz (Direktnachrichten);
+  KI-Antworten funkt er so erst mit dem nächsten Schritt zurück.
 - **Sendezeit:** höchstens 1 % je Stunde. Mit Meshtastic zählt die Sendezeit,
   die das Gerät mit seinem Preset braucht (LongFast: rund 1,9 s je Rahmen) –
   eine Antwort mit 500 Zeichen (16 Rahmen) kostet so rund eine halbe Minute,
