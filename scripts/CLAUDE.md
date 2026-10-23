@@ -56,7 +56,7 @@ dieses Bereichs unten anhängen.
   Ebenso nach „Patch senden“ im Raum (VKb): erst senden, dann neu laden – auf die Patch-Liste warten; 800 ms reichten
   nicht, als der Rechner nebenher Knoten-Tests rechnete. Den Smoke-Test nie neben anderen schweren Läufen starten.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
-  Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `test/rnode-attrappe.ts`;
+  Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `protocol/test/rnode-attrappe.ts`;
   sie zählt Datenrahmen, und „die App funkt von sich aus nichts“ heißt dort: 0 nach dem Verbinden.
   Seit B-32c2 merkt sie die Rahmen als Hex (`__rn.rahmen`) – „rnode_dm“ sieht daran die Adresse des Kontakts in der
   Pfad-Anfrage. Relays, die nichts annehmen, spielt `ProbeRelay.ablehnen`.

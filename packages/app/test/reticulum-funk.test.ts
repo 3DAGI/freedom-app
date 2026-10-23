@@ -11,7 +11,7 @@ import {
   starteReticulum, type ReticulumFunk,
 } from "@freedomstack/protocol";
 import { verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
-import { rnodeAttrappe, type Luft } from "./rnode-attrappe.js";
+import { rnodeAttrappe, type Luft } from "../../protocol/test/rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN[0]!;
 const wahl: FunkWahl = { region: EU.kennung, parameter: { ...EU.vorgabe }, bestaetigt: 1_790_000_000 };

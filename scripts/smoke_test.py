@@ -4060,7 +4060,7 @@ def meshtastic_pruefen(browser, url: str) -> dict:
     return erg
 
 
-# RNode über USB (seit B-32b4): antwortet wie die Firmware (KISS, Befehle zurückgemeldet, wie `test/rnode-attrappe.ts`)
+# RNode über USB (seit B-32b4): antwortet wie die Firmware (KISS, Befehle zurückgemeldet, wie `protocol/test/rnode-attrappe.ts`)
 # und zählt Befehle und Datenrahmen – was die App funkt, kommt hier als Datenrahmen an.
 RNODE_ATTRAPPE = """
 (() => {

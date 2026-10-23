@@ -978,7 +978,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `startAnnouncing()` nie aufrufen – die Grenze „reticulum-ankuendigung“ sagt „erst wer fragt“). Was ankommt, nur über
   `leseReticulumFelder()` und dann `nimmFunkInhalt()` wie Meshtastic. Die Identität nur aus `geheim`
   (`reticulumIdentitaet()`); ist der Tresor gesperrt, gar nicht erst verbinden. Im Test hören sich zwei RNode-Attrappen
-  über `luft` (`test/rnode-attrappe.ts`) – ein Umschlag geht wirklich über Pfad-Anfrage, Link und Ressource.
+  über `luft` (`protocol/test/rnode-attrappe.ts`, seit B-32d2) – ein Umschlag geht wirklich über Pfad-Anfrage, Link und Ressource.
   Im Build führen alle Pfade `@reticulum/…` auf EIN vorab minifiziertes Modul (Plugin „reticulum-klein“ in `build.mjs`):
   Ein neuer Pfad, den die App lädt, gehört dort in die Liste (ein Test vergleicht) – sonst fehlte der Name zur Laufzeit,
   und ein eigenes Modul je Pfad brächte zwei Kopien des Kerns.

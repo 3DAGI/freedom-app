@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FUNK_REGIONEN, maxSendeleistungDbm, pruefeFunkParameter, rnodeOptionen, type FunkParameter } from "@freedomstack/protocol";
 import { FUNK_QUELLE, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
-import { CMD, rnodeAttrappe } from "./rnode-attrappe.js";
+import { CMD, rnodeAttrappe } from "../../protocol/test/rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN.find((r) => r.kennung === "eu-869")!;
 const wahl = (p: Partial<FunkParameter> = {}, region = "eu-869"): FunkWahl => ({

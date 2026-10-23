@@ -13394,3 +13394,32 @@ der App laufen unverändert gegen die verschobenen Bausteine – geändert nur I
 (Bibliothek nur in App `rnode-funk.ts` und Protokoll `reticulum-umschlag.ts`/`reticulum-kern.ts`, Pfade für „reticulum-klein“
 aus App und Protokoll). Erster Lauf rot: Der i18n-Test fand die Texte zur Quelle der Regionen nicht mehr in der App – die
 Schlüssel standen mit `FUNK_REGIONEN` im Protokoll. Jetzt nennt sie die App selbst (`FUNK_QUELLE`).
+
+## Schritt B-32d2 – Reticulum: Knoten mit RNode über eine TCP-Brücke
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d2“), RN-W7–W10 A. Der Knoten steuert eine RNode selbst – ohne `rnsd`,
+mit `@reticulum/core` 0.9.12 wie App und Protokoll – und reicht Umschläge aus Reticulum ins Netz.
+
+- **`node/src/reticulum-gateway.ts`** (neu):
+  - `reticulumAusUmgebung()`: `FUNK_GATEWAY=rnode:host:port`, `RETICULUM_REGION` Pflicht, `RETICULUM_WERTE` nur in den
+    Grenzen der Region – sonst ein Grund und kein Gateway;
+  - `verbindeRNodeTcp()`: `RNodeInterface` mit `node:net` als Transport, Sperre der Region in der Firmware, neu verbinden
+    nach 30 s;
+  - `identitaetsSpeicher()`: `~/.freedom/reticulum-identitaet` (0600, „wx“, kaputt → nie ersetzt);
+  - `starteReticulumGateway()`: Kern aus dem Protokoll mit eigenem Sendezeitkonto, Empfang über `nimmAusReticulum()`.
+- **`gateway-role.ts`:** `UmschlagAnnahme` aus `GatewayRolle` gelöst (Buch für Weiterleitungen, einmal ins Netz) – Meshtastic
+  und Reticulum nehmen gleich an; `leseAdresse()` exportiert.
+- **`main.ts`:** `rnode:` vor den anderen Wegen; Rolle „gateway“ erst nach dem Start; die LXMF-Adresse ins Log (sie ist nicht
+  geheim). Das Angebot nennt für Reticulum noch kein Funk-Gateway – Antworten zurück erst mit B-32d3.
+- **Attrappe:** `rnode-attrappe.ts` von `app/test` nach `protocol/test` (eigener Port-Typ), die App-Tests importieren von dort.
+- `node/package.json`: `@reticulum/core` 0.9.12 (Sperrdatei eine Zeile). `docker-compose.yml` reicht `RETICULUM_REGION` und
+  `RETICULUM_WERTE` durch; `docs/PROVIDER.md` beschreibt Brücke, Region, Werte, Identität und Adresse.
+- Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/node/CLAUDE.md`, Stand-Zeile.
+
+**Tests:** node +5 (`reticulum-gateway.test.ts`: Umgebung mit sechs Fehlfällen, Identitätsdatei 0600 und kaputt nie
+ersetzt, über die Luft – Telefon mit RNode über WebSerial, Knoten über eine echte TCP-Brücke: der Umschlag einmal im Netz,
+die Weiterleitung nur im Buch –, ohne Brücke kein Gateway und kein Versuch im Hintergrund, Verdrahtung). Der Fall „ohne
+Brücke“ fand einen Fehler: Scheiterte das erste Verbinden, versuchte es die Bibliothek ohne Ende weiter (der Test hing) –
+jetzt beendet `disconnect()` den Versuch. Erster Lauf rot: `knoten-status.test.ts` (B-11a) prüfte „Rolle erst nach dem
+Start“ nur an der ersten Stelle von `statusRollen.add("gateway")` – die neue für Reticulum steht davor. Jetzt prüft er je
+Start eine Stelle, jede nach ihrem Start und vor dem nächsten (genauer als vorher).
