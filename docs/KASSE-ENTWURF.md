@@ -216,10 +216,14 @@ Schwelle); die App liest sie von dort, nie aus dem Raum. Ein Wechsel der Art ist
   (`kassenHinweisKanal()`) – offen signiert an den Raum (Kind 42), privat nur als inneres Event der Gruppe, ohne Erwähnung. Kein eigenes
   Format: Was ein Vorschlag auszahlt oder ändert, liest jedes Mitglied von der Kette. Die Rückfrage sagt vorher, dass der Hinweis folgt;
   ging er nicht hinaus, sagt die App es (der Vorschlag steht trotzdem auf der Kette). Nach Stimmen, Ausführen und Abschließen kein Hinweis.
+- **A-12c3 (23.10.2026):** Vorschlagen, abstimmen und auszahlen mit einer verbundenen Wallet. Ist die Adresse für die Kasse die einer
+  verbundenen Wallet (A-12b2d), unterschreibt sie (`kassenUnterschreiber()`: die eingebaute geht vor, eine andere Adresse unterschreibt nie für
+  die Kasse). Sie zahlt Gebühr und Miete selbst und signiert nur – gesendet wird über die eigenen Devnet-Endpunkte, nie über die Wallet (sie
+  schickte an ihr eigenes Netz). Einen Tresor braucht es dafür nicht; die Rückfrage sagt, dass die verbundene Wallet unterschreibt.
 - **Geteilt:** A-12a in a1 (Anlegen, Lesen), a2 (Auszahlen) und a3 (Konfiguration ändern, für A-12d; fertig).
   A-12d in d1 (Mitglieder dazu und weg, Wartezeit; fertig) und d2 (Wechsel der Art, Gründer ↔ Mehrheit – „ein Wechsel der Art ist
   eine Änderung der Konfiguration“: die Rechte eines Mitglieds ändert Squads nur über weg und wieder dazu).
   A-12b (App: anlegen, einzahlen) braucht nur a1, A-12c (Auszahlen in der App) a2. A-12b in b1 (Protokoll:
   Recht, Definition, Adressen, Abweichungen) und b2 (App) – b2 in a (Adresse nennen, Grenze), b (anlegen), c (einzahlen,
   Stand, Abweichungen) und d (Adresse aus einer verbundenen Wallet). A-12c in c1 (Auszahlen mit der eingebauten Wallet), c2
-  (Hinweis im Raum auf neue Vorschläge, V6; fertig) und c3 (abstimmen und auszahlen mit einer verbundenen Wallet).
+  (Hinweis im Raum auf neue Vorschläge, V6; fertig) und c3 (abstimmen und auszahlen mit einer verbundenen Wallet; fertig).

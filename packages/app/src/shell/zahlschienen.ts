@@ -15,6 +15,7 @@ import {
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { solText } from "../preis-anzeige.js";
+import { kassenUnterschreiber } from "../kasse-anzeige.js";
 import { offlineGrund } from "../protokoll-texte.js";
 import { LightningRail, SolanaRail, type SolanaWalletZugang } from "../rails.js";
 import { type NonceAblage, erstelleOfflineZahlung, leseAblage, schreibeAblage } from "../sol-offline-zahlung.js";
@@ -263,17 +264,22 @@ export async function zahleInKasse(
  * Seit A-12d1 ebenso Änderungen der Kasse: „aendern“ stellt sie mit `kassenAenderungen()` aus dem Stand auf der Kette zusammen
  * (die Art bleibt), dafür stimmen und ausführen nur, wenn die Kasse ihre Art behält (`behaeltArt()`); wer ausführt, zahlt
  * die Miete, wenn das Konto der Kasse wächst.
+ * Seit A-12c3 unterschreibt auch eine verbundene Wallet, wenn ihre Adresse die für die Kasse ist (`kassenUnterschreiber()`, die
+ * eingebaute geht vor): Sie zahlt Gebühr und Miete selbst und signiert nur – gesendet wird über `devnetRpc()`, nie über die
+ * Wallet (sie schickte an ihr eigenes Netz).
  */
 export async function kassenSchritt(
   a: { kasse: string; mitglied?: string } & (
     | { schritt: "vorschlagen"; auszahlung: Auszahlung }
     | { schritt: "aendern"; dazu?: readonly string[]; weg?: readonly string[]; zeitschlossSek?: number }
     | { schritt: KassenSchritt; index: bigint }),
-  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null; konfiguration?: KassenAenderung[] }) => Promise<boolean>,
+  bestaetige: (k: { zahler: string; miete: number; auszahlung: Auszahlung | null; konfiguration?: KassenAenderung[]; verbunden?: boolean }) => Promise<boolean>,
 ): Promise<bigint> {
   const e = benutzbareEingebauteWallet();
-  if (!e?.adresse()) throw new Error(t("kasse.nurEingebaut"));
-  const eigen = a.mitglied && e.eigeneAdressen().includes(a.mitglied) ? a.mitglied : undefined;
+  const v = verbundeneSolanaWallet();
+  const u = kassenUnterschreiber(a.mitglied, e?.adresse() ? e.eigeneAdressen() : undefined, v && { adresse: v.adresse, signiert: !!v.provider?.signiereTransaktion });
+  if (!u) throw new Error(t("kasse.nurEingebaut"));
+  const eigen = u.mitglied;
   // Abschließen braucht keine Unterschrift eines Mitglieds, alles andere die eigene Adresse für die Kasse
   if (!eigen && a.schritt !== "abschliessen") throw new Error(t("kasse.nurEingebaut"));
   const rpc = await devnetRpc();
@@ -334,11 +340,15 @@ export async function kassenSchritt(
       : schritt === "ausfuehren" ? [ausfuehrenAnweisung({ ...geht, mitglied: eigen!, auszahlung: auszahlung! }), ...abschliessen]
       : [abstimmenAnweisung({ ...geht, mitglied: eigen!, dafuer: schritt === "dafuer" })];
   }
-  const zahler = await kassenZahler(rpc, e, miete, eigen);
-  if (!(await bestaetige({ zahler, miete, auszahlung, ...(konfiguration ? { konfiguration } : {}) }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
+  // Die verbundene Wallet zahlt selbst – reicht ihr Guthaben nicht, sagt es `waehleAbsender()` wie bei der eingebauten
+  const zahler = u.wer === "eingebaut" ? await kassenZahler(rpc, e!, miete, eigen)
+    : waehleAbsender([{ adresse: v!.adresse, lamports: Number(await leseGuthaben(rpc, v!.adresse)) }], miete);
+  const verbunden = u.wer === "verbunden" ? { verbunden: true } : {};
+  if (!(await bestaetige({ zahler, miete, auszahlung, ...(konfiguration ? { konfiguration } : {}), ...verbunden }))) throw new Error(t("zahl.abgebrochenNichtsGesendet"));
   const lebensdauer = await neuesterBlockhash(rpc);
   const tx = baueTransaktion({ zahler, anweisungen: baue(zahler), lebensdauer });
-  await sendeUndBestaetige(rpc, e.signiereTransaktion(tx), lebensdauer.letzteHoehe);
+  const signiert = u.wer === "eingebaut" ? e!.signiereTransaktion(tx) : await v!.provider!.signiereTransaktion!(tx);
+  await sendeUndBestaetige(rpc, signiert, lebensdauer.letzteHoehe);
   return index;
 }
 

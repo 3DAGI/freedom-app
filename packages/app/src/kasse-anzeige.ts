@@ -3,7 +3,7 @@
  * Art, Schwelle, Wartezeit, Mitglieder – und wo Raum und Kette abweichen (`kassenAbweichungen()`). Es zählt die Kette;
  * der Raum sagt nur, wer welche Adresse genannt hat. Seit A-12c1 auch die jüngsten Auszahlungen, Empfänger und Betrag
  * von der Kette (V6), seit A-12d1 auch Änderungen der Kasse (Mitglieder, Schwelle, Wartezeit). Ohne DOM, damit ein Test die
- * Sätze prüft.
+ * Sätze prüft. Seit A-12c3 auch, welche Wallet für die Kasse unterschreibt (`kassenUnterschreiber()`).
  */
 import {
   KASSEN_RECHT, ausfuehrbarAb, behaeltArt, kassenArt, kassenTresor, vorschlagsSchritte, type KassenAbweichungen, type KassenAenderung,
@@ -18,6 +18,21 @@ const ZEITSCHLOSS: Record<number, string> = { 0: "kasse.ohneZeitschloss", 3600: 
 export function zeitschlossText(sek: number): string {
   const k = ZEITSCHLOSS[sek];
   return k ? t(k) : t("kasse.zeitschlossSek", { n: sek });
+}
+
+/**
+ * Wer für die Kasse unterschreibt (A-12c3): die eingebaute Wallet, wenn die Adresse für die Kasse eine ihrer Adressen ist, sonst
+ * die verbundene, wenn sie genau diese Adresse hat und Transaktionen signieren kann – die eingebaute geht vor. Fehlt `mitglied` im
+ * Ergebnis, unterschreibt niemand für die Kasse: dann geht nur Abschließen, und es zahlt, wer da ist (die eingebaute zuerst).
+ */
+export function kassenUnterschreiber(
+  mitglied: string | undefined, eingebaut: readonly string[] | undefined, verbunden: { adresse: string; signiert: boolean } | undefined,
+): { wer: "eingebaut" | "verbunden"; mitglied?: string } | undefined {
+  const v = verbunden?.signiert ? verbunden.adresse : undefined;
+  if (mitglied && eingebaut?.includes(mitglied)) return { wer: "eingebaut", mitglied };
+  if (mitglied && v === mitglied) return { wer: "verbunden", mitglied };
+  if (eingebaut?.length) return { wer: "eingebaut" };
+  return v ? { wer: "verbunden" } : undefined;
 }
 
 /** Der Stand als Text, Zeile für Zeile; `name` macht aus einem Schlüssel den Namen im Raum. */

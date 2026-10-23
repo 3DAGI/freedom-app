@@ -958,6 +958,10 @@ Fallstricke dieses Bereichs unten anhängen.
   Kanal aus `kassenHinweisKanal()`, offen signiert an den Raum, privat nur `sendePrivat()` – nie Empfänger oder Betrag im Hinweis, nur nach
   „vorschlagen“ und „aendern“ (`vorgeschlagen()`), nie nach Stimmen; die Rückfrage sagt es vorher. Ein Test zählt die `publish(`-Stellen in
   `raum-kasse-ui.ts` – eine neue Stelle, die an Relays geht, braucht dort ihren Grund.
+  Mit einer verbundenen Wallet (seit A-12c3) unterschreibt `kassenSchritt()` nur, wenn `kassenUnterschreiber()` sie wählt: ihre Adresse ist
+  die für die Kasse, und die eingebaute hat sie nicht (die geht vor). Sie zahlt Gebühr und Miete selbst (`waehleAbsender()` auf ihr Guthaben)
+  und signiert nur über `signiereTransaktion()` – nie `signiereUndSendeTransaktion()`: die Wallet schickte an ihr eigenes Netz, die Kasse
+  gibt es nur auf Devnet (`devnetRpc()`). Den Tresor verlangt die Oberfläche dann nicht (`unterschreibtVerbundene()`).
 - **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
