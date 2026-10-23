@@ -13514,3 +13514,19 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a2“), auf B-36a1.
 **Tests:** protocol +4: Ankündigung und Fragmente gegen die Referenz (aus B-36a1 vorbereitet), Zerlegen eines 2-KB-Pakets
 und Zusammensetzen; Zusammensetzen in beliebiger Reihenfolge mit Doppeltem; alle Grenzen einzeln (Sätze, Frist, je Satz,
 insgesamt, 257 Fragmente, Widerspruch, falscher Typ).
+
+## Schritt B-36a3 – Bitchat: Noise XX
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a3“), auf B-36a2.
+
+- **`packages/protocol/src/bitchat-noise.ts`** (neu): `Noise_XX_25519_ChaChaPoly_SHA256` mit `@noble/…` (keine neue
+  Abhängigkeit) – CipherState, HKDF, Handshake XX, Split; `BitchatTransport` wie Bitchat (Nonce als 4 Byte vorn,
+  Ersetzungsfenster 1024, Grenze 2^32 − 1). Ein gescheiterter Handshake-Schritt beendet den Handshake (`abgebrochen`).
+- **Vektoren:** `protocol/test/fixtures/noise-xx-vektoren.json` – cacophony und snow, aus dem gemeinfreien Bitchat-Repository.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +3 (`bitchat-noise.test.ts`): Handshake und Transport Byte für Byte wie cacophony und snow (samt Hash und
+Schlüssel der Gegenseite); Transport wie Bitchat (Nonce vorn, vertauscht ja, doppelt und zu alt nie, Veränderung und fremde
+Sitzung scheitern, ein Fehlversuch verbraucht die Nonce nicht); Handshake nur in Reihenfolge, falscher flüchtiger Schlüssel und
+Veränderung scheitern, ein Fehler beendet ihn. Die Gegenprobe fand den halb fortgeschriebenen Zustand nach einem Fehler.

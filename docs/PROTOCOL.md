@@ -1745,4 +1745,12 @@ Gesamtzahl (UInt16), ursprünglicher Typ, Daten. Zerlegt wird das ungepolsterte 
 höchstens 256 Teile. Zusammengesetzt (`BitchatZusammensetzer`) je Absender und Kennung, mit den Grenzen von bitchat-android:
 64 offene Sätze, je Satz 1 MiB, insgesamt 4 MiB, 30 s; das Ganze kommt mit TTL 0 heraus – weitergereicht werden die Fragmente.
 
-Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt.
+**Noise** (seit B-36a3, `bitchat-noise.ts`): `Noise_XX_25519_ChaChaPoly_SHA256` nach der Spezifikation, Handshake ohne
+Prolog und ohne Nutzlast (→ e · ← e, ee, s, es · → s, se) in Paketen vom Typ 0x10. Transport (Typ 0x11): vorn die Nonce als
+4 Byte Großendian, dann Chiffrat und Tag (ChaCha20-Poly1305, Nonce der AEAD 4 Byte null + Zähler als 8 Byte Kleinendian),
+keine zusätzlichen Daten. Jede Nonce gilt einmal, höchstens 1024 hinter der höchsten; höchstens 2^32 − 1 je Sitzung. Ein
+gescheiterter Handshake-Schritt beendet den Handshake. Der statische Schlüssel der Gegenseite aus dem Handshake ergibt ihre
+Peer-ID.
+
+Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
+die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).
