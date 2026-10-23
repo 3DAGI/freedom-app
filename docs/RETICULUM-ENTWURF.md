@@ -75,7 +75,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
-| B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) – wartet auf RN-W7–W10 (Fragen vor B-32d, 23.10.) | ~300 je Teil, d1–d3 |
+| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum | ~300 je Teil |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
@@ -240,7 +240,9 @@ Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`
 | RN-W9 | Was macht das Gateway über Reticulum? | **A** wie Meshtastic (7.4, 7.5d): Umschläge ins Netz; Antworten auf KI-Aufträge (Weiterleitung 25030, `GatewayBuch`) an die LXMF-Adresse, die den Auftrag brachte; die App nimmt den eigenen Knoten als Gegenstelle für KI über Funk · **B** dazu Post für Funk-Nutzer halten (Postfach je LXMF-Adresse) | **A** – B bräuchte beim Knoten eine Zuordnung Schlüssel ↔ Funk-Adresse und ist ein eigener Schritt |
 | RN-W10 | Funkwerte und Sendezeit im Knoten | **A** wie in der App (RN-W6 A): `RETICULUM_REGION` mit den Vorgaben aus `FUNK_REGIONEN`, eigene Werte nur in deren Grenzen (`pruefeFunkParameter()`), Konto 1 % je Stunde · **B** der Knoten setzt nichts, die RNode behält ihre Werte | **A** – sonst sendete der Knoten womöglich außerhalb der Region |
 
-**Teilung bei den Empfehlungen** (je etwa 300 Zeilen):
+**Entschieden 23.10.2026** (MENSCH: „Wie empfohlen“): RN-W7 **A**, RN-W8 **A**, RN-W9 **A**, RN-W10 **A**.
+
+**Teilung** (je etwa 300 Zeilen):
 
 - **d1** – Bausteine ins Protokoll: Regionen, Grenzen und Sendezeit (`rnode-funk.ts`, `rnodeSendezeit()`) und der
   LXMF-Umschlag (`reticulum-umschlag.ts`) ziehen nach `packages/protocol`; die App nimmt sie von dort, ihr Verhalten bleibt.
@@ -248,6 +250,20 @@ Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`
   Funk (`pruefeMeshInhalt()`, Umschläge ins Netz), Sendezeitkonto.
 - **d3** – Antworten zurück: Weiterleitungen und `GatewayBuch` über Reticulum an die Adresse des Auftrags; die App fragt KI
   über Funk auch mit RNode, wenn die Gegenstelle der eigene Knoten ist.
+
+## Stand B-32d1 (23.10.2026)
+
+- **Im Protokoll** (`packages/protocol/src`, `@reticulum/core` und `@reticulum/lxmf` 0.9.12 exakt dort):
+  - `funk-region.ts`: `FUNK_REGIONEN`, `LORA_BANDBREITEN`, `maxSendeleistungDbm()`, `pruefeFunkParameter()`,
+    `rnodeOptionen()` (nimmt Region und Parameter – der Knoten hat keine bestätigte Wahl) und `rnodeSendezeit()`;
+  - `reticulum-umschlag.ts`: Identität (`reticulumIdentitaet()` mit einem beliebigen Speicher), Umschlag, Felder, Fehler
+    und `leseLxmfAdresse()`;
+  - `reticulum-kern.ts`: `starteReticulum()` über einer RNode-Schnittstelle – das Sendezeitkonto gibt der Aufrufer mit.
+- **In der App bleibt:** die gemerkte Wahl, WebSerial und der Text zur Quelle je Region (`rnode-funk.ts`, `FUNK_QUELLE`),
+  Gegenstelle, Ziele und das Konto der Sitzung
+  (`reticulum-funk.ts`). Ihr Verhalten ist dasselbe; die bestehenden Tests prüfen es weiter.
+- **Bibliothek:** weiter nur dynamisch geladen; im Build führen auch die Pfade aus dem Protokoll auf das eine Modul
+  „reticulum-klein“ (der Test liest jetzt App und Protokoll).
 
 ## Quellen
 

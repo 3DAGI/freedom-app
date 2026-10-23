@@ -1,16 +1,18 @@
 /**
  * Reticulum als zweiter Funkweg (Sammlung B-32, Entscheidungen RN-W1–W5 A, `docs/RETICULUM-ENTWURF.md`) – die
- * Bausteine ohne Netz und ohne Gerät: die eigene Identität und der Umschlag in einer LXMF-Nachricht (B-32a).
+ * Bausteine ohne Netz und ohne Gerät: die eigene Identität und der Umschlag in einer LXMF-Nachricht (B-32a). Seit B-32d1
+ * im Protokoll (RN-W8 A): App und Knoten (B-32d2) packen mit denselben Funktionen ein und aus.
  *
  * Über Reticulum geht dasselbe wie über Meshtastic: nur, was `pruefeMeshInhalt()` durchlässt (Umschläge nach NIP-59,
  * voll signierte Solana-Transaktionen). LXMF trägt es als Daten der App – `FIELD_CUSTOM_TYPE` (0xFB) = `RETICULUM_ART`,
  * `FIELD_CUSTOM_DATA` (0xFC) = Art (1 Byte, `MeshKind`) + Nutzlast; Titel und Inhalt bleiben leer. Was jemand lesen
  * könnte, ist schon verschlüsselt; Reticulum verschlüsselt auf dem Weg zusätzlich an den Empfänger (B-32b).
  *
- * Die Identität (64 Byte wie in der Python-Referenz: X25519 und Ed25519 privat) liegt nur in `geheim`
+ * Die Identität (64 Byte wie in der Python-Referenz: X25519 und Ed25519 privat) liegt in der App nur in `geheim`
  * (`freedom.reticulum.identitaet`), nie in der Sicherung, nie im Export. Die Bibliothek lädt erst bei Bedarf.
  */
-import { MeshKind, pruefeMeshInhalt, type MeshPruefung } from "@freedomstack/protocol";
+/// <reference path="./reticulum-typen.d.ts" />
+import { MeshKind, pruefeMeshInhalt, type MeshPruefung } from "./mesh-transport.js";
 import type { Identity } from "@reticulum/core";
 import type { Message } from "@reticulum/lxmf/src/message.js";
 
@@ -69,6 +71,12 @@ export async function lxmfAdresse(identitaet: Identity): Promise<Uint8Array> {
   const d = await Destination.SINGLE("lxmf.delivery", Direction.IN, identitaet);
   if (!d.destinationHash) throw new ReticulumFehler("adresse");
   return d.destinationHash;
+}
+
+/** Eine LXMF-Adresse aus Text – 32 Zeichen Hex, wie Reticulum sie zeigt auch in spitzen Klammern; sonst null. */
+export function leseLxmfAdresse(text: string | null | undefined): Uint8Array | null {
+  const m = /^<?([0-9a-fA-F]{32})>?$/.exec((text ?? "").trim());
+  return m ? Uint8Array.from(m[1]!.match(/../g)!, (x) => parseInt(x, 16)) : null;
 }
 
 /**

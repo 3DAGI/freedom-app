@@ -6,7 +6,7 @@
  * Adresse rechnet die App erst, wenn es etwas zu senden gibt (die Bibliothek von Reticulum lädt nur dann).
  * Empfang: `alsFunkAdresse()` am Ende der Kette in `oeffneUmschlag()`; nur Kontakte zählen, gemerkt in `geheim`.
  */
-import { oeffneFunkAdresseUmschlag, toHex, type NostrEvent } from "@freedomstack/protocol";
+import { lxmfAdresse, oeffneFunkAdresseUmschlag, reticulumIdentitaet, toHex, type NostrEvent } from "@freedomstack/protocol";
 import { FunkAdressBuch, FunkAdressVersand, LS_FUNK_TEILEN } from "../funk-adressen.js";
 import { kontakteJetzt } from "./quittungen.js";
 import { alsGeraet, posteingangVon, state, veroeffentlicheAn } from "./state.js";
@@ -21,7 +21,6 @@ const versand = new FunkAdressVersand({
   signer: () => (alsGeraet() ? null : state.signer),
   kontakte: kontakteJetzt,
   adresse: async () => {
-    const { reticulumIdentitaet, lxmfAdresse } = await import("../reticulum-umschlag.js");
     return toHex(await lxmfAdresse(await reticulumIdentitaet(geheim)));
   },
   sende: async (wrap, an) => {

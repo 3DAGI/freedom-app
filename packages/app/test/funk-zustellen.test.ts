@@ -5,10 +5,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MeshKind, Sendezeitkonto, buildPrivateDm, generateKeypair } from "@freedomstack/protocol";
-import { FUNK_REGIONEN, verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
-import { funkZiele, starteReticulum, stelleUeberFunkZu, type ReticulumFunk } from "../src/reticulum-funk.js";
-import { ReticulumFehler, reticulumIdentitaet } from "../src/reticulum-umschlag.js";
+import {
+  FUNK_REGIONEN, MeshKind, ReticulumFehler, Sendezeitkonto, buildPrivateDm, generateKeypair, reticulumIdentitaet, starteReticulum,
+  type ReticulumFunk,
+} from "@freedomstack/protocol";
+import { verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
+import { funkZiele, stelleUeberFunkZu } from "../src/reticulum-funk.js";
 import { rnodeAttrappe, type Luft } from "./rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN[0]!;

@@ -869,8 +869,9 @@ Fallstricke dieses Bereichs unten anhängen.
   nie stattdessen alles laden. Die Zeit der Runde (`freedom.posteingang.knotenRunde`, im Tresor) erst merken, wenn alles
   Geholte beim Knoten liegt (`vollstaendig`). NIP-77 nur über `gleicheAbAn()` (`state.ts`): im Pool über dessen
   Verbindung, sonst Nebenverbindung – den Fehler an `neben.mit()` vorbei, sonst wäre der Relay ausgesetzt (A-26).
-- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40): `@reticulum/core` und
-  `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, geladen erst bei Bedarf. Die Identität je Gerät nur über
+- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40; seit B-32d1 im Protokoll, dazu
+  `reticulum-kern.ts`): `@reticulum/core` und `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, in der App nur noch
+  `rnode-funk.ts` (WebSerial), geladen erst bei Bedarf. Die Identität je Gerät nur über
   `reticulumIdentitaet()` – zufällig, nie aus dem Nostr-Schlüssel, nur in `geheim` (`freedom.reticulum.identitaet`; alles
   unter `freedom.reticulum.` in `SICHERUNG_NIE`); einen kaputten Eintrag nie ersetzen. Fehler nur als `ReticulumFehler`
   mit Kennung (`fall`, bei `inhalt` dazu die Prüfung) – nie Text, der i18n-Test findet ihn; Texte dazu ab B-32b. Hinaus nur über
@@ -878,7 +879,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `entpackeAusReticulum()` (nur die direkte Form mit der eigenen Adresse am Anfang – sonst setzt `Message.deserialize()`
   die erwartete Adresse selbst ein). LXMF-Felder nur als `Map` mit Zahlen als Schlüssel – ein Objekt machte Text daraus,
   und die Python-Referenz fände das Feld nicht. Die Nachricht kommt aus `@reticulum/lxmf/src/message.js` (Typen über
-  `src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
+  `protocol/src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
 - **Gruppenanrufe nur über `shell/gruppenanruf.ts`** (seit B-34c1, LK2–LK4 A, `docs/PROTOCOL.md` §39): anrufen nur über
   `starteGruppenanruf()` – Zugänge nur vom gekoppelten Knoten (`livekitZugaengeVomKnoten()`: frischer Sitzungsschlüssel,
   `wegZumKnoten()`, Antwort nur über `leseLivekitZugaenge()`), je Mitglied der Gruppe einer (auch für sich), die Kennung
@@ -962,15 +963,16 @@ Fallstricke dieses Bereichs unten anhängen.
   die für die Kasse, und die eingebaute hat sie nicht (die geht vor). Sie zahlt Gebühr und Miete selbst (`waehleAbsender()` auf ihr Guthaben)
   und signiert nur über `signiereTransaktion()` – nie `signiereUndSendeTransaktion()`: die Wallet schickte an ihr eigenes Netz, die Kasse
   gibt es nur auf Devnet (`devnetRpc()`). Den Tresor verlangt die Oberfläche dann nicht (`unterschreibtVerbundene()`).
-- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
+- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A; seit B-32d1 `funk-region.ts` im Protokoll): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
   Bestätigung (`freedom.reticulum.funk`, `leseFunkWahl()`). Eine Region gibt es nur mit Quelle; ohne Eintrag sendet die App
   dort nicht – nie eine Vorgabe raten. Neue Regionen oder Grenzen nur mit dem Primärtext (Beschluss der Kommission bzw. der
   Behörde des Landes) und Testfall. Verbunden wird nur über `verbindeRNode()` (`RNodeWebSerialInterface`, prüft das Echo der
   Firmware); Meldungen der Bibliothek nie zeigen. Im Test spricht eine Attrappe KISS wie die Firmware (`rnode-funk.test.ts`).
-- **Reticulum über die RNode nur über `starteReticulum()`** (seit B-32b2, `reticulum-funk.ts`): Jedes Paket an die RNode
-  geht durch das umgelegte `send()` der Schnittstelle und bucht `RETICULUM_KONTO` (`rnodeSendezeit()`); was nicht
+- **Reticulum über die RNode nur über `starteReticulum()`** (seit B-32b2; seit B-32d1 `reticulum-kern.ts` im Protokoll, das
+  Konto gibt die App mit): Jedes Paket an die RNode geht durch das umgelegte `send()` der Schnittstelle und bucht
+  `RETICULUM_KONTO` (`rnodeSendezeit()`); was nicht
   hineinpasst, wird still verworfen und gezählt – nie dort werfen, ein Fehler im Schreibstrom des Kerns bliebe für immer.
   Nie ein Paket an der Schnittstelle vorbei schreiben. Von sich aus kündigt die App nichts an (`announce()`/
   `startAnnouncing()` nie aufrufen – die Grenze „reticulum-ankuendigung“ sagt „erst wer fragt“). Was ankommt, nur über
