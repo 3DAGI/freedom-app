@@ -8,6 +8,7 @@
  * A-12c1: Auszahlungen vorschlagen, abstimmen, ausführen und abschließen – nur, was das Programm annimmt, Empfänger und Betrag von der Kette.
  * A-12d1: die Kasse ändern (Mitglieder, Wartezeit) – die Art bleibt; abstimmen und ausführen über Änderungen wie bei Auszahlungen.
  * A-12c2: einen neuen Vorschlag im Raum melden – nur mit seiner Nummer, im ersten Kanal, in den man schreiben darf (V6).
+ * A-12c3: abstimmen und auszahlen auch mit einer verbundenen Wallet, deren Adresse die für die Kasse ist – sie signiert nur.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,7 +19,7 @@ import {
   KASSEN_RECHT, abstimmenAnweisung, baueKasseAnlegen, baueTransaktion, deriveSolanaKey, kassenAdresse, kassenOrt, kassenTresor, pruefeKassenNachweis,
   raumAdresse, type KassenStand, type KassenVorgang, type KassenVorschlag,
 } from "@freedomstack/protocol";
-import { aenderungenText, kassenAktionen, kassenStandText, vorschlaegeText, zeitschlossText } from "../src/kasse-anzeige.js";
+import { aenderungenText, kassenAktionen, kassenStandText, kassenUnterschreiber, vorschlaegeText, zeitschlossText } from "../src/kasse-anzeige.js";
 import { identityFromMnemonic } from "../src/identity.js";
 import { EingebauteSolWallet, type WalletSpeicher } from "../src/sol-wallet.js";
 import { setLang, t } from "../src/i18n.js";
@@ -290,8 +291,8 @@ test("A-12c1: Verdrahtet – nur Devnet, nur Kassen der App, nur Schritte nach d
   assert.match(schritt, /const vg = await leseVorgang\(rpc, a\.kasse, index\);\n    auszahlung = vg\?\.auszahlung \?\? null;/, "Empfänger und Betrag von der Kette (V6)");
   assert.match(schritt, /!vorschlagsSchritte\(\{ stand, vorschlag: vg\.vorschlag, auszahlung, konfiguration, mitglied: eigen, jetztSek \}\)\.includes\(schritt\)\) throw new Error\(t\("kasse\.schrittNicht"\)\)/);
   assert.match(schritt, /\[ausfuehrenAnweisung\(\{ \.\.\.geht, mitglied: eigen!, auszahlung: auszahlung! \}\), \.\.\.abschliessen\]/, "ausführen und abschließen in einem Zug");
-  assert.match(schritt, /await kassenZahler\(rpc, e, miete, eigen\)/, "am liebsten zahlt die Adresse für die Kasse");
-  const reihe = ["await bestaetige({ zahler, miete, auszahlung,", "baueTransaktion(", "await sendeUndBestaetige(rpc, e.signiereTransaktion(tx)"].map((x) => schritt.indexOf(x));
+  assert.match(schritt, /await kassenZahler\(rpc, e!, miete, eigen\)/, "am liebsten zahlt die Adresse für die Kasse");
+  const reihe = ["await bestaetige({ zahler, miete, auszahlung,", "baueTransaktion(", "e!.signiereTransaktion(tx)", "await sendeUndBestaetige(rpc, signiert,"].map((x) => schritt.indexOf(x));
   assert.ok(reihe.every((i, n) => i > 0 && (n === 0 || i > reihe[n - 1]!)), "erst Rückfrage, dann bauen und senden");
 
   const ui = lies("shell/raum-kasse-ui.ts");
@@ -353,7 +354,7 @@ test("A-12d1: Verdrahtet – ändern nur aus dem Stand der Kette mit erhaltener 
   assert.match(schritt, /const neu = kassenKontoGroesseNach\(konto\.daten\.length, kassenStandNach\(stand, konfiguration\)\.mitglieder\.length\);\n      if \(neu > konto\.daten\.length\) miete = Math\.max\(0, \(await mieteFuer\(neu\)\) - Number\(konto\.lamports\)\);/,
     "wer ausführt, zahlt den Zuwachs");
   assert.match(schritt, /\[konfigurationAusfuehrenAnweisung\(\{ \.\.\.geht, mitglied: eigen!, mietZahler: zahler \}\), \.\.\.abschliessen\]/);
-  assert.match(schritt, /await bestaetige\(\{ zahler, miete, auszahlung, \.\.\.\(konfiguration \? \{ konfiguration \} : \{\}\) \}\)/, "die Rückfrage zeigt die Änderungen");
+  assert.match(schritt, /await bestaetige\(\{ zahler, miete, auszahlung, \.\.\.\(konfiguration \? \{ konfiguration \} : \{\}\), \.\.\.verbunden \}\)/, "die Rückfrage zeigt die Änderungen");
 
   const ui = lies("shell/raum-kasse-ui.ts");
   const zeige = ui.slice(ui.indexOf("export async function zeigeKasse("), ui.indexOf("const FRAGE:"));
@@ -399,4 +400,42 @@ test("A-12c2: der Hinweis nennt nur die Nummer und den Weg zur Kasse – in beid
     setLang("de");
   }
   assert.match(t("kasse.hinweisFolgt"), /nur die Nummer/);
+});
+
+test("A-12c3: wer für die Kasse unterschreibt – die eingebaute Wallet vor der verbundenen, die verbundene nur mit genau der Adresse", () => {
+  const A = phantom(0), B = phantom(1), C = phantom(2);
+  const kann = (adresse: string) => ({ adresse, signiert: true });
+  assert.deepEqual(kassenUnterschreiber(A, [B, A], undefined), { wer: "eingebaut", mitglied: A });
+  assert.deepEqual(kassenUnterschreiber(A, [A], kann(A)), { wer: "eingebaut", mitglied: A }, "die eingebaute geht vor");
+  assert.deepEqual(kassenUnterschreiber(A, [B], kann(A)), { wer: "verbunden", mitglied: A });
+  assert.deepEqual(kassenUnterschreiber(A, undefined, kann(A)), { wer: "verbunden", mitglied: A }, "ohne eingebaute (oder gesperrt)");
+  // Ohne Mitglied geht nur Abschließen – es zahlt, wer da ist, die eingebaute zuerst
+  assert.deepEqual(kassenUnterschreiber(A, [B], kann(C)), { wer: "eingebaut" }, "eine andere Adresse unterschreibt nie für die Kasse");
+  assert.deepEqual(kassenUnterschreiber(A, undefined, kann(C)), { wer: "verbunden" });
+  assert.deepEqual(kassenUnterschreiber(undefined, [B], kann(C)), { wer: "eingebaut" });
+  assert.deepEqual(kassenUnterschreiber(A, [], { adresse: A, signiert: false }), undefined, "eine Wallet, die nicht signieren kann, nie");
+  assert.deepEqual(kassenUnterschreiber(A, [B], { adresse: A, signiert: false }), { wer: "eingebaut" });
+  assert.equal(kassenUnterschreiber(A, undefined, undefined), undefined);
+});
+
+test("A-12c3: Verdrahtet – die verbundene Wallet signiert nur, gesendet wird über Devnet; sie zahlt selbst, die Rückfrage sagt es, kein Tresor nötig", () => {
+  const zs = lies("shell/zahlschienen.ts");
+  const schritt = zs.slice(zs.indexOf("export async function kassenSchritt("), zs.indexOf("/** Den Wert neu lesen"));
+  assert.match(schritt, /const u = kassenUnterschreiber\(a\.mitglied, e\?\.adresse\(\) \? e\.eigeneAdressen\(\) : undefined, v && \{ adresse: v\.adresse, signiert: !!v\.provider\?\.signiereTransaktion \}\);\n  if \(!u\) throw new Error\(t\("kasse\.nurEingebaut"\)\);\n  const eigen = u\.mitglied;/);
+  assert.match(schritt, /: waehleAbsender\(\[\{ adresse: v!\.adresse, lamports: Number\(await leseGuthaben\(rpc, v!\.adresse\)\) \}\], miete\);/, "die verbundene zahlt selbst, mit Prüfung des Guthabens");
+  assert.match(schritt, /const signiert = u\.wer === "eingebaut" \? e!\.signiereTransaktion\(tx\) : await v!\.provider!\.signiereTransaktion!\(tx\);/);
+  assert.doesNotMatch(schritt, /signiereUndSendeTransaktion|signiereUndSende\(/, "nie über die Wallet senden – sie schickte an ihr eigenes Netz");
+  assert.match(schritt, /\.\.\.verbunden \}\)\)\) throw new Error\(t\("zahl\.abgebrochenNichtsGesendet"\)\);/, "die Rückfrage weiß, wer unterschreibt");
+  assert.doesNotMatch(schritt, /solRpc\(/, "nur Devnet");
+
+  const ui = lies("shell/raum-kasse-ui.ts");
+  assert.match(ui, /const unterschreibtVerbundene = \(mitglied: string \| undefined\): boolean => !!mitglied && verbundeneSolanaWallet\(\)\?\.adresse === mitglied;/);
+  const aendern = ui.slice(ui.indexOf("async function aendern("), ui.indexOf("async function auszahlen("));
+  const auszahlen = ui.slice(ui.indexOf("async function auszahlen("));
+  for (const [name, teil] of [["aendern", aendern], ["auszahlen", auszahlen]] as const) {
+    assert.match(teil, /!unterschreibtVerbundene\(mitglied\) && !\(await verlangeTresor\(t\("kasse\.wofuer"\)\)\)/, `${name}: Tresor nur, wenn nicht die verbundene unterschreibt`);
+    assert.match(teil, /\.\.\.\(k\.verbunden \? \[t\("kasse\.verbundenUnterschreibt"\)\] : \[\]\),/, `${name}: die Rückfrage sagt es`);
+  }
+  assert.match(t("kasse.verbundenUnterschreibt"), /Devnet/);
+  assert.match(t("kasse.nurEingebaut"), /verbundenen Wallet mit genau dieser Adresse/);
 });
