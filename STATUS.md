@@ -13497,3 +13497,20 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a1“). Am 23.10.2026 entschied 
 bitchat-android und zurückgelesen; gepackte Pakete; Polster; Signatur (TTL darf sich ändern, sonst nichts; keine Ankündigung
 ab 100 Byte); Peer-ID; Gegenproben für Unlesbares und falsche Form. Ein absichtlicher Fehler (Signierdaten ohne Polster)
 machte die Tests rot.
+
+## Schritt B-36a2 – Bitchat: Ankündigung und Fragmente
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a2“), auf B-36a1.
+
+- **`bitchat-paket.ts`:**
+  - Ankündigung bauen (nur Name und beide Schlüssel, unter 100 Byte – BC-W3 A) und lesen (auch Fähigkeiten und Nachbarn
+    anderer, Unbekanntes übersprungen).
+  - Fragment-Nutzlast wie `FragmentPayload`; `zerlegeBitchat()` in höchstens 256 Teile, je unter der MTU.
+  - `BitchatZusammensetzer`: je Absender und Kennung, Grenzen wie bitchat-android (64 Sätze, 1 MiB je Satz, 4 MiB
+    insgesamt, 30 s), Widersprüche verwerfen den Satz, das Ganze mit TTL 0.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +4: Ankündigung und Fragmente gegen die Referenz (aus B-36a1 vorbereitet), Zerlegen eines 2-KB-Pakets
+und Zusammensetzen; Zusammensetzen in beliebiger Reihenfolge mit Doppeltem; alle Grenzen einzeln (Sätze, Frist, je Satz,
+insgesamt, 257 Fragmente, Widerspruch, falscher Typ).

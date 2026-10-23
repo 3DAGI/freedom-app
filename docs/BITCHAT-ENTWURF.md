@@ -108,6 +108,15 @@ Identität je Gerät mit Grenze im Bericht.
   B-36a3 Noise `XX` (`Noise_XX_25519_ChaChaPoly_SHA256`, Vektoren aus der Noise-Spezifikation); B-36a4 Fluten
   (Doppel-Erkennung, TTL, Weiterreichen); dann b (Bluetooth in Kotlin), c (App), d (Probe, MENSCH).
 
+## Stand B-36a2 (23.10.2026)
+
+- **Ankündigung:** `baueBitchatAnkuendigung()` nur mit Name, Noise- und Signierschlüssel – unter 100 Byte, ohne Nachbarn und
+  Fähigkeiten (BC-W3 A); `leseBitchatAnkuendigung()` liest auch, was Bitchat-Geräte mehr senden. Gegen die Referenz geprüft.
+- **Fragmente:** Nutzlast wie `FragmentPayload`, `zerlegeBitchat()` in höchstens 256 Teile (mehr nimmt bitchat-android nicht
+  an), `BitchatZusammensetzer` mit dessen Grenzen (64 Sätze, 1 MiB je Satz, 4 MiB insgesamt, 30 s) – je Absender getrennt,
+  heraus mit TTL 0.
+- **Weiter:** B-36a3 Noise `XX`, B-36a4 Fluten.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

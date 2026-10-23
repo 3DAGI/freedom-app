@@ -221,3 +221,9 @@ bitchat-paket.ts|leseBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, ve
 bitchat-paket.ts|polstereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
 bitchat-paket.ts|pruefeBitchatSignatur|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
 bitchat-paket.ts|signiereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|baueBitchatAnkuendigung|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|leseBitchatAnkuendigung|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|kodiereBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|leseBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|zerlegeBitchat|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-paket.ts|BitchatZusammensetzer|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
