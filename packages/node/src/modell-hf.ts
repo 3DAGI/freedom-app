@@ -43,12 +43,17 @@ const status = (r: Response): void => {
 /** Stand eines Commits oder Zweigs; wirft bei Netz- und HTTP-Fehlern (nur mit Namen). */
 export async function holeHfStand(n: HfName, rev = "main", basis?: string, holen: Holen = netz): Promise<HfStand> {
   const adresse = hfStandAdresse(n, rev, basis);
-  if (!adresse) return { ok: false, fall: "hf.form" };
+  const json = adresse ? await holeStandJson(adresse, holen) : undefined;
+  return json === undefined ? { ok: false, fall: "hf.form" } : hfStand(json);
+}
+
+/** Die Antwort mit den Dateiangaben als JSON – undefined, wenn sie zu lang oder kein JSON ist; wirft bei Netz- und HTTP-Fehlern. */
+export async function holeStandJson(adresse: string, holen: Holen = netz): Promise<unknown> {
   const r = await holen(adresse, { redirect: "error", signal: AbortSignal.timeout(15_000) });
   status(r);
   const { text, abgeschnitten } = await leseBegrenzt(r, HF_STAND_MAX);
-  if (abgeschnitten) return { ok: false, fall: "hf.form" };
-  try { return hfStand(JSON.parse(text)); } catch { return { ok: false, fall: "hf.form" }; }
+  if (abgeschnitten) return undefined;
+  try { return JSON.parse(text) as unknown; } catch { return undefined; }
 }
 
 /** Git-Kennung einer Datei (SHA-1 über „blob <Länge>\0“ und Inhalt) – so nennt Hugging Face kleine Dateien. */
@@ -141,6 +146,16 @@ export async function ladeHfDatei(
 ): Promise<"vorhanden" | "geladen"> {
   const url = hfDateiAdresse(n, commit, f.name, o.basis);
   if (!url || !HF_DATEI.test(f.name)) throw fehler("DateiName");
+  return ladeGepruefteDatei(url, ordner, f, o);
+}
+
+/**
+ * Der Teil von `ladeHfDatei()`, der für jede Quelle gleich ist (seit B-38b3b2 auch für Whisper): die Adresse hat der
+ * Aufrufer geprüft, `f.name` ist ein Name ohne Pfad.
+ */
+export async function ladeGepruefteDatei(
+  url: string, ordner: string, f: ModelFile, o: { holen?: Holen; fortschritt?: (bytes: number) => void; stillMs?: number } = {},
+): Promise<"vorhanden" | "geladen"> {
   const ziel = join(ordner, f.name);
   if (existsSync(ziel) && statSync(ziel).size === f.sizeBytes && (await summeDerDatei(ziel)) === f.sha256) return "vorhanden";
   mkdirSync(ordner, { recursive: true, mode: 0o755 });

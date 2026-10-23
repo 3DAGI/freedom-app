@@ -63,6 +63,7 @@ import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
 import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
+import { dateiAbdruck, holeWhisperStand, ladeWhisperDatei } from "./modell-whisper.js";
 import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
 import { holeUndTeile, teileModell } from "./modell-schwarm.js";
 import { KatalogFreigaben, katalogeAusUmgebung } from "./modell-kataloge.js";
@@ -192,6 +193,7 @@ async function main(): Promise<void> {
     const befunde = pruefeModelle({
       angeboten: providerModelle(process.env), stand, wuensche: leseWuensche(wunschDatei()), ollama: ollamaStand, antrieb: antrieb.art,
       ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
+      dateiUnveraendert: (m) => !!m.datei && dateiAbdruck(m.datei) === m.abdruck,
     });
     return {
       befunde: befunde.map(({ name, stufe, fall, werte }) => ({ name, stufe, fall, werte: werte ?? {} })),
@@ -358,6 +360,13 @@ async function main(): Promise<void> {
         } : {}),
       },
     }),
+    // Text aus Sprache (B-38b3b2): das Whisper-Modell mit jedem Antrieb – eine ggml-Datei aus dem Repo von whisper.cpp
+    whisper: {
+      ordner: join(modellBasis, "whisper"),
+      stand: (name, rev) => holeWhisperStand(name, rev),
+      ladeDatei: (commit, name, ordner, f, fortschritt) => ladeWhisperDatei(commit, name, ordner, f, { fortschritt }),
+      abdruck: dateiAbdruck,
+    },
     pull: (name, fortschritt) => ollamaPull(ollamaUrl, name, fortschritt),
     tags: mitOllama ? () => ollamaTags(ollamaUrl) : async () => [],
     speicherGb: Number(process.env.MODELL_SPEICHER_GB) || totalmem() / 1e9,

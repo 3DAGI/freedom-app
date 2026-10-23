@@ -13039,3 +13039,27 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6). Zweiter Teil von A-12c, auf A-12d1 (#570).
   - Text ohne Nummer
 
 Knoten-Stand: keiner nötig.
+
+## Schritt B-38b3b2 – Text aus Sprache: der Knoten lädt das Whisper-Modell geprüft
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (V4, SP-W4 C), auf B-38b3b1.
+
+- **`modell-whisper.ts`** (Knoten, neu): `holeWhisperStand()`, `ladeWhisperDatei()` (Adresse nur am Commit, SHA-256 beim
+  Laden, danach die Kennung `ggml` – sonst gelöscht), `dateiAbdruck()`, `ladeWhisperModell()` (Manifest über
+  `vertrautesManifest()` mit `whisperQuelle()`, `--aus-hf` hält fest, Vorprüfung am Commit).
+- **`modell-hf.ts`:** der geprüfte Abruf als `ladeGepruefteDatei()` und `holeStandJson()` herausgelöst – `ladeHfDatei()` und
+  `holeHfStand()` unverändert in Verhalten und Tests.
+- **`modell-laden.ts`:** Quelle `whisper` (Name `whisper:<name>`, Stand mit `datei` und `abdruck`), der `ModellDienst` lädt
+  Whisper-Wünsche mit jedem Antrieb, `imAngebot()` lässt sie aus.
+- **Selbstprüfung:** `modell.whisper`, `modell.whisperVeraendert` und die Kennungen beim Laden – Texte im Knoten und in der
+  App (de/en); `npm run pruefen` und der Status sehen eine veränderte Datei.
+- **`npm run modell -- --whisper [name] [--aus-hf]`**, Vorgabe nach `WHISPER_GPU`; `main.ts` verdrahtet die Hilfen.
+- **Docs:** `PROVIDER.md` („Text aus Sprache“: Modell geprüft laden), `PROTOCOL.md` §43, Entwurf, Fallstrick, OFFEN,
+  FORTSCHRITT, Sammlung, Stand-Zeile. Vier Ausnahmen aus B-38b3b1 sind gestrichen (verdrahtet).
+
+**Tests:** node +5 (`modell-whisper.test.ts`: Abruf gegen eine Attrappe von Hugging Face – nur am Commit, Pickle unter dem
+Namen gelöscht, falsche Summe ohne Rest –, Abdruck, ganzer Lauf über den `ModellDienst` mit Ollama als Antrieb –
+festgehalten, geprüft, nie im Angebot –, Ablehnungen mit Kennung, Wünsche und Stand streng); die Listen der Kennungen
+(`modell-pruefung.test.ts`, `knoten-status.test.ts` der App) sind um die neuen ergänzt.
+
+Knoten-Stand: **neu nötig** für `npm run modell -- --whisper`; sonst verhält sich der Knoten wie bisher.
