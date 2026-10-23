@@ -13465,3 +13465,16 @@ Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3b“). Damit ist B-32 fertig
 Auftrag mit Nachweis ohne Gebot, Verdrahtung); `privacy-facts.test.ts` zwei Zeilen; `ki-funk.test.ts` und
 `rnode-senden.test.ts` halten die neue Verdrahtung fest – die Reihenfolge „erst das Gerät, dann Gutschrift und Auftrag“
 prüfte `ki-funk.test.ts` mit `indexOf` und wäre mit dem neuen Text still durchgegangen (-1); jetzt mit Fundstelle.
+
+## Schritt B-36-Entwurf – Bitchat in der Android-Hülle: Befunde und Fragen
+
+Spur B, Sammlung B-36. Der MENSCH hat BC1 am 23.10.2026 von B („erst nach einem Audit“) auf A gestellt („ja, nach B-32,
+mit Grenze im Datenschutzbericht“). Nur Dokumente, kein Code.
+
+- **`docs/BITCHAT-ENTWURF.md`:**
+  - Befunde aus den Quellen: Protokoll und iOS-Code gemeinfrei, `bitchat-android` seit 28.02.2026 GPL-3.0 (vorher MIT);
+    Audit im Januar 2026 gemeldet, Bericht nicht öffentlich; Peer-ID fest, Ankündigung mit Schlüsseln, Name und
+    Nachbarn im Klartext; gerichtete Noise-Pakete reichen Bitchat-Geräte ungelesen weiter; das Nostr-Gateway von Bitchat
+    nimmt nur Geohash-Events, keine Umschläge.
+  - Vorschläge V1–V5 und Fragen BC-W1–W4 (Umsetzung, Inhalt, Finden, Identität), Aufteilung a–d.
+- OFFEN (1.6 neu, Zeile aus 1.2 raus, Spur B), Sammlung (B-36, BC1), FORTSCHRITT, Stand-Zeile.
