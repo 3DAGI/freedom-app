@@ -17,6 +17,9 @@
  * - Die Antwort steht im Raum (vom Agenten). Hier nur Rückmeldungen über ihre
  *   Kennung (`ablehnungsText()`). Kein zweiter Versuch von selbst: Im Zahlkanal
  *   hielte die offene erste Gutschrift die zweite um ein Gebot höher.
+ * - Repo-Aufträge (11.5d1, `beauftrageAmRepo()`): dieselbe Frage mit der Obergrenze des
+ *   Fragenden (W5 A); die Nachricht mit dem Repo-Tag geht erst nach der Bestätigung
+ *   hinaus (`RepoWunsch.sende()`), gewartet wird so lange, wie der Lauf beim Knoten darf.
  */
 import { KIND_AGENT_KARTE, aktuelleAgentKarten, auftragsVerweisTags, type AgentKarte } from "@freedomstack/protocol";
 import { hoechstMsat } from "../anteile-kasse.js";
@@ -27,6 +30,7 @@ import { kiZahlweg } from "../ki-zahlweg.js";
 import { type RaumAgentKarte, type ZuBezahlen, ablehnungsText, zuBezahlen } from "../knoten-agent-wahl.js";
 import { ausMsat } from "../preis-anzeige.js";
 import { fehlerText } from "../protokoll-texte.js";
+import { REPO_WARTEN_MS } from "../repo-agent.js";
 import { AGENT_GEBOT_SATS } from "./agenten-lauschen.js";
 import { bezahlterAuftrag } from "./bezahlter-auftrag.js";
 import { bestaetige } from "./dialog.js";
@@ -49,7 +53,20 @@ export async function frageKnotenAgenten(p: { raum: string; erwaehnung: string; 
   }
 }
 
-async function frageEinen(raum: string, erwaehnung: string, k: ZuBezahlen): Promise<void> {
+/** Ein Repo-Auftrag (11.5d1): Obergrenze, Name des Repos und das Senden der Nachricht – erst nach der Bestätigung. */
+export interface RepoWunsch {
+  gebotSats: number;
+  repo: string;
+  /** Die Raum-Nachricht mit Erwähnung und Repo-Tag senden – ihre Id (privat die des inneren Events) oder `null`. */
+  sende: () => Promise<string | null>;
+}
+
+/** Einen Agenten am Repo beauftragen (11.5d1) – `raum` wie bei Fragen: Adresse des offenen Raums oder die Gruppe. */
+export async function beauftrageAmRepo(raum: string, k: ZuBezahlen, repo: RepoWunsch): Promise<void> {
+  await frageEinen(raum, undefined, k, repo).catch((e) => toast(fehlerText(e), true));
+}
+
+async function frageEinen(raum: string, gesendet: string | undefined, k: ZuBezahlen, repo?: RepoWunsch): Promise<void> {
   // Nur ein Knoten mit Angebot, der versiegelte Anfragen nimmt
   const angebot = privatFaehig((await providerMitStand()).filter((c) => c.caps.pubkey === k.provider))[0]?.caps;
   if (!angebot) return toast(t("agentKnoten.ohneAngebot", { name: k.name }), true);
@@ -60,22 +77,27 @@ async function frageEinen(raum: string, erwaehnung: string, k: ZuBezahlen): Prom
     const { grund } = await providerZahlung(k.provider);
     if (grund) return toast(grund, true);
   }
-  const hoechst = hoechstMsat(AGENT_GEBOT_SATS, []);
+  const hoechst = hoechstMsat(repo?.gebotSats ?? AGENT_GEBOT_SATS, []);
+  const preis = repo ? (weg === "kanal" ? "agentRepo.preisKanal" : "agentRepo.preis") : (weg === "kanal" ? "agentKnoten.preisKanal" : "agentKnoten.preis");
   const ok = await bestaetige({
-    titel: t("agentKnoten.titel", { name: k.name }),
-    text: t(weg === "kanal" ? "agentKnoten.preisKanal" : "agentKnoten.preis", {
-      name: k.name, hoechst: ausMsat(hoechst, angebot.kurs), rate: ausMsat(angebot.textRatePerKTokenMsat, angebot.kurs),
+    titel: t(repo ? "agentRepo.preisTitel" : "agentKnoten.titel", { name: k.name, repo: repo?.repo ?? "" }),
+    text: t(preis, {
+      name: k.name, hoechst: ausMsat(hoechst, angebot.kurs), rate: ausMsat(angebot.textRatePerKTokenMsat, angebot.kurs), repo: repo?.repo ?? "",
     }),
-    ok: t("agentKnoten.fragen"),
+    ok: t(repo ? "agentRepo.beauftragen" : "agentKnoten.fragen"),
   });
   if (!ok) return;
+  // Repo-Auftrag: die Nachricht erst jetzt – ohne sie gibt es nichts zu bezahlen
+  const erwaehnung = gesendet ?? (await repo?.sende());
+  if (!erwaehnung) return toast(t("agentRepo.nichtGesendet"), true);
+  if (repo) toast(t("agentRepo.laeuft", { name: k.name }));
 
   // Frischer Sitzungsschlüssel je Frage – der Knoten kann zwei Fragen nicht über ihn verbinden
   const r = await bezahlterAuftrag({
     provider: k.provider, sitzungen: new KiSitzungen(), input: EINGABE, hoechstMsat: hoechst, kanal: weg === "kanal",
-    extraTags: auftragsVerweisTags({ raum, erwaehnung }),
+    extraTags: auftragsVerweisTags({ raum, erwaehnung }), ...(repo ? { wartenMs: REPO_WARTEN_MS } : {}),
   });
-  if (r?.art === "antwort") toast(t("agentKnoten.beantwortet", { name: k.name }));
+  if (r?.art === "antwort") toast(t(repo ? "agentRepo.fertig" : "agentKnoten.beantwortet", { name: k.name }));
   else if (r?.art === "abgelehnt") toast(t(ablehnungsText(r.fall), { name: k.name, fall: r.fall ?? "–" }), true);
   else toast(t("agentKnoten.keineAntwort", { name: k.name }), true);
 }
