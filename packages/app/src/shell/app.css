@@ -1462,7 +1462,8 @@ main { min-width: 0; }
 }
 .chat-composer .zap-btn:hover { border-color: var(--accent); }
 /* Sprachnachricht (C-7): die Aufnahme sieht man am Knopf und in einer Zeile darunter */
-#chat-voice-btn.nimmt-auf { border-color: var(--red); color: var(--red-text); }
+#chat-voice-btn.nimmt-auf, #ai-diktieren.nimmt-auf { border-color: var(--red); color: var(--red-text); }
+.diktat-stand { color: var(--red-text); }
 .chat-voice-status { padding: 0 12px 6px; color: var(--red-text); }
 
 /* Hauptnavigation: kein abgeschnittener Eintrag */
