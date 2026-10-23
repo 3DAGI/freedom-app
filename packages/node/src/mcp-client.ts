@@ -48,6 +48,8 @@ export interface McpServerEinstellung {
   nurLesbar: string[];
   /** Ein Programm, ohne das der Server nicht startet (Kiwix: `kiwix-serve`) – fehlt es, startet er nicht (`ProgrammFehlt`). */
   braucht?: string;
+  /** Kiwix (B-31b): die ZIM-Dateien – der Motor bekommt dieselben (VKd2a, `mcp-katalog.ts`). */
+  zim?: string[];
 }
 
 /** Die Kiwix-Brücke (B-31b) – reines JavaScript, damit sie in der Sandbox ohne tsx läuft. */
@@ -95,7 +97,7 @@ export function mcpAusDatei(
       const ordner = [...new Set((kiwix as string[]).map((p) => dirname(p)))];
       if (ordner.some((p) => zuWeit(p, heim) || zuWeitEcht(p, heim))) return { ungueltig: `mcp.json: „${name}“ – nie die Wurzel, das Home oder ~/.freedom einbinden` };
       const kiwixServe = o.kiwixServe ?? KIWIX_SERVE;
-      aus.push({ name, befehl: [o.node ?? process.execPath, KIWIX_BRUECKE, kiwixServe, ...(kiwix as string[])], nurLesbar: [dirname(KIWIX_BRUECKE), ...ordner], braucht: kiwixServe });
+      aus.push({ name, befehl: [o.node ?? process.execPath, KIWIX_BRUECKE, kiwixServe, ...(kiwix as string[])], nurLesbar: [dirname(KIWIX_BRUECKE), ...ordner], braucht: kiwixServe, zim: [...(kiwix as string[])] });
       continue;
     }
     const befehl = (e as { befehl?: unknown })?.befehl;
