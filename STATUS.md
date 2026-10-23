@@ -13330,3 +13330,21 @@ Kontakt, ohne ihn bei der Gegenstelle –, Verdrahtung und Texte); `versand.test
 `privacy-facts.test.ts`; Smoke-Teil „rnode_dm“ (die Attrappe merkt Rahmen als Hex, `ProbeRelay.ablehnen`).
 
 Knoten-Stand: keiner nötig.
+
+## Schritt B-32d-Entwurf – Reticulum-Gateway im Knoten: Fragen RN-W7–W10
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Fragen vor B-32d“). Die Karte nennt für das Gateway `@reticulum/node` und TCP zu
+`rnsd`. Beides passt nicht mehr:
+- `rnsd` ist die Python-Referenz mit Klausel gegen KI; der Entwurf bindet RNS bewusst nicht ein.
+- `@reticulum/node` 0.9.13 bringt `@reticulum/rfed` mit und hängt mit `^` an `core`/`lxmf`.
+
+Es geht ohne beides: `@reticulum/core` hat `RNodeInterface` (KISS) und einen HDLC-Framer, der Knoten kann die RNode über eine
+TCP-Brücke (`socat`/`ser2net`, wie 7.4b2) selbst steuern.
+
+- **Fragen** (OFFEN 1.6) mit Empfehlungen: RN-W7 A (RNode über TCP-Brücke, kein `rnsd`), RN-W8 A (keine neuen Pakete),
+  RN-W9 A (wie Meshtastic: Umschläge ins Netz, KI-Antworten an die Adresse des Auftrags), RN-W10 A (Region und Grenzen wie in
+  der App).
+- **Teilung** bei den Empfehlungen: d1 Bausteine ins Protokoll, d2 Knoten mit RNode, d3 KI-Antworten zurück.
+- Entwurf, OFFEN (1.6, Zeile B-32), FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** keine (nur Doku); alle Prüfungen gelaufen.
