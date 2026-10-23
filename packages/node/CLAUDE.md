@@ -407,6 +407,10 @@ Bereichs unten anhängen.
   mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`. Kiwix (seit VKd2a) bekommt der Motor nur mit den
   ZIM-Dateien aus `mcp.json` (`McpServerEinstellung.zim`, schon von `mcpAusDatei()` geprüft) und der Brücke aus B-31b –
   keine zweite Liste, `MCP_KIWIX` kennt nur `aus`; die Werkzeuge kommen aus `WERKZEUGE` der Brücke, nie abgeschrieben.
+- **Freedom-MCP nur je Projekt** (seit VKd2b1, `freedom-mcp.ts`): Die Brücke beantwortet nur `/mcp/<zeichen>` – das Zeichen
+  (32 Zufallsbyte, `McpProjekte.zeichen()`) steht nur in der `config.yaml` des Projekts (`hermesMotor({ mcpZeichen })`), nie
+  `/mcp` allein, nie ein Zeichen für mehrere Projekte. Lese-Freigaben nur über `McpProjekte.freigaben(projekt)` bzw. `zu(zeichen)`
+  – eine Freigabe aus dem Auftrag von A liest B nicht. Was später je Projekt schreibt (Bilder, VKd2b2), hängt am selben Zeichen.
 - **MCP-Server für das Modell nur über `mcp-client.ts`** (seit B-31a, MC1-Größe B): eigener Client ohne SDK – keine
   Abhängigkeit dafür einführen. Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`), gestartet nur über
   `starteMcpServer()` in `sandboxMotor()` – nie ein Server außerhalb der Sandbox, nie mit Netz. Eingebunden wird nur

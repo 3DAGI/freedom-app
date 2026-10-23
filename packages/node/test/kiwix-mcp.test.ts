@@ -220,7 +220,7 @@ test("VKd2a: Kiwix für den Motor – dieselben ZIM-Dateien wie aus mcp.json, Or
     const mitNode = mcpAusUmgebung({ MCP_BROWSER: "aus" }, { zim: ["/daten/zim/w.zim"], kiwixServe: serve, node: "/opt/node22/bin/node", heim: "/home/n" });
     assert.ok("server" in mitNode && mitNode.server[0]!.nurLesbar.some((b) => b.quelle === "/opt/node22" && b.ziel === "/opt/node22"));
     // Hermes bekommt ihn neben Freedom-MCP, mit genau diesen Werkzeugen
-    const k = JSON.parse(hermesKonfiguration("coder:7b", [s])) as { mcp_servers: Record<string, { command?: string; args?: string[]; tools?: { include?: string[] } }> };
+    const k = JSON.parse(hermesKonfiguration("coder:7b", [s], "ab".repeat(32))) as { mcp_servers: Record<string, { command?: string; args?: string[]; tools?: { include?: string[] } }> };
     assert.deepEqual(Object.keys(k.mcp_servers), ["freedom", "kiwix"]);
     assert.deepEqual(k.mcp_servers.kiwix?.tools?.include, ["search", "read"]);
     assert.equal(k.mcp_servers.kiwix?.args?.[0], `${KIWIX_IN_SANDBOX}/kiwix-bruecke.mjs`);

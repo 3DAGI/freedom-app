@@ -208,8 +208,8 @@ test("VKc1: main.ts – Ablage nur aus der Umgebung, Rolle „code“ nur mit gi
   assert.match(main, /turn,\s*projekte,\s*agent: knotenAgent,\s*\.\.\.\(code \? \{ code \} : \{\}\),/);
   // VKc3a: der Motor nur mit Sandbox und Hermes, nur über hermesMotor() mit der Brücke
   assert.match(main, /if \(!sandbox\.ok\) console\.log\("\[code\] kein Motor/);
-  // VKd1b: dazu meldet der Lauf seinen Auftrag an die Lese-Freigaben
-  assert.match(main, /code = new CodeLaeufe\(\{\s*ablage: projekte, beimAuftrag: \(t\) => freigaben\.ausAuftrag\(t\),\s*motor: hermesMotor\(\{ hermes: hermesWahl\.hermes, ablage: projekte, bruecke,/);
+  // VKd1b: dazu meldet der Lauf seinen Auftrag an die Lese-Freigaben – seit VKd2b1 an die seines Projekts
+  assert.match(main, /code = new CodeLaeufe\(\{\s*ablage: projekte, beimAuftrag: \(t, p\) => mcpProjekte\.freigaben\(p\)\.ausAuftrag\(t\),\s*motor: hermesMotor\(\{\s*hermes: hermesWahl\.hermes, ablage: projekte, bruecke,/);
   assert.doesNotMatch(main, /prozessMotor\(/, "nie ein Motor ohne Sandbox");
   const docker = readFileSync(new URL("../../../docker/node.Dockerfile", import.meta.url), "utf8");
   assert.match(docker, /install -y --no-install-recommends aria2 bubblewrap git/, "VK-W2 A: git im Bild, VKb: bubblewrap für die Sandbox");

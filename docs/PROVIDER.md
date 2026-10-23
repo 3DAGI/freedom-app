@@ -696,14 +696,16 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Hermes, steht es im Log, und Aufträge werden mit `code-ohne-motor` abgelehnt.
 - **Werkzeuge (seit VKd1):** Hermes kann über deinen Knoten im Netz suchen
   (DuckDuckGo, nur Kurzantworten) und öffentliche Seiten als Text lesen (Freedom-MCP,
-  `POST /mcp` an derselben Brücke). Die Sandbox selbst bleibt ohne Netz; es gehen nur
+  `POST /mcp/<zeichen>` an derselben Brücke – je Projekt ein eigenes Zeichen, seit VKd2b1). Die Sandbox selbst bleibt ohne Netz; es gehen nur
   diese zwei Werkzeuge hinaus (Pakete gehen seit VKd3 eigene Wege, unten), mit den Grenzen der Werkzeuge des Knotens (http und
   https, keine privaten Adressen, nur Text, Größe und Zeit begrenzt) und ohne Tor – die Suchmaschine und die Seiten sehen die IP deines
   Knotens und, was in Suchanfrage oder Adresse steht. Hermes fragt vor diesen
   Aufrufen nicht; in der App erscheinen sie als Schritt. Gelesen werden nur Seiten,
   deren Adresse im Auftrag oder in einem Suchergebnis steht (seit VKd1b, wie bei
   Claude) – keine Adresse, die der Agent selbst baut, kein Link aus einer gelesenen
-  Seite. Die Suchanfrage selbst ist frei.
+  Seite. Die Suchanfrage selbst ist frei. Eine Freigabe gilt nur im Projekt, aus dessen
+  Auftrag oder Suche sie stammt (seit VKd2b1): Ein anderes Projekt erreicht Freedom-MCP
+  unter seinem eigenen Zeichen und kann diese Adresse nicht lesen.
 - **Browser (seit VKk1):** Hermes kann durchklicken, was er baut – Playwright MCP
   (Microsoft, Apache-2.0, aus `playwright-core`) steuert Chromium ohne Kopf, beide in
   der Sandbox des Motors und ohne Netz: Der Browser sieht nur Seiten, die der Agent in

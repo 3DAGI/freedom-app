@@ -4,7 +4,8 @@
  * einbindet (`/bruecke`); dahinter liegt nur das Modell des Knotens – `GET /v1/models` und
  * `POST /v1/chat/completions` an den KI-Antrieb (`ki-antrieb.ts`), nie eine andere Adresse, nie ein anderer Pfad.
  * Wie die Proxy-Brücke von Codex – nie, indem die Sandbox das Netz des Rechners teilt. Seit VKd beantwortet sie dazu
- * `POST /mcp` im Knoten selbst (Freedom-MCP, `freedom-mcp.ts`) – Werkzeuge des Knotens, nie ein weiterer Weg nach draußen.
+ * `POST /mcp/<zeichen>` im Knoten selbst (Freedom-MCP, `freedom-mcp.ts`, seit VKd2b1 je Projekt) – Werkzeuge des Knotens,
+ * nie ein weiterer Weg nach draußen.
  * Seit VKd3 dazu `GET /npm/…` und `/pypi/…`: Pakete nur von der festen Liste der Registries (`paket-spiegel.ts`).
  *
  * Der Schlüssel des Antriebs (`KI_SCHLUESSEL`) kommt erst hier dazu; Kopfzeilen aus der Sandbox gehen nicht
@@ -88,7 +89,9 @@ function leseKoerper(req: IncomingMessage, grenze: number = BRUECKE_GRENZEN.anfr
 
 /** Brücke öffnen – ein Socket für alle Läufe des Knotens; `schliesse()` beim Ende des Knotens. */
 export async function oeffneModellBruecke(antrieb: KiAntrieb, o: {
-  fetchImpl?: typeof fetch; mcp?: (nachricht: unknown) => Promise<object | null>;
+  fetchImpl?: typeof fetch;
+  /** Freedom-MCP je Projekt (VKd2b1): zum Zeichen aus `/mcp/<zeichen>` die Antwort – undefined, wenn es keines ist (404). */
+  mcp?: (zeichen: string) => ((nachricht: unknown) => Promise<object | null>) | undefined;
   /** Pakete (VKd3): `/npm/…` und `/pypi/…` an den Spiegel – ohne ihn 404 wie jeder andere Weg. */
   spiegel?: (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 } = {}): Promise<ModellBruecke> {
@@ -96,7 +99,9 @@ export async function oeffneModellBruecke(antrieb: KiAntrieb, o: {
   const ordner = mkdtempSync(join(tmpdir(), "freedom-bruecke-"));
   const sockel = join(ordner, "modell.sock");
   const server = createServer(async (req, res) => {
-    if (o.mcp && req.url === "/mcp") return beantworteMcp(req, res, o.mcp).catch(() => absage(res, 502));
+    const mcp = o.mcp && /^\/mcp\/([0-9a-f]{64})$/.exec(req.url ?? "");
+    const fuerProjekt = mcp ? o.mcp!(mcp[1]!) : undefined;
+    if (fuerProjekt) return beantworteMcp(req, res, fuerProjekt).catch(() => absage(res, 502));
     if (o.spiegel && /^\/(?:npm|pypi)\//.test(req.url ?? "")) return o.spiegel(req, res).catch(() => absage(res, 502));
     const ziel = brueckenZiel(antrieb, req.method, req.url);
     if (!ziel) {
