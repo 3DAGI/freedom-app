@@ -1468,6 +1468,94 @@ def sprachnachricht_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def als_text_pruefen(browser, url: str) -> dict:
+    """„Als Text“ (B-38c1): gekoppelt (Code vorab im Speicher) trägt die eigene Sprachnachricht im Verlauf den Knopf. Ein
+    Klick fragt den Status des Knotens – ohne die Rolle `sprache` geht kein Ton hinaus. Mit ihr wandelt der Browser die
+    Aufnahme in WAV (16 kHz, mono), legt sie verschlüsselt unter einem Sitzungsschlüssel ins Blob-Netz und schickt den
+    Auftrag versiegelt. Der Knoten ist `scripts/sprache-probe.mts`: Er misst die Tonhöhe der Mikrofon-Attrappe (440 Hz) –
+    stimmt sie, hat der Browser richtig gewandelt."""
+    erg = {"fehler": []}
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/sprache-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
+    code = f"freedom-kopplung:1:{probe['knoten']}:{probe['geheimnis']}"
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=MIKROFON_ATTRAPPE + f"localStorage.setItem('freedom.knoten.kopplung', {json.dumps(code)});")
+    s, ev = seite.s, seite.ev
+    beantwortet: set[str] = set()
+
+    def gesendet() -> list[dict]:
+        return list({e["id"]: e for e in relay.gesendet}.values())
+
+    def an_knoten() -> list[dict]:
+        return [e for e in gesendet() if e.get("kind") == 1059 and ["p", probe["knoten"]] in [t[:2] for t in e.get("tags", [])]]
+
+    def antworte(n: int, rollen: str) -> list[str]:
+        """Warten, bis n Umschläge beim Knoten sind, dann die neuen beantworten – zurück, was der Knoten beantwortet hat."""
+        for _ in range(150):
+            if len(an_knoten()) >= n:
+                break
+            s.wait_for_timeout(200)
+        aus = json.loads(subprocess.run(["npx", "tsx", "scripts/sprache-probe.mts", "antworte", probe["sk"], probe["geheimnis"]], cwd=wurzel,
+                                        input=json.dumps(gesendet()), capture_output=True, text=True, timeout=180, check=True,
+                                        env={**os.environ, "PROBE_ROLLEN": rollen}).stdout)
+        neu = [a for a in aus if a["fuer"] not in beantwortet]
+        for a in neu:
+            beantwortet.add(a["fuer"])
+            relay.events.extend(a["events"])
+        return [a["art"] for a in neu]
+    blob = lambda: [e for e in gesendet() if e.get("kind") in (38040, 38041)]
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    knopf = "#chat-voice-btn"
+    s.click(knopf)
+    s.wait_for_function("() => /0:02 von 2:00/.test(document.getElementById('chat-voice-status').textContent)", timeout=10000)
+    s.click(knopf)
+    s.wait_for_function("() => /sprachnachricht\\.webm/.test(document.getElementById('chat-attach-list').textContent)", timeout=15000)
+    s.click("#chat-send")
+    s.wait_for_selector("#chat-thread .ton-mit-text .ton-als-text", timeout=15000)
+    erg["knopf"] = ev("() => { const h = document.querySelector('#chat-thread .ton-mit-text');"
+                      " return [h.querySelector('audio').src.slice(0, 15), h.querySelector('.ton-als-text').textContent, h.querySelector('.ton-text').textContent]; }")
+    vorher = len(an_knoten())
+    # Ohne die Rolle: nur die Statusabfrage, kein Ton
+    s.click("#chat-thread .ton-als-text")
+    erg["ohne_rolle"] = {"antworten": antworte(vorher + 1, "")}
+    s.wait_for_function("() => /noch keinen Text aus Sprache/.test(document.querySelector('#chat-thread .ton-text').textContent)", timeout=20000)
+    erg["ohne_rolle"].update(text=ev("() => document.querySelector('#chat-thread .ton-text').textContent"), umschlaege=len(an_knoten()) - vorher,
+                             blob=len(blob()), hinweis=ev("() => document.querySelector('#chat-thread .ton-text').classList.contains('ton-text-hinweis')"))
+    # Mit der Rolle: Status, dann Ton und Auftrag
+    s.wait_for_function("() => !document.querySelector('#chat-thread .ton-als-text').disabled", timeout=5000)
+    s.click("#chat-thread .ton-als-text")
+    arten = antworte(vorher + 2, "sprache") + antworte(vorher + 3, "sprache")
+    s.wait_for_function("() => /^Probe: /.test(document.querySelector('#chat-thread .ton-text').textContent)", timeout=30000)
+    autoren = {e["pubkey"] for e in blob()}
+    erg["mit_rolle"] = {"antworten": arten, "text": ev("() => document.querySelector('#chat-thread .ton-text').textContent"),
+                        "hinweis": ev("() => document.querySelector('#chat-thread .ton-text').classList.contains('ton-text-hinweis')"),
+                        "umschlaege": len(an_knoten()) - vorher, "manifeste": sum(1 for e in blob() if e["kind"] == 38040),
+                        "ein_autor": len(autoren) == 1, "nicht_ich": bool(relay.ich) and relay.ich not in autoren}
+    if erg["knopf"] != ["data:audio/webm", "Als Text", ""]:
+        erg["fehler"].append(f"Knopf {erg['knopf']}")
+    o = erg["ohne_rolle"]
+    if o["antworten"] != ["status"] or o["umschlaege"] != 1 or o["blob"] != 0 or not o["hinweis"] or not o["text"].startswith("Dein Knoten macht noch keinen Text"):
+        erg["fehler"].append(f"ohne Rolle {o}")
+    m = erg["mit_rolle"]
+    if not re.fullmatch(r"Probe: 4[34]\d Hz, Sprache auto", m["text"]) or m["hinweis"] or m["antworten"] != ["status", "sprache"] \
+            or m["umschlaege"] != 3 or m["manifeste"] != 1 or not m["ein_autor"] or not m["nicht_ich"]:
+        erg["fehler"].append(f"mit Rolle {m}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Anrufe (seit B-13d3): zählt Fragen nach dem Mikrofon und neue Verbindungen – ohne Annehmen darf es keine geben
 ANRUF_ZAEHLER = """
 (() => {
@@ -6819,6 +6907,10 @@ def main() -> int:
             except Exception as e:
                 erg["sprachnachricht"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["als_text"] = als_text_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["als_text"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["composer"] = composer_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["composer"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -7016,6 +7108,7 @@ def main() -> int:
           and erg.get("waehrung", {}).get("bestanden") is True
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
+          and erg.get("als_text", {}).get("bestanden") is True
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("kontaktname", {}).get("bestanden") is True
