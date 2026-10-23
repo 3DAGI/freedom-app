@@ -552,8 +552,9 @@ async function main(): Promise<void> {
       console.error(`[code] ${hermesWahl.ungueltig} – der Knoten startet nicht`);
       process.exit(1);
     }
-    // MCP-Katalog (VKk): Programme für den Motor, nur in seiner Sandbox – VKk1 der Browser (Playwright MCP)
-    const mcpWahl = mcpAusUmgebung(process.env);
+    // MCP-Katalog (VKk): Programme für den Motor, nur in seiner Sandbox – VKk1 der Browser (Playwright MCP), VKd2a Kiwix
+    // mit den ZIM-Dateien aus mcp.json
+    const mcpWahl = mcpAusUmgebung(process.env, { zim: mcpServerWahl.server.flatMap((s) => s.zim ?? []) });
     if ("ungueltig" in mcpWahl) {
       console.error(`[code] ${mcpWahl.ungueltig} – der Knoten startet nicht`);
       process.exit(1);

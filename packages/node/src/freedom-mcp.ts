@@ -5,8 +5,8 @@
  * `tools/list`, `tools/call`; Benachrichtigungen bekommen 202, ein Strom vom Server (GET) gibt es nicht.
  *
  * Ausgeführt wird nur über die `ToolRegistry` (Grenzen aus `WERKZEUG_GRENZEN`, Netz nur über `safeFetch`): heute Websuche und
- * Seite lesen. Bilder, Sprache und Kiwix kommen dazu, wenn der Knoten sie hat. Was durchfließt, ist Inhalt des eigenen
- * Projekts: nie ins Log.
+ * Seite lesen. Bilder und Sprache kommen dazu, wenn der Knoten sie hat; Kiwix bekommt der Motor seit VKd2a als eigenen
+ * Server aus dem Katalog (`mcp-katalog.ts`, in seiner Sandbox). Was durchfließt, ist Inhalt des eigenen Projekts: nie ins Log.
  *
  * Gefragt wird nie (VKd-W1, MENSCH 18.10.: „wie Claude und OpenAI“). Lesen darf der Motor nur Adressen, die im Auftrag
  * standen oder die eine Suche geliefert hat – die Regel von `web_fetch` bei Claude (seit Juli 2026 ohne Links aus schon

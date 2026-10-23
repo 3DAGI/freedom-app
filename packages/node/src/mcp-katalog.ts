@@ -11,11 +11,16 @@
  * VKk1: Browser – Playwright MCP (Microsoft, Apache-2.0). Er steckt in `playwright-core`, das der Knoten schon für die
  * Web-Werkzeuge hat (8.7, optional) – kein neues Paket. Der Agent klickt damit durch, was er baut: Seiten von einem
  * Server in derselben Sandbox (`python3 -m http.server`, `npm run dev`), nie das Netz.
+ *
+ * VKd2a: Kiwix – dieselbe Brücke (`mcp/kiwix-bruecke.mjs`) und dieselben ZIM-Dateien wie für Aufträge (B-31b,
+ * `mcp.json`), kein zweiter Ort zum Einrichten. `kiwix-serve` hört nur auf 127.0.0.1 der Sandbox des Motors.
  */
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, normalize } from "node:path";
+import { WERKZEUGE as KIWIX_WERKZEUGE } from "../mcp/kiwix-bruecke.mjs";
+import { KIWIX_BRUECKE, KIWIX_SERVE } from "./mcp-client.js";
 
 /** Ein MCP-Server für `mcp_servers` in `config.yaml` – Pfade so, wie die Sandbox sie sieht. */
 export interface McpServer {
@@ -50,8 +55,11 @@ export const PLAYWRIGHT_WERKZEUGE = [
 /** Browser, die der Knoten von selbst sucht: Chromium aus Debian (das Bild mit `VIBECODEN=1`), sonst Google Chrome. */
 export const BROWSER_ORTE = ["/usr/lib/chromium/chromium", "/opt/google/chrome/chrome"] as const;
 
-/** Was für den Browser-Server fehlt – ins Log nur diese Kennungen. */
-export type McpFehlt = "mcp.playwright-fehlt" | "mcp.browser-fehlt";
+/** Wo die Kiwix-Brücke in der Sandbox liegt – nie unter `/arbeit`. */
+export const KIWIX_IN_SANDBOX = "/freedom/mcp/kiwix";
+
+/** Was für einen Server des Katalogs fehlt – ins Log nur diese Kennungen. */
+export type McpFehlt = "mcp.playwright-fehlt" | "mcp.browser-fehlt" | "mcp.kiwix-fehlt";
 
 /**
  * `playwright-core` des Knotens (optionale Abhängigkeit). `null`, wenn es fehlt oder die Fassung den MCP-Einstieg
@@ -95,11 +103,58 @@ export function playwrightMcp(o: { playwright: string; browser: string; node?: s
 }
 
 /**
- * Aus der Umgebung (nur mit Vibecoden): `MCP_BROWSER` – Pfad zu Chromium oder Chrome, `aus` schaltet den Browser ab;
- * ohne Angabe sucht der Knoten in `BROWSER_ORTE`. Ein angegebener Pfad, der nicht stimmt, heißt kein Start (`ungueltig`);
- * fehlt nur etwas, läuft der Motor ohne den Server (`fehlt`).
+ * Den Kiwix-Server für den Motor bauen (VKd2a): `node` des Knotens mit der Brücke, `kiwix-serve` und den ZIM-Dateien aus
+ * `mcp.json` – deren Ordner nur lesbar unter demselben Pfad (`mcpAusDatei()` hat sie schon geprüft: absolut, nie die
+ * Wurzel, das Home oder ~/.freedom). Der Motor bekommt genau die Werkzeuge der Brücke: suchen und lesen.
  */
-export function mcpAusUmgebung(env: { MCP_BROWSER?: string }, o: { playwright?: string | null; orte?: readonly string[] } = {}):
+function kiwixMcp(o: { zim: readonly string[]; kiwixServe: string; node?: string; heim?: string }): McpServer {
+  const node = o.node ?? process.execPath;
+  for (const p of [o.kiwixServe, node, ...o.zim]) if (!isAbsolute(p) || normalize(p) !== p) throw new Error("Pfad ungültig");
+  const heim = o.heim ?? homedir();
+  const nurLesbar = [
+    { quelle: dirname(KIWIX_BRUECKE), ziel: KIWIX_IN_SANDBOX },
+    ...[...new Set(o.zim.map((z) => dirname(z)))].flatMap((d) => lesbarerOrdner(d, heim)),
+    ...(o.kiwixServe.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(o.kiwixServe), heim)),
+    ...(node.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(dirname(node)), heim)),
+  ];
+  return {
+    name: "kiwix",
+    befehl: node,
+    argumente: [join(KIWIX_IN_SANDBOX, "kiwix-bruecke.mjs"), o.kiwixServe, ...o.zim],
+    werkzeuge: KIWIX_WERKZEUGE.map((w) => w.name),
+    nurLesbar,
+  };
+}
+
+/**
+ * Aus der Umgebung (nur mit Vibecoden):
+ * - `MCP_BROWSER` – Pfad zu Chromium oder Chrome, `aus` schaltet den Browser ab; ohne Angabe sucht der Knoten in
+ *   `BROWSER_ORTE`.
+ * - `MCP_KIWIX` – nur `aus`: Die ZIM-Dateien (`zim`) kommen aus `mcp.json` (B-31b); stehen dort welche, bekommt der Motor
+ *   Kiwix von selbst.
+ *
+ * Eine Angabe, die nicht stimmt, heißt kein Start (`ungueltig`); fehlt nur etwas, läuft der Motor ohne den Server (`fehlt`).
+ */
+export function mcpAusUmgebung(
+  env: { MCP_BROWSER?: string; MCP_KIWIX?: string },
+  o: { playwright?: string | null; orte?: readonly string[]; zim?: readonly string[]; kiwixServe?: string; node?: string; heim?: string } = {},
+): { server: McpServer[]; fehlt: McpFehlt[] } | { ungueltig: string } {
+  const browser = browserWahl(env, o);
+  if ("ungueltig" in browser) return browser;
+  const kiwix = env.MCP_KIWIX?.trim();
+  if (kiwix && kiwix !== "aus") return { ungueltig: "MCP_KIWIX kennt nur „aus“ – die ZIM-Dateien stehen in mcp.json" };
+  const zim = [...new Set(o.zim ?? [])];
+  if (kiwix === "aus" || zim.length === 0) return browser;
+  const kiwixServe = o.kiwixServe ?? KIWIX_SERVE;
+  if (!istDatei(kiwixServe)) return { server: browser.server, fehlt: [...browser.fehlt, "mcp.kiwix-fehlt"] };
+  try {
+    return { server: [...browser.server, kiwixMcp({ zim, kiwixServe, ...(o.node ? { node: o.node } : {}), ...(o.heim ? { heim: o.heim } : {}) })], fehlt: browser.fehlt };
+  } catch {
+    return { ungueltig: "Node, kiwix-serve oder eine ZIM-Datei liegen direkt im Home oder in der Wurzel – die Sandbox bekäme zu viel zu sehen (Kiwix)" };
+  }
+}
+
+function browserWahl(env: { MCP_BROWSER?: string }, o: { playwright?: string | null; orte?: readonly string[] }):
   { server: McpServer[]; fehlt: McpFehlt[] } | { ungueltig: string } {
   const wahl = env.MCP_BROWSER?.trim();
   if (wahl === "aus") return { server: [], fehlt: [] };
@@ -157,6 +212,7 @@ function istDatei(p: string): boolean {
 export const MCP_TEXT: Record<McpFehlt, string> = {
   "mcp.playwright-fehlt": "Browser für den Motor fehlt: playwright-core ist nicht installiert (optionale Abhängigkeit) – der Motor läuft ohne",
   "mcp.browser-fehlt": "Browser für den Motor fehlt: kein Chromium gefunden (MCP_BROWSER) – der Motor läuft ohne",
+  "mcp.kiwix-fehlt": "Kiwix für den Motor fehlt: kiwix-serve ist nicht installiert (Paket kiwix-tools) – der Motor läuft ohne",
 };
 
 /** Der Eintrag für `mcp_servers` in `config.yaml` (Hermes 0.19: `command`, `args`, `tools.include`). */

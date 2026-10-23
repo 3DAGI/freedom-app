@@ -13092,3 +13092,40 @@ Spur A, `docs/KASSE-ENTWURF.md` (V6, W1). Dritter Teil von A-12c, auf A-12c2 (#5
   - Rückfrage ohne den Satz
 
 Knoten-Stand: keiner nötig.
+
+## Schritt VKd2a – Kiwix für den Motor
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd, „Freedom statt Nous Portal“: „dazu Kiwix ohne Netz (B-31)“). Erster Teil von VKd2.
+
+**Neu:**
+- **Knoten (`mcp-katalog.ts`):** Stehen in `~/.freedom/mcp.json` ZIM-Dateien (B-31b), bekommt Hermes beim Vibecoden einen
+  Server `kiwix` – dieselbe Brücke (`mcp/kiwix-bruecke.mjs`) und dieselben Dateien, als Kind des Motors in dessen Sandbox
+  (ohne Netz, `kiwix-serve` nur auf 127.0.0.1 der Sandbox). Die Brücke liegt nur lesbar unter `/freedom/mcp/kiwix`, die
+  ZIM-Ordner nur lesbar unter demselben Pfad – nie die Wurzel oder das Home. Der Motor bekommt genau die Werkzeuge der Brücke
+  (`search`, `read`). Doppelte Dateien zählen einmal.
+- **Umgebung:** `MCP_KIWIX=aus` schaltet Kiwix für den Motor ab; ein anderer Wert heißt kein Start (die Dateien stehen nur in
+  `mcp.json`). Fehlt `kiwix-serve`, läuft der Motor ohne, und das Log sagt es (`mcp.kiwix-fehlt`). Browser und Kiwix sind
+  voneinander unabhängig.
+- **`mcp-client.ts`:** Ein Kiwix-Eintrag aus `mcp.json` trägt seine ZIM-Dateien (`zim`) – `main.ts` gibt sie an den Katalog.
+- **Doku:** `PROVIDER.md` (Werkzeuge des Motors, Abschnitt Kiwix), Entwurf, Fallstrick in `packages/node/CLAUDE.md`, OFFEN,
+  FORTSCHRITT, Stand.
+
+**Tests (`test/kiwix-mcp.test.ts`, +3):**
+- Server für den Motor: Befehl, Argumente, Werkzeuge gleich denen der Brücke, Ordner nur lesbar, Node außerhalb von `/usr`
+  mit seinem Präfix, `config.yaml` von Hermes nennt `freedom` und `kiwix`.
+- Ohne ZIM kein Server, `aus`, andere Werte kein Start, ohne `kiwix-serve` ohne (Browser unberührt), nie Wurzel, Home, relativ
+  oder `..`; verdrahtet in `main.ts` nach `mcpAusDatei()`.
+- Echt (bubblewrap, kiwix-serve, zimwriterfs): der Server in `sandboxMotor()` – `initialize`, `tools/list`, suchen und lesen.
+- Der Test aus B-31b für `mcp.json` erwartet jetzt auch `zim`.
+- **Gegenproben** – je mindestens ein Test rot:
+  - ein Werkzeug mehr
+  - `aus` ohne Wirkung
+  - andere Werte angenommen
+  - Dateien doppelt
+  - ohne Prüfung auf `kiwix-serve`
+  - Ordner ohne Prüfung auf Wurzel und Home
+  - ZIM-Pfade ohne Prüfung
+  - Node nicht eingebunden
+  - `main.ts` ohne die Dateien aus `mcp.json`
+
+Knoten-Stand: `main` mit VKd2a für Kiwix beim Vibecoden (ohne Update läuft der Motor wie bisher, ohne Kiwix).
