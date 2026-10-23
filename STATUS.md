@@ -13063,3 +13063,21 @@ festgehalten, geprüft, nie im Angebot –, Ablehnungen mit Kennung, Wünsche un
 (`modell-pruefung.test.ts`, `knoten-status.test.ts` der App) sind um die neuen ergänzt.
 
 Knoten-Stand: **neu nötig** für `npm run modell -- --whisper`; sonst verhält sich der Knoten wie bisher.
+
+## Schritt B-38b3b3 – Text aus Sprache: Whisper nimmt das geprüfte Modell
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (V4), auf B-38b3b2. Damit ist B-38b fertig.
+
+- **`whisper.ts`:** `WhisperDienst.modell` ist fest (`WHISPER_MODELL`, geht vor) oder eine Funktion; `whisperAusUmgebung(env,
+  geprueft)` schaltet ohne `WHISPER_MODELL` auf das geprüfte Modell. `Whisper.transkribiere()` fragt es je Auftrag – ohne
+  Modell `sprache-whisper`, bevor die Sandbox startet; `bereit()` sagt, ob es eins gibt.
+- **`modell-whisper.ts`:** `gepruefterWhisper()` – das zuletzt geprüfte Whisper-Modell mit unveränderter Datei.
+- **`main.ts`:** verdrahtet `gepruefterWhisper(leseStand(modellDatei()))`; der Status nennt `sprache` nur mit `bereit()`.
+- **Docker:** `docker-compose.sprache.yml` ohne festen Pfad – das Modell kommt über `npm run modell -- --whisper`.
+- **Docs:** `PROVIDER.md`, Entwurf („Stand B-38b3b3“), Fallstrick, OFFEN, FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** node +2 (`sprache.test.ts`: ohne geprüftes Modell nicht bereit und kein Lauf, mit Modell derselbe `Whisper` ohne
+Neustart, danach ohne wieder abgelehnt – mit echtem bubblewrap; `modell-whisper.test.ts`: Wahl des Modells, veränderte
+Datei, andere Quellen); die Verdrahtung prüft Aufruf und Rolle.
+
+Knoten-Stand: **neu nötig**, wenn Whisper das geprüfte Modell nehmen soll; mit `WHISPER_MODELL` wie bisher.

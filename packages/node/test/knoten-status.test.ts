@@ -134,7 +134,7 @@ test("B-11a: ohne Status in der Konfiguration lehnt der Knoten ab", async () => 
 
 test("B-11a: main.ts – Rollen erst nach dem Start, Status aus Fassung, Start, Modellen und Relay", () => {
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-  assert.match(main, /status: \(\) => \{\s*const r = relayRole\?\.stats\(\);\s*return \{\s*fassung, seit: statusSeit, rollen: \[\.\.\.statusRollen\], modelle: angebotModelle\(\), relay: r \? \{ events: r\.events, verbindungen: r\.verbindungen \} : null,/);
+  assert.match(main, /status: \(\) => \{\s*const r = relayRole\?\.stats\(\);\s*return \{\s*fassung, seit: statusSeit, rollen: \[\.\.\.statusRollen\]\.filter\(\(r\) => r !== "sprache" \|\| !!sprache\?\.bereit\(\)\), modelle: angebotModelle\(\), relay: r \? \{ events: r\.events, verbindungen: r\.verbindungen \} : null,/);
   // Selbstprüfung (B-11c): die Befunde vom Start, nur Kennung, Stufe und Werte – nie der Satz
   assert.match(main, /einrichtung: einrichtung\?\.map\(\(\{ schiene, stufe, fall, werte \}\) => \(\{ schiene, stufe, fall, werte: werte \?\? \{\} \}\)\),/);
   assert.match(main, /\.then\(\(befunde\) => \{\s*einrichtung = befunde;/);

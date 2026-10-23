@@ -493,10 +493,11 @@ fragt erst mit B-38c („Als Text“).
 
   Der laufende Knoten lädt genau die eine Datei `ggml-<name>.bin` aus dem Repo von whisper.cpp bei Hugging Face
   (`ggerganov/whisper.cpp`, am Commit des Manifests), prüft SHA-256 und Größe beim Laden und dass sie mit `ggml` beginnt,
-  und legt sie nach `MODELL_ORDNER/whisper/`. Bis B-38b3b3 nimmt Whisper sie erst, wenn `WHISPER_MODELL` auf diese Datei
-  zeigt. Wer das Modell selbst ablegt, vergleicht die SHA-1 aus `models/README.md` von whisper.cpp (etwa
-  `e050f7970618a659205450ad97eb95a18d69c9ee` für large-v3-turbo-q5_0).
-- **Einstellen:** `WHISPER_MODELL` (absoluter Pfad zum Modell; ohne bleibt Text aus Sprache aus), `WHISPER_CLI` (Vorgabe
+  und legt sie nach `MODELL_ORDNER/whisper/`. Whisper nimmt seit B-38b3b3 je Auftrag das zuletzt geprüfte Modell, dessen
+  Datei unverändert ist – erst dann nennt der Status die Rolle „Text aus Sprache“. Wer das Modell selbst ablegt, setzt
+  `WHISPER_MODELL` (geht vor, ohne Prüfung gegen ein Manifest) und vergleicht die SHA-1 aus `models/README.md` von
+  whisper.cpp (etwa `e050f7970618a659205450ad97eb95a18d69c9ee` für large-v3-turbo-q5_0).
+- **Einstellen:** `WHISPER_MODELL` (absoluter Pfad zu einem selbst abgelegten Modell; leer: das geprüfte), `WHISPER_CLI` (Vorgabe
   `/usr/local/bin/whisper-cli`), `WHISPER_THREADS` (Vorgabe 4), `WHISPER_FRIST_SEK` (Vorgabe 600), `WHISPER_GPU=1` nur mit
   CUDA-Bau. Ungültig heißt aus – das Log sagt, warum (`[sprache] …`).
 - **Sandbox:** Ohne bubblewrap läuft nichts. Unter Docker geht sie nur mit den Regeln aus `docker-compose.sprache.yml`
@@ -504,9 +505,9 @@ fragt erst mit B-38c („Als Text“).
 
   ```bash
   docker compose -f docker-compose.yml -f docker-compose.sprache.yml up -d --build
-  # Modell geprüft laden (landet in /home/node/.freedom/modelle/whisper/), dann WHISPER_MODELL dorthin zeigen lassen:
+  # Modell geprüft laden (landet in /home/node/.freedom/modelle/whisper/), Whisper nimmt es von selbst:
   docker compose exec node npm run modell -- --whisper large-v3-turbo-q5_0 --aus-hf
-  # oder selbst ins Volume, unter dem Pfad aus WHISPER_MODELL:
+  # oder selbst ins Volume und WHISPER_MODELL=/home/node/.freedom/whisper/ggml-large-v3-turbo-q5_0.bin setzen:
   docker compose exec node mkdir -p /home/node/.freedom/whisper
   docker compose cp ggml-large-v3-turbo-q5_0.bin node:/home/node/.freedom/whisper/
   ```

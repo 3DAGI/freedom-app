@@ -63,7 +63,7 @@ import { OllamaBackend } from "./inference.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { ModellDienst, leseStand, leseWuensche, modellDatei, modellOrdner, nurBeiOllama, ollamaPull, ollamaTags, registryDateien, wunschDatei } from "./modell-laden.js";
 import { halteHfFest, hfOrdner, holeHfStand, ladeHfDatei, ordnerAbdruck, ordnerInhalt } from "./modell-hf.js";
-import { dateiAbdruck, holeWhisperStand, ladeWhisperDatei } from "./modell-whisper.js";
+import { dateiAbdruck, gepruefterWhisper, holeWhisperStand, ladeWhisperDatei } from "./modell-whisper.js";
 import { type LaufendesAria2, starteAria2, torrentAusUmgebung } from "./aria2.js";
 import { holeUndTeile, teileModell } from "./modell-schwarm.js";
 import { KatalogFreigaben, katalogeAusUmgebung } from "./modell-kataloge.js";
@@ -453,13 +453,15 @@ async function main(): Promise<void> {
   const { dienst: livekit, grund: livekitGrund } = livekitAusUmgebung(process.env);
   console.log(livekit ? `[livekit] Zugänge für den Besitzer an (je ${livekit.gueltigSek} s)` : `[livekit] ${livekitGrund}`);
   if (livekit) statusRollen.add("livekit");
-  // Text aus Sprache (B-38b2, SP-W1 A): whisper-cli je Auftrag in der Sandbox – nur mit Modell und nur, wenn die Sandbox geht
-  const { dienst: whisperDienst, grund: whisperGrund } = whisperAusUmgebung(process.env);
+  // Text aus Sprache (B-38b2, SP-W1 A): whisper-cli je Auftrag in der Sandbox – nur mit Modell und nur, wenn die Sandbox geht.
+  // Ohne WHISPER_MODELL seit B-38b3b3 das geprüfte (`npm run modell -- --whisper`), je Auftrag neu gefragt
+  const { dienst: whisperDienst, grund: whisperGrund } = whisperAusUmgebung(process.env, () => gepruefterWhisper(leseStand(modellDatei())));
   let sprache: Whisper | undefined;
   if (whisperDienst) {
     const sb = await pruefeSandbox();
     if (sb.ok) sprache = new Whisper(whisperDienst);
-    console.log(sb.ok ? `[sprache] Text aus Sprache für den Besitzer an (${whisperDienst.gpu ? "GPU" : "CPU"}, ${whisperDienst.threads} Threads)` : `[sprache] aus – ${sandboxText(sb)}`);
+    const woher = typeof whisperDienst.modell === "string" ? "WHISPER_MODELL" : sprache?.bereit() ? "geprüftes Modell" : "wartet auf ein geprüftes Modell: npm run modell -- --whisper";
+    console.log(sb.ok ? `[sprache] Text aus Sprache für den Besitzer an (${whisperDienst.gpu ? "GPU" : "CPU"}, ${whisperDienst.threads} Threads, ${woher})` : `[sprache] aus – ${sandboxText(sb)}`);
   } else console.log(`[sprache] ${whisperGrund}`);
   if (sprache) statusRollen.add("sprache");
   // Signalverbindung zu fremden Gruppenanrufen (B-34e1, LK5 A): nur mit eigenem Relay – die App erreicht den Knoten über
@@ -657,7 +659,7 @@ async function main(): Promise<void> {
       status: () => {
         const r = relayRole?.stats();
         return {
-          fassung, seit: statusSeit, rollen: [...statusRollen], modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
+          fassung, seit: statusSeit, rollen: [...statusRollen].filter((r) => r !== "sprache" || !!sprache?.bereit()), modelle: angebotModelle(), relay: r ? { events: r.events, verbindungen: r.verbindungen } : null,
           einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
           weckSchluessel: vapid?.oeffentlich,
           modellPruefung: modellPruefung(),
