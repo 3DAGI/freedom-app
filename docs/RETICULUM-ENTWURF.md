@@ -74,7 +74,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
-| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) | ~300 |
+| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
@@ -187,6 +187,21 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
 - **Smoke-Test „rnode“:** Eine KISS-Attrappe spielt die RNode im Browser: Grenzen im Dialog, Port erst nach dem
   Bestätigen, die Firmware bekommt genau die eigenen Werte samt Sperre (10 %), die App funkt von sich aus nichts,
   Reticulum-Adressen mit QR-Code und geprüfter Gegenstelle, Trennen, gemerkte eigene Werte beim nächsten Mal vorgewählt.
+
+## Stand B-32c1 (23.10.2026)
+
+- **Kind 38082** (`protocol/src/funk-adresse.ts`, `docs/PROTOCOL.md` §44): je Kontakt ein Umschlag, innen genau ein Tag
+  `["lxmf", <32 Zeichen Hex>]`. Gelesen nur über `oeffneFunkAdresseUmschlag()` – vom Siegel-Autor, der ein Kontakt ist, sonst nichts.
+- **Versand** (`app/src/funk-adressen.ts`, `FunkAdressVersand`): nur mit Zustimmung und als Person; im Abruftakt je Schlag höchstens
+  ein Umschlag (wie die Ruf-Zusammenfassung, 5.5c), jeder Kontakt einmal, neue später, nach neuer Identität alle neu; nicht zustellbar →
+  einen Tag Pause. Die eigene Adresse rechnet die App erst, wenn es etwas zu senden gibt – ohne Zustimmung lädt die Bibliothek nie.
+- **Empfang:** `alsFunkAdresse()` am Ende der Kette in `oeffneUmschlag()`; `FunkAdressBuch` merkt je Kontakt die neueste Adresse
+  (`freedom.reticulum.kontakte`, höchstens 200). Zustimmung und Verteilung stehen ebenfalls nur in `geheim`.
+- **Oberfläche:** im Dialog „Reticulum-Adressen“ der Schalter „Meine Adresse versiegelt an meine Kontakte geben“ und der Stand
+  („an n gegeben, von m erhalten“) – als Gerät nicht.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ sagt jetzt, dass Kontakte, denen man die Adresse gibt, Pakete im Funk einem
+  zuordnen können; Leak-Test `app/test/leak/funk-adresse.test.ts` (nur Umschläge, je Kontakt einer, nie im selben Augenblick).
+- **Benutzt** werden die Adressen der Kontakte erst mit B-32c2.
 
 ## Quellen
 

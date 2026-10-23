@@ -15,6 +15,7 @@ import { type DmZuordnung, GeraeteBuch, ordneDmZu } from "../../geraete-buch.js"
 import { mlsAbgleichen, mlsEinladungAnnehmen, mlsGesperrt, mlsVerlauf } from "../mls-konto.js";
 import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
 import { alsRufZusammenfassung } from "../ruf.js";
+import { alsFunkAdresse } from "../funk-kontakte.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
@@ -69,9 +70,9 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
         dm: r.dm,
       }
     // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b), ein Pruefauftrag (5.6c),
-    // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c), eine Rechnungs-Anfrage (6.3b)
-    // oder ein Anruf (B-13d2, erscheint nicht im Chat).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsRechnungsAnfrage(w)) ?? (await alsAnruf(w));
+    // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c), die Reticulum-Adresse eines Kontakts (B-32c1),
+    // eine Rechnungs-Anfrage (6.3b) oder ein Anruf (B-13d2, erscheint nicht im Chat).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsFunkAdresse(w)) ?? (await alsRechnungsAnfrage(w)) ?? (await alsAnruf(w));
   dmCache.set(w.id, e);
   return e;
 }

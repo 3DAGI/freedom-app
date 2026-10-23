@@ -13286,6 +13286,31 @@ angepasst (lesen statt speichern, `textAusSpracheMoeglich()`); Smoke-Teil „als
 
 Knoten-Stand: keiner nötig – „Dieses Gerät“ braucht keinen Knoten.
 
+## Schritt B-32c1 – Reticulum: die eigene Adresse versiegelt an Kontakte (Kind 38082)
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (V4, RN-W2 A). B-32c ist geteilt: c1 die Adresse für Kontakte, c2 Nachrichten an Kontakte
+über Reticulum (direkt an ihre Adresse, sonst über die Gegenstelle).
+
+- **Protokoll** (`funk-adresse.ts`, `docs/PROTOCOL.md` §44): Kind 38082 im Umschlag, je Kontakt einer, innen genau
+  `["lxmf", <32 Zeichen Hex>]`; `oeffneFunkAdresseUmschlag()` nimmt nur, was ein Kontakt selbst geschrieben hat, in genau der Form.
+- **Versand** (`app/src/funk-adressen.ts`, Glue `shell/funk-kontakte.ts`): nur mit Zustimmung (`freedom.reticulum.teilen`) und als
+  Person, im Abruftakt je Schlag ein Umschlag an den Posteingang eines Kontakts; jeder einmal, neue später, nach neuer Identität
+  alle neu, nicht zustellbar → ein Tag Pause. Die eigene Adresse rechnet die App erst, wenn es etwas zu senden gibt.
+- **Empfang:** `alsFunkAdresse()` am Ende der Kette in `oeffneUmschlag()`; `FunkAdressBuch` merkt je Kontakt die neueste
+  (höchstens 200). Alle drei Schlüssel in `geheim` und `GEHEIM_FEST`, nie in der Sicherung (`freedom.reticulum.`).
+- **Oberfläche:** Im Dialog „Reticulum-Adressen“ der Haken „Meine Adresse versiegelt an meine Kontakte geben“ und der Stand –
+  als Gerät nicht.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt jetzt Kontakte, denen man die Adresse gibt (beide Sprachen).
+- **Docs:** Entwurf (Teilung, „Stand B-32c1“), `PROTOCOL.md` §44, Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT,
+  Sammlung, Stand-Zeile.
+
+**Tests:** protocol +2 (`funk-adresse.test.ts`: je Kontakt ein Umschlag ohne Adresse, Absender und Kind im Klartext; fremde und
+kaputte Kerne), app +5 (`funk-adressen.test.ts`: ohne Zustimmung und als Gerät nichts, nicht einmal die Adresse gerechnet; je
+Schlag einer, je Kontakt einmal, neue Kontakte, neue Adresse; Pause und `bald()`; das Buch; Verdrahtung und Texte), Leak +3
+(`leak/funk-adresse.test.ts`), Smoke-Teil „rnode“ mit dem Haken.
+
+Knoten-Stand: keiner nötig.
+
 ## Schritt 11.5d1 – Agent am Repo beauftragen
 
 Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V1, V6, W2 A, W5 A; Aufteilung 11.5d). Erster Teil von 11.5d – die Oberfläche
