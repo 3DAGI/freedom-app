@@ -13224,3 +13224,16 @@ Spur A, `docs/VIBECODEN-ENTWURF.md` (VKd: „Bilder | ComfyUI auf dem GX10“). 
 - **Gegenproben** – je mindestens ein Test rot: siehe Pull Request.
 
 Knoten-Stand: `main` mit VKd2b2 und `COMFYUI_URL`, wenn der Agent Bilder machen soll; ohne bleibt alles wie bisher.
+
+## Schritt VKj-Entwurf – Werkbank-Knoten
+
+Spur A, `docs/VIBECODEN-ENTWURF.md` (VK-W7 A: weitere eigene Rechner per QR für Programme ohne ARM64). Nur Doku – gebaut
+wird nach Freigabe, weil das Format zwischen den Knoten neu ist.
+
+**Neu:** `docs/WERKBANK-ENTWURF.md` – Ausgangslage (was auf dem GX10 nicht läuft, Kopplung aus B-8, keine Sandbox
+außerhalb von Linux), Befunde (ContextVM: MCP über Nostr, Art 25910 im Umschlag nach CEP-4, große Nachrichten nach CEP-22;
+das SDK steht unter LGPL/GPL, das Format lässt sich ohne Abhängigkeit bauen), Vorschlag (schlanker Werkbank-Knoten,
+Kopplung über das Handy, Werkzeuge an der Brücke des GX10, Freigaben wie Befehle), vier Fragen VKj-W1–W4 mit Empfehlung,
+Aufteilung VKj1–VKj5. OFFEN 1.5 und die Zeile VKj, Entwurf, FORTSCHRITT, Stand.
+
+**Tests:** keine (nur Doku); alle Prüfungen gelaufen.
