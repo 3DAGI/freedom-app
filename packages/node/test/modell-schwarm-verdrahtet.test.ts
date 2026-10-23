@@ -19,7 +19,7 @@ test("Verdrahtet (B-29c2c): main startet aria2c nur mit TORRENT=1 und OpenAI-kom
   // Der Lader: erst das Netz, dann der Magnet des Betreibers, dann Hugging Face
   const laden = readFileSync(new URL("../src/modell-laden.ts", import.meta.url), "utf8");
   assert.match(laden, /const magnete = hf\.schwarm \? \[\.\.\.await hf\.schwarm\.quellen\(m\)\.catch\(\(\) => \[\]\), \.\.\.\(vomBetreiber \? \[vomBetreiber\] : \[\]\)\] : \[\];/);
-  assert.match(readFileSync(new URL("../src/modell.ts", import.meta.url), "utf8"), /merkeWunsch\(wunschDatei\(\), name, undefined, ausQuelle, hf \? "hf" : "ollama", magnet\)/);
+  assert.match(readFileSync(new URL("../src/modell.ts", import.meta.url), "utf8"), /merkeWunsch\(wunschDatei\(\), name, undefined, ausQuelle, whisper \? "whisper" : hf \? "hf" : "ollama", magnet\)/);
   // Docker: aria2 im Image; der Schwarm-Port nicht von selbst offen
   assert.match(readFileSync(new URL("../../../docker/node.Dockerfile", import.meta.url), "utf8"), /apt-get install -y --no-install-recommends aria2/);
   assert.match(readFileSync(new URL("../../../docker-compose.yml", import.meta.url), "utf8"), /TORRENT: "\$\{TORRENT:-0\}"/);

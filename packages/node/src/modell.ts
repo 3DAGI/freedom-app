@@ -11,7 +11,12 @@
  * was Hugging Face jetzt nennt; geladen wird in `MODELL_ORDNER`. Seit B-29c2c mit
  * `TORRENT=1` zuerst aus dem Schwarm; `--magnet <link>` nennt einen Magnet dazu
  * (etwa von Pirate Face) – geprüft wird auch dann gegen das Manifest.
+ *
+ * Seit B-38b3b2 mit `--whisper [name]` das Modell für Text aus Sprache (`whisper:<name>`, eine ggml-Datei aus dem Repo
+ * von whisper.cpp) – mit jedem Antrieb; ohne Namen die Vorgabe nach SP-W4 (mit `WHISPER_GPU=1` large-v3-turbo-q5_0,
+ * sonst base). `--aus-hf` hält fest, was Hugging Face jetzt nennt. Im Angebot für KI steht es nie.
  */
+import { WHISPER_VORGABE } from "@freedomstack/protocol";
 import { leseStand, leseWuensche, merkeWunsch, modellDatei, offeneWuensche, wunschDatei } from "./modell-laden.js";
 import { modellFall, modellText } from "./modell-pruefung.js";
 
@@ -19,29 +24,32 @@ import { modellFall, modellText } from "./modell-pruefung.js";
 const text = (fall: string, werte: Record<string, number | string> = {}) => modellText(modellFall(fall), werte);
 
 const args = process.argv.slice(2);
-const hf = process.env.KI_ANTRIEB?.trim() === "openai";
-const ausQuelle = args.includes(hf ? "--aus-hf" : "--aus-registry");
+const whisper = args.includes("--whisper");
+const hf = !whisper && process.env.KI_ANTRIEB?.trim() === "openai";
+const ausQuelle = args.includes(hf || whisper ? "--aus-hf" : "--aus-registry");
 const mi = args.indexOf("--magnet");
 const magnet = mi >= 0 ? args[mi + 1] ?? "" : undefined;
-const name = args.find((a, i) => !a.startsWith("--") && i !== mi + 1);
+const name = args.find((a, i) => !a.startsWith("--") && i !== mi + 1)
+  ?? (whisper ? WHISPER_VORGABE[process.env.WHISPER_GPU?.trim() === "1" ? "gpu" : "cpu"] : undefined);
 if (name) {
-  const gemerkt = merkeWunsch(wunschDatei(), name, undefined, ausQuelle, hf ? "hf" : "ollama", magnet);
+  const gemerkt = merkeWunsch(wunschDatei(), name, undefined, ausQuelle, whisper ? "whisper" : hf ? "hf" : "ollama", magnet);
   if (!gemerkt) {
-    console.error(magnet !== undefined
-      ? "Kein gültiger Magnet (magnet:?xt=urn:btih:…) – oder kein Modell von Hugging Face (nur mit KI_ANTRIEB=openai)."
-      : hf ? "Keine Kennung wie bei Hugging Face (org/repo)."
-        : "Kein Modellname wie bei Ollama (name:tag oder namensraum/name:tag).");
+    console.error(whisper ? "Kein Name wie bei whisper.cpp (etwa base oder large-v3-turbo-q5_0) – und kein Magnet für Whisper."
+      : magnet !== undefined ? "Kein gültiger Magnet (magnet:?xt=urn:btih:…) – oder kein Modell von Hugging Face (nur mit KI_ANTRIEB=openai)."
+        : hf ? "Keine Kennung wie bei Hugging Face (org/repo)."
+          : "Kein Modellname wie bei Ollama (name:tag oder namensraum/name:tag).");
     process.exit(1);
   }
-  const quelle = hf ? "Hugging Face" : "die Registry";
+  const quelle = hf || whisper ? "Hugging Face" : "die Registry";
   console.log(ausQuelle
     ? `Vorgemerkt: ${gemerkt}. Der laufende Knoten hält fest, was ${quelle} jetzt nennt (eigenes Manifest), lädt und prüft;`
     : `Vorgemerkt: ${gemerkt}. Der laufende Knoten sucht sein Manifest, prüft und lädt;`);
-  console.log("im Angebot steht das Modell erst nach bestandener Prüfung. Stand: npm run modell");
+  console.log(whisper ? "für Text aus Sprache gilt das Modell erst nach bestandener Prüfung. Stand: npm run modell"
+    : "im Angebot steht das Modell erst nach bestandener Prüfung. Stand: npm run modell");
 } else {
   const stand = leseStand(modellDatei());
   for (const m of stand.modelle) {
-    const wo = m.quelle === "hf" ? `, im Ordner ${m.ordner}` : "";
+    const wo = m.quelle === "hf" ? `, im Ordner ${m.ordner}` : m.quelle === "whisper" ? `, Datei ${m.datei} (Text aus Sprache)` : "";
     console.log(`✓ ${m.name} – ${m.dateien} Dateien, ${(m.bytes / 1e9).toFixed(1)} GB, Manifest von ${m.herausgeber.slice(0, 12)}…${wo}`);
     // Die Id für einen Modellkatalog (E9-4): Knoten, die ihm folgen, laden dann genau diese Dateien
     console.log(`  Manifest-Id: ${m.manifest}`);

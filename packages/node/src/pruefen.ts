@@ -11,6 +11,7 @@ import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
 import { antriebAusUmgebung, antriebModelle } from "./ki-antrieb.js";
 import { leseStand, leseWuensche, modellDatei, wunschDatei } from "./modell-laden.js";
 import { ordnerAbdruck } from "./modell-hf.js";
+import { dateiAbdruck } from "./modell-whisper.js";
 import { modellBefundeText, providerModelle, pruefeModelle } from "./modell-pruefung.js";
 import { hermesAusUmgebung } from "./hermes-motor.js";
 import { MCP_TEXT, mcpAusUmgebung } from "./mcp-katalog.js";
@@ -29,6 +30,7 @@ const modelle = antrieb ? pruefeModelle({
   angeboten: providerModelle(process.env), stand: leseStand(modellDatei()), wuensche: leseWuensche(wunschDatei()),
   ollama: await antriebModelle(antrieb).catch(() => null), antrieb: antrieb.art,
   ordnerUnveraendert: (m) => !!m.ordner && ordnerAbdruck(m.ordner) === m.abdruck,
+  dateiUnveraendert: (m) => !!m.datei && dateiAbdruck(m.datei) === m.abdruck,
 }) : [];
 if (modelle.length) console.log(modellBefundeText(modelle));
 // Sandbox (VKb): nur mit Vibecoden – ohne sie kein Ausführen, verdienen kann der Knoten trotzdem

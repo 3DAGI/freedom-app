@@ -66,7 +66,7 @@ test("E9-3b: Wünsche warten, das letzte Scheitern je Name zählt – außer der
 
 test("E9-3b: jede Kennung, die das Laden liefern kann, hat einen Satz – und `npm run modell` nimmt dieselben", () => {
   const faelle = new Set(["fehler"]);
-  for (const datei of ["../src/modell-laden.ts", "../../protocol/src/modell-ollama.ts"]) {
+  for (const datei of ["../src/modell-laden.ts", "../../protocol/src/modell-ollama.ts", "../src/modell-whisper.ts", "../../protocol/src/modell-whisper.ts"]) {
     for (const m of quelle(datei).matchAll(/fall: "([a-z]+\.[a-zA-Z]+)"/g)) faelle.add(m[1]!);
   }
   assert.ok(faelle.size >= 14, `${faelle.size} Kennungen`);
@@ -110,12 +110,13 @@ test("E9-3b: im Status an den Besitzer – alles, was `pruefeModelle()` liefert,
 test("E9-3b: Verdrahtung – der Status nennt die Modelle, Ollama einmal je Angebot, `npm run pruefen` zeigt sie", () => {
   const main = quelle("../src/main.ts");
   assert.match(main, /modellPruefung: modellPruefung\(\),/);
-  assert.match(main, /const befunde = pruefeModelle\(\{\n      angeboten: providerModelle\(process\.env\), stand, wuensche: leseWuensche\(wunschDatei\(\)\), ollama: ollamaStand, antrieb: antrieb\.art,\n      ordnerUnveraendert: \(m\) => !!m\.ordner && ordnerAbdruck\(m\.ordner\) === m\.abdruck,\n    \}\);/);
+  assert.match(main, /const befunde = pruefeModelle\(\{\n      angeboten: providerModelle\(process\.env\), stand, wuensche: leseWuensche\(wunschDatei\(\)\), ollama: ollamaStand, antrieb: antrieb\.art,\n      ordnerUnveraendert: \(m\) => !!m\.ordner && ordnerAbdruck\(m\.ordner\) === m\.abdruck,\n      dateiUnveraendert: \(m\) => !!m\.datei && dateiAbdruck\(m\.datei\) === m\.abdruck,\n    \}\);/);
   assert.match(main, /ollamaNamen = await antriebModelle\(antrieb\)\.then\(\(t\) => \(ollamaStand = t\)\.map/, "Namen und Fingerabdrücke aus derselben Antwort");
   assert.match(main, /\.\.\.providerModelle\(process\.env\),\n    \.\.\.gepruefteModelle,/, "Angebot und Status lesen PROVIDER_MODELS gleich");
   assert.match(quelle("../src/dvm-provider.ts"), /"weckSchluessel" \| "modellPruefung">/);
   const pruefen = quelle("../src/pruefen.ts");
   assert.match(pruefen, /pruefeModelle\(\{\n  angeboten: providerModelle\(process\.env\)/);
+  assert.match(pruefen, /dateiUnveraendert: \(m\) => !!m\.datei && dateiAbdruck\(m\.datei\) === m\.abdruck,/, "B-38b3b2: auch `npm run pruefen` sieht eine veränderte Whisper-Datei");
   assert.match(pruefen, /console\.log\(modellBefundeText\(modelle\)\)/);
 });
 
