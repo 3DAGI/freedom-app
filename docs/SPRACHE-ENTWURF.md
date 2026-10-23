@@ -100,7 +100,10 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b3b1 ✓ | Protokoll: Konvention `whisper:<name>` mit genau einer Datei `ggml-<name>.bin` aus `ggerganov/whisper.cpp` am Commit (`whisperQuelle()`), Stand von Hugging Face (`whisperStand()`), Adresse, Kennung `ggml` (`istGgml()`), Vorgabe | ~200 |
 | B-38b3b2 ✓ | Knoten: `npm run modell -- --whisper [name] [--aus-hf]`, Laden und Prüfen im `ModellDienst` (nie im Angebot für KI), Selbstprüfung | ~300 |
 | B-38b3b3 ✓ | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
-| B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 |
+| B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 – geteilt in c1–c3 |
+| B-38c1 ✓ | „Als Text“ an Sprachnachrichten über den eigenen Knoten: Ton im Browser zu WAV (`ton-wandeln.ts`), Ton unter einem Sitzungsschlüssel, nur mit Rolle `sprache`, Smoke-Test „als_text“ | ~300 |
+| B-38c2 | Diktieren im Agenten (Aufnahme → Text ins Eingabefeld, Sprache der App) | ~150 |
+| B-38c3 | „Dieses Gerät“: ein whisper-server auf diesem Rechner (`lokaleKiAdresse()`, erst auf Klick) | ~200 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
 Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENSCH.
@@ -201,6 +204,28 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
 - **Rolle:** Der Status nennt `sprache` nur, wenn es ein Modell gibt (`Whisper.bereit()`) – die App fragt erst dann (§43).
 - **Docker:** `docker-compose.sprache.yml` setzt keinen Pfad mehr; das Modell kommt über `npm run modell -- --whisper`.
 - **B-38b fertig.** Als Nächstes B-38c (App: „Als Text“, Diktieren).
+
+## Stand B-38c1 (23.10.2026)
+
+- **Geteilt:** B-38c in drei Schritte (Tabelle oben) – „Als Text“ über den eigenen Knoten, Diktieren, „Dieses Gerät“.
+- **Wandlung** (`ton-wandeln.ts`, ohne DOM): `browserDekoder()` dekodiert mit `decodeAudioData` eines Offline-Kontexts mit
+  16 kHz – der Browser bringt den Ton dabei selbst auf die Rate, abgespielt wird nichts. `alsSpracheWav()` mischt die
+  Kanäle (Mittelwert), wandelt in 16 Bit und baut `baueWav()`. Bis zu einer Sekunde über 120 s schneidet sie ab (der
+  Kodierer hängt Millisekunden an); was länger ist, lehnt sie ab (`ton-lang`) – eine fremde Nachricht wird nie still
+  gekürzt. Was der Browser nicht lesen kann (`ton-unlesbar`), fragt den Knoten gar nicht erst.
+- **Auftrag** (`shell/sprache-text-ui.ts`): nur gekoppelt und nur, wenn der Status die Rolle `sprache` nennt (gemerkt für die
+  Sitzung, ein Nein fragt erneut). Der Ton geht über den Weg zum Knoten (mit Haken nur über sein Relay) ins Blob-Netz,
+  signiert mit dem frischen Sitzungsschlüssel des Auftrags – nie mit der eigenen Identität; danach 5083 versiegelt, Sprache
+  `auto` (Kontakte sprechen jede Sprache). Ablehnungen mit Kennung zeigt die App mit eigenen Sätzen.
+- **Oberfläche:** „Als Text“ unter jeder Sprachnachricht im Chat – Ton aus der Nachricht selbst (`data:`) und entschlüsselte
+  Sprachnachrichten aus dem Blob-Netz; nie Ton von einer Adresse im Netz (das fragte einen fremden Server). Der Text steht
+  nur als `textContent` darunter und wird nirgends gespeichert. Ohne Kopplung kein Knopf.
+- **Smoke-Test „als_text“:** echte Aufnahme der Mikrofon-Attrappe (440 Hz), echtes `decodeAudioData` in Chromium; die
+  Attrappe des Knotens (`scripts/sprache-probe.mts`) holt den Ton wie der Knoten, prüft ihn mit `pruefeWav()` und misst die
+  Tonhöhe – 440 Hz heißt: richtig gewandelt. Ohne die Rolle geht kein Ton hinaus.
+- **Grenze:** Mit `RELAY_BESCHRAENKT=1` nimmt das Relay des Knotens Stücke vom Sitzungsschlüssel nicht an – mit Haken „nur
+  über meinen Knoten“ scheitert „Als Text“ dann mit einer Meldung. Die Stücke bleiben verschlüsselt auf den Relays liegen
+  wie andere Anhänge; lesen kann sie nur, wer den Schlüssel aus dem Auftrag hat.
 
 ## Quellen
 

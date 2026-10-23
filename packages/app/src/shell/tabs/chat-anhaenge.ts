@@ -15,6 +15,7 @@ import { type Anforderung } from "../../zahlungs-anforderung.js";
 import { halteBeiMeinemKnoten } from "../knoten-halten-ui.js";
 import { istAudioTyp } from "../../sprachnachricht.js";
 import { AnhangWarte } from "../../anhang-warte.js";
+import { mitAlsText } from "../sprache-text-ui.js";
 
 /** Zahlungsanforderungen der gezeigten Nachrichten (A-5): Id → Anforderung und Absender. */
 export const anforderungen = new Map<string, { anf: Anforderung; von: string }>();
@@ -137,6 +138,11 @@ export function anhangElement(a: ChatAttachment): HTMLElement {
       m.src = v.url;
       m.controls = true;
       m.preload = "metadata";
+      // „Als Text“ (B-38c1) nur für Ton in der Nachricht selbst – eine Adresse im Netz fragte einen fremden Server
+      if (v.art === "audio" && v.url.startsWith("data:")) {
+        const url = v.url;
+        return mitAlsText(m, async () => Uint8Array.from(atob(url.slice(url.indexOf(",") + 1)), (c) => c.charCodeAt(0)));
+      }
       return m;
     }
     case "link": {
@@ -186,7 +192,8 @@ export function wireBlobButtons(root: HTMLElement): void {
           const ton = document.createElement("audio");
           ton.controls = true;
           ton.src = url;
-          el.replaceWith(ton);
+          const bytes = datei.bytes;
+          el.replaceWith(mitAlsText(ton, async () => bytes));
           ton.play().catch(() => { /* ohne Erlaubnis zum Abspielen: der Knopf im Abspieler */ });
           return;
         }
