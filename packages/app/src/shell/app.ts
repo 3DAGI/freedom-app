@@ -60,6 +60,7 @@ import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireDiktieren, zeigeDiktieren } from "./diktieren-ui.js";
+import { wireSpracheLokal } from "./sprache-lokal-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
 import { wireGruppenanrufe } from "./gruppenanruf-ui.js";
 import { agentenImTakt, starteGeraeteAgenten } from "./agenten-lauschen.js";
@@ -791,6 +792,7 @@ function starte(): void {
   // Sprachnachrichten (C-7): Mikrofon erst auf Klick, die Aufnahme wird ein Anhang wie oben
   wireSprachnachricht();
   wireDiktieren();
+  wireSpracheLokal();
   // Anrufe (B-13d3): nur auf Klick; eingehende kommen über den Posteingang (alsAnruf)
   wireAnrufe();
   wireGruppenanrufe();

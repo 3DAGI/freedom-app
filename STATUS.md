@@ -13260,6 +13260,32 @@ Aufteilung VKj1–VKj5. OFFEN 1.5 und die Zeile VKj, Entwurf, FORTSCHRITT, Stand
 
 **Tests:** keine (nur Doku); alle Prüfungen gelaufen.
 
+## Schritt B-38c3 – Text aus Sprache: „Dieses Gerät“ (whisper-server auf diesem Rechner)
+
+Spur B, `docs/SPRACHE-ENTWURF.md` (SP-W1 A, V2), auf B-38c2. Damit ist B-38c fertig – und B-38 bis auf die Proben des MENSCHEN.
+
+- **`sprache-lokal.ts`** (ohne DOM): `whisper-server` (whisper.cpp v1.9.5) nur unter Adressen aus `lokaleKiAdresse()`;
+  `pruefeSprachServer()` fragt `GET /health` (bereit, lädt, nicht erreichbar, fremd), `textAufDiesemGeraet()` schickt die WAV aus
+  `alsSpracheWav()` als `file` mit `language` und `response_format=json` an `POST /inference`, `leseSprachServerAntwort()` liest
+  streng wie `leseTranskript()`; Fehler mit eigenen Sätzen, nie Text des Servers.
+- **Karte in Einstellungen › Geräte** (`shell/sprache-lokal-ui.ts`): „prüfen und merken“ (Vorgabe `http://127.0.0.1:8080`) fragt
+  erst dann, gemerkt nur nach „bereit“ (`freedom.sprache.lokal`); „vergessen“ nimmt es zurück.
+- **Vorrang:** `textAusSprache()` schickt den Ton an den gemerkten Server und dann an nichts sonst – kein Blob-Stück, kein
+  Auftrag 5083; sonst wie bisher an den Knoten. „Als Text“ und Diktieren gibt es mit einem der beiden Wege
+  (`textAusSpracheMoeglich()`).
+- **Echt geprüft:** `whisper-server` hier aus den Quellen gebaut, mit dem Testmodell auf 127.0.0.1 – das Modul und der ganze Weg im
+  Chromium (Aufnahme, Wandlung, CORS, `/inference`, Anzeige „Kein gesprochenes Wort erkannt.“ beim Testmodell).
+- **Smoke-Test „als_text_lokal“** mit `whisper_attrappe()` (Form von v1.9.5, misst die Tonhöhe): erst auf Klick gefragt, „Als
+  Text“ und Diktat nur an den Server, nichts ins Netz, „vergessen“.
+- **Docs:** Entwurf („Stand B-38c3“), `PROTOCOL.md` §43, Fallstrick in `packages/app/CLAUDE.md`, OFFEN, FORTSCHRITT, Sammlung,
+  Stand-Zeile.
+
+**Tests:** app +6 (`sprache-lokal.test.ts`: Adressen nur dieses Rechners, `/health` in allen Ständen ohne Anfrage an fremde, Form
+der Anfrage mit WAV, Fehler mit eigenen Sätzen, strenge Antwort, Verdrahtung und Texte); zwei Prüfungen aus c1/c2 auf den neuen Weg
+angepasst (lesen statt speichern, `textAusSpracheMoeglich()`); Smoke-Teil „als_text_lokal“.
+
+Knoten-Stand: keiner nötig – „Dieses Gerät“ braucht keinen Knoten.
+
 ## Schritt 11.5d1 – Agent am Repo beauftragen
 
 Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V1, V6, W2 A, W5 A; Aufteilung 11.5d). Erster Teil von 11.5d – die Oberfläche

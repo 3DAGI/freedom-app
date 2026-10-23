@@ -1574,6 +1574,116 @@ def als_text_pruefen(browser, url: str) -> dict:
     return erg
 
 
+def whisper_attrappe(gefragt: list):
+    """Spielt whisper-server v1.9.5 auf 127.0.0.1:8080 (B-38c3): `GET /health`, `POST /inference` (multipart `file`, `language`)
+    mit denselben CORS-Kopfzeilen wie das Original. Statt zu erkennen, misst sie die Tonhöhe der WAV-Datei – 440 Hz heißt: der
+    Browser hat richtig auf 16 kHz gewandelt."""
+    import struct
+
+    def antworte(route) -> None:
+        req = route.request
+        kopf = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type, authorization", "Content-Type": "application/json"}
+        gefragt.append((req.method, urlparse(req.url).path))
+        if req.method == "GET" and req.url.endswith("/health"):
+            return route.fulfill(status=200, headers=kopf, body='{"status":"ok"}')
+        if req.method != "POST" or not req.url.endswith("/inference"):
+            return route.fulfill(status=404, headers=kopf, body="{}")
+        body = req.post_data_buffer or b""
+        sprache = re.search(rb'name="language"\r\n\r\n([a-z]+)', body)
+        i = body.find(b"RIFF")
+        kanaele, rate = struct.unpack_from("<HI", body, i + 22)
+        proben = struct.unpack_from(f"<{struct.unpack_from('<I', body, i + 40)[0] // 2}h", body, i + 44)
+        wechsel, vorher = [], 0
+        for j, p in enumerate(proben):
+            z = 1 if p > 2000 else -1 if p < -2000 else 0
+            if z and vorher and z != vorher:
+                wechsel.append(j)
+            vorher = z or vorher
+        hz = round((len(wechsel) - 1) / 2 / ((wechsel[-1] - wechsel[0]) / rate) / 10) * 10 if len(wechsel) > 1 else 0
+        text = f"Probe: {hz} Hz, {rate}/{kanaele}, Sprache {sprache.group(1).decode() if sprache else '?'}"
+        route.fulfill(status=200, headers=kopf, body=json.dumps({"text": text}))
+    return antworte
+
+
+def als_text_lokal_pruefen(browser, url: str) -> dict:
+    """„Dieses Gerät“ (B-38c3): ohne Knoten und ohne gemerkten Server gibt es kein Diktieren; „prüfen und merken“ in
+    Einstellungen › Geräte fragt den whisper-server erst dann (`/health`). Danach gehen „Als Text“ und Diktieren nur an ihn –
+    kein Blob-Stück, kein Umschlag ins Netz. „vergessen“ nimmt es zurück. Der Server ist `whisper_attrappe()`."""
+    erg = {"fehler": []}
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=MIKROFON_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    gefragt: list = []
+    seite.ctx.route(re.compile(r"^http://127\.0\.0\.1:8080/"), whisper_attrappe(gefragt))
+    netz = lambda: {"blob": sum(1 for e in relay.gesendet if e.get("kind") in (38040, 38041)), "umschlaege": len({e["id"] for e in relay.gesendet if e.get("kind") == 1059})}
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_selector("#ai-prompt", timeout=30000)
+    erg["vorher"] = {"diktat_versteckt": ev("() => document.getElementById('ai-diktieren').hidden"), "gefragt": len(gefragt)}
+    ev("() => { location.hash = '#/settings'; }")
+    s.click("[data-subtab-group=settings] [data-subtab=devices]")
+    s.wait_for_selector("#sprache-lokal-pruefen", state="visible", timeout=15000)
+    s.click("#sprache-lokal-pruefen")
+    s.wait_for_function("() => /^Bereit/.test(document.getElementById('sprache-lokal-stand').textContent)", timeout=10000)
+    erg["gemerkt"] = ev("() => [localStorage.getItem('freedom.sprache.lokal'), document.getElementById('sprache-lokal-adresse').value,"
+                        " document.getElementById('sprache-lokal-vergessen').hidden]")
+    # Sprachnachricht: der Knopf auch ohne Knoten, der Text vom Server auf diesem Rechner
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+    seite.warte_zu()
+    s.click("#chat-voice-btn")
+    s.wait_for_function("() => /0:02 von 2:00/.test(document.getElementById('chat-voice-status').textContent)", timeout=10000)
+    s.click("#chat-voice-btn")
+    s.wait_for_function("() => /sprachnachricht\\.webm/.test(document.getElementById('chat-attach-list').textContent)", timeout=15000)
+    s.click("#chat-send")
+    s.wait_for_selector("#chat-thread .ton-als-text", timeout=15000)
+    for _ in range(100):
+        if netz()["umschlaege"] >= 2:
+            break
+        s.wait_for_timeout(200)
+    vorher = netz()
+    s.click("#chat-thread .ton-als-text")
+    s.wait_for_function("() => /^Probe: /.test(document.querySelector('#chat-thread .ton-text').textContent)", timeout=30000)
+    erg["als_text"] = ev("() => document.querySelector('#chat-thread .ton-text').textContent")
+    # Diktieren in der Sprache der App
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_selector("#ai-diktieren", state="visible", timeout=15000)
+    s.click("#ai-diktieren")
+    s.wait_for_function("() => /Diktat 0:02 von 2:00/.test(document.getElementById('ai-diktat-stand').textContent)", timeout=10000)
+    s.click("#ai-diktieren")
+    s.wait_for_function("() => document.getElementById('ai-prompt').value.startsWith('Probe')", timeout=30000)
+    erg["diktat"] = ev("() => document.getElementById('ai-prompt').value")
+    erg["netz"] = {"vorher": vorher, "nachher": netz()}
+    # vergessen: Diktieren wieder versteckt, nichts mehr gemerkt
+    ev("() => { location.hash = '#/settings'; }")
+    s.click("[data-subtab-group=settings] [data-subtab=devices]")
+    s.click("#sprache-lokal-vergessen")
+    ev("() => { location.hash = '#/agent'; }")
+    s.wait_for_selector("#ai-prompt", timeout=15000)
+    erg["vergessen"] = ev("() => [localStorage.getItem('freedom.sprache.lokal'), document.getElementById('ai-diktieren').hidden]")
+    erg["gefragt"] = gefragt
+    if erg["vorher"] != {"diktat_versteckt": True, "gefragt": 0}:
+        erg["fehler"].append(f"vorher {erg['vorher']}")
+    if erg["gemerkt"] != ["http://127.0.0.1:8080", "http://127.0.0.1:8080", False]:
+        erg["fehler"].append(f"gemerkt {erg['gemerkt']}")
+    if not re.fullmatch(r"Probe: 4[34]\d Hz, 16000/1, Sprache auto", erg["als_text"]) or not re.fullmatch(r"Probe: 4[34]\d Hz, 16000/1, Sprache de", erg["diktat"]):
+        erg["fehler"].append(f"Text {erg['als_text']} / {erg['diktat']}")
+    if erg["netz"]["nachher"] != erg["netz"]["vorher"] or erg["netz"]["vorher"]["blob"] != 0:
+        erg["fehler"].append(f"ins Netz {erg['netz']}")
+    if erg["gefragt"] != [("GET", "/health"), ("POST", "/inference"), ("POST", "/inference")]:
+        erg["fehler"].append(f"gefragt {erg['gefragt']}")
+    if erg["vergessen"] != [None, True]:
+        erg["fehler"].append(f"vergessen {erg['vergessen']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        erg["fehler"].append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not erg["fehler"]
+    return erg
+
+
 # Anrufe (seit B-13d3): zählt Fragen nach dem Mikrofon und neue Verbindungen – ohne Annehmen darf es keine geben
 ANRUF_ZAEHLER = """
 (() => {
@@ -6937,6 +7047,10 @@ def main() -> int:
             except Exception as e:
                 erg["als_text"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["als_text_lokal"] = als_text_lokal_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["als_text_lokal"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["composer"] = composer_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["composer"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -7135,6 +7249,7 @@ def main() -> int:
           and erg.get("kontakt", {}).get("bestanden") is True
           and erg.get("sprachnachricht", {}).get("bestanden") is True
           and erg.get("als_text", {}).get("bestanden") is True
+          and erg.get("als_text_lokal", {}).get("bestanden") is True
           and erg.get("composer", {}).get("bestanden") is True
           and erg.get("anhang_senden", {}).get("bestanden") is True
           and erg.get("kontaktname", {}).get("bestanden") is True
