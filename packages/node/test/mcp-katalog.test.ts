@@ -62,7 +62,7 @@ test("VKk1: der Server – ohne Kopf, Profil im Speicher, Ausgaben im tmpfs; nur
 
 test("VKk1: Hermes bekommt den Browser nur mit erlaubten Werkzeugen – nie browser_run_code_unsafe", () => {
   const s = playwrightMcp({ playwright: "/pw", browser: "/usr/lib/chromium/chromium", node: "/usr/local/bin/node" });
-  const k = JSON.parse(hermesKonfiguration("qwen3:8b", [s])) as { mcp_servers: Record<string, Record<string, unknown>> };
+  const k = JSON.parse(hermesKonfiguration("qwen3:8b", [s], "ab".repeat(32))) as { mcp_servers: Record<string, Record<string, unknown>> };
   assert.deepEqual(Object.keys(k.mcp_servers), ["freedom", "browser"]);
   assert.deepEqual(k.mcp_servers.browser, hermesMcpEintrag(s));
   const werkzeuge = (k.mcp_servers.browser!.tools as { include: string[] }).include;
@@ -70,7 +70,7 @@ test("VKk1: Hermes bekommt den Browser nur mit erlaubten Werkzeugen – nie brow
   assert.ok(!(werkzeuge as string[]).includes("browser_run_code_unsafe"));
   assert.deepEqual(k.mcp_servers.browser!.env, {}, "keine Variable des Knotens");
   // ohne Server bleibt die Konfiguration wie bisher
-  assert.deepEqual(Object.keys((JSON.parse(hermesKonfiguration("qwen3:8b")) as { mcp_servers: object }).mcp_servers), ["freedom"]);
+  assert.deepEqual(Object.keys((JSON.parse(hermesKonfiguration("qwen3:8b", [], "ab".repeat(32))) as { mcp_servers: object }).mcp_servers), ["freedom"]);
 });
 
 test("VKk1: der Motor bindet ein, was der Server braucht – nur lesbar – und nennt ihn in config.yaml", async () => {

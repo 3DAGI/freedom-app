@@ -1,7 +1,7 @@
 /**
  * Freedom-MCP (VKd, `docs/VIBECODEN-ENTWURF.md`: „Freedom statt Nous Portal“): Werkzeuge des Knotens für den Motor in der
- * Sandbox als MCP-Server – erreichbar nur über die Brücke (`modell-bruecke.ts`, `POST /mcp`), nie über ein Netz. Schlank und
- * ohne Abhängigkeit (Vorschlag MC1-Größe B): Streamable HTTP nach MCP 2025-06-18 mit JSON-Antworten – `initialize`, `ping`,
+ * Sandbox als MCP-Server – erreichbar nur über die Brücke (`modell-bruecke.ts`, `POST /mcp/<zeichen>` je Projekt seit VKd2b1),
+ * nie über ein Netz. Schlank und ohne Abhängigkeit (Vorschlag MC1-Größe B): Streamable HTTP nach MCP 2025-06-18 mit JSON-Antworten – `initialize`, `ping`,
  * `tools/list`, `tools/call`; Benachrichtigungen bekommen 202, ein Strom vom Server (GET) gibt es nicht.
  *
  * Ausgeführt wird nur über die `ToolRegistry` (Grenzen aus `WERKZEUG_GRENZEN`, Netz nur über `safeFetch`): heute Websuche und
@@ -13,6 +13,7 @@
  * gelesenen Seiten). Eine Adresse, die sich der Agent selbst baut, etwa mit Inhalt des Projekts in der Anfrage, liest er
  * nicht (`LeseFreigaben`).
  */
+import { randomBytes } from "node:crypto";
 import { KIND_DVM_BROWSER, KIND_DVM_WEB_SEARCH } from "@freedomstack/protocol";
 import { WERKZEUG_GRENZEN, type ToolRegistry } from "./tools.js";
 
@@ -61,8 +62,8 @@ export function adressenIn(text: string): string[] {
 
 /**
  * Welche Seiten der Motor lesen darf (VKd-W1): Adressen aus dem Auftrag des Besitzers (`ausAuftrag()`, aus `CodeLaeufe`)
- * und aus Ergebnissen der Suche (`ausSuche()`), genau so geschrieben. Nur im Speicher, je Knoten – alle Läufe gehören dem
- * Besitzer. Gelesene Seiten geben nichts frei.
+ * und aus Ergebnissen der Suche (`ausSuche()`), genau so geschrieben. Nur im Speicher, seit VKd2b1 je Projekt
+ * (`McpProjekte`). Gelesene Seiten geben nichts frei.
  */
 export class LeseFreigaben {
   private readonly erlaubt = new Set<string>();
@@ -81,6 +82,41 @@ export class LeseFreigaben {
       this.erlaubt.add(a);
       if (this.erlaubt.size > LESE_FREIGABEN_MAX) this.erlaubt.delete(this.erlaubt.values().next().value!);
     }
+  }
+}
+
+/** Ein Zeichen je Projekt: 32 Zufallsbyte als Hex. */
+export const MCP_ZEICHEN = /^[0-9a-f]{64}$/;
+
+/**
+ * Freedom-MCP je Projekt (VKd2b1): Jedes Projekt erreicht Freedom-MCP unter einer eigenen Adresse (`/mcp/<zeichen>`). Das
+ * Zeichen steht nur in der `config.yaml` des Projekts, also nur in seiner Sandbox. So gilt eine Lese-Freigabe nur in dem
+ * Projekt, aus dessen Auftrag oder Suche sie stammt – ein anderes Projekt kann sie nicht nutzen. Nur im Speicher: Nach einem
+ * Neustart des Knotens bekommt jedes Projekt beim nächsten Lauf ein neues Zeichen (die Konfiguration entsteht vor jedem Lauf neu).
+ */
+export class McpProjekte {
+  private readonly zeichenJe = new Map<string, string>();
+  private readonly je = new Map<string, LeseFreigaben>();
+
+  /** Das Zeichen des Projekts (Name wie in `ProjektAblage`) – beim ersten Mal neu gewürfelt. */
+  zeichen(projekt: string): string {
+    let z = this.zeichenJe.get(projekt);
+    if (!z) {
+      z = randomBytes(32).toString("hex");
+      this.zeichenJe.set(projekt, z);
+      this.je.set(z, new LeseFreigaben());
+    }
+    return z;
+  }
+
+  /** Die Lese-Freigaben des Projekts – für die Adressen aus seinen Aufträgen. */
+  freigaben(projekt: string): LeseFreigaben {
+    return this.je.get(this.zeichen(projekt))!;
+  }
+
+  /** Die Lese-Freigaben zu einem Zeichen – undefined, wenn es kein Zeichen dieses Knotens ist. */
+  zu(zeichen: string): LeseFreigaben | undefined {
+    return this.je.get(zeichen);
   }
 }
 

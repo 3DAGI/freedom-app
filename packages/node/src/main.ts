@@ -49,7 +49,7 @@ import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
-import { LeseFreigaben, mcpAntwort } from "./freedom-mcp.js";
+import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import { BildStrom, bildFehlt, bildKodierer, nvencDa } from "./bildstrom.js";
@@ -564,21 +564,28 @@ async function main(): Promise<void> {
     if (!sandbox.ok) console.log("[code] kein Motor – ohne Sandbox läuft kein Code");
     else if ("fehlt" in hermesWahl) console.log(`[code] ${hermesWahl.fehlt}`);
     else {
-      // Freedom-MCP (VKd): Websuche und Seite lesen aus dem Knoten, nur über die Brücke; lesen nur, was Auftrag oder Suche nennen
+      // Freedom-MCP (VKd): Websuche und Seite lesen aus dem Knoten, nur über die Brücke; lesen nur, was Auftrag oder Suche nennen –
+      // seit VKd2b1 je Projekt unter eigenem Zeichen
       const werkzeuge = new ToolRegistry();
       werkzeuge.register(new WebSearchExecutor());
       werkzeuge.register(new BrowserExecutor());
-      const freigaben = new LeseFreigaben();
+      const mcpProjekte = new McpProjekte();
       // Pakete (VKd3): npm und PyPI nur von der festen Liste, über die Brücke – mit Tor durch Tor
       const spiegelKonto = new SpiegelKonto();
       const bruecke = await oeffneModellBruecke(antrieb, {
-        mcp: (n) => mcpAntwort(n, werkzeuge, freigaben),
+        mcp: (zeichen) => {
+          const freigaben = mcpProjekte.zu(zeichen);
+          return freigaben && ((n) => mcpAntwort(n, werkzeuge, freigaben));
+        },
         spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
       });
       process.on("exit", () => bruecke.schliesse());
       code = new CodeLaeufe({
-        ablage: projekte, beimAuftrag: (t) => freigaben.ausAuftrag(t),
-        motor: hermesMotor({ hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server }),
+        ablage: projekte, beimAuftrag: (t, p) => mcpProjekte.freigaben(p).ausAuftrag(t),
+        motor: hermesMotor({
+          hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server,
+          mcpZeichen: (p) => mcpProjekte.zeichen(p),
+        }),
       });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
       for (const s of mcpWahl.server) console.log(`[code] für den Motor: ${s.name} (MCP, in der Sandbox)`);
