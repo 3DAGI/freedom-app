@@ -3243,6 +3243,7 @@ class ProbeRelay:
         self.events: list[dict] = []
         self.gesendet: list[dict] = []  # was die App veröffentlicht (seit C.2c)
         self.abos: dict[tuple, tuple] = {}  # offene REQs je Verbindung (seit B-13e) – für zustellen()
+        self.ablehnen = False  # nimmt kein EVENT an (seit B-32c2)
 
     @staticmethod
     def passt(ev: dict, f: dict) -> bool:
@@ -3274,6 +3275,9 @@ class ProbeRelay:
                         if self.passt(ev, f):
                             ws.send(json.dumps(["EVENT", m[1], ev]))
                 ws.send(json.dumps(["EOSE", m[1]]))
+            elif m[0] == "EVENT" and isinstance(m[1], dict) and self.ablehnen:
+                # Wie ein Relay, das nichts annimmt (seit B-32c2)
+                ws.send(json.dumps(["OK", m[1].get("id", ""), False, "blocked: Attrappe"]))
             elif m[0] == "EVENT" and isinstance(m[1], dict):
                 self.gesendet.append(m[1])
                 self.events.append(m[1])  # wie ein Relay: später abfragbar (seit C.2d2)
@@ -4061,7 +4065,7 @@ def meshtastic_pruefen(browser, url: str) -> dict:
 RNODE_ATTRAPPE = """
 (() => {
   const FEND = 0xc0, FESC = 0xdb, TFEND = 0xdc, TFESC = 0xdd;
-  const st = window.__rn = { geoeffnet: 0, geschlossen: 0, befehle: [], daten: 0 };
+  const st = window.__rn = { geoeffnet: 0, geschlossen: 0, befehle: [], daten: 0, rahmen: [] };
   let ctrl, rahmen = [], esc = false;
   const sende = (cmd, d) => {
     const roh = [];
@@ -4069,7 +4073,8 @@ RNODE_ATTRAPPE = """
     ctrl.enqueue(Uint8Array.from([FEND, cmd, ...roh, FEND]));
   };
   const antworte = (cmd, d) => {
-    if (cmd === 0x00) { st.daten++; return; }
+    // Datenrahmen als Hex (seit B-32c2) – so sieht der Test, an welche Adresse die App funkt
+    if (cmd === 0x00) { st.daten++; st.rahmen.push(d.map((b) => b.toString(16).padStart(2, '0')).join('')); return; }
     st.befehle.push([cmd, d]);
     if (cmd === 0x08) return sende(cmd, [0x46]);
     if (cmd === 0x50) return sende(cmd, [1, 82]);
@@ -4094,6 +4099,68 @@ RNODE_ATTRAPPE = """
   Object.defineProperty(navigator, 'serial', { value: { requestPort: async () => port, getPorts: async () => [] } });
 })();
 """
+
+
+def rnode_dm_pruefen(browser, url: str) -> dict:
+    """Direktnachricht über Reticulum (B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger, funkt die App sie über die
+    RNode – an die Adresse des Kontakts aus B-32c1 (im Rahmen der Pfad-Anfrage zu sehen). Ohne Ausfall der Relays funkt sie nichts."""
+    erg = {"fehler": []}
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    adresse = "a1b2c3d4" * 4
+    vorbereitung = f"""
+      if (!localStorage.getItem('freedom.reticulum.kontakte')) {{
+        localStorage.setItem('freedom.reticulum.kontakte', JSON.stringify({{ '{pk}': {{ adresse: '{adresse}', zeit: 1 }} }}));
+        localStorage.setItem('freedom.versand.verzoegerung', '0');
+      }}
+      document.addEventListener('DOMContentLoaded', () => {{
+        const t = document.getElementById('toast');
+        window.__toasts = [];
+        if (t) new MutationObserver(() => window.__toasts.push(t.textContent)).observe(t, {{ childList: true, characterData: true, subtree: true }});
+      }});
+    """
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=RNODE_ATTRAPPE + vorbereitung)
+    s, ev = seite.s, seite.ev
+    rn = "() => JSON.parse(JSON.stringify(window.__rn))"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-rnode", state="visible", timeout=10000)
+    s.click("#mesh-rnode")
+    seite.warte_dialog("Funkparameter der RNode")
+    dialog_ok(seite, "Bestätigen und verbinden")
+    seite.warte_zu()
+    s.wait_for_function("() => /RNode verbunden/.test(document.getElementById('mesh-status').textContent)", timeout=30000)
+    # Ein Kontakt, dessen Adresse die App hat – und mit Relays, die annehmen, geht nichts in den Funk
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    s.fill("#chat-input", "mit Netz")
+    s.click("#chat-send")
+    s.wait_for_function("() => document.getElementById('chat-input').value === ''", timeout=10000)
+    s.wait_for_timeout(1500)  # was die App funken würde, käme in dieser Zeit
+    erg["mit_netz"] = {"daten": ev(rn)["daten"], "umschlaege": sum(1 for e in relay.gesendet if e.get("kind") == 1059)}
+    # Kein Relay nimmt mehr an – die Kopie an den Empfänger geht über Reticulum an die Adresse des Kontakts
+    relay.ablehnen = True
+    s.fill("#chat-input", "ohne Netz")
+    s.click("#chat-send")
+    s.wait_for_function("(a) => window.__rn.rahmen.some((h) => h.includes(a))", arg=adresse, timeout=30000)
+    erg["ohne_netz"] = {"daten": ev(rn)["daten"], "toasts": ev("() => window.__toasts.filter((t) => /Reticulum/.test(t))")}
+    seite.ctx.close()
+    f = erg["fehler"]
+    if erg["mit_netz"]["daten"] != 0 or erg["mit_netz"]["umschlaege"] < 2:
+        f.append(f"mit Netz {erg['mit_netz']}")
+    if not (erg["ohne_netz"]["daten"] > 0 and "Kein Relay hat die Nachricht genommen – sende sie über Reticulum …" in erg["ohne_netz"]["toasts"]):
+        f.append(f"ohne Netz {erg['ohne_netz']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        f.append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    erg["bestanden"] = not f
+    return erg
 
 
 def rnode_pruefen(browser, url: str) -> dict:
@@ -7230,6 +7297,10 @@ def main() -> int:
             except Exception as e:
                 erg["rnode"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["rnode_dm"] = rnode_dm_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rnode_dm"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -7297,6 +7368,7 @@ def main() -> int:
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("rnode", {}).get("bestanden") is True
+          and erg.get("rnode_dm", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)

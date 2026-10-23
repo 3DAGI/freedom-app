@@ -13310,3 +13310,23 @@ Schlag einer, je Kontakt einmal, neue Kontakte, neue Adresse; Pause und `bald()`
 (`leak/funk-adresse.test.ts`), Smoke-Teil „rnode“ mit dem Haken.
 
 Knoten-Stand: keiner nötig.
+
+## Schritt B-32c2 – Reticulum: Direktnachrichten an Kontakte (direkt, sonst über die Gegenstelle)
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (V5, RN-W3 A), auf B-32c1. Damit ist B-32c fertig; offen bleibt B-32d (Gateway im Knoten).
+
+- **Senden:** Die Kopie an den Empfänger einer Direktnachricht geht über `zustellenDm()` (`posteingang.ts`) – erst die Relays;
+  nimmt sie keines und läuft eine RNode, über `dmUeberReticulum()` (`rnode-ui.ts`): erst direkt an die Adresse des Kontakts aus
+  B-32c1, sonst an die Gegenstelle (`funkZiele()`, `stelleUeberFunkZu()` in `reticulum-funk.ts`; bei „sendezeit“ Schluss). Die
+  eigene Kopie und Kopien an Geräte nie über Funk.
+- **Empfangen:** `nimmPostAusFunk()` öffnet einen Umschlag an mich aus dem Funk (Meshtastic wie Reticulum) gleich wie das Abo –
+  auch ohne Netz –, dann geht er wie bisher an den Pool.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt Pakete an Kontakte und wann die App direkt funkt (beide Sprachen).
+- **Docs:** Entwurf („Stand B-32c2“), `PROTOCOL.md` §44, Fallstricke in `packages/app/CLAUDE.md` und `scripts/CLAUDE.md`, OFFEN,
+  FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** app +4 (`funk-zustellen.test.ts`: Ziele, Reihenfolge und Abbruch, über die Luft mit drei RNode-Attrappen – direkt beim
+Kontakt, ohne ihn bei der Gegenstelle –, Verdrahtung und Texte); `versand.test.ts` hält jetzt `zustellenDm()` fest; zwei Zeilen in
+`privacy-facts.test.ts`; Smoke-Teil „rnode_dm“ (die Attrappe merkt Rahmen als Hex, `ProbeRelay.ablehnen`).
+
+Knoten-Stand: keiner nötig.

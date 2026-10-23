@@ -81,6 +81,12 @@ export async function sendeUeberFunk(
   return true;
 }
 
+/** Post an mich aus dem Funk (B-32c2): gleich in den Posteingang – auch ohne Netz. */
+async function postAusFunk(ev: unknown): Promise<boolean> {
+  const { nimmPostAusFunk } = await import("./posteingang.js");
+  return nimmPostAusFunk(ev as import("@freedomstack/protocol").NostrEvent).catch(() => false);
+}
+
 /**
  * Was über Funk ankam – über Meshtastic oder Reticulum (B-32b2). Hier kommt nur an, was pruefeMeshInhalt()
  * durchliess (7.1): gueltig signierte Umschlaege und signierte Solana-Transaktionen.
@@ -94,11 +100,12 @@ export function nimmFunkInhalt(payload: Uint8Array, kind: import("@freedomstack/
         // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
         const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
         if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
+        const fuerMich = await postAusFunk(ev);
         // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
         // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
         const pool = await ensurePool();
         await pool.publish(ev as never).catch(() => { /* offline */ });
-        toast(t("set.funkEmpfangen"));
+        toast(t(fuerMich ? "set.funkPostEmpfangen" : "set.funkEmpfangen"));
       } catch { toast(t("set.paketUnlesbar"), true); }
     } else if (kind === MeshKind.SolanaTx) {
       void reicheSolEin(payload);

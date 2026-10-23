@@ -50,14 +50,15 @@ test("6.4: jede Kopie wartet einzeln; ohne Verzögerung sofort; beim Verlassen a
 
 test("6.4: Verdrahtung – Direktnachrichten je Kopie verzögert, Abrufe im Takt, beim Verlassen senden, Einstellung", () => {
   const kom = q("../src/shell/tabs/kommunikation.ts");
-  assert.match(kom, /versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toRecipient, c\.id\)\.then\(fertig\)\);/);
+  // Die Kopie an den Empfänger über `zustellenDm()` – erst die Relays, ohne sie Reticulum (B-32c2)
+  assert.match(kom, /versendeVerzoegert\(\(\) => zustellenDm\(dm\.toRecipient, c\.id\)\.then\(fertig\)\);/);
   assert.match(kom, /versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toSelf, ich\)\.then\(fertig\)\);/);
   // Sofort im eigenen Verlauf, „wird gesendet“, bis beide Kopien hinaus sind; weg, sobald die eigene Kopie zurück ist
   assert.match(kom, /unterwegs\.set\(c\.id, \[\.\.\.\(unterwegs\.get\(c\.id\) \?\? \[\]\), eintrag\]\);/);
   assert.match(kom, /const offen = \(unterwegs\.get\(c\.id\) \?\? \[\]\)\.filter\(\(e\) => !da\.has\(e\.id\)\);/);
   assert.match(kom, /id: dm\.rumorId, pubkey: ich,/);
   assert.match(kom, /for \(const k of dm\.weitere\) versendeVerzoegert\(\(\) => veroeffentlicheDm\(k\.wrap, /);
-  assert.doesNotMatch(kom, /await veroeffentlicheDm\(dm\.to(Recipient|Self)/, "nie mehr alle Kopien im selben Augenblick");
+  assert.doesNotMatch(kom, /await (veroeffentlicheDm|zustellenDm)\(dm\.to(Recipient|Self)/, "nie mehr alle Kopien im selben Augenblick");
   assert.match(q("../src/shell/tabs/raeume.ts"), /abrufTakt\.melde\("raum", /); // Räume seit C.2a in raeume.ts
   const app = q("../src/shell/app.ts");
   assert.match(app, /abrufTakt\.melde\("posteingang", posteingangAbgleichen, 2\);\s*starteVerkehr\(\);/);

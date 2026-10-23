@@ -245,6 +245,30 @@ export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): P
   await pool.publish(wrap);
 }
 
+/**
+ * Die Kopie an den Empfänger einer Direktnachricht (B-32c2, W3 A): über die Relays; nimmt sie keines, über Reticulum – erst
+ * direkt an die Adresse des Kontakts, sonst an die Gegenstelle. Ohne RNode oder ohne Weg bleibt es beim Fehler des Netzes.
+ */
+export async function zustellenDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
+  try {
+    await veroeffentlicheDm(wrap, empfaenger);
+  } catch (e) {
+    const { dmUeberReticulum } = await import("../rnode-ui.js");
+    if (!(await dmUeberReticulum(wrap, empfaenger, state.keypair ? [state.keypair.pk] : []))) throw e;
+  }
+}
+
+/**
+ * Ein Umschlag an mich, der über Funk kam (B-32c2): gleich öffnen wie aus dem Abo – auch ohne Netz. false, wenn er nicht an
+ * mich geht oder schon offen ist; dann reicht ihn der Aufrufer nur weiter.
+ */
+export async function nimmPostAusFunk(w: NostrEvent): Promise<boolean> {
+  const ich = state.keypair?.pk;
+  if (!ich || w.kind !== 1059 || !w.tags.some((t) => t[0] === "p" && t[1] === ich) || dmCache.has(w.id)) return false;
+  await nimmLivePost(w, ich);
+  return true;
+}
+
 let letzterDmAbgleich = 0;
 
 /**

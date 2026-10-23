@@ -131,8 +131,11 @@ test("Verdrahtung: Pool aus dem eigenen Satz, Listen je Sitzung abgeglichen, DMs
   assert.match(sync.slice(0, 800), /await eigeneRelayListen\(\)/);
   const dm = kom.slice(kom.indexOf("async function veroeffentlicheDm("), kom.indexOf("let letzterDmAbgleich"));
   assert.match(dm, /if \(ziele\.length > 0 && \(await veroeffentlicheAn\(wrap, ziele\)\) > 0\) return;\s*await pool\.publish\(wrap\);/);
-  // seit 6.4 je Kopie mit eigener Zufallsverzögerung – weiter nur an den Posteingang (veroeffentlicheDm)
-  assert.match(kom, /versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toRecipient, c\.id\)\.then\(fertig\)\);\s*versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toSelf, ich\)\.then\(fertig\)\);/);
+  // seit 6.4 je Kopie mit eigener Zufallsverzögerung – weiter nur an den Posteingang (veroeffentlicheDm);
+  // die Kopie an den Empfänger seit B-32c2 über zustellenDm(): erst veroeffentlicheDm, ohne Relay Reticulum
+  assert.match(kom, /versendeVerzoegert\(\(\) => zustellenDm\(dm\.toRecipient, c\.id\)\.then\(fertig\)\);\s*versendeVerzoegert\(\(\) => veroeffentlicheDm\(dm\.toSelf, ich\)\.then\(fertig\)\);/);
+  const zu = kom.slice(kom.indexOf("export async function zustellenDm("));
+  assert.match(zu, /^export async function zustellenDm\(wrap: NostrEvent, empfaenger: string\): Promise<void> \{\n  try \{\n    await veroeffentlicheDm\(wrap, empfaenger\);/);
   // Seit 8.6b: Kopien an Geraete ebenfalls nur an den Posteingang ihrer Person
   assert.match(kom, /for \(const k of dm\.weitere\) versendeVerzoegert\(\(\) => veroeffentlicheDm\(k\.wrap, k\.an === ich \|\| meine!\.includes\(k\.an\) \? ich : c\.id\)\);/);
 });
