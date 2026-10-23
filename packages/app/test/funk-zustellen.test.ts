@@ -102,7 +102,8 @@ test("B-32c2: verdrahtet – erst die Relays, dann Reticulum; die eigene Kopie n
   assert.doesNotMatch(kom, /zustellenDm\(dm\.toSelf|zustellenDm\(k\.wrap/, "die eigene Kopie und Kopien an Geräte nie über Funk");
   assert.match(post, /if \(!ich \|\| w\.kind !== 1059 \|\| !w\.tags\.some\(\(t\) => t\[0\] === "p" && t\[1\] === ich\) \|\| dmCache\.has\(w\.id\)\) return false;\n  await nimmLivePost\(w, ich\);/);
   const mesh = lies("src/shell/tabs/mesh.ts");
-  assert.ok(mesh.indexOf("nimmPostAusFunk(ev") < mesh.indexOf("await pool.publish(ev as never)"), "erst in den eigenen Posteingang, dann weiter");
+  assert.ok(mesh.indexOf("const fuerMich = await postAusFunk(ev);") < mesh.indexOf("await pool.publish(ev as never)"), "erst in den eigenen Posteingang, dann weiter");
+  assert.match(mesh, /async function postAusFunk\(ev: unknown\): Promise<boolean> \{\n  const \{ nimmPostAusFunk \} = await import\("\.\/posteingang\.js"\);/);
   const ui = lies("src/shell/rnode-ui.ts");
   const dm = ui.slice(ui.indexOf("export async function dmUeberReticulum"));
   assert.match(dm, /const funk = verbunden;\n  if \(!funk\) return false;/, "nur mit laufender RNode");
