@@ -176,6 +176,8 @@ async function main(): Promise<void> {
   // Status für den Besitzer (B-11a, L6 A – nur lesen): Rollen erst, wenn sie gestartet sind
   const statusSeit = Math.floor(Date.now() / 1000);
   const statusRollen = new Set<import("@freedomstack/protocol").StatusRolle>(["ki"]);
+  // LXMF-Adresse des Reticulum-Gateways (B-32d3b) – erst nach dessen Start, für den Status an den Besitzer
+  let reticulumLxmf: string | undefined;
   const fassung = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: string }).version ?? "unbekannt";
   // Angeboten wird PROVIDER_MODELS wie bisher, dazu seit E9-3a die geprüft geladenen Modelle (`npm run modell`)
   let gepruefteModelle: readonly string[] = [];
@@ -681,6 +683,7 @@ async function main(): Promise<void> {
           einrichtung: einrichtung?.map(({ schiene, stufe, fall, werte }) => ({ schiene, stufe, fall, werte: werte ?? {} })),
           weckSchluessel: vapid?.oeffentlich,
           modellPruefung: modellPruefung(),
+          lxmf: reticulumLxmf,
         };
       },
       pricePerKTokenMsat: Number(process.env.PRICE_PER_K_TOKEN_MSAT ?? DEFAULT_PROVIDER_CONFIG.pricePerKTokenMsat),
@@ -913,8 +916,9 @@ async function main(): Promise<void> {
       try {
         const gw = await starteReticulumGateway({ einstellung: r.einstellung, annahme, datei: reticulumIdentitaetDatei(), gatewayPk: keypair.pk, log });
         statusRollen.add("gateway");
-        // Die Adresse ist nicht geheim – sie steht in jeder Antwort im Funk; die App braucht sie als Gegenstelle
-        console.log(`[funk] Gateway an (RNode über TCP, Reticulum, ${r.einstellung.region}) – LXMF-Adresse ${toHex(gw.funk.adresse)}`);
+        reticulumLxmf = toHex(gw.funk.adresse);
+        // Die Adresse ist nicht geheim – sie steht in jeder Antwort im Funk; die App des Besitzers liest sie aus dem Status
+        console.log(`[funk] Gateway an (RNode über TCP, Reticulum, ${r.einstellung.region}) – LXMF-Adresse ${reticulumLxmf}`);
       } catch (e) {
         console.error(`[funk] Reticulum aus – ${(e as Error).name}${(e as { fall?: string }).fall ? ` (${(e as { fall?: string }).fall})` : ""}`);
       }

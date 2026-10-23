@@ -11,6 +11,9 @@ import { ReticulumFehler, Sendezeitkonto } from "@freedomstack/protocol";
  */
 export const LS_RETICULUM_GEGENSTELLE = "freedom.reticulum.gegenstelle";
 
+/** Der eigene Knoten als Gateway über Reticulum (B-32d3b, `FunkKnoten`) – aus seinem Status, nur in `geheim`. */
+export const LS_RETICULUM_KNOTEN = "freedom.reticulum.knoten";
+
 /** Wohin eine Direktnachricht über Reticulum geht (B-32c2, W3 A). */
 export interface FunkZiel {
   art: "kontakt" | "gegenstelle";

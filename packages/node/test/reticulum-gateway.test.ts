@@ -231,8 +231,11 @@ test("B-32d2: verdrahtet – rnode: vor den anderen Wegen, Rolle erst nach dem S
   assert.ok(main.indexOf('process.env.FUNK_GATEWAY?.startsWith("rnode:")') < main.indexOf("} else if (process.env.FUNK_GATEWAY) {"));
   assert.match(main, /const gw = await starteReticulumGateway\(\{ einstellung: r\.einstellung, annahme, datei: reticulumIdentitaetDatei\(\), gatewayPk: keypair\.pk, log \}\);\n\s+statusRollen\.add\("gateway"\);/);
   assert.match(main, /if \("grund" in r\) \{\n\s+console\.error\(`\[funk\] Reticulum aus – \$\{r\.grund\}`\);/, "ungültig → kein Start");
-  // Das Angebot nennt nur das Gateway für Meshtastic und die Brücke – über Reticulum fragt nur, wer den Knoten als
-  // Gegenstelle kennt (B-32d3b); ein Meshtastic-Gerät erreichte ihn nicht
+  // B-32d3b: die Adresse im Status erst nach dem Start – die App des Besitzers fragt KI über Funk an sie
+  assert.match(main, /statusRollen\.add\("gateway"\);\n\s+reticulumLxmf = toHex\(gw\.funk\.adresse\);/);
+  assert.match(main, /modellPruefung: modellPruefung\(\),\n\s+lxmf: reticulumLxmf,/);
+  // Das Angebot nennt nur das Gateway für Meshtastic und die Brücke – über Reticulum fragt nur der Besitzer, mit der
+  // Adresse aus dem Status (B-32d3b); ein Meshtastic-Gerät erreichte ihn nicht
   assert.match(main, /funkGateway: funkGateway !== undefined,/);
   const gw = lies("src/gateway-role.ts");
   assert.match(gw, /await this\.annahme\.nimm\(JSON\.parse\(new TextDecoder\(\)\.decode\(st\.payload\)\) as NostrEvent, now\);/, "Meshtastic und Reticulum nehmen gleich an");

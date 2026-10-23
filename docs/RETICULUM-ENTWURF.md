@@ -75,7 +75,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
 | B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
-| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum, geteilt: **d3a** ✓ Knoten funkt zurück, **d3b** App fragt KI über Funk mit RNode | ~300 je Teil |
+| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum, geteilt: **d3a** ✓ Knoten funkt zurück, **d3b** ✓ App fragt KI über Funk mit RNode | ~300 je Teil |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
@@ -300,6 +300,20 @@ Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`
 - **Angebot:** weiter kein Funk-Gateway für Reticulum – das Flag sagt Meshtastic-Nutzern, wen sie im Funk erreichen.
 - **Test:** Telefon und Knoten in derselben Luft – Weiterleitung hin, Antwort aus dem Netz zurück ans Telefon; Post für
   eine Sitzung ohne Weiterleitung bleibt im Netz; jede Antwort einmal.
+
+## Stand B-32d3b (23.10.2026)
+
+- **Adresse aus dem Status:** Der Status an den Besitzer (§24) nennt die LXMF-Adresse des Gateways (`lxmf`, nur nach
+  dem Start). Fragt die App den Status ab, merkt sie Knoten, Adresse und Rechenarbeit in `geheim`
+  (`freedom.reticulum.knoten`, `leseFunkKnoten()`); nennt der Status keine, vergisst sie den Eintrag.
+- **Direkt an den Knoten, nicht an die Gegenstelle:** KI über Funk geht ohne Meshtastic mit laufender RNode an diese
+  Adresse (`sendeAnKnotenUeberReticulum()`) – die Gegenstelle bleibt für Direktnachrichten. Anders als im Entwurf
+  geplant, muss die Gegenstelle dafür nicht der eigene Knoten sein.
+- **Gratis als Besitzer:** Der Auftrag trägt im versiegelten Kern den Besitzer-Nachweis (`baueFunkAuftrag(…, kopplung)`),
+  ohne Gebot und ohne Gutschrift; nur, wenn die Kopplung zu dem Knoten passt, dessen Status die Adresse nannte.
+- **„über Funk“** im Agenten erscheint auch ohne gemerktes Meshtastic-Gateway, sobald die Adresse bekannt ist.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt KI-Fragen an den eigenen Knoten.
+- **Damit ist B-32 fertig.** Offen bleibt die Probe mit echten Geräten (MENSCH).
 
 ## Quellen
 

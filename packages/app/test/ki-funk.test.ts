@@ -141,7 +141,8 @@ test("7.4c3 verdrahtet: Gateway wählen auf der Seite Netz, „über Funk“ im 
   const ui = lies("shell/funk-gateway-ui.ts");
   assert.doesNotMatch(ui, /innerHTML/, "Fremdes nur über textContent");
   assert.match(ui, /\(await alleAngebote\(\)\)\.filter\(\(c\) => c\.funkGateway\)/);
-  assert.match(ui, /if \(wahl\) wahl\.style\.display = g \? "" : "none";/);
+  // seit B-32d3b auch, wenn der eigene Knoten über Reticulum erreichbar ist
+  assert.match(ui, /const moeglich = !!g \|\| funkKnotenGateway\(\) !== null;\n\s+const wahl = el\("ai-funk-wahl"\);\n\s+if \(wahl\) wahl\.style\.display = moeglich \? "" : "none";/);
 
   const agent = lies("shell/tabs/agent.ts");
   const ask = agent.slice(agent.indexOf("export async function askAi("), agent.indexOf("/** Sendet den Job an den besten Provider"));
@@ -150,6 +151,7 @@ test("7.4c3 verdrahtet: Gateway wählen auf der Seite Netz, „über Funk“ im 
   const frage = agent.slice(agent.indexOf("async function frageUeberFunk("), agent.indexOf("export function setupFunkAntworten("));
   assert.match(frage, /await sendeKiUeberFunk\(prompt, gebot, \(w\) => sendeUeberFunk\(eventToMesh\(w\), MeshKind\.NostrEvent, t\("agent\.funkLabel"\), MeshPriority\.Nachricht\)\);/);
   assert.doesNotMatch(frage, /pendingContextSummary|kontextPraefix/, "kein Verlauf als Kontext – jedes Byte kostet Sendezeit");
-  assert.ok(frage.indexOf("if (!funkGeraetVerbunden())") < frage.indexOf("await sendeKiUeberFunk("), "erst das Gerät, dann Gutschrift und Auftrag");
+  const geprueft = frage.indexOf("if (!funkGeraetVerbunden() && !knoten) throw new EigeneMeldung(t(\"agent.funkKeinGeraet\"));");
+  assert.ok(geprueft > 0 && geprueft < frage.indexOf("await sendeKiUeberFunk("), "erst das Gerät, dann Gutschrift und Auftrag");
   assert.match(["settings", "sicherung", "mesh"].map((d) => lies(`shell/tabs/${d}.ts`)).join("\n"), /meshNode\.enqueue\(payload, kind, vorrang \?\? MeshPriority\.Zahlung, label\);/);
 });

@@ -71,7 +71,7 @@ test("B-11b: Verdrahtung – nur auf Knopfdruck, über den Weg, ohne Relay nicht
   assert.match(fn, /await weg\.publish\(wrap\);/);
   assert.match(fn, /\} finally \{\s*weg\.schliesse\(\);/);
   assert.match(fn, /warteAufKnoten\(weg, sitzung, requestId, KIND_DVM_KNOTEN_STATUS \+ 1000, STATUS_ZEIT_MS, STATUS_TAKT_MS\)/);
-  assert.match(fn, /const s = leseKnotenStatus\(antwort\.ergebnis\);\s*return s \? \{ status: s \} : \{ grund: t\("set\.statusUnlesbar"\) \};/);
+  assert.match(fn, /const s = leseKnotenStatus\(antwort\.ergebnis\);\s*if \(s\) await merkeFunkKnoten\(k\.knoten, s\.lxmf, powBits\);\s*return s \? \{ status: s \} : \{ grund: t\("set\.statusUnlesbar"\) \};/);
   const zeigt = ui.slice(ui.indexOf("export async function zeigeKnotenStatus("), ui.indexOf("export function wireKnotenStatus("));
   assert.match(zeigt, /const r = await frageKnotenStatus\(k\);\s*zeige\(ziel, "status" in r \? statusZeilen\(r\.status, aktuellerKurs\(\)\) : \[r\.grund\]\);/);
   assert.doesNotMatch(ui, /innerHTML|localStorage|ensurePool/, "nur Text, nichts gemerkt, nie am Weg vorbei");

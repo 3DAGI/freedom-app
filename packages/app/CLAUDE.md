@@ -1010,3 +1010,9 @@ Fallstricke dieses Bereichs unten anhängen.
   „Dieses Gerät“ (seit B-38c3) nur über `sprache-lokal.ts`: Adressen nur aus `lokaleKiAdresse()`, gefragt erst auf Klick in
   der Karte (`pruefeSprachServer()`), gemerkt nur nach „bereit“; ist einer gemerkt, geht der Ton nur dorthin, nie zusätzlich
   zum Knoten. Nie `--convert` voraussetzen – der Server bekommt nur die WAV-Datei aus `alsSpracheWav()`.
+- **KI über Funk mit RNode nur an den eigenen Knoten** (seit B-32d3b): die Adresse nur aus seinem Status (`lxmf`, gemerkt in
+  `freedom.reticulum.knoten` über `frageKnotenStatus()`, gelesen nur über `leseFunkKnoten()`), nur wenn die Kopplung zum
+  Knoten passt (`funkKnotenGateway()`), gesendet nur über `sendeAnKnotenUeberReticulum()` an diese Adresse – nie an die
+  Gegenstelle, nie an ein Gateway aus einem Angebot. Der Auftrag trägt den Besitzer-Nachweis im Kern
+  (`baueFunkAuftrag(…, kopplung)`), nie ein Gebot oder eine Gutschrift. Meshtastic geht vor: Ist ein Gerät verbunden,
+  bleibt es beim gemerkten Gateway.

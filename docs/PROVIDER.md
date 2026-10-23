@@ -857,8 +857,9 @@ Frage noch Antwort noch wer fragt.
   unter Netz › Mesh › „Reticulum-Adressen“ als Gegenstelle eintragen. Der Knoten
   reicht Umschläge ins Netz und funkt seit B-32d3a Antworten auf KI-Aufträge an
   die Adresse zurück, die den Weiterleitungsauftrag brachte (höchstens drei je
-  Auftrag, in der Sendezeit). Fragen über Reticulum kann die App mit dem nächsten
-  Schritt.
+  Auftrag, in der Sendezeit). Die App fragt KI über Funk mit RNode direkt an
+  diese Adresse, sobald sie den Status des Knotens einmal mit Netz abgefragt hat
+  (Mein Knoten › Status, seit B-32d3b) – als Besitzer gratis.
 - **Sendezeit:** höchstens 1 % je Stunde. Mit Meshtastic zählt die Sendezeit,
   die das Gerät mit seinem Preset braucht (LongFast: rund 1,9 s je Rahmen) –
   eine Antwort mit 500 Zeichen (16 Rahmen) kostet so rund eine halbe Minute,

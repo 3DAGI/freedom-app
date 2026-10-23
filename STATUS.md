@@ -13441,3 +13441,27 @@ Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3a“), RN-W9 A. B-32d3 ist g
 **Tests:** node +1 (`reticulum-gateway.test.ts`: Rückweg ohne Funk – nur an die Adresse der Weiterleitung, ohne Adresse
 nichts, „sendezeit“ nur als Kennung im Log, nie zweimal zugleich); der Test über die Luft funkt jetzt auch die Antwort aus
 dem Netz zurück ans Telefon (Post für fremde Sitzungen bleibt, jede Antwort einmal).
+
+## Schritt B-32d3b – Reticulum: KI über Funk mit RNode an den eigenen Knoten
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3b“). Damit ist B-32 fertig.
+
+- **Protokoll (`knoten-status.ts`, §24):** Feld `lxmf` (darf fehlen, 32 Zeichen Hex, klein) – was der Leser abwiese,
+  schickt der Knoten nicht.
+- **Knoten (`main.ts`):** meldet die LXMF-Adresse im Status erst nach dem Start des Gateways.
+- **App:**
+  - `frageKnotenStatus()` merkt Knoten, Adresse und Rechenarbeit in `geheim` (`freedom.reticulum.knoten`, in
+    `GEHEIM_FEST`); ohne Adresse im Status vergisst sie den Eintrag.
+  - `funkKnotenGateway()` gilt nur, wenn die Kopplung zu diesem Knoten passt; `baueFunkAuftrag(…, kopplung)` legt den
+    Besitzer-Nachweis in den Kern; `sendeKiUeberFunk(…, eigen)` fragt dann ohne Gebot und ohne Gutschrift.
+  - Im Agenten: ohne Meshtastic mit laufender RNode an die Adresse des Knotens (`sendeAnKnotenUeberReticulum()`), nie an
+    die Gegenstelle; „über Funk“ erscheint auch ohne gemerktes Meshtastic-Gateway.
+  - Datenschutz: Die Grenze „reticulum-ankuendigung“ nennt KI-Fragen an den eigenen Knoten (Protokoll und App, beide
+    Sprachen).
+- `PROTOCOL.md` §24, `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/app/CLAUDE.md`,
+  Stand-Zeile.
+
+**Tests:** protocol +1 (`knoten-status.test.ts`: Feld `lxmf`), app +3 (`funk-knoten.test.ts`: gemerkter Knoten streng,
+Auftrag mit Nachweis ohne Gebot, Verdrahtung); `privacy-facts.test.ts` zwei Zeilen; `ki-funk.test.ts` und
+`rnode-senden.test.ts` halten die neue Verdrahtung fest – die Reihenfolge „erst das Gerät, dann Gutschrift und Auftrag“
+prüfte `ki-funk.test.ts` mit `indexOf` und wäre mit dem neuen Text still durchgegangen (-1); jetzt mit Fundstelle.
