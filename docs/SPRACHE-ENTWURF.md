@@ -102,7 +102,7 @@ Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwo
 | B-38b3b3 ✓ | Whisper nimmt das geprüfte Modell (ohne `WHISPER_MODELL`), Rolle `sprache` erst mit Modell, Docker ohne Pfad | ~150 |
 | B-38c | App: „Als Text“ an Sprachnachrichten, Diktieren im Agenten – über den eigenen Knoten oder „Dieses Gerät“, Wandlung im Browser | ~300 – geteilt in c1–c3 |
 | B-38c1 ✓ | „Als Text“ an Sprachnachrichten über den eigenen Knoten: Ton im Browser zu WAV (`ton-wandeln.ts`), Ton unter einem Sitzungsschlüssel, nur mit Rolle `sprache`, Smoke-Test „als_text“ | ~300 |
-| B-38c2 | Diktieren im Agenten (Aufnahme → Text ins Eingabefeld, Sprache der App) | ~150 |
+| B-38c2 ✓ | Diktieren im Agenten (Aufnahme → Text ins Eingabefeld, Sprache der App) | ~150 |
 | B-38c3 | „Dieses Gerät“: ein whisper-server auf diesem Rechner (`lokaleKiAdresse()`, erst auf Klick) | ~200 |
 | B-38d | (nur mit SP-W2 B/C – entfällt mit SP-W2 A vorerst) Piper auf dem eigenen Knoten | ~250 |
 
@@ -226,6 +226,16 @@ Live-Proben (Qualität auf Deutsch, Geschwindigkeit auf dem GX10) macht der MENS
 - **Grenze:** Mit `RELAY_BESCHRAENKT=1` nimmt das Relay des Knotens Stücke vom Sitzungsschlüssel nicht an – mit Haken „nur
   über meinen Knoten“ scheitert „Als Text“ dann mit einer Meldung. Die Stücke bleiben verschlüsselt auf den Relays liegen
   wie andere Anhänge; lesen kann sie nur, wer den Schlüssel aus dem Auftrag hat.
+
+## Stand B-38c2 (23.10.2026)
+
+- **Diktieren** (`shell/diktieren-ui.ts`): Mikrofon-Knopf neben „Senden“ im Agenten, nur gekoppelt und mit Mikrofon – geprüft
+  beim Start und bei jedem Wechsel zum Agenten (die Kopplung kann neu sein). Dieselbe Aufnahme wie Sprachnachrichten
+  (`SprachAufnahme`, höchstens 120 s, Mikrofon erst beim Klick, danach aus, im Hintergrund beendet). Der Text kommt über
+  `textAusSprache()` vom eigenen Knoten, mit der Sprache der App (`de`/`en`) statt `auto`, und wird ans Eingabefeld angehängt –
+  gesendet wird erst mit „Senden“. Stille fügt nichts ein. Die Aufnahme bleibt nur im Speicher.
+- **Smoke-Test „als_text“** um das Diktat erweitert: echte Aufnahme der Mikrofon-Attrappe, die Rolle aus „Als Text“ ist für die
+  Sitzung gemerkt – hinaus geht nur der Auftrag; im Feld steht danach „Bitte: Probe: 440 Hz, Sprache de“.
 
 ## Quellen
 

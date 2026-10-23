@@ -177,6 +177,9 @@
                   <input type="hidden" id="ai-model" value="" />
                   <div id="model-popover" class="model-popover hidden"></div>
                 </div>
+                <!-- Diktieren (B-38c2): nur gekoppelt mit einem eigenen Knoten sichtbar -->
+                <span id="ai-diktat-stand" class="mono-sm diktat-stand" aria-live="polite" hidden></span>
+                <button type="button" id="ai-diktieren" class="ghost plus-knopf" aria-pressed="false" hidden title="Diktieren – dein Knoten schreibt mit" aria-label="Diktieren – dein Knoten schreibt mit" data-i18n-title="agent.diktieren" data-i18n-aria="agent.diktieren"><span class="ic" data-icon="mic"></span></button>
                 <button id="ai-send" class="send-btn" data-i18n="send">Senden</button>
               </div>
             </div>

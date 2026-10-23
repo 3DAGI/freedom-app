@@ -12,8 +12,8 @@ import { fehlerText } from "../protokoll-texte.js";
 import { el, toast } from "./ui.js";
 import { handleChatFiles } from "./tabs/chat-anhaenge.js";
 
-/** Der Browser: Mikrofon nur hier, nur aus `starte()` – nie beim Laden. */
-function browserUmgebung(): SprachUmgebung {
+/** Der Browser: Mikrofon nur hier, nur aus `starte()` – nie beim Laden. Auch fürs Diktieren (B-38c2). */
+export function browserUmgebung(): SprachUmgebung {
   return {
     mikrofon: () => navigator.mediaDevices.getUserMedia({ audio: true }),
     recorder: (strom, mime) => new MediaRecorder(strom, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: SPRACH_GRENZEN.bitsProSekunde }),

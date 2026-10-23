@@ -59,6 +59,7 @@ import { wireTauschformular } from "./tauschformular-ui.js";
 import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
+import { wireDiktieren, zeigeDiktieren } from "./diktieren-ui.js";
 import { wireAnrufe } from "./anruf-ui.js";
 import { wireGruppenanrufe } from "./gruppenanruf-ui.js";
 import { agentenImTakt, starteGeraeteAgenten } from "./agenten-lauschen.js";
@@ -553,7 +554,7 @@ export function switchTab(name: string): void {
   if (name === "profile") { void zeigeAbzeichen(); void zeigeProfilVorschau(); zeigeProfilTexte(); }
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
-  if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); zeigeGratisStand(); }
+  if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); zeigeGratisStand(); zeigeDiktieren(); }
   if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
@@ -789,6 +790,7 @@ function starte(): void {
   }
   // Sprachnachrichten (C-7): Mikrofon erst auf Klick, die Aufnahme wird ein Anhang wie oben
   wireSprachnachricht();
+  wireDiktieren();
   // Anrufe (B-13d3): nur auf Klick; eingehende kommen über den Posteingang (alsAnruf)
   wireAnrufe();
   wireGruppenanrufe();

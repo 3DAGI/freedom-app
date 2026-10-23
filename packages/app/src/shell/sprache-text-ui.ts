@@ -4,10 +4,12 @@
  * signiert mit einem frischen Sitzungsschlüssel, nie mit der eigenen Identität. Der Auftrag (5083) geht versiegelt mit
  * Nachweis nur an den gekoppelten Knoten (`baueSpracheAuftrag()`) und nur, wenn sein Status die Rolle `sprache` nennt –
  * ein älterer Knoten läse 5083 als gewöhnlichen Auftrag. Der Text erscheint nur als `textContent` unter dem Abspieler und
- * wird nirgends gespeichert. „Dieses Gerät“ kommt mit B-38c3.
+ * wird nirgends gespeichert. Diktieren im Agenten (B-38c2, `diktieren-ui.ts`) geht denselben Weg. „Dieses Gerät“ kommt mit
+ * B-38c3.
  */
 import {
   KIND_DVM_TEXT_AUS_SPRACHE, LocalSigner, SPRACHE_FAELLE, baueSpracheAuftrag, generateKeypair, leseTranskript, type Kopplung, type SpracheFall,
+  type SpracheWahl,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
 import { ablehnungsGrund } from "../knoten-halten.js";
@@ -45,8 +47,11 @@ async function grundGegenKnoten(k: Kopplung): Promise<string | null> {
   return null;
 }
 
-/** Text zu einer Aufnahme vom eigenen Knoten – oder ein Satz, warum es keinen gibt. */
-export async function textAusSprache(bytes: Uint8Array): Promise<{ text: string } | { grund: string }> {
+/**
+ * Text zu einer Aufnahme vom eigenen Knoten – oder ein Satz, warum es keinen gibt. Der Text kann leer sein (Stille);
+ * `sprache` ist `auto` für Nachrichten von Kontakten, beim Diktieren die Sprache der App.
+ */
+export async function textAusSprache(bytes: Uint8Array, sprache: SpracheWahl = "auto"): Promise<{ text: string } | { grund: string }> {
   const k = meineKopplung();
   if (!k) return { grund: t("komm.alsTextOhneKnoten") };
   const dekoder = browserDekoder();
@@ -68,8 +73,7 @@ export async function textAusSprache(bytes: Uint8Array): Promise<{ text: string 
     ton.wav.fill(0);
     const { wrap, requestId } = await baueSpracheAuftrag({
       sitzung, kopplung: k, powBits,
-      // Sprachnachrichten kommen von Kontakten in jeder Sprache – Whisper erkennt sie selbst
-      auftrag: { ton: { blob: r.blobId, manifest: r.manifestEventId, schluessel: r.schluessel }, sprache: "auto" },
+      auftrag: { ton: { blob: r.blobId, manifest: r.manifestEventId, schluessel: r.schluessel }, sprache },
     });
     await weg.publish(wrap);
     antwort = await warteAufKnoten(weg, sitzung, requestId, KIND_DVM_TEXT_AUS_SPRACHE + 1000, ALS_TEXT_ZEIT_MS, STATUS_TAKT_MS);
@@ -83,7 +87,7 @@ export async function textAusSprache(bytes: Uint8Array): Promise<{ text: string 
   }
   const transkript = leseTranskript(antwort.ergebnis);
   if (!transkript) return { grund: t("komm.alsTextUnlesbarAntwort") };
-  return { text: transkript.text.trim() || t("komm.alsTextStille") };
+  return { text: transkript.text.trim() };
 }
 
 /**
@@ -101,8 +105,9 @@ export function mitAlsText(ton: HTMLElement, bytes: () => Promise<Uint8Array>): 
     knopf.disabled = true;
     aus.textContent = t("komm.alsTextLaeuft");
     try {
-      const r = await textAusSprache(await bytes());
-      aus.textContent = "text" in r ? r.text : r.grund;
+      // Sprachnachrichten kommen von Kontakten in jeder Sprache – Whisper erkennt sie selbst
+      const r = await textAusSprache(await bytes(), "auto");
+      aus.textContent = "text" in r ? r.text || t("komm.alsTextStille") : r.grund;
       aus.classList.toggle("ton-text-hinweis", !("text" in r));
     } catch (e) {
       aus.textContent = t("komm.alsTextFehler", { fehler: fehlerText(e) });
