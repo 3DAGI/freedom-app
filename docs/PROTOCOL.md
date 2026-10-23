@@ -1714,3 +1714,6 @@ genau dieses eine Tag – sonst nichts. Je Kontakt gilt die neueste (`created_at
 höchstens ein Umschlag an den Posteingang eines Kontakts (`FunkAdressVersand`); jeder bekommt die Adresse einmal, neue Kontakte
 später auch, nach einer neuen Identität alle neu. Gemerkt in `geheim`: an wen sie ging (`freedom.reticulum.verteilt`) und die
 Adressen der Kontakte (`freedom.reticulum.kontakte`, höchstens 200). Wer sie hat, behält sie, auch wenn man abschaltet.
+
+**Zustellen** (seit B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger einer Direktnachricht, geht derselbe Umschlag über
+Reticulum (§40) – erst an die Adresse des Kontakts, sonst an die Gegenstelle, die ihn ins Netz gibt. Kein neues Format.

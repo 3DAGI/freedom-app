@@ -94,11 +94,14 @@ export function nimmFunkInhalt(payload: Uint8Array, kind: import("@freedomstack/
         // Antwort auf eine KI-Anfrage über Funk (7.4c2): zeigen – sie kam schon aus dem Netz
         const { nimmFunkAntwort } = await import("../ki-ueber-funk.js");
         if (await nimmFunkAntwort(ev as import("@freedomstack/protocol").NostrEvent)) return;
+        // Post an mich (B-32c2): gleich in den Posteingang – auch ohne Netz
+        const { nimmPostAusFunk } = await import("./posteingang.js");
+        const fuerMich = await nimmPostAusFunk(ev as import("@freedomstack/protocol").NostrEvent).catch(() => false);
         // Ueber den Pool weiterverteilen: Eine Nachricht, die nur auf
         // diesem Geraet ankommt, hat den halben Weg umsonst gemacht.
         const pool = await ensurePool();
         await pool.publish(ev as never).catch(() => { /* offline */ });
-        toast(t("set.funkEmpfangen"));
+        toast(t(fuerMich ? "set.funkPostEmpfangen" : "set.funkEmpfangen"));
       } catch { toast(t("set.paketUnlesbar"), true); }
     } else if (kind === MeshKind.SolanaTx) {
       void reicheSolEin(payload);

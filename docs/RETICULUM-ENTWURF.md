@@ -74,7 +74,7 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
-| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
+| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
 | B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
@@ -202,6 +202,19 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
 - **Datenschutz:** Die Grenze „reticulum-ankuendigung“ sagt jetzt, dass Kontakte, denen man die Adresse gibt, Pakete im Funk einem
   zuordnen können; Leak-Test `app/test/leak/funk-adresse.test.ts` (nur Umschläge, je Kontakt einer, nie im selben Augenblick).
 - **Benutzt** werden die Adressen der Kontakte erst mit B-32c2.
+
+## Stand B-32c2 (23.10.2026)
+
+- **Senden:** Die Kopie an den Empfänger einer Direktnachricht geht über `zustellenDm()` – erst die Relays; nimmt sie keines
+  und läuft eine RNode, über `dmUeberReticulum()`: Ziele aus `funkZiele()` (erst die Adresse des Kontakts aus B-32c1, dann die
+  Gegenstelle, je Adresse einmal), nacheinander über `stelleUeberFunkZu()`. Erreicht der Kontakt nicht (kein Pfad bis zur Frist),
+  nimmt die Gegenstelle; bei „sendezeit“ ist Schluss. Die eigene Kopie und Kopien an Geräte gehen nie über Funk.
+- **Empfangen:** Ein Umschlag an mich, der über Funk kommt (Meshtastic wie Reticulum), geht über `nimmPostAusFunk()` gleich in
+  den Posteingang – auch ohne Netz –, danach wie bisher weiter an den Pool.
+- **Gemessen** (drei RNode-Attrappen): direkt beim Kontakt; ist er nicht da, nach der Frist bei der Gegenstelle.
+- **Smoke-Test „rnode_dm“:** mit Relays, die annehmen, funkt die App nichts; nehmen sie nichts an, trägt der Rahmen der
+  Pfad-Anfrage die Adresse des Kontakts.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt jetzt auch Pakete an Kontakte und wann die App direkt funkt.
 
 ## Quellen
 

@@ -993,6 +993,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `baueFunkAdresseUmschlaege()` – nie offen, nie im Profil, nie alle auf einmal. Die eigene Adresse erst rechnen, wenn es
   etwas zu senden gibt (sonst lädt die Bibliothek für alle). Adressen von Kontakten nur über `alsFunkAdresse()` →
   `FunkAdressBuch` (je Kontakt die neueste, nur Kontakte); alle drei Schlüssel in `geheim` und `GEHEIM_FEST`.
+  Direktnachrichten über Reticulum (seit B-32c2, W3 A) nur über `zustellenDm()` → `dmUeberReticulum()`: erst die Relays,
+  über Funk nur die Kopie an den Empfänger (nie die eigene, nie die an Geräte), Ziele nur aus `funkZiele()` (Kontakt direkt,
+  dann Gegenstelle), nacheinander über `stelleUeberFunkZu()` – bei „sendezeit“ Schluss. Umschläge an mich aus dem Funk
+  (Meshtastic wie Reticulum) öffnet `nimmPostAusFunk()` vor dem Weiterreichen – auch ohne Netz.
 - **Text aus Sprache nur über `sprache-text-ui.ts`** (seit B-38c1, SP-W1 A, SP-W5 A): den Ton nur über `alsSpracheWav()`
   (`ton-wandeln.ts`) – nie die Datei, wie sie ist, an den Knoten; der Knoten nimmt nur die Form aus `baueWav()`. Gefragt wird
   nur ein gekoppelter Knoten, dessen Status `sprache` nennt; Ton und Auftrag nur über `wegZumKnoten()`, die Stücke nur unter

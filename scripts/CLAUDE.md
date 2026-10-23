@@ -58,6 +58,8 @@ dieses Bereichs unten anhängen.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
   Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `test/rnode-attrappe.ts`;
   sie zählt Datenrahmen, und „die App funkt von sich aus nichts“ heißt dort: 0 nach dem Verbinden.
+  Seit B-32c2 merkt sie die Rahmen als Hex (`__rn.rahmen`) – „rnode_dm“ sieht daran die Adresse des Kontakts in der
+  Pfad-Anfrage. Relays, die nichts annehmen, spielt `ProbeRelay.ablehnen`.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
 - **`check-wiring.py` ordnet Rümpfe nach Namen** (gefunden in B-35a): Deklarationen auf oberster Ebene zählen über alle
   Protokolldateien unter ihrem Namen. Ein privater Helfer mit dem Namen eines verdrahteten in einer anderen Datei (`Leser`
