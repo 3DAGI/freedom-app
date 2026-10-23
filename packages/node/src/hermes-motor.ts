@@ -18,6 +18,7 @@ import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSyn
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MotorStart } from "./code-motor.js";
+import { BILDER_IN_SANDBOX } from "./bilder-motor.js";
 import { MCP_ZEICHEN } from "./freedom-mcp.js";
 import { hermesMcpEintrag, type McpServer } from "./mcp-katalog.js";
 import { BRUECKE_IN_SANDBOX, type ModellBruecke } from "./modell-bruecke.js";
@@ -105,17 +106,20 @@ export function hermesMotor(o: {
   mcp?: readonly McpServer[];
   /** Freedom-MCP je Projekt (VKd2b1): das Zeichen des Projekts (Name des Ordners) – ohne kein Freedom-MCP. */
   mcpZeichen?: (projekt: string) => string;
+  /** Bilder (VKd2b2): der Ordner mit den Bildern des Projekts – nur lesbar unter `/freedom/bilder`. */
+  bilder?: (projekt: string) => string;
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
     [join(ordner, "bin", "python"), STARTSKRIPT_IN_SANDBOX, BRUECKE_IN_SANDBOX.sockel, String(BRUECKE_IN_SANDBOX.port), "--", join(ordner, "bin", "hermes-acp")],
     {
       home: (projekt) => hermesHeim(o.ablage, projekt),
-      nurLesbar: [
+      nurLesbar: (projekt) => [
         { quelle: ordner, ziel: ordner },
         { quelle: STARTSKRIPT, ziel: STARTSKRIPT_IN_SANDBOX },
         { quelle: o.bruecke.ordner, ziel: BRUECKE_IN_SANDBOX.ordner },
         ...(o.mcp ?? []).flatMap((s) => s.nurLesbar),
+        ...(o.bilder ? [{ quelle: o.bilder(basename(projekt)), ziel: BILDER_IN_SANDBOX }] : []),
       ],
       ...(o.bwrap ? { bwrap: o.bwrap } : {}),
     },
@@ -127,6 +131,8 @@ export function hermesMotor(o: {
     const pakete = paketKonfiguration();
     schreibeInsHeim(heim, [".hermes", "config.yaml"], hermesKonfiguration(modell, o.mcp, o.mcpZeichen?.(basename(projekt))));
     schreibeInsHeim(heim, [".npmrc"], pakete.npmrc);
+    // ohne den Ordner bände bubblewrap nichts ein und startete nicht
+    if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });
     schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
     return start(projekt);
   };

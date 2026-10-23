@@ -165,7 +165,7 @@ test("VKd: Hermes findet Freedom-MCP über die Konfiguration – dieselbe Brück
   // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens, je Projekt unter seinem Zeichen
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   // seit VKd3 dazu der Spiegel für Pakete an derselben Brücke
-  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(zeichen\) => \{\s*const freigaben = mcpProjekte\.zu\(zeichen\);\s*return freigaben && \(\(n\) => mcpAntwort\(n, werkzeuge, freigaben\)\);\s*\},\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
+  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(zeichen\) => \{\s*const p = mcpProjekte\.zu\(zeichen\);\s*const bild = [^\n]+\n\s*return p && \(\(n\) => mcpAntwort\(n, werkzeuge, p\.freigaben, bild\)\);\s*\},\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
   assert.match(main, /beimAuftrag: \(t, p\) => mcpProjekte\.freigaben\(p\)\.ausAuftrag\(t\)/);
   assert.match(main, /mcpZeichen: \(p\) => mcpProjekte\.zeichen\(p\)/);
   assert.match(main, /werkzeuge\.register\(new WebSearchExecutor\(\)\);\n\s+werkzeuge\.register\(new BrowserExecutor\(\)\);/);
@@ -239,13 +239,14 @@ test("VKd2b1: Freedom-MCP je Projekt – eigenes Zeichen, Lese-Freigaben nur im 
   assert.notEqual(a, b);
   assert.equal(projekte.zeichen("app"), a, "je Projekt dasselbe, solange der Knoten läuft");
   assert.notEqual(new McpProjekte().zeichen("app"), a, "nach einem Neustart ein neues");
-  assert.equal(projekte.zu(a), projekte.freigaben("app"));
+  assert.deepEqual(projekte.zu(a), { projekt: "app", freigaben: projekte.freigaben("app") });
+  assert.equal(projekte.zu(b)?.projekt, "spiel", "das Zeichen nennt sein Projekt (VKd2b2: wohin ein Bild gehört)");
   for (const falsch of ["cd".repeat(32), a.toUpperCase(), `${a}0`, a.slice(1), ""]) assert.equal(projekte.zu(falsch), undefined, falsch);
   // eine Adresse aus dem Auftrag von „app“ liest nur „app“ – „spiel“ nicht, auch nicht über die Brücke
   const w = attrappe();
   projekte.freigaben("app").ausAuftrag("Baue es wie https://example.org/vorlage");
   const bruecke = await oeffneModellBruecke({ art: "ollama", url: "http://127.0.0.1:9" }, {
-    mcp: (z) => { const f = projekte.zu(z); return f && ((n) => mcpAntwort(n, w, f)); },
+    mcp: (z) => { const f = projekte.zu(z); return f && ((n) => mcpAntwort(n, w, f.freigaben)); },
   });
   try {
     const lies = async (z: string) => JSON.parse((await ueberSockel(bruecke.sockel, "POST", `/mcp/${z}`, JSON.stringify(anfrage(1, "tools/call", { name: "read_page", arguments: { url: "https://example.org/vorlage" } })))).text).result.isError;
