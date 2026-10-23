@@ -471,6 +471,8 @@ Kiwix ist eingebaut: Statt `befehl` nennst du nur die ZIM-Dateien (Archive von
   kiwix-tools)`).
 - **Ohne Internet:** Die Suche verlässt den Rechner nicht – passend zu einem
   Funk-Gateway (7.4), das ohne Netz antwortet.
+- **Beim Vibecoden (seit VKd2a)** bekommt auch der Coding-Agent dieselben ZIM-Dateien
+  (unten, „Kiwix“ bei den Werkzeugen des Motors).
 
 ## Text aus Sprache (B-38b, im Aufbau)
 
@@ -713,6 +715,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Kiwix (seit VKd2a):** Stehen in `mcp.json` ZIM-Dateien (oben, „Wikipedia ohne
+  Internet“), bekommt Hermes sie von selbst – dieselben Dateien und dieselbe Brücke,
+  als Kind des Motors in dessen Sandbox, ohne Netz, die Ordner nur lesbar. Der Agent
+  kann damit nachschlagen (`search`, `read`), ohne dass etwas den Rechner verlässt.
+  `MCP_KIWIX=aus` schaltet es für den Motor ab; fehlt `kiwix-serve`, läuft er ohne,
+  und das Log sagt es.
 - **Pakete (seit VKd3):** `npm install` und `pip install` im Projekt gehen über
   dieselbe Brücke. Der Knoten holt nur von registry.npmjs.org, pypi.org und
   files.pythonhosted.org, nur lesend, ohne Weiterleitung, mit `TOR_SOCKS` durch Tor,

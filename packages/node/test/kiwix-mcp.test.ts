@@ -12,8 +12,11 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { deflateSync } from "node:zlib";
 import { KIWIX_GRENZEN, WERKZEUGE, alsText, istArtikelPfad, leseTreffer } from "../mcp/kiwix-bruecke.mjs";
+import type { Stream } from "@agentclientprotocol/sdk";
+import { hermesKonfiguration } from "../src/hermes-motor.js";
 import { KIWIX_BRUECKE, KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "../src/mcp-client.js";
-import { pruefeSandbox } from "../src/sandbox.js";
+import { KIWIX_IN_SANDBOX, MCP_TEXT, mcpAusUmgebung, type McpServer } from "../src/mcp-katalog.js";
+import { pruefeSandbox, sandboxMotor } from "../src/sandbox.js";
 
 test("B-31b: Pfade nur aus der Suche – Buch und Eintrag, nie .., Abfrage oder Steuerzeichen", () => {
   for (const gut of ["probe/Lora.html", "wikipedia_de_all/A/Berlin", "wikipedia_de/A/Café (Begriffsklärung)"]) assert.ok(istArtikelPfad(gut), gut);
@@ -55,6 +58,7 @@ test("B-31b: mcp.json – „kiwix“ statt „befehl“ startet die eigene Brü
       server: [{
         name: "wiki", befehl: ["/usr/bin/node", KIWIX_BRUECKE, KIWIX_SERVE, "/daten/zim/wikipedia_de.zim", "/daten/zim/wiktionary.zim", "/opt/zim/x.zim"],
         nurLesbar: [join(KIWIX_BRUECKE, ".."), "/daten/zim", "/opt/zim"], braucht: KIWIX_SERVE,
+        zim: ["/daten/zim/wikipedia_de.zim", "/daten/zim/wiktionary.zim", "/opt/zim/x.zim"],
       }],
     });
     const falsch: Array<[string, unknown]> = [
@@ -191,6 +195,103 @@ test("B-31b (bubblewrap): Kiwix aus mcp.json in der Sandbox – das Modell sucht
     assert.match(await kasten.fuehreAus("mcp__wiki__read", { path: "probe/Lora.html" }), /LoRa ist eine Funktechnik mit großer Reichweite\./);
   } finally {
     kasten.schliesse();
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test("VKd2a: Kiwix für den Motor – dieselben ZIM-Dateien wie aus mcp.json, Ordner nur lesbar, nur suchen und lesen", () => {
+  const d = mkdtempSync(join(tmpdir(), "freedom-kiwix-motor-"));
+  try {
+    const serve = join(d, "kiwix-serve");
+    writeFileSync(serve, "");
+    const zim = ["/daten/zim/wikipedia_de.zim", "/daten/zim/wiktionary.zim", "/opt/zim/x.zim", "/daten/zim/wikipedia_de.zim"];
+    const wahl = mcpAusUmgebung({ MCP_BROWSER: "aus" }, { zim, kiwixServe: serve, node: "/usr/bin/node", heim: "/home/n" });
+    assert.ok("server" in wahl);
+    assert.deepEqual(wahl.fehlt, []);
+    const s = wahl.server.find((x) => x.name === "kiwix")!;
+    assert.deepEqual(s, {
+      name: "kiwix", befehl: "/usr/bin/node",
+      argumente: [`${KIWIX_IN_SANDBOX}/kiwix-bruecke.mjs`, serve, "/daten/zim/wikipedia_de.zim", "/daten/zim/wiktionary.zim", "/opt/zim/x.zim"],
+      werkzeuge: ["search", "read"],
+      nurLesbar: [{ quelle: join(KIWIX_BRUECKE, ".."), ziel: KIWIX_IN_SANDBOX }, { quelle: "/daten/zim", ziel: "/daten/zim" }, { quelle: "/opt/zim", ziel: "/opt/zim" }, { quelle: d, ziel: d }],
+    } satisfies McpServer);
+    assert.deepEqual([...s.werkzeuge], WERKZEUGE.map((w) => w.name), "genau die Werkzeuge der Brücke");
+    // Node außerhalb von /usr: sein Präfix kommt nur lesbar hinein
+    const mitNode = mcpAusUmgebung({ MCP_BROWSER: "aus" }, { zim: ["/daten/zim/w.zim"], kiwixServe: serve, node: "/opt/node22/bin/node", heim: "/home/n" });
+    assert.ok("server" in mitNode && mitNode.server[0]!.nurLesbar.some((b) => b.quelle === "/opt/node22" && b.ziel === "/opt/node22"));
+    // Hermes bekommt ihn neben Freedom-MCP, mit genau diesen Werkzeugen
+    const k = JSON.parse(hermesKonfiguration("coder:7b", [s])) as { mcp_servers: Record<string, { command?: string; args?: string[]; tools?: { include?: string[] } }> };
+    assert.deepEqual(Object.keys(k.mcp_servers), ["freedom", "kiwix"]);
+    assert.deepEqual(k.mcp_servers.kiwix?.tools?.include, ["search", "read"]);
+    assert.equal(k.mcp_servers.kiwix?.args?.[0], `${KIWIX_IN_SANDBOX}/kiwix-bruecke.mjs`);
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test("VKd2a: ohne ZIM kein Kiwix, MCP_KIWIX=aus schaltet ab, ohne kiwix-serve läuft der Motor ohne; nie zu weit", () => {
+  const serve = KIWIX_SERVE;
+  const o = { kiwixServe: "/gibt/es/nicht/kiwix-serve", node: "/usr/bin/node", heim: "/home/n", playwright: null };
+  // ohne ZIM-Dateien in mcp.json: kein Server, kein Hinweis
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus" }, { ...o, zim: [] }), { server: [], fehlt: [] });
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus" }, { ...o }), { server: [], fehlt: [] });
+  // aus: nichts, auch ohne kiwix-serve
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_KIWIX: "aus" }, { ...o, zim: ["/daten/zim/w.zim"] }), { server: [], fehlt: [] });
+  // anderes als „aus“: kein Start – die ZIM-Dateien stehen nur in mcp.json
+  for (const falsch of ["an", "/daten/zim/w.zim", "1"]) assert.ok("ungueltig" in mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_KIWIX: falsch }, { ...o, zim: ["/daten/zim/w.zim"] }), falsch);
+  // ohne kiwix-serve: der Motor läuft ohne, das Log nennt das Paket – der Browser bleibt davon unberührt
+  const ohne = mcpAusUmgebung({}, { ...o, zim: ["/daten/zim/w.zim"], orte: [] });
+  assert.deepEqual(ohne, { server: [], fehlt: ["mcp.playwright-fehlt", "mcp.browser-fehlt", "mcp.kiwix-fehlt"] });
+  assert.match(MCP_TEXT["mcp.kiwix-fehlt"], /kiwix-tools/);
+  // nie die Wurzel oder das Home einbinden – auch nicht über Node oder kiwix-serve
+  if (existsSync(serve)) {
+    for (const [fall, w] of [
+      ["Node in der Wurzel", { node: "/bin/node", zim: ["/daten/zim/w.zim"] }],
+      ["Node im Home", { node: "/home/n/bin/node", zim: ["/daten/zim/w.zim"] }],
+      ["ZIM relativ", { node: "/usr/bin/node", zim: ["daten/w.zim"] }],
+      ["ZIM mit ..", { node: "/usr/bin/node", zim: ["/daten/../w.zim"] }],
+      ["ZIM in der Wurzel", { node: "/usr/bin/node", zim: ["/w.zim"] }],
+    ] as const) assert.ok("ungueltig" in mcpAusUmgebung({ MCP_BROWSER: "aus" }, { ...o, kiwixServe: serve, ...w }), fall);
+  }
+  // verdrahtet: der Motor bekommt die ZIM-Dateien aus mcp.json
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+  assert.match(main, /mcpAusUmgebung\(process\.env, \{ zim: mcpServerWahl\.server\.flatMap\(\(s\) => s\.zim \?\? \[\]\) \}\)/);
+  assert.ok(main.indexOf("const mcpServerWahl = mcpAusDatei()") < main.indexOf("mcpAusUmgebung(process.env"), "mcp.json zuerst gelesen");
+});
+
+test("VKd2a (bubblewrap, kiwix-serve): Kiwix in der Sandbox des Motors – suchen und lesen ohne Netz", { skip: ohneSandbox, timeout: 90_000 }, async () => {
+  const d = mkdtempSync(join(tmpdir(), "freedom-kiwix-motor-"));
+  const zim = probeZim(d);
+  const wahl = mcpAusUmgebung({ MCP_BROWSER: "aus" }, { zim: [zim] });
+  assert.ok("server" in wahl);
+  const s = wahl.server[0]!;
+  const projekt = mkdtempSync(join(tmpdir(), "freedom-kiwix-projekt-"));
+  // wie Hermes: der Server als Kind in der Sandbox des Motors, MCP über stdio
+  const m = sandboxMotor([s.befehl, ...s.argumente], { nurLesbar: s.nurLesbar })(projekt);
+  const strom = m.strom as Stream;
+  const schreiber = strom.writable.getWriter();
+  const leser = strom.readable.getReader();
+  let nr = 0;
+  const frage = async (method: string, params: object): Promise<{ result?: Record<string, unknown>; error?: unknown }> => {
+    const id = ++nr;
+    await schreiber.write({ jsonrpc: "2.0", id, method, params } as never);
+    for (;;) {
+      const { value, done } = await leser.read();
+      if (done) throw new Error("Server beendet");
+      if ((value as { id?: number }).id === id) return value as { result?: Record<string, unknown> };
+    }
+  };
+  const text = (r: { result?: Record<string, unknown> }) => ((r.result?.content ?? []) as Array<{ text?: string }>).map((c) => c.text ?? "").join("\n");
+  try {
+    const init = await frage("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "freedom-test", version: "1" } });
+    assert.equal((init.result?.serverInfo as { name: string } | undefined)?.name, "freedom-kiwix", JSON.stringify(init.error));
+    await schreiber.write({ jsonrpc: "2.0", method: "notifications/initialized" } as never);
+    assert.deepEqual(((await frage("tools/list", {})).result?.tools as Array<{ name: string }>).map((t) => t.name), [...s.werkzeuge]);
+    assert.match(text(await frage("tools/call", { name: "search", arguments: { query: "Funktechnik" } })), /LoRa – .*path: probe\/Lora\.html/s);
+    assert.match(text(await frage("tools/call", { name: "read", arguments: { path: "probe/Lora.html" } })), /LoRa ist eine Funktechnik mit großer Reichweite\./);
+  } finally {
+    m.beende();
+    rmSync(projekt, { recursive: true, force: true });
     rmSync(d, { recursive: true, force: true });
   }
 });

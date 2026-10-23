@@ -404,7 +404,9 @@ Bereichs unten anhängen.
   ist Playwright MCP aus `playwright-core` (`lib/entry/mcp.js`, kein `@playwright/mcp` daneben): `--headless --isolated
   --no-sandbox` (Chromium dürfte in unserer Sandbox keine Namensräume anlegen), `--output-dir` im tmpfs (sonst landen
   Bildschirmfotos im Commit), nie `--caps`, `--port` oder `--allow-unrestricted-file-access`. Snapshots nennen Elemente
-  mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`.
+  mit Präfix (`ref=f49e3`), `browser_click` nimmt sie als `target`. Kiwix (seit VKd2a) bekommt der Motor nur mit den
+  ZIM-Dateien aus `mcp.json` (`McpServerEinstellung.zim`, schon von `mcpAusDatei()` geprüft) und der Brücke aus B-31b –
+  keine zweite Liste, `MCP_KIWIX` kennt nur `aus`; die Werkzeuge kommen aus `WERKZEUGE` der Brücke, nie abgeschrieben.
 - **MCP-Server für das Modell nur über `mcp-client.ts`** (seit B-31a, MC1-Größe B): eigener Client ohne SDK – keine
   Abhängigkeit dafür einführen. Server nur aus `~/.freedom/mcp.json` (`mcpAusDatei()`), gestartet nur über
   `starteMcpServer()` in `sandboxMotor()` – nie ein Server außerhalb der Sandbox, nie mit Netz. Eingebunden wird nur
