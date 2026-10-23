@@ -1752,5 +1752,14 @@ keine zusätzlichen Daten. Jede Nonce gilt einmal, höchstens 1024 hinter der h�
 gescheiterter Handshake-Schritt beendet den Handshake. Der statische Schlüssel der Gegenseite aus dem Handshake ergibt ihre
 Peer-ID.
 
+**Fluten** (seit B-36a4, `bitchat-mesh.ts`): Doppeltes erkennt die Kennung aus Absender, Zeit, Typ und 4 Byte SHA-256 der
+Nutzlast (1000 Kennungen, 5 Minuten). Weiter geht nichts Eigenes, nichts an einen selbst, nichts mit TTL ≤ 1 und keine
+Sync-Anfrage (0x21). Handshakes und Gerichtetes (Noise, Kurier, Ping, Pong, Nostr-Träger, Fragmente mit Empfänger) immer mit
+TTL − 1; Rundrufe mit einer Grenze nach Zahl der Nachbarn (bis 2: volle Tiefe; ab 6: höchstens 5; sonst 6, Ankündigungen 7),
+Fragmente und Sprache bis 7 bzw. dicht 5. Weitergereicht wird das empfangene Paket roh, nur mit neuer TTL im dritten Byte.
+Über Bluetooth trägt jeder Wert (Schreiben, Meldung) genau ein ganzes Paket; passt es nicht in die Grenze der Verbindung
+(MTU − 3), gehen Fragmente (`bitchatFuerVerbindung()`, bei Noise aus dem gepolsterten Paket), bei mehreren Verbindungen nach
+der kleinsten Grenze.
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

@@ -231,3 +231,8 @@ bitchat-noise.ts|BitchatTransport|Noise XX für Bitchat (B-36a3, BC-W1 A): Baust
 bitchat-noise.ts|NoiseFehler|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
 bitchat-noise.ts|NoiseXX|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
 bitchat-noise.ts|noiseSchluessel|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
+bitchat-mesh.ts|BitchatDoppel|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
+bitchat-mesh.ts|bitchatNachrichtId|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
+bitchat-mesh.ts|bitchatFuerVerbindung|Senden je Bluetooth-Verbindung für Bitchat (B-36a4): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen Grenze und Polster
+bitchat-mesh.ts|bitchatWeiterreichen|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
+bitchat-mesh.ts|mitBitchatTtl|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController

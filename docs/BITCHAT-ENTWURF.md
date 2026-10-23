@@ -128,6 +128,20 @@ Identität je Gerät mit Grenze im Bericht.
   zweiter Versuch scheiterte still mit falschem Grund. Jetzt ist der Handshake danach `abgebrochen`, wie es Noise verlangt.
 - **Weiter:** B-36a4 Fluten (Doppel-Erkennung, TTL, Weiterreichen), dann b (Bluetooth in Kotlin), c (App), d (Probe, MENSCH).
 
+## Stand B-36a4 (23.10.2026)
+
+- **Fluten** (`bitchat-mesh.ts`, `docs/PROTOCOL.md` §45): Doppeltes erkennen wie `BLEIngressLinkRegistry.messageID`
+  (`BitchatDoppel`, 1000 Kennungen, 5 Minuten) und weiterreichen wie `RelayController.decide` (`bitchatWeiterreichen()`) –
+  Fall für Fall aus dem gemeinfreien Swift-Code; der Versatz kommt aus einem Zufall, den Tests festlegen.
+- **Roh weiterreichen** (`mitBitchatTtl()`): nur das TTL-Byte ändert sich – Signatur, Polster und gepackte Nutzlast anderer
+  bleiben, wie sie kamen (die Signatur schließt die TTL aus).
+- **Je Verbindung** (`bitchatFuerVerbindung()`): Bitchat schreibt und meldet je Wert genau ein ganzes Paket und zerlegt
+  vorher, was nicht in die Grenze der Verbindung passt (MTU − 3; `fragmentChunkSize(forLinkLimit:)`); bitchat-android liest
+  jeden Wert für sich. `zerlegeBitchat()` nimmt dafür eine Grenze und zerlegt Noise-Pakete gepolstert. Die Hülle setzt keine
+  Stücke zusammen und verteilt kein Paket auf zwei Werte.
+- **Damit sind die Bausteine im Protokoll fertig** (a1–a4). Weiter: b – Bluetooth in Kotlin in der Hülle (Central und
+  Peripheral, Dienst und Merkmal von Bitchat), c – App, d – Probe (MENSCH).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
