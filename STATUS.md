@@ -13420,4 +13420,6 @@ mit `@reticulum/core` 0.9.12 wie App und Protokoll – und reicht Umschläge aus
 ersetzt, über die Luft – Telefon mit RNode über WebSerial, Knoten über eine echte TCP-Brücke: der Umschlag einmal im Netz,
 die Weiterleitung nur im Buch –, ohne Brücke kein Gateway und kein Versuch im Hintergrund, Verdrahtung). Der Fall „ohne
 Brücke“ fand einen Fehler: Scheiterte das erste Verbinden, versuchte es die Bibliothek ohne Ende weiter (der Test hing) –
-jetzt beendet `disconnect()` den Versuch.
+jetzt beendet `disconnect()` den Versuch. Erster Lauf rot: `knoten-status.test.ts` (B-11a) prüfte „Rolle erst nach dem
+Start“ nur an der ersten Stelle von `statusRollen.add("gateway")` – die neue für Reticulum steht davor. Jetzt prüft er je
+Start eine Stelle, jede nach ihrem Start und vor dem nächsten (genauer als vorher).

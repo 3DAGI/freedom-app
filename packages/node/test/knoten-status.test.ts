@@ -138,12 +138,16 @@ test("B-11a: main.ts – Rollen erst nach dem Start, Status aus Fassung, Start, 
   // Selbstprüfung (B-11c): die Befunde vom Start, nur Kennung, Stufe und Werte – nie der Satz
   assert.match(main, /einrichtung: einrichtung\?\.map\(\(\{ schiene, stufe, fall, werte \}\) => \(\{ schiene, stufe, fall, werte: werte \?\? \{\} \}\)\),/);
   assert.match(main, /\.then\(\(befunde\) => \{\s*einrichtung = befunde;/);
-  for (const [nach, rolle] of [
-    ["await relayRole.start();", "relay"], ["funkGateway.starte();", "gateway"], ["starteLnurlServer(new LnurlDienst(r.konfig, r.quelle), Number(process.env.LNURL_PORT || 3601));", "lnurl"],
-    ["await relayer.veroeffentlicheAngebot();", "relayer"], ["if (provider.storage) await provider.storage.init();", "speicher"],
+  // Je Start eine Stelle, jede nach ihrem Start und vor dem nächsten (seit B-32d2 zwei Wege zum Gateway)
+  for (const [nachListe, rolle] of [
+    [["await relayRole.start();"], "relay"], [["await starteReticulumGateway(", "funkGateway.starte();"], "gateway"],
+    [["starteLnurlServer(new LnurlDienst(r.konfig, r.quelle), Number(process.env.LNURL_PORT || 3601));"], "lnurl"],
+    [["await relayer.veroeffentlicheAngebot();"], "relayer"], [["if (provider.storage) await provider.storage.init();"], "speicher"],
   ] as const) {
-    const i = main.indexOf(nach);
-    assert.ok(i > 0 && main.indexOf(`statusRollen.add("${rolle}")`) > i, `${rolle} erst nach dem Start`);
+    const starts = nachListe.map((nach) => main.indexOf(nach)).sort((a, b) => a - b);
+    const stellen = [...main.matchAll(new RegExp(`statusRollen\\.add\\("${rolle}"\\)`, "g"))].map((m) => m.index!);
+    assert.equal(stellen.length, starts.length, `${rolle}: je Start eine Stelle`);
+    starts.forEach((i, k) => assert.ok(i > 0 && stellen[k]! > i && (k + 1 === starts.length || stellen[k]! < starts[k + 1]!), `${rolle} erst nach dem Start`));
   }
   assert.match(main, /const models = angebotModelle\(\);/, "dieselben Modelle wie im Angebot");
 });
