@@ -117,6 +117,17 @@ Identität je Gerät mit Grenze im Bericht.
   heraus mit TTL 0.
 - **Weiter:** B-36a3 Noise `XX`, B-36a4 Fluten.
 
+## Stand B-36a3 (23.10.2026)
+
+- **Noise XX** (`bitchat-noise.ts`, `docs/PROTOCOL.md` §45): Handshake und Split nach der Spezifikation mit `@noble/…` –
+  Byte für Byte wie die Vektoren von cacophony und snow (`protocol/test/fixtures/noise-xx-vektoren.json`, aus dem gemeinfreien
+  Bitchat-Repository).
+- **Transport wie Bitchat** (`BitchatTransport`): Nonce als 4 Byte vorn, Ersetzungsfenster 1024, Grenze 2^32 − 1 – nach dem
+  gemeinfreien Swift-Code (`NoiseCipherState`, `useExtractedNonce`).
+- **Befund beim Test:** Scheitert ein Handshake-Schritt mitten in der Nachricht, ist der Zustand halb fortgeschrieben – ein
+  zweiter Versuch scheiterte still mit falschem Grund. Jetzt ist der Handshake danach `abgebrochen`, wie es Noise verlangt.
+- **Weiter:** B-36a4 Fluten (Doppel-Erkennung, TTL, Weiterreichen), dann b (Bluetooth in Kotlin), c (App), d (Probe, MENSCH).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

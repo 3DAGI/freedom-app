@@ -218,3 +218,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Fragmente (seit B-36a2) höchstens 256 je Paket – mehr nimmt bitchat-android nicht an (das Format erlaubte 65 535);
   zusammengesetzt nur über `BitchatZusammensetzer` (Grenzen aus `BITCHAT_ZUSAMMENSETZEN`), das Ganze mit TTL 0: Weitergereicht
   werden die Fragmente, nie das zusammengesetzte Paket.
+  Noise (seit B-36a3) nur über `bitchat-noise.ts`: der Handshake (`NoiseXX`) gegen die Vektoren von cacophony und snow – eine
+  Änderung, die einen Vektor rot macht, ist falsch; der Transport nur über `BitchatTransport` (Nonce vorn, Fenster 1024). Ein
+  gescheiterter Schritt beendet den Handshake (`abgebrochen`) – nie denselben weiterverwenden, sein Zustand ist halb
+  fortgeschrieben.

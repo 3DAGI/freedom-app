@@ -227,3 +227,7 @@ bitchat-paket.ts|kodiereBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): B
 bitchat-paket.ts|leseBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
 bitchat-paket.ts|zerlegeBitchat|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
 bitchat-paket.ts|BitchatZusammensetzer|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
+bitchat-noise.ts|BitchatTransport|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
+bitchat-noise.ts|NoiseFehler|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
+bitchat-noise.ts|NoiseXX|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
+bitchat-noise.ts|noiseSchluessel|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
