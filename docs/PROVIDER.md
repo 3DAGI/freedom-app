@@ -854,9 +854,11 @@ Frage noch Antwort noch wer fragt.
   und nur in den Grenzen der Region (sonst startet das Gateway nicht). Die
   Identität liegt in `~/.freedom/reticulum-identitaet` (0600); die LXMF-Adresse
   steht beim Start im Log (`[funk] Gateway an … – LXMF-Adresse …`) – in der App
-  unter Netz › Mesh › „Reticulum-Adressen“ als Gegenstelle eintragen. Bis jetzt
-  reicht der Knoten über Reticulum nur Umschläge ins Netz (Direktnachrichten);
-  KI-Antworten funkt er so erst mit dem nächsten Schritt zurück.
+  unter Netz › Mesh › „Reticulum-Adressen“ als Gegenstelle eintragen. Der Knoten
+  reicht Umschläge ins Netz und funkt seit B-32d3a Antworten auf KI-Aufträge an
+  die Adresse zurück, die den Weiterleitungsauftrag brachte (höchstens drei je
+  Auftrag, in der Sendezeit). Fragen über Reticulum kann die App mit dem nächsten
+  Schritt.
 - **Sendezeit:** höchstens 1 % je Stunde. Mit Meshtastic zählt die Sendezeit,
   die das Gerät mit seinem Preset braucht (LongFast: rund 1,9 s je Rahmen) –
   eine Antwort mit 500 Zeichen (16 Rahmen) kostet so rund eine halbe Minute,

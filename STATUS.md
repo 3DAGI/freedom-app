@@ -13423,3 +13423,21 @@ Brücke“ fand einen Fehler: Scheiterte das erste Verbinden, versuchte es die B
 jetzt beendet `disconnect()` den Versuch. Erster Lauf rot: `knoten-status.test.ts` (B-11a) prüfte „Rolle erst nach dem
 Start“ nur an der ersten Stelle von `statusRollen.add("gateway")` – die neue für Reticulum steht davor. Jetzt prüft er je
 Start eine Stelle, jede nach ihrem Start und vor dem nächsten (genauer als vorher).
+
+## Schritt B-32d3a – Reticulum: Knoten funkt KI-Antworten zurück
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3a“), RN-W9 A. B-32d3 ist geteilt: a der Knoten, b die App.
+
+- **Protokoll (`reticulum-kern.ts`):** `beiEmpfang` bekommt die LXMF-Adresse des Absenders (`von`, 16 Byte). LXMF prüft sie
+  nur mit bekannter Identität; der Knoten funkt dorthin nur Antworten der Sitzung, deren Weiterleitung sie brachte.
+- **Knoten (`gateway-role.ts`):** `UmschlagAnnahme.nimm()` gibt die gemerkte Weiterleitung zurück; `postZurueck()` holt Post
+  für gemerkte Sitzungen (vorher in `GatewayRolle.holePost()`, jetzt für beide Wege).
+- **Knoten (`reticulum-gateway.ts`):** `ReticulumRueckweg` merkt je Sitzung die Adresse, holt im Takt (5 s) und funkt jeden
+  Umschlag dorthin – ohne Adresse nichts, Fehler nur mit Kennung, nie zweimal zugleich. `starteReticulumGateway()` gibt
+  `{ funk, rueckweg, stoppe }` zurück und braucht den Schlüssel des Knotens (`gatewayPk`).
+- Das Angebot bleibt: kein Funk-Gateway für Reticulum (das Flag gilt für Meshtastic).
+- `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/node/CLAUDE.md`, Stand-Zeile.
+
+**Tests:** node +1 (`reticulum-gateway.test.ts`: Rückweg ohne Funk – nur an die Adresse der Weiterleitung, ohne Adresse
+nichts, „sendezeit“ nur als Kennung im Log, nie zweimal zugleich); der Test über die Luft funkt jetzt auch die Antwort aus
+dem Netz zurück ans Telefon (Post für fremde Sitzungen bleibt, jede Antwort einmal).

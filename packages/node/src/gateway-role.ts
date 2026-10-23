@@ -19,7 +19,7 @@ import net from "node:net";
 import {
   GatewayBuch, KIND_FUNK_WEITERLEITUNG, KIND_GIFT_WRAP, LORA_MTU, LaengenRahmen, MeshKind, MeshPriority, MeshQueue, Reassembler, Sendegedaechtnis,
   Sendezeitkonto, WEITERLEITUNG_MAX_SECS, baueNachforderung, getTag, giftUnwrapMitSigner, leseNachforderung, oeffneWeiterleitung,
-  mitLaenge, parseFrame, pruefeMeshInhalt, type NostrEvent, type RelayFilter, type Signer,
+  mitLaenge, parseFrame, pruefeMeshInhalt, type NostrEvent, type RelayFilter, type Signer, type Weiterleitung,
   FREEDOM_KANAL, MESHTASTIC_REGION_UNGESETZT, MESHTASTIC_TCP_PORT, MeshtasticSitzung, MeshtasticStrom, leseVomGeraet,
   meshtasticSendezeit, mitMeshtasticKopf, type MeshtasticStand,
 } from "@freedomstack/protocol";
@@ -166,7 +166,8 @@ export interface GatewayOptionen {
 
 /**
  * Ein Umschlag aus dem Funk (7.4b2): Ein Weiterleitungsauftrag an das Gateway kommt nur ins Buch, alles andere einmal ins
- * Netz. Meshtastic und die TCP-Brücke (`GatewayRolle`) und Reticulum (B-32d2) nehmen Umschläge nur hierüber an.
+ * Netz. Meshtastic und die TCP-Brücke (`GatewayRolle`) und Reticulum (B-32d2) nehmen Umschläge nur hierüber an – und
+ * holen Post für gemerkte Sitzungen nur über `postZurueck()` (B-32d3a).
  */
 export class UmschlagAnnahme {
   readonly buch = new GatewayBuch();
@@ -174,20 +175,25 @@ export class UmschlagAnnahme {
 
   constructor(private o: { gateway: Signer; netz: GatewayNetz; log: (zeile: string) => void }) {}
 
-  async nimm(ev: NostrEvent, now: number): Promise<void> {
+  /** Ergebnis: die gemerkte Weiterleitung – sonst null (Umschlag ins Netz, ungültig, Buch voll). */
+  async nimm(ev: NostrEvent, now: number): Promise<Weiterleitung | null> {
     if (getTag(ev, "p") === this.o.gateway.publicKey()) {
       // Weiterleitungsauftrag: nur fürs Buch, nie ins Netz
       const w = await oeffneWeiterleitung(ev, this.o.gateway, now);
       if (w) {
-        this.o.log(this.buch.merke(w, now) ? "[funk] Sitzung gemerkt" : "[funk] Buch voll – nichts zurück");
-        return;
+        const gemerkt = this.buch.merke(w, now);
+        this.o.log(gemerkt ? "[funk] Sitzung gemerkt" : "[funk] Buch voll – nichts zurück");
+        return gemerkt ? w : null;
       }
       // Auch ein ungültiger (abgelaufen, fremd signiert) bleibt hier. Anderes an
       // diesen Schlüssel – ein Auftrag an den Provider auf demselben Knoten – geht ins Netz.
       const r = await giftUnwrapMitSigner(ev, this.o.gateway);
-      if (!r.ok || r.inner?.kind === KIND_FUNK_WEITERLEITUNG) return this.o.log("[funk] Weiterleitung ungültig");
+      if (!r.ok || r.inner?.kind === KIND_FUNK_WEITERLEITUNG) {
+        this.o.log("[funk] Weiterleitung ungültig");
+        return null;
+      }
     }
-    if (this.imNetz.has(ev.id)) return;
+    if (this.imNetz.has(ev.id)) return null;
     this.imNetz.add(ev.id);
     if (this.imNetz.size > 1000) this.imNetz.delete(this.imNetz.values().next().value!);
     try {
@@ -197,6 +203,24 @@ export class UmschlagAnnahme {
       this.imNetz.delete(ev.id);
       this.o.log(`[funk] Netz: ${(e as Error).name}`);
     }
+    return null;
+  }
+
+  /**
+   * Post für gemerkte Sitzungen, die über Funk zurück darf (`GatewayBuch.zurueck()` zählt sie dabei) – älteste zuerst,
+   * nur was `pruefeMeshInhalt()` durchlässt.
+   */
+  async postZurueck(now: number): Promise<Array<{ ev: NostrEvent; bytes: Uint8Array }>> {
+    const offene = this.buch.offene(now);
+    if (offene.length === 0) return [];
+    const post = await this.o.netz.query({ kinds: [KIND_GIFT_WRAP], "#p": offene, since: now - WEITERLEITUNG_MAX_SECS - 600 }).catch(() => []);
+    const zurueck: Array<{ ev: NostrEvent; bytes: Uint8Array }> = [];
+    for (const ev of post.sort((a, b) => a.created_at - b.created_at)) {
+      const bytes = new TextEncoder().encode(JSON.stringify(ev));
+      if (!pruefeMeshInhalt(bytes, MeshKind.NostrEvent, { eigeneSchluessel: [this.o.gateway.publicKey()] }).ok) continue;
+      if (this.buch.zurueck(ev, now)) zurueck.push({ ev, bytes });
+    }
+    return zurueck;
   }
 }
 
@@ -260,18 +284,9 @@ export class GatewayRolle {
   /** Post für gemerkte Sitzungen holen und zurückfunken; Zahl der eingereihten Umschläge. */
   async holePost(): Promise<number> {
     const now = this.jetzt();
-    const offene = this.annahme.buch.offene(now);
-    if (offene.length === 0) return 0;
-    const post = await this.o.netz.query({ kinds: [KIND_GIFT_WRAP], "#p": offene, since: now - WEITERLEITUNG_MAX_SECS - 600 }).catch(() => []);
-    let n = 0;
-    for (const ev of post.sort((a, b) => a.created_at - b.created_at)) {
-      const bytes = new TextEncoder().encode(JSON.stringify(ev));
-      if (!pruefeMeshInhalt(bytes, MeshKind.NostrEvent, { eigeneSchluessel: [this.o.gateway.publicKey()] }).ok) continue;
-      if (!this.annahme.buch.zurueck(ev, now)) continue;
-      this.reiheEin(bytes, MeshPriority.Nachricht, now);
-      n++;
-    }
-    return n;
+    const post = await this.annahme.postZurueck(now);
+    for (const { bytes } of post) this.reiheEin(bytes, MeshPriority.Nachricht, now);
+    return post.length;
   }
 
   /** Lücken in empfangenen Aufträgen nachfordern (7.4b1); Zahl der Nachforderungen. */

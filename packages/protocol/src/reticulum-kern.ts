@@ -38,12 +38,14 @@ export interface ReticulumFunk {
 }
 
 /**
- * Den Kern über einer verbundenen RNode starten. `beiEmpfang` bekommt nur, was die Prüfung durchließ. `konto` ist eines
- * je Gerät und Sitzung, auch über Trennen und neu Verbinden hinweg; `jetzt` nur für Tests.
+ * Den Kern über einer verbundenen RNode starten. `beiEmpfang` bekommt nur, was die Prüfung durchließ, dazu die
+ * LXMF-Adresse des Absenders (16 Byte), wie die Nachricht sie nennt – signiert ist sie nur, wenn der Kern seine Identität
+ * schon kennt; der Knoten funkt dorthin nur Antworten (B-32d3a). `konto` ist eines je Gerät und Sitzung, auch über
+ * Trennen und neu Verbinden hinweg; `jetzt` nur für Tests.
  */
 export async function starteReticulum(o: {
   rnode: RNodeSchnittstelle; identitaet: Identity; parameter: FunkParameter;
-  beiEmpfang: (payload: Uint8Array, kind: MeshKind) => void;
+  beiEmpfang: (payload: Uint8Array, kind: MeshKind, von?: Uint8Array) => void;
   konto: Sendezeitkonto; jetzt?: () => number; sendeFristMs?: number;
 }): Promise<ReticulumFunk> {
   const konto = o.konto;
@@ -73,8 +75,10 @@ export async function starteReticulum(o: {
   const adresse = router.deliveryDest?.destinationHash;
   if (!adresse) throw new ReticulumFehler("adresse");
   router.addEventListener("message", (e) => {
-    const inhalt = leseReticulumFelder((e as CustomEvent<{ message?: { fields?: unknown } }>).detail?.message?.fields);
-    if (inhalt) o.beiEmpfang(inhalt.payload, inhalt.kind);
+    const m = (e as CustomEvent<{ message?: { fields?: unknown; sourceHash?: unknown } }>).detail?.message;
+    const inhalt = leseReticulumFelder(m?.fields);
+    const von = m?.sourceHash instanceof Uint8Array && m.sourceHash.length === 16 ? m.sourceHash.slice() : undefined;
+    if (inhalt) o.beiEmpfang(inhalt.payload, inhalt.kind, von);
   });
   return {
     adresse, zaehler,

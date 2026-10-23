@@ -9,14 +9,16 @@
  * Datei wird nie ersetzt – sonst wäre die Adresse still eine andere.
  *
  * Empfangen wird wie über Funk (RN-W9 A): Was der Kern durchlässt (`leseReticulumFelder()`), nimmt `UmschlagAnnahme` –
- * Weiterleitungsaufträge ins Buch, Umschläge einmal ins Netz. Zurück über Reticulum geht erst ab B-32d3.
+ * Weiterleitungsaufträge ins Buch, Umschläge einmal ins Netz. Zurück geht seit B-32d3a nur Post für gemerkte Sitzungen
+ * (`postZurueck()`: höchstens drei Umschläge je Auftrag, nur ab dem Auftrag) und nur an die LXMF-Adresse, die deren
+ * Weiterleitung brachte (`ReticulumRueckweg`).
  */
 import net from "node:net";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  FUNK_REGIONEN, Sendezeitkonto, pruefeFunkParameter, pruefeMeshInhalt, reticulumIdentitaet, rnodeOptionen, starteReticulum,
-  type FunkParameter, type MeshKind, type NostrEvent, type ReticulumFunk, type RNodeSchnittstelle,
+  FUNK_REGIONEN, MeshKind, ReticulumFehler, Sendezeitkonto, getTag, pruefeFunkParameter, pruefeMeshInhalt, reticulumIdentitaet,
+  rnodeOptionen, starteReticulum, type FunkParameter, type NostrEvent, type ReticulumFunk, type RNodeSchnittstelle,
 } from "@freedomstack/protocol";
 import type { RNodeTransport } from "@reticulum/core/src/interfaces/rnode.js";
 import { leseAdresse, type UmschlagAnnahme } from "./gateway-role.js";
@@ -123,32 +125,100 @@ export async function verbindeRNodeTcp(
 }
 
 /**
- * Was der Kern durchließ, an die Annahme: nur Umschläge (Bestand, Nachforderungen und Solana-Transaktionen sind nicht
- * Sache des Gateways – über Reticulum gibt es keine Rahmen nachzufordern).
+ * Der Rückweg über Reticulum (B-32d3a): je gemerkter Sitzung die LXMF-Adresse, die ihre Weiterleitung brachte. Post geht
+ * nur an sie und nur, was `postZurueck()` durchlässt. Die Adresse prüft LXMF nur, wenn der Kern den Absender kennt – wer
+ * eine fremde nennt, lenkt höchstens die Antworten seiner eigenen Sitzung um (versiegelt, auf Kosten des Kontos).
  */
-export async function nimmAusReticulum(annahme: UmschlagAnnahme, payload: Uint8Array, kind: MeshKind, now: number): Promise<void> {
-  const pr = pruefeMeshInhalt(payload, kind);
-  if (!pr.ok || pr.art !== "umschlag") return;
-  await annahme.nimm(JSON.parse(new TextDecoder().decode(payload)) as NostrEvent, now);
+export class ReticulumRueckweg {
+  private wege = new Map<string, Uint8Array>();
+  private laeuft = false;
+
+  constructor(private o: {
+    annahme: UmschlagAnnahme; sende: (an: Uint8Array, bytes: Uint8Array) => Promise<void>; log: (zeile: string) => void;
+    jetzt?: () => number;
+  }) {}
+
+  private jetzt(): number {
+    return this.o.jetzt?.() ?? Math.floor(Date.now() / 1000);
+  }
+
+  /**
+   * Was der Kern durchließ: nur Umschläge (Bestand, Nachforderungen und Solana-Transaktionen sind nicht Sache des
+   * Gateways – über Reticulum gibt es keine Rahmen nachzufordern). Eine gemerkte Weiterleitung merkt sich ihren Absender.
+   */
+  async empfange(payload: Uint8Array, kind: MeshKind, von?: Uint8Array): Promise<void> {
+    const pr = pruefeMeshInhalt(payload, kind);
+    if (!pr.ok || pr.art !== "umschlag") return;
+    const w = await this.o.annahme.nimm(JSON.parse(new TextDecoder().decode(payload)) as NostrEvent, this.jetzt());
+    if (w && von?.length === 16) this.wege.set(w.sitzung, von);
+  }
+
+  /** Post holen und zurückfunken, einer nach dem anderen; Zahl der gesendeten Umschläge. Läuft nie zweimal zugleich. */
+  async holePost(): Promise<number> {
+    if (this.laeuft) return 0;
+    this.laeuft = true;
+    try {
+      const now = this.jetzt();
+      const offen = new Set(this.o.annahme.buch.offene(now));
+      for (const s of this.wege.keys()) if (!offen.has(s)) this.wege.delete(s);
+      let n = 0;
+      for (const { ev, bytes } of await this.o.annahme.postZurueck(now)) {
+        const an = this.wege.get(getTag(ev, "p") ?? "");
+        if (!an) continue;
+        try {
+          await this.o.sende(an, bytes);
+          n++;
+        } catch (e) {
+          this.o.log(`[funk] Reticulum: ${e instanceof ReticulumFehler ? e.fall : (e as Error).name}`);
+        }
+      }
+      return n;
+    } finally {
+      this.laeuft = false;
+    }
+  }
 }
 
-/** Das Gateway starten: Identität, RNode, Kern mit eigenem Konto; jeder Fehler beim Empfang nur mit Namen ins Log. */
+export interface ReticulumGateway {
+  funk: ReticulumFunk;
+  rueckweg: ReticulumRueckweg;
+  stoppe(): Promise<void>;
+}
+
+/**
+ * Das Gateway starten: Identität, RNode, Kern mit eigenem Konto, Post alle `postMs` zurück; jeder Fehler beim Empfang nur
+ * mit Namen ins Log.
+ */
 export async function starteReticulumGateway(o: {
-  einstellung: ReticulumEinstellung; annahme: UmschlagAnnahme; datei: string;
+  einstellung: ReticulumEinstellung; annahme: UmschlagAnnahme; datei: string; gatewayPk: string;
   log: (zeile: string) => void; rnode?: { postOpenDelayMs?: number; detectTimeout?: number; neuSek?: number };
-  konto?: Sendezeitkonto; sendeFristMs?: number;
-}): Promise<ReticulumFunk> {
+  konto?: Sendezeitkonto; sendeFristMs?: number; postMs?: number;
+}): Promise<ReticulumGateway> {
   const log = o.log;
   const identitaet = await reticulumIdentitaet(identitaetsSpeicher(o.datei));
   const rnode = await verbindeRNodeTcp(o.einstellung, o.rnode);
+  let funk: ReticulumFunk | undefined;
+  const rueckweg = new ReticulumRueckweg({
+    annahme: o.annahme, log,
+    // Die eigene Post an Sitzungen enthält nie eine Kopie an den Knoten selbst – sein Schlüssel zählt als „eigener“
+    sende: async (an, bytes) => funk?.sende(an, bytes, MeshKind.NostrEvent, [o.gatewayPk]),
+  });
   try {
-    return await starteReticulum({
+    funk = await starteReticulum({
       rnode, identitaet, parameter: o.einstellung.parameter, konto: o.konto ?? new Sendezeitkonto(), sendeFristMs: o.sendeFristMs,
-      beiEmpfang: (payload, kind) => void nimmAusReticulum(o.annahme, payload, kind, Math.floor(Date.now() / 1000))
-        .catch((e) => log(`[funk] ${(e as Error).name}`)),
+      beiEmpfang: (payload, kind, von) => void rueckweg.empfange(payload, kind, von).catch((e) => log(`[funk] ${(e as Error).name}`)),
     });
   } catch (e) {
     await rnode.disconnect().catch(() => undefined);
     throw e;
   }
+  const takt = setInterval(() => void rueckweg.holePost().catch((e) => log(`[funk] ${(e as Error).name}`)), o.postMs ?? 5000);
+  const kern = funk;
+  return {
+    funk: kern, rueckweg,
+    async stoppe() {
+      clearInterval(takt);
+      await kern.stoppe();
+    },
+  };
 }
