@@ -13614,3 +13614,20 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b3b“), auf B-36b3a (#603). Dam
 **Tests:** App 1345 (+4, `bitchat-huelle.test.ts`): nur unter Android; Stand streng (Unbekanntes, Kaputtes, Grenzen,
 fremde Kennungen); Werte aus der Hülle samt abgeschnitten, leer, über 512 Byte und fremder Kennung; Kommandos – zu Großes,
 Leeres und fremde Kennungen erreichen die Hülle nie, Holen auch als `ArrayBuffer`, Fehler der Hülle.
+
+## Schritt B-36c1 – Bitchat: Schlüssel an Kontakte und Umschläge in der Noise-Sitzung
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c1“), auf B-36b3b (#604). Erster Teil von B-36c (App).
+
+- **`packages/protocol/src/bitchat-kontakt.ts`** (neu): Noise- und Signier-Schlüssel des Geräts versiegelt an Kontakte
+  (`baueBitchatSchluesselUmschlaege()`, Kind 38083, je Kontakt ein Umschlag, wie 38082), gelesen nur von Kontakten
+  (`oeffneBitchatSchluesselUmschlag()`: Kern vom Siegel-Autor, genau `noise` und `signier` in dieser Reihenfolge, zwei
+  verschiedene Schlüssel). Umschläge in der Noise-Sitzung unter dem Nutzlast-Typ `0xF0`, den Bitchat nicht vergibt
+  (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`, beide über `pruefeMeshInhalt()`).
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, Ausnahmen (verdrahtet ab B-36c2b), OFFEN, Sammlung, FORTSCHRITT,
+  Stand-Zeile.
+
+**Tests:** protocol 1445 (+3, `bitchat-kontakt.test.ts`): je Kontakt ein Umschlag, offen weder Schlüssel noch Absender noch
+Kind, nur von Kontakten; fremde Kerne (Autor, Kind, Inhalt, Reihenfolge, fehlendes und zusätzliches Tag, derselbe Schlüssel
+zweimal, Großbuchstaben, Zusatz im Tag); in der Noise-Sitzung nur Umschläge unter 0xF0 – nie die eigene Kopie, kein Klartext,
+keine kaputte Signatur, Bitchats eigene Typen nicht.

@@ -236,3 +236,7 @@ bitchat-mesh.ts|bitchatNachrichtId|Fluten für Bitchat (B-36a4, BC-W2 A): Bauste
 bitchat-mesh.ts|bitchatFuerVerbindung|Senden je Bluetooth-Verbindung für Bitchat (B-36a4): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen Grenze und Polster
 bitchat-mesh.ts|bitchatWeiterreichen|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
 bitchat-mesh.ts|mitBitchatTtl|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
+bitchat-kontakt.ts|baueBitchatSchluesselUmschlaege|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
+bitchat-kontakt.ts|oeffneBitchatSchluesselUmschlag|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
+bitchat-kontakt.ts|bitchatUmschlagKlartext|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
+bitchat-kontakt.ts|leseBitchatUmschlag|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
