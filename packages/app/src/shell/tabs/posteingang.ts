@@ -247,13 +247,16 @@ export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): P
 }
 
 /**
- * Die Kopie an den Empfänger einer Direktnachricht (B-32c2, W3 A): über die Relays; nimmt sie keines, über Reticulum – erst
- * direkt an die Adresse des Kontakts, sonst an die Gegenstelle. Ohne RNode oder ohne Weg bleibt es beim Fehler des Netzes.
+ * Die Kopie an den Empfänger einer Direktnachricht (B-32c2, W3 A): über die Relays; nimmt sie keines, über Bitchat, wenn sein
+ * Gerät in der Nähe ist (B-36c2b2), sonst über Reticulum – erst direkt an die Adresse des Kontakts, sonst an die Gegenstelle.
+ * Ohne Weg bleibt es beim Fehler des Netzes.
  */
 export async function zustellenDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
   try {
     await veroeffentlicheDm(wrap, empfaenger);
   } catch (e) {
+    const { dmUeberBitchat } = await import("../bitchat-weg.js");
+    if (dmUeberBitchat(wrap, empfaenger)) return;
     const { dmUeberReticulum } = await import("../rnode-ui.js");
     if (!(await dmUeberReticulum(wrap, empfaenger, state.keypair ? [state.keypair.pk] : []))) throw e;
   }

@@ -1805,5 +1805,9 @@ Sitzung gilt erst, wenn der statische Schlüssel aus dem Handshake dem aus 38083
 zählt nicht mehr (Freedom-Wert); bis die Sitzung steht, warten höchstens 16 Umschläge je Gegenüber. Darin geht nur Typ `0xF0` mit
 einem Umschlag (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`).
 
+**Direktnachrichten** (seit B-36c2b2): Nimmt kein Relay die Kopie an den Empfänger, gibt die App sie dem Knoten, wenn das Gerät
+des Empfängers in der Nähe ist – vor Reticulum (§44). Die App kündigt sich beim Start, bei jeder neuen Verbindung und sonst alle
+30 s an (Freedom-Wert); Umschläge an sie öffnet sie wie Post aus dem Funk.
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).
