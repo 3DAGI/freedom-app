@@ -167,6 +167,17 @@ Identität je Gerät mit Grenze im Bericht.
 - **Verbindungen als Central heißen `z1`, `z2` …** – wie beim Peripheral ohne Adressen fremder Geräte.
 - **Weiter:** b3 Brücke Rust ↔ App.
 
+## Stand B-36b3a (24.10.2026)
+
+- B-36b3 ist geteilt (zusammen über 400 Zeilen): **b3a** Kommandos der Hülle, **b3b** Lesemodul der App.
+- **Kommandos der Hülle** (`packages/launcher/src/bitchat.rs`): `bitchat_stand`, `bitchat_starten`, `bitchat_stoppen`,
+  `bitchat_senden`, `bitchat_holen` – über JNI zu `FreedomBitchat` auf dem Hauptthread, erlaubt in
+  `capabilities/oberflaeche.json`. Die Hülle prüft nur die Form (Kennung `p<n>`/`z<n>`, Wert bis 512 Byte); außer unter
+  Android antwortet jedes Kommando mit `kein-android`.
+- **Weiter:** b3b – in der App `shell/bitchat-huelle.ts`: Stand streng lesen, Empfangenes aus den Bytes der Hülle,
+  senden nur ganzer Werte bis 512 Byte. Danach c – App: Schlüssel für Bitchat an Kontakte (c1), Bitchat-Knoten aus den
+  Bausteinen (c2a), Anbindung an Hülle und Direktnachrichten (c2b), Oberfläche, Bericht, Smoke-Test (c3); d – Probe (MENSCH).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

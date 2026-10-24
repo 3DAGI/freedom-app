@@ -9,11 +9,12 @@
 //! (6.1b1a Desktop, 6.1b2a Android: `netz.rs`, `tor.rs`, `android_tor.rs`), auf dem Desktop auch
 //! über Brücken (B-33b: `bruecken.rs`). Die App darf
 //! nur die Kommandos aus `capabilities/oberflaeche.json` rufen. Kamera und Mikrofon
-//! regelt seit 6.1d `erlaubnis.rs`.
+//! regelt seit 6.1d `erlaubnis.rs`, Bluetooth für Bitchat (nur Android) seit B-36b3a `bitchat.rs`.
 
 mod ablage;
 #[cfg(target_os = "android")]
 mod android_tor;
+mod bitchat;
 mod bruecken;
 mod erlaubnis;
 mod installation;
@@ -42,7 +43,12 @@ pub fn run() {
             installation::oberflaeche_stand,
             installation::oberflaeche_installieren,
             netz::netz_stand,
-            netz::netz_setzen
+            netz::netz_setzen,
+            bitchat::bitchat_stand,
+            bitchat::bitchat_starten,
+            bitchat::bitchat_stoppen,
+            bitchat::bitchat_senden,
+            bitchat::bitchat_holen
         ])
         .setup(|app| {
             app.manage(Oberflaeche::starte(installation::ablageordner(app.path()), Startwahl::aus(std::env::args())));

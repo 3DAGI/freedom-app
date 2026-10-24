@@ -97,3 +97,8 @@ Fallstricke dieses Bereichs unten anhängen.
   von 120 s nur für Geräte, die nie bereit wurden – ein Gerät, das nach dem Abonnieren geht, sonst zwei Minuten aus dem
   Netz. Lange Schreibvorgänge gehören nur zur Rolle Peripheral (`vorbereitet` nur bei `p` leeren). Fehlt die Werbung
   (`werbung: nicht-moeglich`), läuft Central trotzdem – nie Bluetooth ganz ablehnen.
+  Die Hülle ruft die Klasse (seit B-36b3a) nur über `bitchat.rs`: fünf Kommandos `bitchat_*`, je eines in `build.rs` und
+  `capabilities/oberflaeche.json`; JNI nur über `jni_handle().exec` (Hauptthread – dort läuft auch der Suchtakt der
+  Klasse) und `find_class()`, offene Java-Ausnahmen danach löschen. Die Signaturen in `bitchat.rs` folgen den
+  `@JvmStatic`-Methoden – ändert sich eine, beide Seiten ändern (dexdump im APK zeigt sie). Vor JNI nur die Form prüfen
+  (`kennung_ok()`, `wert_ok()`); den Android-Zweig übersetzt nur der APK-Job, `cargo test` sieht ihn nicht.

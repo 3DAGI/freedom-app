@@ -2,7 +2,7 @@
 // Seit 6.1a3a liest der Bau auch die vertrauten Signierer und k aus denselben
 // Dateien wie die App – eine Liste, nie zwei, die auseinanderlaufen. Seit 6.1a3b
 // nennt er die Kommandos der Hülle: Die App darf nur, was
-// `capabilities/oberflaeche.json` ausdrücklich erlaubt.
+// `capabilities/oberflaeche.json` ausdrücklich erlaubt (seit B-36b3a auch Bluetooth für Bitchat).
 use std::path::Path;
 
 fn main() {
@@ -26,7 +26,17 @@ fn main() {
     std::fs::write(Path::new(&std::env::var("OUT_DIR").unwrap()).join("vertrauen.rs"), rs).unwrap();
     println!("cargo:rerun-if-env-changed=FREEDOM_RELEASED_AT");
     tauri_build::try_build(
-        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&["oberflaeche_stand", "oberflaeche_installieren", "netz_stand", "netz_setzen"])),
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
+            "oberflaeche_stand",
+            "oberflaeche_installieren",
+            "netz_stand",
+            "netz_setzen",
+            "bitchat_stand",
+            "bitchat_starten",
+            "bitchat_stoppen",
+            "bitchat_senden",
+            "bitchat_holen",
+        ])),
     )
     .expect("tauri-build");
 }
