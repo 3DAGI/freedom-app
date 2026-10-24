@@ -1809,5 +1809,17 @@ einem Umschlag (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`).
 des Empfängers in der Nähe ist – vor Reticulum (§44). Die App kündigt sich beim Start, bei jeder neuen Verbindung und sonst alle
 30 s an (Freedom-Wert); Umschläge an sie öffnet sie wie Post aus dem Funk.
 
+**Schlüssel beim Treffen – Bitchat-Karte** (seit B-36e1, BC-W5 A): Wer sich ohne Internet trifft, tauscht die Schlüssel per
+QR-Code. Der Code trägt die Karte
+
+```
+freedom-bitchat:1:<Person, 64 Hex>:<noise, 64 Hex>:<signier, 64 Hex>:<Zeit, Sekunden>:<Signatur, 128 Hex>
+```
+
+Die Signatur gehört zu einem Event Kind 38083 der Person mit genau den Tags `["noise", …]`, `["signier", …]` und leerem Inhalt –
+gebaut nur über `baueBitchatKarte()`, gelesen nur über `leseBitchatKarte()`: genau diese Form (Kleinbuchstaben, keine führenden
+Nullen), zwei verschiedene Schlüssel, Zeit höchstens 600 s voraus, Signatur der genannten Person. Das Event geht nie an ein Relay.
+Wer den Code sieht, verbindet das Gerät im Funk mit der Person – wie ein Kontakt mit den versiegelten Schlüsseln.
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

@@ -13741,3 +13741,21 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Nachtrag B-36c4“), auf B-36c3 (#610) –
 Anhalten auf Klick ist nicht „von selbst“, die Oberfläche meldet sich vor dem Start an); Smoke „bitchat“ erweitert: Die
 Attrappe hält von selbst an – die App ruft genau einmal `bitchat_stoppen` und danach nichts mehr, Knopf und Status folgen, ein
 Klick startet neu und kündigt wieder an. Gegenprobe: ohne `bitchatStoppen()` wird der Test rot.
+
+## Schritt B-36e1 – Bitchat: Entwurf „Schlüssel beim Treffen“ und Bitchat-Karte im Protokoll
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Schlüssel beim Treffen – B-36e“), auf B-36c4 (#611). MENSCH 24.10.2026: QR-Schlüsseltausch,
+BC-W5 A (signiert), BC-W6 A (auch Neue nach Rückfrage).
+
+- **Entwurf:** Ausgangslage (Schlüssel bisher nur über Relays), Vorschlag (Karte im QR-Code, beide Richtungen wie der
+  Sicherheitscode), Datenschutz, Entscheidungen BC-W5/W6, Aufteilung e1/e2.
+- **`packages/protocol/src/bitchat-kontakt.ts`:** `baueBitchatKarte()` – `freedom-bitchat:1:<person>:<noise>:<signier>:<zeit>:<sig>`,
+  signiert von der Person über ein 38083 mit genau den zwei Tags, selbst nachgeprüft; `leseBitchatKarte()` – Form genau, zwei
+  verschiedene Schlüssel, höchstens 600 s voraus, Signatur der Person.
+- `docs/PROTOCOL.md` §45 („Bitchat-Karte“), Fallstrick im Protokoll, Ausnahmen in `wiring-ausnahmen.txt` bis e2, OFFEN,
+  Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +4 (`bitchat-karte.test.ts`): bauen und lesen (Werte genau, Leerzeichen, passt in einen QR-Code, gleiche
+oder kaputte Schlüssel nie); andere Person, geänderte oder getauschte Felder, andere Signatur nie; Form (Fassung,
+Großbuchstaben, führende Null, Feld zu viel, leer) und Zukunft bis genau 600 s; ein Signer, der andere Zeit, anderen Schlüssel
+oder mehr Tags signiert, ergibt keine Karte.

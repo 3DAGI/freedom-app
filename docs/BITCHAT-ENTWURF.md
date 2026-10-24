@@ -255,6 +255,38 @@ Identität je Gerät mit Grenze im Bericht.
 - **Damit ist c fertig.** Weiter: d – Probe mit Geräten (MENSCH): zwei Android-Geräte mit Freedom, dazu ein iPhone oder Android
   mit Bitchat dazwischen; Ankündigung, Handshake, Umschlag hin und zurück, Weiterreichen über das Bitchat-Gerät.
 
+## Schlüssel beim Treffen – B-36e (Entwurf, 24.10.2026)
+
+**Ausgangslage:** Bitchat spricht nur mit Kontakten, deren Bitchat-Schlüssel die App kennt (38083, BC-W3 A). Die kommen
+heute nur versiegelt über die Relays – zwei Menschen, die sich ohne Internet treffen, brauchen also vorher einmal Netz.
+Wer sich gerade erst kennenlernt, hat keinen Weg.
+
+**Vorschlag – ein QR-Code mit der „Bitchat-Karte“:** Im Dialog „Bitchat-Kontakte“ (nur in der Android-App) zeigt jede Seite
+auf Klick einen QR-Code und scannt den des Gegenübers – wie beim Sicherheitscode (B-4), beide Richtungen, weil eine
+Noise-Sitzung beide Schlüssel braucht.
+
+- **Inhalt:** `freedom-bitchat:1:<person>:<noise>:<signier>:<zeit>:<signatur>` – Nostr-Schlüssel der Person, die beiden
+  öffentlichen Bitchat-Schlüssel, Zeit, und die Signatur eines Events Kind 38083 (Tags wie in §45, Inhalt leer) mit dem
+  Schlüssel der Person (gut 330 Zeichen). Das Event selbst geht nie an ein Relay – es entsteht nur für den Code.
+- **Lesen:** Form und Längen streng, Signatur gegen die Person, Zeit höchstens 10 Minuten in der Zukunft, zwei verschiedene
+  Schlüssel. Übernommen wird über das Buch wie bei 38083 (je Kontakt die neueste Zeit).
+- **Wer:** Ist die Person noch kein Kontakt, fragt die App, ob sie als Kontakt angelegt wird – erst danach gilt der Schlüssel.
+- **Als Gerät:** kein eigener Code – die Signatur gehört der Person (wie beim Versand der Schlüssel, B-36c2b1).
+
+**Datenschutz:** Wer den Code sieht oder fotografiert, verbindet das Bluetooth-Gerät mit dem Nostr-Schlüssel – genau wie ein
+Kontakt, der die Schlüssel versiegelt bekommt. Die Grenze „bitchat“ nennt das; der Code erscheint nur auf Klick.
+
+| Frage | Entscheidung (MENSCH 24.10.2026) |
+|---|---|
+| **BC-W5** Was steht im Code | **A – signiert** (Person, Bitchat-Schlüssel, Zeit, Signatur); B wäre „nur die Schlüssel“ – ein untergeschobener Code verbände einen Kontakt mit fremden Bitchat-Schlüsseln |
+| **BC-W6** Wessen Code | **A – auch Neue** (nach Rückfrage als Kontakt anlegen); B wäre „nur bestehende Kontakte“ |
+
+**Stand B-36e1:** `baueBitchatKarte()`/`leseBitchatKarte()` in `bitchat-kontakt.ts`, §45 („Bitchat-Karte“). Weiter: e2.
+
+**Aufteilung:** **e1** Protokoll – `baueBitchatKarte()`/`leseBitchatKarte()`, §45, Tests (Signatur, fremde Person,
+verändertes Feld, Zukunft, Form); **e2** App – Code zeigen und scannen im Dialog, neuer Kontakt nach Rückfrage, Grenze
+„bitchat“ ergänzt, Smoke-Test „bitchat“ mit gescanntem Code (Attrappe der Kamera wie „qr“).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

@@ -241,3 +241,6 @@ Fallstricke dieses Bereichs unten anhängen.
   38083 gleicht – ein Fremder mit der Peer-ID eines Kontakts kommt sonst durch. Ein gescheiterter Schritt löscht die Sitzung
   (`NoiseXX` ist dann halb fortgeschrieben). Den Knoten nie ohne `eigeneSchluessel` bauen: Daran erkennt `pruefeMeshInhalt()`
   die eigene Kopie, die nie hinausgeht.
+  Schlüssel beim Treffen (seit B-36e1, BC-W5 A) nur über die Bitchat-Karte: `baueBitchatKarte()` (signiert von der Person,
+  prüft selbst nach – ein Signer, der etwas anderes signiert, ergibt null), `leseBitchatKarte()` (Form genau, Signatur, nicht
+  aus der Zukunft). Das dafür signierte 38083 nie veröffentlichen – offen verbände es jeden Leser mit dem Gerät im Funk.
