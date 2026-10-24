@@ -7,7 +7,7 @@
 import { t } from "../i18n.js";
 import type { BitchatStandArt } from "./bitchat-huelle.js";
 import { bitchatSchluesselStand, bitchatTeilenAn, setzeBitchatTeilen } from "./bitchat-kontakte.js";
-import { bitchatInDerNaehe, bitchatLaeuft, starteBitchat, stoppeBitchat } from "./bitchat-weg.js";
+import { bitchatInDerNaehe, bitchatLaeuft, starteBitchat, stoppeBitchat, wennBitchatHaelt } from "./bitchat-weg.js";
 import { dialog } from "./dialog.js";
 import { alsGeraet } from "./state.js";
 import { kontaktName } from "./tabs/raeume.js";
@@ -35,6 +35,10 @@ export async function bitchatKnopf(knopf: HTMLElement, status: HTMLElement | nul
     return zeige(t("set.bitchatAus"));
   }
   if (tresorEingerichtet() && !tresorOffen()) return toast(t("ein.tresorGesperrt"), true);
+  // Hält die Hülle von selbst an, folgt der Knopf (B-36c4)
+  wennBitchatHaelt((vonSelbst) => {
+    if (vonSelbst) zeige(t("set.bitchatVonSelbstAus"));
+  });
   try {
     const s = await starteBitchat();
     zeige(t(s ? STAND_TEXT[s] : "set.bitchatNicht"));

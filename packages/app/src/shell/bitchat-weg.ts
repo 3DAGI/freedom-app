@@ -16,6 +16,7 @@ import { toast } from "./ui.js";
 
 let lauf: BitchatLauf | null = null;
 let zeitgeber: ReturnType<typeof setTimeout> | null = null;
+let beimHalt: ((vonSelbst: boolean) => void) | null = null;
 
 const ausHex = (h: string): Uint8Array => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
 
@@ -37,15 +38,25 @@ function takt(l: BitchatLauf): void {
   zeitgeber = setTimeout(async () => {
     const weiter = await l.schritt().catch(() => false);
     if (lauf !== l) return;
-    if (weiter) takt(l);
-    else halt();
+    if (weiter) return takt(l);
+    // Die Hülle meldet nicht mehr „an“ (Bluetooth aus, Erlaubnis entzogen) oder antwortet nicht: ganz anhalten – sonst
+    // bliebe der Dienst von Bitchat sichtbar, obwohl die App sich für aus hält
+    halt(true);
+    void bitchatStoppen();
   }, BITCHAT_LAUF.schrittMs);
 }
 
-function halt(): void {
+function halt(vonSelbst = false): void {
   if (zeitgeber) clearTimeout(zeitgeber);
   zeitgeber = null;
+  const war = lauf;
   lauf = null;
+  if (war) beimHalt?.(vonSelbst);
+}
+
+/** Die Oberfläche erfährt, wenn der Lauf endet – auch, wenn er von selbst anhielt (`vonSelbst`). */
+export function wennBitchatHaelt(f: (vonSelbst: boolean) => void): void {
+  beimHalt = f;
 }
 
 /** Bitchat starten – nur auf Klick: Android fragt dann nach den Rechten. Ergebnis: der Stand der Hülle. */

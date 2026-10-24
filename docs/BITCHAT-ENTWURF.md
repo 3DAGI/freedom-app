@@ -250,6 +250,8 @@ Identität je Gerät mit Grenze im Bericht.
 - **Direktnachrichten** über Bitchat melden „gegeben“, nicht „angekommen“.
 - **Smoke-Test „bitchat“** mit Attrappe der Hülle: vor dem Klick keine Frage an die Hülle und keine Identität; nach dem Klick eine
   Ankündigung in der Grenze der Verbindung (182 Byte); Zustimmung nur mit Haken; nach dem Anhalten keine Frage mehr.
+- **Nachtrag B-36c4:** Hält die Hülle von selbst an (Bluetooth aus, Erlaubnis entzogen, keine Antwort), ruft die App
+  `bitchat_stoppen` – sonst bliebe der Dienst sichtbar, obwohl sie sich für aus hält –, und Knopf und Status folgen.
 - **Damit ist c fertig.** Weiter: d – Probe mit Geräten (MENSCH): zwei Android-Geräte mit Freedom, dazu ein iPhone oder Android
   mit Bitchat dazwischen; Ankündigung, Handshake, Umschlag hin und zurück, Weiterreichen über das Bitchat-Gerät.
 

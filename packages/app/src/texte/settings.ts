@@ -503,6 +503,7 @@ export const settings: Texte = {
   "set.bitchatNicht": { de: "Die App bekommt keine Antwort von Android – Bitchat bleibt aus.", en: "The app gets no answer from Android – Bitchat stays off." },
   "set.bitchatIdentitaet": { de: "Die Bitchat-Identität auf diesem Gerät ist beschädigt – Bitchat bleibt aus.", en: "The Bitchat identity on this device is damaged – Bitchat stays off." },
   "set.bitchatAus": { de: "Bitchat ist aus.", en: "Bitchat is off." },
+  "set.bitchatVonSelbstAus": { de: "Bitchat ist aus – Bluetooth läuft nicht mehr (ausgeschaltet oder Erlaubnis entzogen).", en: "Bitchat is off – Bluetooth is no longer running (switched off or permission withdrawn)." },
   "set.bitchatKontakteText": {
     de: "Über Bitchat erreichst du nur Kontakte, deren Bitchat-Schlüssel du hast – und sie dich nur mit deinen. Die App gibt deine nur versiegelt an deine Kontakte und nur, wenn du hier zustimmst.",
     en: "Over Bitchat you only reach contacts whose Bitchat keys you have – and they reach you only with yours. The app gives yours to your contacts only sealed, and only if you agree here.",
