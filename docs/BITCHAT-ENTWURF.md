@@ -155,6 +155,18 @@ Identität je Gerät mit Grenze im Bericht.
   erst die Probe mit Geräten (B-36d); lokal übersetzt kotlinc 2.2.20 die Klasse gegen Android 14 ohne Warnung.
 - **Weiter:** b2 Central (suchen mit Pausen, verbinden, abonnieren, schreiben), b3 Brücke Rust ↔ App.
 
+## Stand B-36b2 (24.10.2026)
+
+- **Central in Kotlin** (dieselbe Klasse, nach `BLEService.swift` und den Werten aus `TransportConfig.swift`): sucht nur nach
+  dem Dienst von Bitchat (Filter), bei bis zu zwei eigenen Verbindungen ständig, ab drei 5 s an und 10 s aus. Höchstens sechs
+  Verbindungen als Central; wer in 8 s nicht bereit ist, wird getrennt und 120 s in Ruhe gelassen – nur Geräte, die nie
+  bereit wurden; wer schon verbunden war und geht, darf gleich wieder. Nach dem Verbinden: MTU 517 erbitten, Dienst suchen,
+  Meldungen abonnieren (CCCD), erst dann bereit; geschrieben wird ohne Antwort, je Verbindung ein Wert zugleich.
+- **Ohne Werbung weiter nutzbar:** Kann das Gerät keinen Dienst anbieten, meldet der Stand `werbung: nicht-moeglich`, und
+  Freedom verbindet sich nur selbst (früher hieß das `kein-anbieten` und Bluetooth blieb aus).
+- **Verbindungen als Central heißen `z1`, `z2` …** – wie beim Peripheral ohne Adressen fremder Geräte.
+- **Weiter:** b3 Brücke Rust ↔ App.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

@@ -74,6 +74,9 @@ class Klasse(unittest.TestCase):
                     "fun sende(id: String, wert: ByteArray): Boolean", "fun hole(): ByteArray"]:
             self.assertRegex(kt, r"@JvmStatic\s+" + re.escape(sig), sig)
         self.assertIn(".setIncludeDeviceName(false)", kt, "kein Gerätename in der Werbung")
+        # B-36b2: gesucht wird nur nach dem Dienst von Bitchat, höchstens 6 Verbindungen als Central
+        self.assertIn("ScanFilter.Builder().setServiceUuid(ParcelUuid(DIENST))", kt)
+        self.assertIn("private const val ZENTRAL_MAX = 6", kt)
 
 
 if __name__ == "__main__":

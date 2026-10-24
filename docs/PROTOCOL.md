@@ -1764,7 +1764,9 @@ der kleinsten Grenze.
 **Bluetooth** (seit B-36b1, `packages/launcher/android/FreedomBitchat.kt`): Dienst `f47b5e2d-4a9e-4c5a-9b3f-8e1d2c3a4b5c` (Mainnet
 von Bitchat; Testfassungen nehmen …`4b5a`), ein Merkmal `a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d` (lesen, schreiben mit und ohne
 Antwort, melden). Werbung nur mit der Kennung des Dienstes, ohne Gerätenamen. Ein Wert höchstens 512 Byte (ATT), je Verbindung
-höchstens MTU − 3.
+höchstens MTU − 3. Als Central (seit B-36b2) sucht Freedom nur nach diesem Dienst, verbindet sich mit höchstens sechs
+Geräten, erbittet MTU 517 und abonniert das Merkmal; geschrieben wird ohne Antwort. Bei mehr als zwei eigenen Verbindungen sucht
+es 5 s und ruht 10 s; ein Gerät, das in 8 s nicht bereit ist, bleibt 120 s unbeachtet (Werte aus `TransportConfig.swift`).
 
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

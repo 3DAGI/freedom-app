@@ -92,3 +92,8 @@ Fallstricke dieses Bereichs unten anhängen.
   nur auf Klick (`starte()`), keine Adressen fremder Geräte an die App (Verbindungen heißen `p<n>`). Bluetooth lässt sich
   weder im Emulator noch in der CI prüfen: lokal übersetzen mit kotlinc gegen `android-all` (Robolectric, Maven Central –
   dl.google.com ist gesperrt), auf Geräten prüft der MENSCH (B-36d).
+  Als Central (seit B-36b2) nur mit Filter auf den Dienst suchen (nie ohne – sonst verbindet sich Freedom mit jedem Gerät
+  in der Nähe) und nur nach den Werten aus `TransportConfig.swift` (6 Verbindungen, 5 s an/10 s aus, 8 s, 120 s). Die Ruhe
+  von 120 s nur für Geräte, die nie bereit wurden – ein Gerät, das nach dem Abonnieren geht, sonst zwei Minuten aus dem
+  Netz. Lange Schreibvorgänge gehören nur zur Rolle Peripheral (`vorbereitet` nur bei `p` leeren). Fehlt die Werbung
+  (`werbung: nicht-moeglich`), läuft Central trotzdem – nie Bluetooth ganz ablehnen.
