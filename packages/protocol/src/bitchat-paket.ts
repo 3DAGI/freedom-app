@@ -384,7 +384,20 @@ export function zerlegeBitchat(
 ): BitchatPaket[] {
   const grenze = o.grenze ?? BITCHAT_GRENZEN.mtu;
   const ganz = kodiereBitchat(p, { polster: o.polster });
-  if (ganz.length <= grenze) return [p];
+  return ganz.length <= grenze ? [p] : zerlegeDaten(ganz, p, kennung, grenze);
+}
+
+/**
+ * Zerlegt ein empfangenes Paket roh, wie es kam (B-36c2a) – zum Weiterreichen über eine Verbindung mit kleinerer Grenze, wie
+ * Bitchat es tut: Die Fragmente tragen Absender, Empfänger, Zeit und die TTL des Rohpakets, die Daten sind seine Bytes
+ * (samt Polster und gepackter Nutzlast – nie neu kodiert). Unlesbares → `null`.
+ */
+export function zerlegeBitchatRoh(roh: Uint8Array, kennung: Uint8Array, grenze: number): BitchatPaket[] | null {
+  const p = leseBitchat(roh);
+  return p && zerlegeDaten(roh, { ...p, ttl: roh[2] }, kennung, grenze);
+}
+
+function zerlegeDaten(ganz: Uint8Array, p: BitchatPaket, kennung: Uint8Array, grenze: number): BitchatPaket[] {
   const route = p.version === 2 && p.route?.length ? p.route : undefined;
   const kopf = route ? 16 : 14;
   const aufwand =

@@ -240,3 +240,5 @@ bitchat-kontakt.ts|baueBitchatSchluesselUmschlaege|Bitchat zwischen Kontakten (B
 bitchat-kontakt.ts|oeffneBitchatSchluesselUmschlag|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
 bitchat-kontakt.ts|bitchatUmschlagKlartext|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
 bitchat-kontakt.ts|leseBitchatUmschlag|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
+bitchat-knoten.ts|BitchatKnoten|Bitchat-Knoten (B-36c2a1, BC-W2–W4 A): Baustein ohne Ein- und Ausgabe, verdrahtet in der App ab B-36c2b; die Tests spielen ein Netz mit fremdem Gerät und zwei Grenzen
+bitchat-paket.ts|zerlegeBitchatRoh|Bitchat roh zerlegen (B-36c2a1): genutzt vom Bitchat-Knoten, der ab B-36c2b in der App läuft; die Tests prüfen, dass die Daten die Bytes sind, wie sie kamen
