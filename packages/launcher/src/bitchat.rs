@@ -90,7 +90,7 @@ mod jni_weg {
     }
 }
 
-/// Stand als JSON aus `FreedomBitchat.stand()` – die App liest ihn streng (ab B-36b3b `leseBitchatStand()`).
+/// Stand als JSON aus `FreedomBitchat.stand()` – die App liest ihn streng (`leseBitchatStand()`).
 #[tauri::command]
 pub async fn bitchat_stand<R: Runtime>(fenster: WebviewWindow<R>) -> Result<String, String> {
     #[cfg(target_os = "android")]

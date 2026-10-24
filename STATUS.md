@@ -13600,3 +13600,17 @@ b3a Kommandos der Hülle, b3b Lesemodul der App.
 
 **Tests:** Hülle 59 (vorher 57; neu: Kennungen wie Kotlin sie vergibt samt fremder Ziffern, Werte bis 512 Byte). Den
 Android-Zweig (JNI) übersetzt der APK-Job der CI.
+
+## Schritt B-36b3b – Bitchat: Lesemodul der App für die Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b3b“), auf B-36b3a (#603). Damit ist B-36b fertig.
+
+- **`packages/app/src/shell/bitchat-huelle.ts`** (neu): Weg nur unter Android (`bitchatAufruf()`), Stand streng
+  (`leseBitchatStand()`: bekannte Werte, Grenze 20–512 Byte, höchstens 64 Verbindungen, Kennungen `p<n>`/`z<n>`),
+  Empfangenes aus den Bytes der Hülle (`leseBitchatWerte()`, ein Fehler macht alles ungültig), senden nur ganze Werte bis
+  512 Byte (`bitchatSenden()`, nie geteilt); Fehler der Hülle werden zu `null`, `false` oder nichts.
+- Fallstrick der App, README der Hülle, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** App 1345 (+4, `bitchat-huelle.test.ts`): nur unter Android; Stand streng (Unbekanntes, Kaputtes, Grenzen,
+fremde Kennungen); Werte aus der Hülle samt abgeschnitten, leer, über 512 Byte und fremder Kennung; Kommandos – zu Großes,
+Leeres und fremde Kennungen erreichen die Hülle nie, Holen auch als `ArrayBuffer`, Fehler der Hülle.
