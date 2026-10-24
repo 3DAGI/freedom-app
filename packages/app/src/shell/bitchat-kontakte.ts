@@ -45,6 +45,12 @@ export async function setzeBitchatTeilen(an: boolean): Promise<void> {
   }
 }
 
+/** Für den Dialog: mit wie vielen Kontakten geteilt, von wie vielen Schlüssel da sind. */
+export function bitchatSchluesselStand(): { geteilt: number; erhalten: number } {
+  const kontakte = new Set(kontakteJetzt());
+  return { geteilt: (versand.verteilt()?.an ?? []).filter((k) => kontakte.has(k)).length, erhalten: bitchatSchluesselBuch.zahl(kontakte) };
+}
+
 /** Ein Schlag des Abruftakts. */
 export async function bitchatSchluesselTakt(): Promise<void> {
   await versand.takt().catch(() => null); // kaputte Identität: nichts senden, nie eine neue anlegen

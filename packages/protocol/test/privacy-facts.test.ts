@@ -638,11 +638,12 @@ test("belegte Aussagen nennen ihre Regel, und jede genannte Regel gibt es", () =
   // „ki-unterhaltung“ (D1b2): welcher Schlüssel je Unterhaltung, entscheidet die App – das prüft app/test/ki-wechsel.test.ts
   // „mesh-geraet“ (7.5b): was ein Meshtastic-Gerät selbst funkt, ist Funk, kein Event – das prüft app/test/meshtastic-strecke.test.ts
   // „reticulum-ankuendigung“ (B-32b2): was die App über die RNode funkt, ist Funk, kein Event – das prüft app/test/reticulum-funk.test.ts
+  // „bitchat“ (B-36c3): die Ankündigung geht über Bluetooth, kein Event – Inhalt und Takt prüfen protocol/test/bitchat-knoten.test.ts und app/test/bitchat-lauf.test.ts
   // „zeitanker“ (B-17b3a): die Kalender fragt die App per https, nicht über ein Relay – das prüft app/test/zeitanker.test.ts
   // „agent-geraet“ (11.3c3a): was der Provider nach dem Öffnen liest, sieht kein Mitschnitt – Pseudonyme und Umfang prüft app/test/agent-antwort.test.ts
   // „agent-knoten“ (11.3d1b2): was der Knoten nach dem Öffnen des Auftrags liest, sieht kein Mitschnitt – den Verweis im Kern prüft app/test/knoten-agent-fragen.test.ts
   // „agent-knoten-privat“ (11.3d2a): was der Knoten als Mitglied liest, sieht kein Mitschnitt – Ablage und Schalter prüft node/test/knoten-mls.test.ts
-  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "agent-knoten-privat", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "reticulum-ankuendigung", "werbe-name", "zeitanker"]);
+  assert.deepEqual(PRIVACY_FACTS.filter((f) => !f.regel).map((f) => f.id).sort(), ["agent-geraet", "agent-knoten", "agent-knoten-privat", "bitchat", "dm-forward-secrecy", "ip", "ki-unterhaltung", "ki-verlauf", "mesh-geraet", "reticulum-ankuendigung", "werbe-name", "zeitanker"]);
 });
 
 test("4.5b: eine SOL-Adresse je Knoten steht als bewusste Grenze im Bericht – mit Grund und Entscheidung", () => {
@@ -815,6 +816,21 @@ test("B-32b2: Reticulum als Grenze – die Antwort im Funk trägt Adresse und Sc
   assert.match(f?.grund ?? "", /KI-Fragen über Funk gehen nur an deinen eigenen Knoten, an die Adresse aus seinem Status/, "B-32d3b: app/test/funk-knoten.test.ts");
   const t = privacyFactsText();
   assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ist eine RNode verbunden, antwortet die App im Funk/);
+});
+
+test("B-36c3: Bitchat als Grenze – feste Kennung, Name und Schlüssel offen im Funk, nur auf Klick, Inhalte nur in Umschlägen", () => {
+  const f = PRIVACY_FACTS.find((x) => x.id === "bitchat");
+  assert.equal(f?.status, "grenze");
+  assert.equal(f?.regel, undefined, "Bluetooth, kein Event");
+  assert.match(f?.aussage ?? "", /^Ist Bitchat an \(nur in der Android-App\), kündigt sich dein Gerät über Bluetooth an – beim Start, bei jeder neuen Verbindung und alle 30 Sekunden/, "BITCHAT_LAUF.ankuendigenMs");
+  for (const a of [/feste Kennung/, /„anon“ und vier Ziffern/, /Bitchat-Schlüssel deines Geräts/, /am Dienst, dass hier Bitchat läuft/, /nennen die Kennung in ihren Ankündigungen/, /über Orte verfolgen/]) assert.match(f?.aussage ?? "", a);
+  assert.match(f?.aussage ?? "", /nicht deinem Schlüssel zuordnen, außer von Kontakten, denen du die Bitchat-Schlüssel gibst\./);
+  for (const g of [/BC-W4 A/, /nie aus deinem Nostr-Schlüssel/, /nur, wenn du es einschaltest/, /nur, wenn du zustimmst, und nur versiegelt, je Kontakt ein Umschlag/, /nur Umschläge an Kontakte in der Nähe, in einer Noise-Sitzung, und nur, wenn kein Relay sie nimmt/]) {
+    assert.match(f?.grund ?? "", g);
+  }
+  assert.doesNotMatch(`${f?.aussage} ${f?.grund}`, /auditiert|geprüft von/, "V5: nichts versprechen, was kein öffentlicher Bericht trägt");
+  const t = privacyFactsText();
+  assert.match(t.slice(t.indexOf("Bewusste Grenzen:")), /△ Ist Bitchat an \(nur in der Android-App\)/);
 });
 
 test("Grenzen nennen ihren Grund", () => {

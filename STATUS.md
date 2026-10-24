@@ -13704,3 +13704,25 @@ Verbindung (an beide) und sonst nur alle 30 s, Weitergereichtes mit Versatz, ohn
 nicht in der Nähe ist bekommen nichts; Verdrahtung (Bitchat nach den Relays und vor Reticulum, Lauf erst nach „an“, Identität aus
 `geheim`, Post wie aus dem Funk, eigene Schlüssel). Gegenproben: ohne Ankündigung bei neuer Verbindung, ohne Versatz, ohne `post()`
 und ohne Halt wird je ein Test rot.
+
+## Schritt B-36c3 – Bitchat: Oberfläche, Grenze im Datenschutzbericht, Smoke-Test
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c3“), auf B-36c2b2 (#609). Damit ist B-36c fertig; offen bleibt d, die Probe
+mit Geräten (MENSCH).
+
+- **`packages/app/src/shell/bitchat-ui.ts`** (neu): `bitchatKnopf()` – an und aus nur auf Klick, vorher der Tresor, je Stand der
+  Hülle ein Satz, eine kaputte Identität schaltet Bluetooth wieder aus; `bitchatKontakteDialog()` – Zustimmung nur als Person,
+  Stand des Schlüsseltauschs, wer gerade in der Nähe ist (Namen).
+- **Netz › Ohne Internet** (`index.html`, `tabs/mesh.ts`): „Bitchat (Bluetooth)“, „Bitchat-Kontakte“ und Hinweis – versteckt, nur
+  mit `bitchatAufruf()` (Android-Hülle) sichtbar. `bitchatSchluesselStand()` in `bitchat-kontakte.ts`; `dmUeberBitchat()` meldet
+  „gegeben“.
+- **Datenschutzbericht:** Grenze „bitchat“ (`privacy-facts.ts`, Texte in beiden Sprachen).
+- **Smoke-Test „bitchat“** mit `BITCHAT_ATTRAPPE` (Android-Hülle, eine Verbindung mit 182 Byte).
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +1 (`privacy-facts.test.ts`: Grenze „bitchat“ – Takt, Kennung, Name, Schlüssel, Dienst, Nachbarn,
+Zuordnung, Gründe, kein „auditiert“); app +4 (`bitchat-ui.test.ts`: nur in der Hülle, Start nur im Klick, erst der Tresor,
+kaputte Identität schaltet aus, jeder Stand mit Text in beiden Sprachen, Zustimmung nur als Person, „gegeben“); Smoke
+„bitchat“: vor dem Klick nichts, dann eine Ankündigung in 182 Byte, keine zweite in 1,5 s, Identität „anon“ und vier Ziffern,
+Zustimmung nur mit Haken, nach dem Anhalten keine Frage mehr an die Hülle. Gegenproben: ohne Tresor-Sperre und mit „gegeben“
+ohne Senden wird je ein Test rot.

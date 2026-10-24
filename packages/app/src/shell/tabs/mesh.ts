@@ -21,6 +21,7 @@ import { wireRelayZugang } from "./settings.js";
 import { wireRelayKarte } from "../relay-liste-ui.js";
 import { platzhalterAn, setzePlatzhalter } from "../ki-platzhalter.js";
 import { LS_VERLAUF, leseUmfang } from "../../ki-kontext.js";
+import { bitchatAufruf } from "../bitchat-huelle.js";
 
 // ------------------------------------------------------------- Mesh-Tab
 
@@ -240,6 +241,21 @@ export async function wireMeshTab(): Promise<void> {
     const { adressenDialog } = await import("../rnode-ui.js");
     await adressenDialog();
   };
+
+  // Bitchat über Bluetooth (B-36c3): nur in der Android-Hülle, an und aus nur auf Klick
+  const bitchat = $("#mesh-bitchat");
+  const bitchatKontakte = $("#mesh-bitchat-kontakte");
+  if (bitchat && bitchatKontakte && bitchatAufruf()) {
+    for (const e of [bitchat, bitchatKontakte, $("#mesh-bitchat-hinweis")]) e?.classList.remove("hidden");
+    bitchat.onclick = async () => {
+      const { bitchatKnopf } = await import("../bitchat-ui.js");
+      await bitchatKnopf(bitchat, $("#mesh-status"));
+    };
+    bitchatKontakte.onclick = async () => {
+      const { bitchatKontakteDialog } = await import("../bitchat-ui.js");
+      await bitchatKontakteDialog();
+    };
+  }
 
   void zeigeOfflineFaehigkeiten("lora");
 

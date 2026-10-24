@@ -4101,6 +4101,86 @@ RNODE_ATTRAPPE = """
 """
 
 
+# Android-Hülle mit Bitchat (seit B-36c3): eine Verbindung zu einem iPhone (Grenze 182 Byte), nichts empfangen
+BITCHAT_ATTRAPPE = """window.__FREEDOM_NATIVE__ = { huelle: "android" };
+window.__BC__ = { an: false, aufrufe: [], gesendet: [] };
+window.__TAURI_INTERNALS__ = { invoke: async (befehl, a) => {
+  const bc = window.__BC__;
+  if (befehl.startsWith("bitchat_")) bc.aufrufe.push(befehl);
+  if (befehl === "bitchat_starten") { bc.an = true; return "an"; }
+  if (befehl === "bitchat_stoppen") { bc.an = false; return null; }
+  if (befehl === "bitchat_stand") return JSON.stringify({ stand: bc.an ? "an" : "bereit", werbung: bc.an ? "an" : "aus",
+    verbindungen: bc.an ? [{ id: "z1", grenze: 182 }] : [] });
+  if (befehl === "bitchat_holen") return new Uint8Array(0);
+  if (befehl === "bitchat_senden") { bc.gesendet.push({ id: a.id, laenge: a.wert.length, kopf: a.wert.slice(0, 2) }); return true; }
+  throw "unbekannt";
+} };"""
+
+
+def bitchat_pruefen(browser, url: str) -> dict:
+    """Bitchat in der Android-Hülle (B-36c3): Mit einer Attrappe der Hülle zeigt Netz › Ohne Internet „Bitchat (Bluetooth)“
+    samt Hinweis; vor dem Klick fragt die App die Hülle nichts und legt keine Identität an. Der Klick startet: Die App kündigt
+    sich einmal an – ein Paket vom Typ Ankündigung in der Grenze der Verbindung (182 Byte) –, die Identität „anon“ und vier
+    Ziffern entsteht. Der Dialog „Bitchat-Kontakte“ nimmt die Zustimmung (nur mit Haken), ein zweiter Klick hält an, und danach
+    fragt die App die Hülle nichts mehr."""
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=BITCHAT_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    bc = "() => JSON.parse(JSON.stringify(window.__BC__))"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-bitchat", state="visible", timeout=10000)
+    erg["vor_dem_klick"] = {**ev(bc), "identitaet": ev("() => localStorage.getItem('freedom.bitchat.identitaet') !== null"),
+                            "hinweis": ev("() => !!document.getElementById('mesh-bitchat-hinweis').offsetParent")}
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => window.__BC__.gesendet.length > 0", timeout=10000)
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat anhalten'", timeout=10000)
+    erg["status"] = ev("() => document.getElementById('mesh-status').textContent")
+    erg["an"] = ev(bc)
+    erg["identitaet"] = ev("() => /^anon[0-9]{4}$/.test(JSON.parse(localStorage.getItem('freedom.bitchat.identitaet') ?? '{}').name ?? '')")
+    s.wait_for_timeout(1500)  # angekündigt wird nur bei neuer Verbindung und alle 30 s
+    erg["nach_pause"] = ev(bc)
+    s.click("#mesh-bitchat-kontakte")
+    erg["dialog"] = seite.warte_dialog("Bitchat-Kontakte")
+    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")
+    dialog_ok(seite, "Merken")
+    seite.warte_zu()
+    erg["teilen"] = ev("() => localStorage.getItem('freedom.bitchat.teilen')")
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => document.getElementById('mesh-status').textContent === 'Bitchat ist aus.'", timeout=10000)
+    vorher = len(ev(bc)["aufrufe"])
+    s.wait_for_timeout(1500)
+    aus = ev(bc)
+    erg["aus"] = {"stoppen": aus["aufrufe"][vorher - 1:vorher], "danach": aus["aufrufe"][vorher:],
+                  "knopf": ev("() => document.getElementById('mesh-bitchat').textContent")}
+
+    f = erg["fehler"]
+    v = erg["vor_dem_klick"]
+    if v["aufrufe"] or v["gesendet"] or v["identitaet"] or not v["hinweis"]:
+        f.append(f"vor dem Klick {v}")
+    a = erg["an"]
+    erst = a["gesendet"][0] if a["gesendet"] else {}
+    if a["aufrufe"][:1] != ["bitchat_starten"] or erst.get("id") != "z1" or not (0 < erst.get("laenge", 0) <= 182) or erst.get("kopf", [0, 0])[1] != 1:
+        f.append(f"Ankündigung {a['gesendet']} nach {a['aufrufe'][:3]}")
+    if len(erg["nach_pause"]["gesendet"]) != 1 or "bitchat_holen" not in erg["nach_pause"]["aufrufe"]:
+        f.append(f"nach der Pause {erg['nach_pause']['gesendet']}, {sorted(set(erg['nach_pause']['aufrufe']))}")
+    if erg["status"] != "Bitchat ist an – dein Gerät kündigt sich über Bluetooth an." or not erg["identitaet"]:
+        f.append(f"an: {erg['status']!r}, Identität {erg['identitaet']}")
+    d = erg["dialog"] or {}
+    if d.get("haken") != [False] or d.get("felder") != ["Kontakte", "Mit Kontakten", "Gerade in der Nähe"] or d.get("werte") != ["an 0 gegeben, von 0 erhalten", "niemand"]:
+        f.append(f"Dialog {d}")
+    if erg["teilen"] != "1":
+        f.append(f"Zustimmung {erg['teilen']!r}")
+    if erg["aus"] != {"stoppen": ["bitchat_stoppen"], "danach": [], "knopf": "Bitchat (Bluetooth)"}:
+        f.append(f"aus {erg['aus']}")
+    if seite.browser_dialoge:
+        f.append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not f
+    return erg
+
+
 def rnode_dm_pruefen(browser, url: str) -> dict:
     """Direktnachricht über Reticulum (B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger, funkt die App sie über die
     RNode – an die Adresse des Kontakts aus B-32c1 (im Rahmen der Pfad-Anfrage zu sehen). Ohne Ausfall der Relays funkt sie nichts."""
@@ -7301,6 +7381,10 @@ def main() -> int:
             except Exception as e:
                 erg["rnode_dm"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["bitchat"] = bitchat_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["bitchat"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -7369,6 +7453,7 @@ def main() -> int:
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("rnode", {}).get("bestanden") is True
           and erg.get("rnode_dm", {}).get("bestanden") is True
+          and erg.get("bitchat", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)

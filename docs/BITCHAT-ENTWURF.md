@@ -239,6 +239,20 @@ Identität je Gerät mit Grenze im Bericht.
 - **Weiter:** c3 – Oberfläche: Start auf Klick, Schalter für die Zustimmung, Kontakte in der Nähe, Grenze „bitchat“ im
   Datenschutzbericht, Smoke-Test mit Attrappe der Hülle.
 
+## Stand B-36c3 (24.10.2026)
+
+- **Oberfläche** (`shell/bitchat-ui.ts`, Netz › Ohne Internet): „Bitchat (Bluetooth)“, „Bitchat-Kontakte“ und ein Hinweis – nur in
+  der Android-Hülle (`bitchatAufruf()`). An und aus nur auf Klick, mit gesperrtem Tresor erst entsperren (die Identität liegt in
+  `geheim`); je Stand der Hülle ein Satz, eine kaputte Identität schaltet Bluetooth wieder aus. Der Dialog nimmt die Zustimmung
+  (nur als Person), zeigt, mit wie vielen Kontakten die Schlüssel getauscht sind und wer gerade in der Nähe ist.
+- **Grenze „bitchat“** im Datenschutzbericht (BC-W4, V4, V5): feste Kennung, Name und Schlüssel offen im Funk, sichtbar, dass
+  Bitchat läuft, Nachbarn nennen die Kennung – nicht dem Nostr-Schlüssel zuzuordnen, außer von Kontakten mit den Schlüsseln.
+- **Direktnachrichten** über Bitchat melden „gegeben“, nicht „angekommen“.
+- **Smoke-Test „bitchat“** mit Attrappe der Hülle: vor dem Klick keine Frage an die Hülle und keine Identität; nach dem Klick eine
+  Ankündigung in der Grenze der Verbindung (182 Byte); Zustimmung nur mit Haken; nach dem Anhalten keine Frage mehr.
+- **Damit ist c fertig.** Weiter: d – Probe mit Geräten (MENSCH): zwei Android-Geräte mit Freedom, dazu ein iPhone oder Android
+  mit Bitchat dazwischen; Ankündigung, Handshake, Umschlag hin und zurück, Weiterreichen über das Bitchat-Gerät.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
