@@ -1016,3 +1016,9 @@ Fallstricke dieses Bereichs unten anhängen.
   Gegenstelle, nie an ein Gateway aus einem Angebot. Der Auftrag trägt den Besitzer-Nachweis im Kern
   (`baueFunkAuftrag(…, kopplung)`), nie ein Gebot oder eine Gutschrift. Meshtastic geht vor: Ist ein Gerät verbunden,
   bleibt es beim gemerkten Gateway.
+- **Bitchat der Hülle nur über `shell/bitchat-huelle.ts`** (seit B-36b3b): nie `bitchat_*` direkt über `invoke` rufen. Den
+  Stand liest nur `leseBitchatStand()` (bekannte Werte, Grenze 20–512, höchstens 64 Verbindungen), Empfangenes nur
+  `leseBitchatWerte()` – ein kaputter Rahmen macht den ganzen Abruf ungültig, nie die Hälfte nehmen. `bitchatSenden()` nimmt
+  nur ganze Pakete bis zur Grenze der Verbindung (vorher `bitchatFuerVerbindung()`), nie selbst teilen. Was ankommt, ist
+  ungeprüft: erst `leseBitchat()`/Signatur, Inhalte nur über `pruefeMeshInhalt()`. Starten nur auf Klick (Rechte).
+  *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*

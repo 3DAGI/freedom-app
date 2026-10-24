@@ -178,6 +178,17 @@ Identität je Gerät mit Grenze im Bericht.
   senden nur ganzer Werte bis 512 Byte. Danach c – App: Schlüssel für Bitchat an Kontakte (c1), Bitchat-Knoten aus den
   Bausteinen (c2a), Anbindung an Hülle und Direktnachrichten (c2b), Oberfläche, Bericht, Smoke-Test (c3); d – Probe (MENSCH).
 
+## Stand B-36b3b (24.10.2026)
+
+- **In der App** (`packages/app/src/shell/bitchat-huelle.ts`): der Weg zu den Kommandos nur unter Android
+  (`bitchatAufruf()`); den Stand liest `leseBitchatStand()` streng (bekannte Werte, Grenze 20–512 Byte, höchstens 64
+  Verbindungen, Kennungen `p<n>`/`z<n>`), Empfangenes `leseBitchatWerte()` aus den Bytes der Hülle – ein kaputter Rahmen
+  macht den ganzen Abruf ungültig. `bitchatSenden()` nimmt nur ganze Werte bis 512 Byte, nie geteilt; Fehler der Hülle
+  werden zu `null`, `false` oder nichts. Im Browser und auf dem Desktop gibt es keinen Weg.
+- **Damit ist B-36b fertig** (b1 Peripheral, b2 Central, b3a Kommandos der Hülle, b3b Lesemodul der App). Weiter: c – App:
+  Schlüssel für Bitchat an Kontakte (c1), Bitchat-Knoten aus den Bausteinen (c2a), Anbindung an Hülle und Direktnachrichten
+  (c2b), Oberfläche, Bericht, Smoke-Test (c3); d – Probe (MENSCH).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

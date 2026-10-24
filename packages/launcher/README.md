@@ -257,7 +257,7 @@ Paket; was nicht in die Grenze einer Verbindung passt, nimmt `sende()` nicht an.
   `bitchat_senden` (Kennung `p<n>`/`z<n>`, ein Wert bis 512 Byte – sonst Fehler `form`) und `bitchat_holen`
   (alles Empfangene als Bytes: je Wert Länge der Kennung, Kennung, zwei Byte Länge, Wert). Die Hülle ruft
   die Klasse über JNI auf dem Hauptthread; außer unter Android antwortet jedes Kommando mit `kein-android`.
-  In der App ab B-36b3b nur über `shell/bitchat-huelle.ts`.
+  In der App nur über `shell/bitchat-huelle.ts` (seit B-36b3b).
 - Nur solange die App offen ist – ein Dienst im Hintergrund ist nicht gebaut.
 
 ## Kamera und Mikrofon (seit 6.1d)
