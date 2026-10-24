@@ -1,6 +1,6 @@
 // FreedomStack – Bitchat über Bluetooth LE in der Android-Hülle (B-36b1, docs/BITCHAT-ENTWURF.md, BC-W1 A).
-// B-36b1: Peripheral – Dienst anbieten, Bitchat-Geräte verbinden sich, schreiben und abonnieren Meldungen. Die Gegenrolle
-// (selbst suchen und verbinden) folgt in B-36b2.
+// B-36b1: Peripheral – Dienst anbieten, Bitchat-Geräte verbinden sich, schreiben und abonnieren Meldungen.
+// B-36b2: Central – selbst suchen (mit Pausen), verbinden, Meldungen abonnieren, schreiben.
 // Eigene Umsetzung nach dem gemeinfreien Swift-Code von Bitchat (BLEService, BLERadioController); EUPL-1.2 wie das Projekt.
 //
 // Die Klasse reicht nur Werte zwischen Bluetooth und der Hülle weiter – Pakete prüfen, zerlegen, verschlüsseln und
@@ -14,6 +14,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
@@ -25,10 +26,17 @@ import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelUuid
+import android.os.SystemClock
 import java.io.ByteArrayOutputStream
 import java.util.ArrayDeque
 import java.util.UUID
@@ -40,6 +48,16 @@ object FreedomBitchat {
     val MERKMAL: UUID = UUID.fromString("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d")
     private val MELDEN: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
+    /**
+     * Werte aus TransportConfig (Swift): höchstens 6 Verbindungen als Central, Suche 5 s an und 10 s aus ab 3 davon,
+     * 8 s zum Verbinden, ein Gerät, das nicht klappte, 120 s in Ruhe lassen
+     */
+    private const val ZENTRAL_MAX = 6
+    private const val SUCHE_AN_MS = 5_000L
+    private const val SUCHE_AUS_MS = 10_000L
+    private const val VERBINDEN_MS = 8_000L
+    private const val RUHE_MS = 120_000L
+    private const val MTU = 517
     /** Ein Attribut fasst höchstens 512 Byte (ATT) – mehr nimmt auch ein langer Schreibvorgang nicht an */
     private const val WERT_MAX = 512
     private const val EINGANG_MAX = 512
@@ -47,6 +65,8 @@ object FreedomBitchat {
     private const val ANFRAGE_RECHTE = 4736
 
     private class Verbindung(val id: String, val geraet: BluetoothDevice) {
+        var gatt: BluetoothGatt? = null
+        var merkmal: BluetoothGattCharacteristic? = null
         var grenze = 20
         var bereit = false
         var beschaeftigt = false
@@ -54,13 +74,16 @@ object FreedomBitchat {
     }
 
     private val sperre = Any()
+    private val haupt = Handler(Looper.getMainLooper())
     private val verbindungen = LinkedHashMap<String, Verbindung>()
     private val nachAdresse = HashMap<String, String>()
     private val vorbereitet = HashMap<String, ByteArrayOutputStream>()
     private val eingang = ArrayDeque<Pair<String, ByteArray>>()
+    private val ruhe = HashMap<String, Long>()
     private var naechste = 1
     @Volatile private var aktiv = false
     @Volatile private var werbung = "aus"
+    @Volatile private var sucht = false
     @Volatile private var kontext: Context? = null
     @Volatile private var server: BluetoothGattServer? = null
     @Volatile private var serverMerkmal: BluetoothGattCharacteristic? = null
@@ -79,8 +102,9 @@ object FreedomBitchat {
 
     /**
      * Stand als JSON: `stand` ist `an`, `bereit` (aus, aber möglich), `erlaubnis` (Rechte fehlen), `ausgeschaltet`
-     * (Bluetooth aus), `kein-anbieten` (das Gerät kann keinen Dienst anbieten) oder `kein-bluetooth`; `werbung` ist `an`,
-     * `aus` oder `fehler`; dazu die Verbindungen, über die man senden kann, mit ihrer Grenze.
+     * (Bluetooth aus) oder `kein-bluetooth`; `werbung` ist `an`, `aus`, `fehler` oder `nicht-moeglich` (das Gerät kann
+     * keinen Dienst anbieten – dann verbindet es sich nur selbst); dazu die Verbindungen, über die man senden kann, mit
+     * ihrer Grenze.
      */
     @JvmStatic
     fun stand(k: Context): String {
@@ -89,7 +113,6 @@ object FreedomBitchat {
             adapter == null -> "kein-bluetooth"
             fehlende(k).isNotEmpty() -> "erlaubnis"
             !adapter.isEnabled -> "ausgeschaltet"
-            !adapter.isMultipleAdvertisementSupported -> "kein-anbieten"
             else -> if (aktiv) "an" else "bereit"
         }
         val liste = synchronized(sperre) {
@@ -109,17 +132,17 @@ object FreedomBitchat {
         val m = manager(activity) ?: return "kein-bluetooth"
         val adapter = m.adapter ?: return "kein-bluetooth"
         if (!adapter.isEnabled) return "ausgeschaltet"
-        if (!adapter.isMultipleAdvertisementSupported) return "kein-anbieten"
         synchronized(sperre) {
             if (aktiv) return "an"
             aktiv = true
             kontext = activity.applicationContext
         }
-        if (!starteServer(m, activity.applicationContext)) {
-            aktiv = false
-            return "kein-anbieten"
+        when {
+            !adapter.isMultipleAdvertisementSupported -> werbung = "nicht-moeglich"
+            starteServer(m, activity.applicationContext) -> starteWerbung(adapter)
+            else -> werbung = "fehler"
         }
-        starteWerbung(adapter)
+        haupt.post(suchTakt)
         return "an"
     }
 
@@ -135,9 +158,22 @@ object FreedomBitchat {
             nachAdresse.clear()
             vorbereitet.clear()
             eingang.clear()
+            ruhe.clear()
         }
-        kontext?.let { manager(it)?.adapter }?.bluetoothLeAdvertiser?.stopAdvertising(werbeRueckruf)
-        for (v in alte) server?.cancelConnection(v.geraet)
+        haupt.removeCallbacksAndMessages(null)
+        val adapter = kontext?.let { manager(it)?.adapter }
+        if (sucht) adapter?.bluetoothLeScanner?.stopScan(sucheRueckruf)
+        sucht = false
+        if (werbung != "nicht-moeglich") adapter?.bluetoothLeAdvertiser?.stopAdvertising(werbeRueckruf)
+        for (v in alte) {
+            val g = v.gatt
+            if (g != null) {
+                g.disconnect()
+                g.close()
+            } else {
+                server?.cancelConnection(v.geraet)
+            }
+        }
         server?.close()
         server = null
         serverMerkmal = null
@@ -191,7 +227,8 @@ object FreedomBitchat {
         synchronized(sperre) {
             val id = nachAdresse.remove(rolle + geraet.address) ?: return
             verbindungen.remove(id)
-            vorbereitet.remove(geraet.address)
+            // Lange Schreibvorgänge gibt es nur, wo andere an uns schreiben (Peripheral)
+            if (rolle == "p") vorbereitet.remove(geraet.address)
         }
     }
 
@@ -215,12 +252,26 @@ object FreedomBitchat {
             wert = v.ausgang.pollFirst() ?: return
             v.beschaeftigt = true
         }
-        if (!melde(v, wert)) fertig(id)
+        if (!(if (v.gatt != null) schreibe(v, wert) else melde(v, wert))) fertig(id)
     }
 
     private fun fertig(id: String) {
         synchronized(sperre) { verbindungen[id]?.beschaeftigt = false }
         weiter(id)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun schreibe(v: Verbindung, wert: ByteArray): Boolean {
+        val gatt = v.gatt ?: return false
+        val m = v.merkmal ?: return false
+        val art = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        return if (Build.VERSION.SDK_INT >= 33) {
+            gatt.writeCharacteristic(m, wert, art) == BluetoothStatusCodes.SUCCESS
+        } else {
+            m.writeType = art
+            m.value = wert
+            gatt.writeCharacteristic(m)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -343,6 +394,126 @@ object FreedomBitchat {
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
             synchronized(sperre) { nachAdresse["p" + device.address] }?.let { fertig(it) }
+        }
+    }
+
+    // ---- Central: suchen, verbinden, Meldungen abonnieren, schreiben ----
+
+    /** Sucht ständig bei bis zu 2 Verbindungen als Central, sonst 5 s an und 10 s aus (`BLEScanDutyPolicy`). */
+    private val suchTakt: Runnable = object : Runnable {
+        override fun run() {
+            val scanner = kontext?.let { manager(it)?.adapter }?.bluetoothLeScanner ?: return
+            val (an, zentral) = synchronized(sperre) { aktiv to verbindungen.keys.count { it.startsWith("z") } }
+            if (!an) return
+            if (sucht && zentral > 2) {
+                scanner.stopScan(sucheRueckruf)
+                sucht = false
+                haupt.postDelayed(this, SUCHE_AUS_MS)
+                return
+            }
+            if (!sucht) {
+                val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(DIENST)).build()
+                val einstellungen = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).build()
+                scanner.startScan(listOf(filter), einstellungen, sucheRueckruf)
+                sucht = true
+            }
+            haupt.postDelayed(this, SUCHE_AN_MS)
+        }
+    }
+
+    private val sucheRueckruf = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) = verbindeMit(result.device)
+
+        override fun onBatchScanResults(results: MutableList<ScanResult>) = results.forEach { verbindeMit(it.device) }
+    }
+
+    private fun verbindeMit(geraet: BluetoothDevice) {
+        val jetzt = SystemClock.elapsedRealtime()
+        val k = synchronized(sperre) {
+            if (!aktiv || finde("z", geraet) != null) return
+            if ((ruhe[geraet.address] ?: 0L) > jetzt) return
+            if (verbindungen.keys.count { it.startsWith("z") } >= ZENTRAL_MAX) return
+            neu("z", geraet)
+            kontext
+        } ?: return
+        val gatt = geraet.connectGatt(k, false, gattRueckruf, BluetoothDevice.TRANSPORT_LE)
+        if (gatt == null) {
+            gescheitert(geraet)
+            return
+        }
+        synchronized(sperre) { finde("z", geraet)?.gatt = gatt }
+        // Wer in 8 s nicht bereit ist, wird getrennt und 120 s in Ruhe gelassen
+        haupt.postDelayed({
+            val offen = synchronized(sperre) { finde("z", geraet)?.takeIf { !it.bereit && it.gatt === gatt } }
+            if (offen != null) {
+                gescheitert(geraet)
+                gatt.disconnect()
+                gatt.close()
+            }
+        }, VERBINDEN_MS)
+    }
+
+    private fun gescheitert(geraet: BluetoothDevice) {
+        synchronized(sperre) { ruhe[geraet.address] = SystemClock.elapsedRealtime() + RUHE_MS }
+        entferne("z", geraet)
+    }
+
+    private val gattRueckruf = object : BluetoothGattCallback() {
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
+                if (!gatt.requestMtu(MTU)) gatt.discoverServices()
+            } else {
+                // Ruhe nur für Geräte, die nie bereit wurden – wer schon verbunden war und geht, darf gleich wieder
+                val warBereit = synchronized(sperre) { finde("z", gatt.device)?.bereit == true }
+                if (warBereit) entferne("z", gatt.device) else gescheitert(gatt.device)
+                gatt.close()
+            }
+        }
+
+        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) synchronized(sperre) { finde("z", gatt.device)?.grenze = minOf(mtu - 3, WERT_MAX) }
+            gatt.discoverServices()
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            val m = gatt.getService(DIENST)?.getCharacteristic(MERKMAL)
+            val d = m?.getDescriptor(MELDEN)
+            if (status != BluetoothGatt.GATT_SUCCESS || m == null || d == null || !gatt.setCharacteristicNotification(m, true)) {
+                gatt.disconnect()
+                return
+            }
+            synchronized(sperre) { finde("z", gatt.device)?.merkmal = m }
+            val an = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            val gestartet = if (Build.VERSION.SDK_INT >= 33) {
+                gatt.writeDescriptor(d, an) == BluetoothStatusCodes.SUCCESS
+            } else {
+                d.value = an
+                gatt.writeDescriptor(d)
+            }
+            if (!gestartet) gatt.disconnect()
+        }
+
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                gatt.disconnect()
+                return
+            }
+            val id = synchronized(sperre) { finde("z", gatt.device)?.also { it.bereit = true }?.id } ?: return
+            weiter(id)
+        }
+
+        @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION") // bis Android 12
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            if (characteristic.uuid == MERKMAL) empfange("z", gatt.device, characteristic.value)
+        }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            if (characteristic.uuid == MERKMAL) empfange("z", gatt.device, value)
+        }
+
+        override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            synchronized(sperre) { finde("z", gatt.device)?.id }?.let { fertig(it) }
         }
     }
 }

@@ -13569,3 +13569,19 @@ b3 Brücke), weil die Kotlin-Klasse allein über 400 Zeilen hätte.
 **Tests:** Skript-Selbsttest 3 (eintragen einmal und prüfen, jede Lücke fällt auf, Klasse bei Dienst, Merkmal, Werbung ohne
 Namen und JNI-Methoden); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14 (`-Werror`) übersetzt; Pakete unverändert.
 
+
+## Schritt B-36b2 – Bitchat: Bluetooth als Central in der Android-Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b2“), auf B-36b1 (#601).
+
+- **`packages/launcher/android/FreedomBitchat.kt`:** Central in derselben Klasse (nach `BLEService.swift`, Werte aus
+  `TransportConfig.swift`) – sucht nur mit Filter auf den Dienst von Bitchat, ab drei eigenen Verbindungen 5 s an und 10 s aus,
+  höchstens sechs Verbindungen; MTU 517, Dienst suchen, Meldungen abonnieren, dann bereit; schreiben ohne Antwort, je
+  Verbindung ein Wert zugleich. Wer in 8 s nicht bereit ist, bleibt 120 s unbeachtet – nur, wer nie bereit war. Verbindungen
+  als Central heißen `z<n>`. Ohne Werbung (`werbung: nicht-moeglich`) läuft Central weiter, statt Bluetooth abzulehnen;
+  `stoppe()` trennt auch die eigenen Verbindungen und beendet die Suche.
+- `scripts/test_android_bitchat.py`: hält Suchfilter und Obergrenze fest.
+- `docs/PROTOCOL.md` §45, Entwurf, README und Fallstrick der Hülle, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Skript-Selbsttest 3 (mit Suchfilter und Obergrenze); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14
+(`-Werror`) übersetzt; die CI baut das APK und prüft Klasse, Methoden und Rechte darin; Pakete unverändert.

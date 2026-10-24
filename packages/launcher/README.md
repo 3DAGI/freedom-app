@@ -241,12 +241,18 @@ Paket; was nicht in die Grenze einer Verbindung passt, nimmt `sende()` nicht an.
 - **Peripheral (B-36b1):** bietet Dienst und Merkmal von Bitchat an (Werbung nur mit der Kennung des
   Dienstes, ohne Gerätenamen), nimmt Schreiben an (lange Schreibvorgänge bis 512 Byte) und meldet an
   Geräte, die abonniert haben.
+- **Central (B-36b2):** sucht nur nach dem Dienst von Bitchat (bei mehr als zwei eigenen Verbindungen 5 s
+  an, 10 s aus), verbindet sich mit höchstens sechs Geräten, erbittet MTU 517, abonniert Meldungen und
+  schreibt ohne Antwort. Wer in 8 s nicht bereit ist, bleibt 120 s unbeachtet. Kann das Gerät keinen
+  Dienst anbieten, verbindet es sich nur selbst (`werbung: nicht-moeglich`).
 - **Rechte erst auf Klick** (`starte()`): ab Android 12 „Geräte in der Nähe“ (`BLUETOOTH_SCAN` nie für den
   Ort, `BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE`), bis Android 11 der Standort. Bluetooth LE ist keine
   Pflicht-Hardware.
 - **Ins Projekt** nur über `scripts/android-bitchat.py` nach `tauri android init`: Klasse neben die
   `MainActivity`, Rechte ins Manifest, Keep-Regel `freedom-bitchat.pro` (die Klasse ruft nur die Hülle über
   JNI). Die CI prüft Klasse, ihre Methoden (dexdump) und die Rechte im APK.
+- Verbindungen heißen `p1`, `p2` … (andere verbinden sich mit uns) und `z1`, `z2` … (wir mit ihnen) – die
+  App erfährt keine Adressen fremder Geräte.
 - Gerufen wird sie ab B-36b3 über `src/bitchat.rs`. Nur solange die App offen ist – ein Dienst im
   Hintergrund ist nicht gebaut.
 
