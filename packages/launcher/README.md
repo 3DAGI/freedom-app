@@ -253,8 +253,12 @@ Paket; was nicht in die Grenze einer Verbindung passt, nimmt `sende()` nicht an.
   JNI). Die CI prüft Klasse, ihre Methoden (dexdump) und die Rechte im APK.
 - Verbindungen heißen `p1`, `p2` … (andere verbinden sich mit uns) und `z1`, `z2` … (wir mit ihnen) – die
   App erfährt keine Adressen fremder Geräte.
-- Gerufen wird sie ab B-36b3 über `src/bitchat.rs`. Nur solange die App offen ist – ein Dienst im
-  Hintergrund ist nicht gebaut.
+- **Kommandos (B-36b3a, `src/bitchat.rs`):** `bitchat_stand`, `bitchat_starten`, `bitchat_stoppen`,
+  `bitchat_senden` (Kennung `p<n>`/`z<n>`, ein Wert bis 512 Byte – sonst Fehler `form`) und `bitchat_holen`
+  (alles Empfangene als Bytes: je Wert Länge der Kennung, Kennung, zwei Byte Länge, Wert). Die Hülle ruft
+  die Klasse über JNI auf dem Hauptthread; außer unter Android antwortet jedes Kommando mit `kein-android`.
+  In der App ab B-36b3b nur über `shell/bitchat-huelle.ts`.
+- Nur solange die App offen ist – ein Dienst im Hintergrund ist nicht gebaut.
 
 ## Kamera und Mikrofon (seit 6.1d)
 

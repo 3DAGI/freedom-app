@@ -13585,3 +13585,18 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b2“), auf B-36b1 (#601).
 
 **Tests:** Skript-Selbsttest 3 (mit Suchfilter und Obergrenze); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14
 (`-Werror`) übersetzt; die CI baut das APK und prüft Klasse, Methoden und Rechte darin; Pakete unverändert.
+
+## Schritt B-36b3a – Bitchat: Kommandos in der Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b3a“), auf B-36b2 (#602). B-36b3 ist geteilt (zusammen über 400 Zeilen):
+b3a Kommandos der Hülle, b3b Lesemodul der App.
+
+- **`packages/launcher/src/bitchat.rs`** (neu): fünf Kommandos `bitchat_stand`, `bitchat_starten`, `bitchat_stoppen`,
+  `bitchat_senden`, `bitchat_holen` – unter Android über JNI zu `FreedomBitchat` (`jni_handle().exec`, Hauptthread,
+  `find_class()`, Java-Ausnahmen gelöscht), sonst Fehler `kein-android`. Vorher nur die Form: Kennung `p<n>`/`z<n>`
+  (`kennung_ok()`), Wert 1–512 Byte (`wert_ok()`), sonst Fehler `form`. Empfangenes geht als Bytes zurück
+  (`tauri::ipc::Response`). Eingetragen in `lib.rs`, `build.rs` und `capabilities/oberflaeche.json`.
+- README und Fallstrick der Hülle, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Hülle 59 (vorher 57; neu: Kennungen wie Kotlin sie vergibt samt fremder Ziffern, Werte bis 512 Byte). Den
+Android-Zweig (JNI) übersetzt der APK-Job der CI.
