@@ -1793,5 +1793,12 @@ die Verbindung, von der sie kamen. Passt ein Paket nicht in die Grenze einer Ver
 (`zerlegeBitchatRoh()`): Die Fragmente tragen Absender, Empfänger, Zeit und TTL des Pakets, ihre Daten sind seine Bytes, wie sie
 kamen – samt Polster und gepackter Nutzlast, nie neu kodiert. Eigene Pakete gehen an alle Verbindungen nach der kleinsten Grenze.
 
+**Sitzungen** (seit B-36c2a2, BC-W2 A): Noise XX (§45 oben) nur mit Kontakten in der Nähe – Handshakes anderer Geräte bleiben
+unbeantwortet, Bitchat-Nutzer können Freedom-Geräte sehen, aber keine Sitzung mit ihnen öffnen. Die drei Nachrichten erkennt der
+Knoten an ihrer Länge ohne Nutzlast (32, 96, 64 Byte); beginnen beide zugleich, bleibt die kleinere Peer-ID Initiator. Eine
+Sitzung gilt erst, wenn der statische Schlüssel aus dem Handshake dem aus 38083 gleicht. Ein Handshake, der länger als 10 s dauert,
+zählt nicht mehr (Freedom-Wert); bis die Sitzung steht, warten höchstens 16 Umschläge je Gegenüber. Darin geht nur Typ `0xF0` mit
+einem Umschlag (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`).
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).
