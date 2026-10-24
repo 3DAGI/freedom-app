@@ -211,29 +211,3 @@ kasse.ts|leseKonfigurationVonKette|Lesehilfe der Kasse für eine einzelne Änder
 reticulum-umschlag.ts|verpackeFuerReticulum|Draht-Form des LXMF-Umschlags (B-32a, seit B-32d1 im Protokoll): App und Knoten senden über den Router in starteReticulum(), der selbst serialisiert; die Tests prüfen mit ihr die Form
 reticulum-umschlag.ts|entpackeAusReticulum|Gegenstück zu verpackeFuerReticulum (B-32a, seit B-32d1 im Protokoll): den Empfang packt der Router in starteReticulum() aus, geprüft über leseReticulumFelder(); die Tests prüfen mit ihr „nur an die eigene Adresse“
 
-bitchat-paket.ts|bitchatBlock|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|bitchatPeerId|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|bitchatSignierDaten|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|entpolstereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|kodiereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|leseBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|polstereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|pruefeBitchatSignatur|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|signiereBitchat|Bitchat-Paketformat (B-36a1, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|baueBitchatAnkuendigung|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|leseBitchatAnkuendigung|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|kodiereBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|leseBitchatFragment|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|zerlegeBitchat|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-paket.ts|BitchatZusammensetzer|Bitchat-Paketformat (B-36a2, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen bitchat-android
-bitchat-noise.ts|BitchatTransport|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
-bitchat-noise.ts|NoiseXX|Noise XX für Bitchat (B-36a3, BC-W1 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn gegen cacophony und snow
-bitchat-mesh.ts|BitchatDoppel|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
-bitchat-mesh.ts|bitchatNachrichtId|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
-bitchat-mesh.ts|bitchatFuerVerbindung|Senden je Bluetooth-Verbindung für Bitchat (B-36a4): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen Grenze und Polster
-bitchat-mesh.ts|bitchatWeiterreichen|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
-bitchat-mesh.ts|mitBitchatTtl|Fluten für Bitchat (B-36a4, BC-W2 A): Baustein, verdrahtet mit der Hülle und der App (B-36b/c); die Tests prüfen ihn Fall für Fall gegen RelayController
-bitchat-kontakt.ts|bitchatUmschlagKlartext|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
-bitchat-kontakt.ts|leseBitchatUmschlag|Bitchat zwischen Kontakten (B-36c1, BC-W2 A, BC-W3 A): Baustein, verdrahtet in der App ab B-36c2b; die Tests prüfen Siegel, Kontakte, Form und die Mesh-Regel
-bitchat-knoten.ts|BitchatKnoten|Bitchat-Knoten (B-36c2a1, BC-W2–W4 A): Baustein ohne Ein- und Ausgabe, verdrahtet in der App ab B-36c2b; die Tests spielen ein Netz mit fremdem Gerät und zwei Grenzen
-bitchat-paket.ts|zerlegeBitchatRoh|Bitchat roh zerlegen (B-36c2a1): genutzt vom Bitchat-Knoten, der ab B-36c2b in der App läuft; die Tests prüfen, dass die Daten die Bytes sind, wie sie kamen

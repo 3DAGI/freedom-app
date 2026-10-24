@@ -1026,4 +1026,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Reticulum mitbenutzen); die Identität nur aus `bitchatIdentitaet(geheim)`, erst wenn es etwas zu senden gibt. Vier Tests
   prüfen die Kette in `oeffneUmschlag()` wörtlich – ein neues Glied dort auch in ihnen nachtragen. In `GEHEIM_FEST` bleibt
   `"freedom.kontakte.geprueft"` der letzte Eintrag (der Test aus B-4 prüft das) – neue Einträge davor.
+  Den Knoten an der Hülle (seit B-36c2b2) nur über `shell/bitchat-weg.ts` (`BitchatLauf` aus `bitchat-lauf.ts`): ein Lauf erst,
+  wenn `bitchatStarten()` „an“ meldet, `eigeneSchluessel` aus `state.keypair`, der Takt mit `setTimeout` und je Lauf einer – hält an,
+  sobald die Hülle nicht mehr „an“ meldet. Direktnachrichten nur über `dmUeberBitchat()` in `zustellenDm()`, nach den Relays und vor
+  Reticulum; `true` heißt „hinaus“, nicht „angekommen“. Umschläge an mich nur über `nimmPostAusFunk()`.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*

@@ -13684,3 +13684,23 @@ Kontakte, c2b2 Knoten an der Hülle und Direktnachrichten.
 Knoten sie ankündigt, sechs kaputte Einträge nie ersetzt, nie in der Sicherung); app +3 (`bitchat-schluessel.test.ts`: Versand je
 Kontakt einmal, nicht als Gerät, neue Identität an alle, falsche Form nie; Buch getrennt von Reticulum; Verdrahtung); Leak +2
 (`leak/bitchat-schluessel.test.ts`: nur Umschläge, weder Schlüssel noch Absender, entkoppelt, ohne Zustimmung nichts).
+
+## Schritt B-36c2b2 – Bitchat: Knoten an der Hülle und Direktnachrichten
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2b2“), auf B-36c2b1 (#608). Damit ist c2 fertig.
+
+- **`packages/app/src/bitchat-lauf.ts`** (ohne DOM): `BitchatLauf.schritt()` holt Stand und Empfangenes von der Hülle, gibt es in
+  `nimm()` und schickt hinaus, was herauskommt (Weitergereichtes mit Versatz); angekündigt beim Start, bei neuer Verbindung und
+  sonst alle 30 s; ohne „an“ hält er an. `sende()` nur an Kontakte in der Nähe.
+- **`packages/app/src/shell/bitchat-weg.ts`:** `starteBitchat()` (Lauf erst nach „an“ der Hülle, Identität aus `geheim`, eigene
+  Schlüssel gegen die eigene Kopie), `stoppeBitchat()`, `dmUeberBitchat()`; Umschläge an mich über `nimmPostAusFunk()`.
+- **`zustellenDm()`** (`shell/tabs/posteingang.ts`): nimmt kein Relay die Kopie, erst Bitchat, dann Reticulum.
+- `scripts/wiring-ausnahmen.txt`: die 26 Ausnahmen der Bitchat-Bausteine sind weg – der Knoten läuft jetzt in der App.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +4 (`bitchat-lauf.test.ts`): zwei Geräte mit echtem Knoten hinter nachgebauter Hülle (Android 512, iPhone 182) –
+ankündigen, erkennen, Handshake und genau ein Umschlag, jeder Wert in der Grenze; angekündigt beim ersten Schritt, bei neuer
+Verbindung (an beide) und sonst nur alle 30 s, Weitergereichtes mit Versatz, ohne „an“ hält der Lauf; Fremde, Klartext und wer
+nicht in der Nähe ist bekommen nichts; Verdrahtung (Bitchat nach den Relays und vor Reticulum, Lauf erst nach „an“, Identität aus
+`geheim`, Post wie aus dem Funk, eigene Schlüssel). Gegenproben: ohne Ankündigung bei neuer Verbindung, ohne Versatz, ohne `post()`
+und ohne Halt wird je ein Test rot.

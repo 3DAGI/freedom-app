@@ -227,6 +227,18 @@ Identität je Gerät mit Grenze im Bericht.
   der Art `BITCHAT_SCHLUESSEL`) – nur mit Zustimmung, als Person, je Schlag ein Umschlag; Empfang am Ende der Kette in
   `oeffneUmschlag()`. Den Schalter für die Zustimmung bringt c3 (Oberfläche); bis dahin geht nichts hinaus.
 
+## Stand B-36c2b2 (24.10.2026)
+
+- **Knoten an der Hülle** (`bitchat-lauf.ts`, ohne DOM; `shell/bitchat-weg.ts`): Nach `starteBitchat()` holt die App alle 500 ms
+  Stand und Empfangenes von der Hülle, gibt es in `nimm()` und schickt hinaus, was herauskommt – Weitergereichtes mit seinem
+  Versatz. Angekündigt wird beim Start, bei jeder neuen Verbindung und sonst alle 30 s (Freedom-Wert, halb so lang, wie ein Kontakt
+  „in der Nähe“ gilt). Meldet die Hülle nicht mehr „an“, hält der Lauf an.
+- **Direktnachrichten** (BC-W2 A): Nimmt kein Relay die Kopie an den Empfänger, geht sie über Bitchat, wenn sein Gerät in der Nähe
+  ist (`dmUeberBitchat()` in `zustellenDm()`, vor Reticulum). „Hinaus“ heißt nicht „angekommen“: Scheitert der Handshake, bleibt
+  der Umschlag liegen. Umschläge an mich öffnet `nimmPostAusFunk()` wie Post aus dem Funk – auch ohne Netz.
+- **Weiter:** c3 – Oberfläche: Start auf Klick, Schalter für die Zustimmung, Kontakte in der Nähe, Grenze „bitchat“ im
+  Datenschutzbericht, Smoke-Test mit Attrappe der Hülle.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
