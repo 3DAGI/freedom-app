@@ -200,6 +200,15 @@ Identität je Gerät mit Grenze im Bericht.
   die Entwickler von Bitchat `0xF0` später selbst, braucht Freedom einen neuen Typ.
 - **Weiter:** c2a – der Bitchat-Knoten aus den Bausteinen (Ankündigung, Handshake, Fluten, Senden je Verbindung).
 
+## Stand B-36c2a1 (24.10.2026)
+
+- c2a ist geteilt (zusammen über 400 Zeilen): **c2a1** Knoten ohne Sitzungen, **c2a2** Noise-Sitzungen und Umschläge.
+- **`BitchatKnoten`** (`packages/protocol/src/bitchat-knoten.ts`): ohne Ein- und Ausgabe – die App gibt jeden Wert der Hülle in
+  `nimm()` und schickt hinaus, was herauskommt. Ankündigen (signiert, an alle Verbindungen nach der kleinsten Grenze), Kontakte
+  an ihrer Ankündigung erkennen (beide Schlüssel aus 38083, 60 s „in der Nähe“), Doppeltes und Eigenes verwerfen, Pakete anderer
+  roh weiterreichen – nie zurück, in kleinere Grenzen roh zerlegt (`zerlegeBitchatRoh()`, wie Bitchat).
+- **Weiter:** c2a2 – Noise-Sitzungen nur mit Kontakten in der Nähe, Umschläge darin (Typ `0xF0`).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

@@ -13631,3 +13631,21 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c1“), auf B-36b3b (#604). Erst
 Kind, nur von Kontakten; fremde Kerne (Autor, Kind, Inhalt, Reihenfolge, fehlendes und zusätzliches Tag, derselbe Schlüssel
 zweimal, Großbuchstaben, Zusatz im Tag); in der Noise-Sitzung nur Umschläge unter 0xF0 – nie die eigene Kopie, kein Klartext,
 keine kaputte Signatur, Bitchats eigene Typen nicht.
+
+## Schritt B-36c2a1 – Bitchat: Knoten – ankündigen, Kontakte erkennen, roh weiterreichen
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2a1“), auf B-36c1 (#605). c2a ist geteilt: c2a1 Knoten ohne Sitzungen, c2a2
+Noise-Sitzungen und Umschläge.
+
+- **`packages/protocol/src/bitchat-knoten.ts`** (neu): `BitchatKnoten` ohne Ein- und Ausgabe – ankündigen (signiert, nach der
+  kleinsten Grenze), Kontakte an ihrer Ankündigung erkennen (beide Schlüssel aus 38083, 60 s in der Nähe), Doppeltes und Eigenes
+  verwerfen, Pakete anderer roh weiterreichen (nie zurück, Fragmente zusammensetzen).
+- **`zerlegeBitchatRoh()`** (`bitchat-paket.ts`): ein empfangenes Paket roh zerlegen – die Fragmente tragen Absender, Empfänger, Zeit
+  und TTL, die Daten sind die Bytes, wie sie kamen. `zerlegeBitchat()` teilt sich dafür den Rest mit ihm (`zerlegeDaten()`).
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, Ausnahmen (verdrahtet ab B-36c2b), OFFEN, Sammlung, FORTSCHRITT,
+  Stand-Zeile.
+
+**Tests:** protocol +4 (`bitchat-knoten.test.ts`): A und B erkennen sich über ein fremdes Gerät R (jede Ankündigung einmal je
+Verbindung, TTL − 1, Frist, Kontakt entfernt); Kontakte nur mit beiden Schlüsseln, Doppeltes, Eigenes, Verändertes und Kaputtes
+nie; ein großes Paket geht von R an B in Fragmenten bis 182 Byte und setzt sich wieder zusammen, nichts zurück; roh zerlegen.
+Gegenproben: ohne Signaturprüfung, ohne Abgleich des Signier-Schlüssels und ohne rohes Zerlegen wird je ein Test rot.

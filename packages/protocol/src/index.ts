@@ -161,3 +161,4 @@ export * from "./bitchat-paket.js";
 export * from "./bitchat-noise.js";
 export * from "./bitchat-mesh.js";
 export * from "./bitchat-kontakt.js";
+export * from "./bitchat-knoten.js";

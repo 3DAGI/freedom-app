@@ -1786,5 +1786,12 @@ Nutzlast (`NoisePayloadType`). Freedom nimmt `0xF0` – Bitchat vergibt ihn nich
 `leseBitchatUmschlag()`, beides über `pruefeMeshInhalt()` (hinaus mit den eigenen Schlüsseln: die eigene Kopie geht nie hinaus).
 Anderes als Umschläge geht über Bitchat nicht – kein öffentlicher Chat, keine Transaktionen.
 
+**Knoten** (seit B-36c2a1, `bitchat-knoten.ts`): Ein Kontakt gilt als in der Nähe, wenn seine Ankündigung gültig signiert ist, die
+Peer-ID zum Noise-Schlüssel passt und beide Schlüssel denen aus 38083 gleichen – 60 s lang nach der letzten
+(`bleReachabilityRetentionVerifiedSeconds`). Pakete anderer reicht Freedom roh weiter (§45 oben, `mitBitchatTtl()`), nie zurück über
+die Verbindung, von der sie kamen. Passt ein Paket nicht in die Grenze einer Verbindung, zerlegt Freedom es roh
+(`zerlegeBitchatRoh()`): Die Fragmente tragen Absender, Empfänger, Zeit und TTL des Pakets, ihre Daten sind seine Bytes, wie sie
+kamen – samt Polster und gepackter Nutzlast, nie neu kodiert. Eigene Pakete gehen an alle Verbindungen nach der kleinsten Grenze.
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

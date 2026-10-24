@@ -233,3 +233,7 @@ Fallstricke dieses Bereichs unten anhängen.
   der Typ `0xF0` mit genau einem Umschlag (`bitchatUmschlagKlartext()`/`leseBitchatUmschlag()`, beide über
   `pruefeMeshInhalt()`) – nie einen Typ, den Bitchat vergibt (0x01–0x09, 0x10–0x12, 0x20, 0x21), nie Klartext, keine
   Transaktionen.
+  Ein Gerät im Netz (seit B-36c2a1) nur über `BitchatKnoten` – ohne Ein- und Ausgabe, Zeit und Zufall gibt der Aufrufer mit
+  (Tests ein ganzes Netz ohne Bluetooth). Kontakte nur an einer gültig signierten Ankündigung mit BEIDEN Schlüsseln aus 38083
+  (ein bekannter Noise-Schlüssel mit fremdem Signier-Schlüssel ist nicht der Kontakt). Weiterreichen in eine kleinere Grenze nur
+  über `zerlegeBitchatRoh()` – die rohen Bytes, nie `zerlegeBitchat()` auf ein neu kodiertes Paket.
