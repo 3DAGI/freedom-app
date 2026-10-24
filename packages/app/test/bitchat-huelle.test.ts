@@ -41,6 +41,11 @@ test("B-36b3b: Stand streng – Kotlin schickt JSON, Unbekanntes und Kaputtes gi
     verbindungen: [{ id: "p1", grenze: 512 }, { id: "z12", grenze: 182 }],
   });
   assert.deepEqual(leseBitchatStand('{"stand":"erlaubnis","werbung":"aus","verbindungen":[]}')?.stand, "erlaubnis");
+  // Ohne Werbung verbindet sich das Gerät nur selbst (B-36b2); höchstens 64 Verbindungen
+  const viele = (n: number) =>
+    JSON.stringify({ stand: "an", werbung: "nicht-moeglich", verbindungen: Array.from({ length: n }, (_, i) => ({ id: `z${i + 1}`, grenze: 20 })) });
+  assert.equal(leseBitchatStand(viele(64))?.verbindungen.length, 64);
+  assert.equal(leseBitchatStand(viele(65)), null, "über 64 Verbindungen");
   for (const kaputt of [
     gut.replace('"an","werbung"', '"vielleicht","werbung"'),
     gut.replace('"werbung":"an"', '"werbung":"laut"'),
