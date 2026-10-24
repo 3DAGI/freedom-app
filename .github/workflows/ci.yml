@@ -178,6 +178,11 @@ jobs:
           python3 scripts/test_check_wiring.py
           python3 scripts/check-wiring.py --streng
 
+      - name: Bitchat im Android-Projekt pruefen
+        # B-36b1: Rechte, Klasse und Keep-Regel trägt android-bitchat.py nach `tauri android init` ein – den Bau zeigt
+        # launcher.yml, hier der Selbsttest des Skripts und der Kotlin-Klasse (Dienst, Merkmal, JNI-Methoden).
+        run: python3 scripts/test_android_bitchat.py
+
       - name: innerHTML pruefen
         # Fremddaten (Relays, Provider, Profile, Raeume, Dateinamen, URLs)
         # duerfen nie ungeprueft in HTML landen. Jede Fundstelle ist entweder

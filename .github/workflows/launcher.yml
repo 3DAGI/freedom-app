@@ -23,9 +23,9 @@ name: Desktop-Hülle
 on:
   push:
     branches: [main]
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", "scripts/android-bitchat.py", ".github/workflows/launcher.yml"]
   pull_request:
-    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", ".github/workflows/launcher.yml"]
+    paths: ["packages/launcher/**", "packages/app/**", "packages/protocol/src/**", "scripts/launcher-symbole.py", "scripts/pt-bauen.sh", "scripts/pt-beilegen.sh", "scripts/android-bruecken.py", "scripts/android-bitchat.py", ".github/workflows/launcher.yml"]
   workflow_dispatch:
     inputs:
       veroeffentlichen:
@@ -257,7 +257,7 @@ jobs:
           name: tor-bruecken-huelle
           path: tor-bruecken
 
-      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon, Tor-Bruecken
+      - name: Android-Projekt erzeugen, eigene Symbole, Keep-Regel fuer androidx.webkit, Kamera und Mikrofon, Tor-Bruecken, Bitchat
         working-directory: packages/launcher
         run: |
           cargo tauri android init --ci
@@ -266,6 +266,8 @@ jobs:
           python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
           bash ../../scripts/pt-beilegen.sh ../../tor-bruecken . aarch64-linux-android
           python3 ../../scripts/android-bruecken.py gen/android/app
+          python3 ../../scripts/android-bitchat.py gen/android/app
+          python3 ../../scripts/android-bitchat.py gen/android/app --pruefen
 
       - name: APK bauen (arm64)
         working-directory: packages/launcher
@@ -279,6 +281,23 @@ jobs:
             grep -q -a -F "$k" dex/classes*.dex || { echo "fehlt im APK: $k"; exit 1; }
           done
           rm -rf dex
+
+      # B-36b1: die Bluetooth-Klasse ruft nur die Hülle über JNI – sie muss den Release-Build (R8) überstehen
+      - name: Pruefen – Bitchat-Klasse und Bluetooth-Rechte im APK (B-36b1)
+        working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          rm -rf dex && mkdir dex && unzip -q app-universal-release-unsigned.apk 'classes*.dex' -d dex
+          "$BT/dexdump" dex/classes*.dex | awk "/Class descriptor *: 'Lio\/github\/threedagi\/freedom\/FreedomBitchat;'/{a=1;next} /Class descriptor/{a=0} a" > klasse.txt
+          for m in stand starte stoppe sende hole; do
+            grep -q -E "name *: '$m'" klasse.txt || { echo "fehlt im APK: FreedomBitchat.$m"; exit 1; }
+          done
+          rm -rf dex klasse.txt
+          "$BT/aapt2" dump permissions app-universal-release-unsigned.apk | tee rechte.txt
+          for r in BLUETOOTH_SCAN BLUETOOTH_CONNECT BLUETOOTH_ADVERTISE; do
+            grep -q "android.permission.$r'" rechte.txt || { echo "fehlt im APK: $r"; exit 1; }
+          done
+          rm -f rechte.txt
 
       - name: Pruefen – Kamera und Mikrofon im Manifest des APK (6.1d)
         working-directory: packages/launcher/gen/android/app/build/outputs/apk/universal/release
