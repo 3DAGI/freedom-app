@@ -505,8 +505,8 @@ export const settings: Texte = {
   "set.bitchatAus": { de: "Bitchat ist aus.", en: "Bitchat is off." },
   "set.bitchatVonSelbstAus": { de: "Bitchat ist aus – Bluetooth läuft nicht mehr (ausgeschaltet oder Erlaubnis entzogen).", en: "Bitchat is off – Bluetooth is no longer running (switched off or permission withdrawn)." },
   "set.bitchatKontakteText": {
-    de: "Über Bitchat erreichst du nur Kontakte, deren Bitchat-Schlüssel du hast – und sie dich nur mit deinen. Die App gibt deine nur versiegelt an deine Kontakte und nur, wenn du hier zustimmst.",
-    en: "Over Bitchat you only reach contacts whose Bitchat keys you have – and they reach you only with yours. The app gives yours to your contacts only sealed, and only if you agree here.",
+    de: "Über Bitchat erreichst du nur Kontakte, deren Bitchat-Schlüssel du hast – und sie dich nur mit deinen. Die App gibt deine nur versiegelt an deine Kontakte und nur, wenn du hier zustimmst. Ohne Internet: Zeigt euch gegenseitig den Bitchat-Code und scannt ihn – wer den Code sieht, kann dein Gerät im Funk dir zuordnen.",
+    en: "Over Bitchat you only reach contacts whose Bitchat keys you have – and they reach you only with yours. The app gives yours to your contacts only sealed, and only if you agree here. Without internet: show each other your Bitchat codes and scan them – whoever sees your code can link your device over the air to you.",
   },
   "set.bitchatTeilenJa": { de: "Meine Bitchat-Schlüssel versiegelt an meine Kontakte geben", en: "Give my Bitchat keys sealed to my contacts" },
   "set.bitchatTeilenHinweis": {
@@ -517,6 +517,17 @@ export const settings: Texte = {
   "set.bitchatKontakteStand": { de: "Mit Kontakten", en: "With contacts" },
   "set.bitchatKontakteZahl": { de: "an {geteilt} gegeben, von {erhalten} erhalten", en: "given to {geteilt}, received from {erhalten}" },
   "set.bitchatMerken": { de: "Merken", en: "Save" },
+  "set.bitchatKarte": { de: "Mein Bitchat-Code – nur dem Gegenüber zeigen", en: "My Bitchat code – show it only to the person in front of you" },
+  "set.bitchatKarteScannen": { de: "Bitchat-Code des Gegenübers (scannen oder einfügen)", en: "The other person's Bitchat code (scan or paste)" },
+  "set.bitchatKarteFalsch": { de: "Kein gültiger Bitchat-Code", en: "Not a valid Bitchat code" },
+  "set.bitchatKarteEigene": { de: "Das ist dein eigener Code", en: "That is your own code" },
+  "set.bitchatKarteNeuTitel": { de: "Neuer Kontakt?", en: "New contact?" },
+  "set.bitchatKarteNeuText": {
+    de: "{name} ist noch kein Kontakt. Als Kontakt anlegen und die Bitchat-Schlüssel übernehmen?",
+    en: "{name} is not a contact yet. Add as a contact and take over the Bitchat keys?",
+  },
+  "set.bitchatKarteAnlegen": { de: "Anlegen", en: "Add" },
+  "set.bitchatKarteUebernommen": { de: "Bitchat-Schlüssel von {name} übernommen", en: "Took over the Bitchat keys of {name}" },
   "set.bitchatNaehe": { de: "Gerade in der Nähe", en: "Nearby right now" },
   "set.bitchatNiemand": { de: "niemand", en: "nobody" },
   "set.bitchatDm": { de: "Kein Relay hat die Nachricht genommen – über Bitchat an das Gerät in der Nähe gegeben", en: "No relay took the message – handed over Bitchat to the device nearby" },

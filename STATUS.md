@@ -13759,3 +13759,24 @@ BC-W5 A (signiert), BC-W6 A (auch Neue nach Rückfrage).
 oder kaputte Schlüssel nie); andere Person, geänderte oder getauschte Felder, andere Signatur nie; Form (Fassung,
 Großbuchstaben, führende Null, Feld zu viel, leer) und Zukunft bis genau 600 s; ein Signer, der andere Zeit, anderen Schlüssel
 oder mehr Tags signiert, ergibt keine Karte.
+
+## Schritt B-36e2 – Bitchat: Schlüssel beim Treffen per QR-Code in der App
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36e2“), auf B-36e1 (#612). Damit ist B-36e fertig.
+
+- **`shell/bitchat-ui.ts`:** Im Dialog „Bitchat-Kontakte“ der eigene Code (QR auf Klick, nur als Person) und ein Feld für den
+  des Gegenübers (scannen oder einfügen); ein kaputter oder der eigene Code hält den Dialog offen. Ist die Person noch kein
+  Kontakt, fragt die App („Neuer Kontakt?“) und legt sie erst dann an (BC-W6 A).
+- **`shell/bitchat-kontakte.ts`:** `eigeneBitchatKarte()` (Identität aus `geheim`, signiert über den Signer, als Gerät nie),
+  `nimmBitchatKarte()` (ins Buch wie aus einem Umschlag).
+- **`shell/tabs/kommunikation.ts`:** `legeKontaktAn()` – derselbe Weg wie `oeffneDirektnachricht()`, ohne die Unterhaltung zu
+  öffnen (Datei der Spur C, drei Zeilen).
+- **Datenschutzbericht:** Grenze „bitchat“ nennt den Code beim Treffen (wer ihn sieht oder fotografiert) und die Signatur
+  (BC-W5 A).
+- `scripts/bitchat-karte-probe.mts` (Code eines Fremden für den Smoke-Test); die zwei Ausnahmen aus B-36e1 sind wieder weg.
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +1 (`bitchat-ui.test.ts`: eigener Code nur als Person und nur mit Karte, fremder nur geprüft, erst fragen, dann
+anlegen, dann merken, abgelehnt nichts, nie an ein Relay; der Test aus B-36c3 folgt dem neuen Ablauf); protocol: Grenze
+„bitchat“ mit Code und Signatur; Smoke „bitchat“ erweitert: QR auf Klick, kaputter Code hält den Dialog offen, ein Fremder
+wird nach „Anlegen“ Kontakt und seine Schlüssel stehen im Buch.

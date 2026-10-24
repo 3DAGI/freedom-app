@@ -4123,7 +4123,12 @@ def bitchat_pruefen(browser, url: str) -> dict:
     sich einmal an – ein Paket vom Typ Ankündigung in der Grenze der Verbindung (182 Byte) –, die Identität „anon“ und vier
     Ziffern entsteht. Der Dialog „Bitchat-Kontakte“ nimmt die Zustimmung (nur mit Haken), ein zweiter Klick hält an, und danach
     fragt die App die Hülle nichts mehr. Hält die Hülle von selbst an (B-36c4: Bluetooth aus), hält die App sie ganz an, und der
-    Knopf zeigt wieder „Bitchat (Bluetooth)“; ein Klick startet neu."""
+    Knopf zeigt wieder „Bitchat (Bluetooth)“; ein Klick startet neu. Beim Treffen (B-36e2): der eigene Code als QR-Code auf
+    Klick, ein kaputter Code hält den Dialog offen, der Code eines Fremden (`scripts/bitchat-karte-probe.mts`) legt ihn erst
+    nach Rückfrage als Kontakt an und merkt seine Bitchat-Schlüssel."""
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/bitchat-karte-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
     erg = {"fehler": []}
     seite = DialogSeite(browser, url, ProbeRelay(), erg, init=BITCHAT_ATTRAPPE)
     s, ev = seite.s, seite.ev
@@ -4144,10 +4149,23 @@ def bitchat_pruefen(browser, url: str) -> dict:
     erg["nach_pause"] = ev(bc)
     s.click("#mesh-bitchat-kontakte")
     erg["dialog"] = seite.warte_dialog("Bitchat-Kontakte")
-    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")
+    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    erg["qr"] = ev("() => !!document.querySelector('[role=dialog] svg.qr-bild')")
+    feld = "(v) => { const f = document.querySelector('[role=dialog] input:not([type=checkbox])'); f.value = v; f.dispatchEvent(new Event('input')); }"
+    ev(feld, "freedom-bitchat:1:kaputt")
     dialog_ok(seite, "Merken")
+    s.wait_for_function("() => !!document.querySelector('[role=dialog] [role=alert]')?.textContent", timeout=5000)
+    erg["kaputt"] = seite.stand()["meldung"]
+    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")
+    ev(feld, probe["karte"])
+    dialog_ok(seite, "Merken")
+    erg["neu"] = seite.warte_dialog("Neuer Kontakt?")
+    dialog_ok(seite, "Anlegen")
     seite.warte_zu()
+    s.wait_for_function("(p) => (localStorage.getItem('freedom.bitchat.kontakte') ?? '').includes(p)", arg=probe["person"], timeout=10000)
     erg["teilen"] = ev("() => localStorage.getItem('freedom.bitchat.teilen')")
+    erg["angelegt"] = ev("(p) => JSON.parse(localStorage.getItem('freedom.chats') ?? '[]').some((c) => c.id === p && c.type === 'dm')", probe["person"])
+    erg["schluessel"] = ev("(p) => JSON.parse(localStorage.getItem('freedom.bitchat.kontakte'))[p]?.adresse", probe["person"])
     # Die Hülle hält von selbst an: die App ruft `bitchat_stoppen`, der Knopf folgt; ein Klick startet neu
     vorher = len(ev(bc)["aufrufe"])
     ev("() => { window.__BC__.an = false; }")
@@ -4182,8 +4200,15 @@ def bitchat_pruefen(browser, url: str) -> dict:
     if erg["status"] != "Bitchat ist an – dein Gerät kündigt sich über Bluetooth an." or not erg["identitaet"]:
         f.append(f"an: {erg['status']!r}, Identität {erg['identitaet']}")
     d = erg["dialog"] or {}
-    if d.get("haken") != [False] or d.get("felder") != ["Kontakte", "Mit Kontakten", "Gerade in der Nähe"] or d.get("werte") != ["an 0 gegeben, von 0 erhalten", "niemand"]:
-        f.append(f"Dialog {d}")
+    if d.get("haken") != [False] or d.get("felder") != ["Kontakte", "Mit Kontakten", "Mein Bitchat-Code – nur dem Gegenüber zeigen",
+                                                         "Bitchat-Code des Gegenübers (scannen oder einfügen)", "Gerade in der Nähe"] \
+            or d.get("werte") != ["an 0 gegeben, von 0 erhalten", "", "niemand"] or not erg["qr"]:
+        f.append(f"Dialog {d}, QR {erg['qr']}")
+    if erg["kaputt"] != "Kein gültiger Bitchat-Code":
+        f.append(f"kaputter Code {erg['kaputt']!r}")
+    if not (erg["neu"] or {}).get("text", "").endswith("ist noch kein Kontakt. Als Kontakt anlegen und die Bitchat-Schlüssel übernehmen?") \
+            or not erg["angelegt"] or erg["schluessel"] != f"{probe['noise']}:{probe['signier']}":
+        f.append(f"Code übernommen: {erg['neu']}, angelegt {erg['angelegt']}, Schlüssel {erg['schluessel']}")
     if erg["teilen"] != "1":
         f.append(f"Zustimmung {erg['teilen']!r}")
     vs = erg["von_selbst"]

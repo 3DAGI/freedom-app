@@ -1034,6 +1034,9 @@ Fallstricke dieses Bereichs unten anhängen.
   erscheinen nur mit `bitchatAufruf()`; an und aus nur im Klick, vorher der Tresor (Identität in `geheim`), die Zustimmung nur
   als Person (`setzeBitchatTeilen()`), Nahe nur als Namen (`kontaktName`). Ein neuer Stand der Hülle braucht einen Satz in
   `STAND_TEXT`. Hält der Lauf von selbst an (seit B-36c4), ruft er `bitchatStoppen()` – nie die Hülle laufen lassen, wenn
-  die App sich für aus hält; die Oberfläche erfährt es nur über `wennBitchatHaelt()`. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
+  die App sich für aus hält; die Oberfläche erfährt es nur über `wennBitchatHaelt()`. Schlüssel beim Treffen (seit B-36e2,
+  BC-W5 A, BC-W6 A) nur über den Dialog „Bitchat-Kontakte“: der eigene Code nur aus `eigeneBitchatKarte()` (als Person,
+  QR auf Klick), der fremde nur über `leseBitchatKarte()`; eine Person, die noch kein Kontakt ist, erst nach `bestaetige()`
+  über `legeKontaktAn()` – dann `nimmBitchatKarte()`. Die Karte geht nie an ein Relay. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
   „auditiert“. Im Smoke-Test („bitchat“) spielt `BITCHAT_ATTRAPPE` die Android-Hülle.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*
