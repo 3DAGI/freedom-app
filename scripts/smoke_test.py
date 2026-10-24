@@ -4122,7 +4122,8 @@ def bitchat_pruefen(browser, url: str) -> dict:
     samt Hinweis; vor dem Klick fragt die App die Hülle nichts und legt keine Identität an. Der Klick startet: Die App kündigt
     sich einmal an – ein Paket vom Typ Ankündigung in der Grenze der Verbindung (182 Byte) –, die Identität „anon“ und vier
     Ziffern entsteht. Der Dialog „Bitchat-Kontakte“ nimmt die Zustimmung (nur mit Haken), ein zweiter Klick hält an, und danach
-    fragt die App die Hülle nichts mehr."""
+    fragt die App die Hülle nichts mehr. Hält die Hülle von selbst an (B-36c4: Bluetooth aus), hält die App sie ganz an, und der
+    Knopf zeigt wieder „Bitchat (Bluetooth)“; ein Klick startet neu."""
     erg = {"fehler": []}
     seite = DialogSeite(browser, url, ProbeRelay(), erg, init=BITCHAT_ATTRAPPE)
     s, ev = seite.s, seite.ev
@@ -4147,6 +4148,19 @@ def bitchat_pruefen(browser, url: str) -> dict:
     dialog_ok(seite, "Merken")
     seite.warte_zu()
     erg["teilen"] = ev("() => localStorage.getItem('freedom.bitchat.teilen')")
+    # Die Hülle hält von selbst an: die App ruft `bitchat_stoppen`, der Knopf folgt; ein Klick startet neu
+    vorher = len(ev(bc)["aufrufe"])
+    ev("() => { window.__BC__.an = false; }")
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat (Bluetooth)'", timeout=10000)
+    s.wait_for_timeout(1500)
+    selbst = ev(bc)
+    danach = selbst["aufrufe"][vorher:]
+    erg["von_selbst"] = {"stoppen": danach.count("bitchat_stoppen"),
+                         "nach_stoppen": danach[danach.index("bitchat_stoppen") + 1:] if "bitchat_stoppen" in danach else None,
+                         "status": ev("() => document.getElementById('mesh-status').textContent")}
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => window.__BC__.gesendet.length === 2", timeout=10000)
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat anhalten'", timeout=10000)
     s.click("#mesh-bitchat")
     s.wait_for_function("() => document.getElementById('mesh-status').textContent === 'Bitchat ist aus.'", timeout=10000)
     vorher = len(ev(bc)["aufrufe"])
@@ -4172,6 +4186,9 @@ def bitchat_pruefen(browser, url: str) -> dict:
         f.append(f"Dialog {d}")
     if erg["teilen"] != "1":
         f.append(f"Zustimmung {erg['teilen']!r}")
+    vs = erg["von_selbst"]
+    if vs["stoppen"] != 1 or vs["nach_stoppen"] != [] or vs["status"] != "Bitchat ist aus – Bluetooth läuft nicht mehr (ausgeschaltet oder Erlaubnis entzogen).":
+        f.append(f"von selbst {vs}")
     if erg["aus"] != {"stoppen": ["bitchat_stoppen"], "danach": [], "knopf": "Bitchat (Bluetooth)"}:
         f.append(f"aus {erg['aus']}")
     if seite.browser_dialoge:

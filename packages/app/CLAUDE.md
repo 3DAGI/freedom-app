@@ -1033,6 +1033,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Oberfläche (seit B-36c3) nur über `shell/bitchat-ui.ts`: Knöpfe `#mesh-bitchat`/`#mesh-bitchat-kontakte` sind versteckt und
   erscheinen nur mit `bitchatAufruf()`; an und aus nur im Klick, vorher der Tresor (Identität in `geheim`), die Zustimmung nur
   als Person (`setzeBitchatTeilen()`), Nahe nur als Namen (`kontaktName`). Ein neuer Stand der Hülle braucht einen Satz in
-  `STAND_TEXT`. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
+  `STAND_TEXT`. Hält der Lauf von selbst an (seit B-36c4), ruft er `bitchatStoppen()` – nie die Hülle laufen lassen, wenn
+  die App sich für aus hält; die Oberfläche erfährt es nur über `wennBitchatHaelt()`. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
   „auditiert“. Im Smoke-Test („bitchat“) spielt `BITCHAT_ATTRAPPE` die Android-Hülle.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*

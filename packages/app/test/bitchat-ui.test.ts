@@ -67,3 +67,17 @@ test("B-36c3: Zustimmung nur als Person, gezeigt wird die Nähe nur über Namen;
     setLang(vorher);
   }
 });
+
+test("B-36c4: hält die Hülle von selbst an, hält die App sie ganz an, und der Knopf folgt", () => {
+  const weg = lies("shell/bitchat-weg.ts");
+  const takt = weg.slice(weg.indexOf("function takt("), weg.indexOf("function halt("));
+  assert.match(takt, /if \(weiter\) return takt\(l\);\n(?:\s*\/\/[^\n]*\n)*\s*halt\(true\);\n\s*void bitchatStoppen\(\);/, "sonst bliebe der Dienst sichtbar");
+  assert.match(weg, /const war = lauf;\n  lauf = null;\n  if \(war\) beimHalt\?\.\(vonSelbst\);/, "nur ein laufender Lauf meldet sich");
+  const halte = weg.slice(weg.indexOf("export async function stoppeBitchat"));
+  assert.match(halte, /^export async function stoppeBitchat\(\): Promise<void> \{\n  halt\(\);/, "angehalten auf Klick ist nicht „von selbst“");
+  const ui = lies("shell/bitchat-ui.ts");
+  const knopf = ui.slice(ui.indexOf("export async function bitchatKnopf"), ui.indexOf("export async function bitchatKontakteDialog"));
+  const melde = knopf.indexOf("wennBitchatHaelt((vonSelbst) => {");
+  assert.ok(melde > 0 && melde < knopf.indexOf("await starteBitchat()"), "vor dem Start angemeldet");
+  assert.match(knopf, /if \(vonSelbst\) zeige\(t\("set\.bitchatVonSelbstAus"\)\);/);
+});

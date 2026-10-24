@@ -13726,3 +13726,18 @@ kaputte Identität schaltet aus, jeder Stand mit Text in beiden Sprachen, Zustim
 „bitchat“: vor dem Klick nichts, dann eine Ankündigung in 182 Byte, keine zweite in 1,5 s, Identität „anon“ und vier Ziffern,
 Zustimmung nur mit Haken, nach dem Anhalten keine Frage mehr an die Hülle. Gegenproben: ohne Tresor-Sperre und mit „gegeben“
 ohne Senden wird je ein Test rot.
+
+## Schritt B-36c4 – Bitchat: hält die Hülle von selbst an, hält die App sie ganz an
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Nachtrag B-36c4“), auf B-36c3 (#610) – dort als Risiko genannt.
+
+- **`shell/bitchat-weg.ts`:** Meldet die Hülle nicht mehr „an“ (Bluetooth aus, Erlaubnis entzogen) oder antwortet nicht, endet
+  der Lauf und die App ruft `bitchat_stoppen` – sonst bliebe der Dienst von Bitchat sichtbar, obwohl die App sich für aus hält.
+  `wennBitchatHaelt()` sagt der Oberfläche, dass der Lauf endete (`vonSelbst`), nur wenn einer lief.
+- **`shell/bitchat-ui.ts`:** Knopf und Status folgen („Bitchat ist aus – Bluetooth läuft nicht mehr …“), ein Klick startet neu.
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +1 (`bitchat-ui.test.ts`: von selbst → `halt(true)` und `bitchatStoppen()`, nur ein laufender Lauf meldet sich,
+Anhalten auf Klick ist nicht „von selbst“, die Oberfläche meldet sich vor dem Start an); Smoke „bitchat“ erweitert: Die
+Attrappe hält von selbst an – die App ruft genau einmal `bitchat_stoppen` und danach nichts mehr, Knopf und Status folgen, ein
+Klick startet neu und kündigt wieder an. Gegenprobe: ohne `bitchatStoppen()` wird der Test rot.
