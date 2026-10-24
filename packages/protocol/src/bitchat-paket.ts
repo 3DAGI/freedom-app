@@ -372,18 +372,24 @@ export function leseBitchatFragment(d: Uint8Array): BitchatFragment | null {
 }
 
 /**
- * Zerlegt ein Paket, das ungepolstert größer als die MTU ist, in Fragmente (Typ 0x20, ohne Signatur, gleicher Absender,
- * Empfänger, Zeit und TTL – wie bitchat-android). Datenstücke so groß, dass jedes Fragment mit Polster in 512 Byte passt.
- * Die Kennung gibt der Aufrufer (8 Zufallsbyte).
+ * Zerlegt ein Paket, das größer als die MTU ist, in Fragmente (Typ 0x20, ohne Signatur, gleicher Absender, Empfänger, Zeit
+ * und TTL – wie bitchat-android). Datenstücke so groß, dass jedes Fragment mit Polster in 512 Byte passt. Die Kennung gibt
+ * der Aufrufer (8 Zufallsbyte). Seit B-36a4 auch für eine kleinere Grenze je Verbindung (`grenze`) und über das gepolsterte
+ * Paket (`polster`) – dann verrät auch das Zerlegen die Länge nicht.
  */
-export function zerlegeBitchat(p: BitchatPaket, kennung: Uint8Array): BitchatPaket[] {
-  const ganz = kodiereBitchat(p);
-  if (ganz.length <= BITCHAT_GRENZEN.mtu) return [p];
+export function zerlegeBitchat(
+  p: BitchatPaket,
+  kennung: Uint8Array,
+  o: { grenze?: number; polster?: boolean } = {},
+): BitchatPaket[] {
+  const grenze = o.grenze ?? BITCHAT_GRENZEN.mtu;
+  const ganz = kodiereBitchat(p, { polster: o.polster });
+  if (ganz.length <= grenze) return [p];
   const route = p.version === 2 && p.route?.length ? p.route : undefined;
   const kopf = route ? 16 : 14;
   const aufwand =
     kopf + 8 + (p.empfaenger ? 8 : 0) + (route ? 1 + route.length * 8 : 0) + BITCHAT_GRENZEN.fragmentKopf + 16;
-  const stueck = Math.min(BITCHAT_GRENZEN.mtu - aufwand, 469);
+  const stueck = Math.min(Math.min(grenze, BITCHAT_GRENZEN.mtu) - aufwand, 469);
   if (stueck <= 0) throw new BitchatFehler("zu-gross");
   const gesamt = Math.ceil(ganz.length / stueck);
   if (gesamt > BITCHAT_GRENZEN.fragmente) throw new BitchatFehler("zu-gross");

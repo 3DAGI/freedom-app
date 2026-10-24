@@ -222,3 +222,8 @@ Fallstricke dieses Bereichs unten anhängen.
   Änderung, die einen Vektor rot macht, ist falsch; der Transport nur über `BitchatTransport` (Nonce vorn, Fenster 1024). Ein
   gescheiterter Schritt beendet den Handshake (`abgebrochen`) – nie denselben weiterverwenden, sein Zustand ist halb
   fortgeschrieben.
+  Fluten (seit B-36a4) nur über `bitchat-mesh.ts`: Doppeltes über `BitchatDoppel`, ob und mit welcher TTL über
+  `bitchatWeiterreichen()` (Regeln von `RelayController`, im Test mit festem `zufall`), weitergereicht nur roh über
+  `mitBitchatTtl()` – nie neu kodieren: Gepackte Nutzlast anderer entpackt Freedom nie, und eine neue Kodierung änderte die
+  Bytes, über die geprüft wird. Über Bluetooth nur, was `bitchatFuerVerbindung()` liefert: je Wert ein ganzes Paket in der
+  Grenze der Verbindung – bitchat-android setzt keine Stücke zusammen, ein geteiltes Paket ginge verloren.

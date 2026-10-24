@@ -13530,3 +13530,24 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a3“), auf B-36a2.
 Schlüssel der Gegenseite); Transport wie Bitchat (Nonce vorn, vertauscht ja, doppelt und zu alt nie, Veränderung und fremde
 Sitzung scheitern, ein Fehlversuch verbraucht die Nonce nicht); Handshake nur in Reihenfolge, falscher flüchtiger Schlüssel und
 Veränderung scheitern, ein Fehler beendet ihn. Die Gegenprobe fand den halb fortgeschriebenen Zustand nach einem Fehler.
+
+## Schritt B-36a4 – Bitchat: Fluten
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a4“), auf B-36a3 (#599). Damit sind die Bausteine im Protokoll fertig.
+
+- **`packages/protocol/src/bitchat-mesh.ts`** (neu): Kennung zum Doppelt-Erkennen wie `BLEIngressLinkRegistry.messageID`,
+  `BitchatDoppel` (1000 Kennungen, 5 Minuten), `bitchatWeiterreichen()` wie `RelayController.decide` (nie Eigenes, nie an mich,
+  nie TTL ≤ 1, nie Sync-Anfragen; Gerichtetes und Handshakes mit TTL − 1; Rundrufe nach Dichte; Fragmente und Sprache eigene
+  Grenzen; Versatz aus einem mitgegebenen Zufall), `mitBitchatTtl()` (roh weiterreichen, nur das TTL-Byte neu),
+  `bitchatFuerVerbindung()` (je Verbindung: das Paket ganz, sonst Fragmente in der Grenze der Verbindung).
+- **Befund aus den Quellen:** Bitchat schreibt und meldet über Bluetooth je Wert genau ein ganzes Paket; was nicht in die
+  Grenze der Verbindung passt (MTU − 3, unter iOS oft 182 Byte), zerlegt es vorher (`fragmentChunkSize(forLinkLimit:)`).
+  bitchat-android liest jeden Wert für sich. Deshalb zerlegt `zerlegeBitchat()` jetzt auch für eine kleinere Grenze
+  (`grenze`) und über das gepolsterte Paket (`polster`); ein Zusammensetzen von Stücken in der Hülle gibt es nicht.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +7 (`bitchat-mesh.test.ts`): Kennung (TTL zählt nicht), Doppeltes mit Frist und Grenze, alle Fälle ohne
+Weiterreichen, Gerichtetes und Handshakes, Rundrufe je Dichte samt Versatzgrenzen, roh weiterreichen mit gültiger Signatur;
++1 je Verbindung (Android 514 Byte ganz und gepolstert, iOS 182 Byte in Fragmenten aus dem gepolsterten Paket, zu kleine
+Grenze). Gegenprobe: ohne Grenze oder ohne Polster beim Zerlegen wird der Test rot.
