@@ -1768,5 +1768,23 @@ höchstens MTU − 3. Als Central (seit B-36b2) sucht Freedom nur nach diesem Di
 Geräten, erbittet MTU 517 und abonniert das Merkmal; geschrieben wird ohne Antwort. Bei mehr als zwei eigenen Verbindungen sucht
 es 5 s und ruht 10 s; ein Gerät, das in 8 s nicht bereit ist, bleibt 120 s unbeachtet (Werte aus `TransportConfig.swift`).
 
+**Schlüssel an Kontakte** (Kind 38083, seit B-36c1, BC-W3 A): Wer einem Kontakt über Bitchat schreiben will, braucht dessen
+Noise-Schlüssel (daraus die Peer-ID) und Signier-Schlüssel. Die App gibt beide nur versiegelt an Kontakte, je Kontakt ein Umschlag
+(NIP-59, `baueBitchatSchluesselUmschlaege()`) – wie die Reticulum-Adresse (§44). Kein eigenes Merkmal in der Ankündigung: Das
+verriete jedem im Funk, dass hier Freedom läuft.
+
+```json
+{ "kind": 38083, "pubkey": "<Person>", "content": "", "tags": [["noise", "<64 Zeichen Hex>"], ["signier", "<64 Zeichen Hex>"]] }
+```
+
+**Lesen** nur über `oeffneBitchatSchluesselUmschlag()`: der Kern vom Siegel-Autor, der ein Kontakt ist, Kind 38083, leerer Inhalt,
+genau diese zwei Tags in dieser Reihenfolge, zwei verschiedene Schlüssel – sonst nichts.
+
+**Freedom in der Noise-Sitzung** (seit B-36c1, BC-W2 A): Der Klartext einer Noise-Nachricht beginnt bei Bitchat mit dem Typ der
+Nutzlast (`NoisePayloadType`). Freedom nimmt `0xF0` – Bitchat vergibt ihn nicht (Swift `5e9287f`: 0x01–0x09, 0x10–0x12, 0x20,
+0x21) – und dahinter genau einen Umschlag (1059) als JSON. Hinaus nur über `bitchatUmschlagKlartext()`, herein nur über
+`leseBitchatUmschlag()`, beides über `pruefeMeshInhalt()` (hinaus mit den eigenen Schlüsseln: die eigene Kopie geht nie hinaus).
+Anderes als Umschläge geht über Bitchat nicht – kein öffentlicher Chat, keine Transaktionen.
+
 Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
 die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

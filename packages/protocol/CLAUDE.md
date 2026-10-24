@@ -227,3 +227,9 @@ Fallstricke dieses Bereichs unten anhängen.
   `mitBitchatTtl()` – nie neu kodieren: Gepackte Nutzlast anderer entpackt Freedom nie, und eine neue Kodierung änderte die
   Bytes, über die geprüft wird. Über Bluetooth nur, was `bitchatFuerVerbindung()` liefert: je Wert ein ganzes Paket in der
   Grenze der Verbindung – bitchat-android setzt keine Stücke zusammen, ein geteiltes Paket ginge verloren.
+  Zwischen Freedom-Kontakten (seit B-36c1, BC-W2 A, BC-W3 A) nur über `bitchat-kontakt.ts`: Noise- und Signier-Schlüssel nur
+  versiegelt an Kontakte (`baueBitchatSchluesselUmschlaege()`, Kind 38083, je Kontakt ein Umschlag), gelesen nur über
+  `oeffneBitchatSchluesselUmschlag()` – nie ein Merkmal in der Ankündigung, das „Freedom“ verriete. In der Noise-Sitzung nur
+  der Typ `0xF0` mit genau einem Umschlag (`bitchatUmschlagKlartext()`/`leseBitchatUmschlag()`, beide über
+  `pruefeMeshInhalt()`) – nie einen Typ, den Bitchat vergibt (0x01–0x09, 0x10–0x12, 0x20, 0x21), nie Klartext, keine
+  Transaktionen.

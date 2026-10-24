@@ -160,3 +160,4 @@ export * from "./reticulum-kern.js";
 export * from "./bitchat-paket.js";
 export * from "./bitchat-noise.js";
 export * from "./bitchat-mesh.js";
+export * from "./bitchat-kontakt.js";

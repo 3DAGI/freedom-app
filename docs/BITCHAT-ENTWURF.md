@@ -189,6 +189,17 @@ Identität je Gerät mit Grenze im Bericht.
   Schlüssel für Bitchat an Kontakte (c1), Bitchat-Knoten aus den Bausteinen (c2a), Anbindung an Hülle und Direktnachrichten
   (c2b), Oberfläche, Bericht, Smoke-Test (c3); d – Probe (MENSCH).
 
+## Stand B-36c1 (24.10.2026)
+
+- **Schlüssel an Kontakte** (`packages/protocol/src/bitchat-kontakt.ts`, Kind 38083, `docs/PROTOCOL.md` §45, V3, BC-W3 A):
+  Noise- und Signier-Schlüssel des Geräts je Kontakt in einem Umschlag, wie die Reticulum-Adresse (38082); gelesen nur von
+  Kontakten, der Kern vom Siegel-Autor, genau zwei Tags in fester Reihenfolge, zwei verschiedene Schlüssel.
+- **Umschläge in der Noise-Sitzung** (V2, BC-W2 A): Nutzlast-Typ `0xF0` – Bitchat vergibt ihn nicht (Swift `5e9287f`: 0x01–0x09,
+  0x10–0x12, 0x20, 0x21) – mit genau einem Umschlag als JSON, beide Richtungen über `pruefeMeshInhalt()`; die eigene Kopie geht
+  nie hinaus. Ob Bitchat-Geräte einen unbekannten Typ still verwerfen oder antworten, zeigt erst die Probe (B-36d); vergeben
+  die Entwickler von Bitchat `0xF0` später selbst, braucht Freedom einen neuen Typ.
+- **Weiter:** c2a – der Bitchat-Knoten aus den Bausteinen (Ankündigung, Handshake, Fluten, Senden je Verbindung).
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
