@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ed25519, x25519 } from "@noble/curves/ed25519.js";
-import { BITCHAT_KNOTEN, type BitchatAusgabe, BitchatKnoten } from "../src/bitchat-knoten.js";
+import { BITCHAT_KNOTEN, type BitchatAusgabe, BitchatKnoten, LS_BITCHAT_IDENTITAET, bitchatIdentitaet, bitchatSchluesselVon } from "../src/bitchat-knoten.js";
+import { SICHERUNG_NIE } from "../src/state-backup.js";
 import { BITCHAT_TYP, BitchatZusammensetzer, kodiereBitchat, leseBitchat, zerlegeBitchatRoh } from "../src/bitchat-paket.js";
 import { BitchatTransport, NoiseXX, noiseSchluessel } from "../src/bitchat-noise.js";
 import { bitchatUmschlagKlartext } from "../src/bitchat-kontakt.js";
@@ -250,4 +251,29 @@ test("B-36c2a2: wer sich als Kontakt ausgibt, aber einen anderen Noise-Schlüsse
   const u = await umschlag();
   n.lauf("a", a.sende("b", u, JETZT + 8), JETZT + 8);
   assert.deepEqual(n.post.get("b"), [u]);
+});
+
+test("B-36c2b1: eine Identität je Gerät – einmal angelegt, danach dieselbe; kaputt wird nie ersetzt; nie in der Sicherung", async () => {
+  const speicher = () => {
+    const m = new Map<string, string>();
+    return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, w: string) => void m.set(k, w) };
+  };
+  const s = speicher();
+  const a = await bitchatIdentitaet(s);
+  assert.match(a.name, /^anon[0-9]{4}$/, "neutraler Name wie bei Bitchat");
+  const wieder = await bitchatIdentitaet(s);
+  assert.deepEqual([wieder.noise, wieder.signier, wieder.name], [a.noise, a.signier, a.name]);
+  assert.notDeepEqual((await bitchatIdentitaet(speicher())).noise, a.noise, "ein anderes Gerät, eine andere Identität");
+  // Die öffentlichen Schlüssel sind die, die der Knoten ankündigt
+  const k = new BitchatKnoten(a, OHNE).schluessel;
+  const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
+  assert.deepEqual(bitchatSchluesselVon(a), { noise: hex(k.noise), signier: hex(k.signier) });
+  for (const kaputt of ["", "{}", "nix", JSON.stringify({ noise: "ab", signier: "cd".repeat(32), name: "anon1234" }),
+    JSON.stringify({ noise: "AB".repeat(32), signier: "cd".repeat(32), name: "anon1234" }), JSON.stringify({ noise: "ab".repeat(32), signier: "cd".repeat(32), name: "Freedom" })]) {
+    const t = speicher();
+    t.m.set(LS_BITCHAT_IDENTITAET, kaputt);
+    await assert.rejects(bitchatIdentitaet(t), (e: Error & { fall?: string }) => e.fall === "identitaet-kaputt", kaputt);
+    assert.equal(t.m.get(LS_BITCHAT_IDENTITAET), kaputt, "nie ersetzt");
+  }
+  assert.ok(SICHERUNG_NIE.some((r) => r.test(LS_BITCHAT_IDENTITAET)));
 });

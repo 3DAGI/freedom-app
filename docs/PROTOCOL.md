@@ -1780,6 +1780,11 @@ verriete jedem im Funk, dass hier Freedom läuft.
 **Lesen** nur über `oeffneBitchatSchluesselUmschlag()`: der Kern vom Siegel-Autor, der ein Kontakt ist, Kind 38083, leerer Inhalt,
 genau diese zwei Tags in dieser Reihenfolge, zwei verschiedene Schlüssel – sonst nichts.
 
+**In der App** (seit B-36c2b1, BC-W4 A): eine Identität je Gerät (`bitchatIdentitaet()`, zufällig, Name `anon` und vier Ziffern, in
+`geheim` unter `freedom.bitchat.identitaet`, nie in der Sicherung; ein kaputter Eintrag wird nie ersetzt). Versand wie bei §44 – nur
+mit Zustimmung (`freedom.bitchat.teilen`), als Person, je Schlag höchstens ein Umschlag, jeder Kontakt einmal, nach einer neuen
+Identität alle neu; Empfang am Ende der Kette in `oeffneUmschlag()`, gemerkt in `geheim` (`freedom.bitchat.kontakte`).
+
 **Freedom in der Noise-Sitzung** (seit B-36c1, BC-W2 A): Der Klartext einer Noise-Nachricht beginnt bei Bitchat mit dem Typ der
 Nutzlast (`NoisePayloadType`). Freedom nimmt `0xF0` – Bitchat vergibt ihn nicht (Swift `5e9287f`: 0x01–0x09, 0x10–0x12, 0x20,
 0x21) – und dahinter genau einen Umschlag (1059) als JSON. Hinaus nur über `bitchatUmschlagKlartext()`, herein nur über

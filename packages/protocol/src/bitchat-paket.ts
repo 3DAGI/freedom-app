@@ -39,7 +39,7 @@ export const BITCHAT_GRENZEN = Object.freeze({
 /** Blöcke, auf die Noise-Pakete aufgefüllt werden (PKCS#7, Whitepaper §4.1). */
 export const BITCHAT_BLOECKE = [256, 512, 1024, 2048] as const;
 
-export const BITCHAT_FAELLE = ["form", "zu-gross", "ankuendigung-zu-gross"] as const; // kein UI-Text
+export const BITCHAT_FAELLE = ["form", "zu-gross", "ankuendigung-zu-gross", "identitaet-kaputt"] as const; // kein UI-Text
 export type BitchatFall = (typeof BITCHAT_FAELLE)[number];
 
 export class BitchatFehler extends Error {
