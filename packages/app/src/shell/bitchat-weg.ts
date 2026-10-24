@@ -6,11 +6,13 @@
  */
 import { BitchatKnoten, bitchatIdentitaet, type BitchatKontakt, type NostrEvent } from "@freedomstack/protocol";
 import { BITCHAT_LAUF, BitchatLauf } from "../bitchat-lauf.js";
+import { t } from "../i18n.js";
 import { type BitchatStandArt, bitchatAufruf, bitchatHolen, bitchatSenden, bitchatStand, bitchatStarten, bitchatStoppen } from "./bitchat-huelle.js";
 import { bitchatSchluesselBuch } from "./bitchat-kontakte.js";
 import { kontakteJetzt } from "./quittungen.js";
 import { state } from "./state.js";
 import { geheim } from "./tresor.js";
+import { toast } from "./ui.js";
 
 let lauf: BitchatLauf | null = null;
 let zeitgeber: ReturnType<typeof setTimeout> | null = null;
@@ -82,5 +84,7 @@ export const bitchatInDerNaehe = (): string[] => lauf?.inDerNaehe() ?? [];
 
 /** Eine Direktnachricht über Bitchat – nur, wenn es läuft und das Gerät des Empfängers in der Nähe ist. */
 export function dmUeberBitchat(wrap: NostrEvent, an: string): boolean {
-  return lauf?.sende(an, new TextEncoder().encode(JSON.stringify(wrap))) ?? false;
+  const hinaus = lauf?.sende(an, new TextEncoder().encode(JSON.stringify(wrap))) ?? false;
+  if (hinaus) toast(t("set.bitchatDm"));
+  return hinaus;
 }

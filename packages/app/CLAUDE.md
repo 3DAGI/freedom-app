@@ -1030,4 +1030,9 @@ Fallstricke dieses Bereichs unten anhängen.
   wenn `bitchatStarten()` „an“ meldet, `eigeneSchluessel` aus `state.keypair`, der Takt mit `setTimeout` und je Lauf einer – hält an,
   sobald die Hülle nicht mehr „an“ meldet. Direktnachrichten nur über `dmUeberBitchat()` in `zustellenDm()`, nach den Relays und vor
   Reticulum; `true` heißt „hinaus“, nicht „angekommen“. Umschläge an mich nur über `nimmPostAusFunk()`.
+  Oberfläche (seit B-36c3) nur über `shell/bitchat-ui.ts`: Knöpfe `#mesh-bitchat`/`#mesh-bitchat-kontakte` sind versteckt und
+  erscheinen nur mit `bitchatAufruf()`; an und aus nur im Klick, vorher der Tresor (Identität in `geheim`), die Zustimmung nur
+  als Person (`setzeBitchatTeilen()`), Nahe nur als Namen (`kontaktName`). Ein neuer Stand der Hülle braucht einen Satz in
+  `STAND_TEXT`. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
+  „auditiert“. Im Smoke-Test („bitchat“) spielt `BITCHAT_ATTRAPPE` die Android-Hülle.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*

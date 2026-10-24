@@ -67,6 +67,7 @@ const FAKT: Record<string, readonly [string, string?]> = {
   "ki-unterhaltung": ["ds.fKiUnterhaltung", "ds.gKiUnterhaltung"],
   "mesh-geraet": ["ds.fMeshGeraet", "ds.gMeshGeraet"],
   "reticulum-ankuendigung": ["ds.fReticulum", "ds.gReticulum"],
+  "bitchat": ["ds.fBitchat", "ds.gBitchat"],
   "ki-zahlung": ["ds.fKiZahlung"],
   "ki-reklamation": ["ds.fKiReklamation"],
   "ruf-kontakte": ["ds.fRufKontakte"],
