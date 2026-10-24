@@ -144,7 +144,7 @@ test("5.6c: Erstattung wie resolveDispute – und beantwortete Auftraege nur als
 
 test("5.6c verdrahtet: Posteingang reicht Pruefauftraege weiter, Urteil versiegelt an Sitzung und Provider, Inhalt nur im Speicher", () => {
   const kom = ["kommunikation", "chat-anhaenge", "kontakte", "posteingang"].map((d) => readFileSync(new URL(`../src/shell/tabs/${d}.ts`, import.meta.url), "utf8")).join("\n");
-  assert.match(kom, /\?\? \(await alsNachfolge\(w\)\) \?\? \(await alsPruefauftrag\(w\)\) \?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsFunkAdresse\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\) \?\? \(await alsAnruf\(w\)\);/);
+  assert.match(kom, /\?\? \(await alsNachfolge\(w\)\) \?\? \(await alsPruefauftrag\(w\)\) \?\? \(await alsRaumMeldung\(w\)\) \?\? \(await alsRufZusammenfassung\(w\)\) \?\? \(await alsFunkAdresse\(w\)\) \?\? \(await alsBitchatSchluessel\(w\)\) \?\? \(await alsRechnungsAnfrage\(w\)\) \?\? \(await alsAnruf\(w\)\);/);
   const ui = readFileSync(new URL("../src/shell/pruefauftraege-ui.ts", import.meta.url), "utf8");
   assert.match(ui, /const d = pruefauftragAus\(r\.request, signer\.publicKey\(\)\);/);
   assert.match(ui, /if \(!signer \|\| alsGeraet\(\)\) return null;/, "als Geraet nicht – der Auftrag nennt die Person");

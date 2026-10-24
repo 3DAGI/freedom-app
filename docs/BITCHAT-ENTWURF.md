@@ -218,6 +218,15 @@ Identität je Gerät mit Grenze im Bericht.
 - **Damit ist c2a fertig.** Weiter: c2b – Anbindung in der App: Identität im Tresor, Schlüssel an Kontakte (Versand mit
   Zustimmung, Empfang in der Kette), Knoten an der Hülle (`bitchatHolen()`/`bitchatSenden()`), Direktnachrichten über Bitchat.
 
+## Stand B-36c2b1 (24.10.2026)
+
+- c2b ist geteilt: **c2b1** Identität und Schlüssel an Kontakte, **c2b2** Knoten an der Hülle und Direktnachrichten.
+- **Identität je Gerät** (`bitchatIdentitaet()`, V4, BC-W4 A): zufällig, Name `anon` und vier Ziffern, nur in `geheim`, nie in der
+  Sicherung; ein kaputter Eintrag wird nie ersetzt.
+- **Schlüssel an Kontakte** (`shell/bitchat-kontakte.ts`, V3): derselbe Versand wie die Reticulum-Adresse (`FunkAdressVersand` mit
+  der Art `BITCHAT_SCHLUESSEL`) – nur mit Zustimmung, als Person, je Schlag ein Umschlag; Empfang am Ende der Kette in
+  `oeffneUmschlag()`. Den Schalter für die Zustimmung bringt c3 (Oberfläche); bis dahin geht nichts hinaus.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

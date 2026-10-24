@@ -15,6 +15,7 @@ import { BitchatDoppel, bitchatFuerVerbindung, bitchatWeiterreichen, mitBitchatT
 import { BitchatTransport, NoiseXX, noiseSchluessel, type NoiseSchluessel } from "./bitchat-noise.js";
 import {
   BITCHAT_TYP,
+  BitchatFehler,
   type BitchatPaket,
   BitchatZusammensetzer,
   baueBitchatAnkuendigung,
@@ -35,6 +36,49 @@ export interface BitchatIdentitaet {
   signier: Uint8Array;
   /** Name in der Ankündigung – Bitchat zeigt ihn allen in der Nähe */
   name: string;
+}
+
+const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+
+/** Die eigene Identität liegt nur hier (in `geheim`, nie in der Sicherung, nie im Export) – eine je Gerät (BC-W4 A). */
+export const LS_BITCHAT_IDENTITAET = "freedom.bitchat.identitaet";
+
+const HEX64 = /^[0-9a-f]{64}$/;
+const NAME = /^anon[0-9]{4}$/;
+const ausHex = (h: string): Uint8Array => Uint8Array.from(h.match(/../g)!, (x) => parseInt(x, 16));
+const alsJson = (t: string): unknown => {
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Die eigene Bitchat-Identität: zufällig, nie aus dem Nostr-Schlüssel (V4), der Name neutral wie bei Bitchat (`anon` und vier
+ * Ziffern). Beim ersten Aufruf angelegt; ein kaputter Eintrag wird nie ersetzt (`identitaet-kaputt`) – sonst stimmten die
+ * Schlüssel bei den Kontakten still nicht mehr.
+ */
+export async function bitchatIdentitaet(speicher: {
+  getItem(k: string): string | null;
+  setItem(k: string, w: string): Promise<void> | void;
+}): Promise<BitchatIdentitaet> {
+  const da = speicher.getItem(LS_BITCHAT_IDENTITAET);
+  if (da !== null) {
+    const o = alsJson(da) as { noise?: unknown; signier?: unknown; name?: unknown } | null;
+    if (!o || typeof o.noise !== "string" || !HEX64.test(o.noise) || typeof o.signier !== "string" || !HEX64.test(o.signier) ||
+      typeof o.name !== "string" || !NAME.test(o.name)) throw new BitchatFehler("identitaet-kaputt");
+    return { noise: ausHex(o.noise), signier: ausHex(o.signier), name: o.name };
+  }
+  const [noise, signier] = [crypto.getRandomValues(new Uint8Array(32)), crypto.getRandomValues(new Uint8Array(32))];
+  const name = `anon${1000 + (crypto.getRandomValues(new Uint32Array(1))[0]! % 9000)}`;
+  await speicher.setItem(LS_BITCHAT_IDENTITAET, JSON.stringify({ noise: hex(noise), signier: hex(signier), name }));
+  return { noise, signier, name };
+}
+
+/** Die öffentlichen Schlüssel einer Identität als Hex – so gehen sie versiegelt an Kontakte (38083). */
+export function bitchatSchluesselVon(ich: BitchatIdentitaet): { noise: string; signier: string } {
+  return { noise: hex(noiseSchluessel(ich.noise).oeffentlich), signier: hex(ed25519.getPublicKey(ich.signier)) };
 }
 
 /** Ein Kontakt mit den Schlüsseln, die er versiegelt geschickt hat (öffentlich) */
@@ -64,7 +108,6 @@ export const BITCHAT_KNOTEN = Object.freeze({
 /** Länge der drei Nachrichten von XX ohne Nutzlast: e · e, s (verschlüsselt), Tag · s (verschlüsselt), Tag */
 const HS = Object.freeze({ eins: 32, zwei: 96, drei: 64 });
 
-const hex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 const gleich = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
 
 interface Sitzung {

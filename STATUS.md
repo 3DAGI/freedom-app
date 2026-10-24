@@ -13666,3 +13666,21 @@ und B nur Werte bis 182 Byte, die zweite Nachricht ohne Handshake, B antwortet);
 zugleich; kein Klartext, keine eigene Kopie, ein abgelaufener Handshake beginnt neu; wer sich mit der Peer-ID eines Kontakts,
 aber anderem Noise-Schlüssel ausgibt, bekommt keine Sitzung. Gegenproben: ohne Schlüsselabgleich, ohne Kontaktpflicht, ohne
 Vorrang der kleineren Peer-ID und ohne Frist wird je ein Test rot.
+
+## Schritt B-36c2b1 – Bitchat: Identität je Gerät und Schlüssel an Kontakte
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2b1“), auf B-36c2a2 (#607). c2b ist geteilt: c2b1 Identität und Schlüssel an
+Kontakte, c2b2 Knoten an der Hülle und Direktnachrichten.
+
+- **Protokoll:** `bitchatIdentitaet()` (eine je Gerät, zufällig, Name `anon` und vier Ziffern, kaputt nie ersetzt – Fall
+  `identitaet-kaputt`), `bitchatSchluesselVon()`; `freedom.bitchat.` in `SICHERUNG_NIE`.
+- **App:** `FunkAdressVersand`/`FunkAdressBuch` bekommen eine Art (`KontaktWertArt`: Reticulum-Adresse als Vorgabe, dazu
+  `BITCHAT_SCHLUESSEL` mit 38083); `shell/bitchat-kontakte.ts` – Versand nur mit Zustimmung und als Person im Abruftakt, Empfang
+  `alsBitchatSchluessel()` am Ende der Kette in `oeffneUmschlag()`, alles in `geheim` (`GEHEIM_FEST`). Die vier Tests, die die Kette
+  wörtlich prüfen, kennen das neue Glied.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +1 (Identität: einmal angelegt, danach dieselbe, ein anderes Gerät eine andere, öffentliche Schlüssel wie der
+Knoten sie ankündigt, sechs kaputte Einträge nie ersetzt, nie in der Sicherung); app +3 (`bitchat-schluessel.test.ts`: Versand je
+Kontakt einmal, nicht als Gerät, neue Identität an alle, falsche Form nie; Buch getrennt von Reticulum; Verdrahtung); Leak +2
+(`leak/bitchat-schluessel.test.ts`: nur Umschläge, weder Schlüssel noch Absender, entkoppelt, ohne Zustimmung nichts).

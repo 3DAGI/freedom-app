@@ -1021,4 +1021,9 @@ Fallstricke dieses Bereichs unten anhängen.
   `leseBitchatWerte()` – ein kaputter Rahmen macht den ganzen Abruf ungültig, nie die Hälfte nehmen. `bitchatSenden()` nimmt
   nur ganze Pakete bis zur Grenze der Verbindung (vorher `bitchatFuerVerbindung()`), nie selbst teilen. Was ankommt, ist
   ungeprüft: erst `leseBitchat()`/Signatur, Inhalte nur über `pruefeMeshInhalt()`. Starten nur auf Klick (Rechte).
+  Die eigenen Bitchat-Schlüssel (seit B-36c2b1) an Kontakte nur über `shell/bitchat-kontakte.ts`: derselbe
+  `FunkAdressVersand` wie die Reticulum-Adresse, mit der Art `BITCHAT_SCHLUESSEL` (eigene Einträge in `geheim`, nie die von
+  Reticulum mitbenutzen); die Identität nur aus `bitchatIdentitaet(geheim)`, erst wenn es etwas zu senden gibt. Vier Tests
+  prüfen die Kette in `oeffneUmschlag()` wörtlich – ein neues Glied dort auch in ihnen nachtragen. In `GEHEIM_FEST` bleibt
+  `"freedom.kontakte.geprueft"` der letzte Eintrag (der Test aus B-4 prüft das) – neue Einträge davor.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*
