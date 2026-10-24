@@ -13649,3 +13649,20 @@ Noise-Sitzungen und Umschläge.
 Verbindung, TTL − 1, Frist, Kontakt entfernt); Kontakte nur mit beiden Schlüsseln, Doppeltes, Eigenes, Verändertes und Kaputtes
 nie; ein großes Paket geht von R an B in Fragmenten bis 182 Byte und setzt sich wieder zusammen, nichts zurück; roh zerlegen.
 Gegenproben: ohne Signaturprüfung, ohne Abgleich des Signier-Schlüssels und ohne rohes Zerlegen wird je ein Test rot.
+
+## Schritt B-36c2a2 – Bitchat: Sitzungen mit Kontakten und Umschläge darin
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2a2“), auf B-36c2a1 (#606). Damit ist c2a fertig.
+
+- **`packages/protocol/src/bitchat-knoten.ts`:** `sende(person, umschlag, jetzt)` – nur an Kontakte in der Nähe, nur Umschläge
+  (über `bitchatUmschlagKlartext()` mit den eigenen Schlüsseln, nie die eigene Kopie); ohne Sitzung beginnt der Handshake, bis zu
+  16 Umschläge warten. Handshakes nur mit Kontakten in der Nähe, erkannt an der Länge (32/96/64), bei gleichzeitigem Beginn
+  bleibt die kleinere Peer-ID Initiator, Frist 10 s; gültig erst, wenn der statische Schlüssel dem aus 38083 gleicht. `nimm()`
+  gibt Umschläge an mich zurück (Typ `0xF0`, `leseBitchatUmschlag()`). Der Knoten braucht jetzt `eigeneSchluessel`.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +5 (`bitchat-knoten.test.ts`, jetzt 9): A und B tauschen über R Umschläge (R sieht nur Chiffrat, zwischen R
+und B nur Werte bis 182 Byte, die zweite Nachricht ohne Handshake, B antwortet); Fremde bekommen keine Sitzung; beide beginnen
+zugleich; kein Klartext, keine eigene Kopie, ein abgelaufener Handshake beginnt neu; wer sich mit der Peer-ID eines Kontakts,
+aber anderem Noise-Schlüssel ausgibt, bekommt keine Sitzung. Gegenproben: ohne Schlüsselabgleich, ohne Kontaktpflicht, ohne
+Vorrang der kleineren Peer-ID und ohne Frist wird je ein Test rot.

@@ -237,3 +237,7 @@ Fallstricke dieses Bereichs unten anhängen.
   (Tests ein ganzes Netz ohne Bluetooth). Kontakte nur an einer gültig signierten Ankündigung mit BEIDEN Schlüsseln aus 38083
   (ein bekannter Noise-Schlüssel mit fremdem Signier-Schlüssel ist nicht der Kontakt). Weiterreichen in eine kleinere Grenze nur
   über `zerlegeBitchatRoh()` – die rohen Bytes, nie `zerlegeBitchat()` auf ein neu kodiertes Paket.
+  Sitzungen (seit B-36c2a2) nur mit Kontakten in der Nähe, gültig erst, wenn der statische Schlüssel aus dem Handshake dem aus
+  38083 gleicht – ein Fremder mit der Peer-ID eines Kontakts kommt sonst durch. Ein gescheiterter Schritt löscht die Sitzung
+  (`NoiseXX` ist dann halb fortgeschrieben). Den Knoten nie ohne `eigeneSchluessel` bauen: Daran erkennt `pruefeMeshInhalt()`
+  die eigene Kopie, die nie hinausgeht.

@@ -209,6 +209,15 @@ Identität je Gerät mit Grenze im Bericht.
   roh weiterreichen – nie zurück, in kleinere Grenzen roh zerlegt (`zerlegeBitchatRoh()`, wie Bitchat).
 - **Weiter:** c2a2 – Noise-Sitzungen nur mit Kontakten in der Nähe, Umschläge darin (Typ `0xF0`).
 
+## Stand B-36c2a2 (24.10.2026)
+
+- **Sitzungen im Knoten** (`bitchat-knoten.ts`, BC-W2 A): `sende(person, umschlag, jetzt)` nur an Kontakte in der Nähe und nur
+  Umschläge (nie die eigene Kopie); ohne Sitzung beginnt der Handshake, der Umschlag wartet. Handshakes nur mit Kontakten in der
+  Nähe, erkannt an der Länge, die kleinere Peer-ID bleibt bei gleichzeitigem Beginn Initiator, Frist 10 s; gültig erst, wenn der
+  statische Schlüssel dem aus 38083 gleicht. Umschläge an mich gibt `nimm()` zurück.
+- **Damit ist c2a fertig.** Weiter: c2b – Anbindung in der App: Identität im Tresor, Schlüssel an Kontakte (Versand mit
+  Zustimmung, Empfang in der Kette), Knoten an der Hülle (`bitchatHolen()`/`bitchatSenden()`), Direktnachrichten über Bitchat.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),
