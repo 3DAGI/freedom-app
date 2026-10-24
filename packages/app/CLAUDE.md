@@ -1024,5 +1024,6 @@ Fallstricke dieses Bereichs unten anhängen.
   Die eigenen Bitchat-Schlüssel (seit B-36c2b1) an Kontakte nur über `shell/bitchat-kontakte.ts`: derselbe
   `FunkAdressVersand` wie die Reticulum-Adresse, mit der Art `BITCHAT_SCHLUESSEL` (eigene Einträge in `geheim`, nie die von
   Reticulum mitbenutzen); die Identität nur aus `bitchatIdentitaet(geheim)`, erst wenn es etwas zu senden gibt. Vier Tests
-  prüfen die Kette in `oeffneUmschlag()` wörtlich – ein neues Glied dort auch in ihnen nachtragen.
+  prüfen die Kette in `oeffneUmschlag()` wörtlich – ein neues Glied dort auch in ihnen nachtragen. In `GEHEIM_FEST` bleibt
+  `"freedom.kontakte.geprueft"` der letzte Eintrag (der Test aus B-4 prüft das) – neue Einträge davor.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*
