@@ -8,8 +8,10 @@
  * - **Umschläge in der Noise-Sitzung:** Der Klartext einer Noise-Nachricht beginnt bei Bitchat mit dem Typ der Nutzlast
  *   (`NoisePayloadType`). Freedom nimmt `0xF0`, den Bitchat nicht vergibt (Swift `5e9287f`: 0x01–0x09, 0x10–0x12, 0x20,
  *   0x21), und dahinter genau einen Umschlag als JSON – geprüft wie alles im Mesh (`pruefeMeshInhalt()`).
+ * - **Schlüssel beim Treffen** (B-36e1, BC-W5 A, BC-W6 A): eine „Bitchat-Karte“ für den QR-Code – Person, beide Schlüssel,
+ *   Zeit und die Signatur der Person über ein Event 38083 mit genau diesen Tags. Das Event geht nie an ein Relay.
  */
-import type { NostrEvent, UnsignedEvent } from "./event.js";
+import { computeEventId, verifyEvent, type NostrEvent, type UnsignedEvent } from "./event.js";
 import { giftUnwrapMitSigner, giftWrapMitSigner } from "./gift-wrap.js";
 import { MeshKind, pruefeMeshInhalt } from "./mesh-transport.js";
 import type { Signer } from "./signer.js";
@@ -32,6 +34,44 @@ export async function baueBitchatSchluesselUmschlaege(p: {
     pubkey: ich, kind: KIND_BITCHAT_SCHLUESSEL, created_at: now, content: "", tags: [["noise", p.noise], ["signier", p.signier]],
   };
   return Promise.all(an.map((k) => giftWrapMitSigner(kern, p.von, k, { nowSecs: now })));
+}
+
+/** Anfang der Bitchat-Karte im QR-Code (Fassung 1) */
+export const BITCHAT_KARTE_PRAEFIX = "freedom-bitchat:1:";
+/** So weit darf die Zeit einer Karte in der Zukunft liegen – Uhren gehen verschieden (Freedom-Wert) */
+export const BITCHAT_KARTE_ZUKUNFT_SEK = 600;
+const KARTE = /^freedom-bitchat:1:([0-9a-f]{64}):([0-9a-f]{64}):([0-9a-f]{64}):(0|[1-9][0-9]{0,11}):([0-9a-f]{128})$/;
+
+const karteEvent = (person: string, noise: string, signier: string, zeit: number): UnsignedEvent => ({
+  pubkey: person, kind: KIND_BITCHAT_SCHLUESSEL, created_at: zeit, content: "", tags: [["noise", noise], ["signier", signier]],
+});
+
+/**
+ * Die eigene Bitchat-Karte für den QR-Code beim Treffen: `freedom-bitchat:1:<person>:<noise>:<signier>:<zeit>:<signatur>`.
+ * Signiert wird ein Event 38083 mit genau den zwei Tags, nur damit die Karte die Person bindet – es geht nie an ein Relay.
+ * Ungültige Schlüssel oder ein Signer, der etwas anderes signiert: null.
+ */
+export async function baueBitchatKarte(p: { von: Signer; noise: string; signier: string; nowSecs?: number }): Promise<string | null> {
+  if (!HEX64.test(p.noise) || !HEX64.test(p.signier) || p.noise === p.signier) return null;
+  const zeit = p.nowSecs ?? Math.floor(Date.now() / 1000);
+  const ev = await p.von.signEvent(karteEvent(p.von.publicKey(), p.noise, p.signier, zeit));
+  const karte = `${BITCHAT_KARTE_PRAEFIX}${ev.pubkey}:${p.noise}:${p.signier}:${zeit}:${ev.sig}`;
+  return leseBitchatKarte(karte, zeit)?.von === p.von.publicKey() ? karte : null;
+}
+
+/**
+ * Eine gescannte Bitchat-Karte lesen: genau die Form (Kleinbuchstaben, keine führenden Nullen), zwei verschiedene Schlüssel,
+ * Zeit höchstens `BITCHAT_KARTE_ZUKUNFT_SEK` voraus, Signatur der genannten Person – sonst null. Ob die Person schon Kontakt
+ * ist, entscheidet die App (BC-W6 A: nach Rückfrage anlegen).
+ */
+export function leseBitchatKarte(text: string, nowSecs = Math.floor(Date.now() / 1000)): BitchatSchluesselVonKontakt | null {
+  const m = KARTE.exec(text.trim());
+  if (!m) return null;
+  const [, von = "", noise = "", signier = "", z = "", sig = ""] = m;
+  const zeit = Number(z);
+  if (noise === signier || !Number.isSafeInteger(zeit) || zeit > nowSecs + BITCHAT_KARTE_ZUKUNFT_SEK) return null;
+  const e = karteEvent(von, noise, signier, zeit);
+  return verifyEvent({ ...e, id: computeEventId(e), sig }) ? { von, zeit, noise, signier } : null;
 }
 
 /** Empfangene Bitchat-Schlüssel eines Kontakts: von wem, wann geschrieben, Noise- und Signier-Schlüssel (Hex). */

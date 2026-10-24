@@ -211,3 +211,5 @@ kasse.ts|leseKonfigurationVonKette|Lesehilfe der Kasse für eine einzelne Änder
 reticulum-umschlag.ts|verpackeFuerReticulum|Draht-Form des LXMF-Umschlags (B-32a, seit B-32d1 im Protokoll): App und Knoten senden über den Router in starteReticulum(), der selbst serialisiert; die Tests prüfen mit ihr die Form
 reticulum-umschlag.ts|entpackeAusReticulum|Gegenstück zu verpackeFuerReticulum (B-32a, seit B-32d1 im Protokoll): den Empfang packt der Router in starteReticulum() aus, geprüft über leseReticulumFelder(); die Tests prüfen mit ihr „nur an die eigene Adresse“
 
+bitchat-kontakt.ts|baueBitchatKarte|Bitchat-Karte für den QR-Code beim Treffen (B-36e1, BC-W5 A): Baustein, verdrahtet in der App mit B-36e2; die Tests prüfen Signatur, Form und Zukunft
+bitchat-kontakt.ts|leseBitchatKarte|Bitchat-Karte für den QR-Code beim Treffen (B-36e1, BC-W5 A): Baustein, verdrahtet in der App mit B-36e2; die Tests prüfen Signatur, Form und Zukunft
