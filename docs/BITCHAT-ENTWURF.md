@@ -283,6 +283,11 @@ Kontakt, der die Schlüssel versiegelt bekommt. Die Grenze „bitchat“ nennt d
 
 **Stand B-36e1:** `baueBitchatKarte()`/`leseBitchatKarte()` in `bitchat-kontakt.ts`, §45 („Bitchat-Karte“). Weiter: e2.
 
+**Stand B-36e2:** Im Dialog „Bitchat-Kontakte“ der eigene Code (QR auf Klick, nur als Person) und ein Feld für den des
+Gegenübers (scannen oder einfügen) – ein kaputter oder der eigene Code hält den Dialog offen; ist die Person noch kein
+Kontakt, fragt die App, legt sie an (`legeKontaktAn()`) und merkt die Schlüssel wie aus einem Umschlag. Grenze „bitchat“
+ergänzt. Damit ist e fertig – die Probe (d) prüft den Tausch mit zwei Geräten.
+
 **Aufteilung:** **e1** Protokoll – `baueBitchatKarte()`/`leseBitchatKarte()`, §45, Tests (Signatur, fremde Person,
 verändertes Feld, Zukunft, Form); **e2** App – Code zeigen und scannen im Dialog, neuer Kontakt nach Rückfrage, Grenze
 „bitchat“ ergänzt, Smoke-Test „bitchat“ mit gescanntem Code (Attrappe der Kamera wie „qr“).

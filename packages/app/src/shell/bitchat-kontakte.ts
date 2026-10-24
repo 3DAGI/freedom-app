@@ -6,7 +6,9 @@
  * die Person. Die eigene Identität (eine je Gerät, `bitchatIdentitaet()`) entsteht erst, wenn es etwas zu senden gibt.
  * Empfang: `alsBitchatSchluessel()` am Ende der Kette in `oeffneUmschlag()`; nur Kontakte zählen, gemerkt in `geheim`.
  */
-import { bitchatIdentitaet, bitchatSchluesselVon, oeffneBitchatSchluesselUmschlag, type NostrEvent } from "@freedomstack/protocol";
+import {
+  baueBitchatKarte, bitchatIdentitaet, bitchatSchluesselVon, oeffneBitchatSchluesselUmschlag, type BitchatSchluesselVonKontakt, type NostrEvent,
+} from "@freedomstack/protocol";
 import { BITCHAT_SCHLUESSEL, FunkAdressBuch, FunkAdressVersand } from "../funk-adressen.js";
 import { kontakteJetzt } from "./quittungen.js";
 import { alsGeraet, posteingangVon, state, veroeffentlicheAn } from "./state.js";
@@ -49,6 +51,18 @@ export async function setzeBitchatTeilen(an: boolean): Promise<void> {
 export function bitchatSchluesselStand(): { geteilt: number; erhalten: number } {
   const kontakte = new Set(kontakteJetzt());
   return { geteilt: (versand.verteilt()?.an ?? []).filter((k) => kontakte.has(k)).length, erhalten: bitchatSchluesselBuch.zahl(kontakte) };
+}
+
+/** Die eigene Bitchat-Karte für den QR-Code beim Treffen (B-36e2, BC-W5 A) – nur als Person, signiert über den Signer. */
+export async function eigeneBitchatKarte(): Promise<string | null> {
+  if (alsGeraet() || !state.signer) return null;
+  const k = bitchatSchluesselVon(await bitchatIdentitaet(geheim));
+  return baueBitchatKarte({ von: state.signer, noise: k.noise, signier: k.signier });
+}
+
+/** Schlüssel aus einer gescannten Karte merken – wie aus einem Umschlag, je Kontakt die neueste. */
+export function nimmBitchatKarte(r: BitchatSchluesselVonKontakt): Promise<boolean> {
+  return bitchatSchluesselBuch.nimm({ von: r.von, zeit: r.zeit, adresse: `${r.noise}:${r.signier}` });
 }
 
 /** Ein Schlag des Abruftakts. */

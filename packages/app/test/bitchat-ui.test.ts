@@ -53,7 +53,7 @@ test("B-36c3: jeder Stand der Hülle hat einen Satz in beiden Sprachen", () => {
 test("B-36c3: Zustimmung nur als Person, gezeigt wird die Nähe nur über Namen; DM über Bitchat heißt „gegeben“", () => {
   const ui = lies("shell/bitchat-ui.ts");
   assert.match(ui, /\.\.\.\(alsGeraet\(\) \? \[\] : \[\n\s+\{ art: "mehrfach" as const, name: "teilen"/);
-  assert.match(ui, /if \(w && !alsGeraet\(\)\) await setzeBitchatTeilen\(Array\.isArray\(w\.teilen\) && w\.teilen\.includes\("ja"\)\);/);
+  assert.match(ui, /if \(!w\) return;\n  if \(!alsGeraet\(\)\) await setzeBitchatTeilen\(Array\.isArray\(w\.teilen\) && w\.teilen\.includes\("ja"\)\);/, "seit B-36e2 nach dem Abbruch-Fall");
   assert.match(ui, /bitchatInDerNaehe\(\)\.map\(kontaktName\)/, "Schlüssel nie roh");
   assert.doesNotMatch(ui, /localStorage|innerHTML/);
   const weg = lies("shell/bitchat-weg.ts");
@@ -80,4 +80,25 @@ test("B-36c4: hält die Hülle von selbst an, hält die App sie ganz an, und der
   const melde = knopf.indexOf("wennBitchatHaelt((vonSelbst) => {");
   assert.ok(melde > 0 && melde < knopf.indexOf("await starteBitchat()"), "vor dem Start angemeldet");
   assert.match(knopf, /if \(vonSelbst\) zeige\(t\("set\.bitchatVonSelbstAus"\)\);/);
+});
+
+test("B-36e2: Code beim Treffen – eigener nur als Person, fremder nur geprüft, ein Neuer erst nach Rückfrage", () => {
+  const ui = lies("shell/bitchat-ui.ts");
+  const dlg = ui.slice(ui.indexOf("export async function bitchatKontakteDialog"), ui.indexOf("async function uebernimmKarte"));
+  assert.match(dlg, /const karte = await eigeneBitchatKarte\(\)\.catch\(\(\) => null\);/);
+  assert.match(dlg, /\.\.\.\(karte \? \[\{ art: "qr" as const, name: "karte", label: t\("set\.bitchatKarte"\), wert: karte \}\] : \[\]\),/, "nur auf Klick, ohne Code kein Feld");
+  assert.match(dlg, /\{ art: "text" as const, name: "gescannt", label: t\("set\.bitchatKarteScannen"\), mono: true, scannen: true \}/);
+  assert.match(dlg, /return !r \? t\("set\.bitchatKarteFalsch"\) : r\.von === ich \? t\("set\.bitchatKarteEigene"\) : null;/, "der Dialog bleibt offen");
+  assert.match(dlg, /const r = leseBitchatKarte\(String\(w\.gescannt \?\? ""\)\);\n  if \(r && r\.von !== ich\) await uebernimmKarte\(r\);/);
+  const uebernimm = ui.slice(ui.indexOf("async function uebernimmKarte"));
+  const frage = uebernimm.indexOf("await bestaetige({");
+  assert.ok(frage > 0 && frage < uebernimm.indexOf("legeKontaktAn(r.von)") && uebernimm.indexOf("legeKontaktAn(r.von)") < uebernimm.indexOf("await nimmBitchatKarte(r)"),
+    "erst fragen, dann anlegen, dann merken");
+  assert.match(uebernimm, /if \(!kontakteJetzt\(\)\.includes\(r\.von\)\) \{\n    if \(!\(await bestaetige\([^\n]+\)\)\) return;/, "abgelehnt: nichts gemerkt");
+  const glue = lies("shell/bitchat-kontakte.ts");
+  assert.match(glue, /export async function eigeneBitchatKarte\(\): Promise<string \| null> \{\n  if \(alsGeraet\(\) \|\| !state\.signer\) return null;/, "die Signatur gehört der Person");
+  assert.match(glue, /return baueBitchatKarte\(\{ von: state\.signer, noise: k\.noise, signier: k\.signier \}\);/);
+  assert.doesNotMatch(`${ui}\n${glue}`, /publish\(|veroeffentlicheAn\(eigene|localStorage/, "die Karte geht nie an ein Relay");
+  const komm = lies("shell/tabs/kommunikation.ts");
+  assert.match(komm, /export function oeffneDirektnachricht\(id: string\): void \{\n  legeKontaktAn\(id\);/, "dieselbe Stelle legt an");
 });

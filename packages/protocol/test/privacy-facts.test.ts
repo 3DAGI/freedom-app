@@ -824,7 +824,8 @@ test("B-36c3: Bitchat als Grenze – feste Kennung, Name und Schlüssel offen im
   assert.equal(f?.regel, undefined, "Bluetooth, kein Event");
   assert.match(f?.aussage ?? "", /^Ist Bitchat an \(nur in der Android-App\), kündigt sich dein Gerät über Bluetooth an – beim Start, bei jeder neuen Verbindung und alle 30 Sekunden/, "BITCHAT_LAUF.ankuendigenMs");
   for (const a of [/feste Kennung/, /„anon“ und vier Ziffern/, /Bitchat-Schlüssel deines Geräts/, /am Dienst, dass hier Bitchat läuft/, /nennen die Kennung in ihren Ankündigungen/, /über Orte verfolgen/]) assert.match(f?.aussage ?? "", a);
-  assert.match(f?.aussage ?? "", /nicht deinem Schlüssel zuordnen, außer von Kontakten, denen du die Bitchat-Schlüssel gibst\./);
+  assert.match(f?.aussage ?? "", /nicht deinem Schlüssel zuordnen, außer von Kontakten, denen du die Bitchat-Schlüssel gibst – versiegelt oder als Code beim Treffen; wer den Code sieht oder fotografiert, ebenso\./, "B-36e2: der Code beim Treffen");
+  assert.match(f?.grund ?? "", /zeigt die App deinen Code nur auf Klick; er ist mit deinem Nostr-Schlüssel signiert, damit niemand einem Kontakt fremde Bitchat-Schlüssel unterschiebt \(Entscheidung BC-W5 A\)/, "B-36e2: protocol/test/bitchat-karte.test.ts");
   for (const g of [/BC-W4 A/, /nie aus deinem Nostr-Schlüssel/, /nur, wenn du es einschaltest/, /nur, wenn du zustimmst, und nur versiegelt, je Kontakt ein Umschlag/, /nur Umschläge an Kontakte in der Nähe, in einer Noise-Sitzung, und nur, wenn kein Relay sie nimmt/]) {
     assert.match(f?.grund ?? "", g);
   }

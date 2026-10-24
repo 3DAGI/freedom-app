@@ -638,12 +638,17 @@ export async function newDm(): Promise<void> {
   oeffneDirektnachricht(id);
 }
 
+/** Einen Kontakt anlegen, ohne die Unterhaltung zu öffnen (auch aus dem Bitchat-Code beim Treffen, B-36e2); true, wenn neu. */
+export function legeKontaktAn(id: string): boolean {
+  if (conversations.find((c) => c.id === id)) return false;
+  conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
+  saveConversations();
+  return true;
+}
+
 /** Eine Unterhaltung mit diesem Schlüssel öffnen – neu, wenn es noch keine gibt (auch aus dem Mitglieder-Menü, C-13b). */
 export function oeffneDirektnachricht(id: string): void {
-  if (!conversations.find((c) => c.id === id)) {
-    conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
-    saveConversations();
-  }
+  legeKontaktAn(id);
   setzeKommModus("dm");
   loadChatList();
   openConversation(id);
