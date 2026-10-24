@@ -144,6 +144,17 @@ Identität je Gerät mit Grenze im Bericht.
   b2 Central (suchen mit Pausen, verbinden, Meldungen abonnieren, schreiben), b3 Brücke Rust ↔ App (JNI, Kommandos der
   Hülle); c – App, d – Probe (MENSCH).
 
+## Stand B-36b1 (24.10.2026)
+
+- **Peripheral in Kotlin** (`packages/launcher/android/FreedomBitchat.kt`, eigene Umsetzung nach `BLEService.swift`): Dienst
+  und Merkmal von Bitchat anbieten (Werbung ohne Gerätenamen), Schreiben annehmen (auch lange Schreibvorgänge, fortlaufend bis
+  512 Byte), an Abonnenten melden – je Verbindung immer nur ein Wert zugleich. Nur Werte weiterreichen: Werte über der Grenze
+  lehnt `sende()` ab. Rechte erst auf Klick (`starte()`); der Stand nennt keine Adressen, Verbindungen heißen `p1`, `p2` ….
+- **Ins APK** über `scripts/android-bitchat.py` (Klasse, Rechte, Keep-Regel) – die CI prüft Klasse, Methoden und Rechte im
+  fertigen APK; der Selbsttest des Skripts (`scripts/test_android_bitchat.py`) läuft in `ci.yml`. Bluetooth selbst prüft
+  erst die Probe mit Geräten (B-36d); lokal übersetzt kotlinc 2.2.20 die Klasse gegen Android 14 ohne Warnung.
+- **Weiter:** b2 Central (suchen mit Pausen, verbinden, abonnieren, schreiben), b3 Brücke Rust ↔ App.
+
 ## Quellen
 
 - `permissionlesstech/bitchat` (Unlicense), Commit `5e9287f` vom 24.09.2026: `WHITEPAPER.md` (Fassung 2.0),

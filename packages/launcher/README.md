@@ -227,8 +227,28 @@ cd packages/launcher && cargo tauri android init --ci
 python3 ../../scripts/launcher-symbole.py --android
 cp proguard-tor.pro gen/android/app/freedom-tor.pro
 python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
+python3 ../../scripts/android-bitchat.py gen/android/app
 cargo tauri android build --apk --target aarch64
 ```
+
+## Bitchat über Bluetooth (seit B-36b1, nur Android)
+
+Freedom spricht über Bluetooth LE das Format von Bitchat (`docs/BITCHAT-ENTWURF.md`). Die Klasse
+`android/FreedomBitchat.kt` (eigene Umsetzung, EUPL-1.2) reicht nur Werte weiter – prüfen, zerlegen,
+verschlüsseln und weiterreichen tut die App mit den Bausteinen des Protokolls. Jeder Wert ist ein ganzes
+Paket; was nicht in die Grenze einer Verbindung passt, nimmt `sende()` nicht an.
+
+- **Peripheral (B-36b1):** bietet Dienst und Merkmal von Bitchat an (Werbung nur mit der Kennung des
+  Dienstes, ohne Gerätenamen), nimmt Schreiben an (lange Schreibvorgänge bis 512 Byte) und meldet an
+  Geräte, die abonniert haben.
+- **Rechte erst auf Klick** (`starte()`): ab Android 12 „Geräte in der Nähe“ (`BLUETOOTH_SCAN` nie für den
+  Ort, `BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE`), bis Android 11 der Standort. Bluetooth LE ist keine
+  Pflicht-Hardware.
+- **Ins Projekt** nur über `scripts/android-bitchat.py` nach `tauri android init`: Klasse neben die
+  `MainActivity`, Rechte ins Manifest, Keep-Regel `freedom-bitchat.pro` (die Klasse ruft nur die Hülle über
+  JNI). Die CI prüft Klasse, ihre Methoden (dexdump) und die Rechte im APK.
+- Gerufen wird sie ab B-36b3 über `src/bitchat.rs`. Nur solange die App offen ist – ein Dienst im
+  Hintergrund ist nicht gebaut.
 
 ## Kamera und Mikrofon (seit 6.1d)
 

@@ -83,3 +83,12 @@ Fallstricke dieses Bereichs unten anhängen.
   über `scripts/android-bruecken.py` (`useLegacyPackaging = true`, sonst bleiben sie im APK und es gibt keinen Ordner;
   `keepDebugSymbols`, sonst strippt das Release sie und der Vergleich mit dem Bau scheitert). Das Entpacken gilt dann für
   alle Bibliotheken der App – die Installation wird größer, der Download nicht.
+- **Bitchat nur über `android/FreedomBitchat.kt`** (seit B-36b1, BC-W1 A): eigene Umsetzung nach dem gemeinfreien
+  Swift-Code – nie Code aus bitchat-android (GPL-3.0); von dort nur Fakten (jeder Wert ein ganzes Paket, kein
+  Zusammensetzen). Die Klasse reicht nur Werte weiter: nie in Kotlin zerlegen, zusammensetzen oder prüfen, ein Wert über
+  der Grenze der Verbindung wird abgelehnt (`sende()` → false), nie geteilt. Ins Projekt nur über
+  `scripts/android-bitchat.py` (Klasse, Rechte, Keep-Regel) – ohne Keep-Regel entfernt R8 die Klasse, die nur JNI ruft;
+  die CI prüft die Methoden mit dexdump innerhalb der Klasse (ein bloßes `grep` fände „stand“ auch in „standard“). Rechte
+  nur auf Klick (`starte()`), keine Adressen fremder Geräte an die App (Verbindungen heißen `p<n>`). Bluetooth lässt sich
+  weder im Emulator noch in der CI prüfen: lokal übersetzen mit kotlinc gegen `android-all` (Robolectric, Maven Central –
+  dl.google.com ist gesperrt), auf Geräten prüft der MENSCH (B-36d).

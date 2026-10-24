@@ -13551,3 +13551,21 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a4“), auf B-36a3 (#599). Damit
 Weiterreichen, Gerichtetes und Handshakes, Rundrufe je Dichte samt Versatzgrenzen, roh weiterreichen mit gültiger Signatur;
 +1 je Verbindung (Android 514 Byte ganz und gepolstert, iOS 182 Byte in Fragmenten aus dem gepolsterten Paket, zu kleine
 Grenze). Gegenprobe: ohne Grenze oder ohne Polster beim Zerlegen wird der Test rot.
+
+## Schritt B-36b1 – Bitchat: Bluetooth als Peripheral in der Android-Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b1“), auf B-36a4 (#600). B-36b ist geteilt (b1 Peripheral, b2 Central,
+b3 Brücke), weil die Kotlin-Klasse allein über 400 Zeilen hätte.
+
+- **`packages/launcher/android/FreedomBitchat.kt`** (neu, eigene Umsetzung nach dem gemeinfreien Swift-Code, BC-W1 A):
+  Dienst und Merkmal von Bitchat anbieten (Werbung ohne Gerätenamen), Schreiben annehmen (lange Schreibvorgänge fortlaufend bis
+  512 Byte), an Abonnenten melden, je Verbindung ein Wert zugleich; `stand()`, `starte()`, `stoppe()`, `sende()`, `hole()`
+  für JNI. Rechte erst auf Klick; Werte über der Grenze einer Verbindung abgelehnt, nie geteilt.
+- **`scripts/android-bitchat.py`** (neu): Klasse, Rechte (ab Android 12 „Geräte in der Nähe“, bis 11 Standort) und Keep-Regel
+  ins erzeugte Projekt, `--pruefen`; **`scripts/test_android_bitchat.py`** (neu, in `ci.yml`).
+- **`launcher.yml`:** Bitchat eintragen, im APK prüfen – Klasse und Methoden (dexdump), drei Bluetooth-Rechte (aapt2).
+- `docs/PROTOCOL.md` §45 (Dienst, Merkmal), Entwurf, README und Fallstrick der Hülle, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Skript-Selbsttest 3 (eintragen einmal und prüfen, jede Lücke fällt auf, Klasse bei Dienst, Merkmal, Werbung ohne
+Namen und JNI-Methoden); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14 (`-Werror`) übersetzt; Pakete unverändert.
+
