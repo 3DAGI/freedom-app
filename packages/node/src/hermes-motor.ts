@@ -124,12 +124,14 @@ export function hermesMotor(o: {
       ...(o.bwrap ? { bwrap: o.bwrap } : {}),
     },
   );
-  return (projekt) => {
+  return (projekt, lauf) => {
     const modell = o.hermes.modell ?? o.modell();
     if (!modell) throw Object.assign(new Error("kein Modell für Code-Läufe"), { name: "KeinModell" });
     const heim = hermesHeim(o.ablage, projekt);
     const pakete = paketKonfiguration();
-    schreibeInsHeim(heim, [".hermes", "config.yaml"], hermesKonfiguration(modell, o.mcp, o.mcpZeichen?.(basename(projekt))));
+    // im Modus „fragen“ (und ohne Angabe) nur, was nichts ändert – Änderungen gehen dort über Hermes, der vorher fragt
+    const mcp = (o.mcp ?? []).map((s) => (lauf?.modus === "frei" || !s.beimFragen ? s : { ...s, werkzeuge: s.beimFragen }));
+    schreibeInsHeim(heim, [".hermes", "config.yaml"], hermesKonfiguration(modell, mcp, o.mcpZeichen?.(basename(projekt))));
     schreibeInsHeim(heim, [".npmrc"], pakete.npmrc);
     // ohne den Ordner bände bubblewrap nichts ein und startete nicht
     if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });

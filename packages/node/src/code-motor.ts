@@ -44,8 +44,8 @@ export interface MotorVerbindung {
   /** Der Projektordner, wie der Motor ihn sieht – in der Sandbox `/arbeit` (VKc3); sonst der Ordner selbst. */
   ort?: string;
 }
-/** Startet den Motor im Ordner des Projekts – nur in der Sandbox (VK4). */
-export type MotorStart = (ordner: string) => MotorVerbindung;
+/** Startet den Motor im Ordner des Projekts – nur in der Sandbox (VK4); `lauf.modus` seit VKk2a (Werkzeuge im Modus „fragen“). */
+export type MotorStart = (ordner: string, lauf?: { modus: CodeModus }) => MotorVerbindung;
 
 /**
  * Läuft der Prozess noch? Nur dann `kill()`. Scheitert `spawn` (Programm fehlt), hat er keine pid – bis zum Ereignis
@@ -200,7 +200,7 @@ export class CodeLaeufe {
     try {
       await this.o.ablage.neu(lauf.projekt);
       const ordner = this.o.ablage.ort(lauf.projekt);
-      const motor = this.o.motor(ordner);
+      const motor = this.o.motor(ordner, { modus: lauf.modus });
       lauf.beende = () => motor.beende();
       // Updates direkt im Handler, in der Reihenfolge der Ankunft – ohne Datei- und Terminal-Fähigkeiten: der Motor arbeitet selbst, in der Sandbox
       const app = client({ name: "freedom-knoten" })

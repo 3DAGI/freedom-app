@@ -241,7 +241,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | | DaVinci Resolve | Community-Server | ? | ✗ → Werkbank |
 | | Ableton Live | `ahujasid/ableton-mcp` | MIT | ✗ → Werkbank |
 | Büro/Daten | LibreOffice | mehrere (`mcp-libre` …) | ? | ✓ |
-| | Jupyter | `datalayer/jupyter-mcp-server` | BSD-3 | ✓ |
+| | Jupyter | eigene Brücke (VKk2a; `datalayer/jupyter-mcp-server` 2.2.4 zöge 145 Pakete, ~500 MB nach – MENSCH 25.10.: eigene Brücke) | EUPL-1.2 | ✓ |
 | | QGIS | `jjsantos01/qgis_mcp` | ? | ✓ |
 | Web/Test | Browser | Playwright MCP (Microsoft) | Apache-2.0 | ✓ |
 | | Chrome | Chrome DevTools MCP (Google) | Apache-2.0 | ✓ |
@@ -296,7 +296,7 @@ Lizenzen aus den Repos gelesen (14.10.); „?“ heißt: noch zu prüfen. ARM64 
 | VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | B | ~300 |
 | VKi | Windows: Wine und Hangover | B | ~200 |
 | VKj | Werkbank-Knoten: weitere eigene Rechner als MCP-Träger, Vorschau von dort | A + B | ~400 je Teil – **Entwurf** (23.10., [`WERKBANK-ENTWURF.md`](WERKBANK-ENTWURF.md): MCP im Format von ContextVM, versiegelt; Kopplung über das Handy; Fragen VKj-W1–W4) |
-| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 – **VKk1 fertig** (`mcp-katalog.ts`: der Browser – Playwright MCP aus `playwright-core` 1.62.1, das der Knoten schon hatte, exakt gepinnt; Chromium aus Debian im Bild mit `VIBECODEN=1`; als Kind von Hermes in dessen Sandbox, ohne Netz; Werkzeuge nur aus `PLAYWRIGHT_WERKZEUGE`, ohne `browser_run_code_unsafe`) |
+| VKk | MCP-Katalog: Programme und Server aus der Tabelle, je einer pro PR, gepinnt | B | je ~100 – **VKk1 fertig** (`mcp-katalog.ts`: der Browser – Playwright MCP aus `playwright-core` 1.62.1, das der Knoten schon hatte, exakt gepinnt; Chromium aus Debian im Bild mit `VIBECODEN=1`; als Kind von Hermes in dessen Sandbox, ohne Netz; Werkzeuge nur aus `PLAYWRIGHT_WERKZEUGE`, ohne `browser_run_code_unsafe`); **VKk2a fertig** (25.10., Jupyter: eigene Brücke `mcp/jupyter-bruecke.mjs` statt `datalayer/jupyter-mcp-server` – gemessen 145 Pakete, ~500 MB, dazu ein Jupyter-Server in der Sandbox, Ausführen ohne Rückfrage; MENSCH: eigene Brücke. Zellen lesen, anlegen, ändern, löschen, nur unter `/arbeit`, Byte für Byte wie nbformat 5.11.1; ausgeführt wird nichts; im Modus „fragen“ nur lesen – Hermes fragt vor MCP-Aufrufen nicht); VKk2b offen: Ausführen über das Terminal (`jupyter execute --inplace`, ipykernel und nbclient im Bild) |
 | VKl | „Als Repo in einen Raum stellen“ | A | ~200 – **fertig** (VKl1 Knoten: Code-Aktion `bundle`, `PROTOCOL.md` §34; VKl2 App: „Mein Knoten“ › Projekte) |
 
 ### Neue Fragen
