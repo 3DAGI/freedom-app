@@ -13780,3 +13780,32 @@ Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36e2“), auf B-36e1 (#612). Damit
 anlegen, dann merken, abgelehnt nichts, nie an ein Relay; der Test aus B-36c3 folgt dem neuen Ablauf); protocol: Grenze
 „bitchat“ mit Code und Signatur; Smoke „bitchat“ erweitert: QR auf Klick, kaputter Code hält den Dialog offen, ein Fremder
 wird nach „Anlegen“ Kontakt und seine Schlüssel stehen im Buch.
+
+## Schritt VKk2a – Jupyter-Notebooks für den Motor: eigene Brücke in der Sandbox
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk „MCP-Katalog“, Büro/Daten – Jupyter). Gemessen: `datalayer/jupyter-mcp-server` 2.2.4
+zöge 145 Pakete mit ~500 MB nach (pyarrow, Datalayer-SDK, code-sandboxes, OpenTelemetry, JupyterLab mit Kollaboration), dazu
+einen Jupyter-Server in der Sandbox, und seine Werkzeuge führten Code ohne Rückfrage aus. MENSCH 25.10.: eigene Brücke.
+
+- **`packages/node/mcp/jupyter-bruecke.mjs`** (nur Node, keine Pakete, wie die Kiwix-Brücke): `notebook_read`,
+  `notebook_create`, `cell_insert`, `cell_edit`, `cell_delete` – nur `.ipynb` unter dem Projekt, kein `..`, kein Teil mit
+  Punkt am Anfang (`.git`, `.ipynb_checkpoints`), keinem Verweis folgen (`lstat`, `O_NOFOLLOW`), geschrieben über eine neue
+  Datei daneben (`wx`) und Umbenennen, Rechte der Datei bleiben. Geschrieben Byte für Byte wie nbformat 5.11.1 (sortierte
+  Schlüssel, Einrückung 1, Quelltext als Zeilen wie `splitlines(True)`, Kennungen ab 4.5); eine geänderte Code-Zelle
+  verliert ihre Ausgaben. Lesen zeigt Ausgaben als Text, Bilder nur mit Typ, ohne Farbcodes, lange Notebooks in Teilen.
+  Ausgeführt wird nichts – Code läuft nur über das Terminal von Hermes. Nie nach stderr.
+- **`src/mcp-katalog.ts`:** `jupyterMcp()` (Brücke nur lesbar unter `/freedom/mcp/jupyter`, Wurzel `/arbeit`), in
+  `mcpAusUmgebung()` von selbst dabei, `MCP_JUPYTER=aus` schaltet ab, anderes heißt kein Start.
+- **Modus „fragen“:** Hermes fragt vor MCP-Aufrufen nicht – dort bekommt der Motor nur `notebook_read` (`beimFragen`),
+  ändern geht über die Werkzeuge von Hermes, die vorher fragen. `CodeLaeufe` gibt den Modus an den Motor
+  (`MotorStart(ordner, { modus })`, `code-motor.ts`, eine Zeile), `hermesMotor()` schreibt `config.yaml` je Lauf danach.
+- **`scripts/jupyter-referenz.py`** erzeugt `test/fixtures/jupyter-referenz.json` mit nbformat 5.11.1.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +10 (`jupyter-mcp.test.ts`): Referenz (neues Notebook, neue Zellen, fremdes unverändert, geänderte Code-Zelle);
+anlegen, einfügen, ändern, löschen (Kennungen, nie ersetzt, 4.4 ohne Kennung, Rechte bleiben); Pfade und Verweise; feste
+Fehlertexte (Nummer, Art, Länge, fehlende Quelle, nbformat 3, kaputtes JSON, zu groß, kein `run_cell`); lesen in Teilen;
+über stdio ohne stderr; Katalog und `config.yaml`; je Modus die Werkzeuge in `config.yaml`, der Lauf gibt den Modus an den
+Motor; in bubblewrap wie Hermes. Die Tests aus VKk1 und VKd2a, die genau „kein
+Server“ erwarten, schalten Jupyter mit `MCP_JUPYTER=aus` ab. Gegenproben: ohne `lstat`, ohne Punkt-Regel, ohne Sortierung,
+ohne `O_NOFOLLOW`, ohne die Einschränkung im Modus „fragen“ je ein roter Test.

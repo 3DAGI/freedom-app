@@ -717,6 +717,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Jupyter-Notebooks (seit VKk2a):** Hermes liest und ändert Notebooks im Projekt Zelle
+  für Zelle – über eine eigene kleine Brücke des Knotens (nur Node, keine Pakete), in der
+  Sandbox des Motors und nur unter dem Projekt. Sie schreibt wie Jupyter selbst, damit
+  git nur die geänderte Zelle zeigt, und führt nichts aus: Code läuft nur über das
+  Terminal von Hermes, das im Modus „fragen“ vorher fragt. Im Modus „fragen“ liest die
+  Brücke nur – ändern geht dort über Hermes, der vorher fragt; im Modus „frei“ ändert
+  sie Zellen selbst. `MCP_JUPYTER=aus` schaltet sie ab.
 - **Bilder (seit VKd2b2):** Mit `COMFYUI_URL` (deine ComfyUI, nur auf diesem Rechner
   oder im Heimnetz, etwa `http://127.0.0.1:8188`) bekommt Hermes `generate_image`: Der
   Knoten fragt deine ComfyUI (SDXL, Checkpoint über `COMFYUI_CHECKPOINT`, Vorgabe

@@ -536,3 +536,14 @@ Bereichs unten anhängen.
   kein Funk-Gateway dafür (`funkGateway` bleibt `GatewayRolle`) – ein Meshtastic-Gerät erreichte den Knoten so nicht. Die
   Bibliothek protokolliert selbst ab „error“ – im Test schreiben Links nach dem Stoppen noch ein paar Sekunden Fehler; der
   Test endet trotzdem.
+- **Jupyter für den Motor nur über die eigene Brücke** (seit VKk2a, `mcp/jupyter-bruecke.mjs`, MENSCH 25.10.): nicht
+  `datalayer/jupyter-mcp-server` (145 Pakete, ~500 MB, Ausführen ohne Rückfrage). Die Brücke führt nie Code aus – kein
+  Werkzeug, das einen Kernel startet; Ausführen nur über das Terminal von Hermes (VKk2b). Hermes fragt vor MCP-Aufrufen
+  nicht: Im Modus „fragen“ bekommt der Motor nur `beimFragen` (`notebook_read`) – `hermesMotor()` schreibt die
+  `config.yaml` je Lauf mit dem Modus aus `MotorStart(ordner, { modus })`, ohne Angabe wie „fragen“. Ein neuer Server, der
+  Dateien ändert, braucht `beimFragen`. Pfade nur über `notebookTeile()`
+  (kein Teil mit Punkt am Anfang, `.ipynb`), Orte nur mit `lstat` je Teil, gelesen mit `O_NOFOLLOW`, geschrieben über eine
+  neue Datei daneben (`wx`) und Umbenennen. Geschrieben nur über `alsJson()`/`neueZelle()` – Byte für Byte wie nbformat
+  (sortierte Schlüssel, Einrückung 1, Quelltext wie `splitlines(True)`); die Referenz nur mit `scripts/jupyter-referenz.py`
+  neu erzeugen. Unicode-Zeilentrenner im Quelltext der Brücke nur als ` `/` ` schreiben – roh beenden sie das
+  Regex-Literal.

@@ -14,11 +14,17 @@
  *
  * VKd2a: Kiwix – dieselbe Brücke (`mcp/kiwix-bruecke.mjs`) und dieselben ZIM-Dateien wie für Aufträge (B-31b,
  * `mcp.json`), kein zweiter Ort zum Einrichten. `kiwix-serve` hört nur auf 127.0.0.1 der Sandbox des Motors.
+ *
+ * VKk2a: Jupyter-Notebooks – die eigene Brücke (`mcp/jupyter-bruecke.mjs`, nur Node): Zellen lesen, anlegen, ändern und
+ * löschen, nur unter `/arbeit`, geschrieben wie nbformat. Sie führt nichts aus – Code läuft nur über das Terminal von
+ * Hermes, das vorher fragt.
  */
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, normalize } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
+import { WERKZEUGE as JUPYTER_WERKZEUGE } from "../mcp/jupyter-bruecke.mjs";
 import { WERKZEUGE as KIWIX_WERKZEUGE } from "../mcp/kiwix-bruecke.mjs";
 import { KIWIX_BRUECKE, KIWIX_SERVE } from "./mcp-client.js";
 
@@ -29,6 +35,11 @@ export interface McpServer {
   argumente: string[];
   /** Nur diese Werkzeuge bekommt der Motor. */
   werkzeuge: readonly string[];
+  /**
+   * Im Modus „fragen“ nur diese (VKk2a): Was Dateien ändert, geht dort über die Werkzeuge von Hermes, die vorher fragen –
+   * vor MCP-Aufrufen fragt Hermes nicht. Ohne Angabe alle.
+   */
+  beimFragen?: readonly string[];
   /** Was der Server braucht, nur lesbar in die Sandbox (`SandboxOrt.nurLesbar`). */
   nurLesbar: Array<{ quelle: string; ziel: string }>;
 }
@@ -57,6 +68,9 @@ export const BROWSER_ORTE = ["/usr/lib/chromium/chromium", "/opt/google/chrome/c
 
 /** Wo die Kiwix-Brücke in der Sandbox liegt – nie unter `/arbeit`. */
 export const KIWIX_IN_SANDBOX = "/freedom/mcp/kiwix";
+/** Die Jupyter-Brücke (VKk2a) und wo sie in der Sandbox liegt – nie unter `/arbeit`. */
+export const JUPYTER_BRUECKE = fileURLToPath(new URL("../mcp/jupyter-bruecke.mjs", import.meta.url));
+export const JUPYTER_IN_SANDBOX = "/freedom/mcp/jupyter";
 
 /** Was für einen Server des Katalogs fehlt – ins Log nur diese Kennungen. */
 export type McpFehlt = "mcp.playwright-fehlt" | "mcp.browser-fehlt" | "mcp.kiwix-fehlt";
@@ -127,17 +141,54 @@ function kiwixMcp(o: { zim: readonly string[]; kiwixServe: string; node?: string
 }
 
 /**
+ * Die Jupyter-Brücke für den Motor (VKk2a): `node` des Knotens, das Projekt als Wurzel – geschrieben wird nur dort, wo
+ * die Sandbox ohnehin schreiben darf. Der Motor bekommt genau die Werkzeuge der Brücke.
+ */
+export function jupyterMcp(o: { node?: string; heim?: string } = {}): McpServer {
+  const node = o.node ?? process.execPath;
+  if (!isAbsolute(node) || normalize(node) !== node) throw new Error("Pfad ungültig");
+  return {
+    name: "jupyter",
+    befehl: node,
+    argumente: [join(JUPYTER_IN_SANDBOX, basename(JUPYTER_BRUECKE)), "/arbeit"],
+    werkzeuge: JUPYTER_WERKZEUGE.map((w) => w.name),
+    beimFragen: ["notebook_read"],
+    nurLesbar: [
+      { quelle: dirname(JUPYTER_BRUECKE), ziel: JUPYTER_IN_SANDBOX },
+      ...(node.startsWith("/usr/") ? [] : lesbarerOrdner(dirname(dirname(node)), o.heim ?? homedir())),
+    ],
+  };
+}
+
+/**
  * Aus der Umgebung (nur mit Vibecoden):
  * - `MCP_BROWSER` – Pfad zu Chromium oder Chrome, `aus` schaltet den Browser ab; ohne Angabe sucht der Knoten in
  *   `BROWSER_ORTE`.
  * - `MCP_KIWIX` – nur `aus`: Die ZIM-Dateien (`zim`) kommen aus `mcp.json` (B-31b); stehen dort welche, bekommt der Motor
  *   Kiwix von selbst.
+ * - `MCP_JUPYTER` – nur `aus`: Die Jupyter-Brücke braucht nichts außer Node, der Motor bekommt sie von selbst.
  *
  * Eine Angabe, die nicht stimmt, heißt kein Start (`ungueltig`); fehlt nur etwas, läuft der Motor ohne den Server (`fehlt`).
  */
 export function mcpAusUmgebung(
-  env: { MCP_BROWSER?: string; MCP_KIWIX?: string },
+  env: { MCP_BROWSER?: string; MCP_KIWIX?: string; MCP_JUPYTER?: string },
   o: { playwright?: string | null; orte?: readonly string[]; zim?: readonly string[]; kiwixServe?: string; node?: string; heim?: string } = {},
+): { server: McpServer[]; fehlt: McpFehlt[] } | { ungueltig: string } {
+  const ohneJupyter = katalogOhneJupyter(env, o);
+  if ("ungueltig" in ohneJupyter) return ohneJupyter;
+  const jupyter = env.MCP_JUPYTER?.trim();
+  if (jupyter === "aus") return ohneJupyter;
+  if (jupyter) return { ungueltig: "MCP_JUPYTER kennt nur „aus“" };
+  try {
+    return { server: [...ohneJupyter.server, jupyterMcp({ ...(o.node ? { node: o.node } : {}), ...(o.heim ? { heim: o.heim } : {}) })], fehlt: ohneJupyter.fehlt };
+  } catch {
+    return { ungueltig: "Node liegt direkt im Home oder in der Wurzel – die Sandbox bekäme zu viel zu sehen (Jupyter)" };
+  }
+}
+
+function katalogOhneJupyter(
+  env: { MCP_BROWSER?: string; MCP_KIWIX?: string },
+  o: { playwright?: string | null; orte?: readonly string[]; zim?: readonly string[]; kiwixServe?: string; node?: string; heim?: string },
 ): { server: McpServer[]; fehlt: McpFehlt[] } | { ungueltig: string } {
   const browser = browserWahl(env, o);
   if ("ungueltig" in browser) return browser;
