@@ -309,3 +309,20 @@ test("rechnungVon(): nur LNURL-pay mit https, Betrag im Bereich, die Rechnung ge
   await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen(lnurl, "kaputt")), fall("RechnungFalsch"));
   await assert.rejects(rechnungVon("provider@knoten.example.org", 1_000, holen(lnurl, undefined)), fall("RechnungFalsch"));
 });
+
+test("A-33: die Test-Mint installiert genau die feste Liste, und die CI schweigt nicht, wenn sie nicht startet", () => {
+  const lies = (pfad: string) => readFileSync(new URL(`../../../${pfad}`, import.meta.url), "utf8");
+  // Mit --no-deps holt pip nichts nach – jede Zeile muss eine feste Version sein, sonst fehlte still ein Paket
+  const zeilen = lies("scripts/cashu-testmint.txt").split("\n").filter((z) => z.trim() && !z.startsWith("#"));
+  assert.ok(zeilen.length > 30, "die ganze Liste aus pip freeze");
+  for (const z of zeilen) assert.match(z, /^[A-Za-z0-9_.-]+==[0-9][0-9A-Za-z.]*$/, z);
+  assert.ok(zeilen.includes("cashu==0.21.0"));
+  assert.ok(zeilen.some((z) => z.startsWith("breez_sdk_spark==") && z !== "breez_sdk_spark==0.17.2"), "0.17.x gibt es auf PyPI nicht mehr");
+  assert.match(lies("scripts/cashu-testmint.sh"), /pip" install -q --disable-pip-version-check --no-deps -r "\$HIER\/cashu-testmint\.txt"/);
+  // In `echo "…$(…)"` zählt der Exit-Code der Mint nicht – so fielen die Cashu-Tests in der CI still weg
+  const schluckt = /echo "[^"\n]*\$\(bash scripts\/cashu-testmint\.sh\)/;
+  assert.match('run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"', schluckt, "die Prüfung erkennt die alte Form");
+  const ci = lies(".github/workflows/ci.yml");
+  assert.doesNotMatch(ci, schluckt);
+  assert.match(ci, /\n {10}mint="\$\(bash scripts\/cashu-testmint\.sh\)"\n {10}echo "CASHU_TEST_MINT=\$mint" >> "\$GITHUB_ENV"\n/);
+});
