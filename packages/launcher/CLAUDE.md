@@ -83,3 +83,22 @@ Fallstricke dieses Bereichs unten anhängen.
   über `scripts/android-bruecken.py` (`useLegacyPackaging = true`, sonst bleiben sie im APK und es gibt keinen Ordner;
   `keepDebugSymbols`, sonst strippt das Release sie und der Vergleich mit dem Bau scheitert). Das Entpacken gilt dann für
   alle Bibliotheken der App – die Installation wird größer, der Download nicht.
+- **Bitchat nur über `android/FreedomBitchat.kt`** (seit B-36b1, BC-W1 A): eigene Umsetzung nach dem gemeinfreien
+  Swift-Code – nie Code aus bitchat-android (GPL-3.0); von dort nur Fakten (jeder Wert ein ganzes Paket, kein
+  Zusammensetzen). Die Klasse reicht nur Werte weiter: nie in Kotlin zerlegen, zusammensetzen oder prüfen, ein Wert über
+  der Grenze der Verbindung wird abgelehnt (`sende()` → false), nie geteilt. Ins Projekt nur über
+  `scripts/android-bitchat.py` (Klasse, Rechte, Keep-Regel) – ohne Keep-Regel entfernt R8 die Klasse, die nur JNI ruft;
+  die CI prüft die Methoden mit dexdump innerhalb der Klasse (ein bloßes `grep` fände „stand“ auch in „standard“). Rechte
+  nur auf Klick (`starte()`), keine Adressen fremder Geräte an die App (Verbindungen heißen `p<n>`). Bluetooth lässt sich
+  weder im Emulator noch in der CI prüfen: lokal übersetzen mit kotlinc gegen `android-all` (Robolectric, Maven Central –
+  dl.google.com ist gesperrt), auf Geräten prüft der MENSCH (B-36d).
+  Als Central (seit B-36b2) nur mit Filter auf den Dienst suchen (nie ohne – sonst verbindet sich Freedom mit jedem Gerät
+  in der Nähe) und nur nach den Werten aus `TransportConfig.swift` (6 Verbindungen, 5 s an/10 s aus, 8 s, 120 s). Die Ruhe
+  von 120 s nur für Geräte, die nie bereit wurden – ein Gerät, das nach dem Abonnieren geht, sonst zwei Minuten aus dem
+  Netz. Lange Schreibvorgänge gehören nur zur Rolle Peripheral (`vorbereitet` nur bei `p` leeren). Fehlt die Werbung
+  (`werbung: nicht-moeglich`), läuft Central trotzdem – nie Bluetooth ganz ablehnen.
+  Die Hülle ruft die Klasse (seit B-36b3a) nur über `bitchat.rs`: fünf Kommandos `bitchat_*`, je eines in `build.rs` und
+  `capabilities/oberflaeche.json`; JNI nur über `jni_handle().exec` (Hauptthread – dort läuft auch der Suchtakt der
+  Klasse) und `find_class()`, offene Java-Ausnahmen danach löschen. Die Signaturen in `bitchat.rs` folgen den
+  `@JvmStatic`-Methoden – ändert sich eine, beide Seiten ändern (dexdump im APK zeigt sie). Vor JNI nur die Form prüfen
+  (`kennung_ok()`, `wert_ok()`); den Android-Zweig übersetzt nur der APK-Job, `cargo test` sieht ihn nicht.

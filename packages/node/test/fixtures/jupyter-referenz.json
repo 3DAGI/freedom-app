@@ -1,0 +1,50 @@
+{
+ "nbformat": "5.11.1",
+ "kernel": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "neu": "{\n \"cells\": [],\n \"metadata\": {\n  \"kernelspec\": {\n   \"display_name\": \"Python 3 (ipykernel)\",\n   \"language\": \"python\",\n   \"name\": \"python3\"\n  },\n  \"language_info\": {\n   \"name\": \"python\"\n  }\n },\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n",
+ "zellen": {
+  "zellen": [
+   {
+    "art": "markdown",
+    "id": "a1b2c3d4",
+    "quelle": "# Überschrift\n\nText mit Ümlaut – und Strich"
+   },
+   {
+    "art": "code",
+    "id": "0f0f0f0f",
+    "quelle": "import math\nprint(math.pi)\n"
+   },
+   {
+    "art": "code",
+    "id": "00000001",
+    "quelle": ""
+   },
+   {
+    "art": "raw",
+    "id": "deadbeef",
+    "quelle": "eins\r\nzwei\rdrei\fvier fünf\u001cende"
+   },
+   {
+    "art": "code",
+    "id": "00000002",
+    "quelle": "x = 1\n\n\ny = 2"
+   }
+  ],
+  "text": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"a1b2c3d4\",\n   \"metadata\": {},\n   \"source\": [\n    \"# Überschrift\\n\",\n    \"\\n\",\n    \"Text mit Ümlaut – und Strich\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"id\": \"0f0f0f0f\",\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"import math\\n\",\n    \"print(math.pi)\\n\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"id\": \"00000001\",\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": []\n  },\n  {\n   \"cell_type\": \"raw\",\n   \"id\": \"deadbeef\",\n   \"metadata\": {},\n   \"source\": [\n    \"eins\\r\\n\",\n    \"zwei\\r\",\n    \"drei\\f\",\n    \"vier \",\n    \"fünf\\u001c\",\n    \"ende\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"id\": \"00000002\",\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"x = 1\\n\",\n    \"\\n\",\n    \"\\n\",\n    \"y = 2\"\n   ]\n  }\n ],\n \"metadata\": {\n  \"kernelspec\": {\n   \"display_name\": \"Python 3 (ipykernel)\",\n   \"language\": \"python\",\n   \"name\": \"python3\"\n  },\n  \"language_info\": {\n   \"name\": \"python\"\n  }\n },\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+ },
+ "ausgaben": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"00000000\",\n   \"metadata\": {},\n   \"source\": [\n    \"## Auswertung\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 3,\n   \"id\": \"11111111\",\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"name\": \"stdout\",\n     \"output_type\": \"stream\",\n     \"text\": [\n      \"hallo\\n\"\n     ]\n    },\n    {\n     \"name\": \"stderr\",\n     \"output_type\": \"stream\",\n     \"text\": [\n      \"Warnung\\n\"\n     ]\n    },\n    {\n     \"data\": {\n      \"text/html\": [\n       \"<b>2</b>\"\n      ],\n      \"text/plain\": [\n       \"2\"\n      ]\n     },\n     \"execution_count\": 3,\n     \"metadata\": {},\n     \"output_type\": \"execute_result\"\n    }\n   ],\n   \"source\": [\n    \"print('hallo')\\n\",\n    \"1 + 1\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 4,\n   \"id\": \"22222222\",\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"data\": {\n      \"image/png\": \"iVBORw0KGgo=\",\n      \"text/plain\": [\n       \"<Figure size 640x480>\"\n      ]\n     },\n     \"metadata\": {},\n     \"output_type\": \"display_data\"\n    }\n   ],\n   \"source\": [\n    \"zeige()\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 5,\n   \"id\": \"33333333\",\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"ename\": \"ZeroDivisionError\",\n     \"evalue\": \"division by zero\",\n     \"output_type\": \"error\",\n     \"traceback\": [\n      \"\\u001b[0;31mZeroDivisionError\\u001b[0m: division by zero\"\n     ]\n    }\n   ],\n   \"source\": [\n    \"1/0\"\n   ]\n  }\n ],\n \"metadata\": {\n  \"kernelspec\": {\n   \"display_name\": \"Python 3 (ipykernel)\",\n   \"language\": \"python\",\n   \"name\": \"python3\"\n  },\n  \"language_info\": {\n   \"name\": \"python\"\n  }\n },\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n",
+ "geaendert": {
+  "index": 1,
+  "quelle": "print('neu')",
+  "text": "{\n \"cells\": [\n  {\n   \"cell_type\": \"markdown\",\n   \"id\": \"00000000\",\n   \"metadata\": {},\n   \"source\": [\n    \"## Auswertung\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": null,\n   \"id\": \"11111111\",\n   \"metadata\": {},\n   \"outputs\": [],\n   \"source\": [\n    \"print('neu')\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 4,\n   \"id\": \"22222222\",\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"data\": {\n      \"image/png\": \"iVBORw0KGgo=\",\n      \"text/plain\": [\n       \"<Figure size 640x480>\"\n      ]\n     },\n     \"metadata\": {},\n     \"output_type\": \"display_data\"\n    }\n   ],\n   \"source\": [\n    \"zeige()\"\n   ]\n  },\n  {\n   \"cell_type\": \"code\",\n   \"execution_count\": 5,\n   \"id\": \"33333333\",\n   \"metadata\": {},\n   \"outputs\": [\n    {\n     \"ename\": \"ZeroDivisionError\",\n     \"evalue\": \"division by zero\",\n     \"output_type\": \"error\",\n     \"traceback\": [\n      \"\\u001b[0;31mZeroDivisionError\\u001b[0m: division by zero\"\n     ]\n    }\n   ],\n   \"source\": [\n    \"1/0\"\n   ]\n  }\n ],\n \"metadata\": {\n  \"kernelspec\": {\n   \"display_name\": \"Python 3 (ipykernel)\",\n   \"language\": \"python\",\n   \"name\": \"python3\"\n  },\n  \"language_info\": {\n   \"name\": \"python\"\n  }\n },\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n"
+ }
+}

@@ -200,3 +200,47 @@ Fallstricke dieses Bereichs unten anhängen.
   `vertrautesManifest(…, whisperQuelle)`, nie über `hfQuelle()`. `.bin` gilt nur hier (`WHISPER_DATEI`) und nur mit der
   Kennung `ggml` am Anfang (`istGgml()`); `HF_DATEI` bekommt nie `.bin` dazu – dort wäre es Pickle. Der Stand von Hugging Face
   nur über `whisperStand()` (die eine Datei, nur mit LFS-Summe), geladen nur `whisperDateiAdresse()` (am Commit, nur dieses Repo).
+- **Reticulum-Bausteine nur hier** (seit B-32d1, RN-W8 A, RN-W10 A): Regionen, Grenzen und Sendezeit in `funk-region.ts`,
+  Identität und LXMF-Umschlag in `reticulum-umschlag.ts`, der Kern über der RNode in `reticulum-kern.ts` – App und Knoten
+  (B-32d2) nehmen sie von hier, nie eine zweite Fassung. Die Bibliothek nur dynamisch laden (`import("@reticulum/…")`); ein
+  App-Test zählt die Dateien, in denen der Name `@reticulum/` steht, und prüft, dass keine ihn statisch importiert – also auch
+  im Kommentar nicht nennen. Jeder Pfad, den das Protokoll lädt, muss im Modul „reticulum-klein“ in `app/build.mjs` stehen.
+  Die Typen der LXMF-Unterpfade kommen aus `reticulum-typen.d.ts` über `/// <reference path>` – App und Knoten übersetzen
+  die Quellen des Protokolls mit, ohne die Referenz fänden sie die Deklaration nicht. Das Konto (`Sendezeitkonto`) gibt der
+  Aufrufer mit: eines je Gerät und Sitzung.
+- **Bitchat nur über `bitchat-paket.ts`** (seit B-36a1, BC-W1–W4 A, `docs/PROTOCOL.md` §45): eigene Umsetzung nach dem
+  gemeinfreien Whitepaper – nie Code aus bitchat-android (GPL-3.0 seit 28.02.2026). Die Vektoren
+  (`test/fixtures/bitchat-referenz.json`) nur mit `scripts/bitchat-referenz.sh` neu erzeugen (kotlinc und Commit gepinnt; der
+  GPL-Code wird nur ausgeführt). Freedom packt nie: Bitchat signiert über eine neue Kodierung und packt dabei Nutzlasten ab
+  100 Byte selbst – eine gepackte Fassung sähe anders aus als unsere, die Signatur gälte nicht. Eine Ankündigung ab 100 Byte
+  signiert `signiereBitchat()` darum nie (ohne Nachbarn und Fähigkeiten bleibt sie darunter), über gepackte Nutzlast prüft
+  `pruefeBitchatSignatur()` nie. Signiert wird mit TTL 0 und aufgefüllt (`bitchatSignierDaten()`), wie `toBinaryDataForSigning()`.
+  Fragmente (seit B-36a2) höchstens 256 je Paket – mehr nimmt bitchat-android nicht an (das Format erlaubte 65 535);
+  zusammengesetzt nur über `BitchatZusammensetzer` (Grenzen aus `BITCHAT_ZUSAMMENSETZEN`), das Ganze mit TTL 0: Weitergereicht
+  werden die Fragmente, nie das zusammengesetzte Paket.
+  Noise (seit B-36a3) nur über `bitchat-noise.ts`: der Handshake (`NoiseXX`) gegen die Vektoren von cacophony und snow – eine
+  Änderung, die einen Vektor rot macht, ist falsch; der Transport nur über `BitchatTransport` (Nonce vorn, Fenster 1024). Ein
+  gescheiterter Schritt beendet den Handshake (`abgebrochen`) – nie denselben weiterverwenden, sein Zustand ist halb
+  fortgeschrieben.
+  Fluten (seit B-36a4) nur über `bitchat-mesh.ts`: Doppeltes über `BitchatDoppel`, ob und mit welcher TTL über
+  `bitchatWeiterreichen()` (Regeln von `RelayController`, im Test mit festem `zufall`), weitergereicht nur roh über
+  `mitBitchatTtl()` – nie neu kodieren: Gepackte Nutzlast anderer entpackt Freedom nie, und eine neue Kodierung änderte die
+  Bytes, über die geprüft wird. Über Bluetooth nur, was `bitchatFuerVerbindung()` liefert: je Wert ein ganzes Paket in der
+  Grenze der Verbindung – bitchat-android setzt keine Stücke zusammen, ein geteiltes Paket ginge verloren.
+  Zwischen Freedom-Kontakten (seit B-36c1, BC-W2 A, BC-W3 A) nur über `bitchat-kontakt.ts`: Noise- und Signier-Schlüssel nur
+  versiegelt an Kontakte (`baueBitchatSchluesselUmschlaege()`, Kind 38083, je Kontakt ein Umschlag), gelesen nur über
+  `oeffneBitchatSchluesselUmschlag()` – nie ein Merkmal in der Ankündigung, das „Freedom“ verriete. In der Noise-Sitzung nur
+  der Typ `0xF0` mit genau einem Umschlag (`bitchatUmschlagKlartext()`/`leseBitchatUmschlag()`, beide über
+  `pruefeMeshInhalt()`) – nie einen Typ, den Bitchat vergibt (0x01–0x09, 0x10–0x12, 0x20, 0x21), nie Klartext, keine
+  Transaktionen.
+  Ein Gerät im Netz (seit B-36c2a1) nur über `BitchatKnoten` – ohne Ein- und Ausgabe, Zeit und Zufall gibt der Aufrufer mit
+  (Tests ein ganzes Netz ohne Bluetooth). Kontakte nur an einer gültig signierten Ankündigung mit BEIDEN Schlüsseln aus 38083
+  (ein bekannter Noise-Schlüssel mit fremdem Signier-Schlüssel ist nicht der Kontakt). Weiterreichen in eine kleinere Grenze nur
+  über `zerlegeBitchatRoh()` – die rohen Bytes, nie `zerlegeBitchat()` auf ein neu kodiertes Paket.
+  Sitzungen (seit B-36c2a2) nur mit Kontakten in der Nähe, gültig erst, wenn der statische Schlüssel aus dem Handshake dem aus
+  38083 gleicht – ein Fremder mit der Peer-ID eines Kontakts kommt sonst durch. Ein gescheiterter Schritt löscht die Sitzung
+  (`NoiseXX` ist dann halb fortgeschrieben). Den Knoten nie ohne `eigeneSchluessel` bauen: Daran erkennt `pruefeMeshInhalt()`
+  die eigene Kopie, die nie hinausgeht.
+  Schlüssel beim Treffen (seit B-36e1, BC-W5 A) nur über die Bitchat-Karte: `baueBitchatKarte()` (signiert von der Person,
+  prüft selbst nach – ein Signer, der etwas anderes signiert, ergibt null), `leseBitchatKarte()` (Form genau, Signatur, nicht
+  aus der Zukunft). Das dafür signierte 38083 nie veröffentlichen – offen verbände es jeden Leser mit dem Gerät im Funk.

@@ -28,7 +28,7 @@ import { merkeVorschau, vorschauVon, vorschauZeile, zeitKurz } from "../../chat-
 import { istAnfrage, istAnfrageName, istPlatzhalterName, kontaktAnzeige, kontaktInitiale } from "../../kontakt-name.js";
 import { anforderungen, anhangElement, anhangWarte, chatAttachments, leereAnhaenge, setAttachStatus, wireBlobButtons, zeigeAnhangListe } from "./chat-anhaenge.js";
 import { loeseNamenAuf, markiereSchluessel, schluesselHinweis, schluesselStand, setzePetname, sichereKontakte } from "./kontakte.js";
-import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm } from "./posteingang.js";
+import { type DmAnzeige, entschluesselungFehlgeschlagen, geraeteBuch, ladeDmNachrichten, syncDmInbox, veroeffentlicheDm, zustellenDm } from "./posteingang.js";
 import { lauscheAufGruppe } from "../gruppe-live.js";
 import { zeigeOnboarding } from "../app.js";
 
@@ -577,7 +577,8 @@ export async function sendChatMessage(): Promise<void> {
         eintrag.wartet = false;
         if (activeConversation === c.id) void loadChatMessages(c.id);
       };
-      versendeVerzoegert(() => veroeffentlicheDm(dm.toRecipient, c.id).then(fertig));
+      // Nimmt kein Relay die Kopie an den Empfänger, geht sie über Reticulum (B-32c2) – die eigene nie
+      versendeVerzoegert(() => zustellenDm(dm.toRecipient, c.id).then(fertig));
       versendeVerzoegert(() => veroeffentlicheDm(dm.toSelf, ich).then(fertig));
       // Geraete lesen am Posteingang ihrer Person
       for (const k of dm.weitere) versendeVerzoegert(() => veroeffentlicheDm(k.wrap, k.an === ich || meine!.includes(k.an) ? ich : c.id));
@@ -637,12 +638,17 @@ export async function newDm(): Promise<void> {
   oeffneDirektnachricht(id);
 }
 
+/** Einen Kontakt anlegen, ohne die Unterhaltung zu öffnen (auch aus dem Bitchat-Code beim Treffen, B-36e2); true, wenn neu. */
+export function legeKontaktAn(id: string): boolean {
+  if (conversations.find((c) => c.id === id)) return false;
+  conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
+  saveConversations();
+  return true;
+}
+
 /** Eine Unterhaltung mit diesem Schlüssel öffnen – neu, wenn es noch keine gibt (auch aus dem Mitglieder-Menü, C-13b). */
 export function oeffneDirektnachricht(id: string): void {
-  if (!conversations.find((c) => c.id === id)) {
-    conversations.push({ id, type: "dm", name: id.slice(0, 12) + "…", lastTs: 0 });
-    saveConversations();
-  }
+  legeKontaktAn(id);
   setzeKommModus("dm");
   loadChatList();
   openConversation(id);

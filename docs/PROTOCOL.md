@@ -779,6 +779,7 @@ Aufträge.
 | `weckSchluessel` | seit B-12a, darf fehlen: öffentlicher VAPID-Schlüssel des Knotens (P-256, unkomprimiert, base64url, 87 Zeichen) |
 | `einrichtung` | seit B-11c, darf fehlen: Befunde der Selbstprüfung beim Start, höchstens 40, je `schiene` (`lightning`, `sol`), `stufe` (`ok`, `hinweis`, `fehler`), `fall` (`ln.…`/`sol.…`) und `werte` (höchstens 6, nur ganze Zahlen ab 0 oder Fehlernamen aus Buchstaben) |
 | `modellPruefung` | seit E9-3b, darf fehlen: `befunde` (höchstens 30, je `name` des Modells wie bei `modelle`, `stufe`, `fall` (`modell.…`) und `werte` wie bei `einrichtung`) und `laeuft` (darf fehlen: `name`, `schritt` (`manifest`, `vorpruefung`, `laden`, `pruefen`), `seit`, beim Laden `geladen` und `gesamt` in Bytes). Ein eigenes Feld, nicht in `einrichtung` – ältere Apps übergehen es. Was der Leser abwiese, schickt der Knoten nicht. |
+| `lxmf` | seit B-32d3b, darf fehlen: LXMF-Adresse des Reticulum-Gateways (32 Zeichen Hex, klein) – die App fragt KI über Funk mit RNode an diese Adresse, als Besitzer gratis. Nicht geheim: Sie steht in jeder Antwort im Funk. |
 
 Unbekannte Felder bleiben unbeachtet, damit ein neuerer Knoten mehr melden
 kann; bekannte müssen stimmen, sonst zeigt die App nichts. Kein Text aus
@@ -1714,3 +1715,111 @@ genau dieses eine Tag – sonst nichts. Je Kontakt gilt die neueste (`created_at
 höchstens ein Umschlag an den Posteingang eines Kontakts (`FunkAdressVersand`); jeder bekommt die Adresse einmal, neue Kontakte
 später auch, nach einer neuen Identität alle neu. Gemerkt in `geheim`: an wen sie ging (`freedom.reticulum.verteilt`) und die
 Adressen der Kontakte (`freedom.reticulum.kontakte`, höchstens 200). Wer sie hat, behält sie, auch wenn man abschaltet.
+
+**Zustellen** (seit B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger einer Direktnachricht, geht derselbe Umschlag über
+Reticulum (§40) – erst an die Adresse des Kontakts, sonst an die Gegenstelle, die ihn ins Netz gibt. Kein neues Format.
+
+## 45. Bitchat über Bluetooth (Paketformat, seit B-36a1)
+
+Entscheidungen BC1 A und BC-W1–W4 A vom 23.10.2026 (`docs/BITCHAT-ENTWURF.md`): Freedom spricht das Drahtformat von Bitchat
+(Whitepaper 2.0, gemeinfrei) in eigener Umsetzung (`bitchat-paket.ts`) und nur in der Android-Hülle. Über Bitchat gehen nur
+Umschläge zwischen Freedom-Geräten, in Noise-Sitzungen (ab B-36a2); Bitchat-Geräte dazwischen reichen sie ungelesen weiter.
+
+**Paket** (Fassung 1: 14 Byte Kopf, Fassung 2: 16 Byte und Route), alle Zahlen Großendian: Fassung, Typ, TTL, Zeit (UInt64,
+ms), Flags (0x01 Empfänger, 0x02 Signatur, 0x04 gepackt, 0x08 Route), Länge der Nutzlast (UInt16 bzw. UInt32); dann Absender
+(8 Byte Peer-ID), Empfänger (8), Route (Anzahl + je 8 Byte, nur Fassung 2), Nutzlast, Signatur (Ed25519, 64). Noise-Pakete
+werden mit PKCS#7 auf 256/512/1024/2048 Byte aufgefüllt, wenn höchstens 255 Byte fehlen.
+
+**Signatur** über das Paket ohne Signatur, mit TTL 0 und aufgefüllt (`bitchatSignierDaten()`) – Weiterreichen ändert nur die
+TTL. Freedom packt nie; Bitchat packt Nutzlasten ab 100 Byte selbst (raw deflate) und signiert über eine neue Kodierung –
+deshalb signiert Freedom keine Ankündigung ab 100 Byte, und über gepackte Nutzlast prüft es keine Signatur.
+
+**Peer-ID:** die ersten 8 Byte von SHA-256 über den statischen Noise-Schlüssel – fest je Identität (BC-W4 A, Grenze im Bericht).
+
+**Ankündigung** (Typ 0x01, TLV mit 1 Byte Typ und 1 Byte Länge, seit B-36a2): 0x01 Name (UTF-8), 0x02 Noise-Schlüssel
+(32), 0x03 Signierschlüssel (32); gelesen auch 0x05 Fähigkeiten (Little Endian) und 0x04 Nachbarn (je 8 Byte). Freedom sendet
+nur die ersten drei (BC-W3 A: kein Merkmal „Freedom“) und bleibt so unter 100 Byte; unbekannte Typen werden übersprungen.
+
+**Fragmente** (Typ 0x20, ohne Signatur, gleicher Absender, Empfänger, Zeit und TTL): Nutzlast = 8 Byte Kennung, Index und
+Gesamtzahl (UInt16), ursprünglicher Typ, Daten. Zerlegt wird das ungepolsterte Paket, wenn es größer als 512 Byte ist, in
+höchstens 256 Teile. Zusammengesetzt (`BitchatZusammensetzer`) je Absender und Kennung, mit den Grenzen von bitchat-android:
+64 offene Sätze, je Satz 1 MiB, insgesamt 4 MiB, 30 s; das Ganze kommt mit TTL 0 heraus – weitergereicht werden die Fragmente.
+
+**Noise** (seit B-36a3, `bitchat-noise.ts`): `Noise_XX_25519_ChaChaPoly_SHA256` nach der Spezifikation, Handshake ohne
+Prolog und ohne Nutzlast (→ e · ← e, ee, s, es · → s, se) in Paketen vom Typ 0x10. Transport (Typ 0x11): vorn die Nonce als
+4 Byte Großendian, dann Chiffrat und Tag (ChaCha20-Poly1305, Nonce der AEAD 4 Byte null + Zähler als 8 Byte Kleinendian),
+keine zusätzlichen Daten. Jede Nonce gilt einmal, höchstens 1024 hinter der höchsten; höchstens 2^32 − 1 je Sitzung. Ein
+gescheiterter Handshake-Schritt beendet den Handshake. Der statische Schlüssel der Gegenseite aus dem Handshake ergibt ihre
+Peer-ID.
+
+**Fluten** (seit B-36a4, `bitchat-mesh.ts`): Doppeltes erkennt die Kennung aus Absender, Zeit, Typ und 4 Byte SHA-256 der
+Nutzlast (1000 Kennungen, 5 Minuten). Weiter geht nichts Eigenes, nichts an einen selbst, nichts mit TTL ≤ 1 und keine
+Sync-Anfrage (0x21). Handshakes und Gerichtetes (Noise, Kurier, Ping, Pong, Nostr-Träger, Fragmente mit Empfänger) immer mit
+TTL − 1; Rundrufe mit einer Grenze nach Zahl der Nachbarn (bis 2: volle Tiefe; ab 6: höchstens 5; sonst 6, Ankündigungen 7),
+Fragmente und Sprache bis 7 bzw. dicht 5. Weitergereicht wird das empfangene Paket roh, nur mit neuer TTL im dritten Byte.
+Über Bluetooth trägt jeder Wert (Schreiben, Meldung) genau ein ganzes Paket; passt es nicht in die Grenze der Verbindung
+(MTU − 3), gehen Fragmente (`bitchatFuerVerbindung()`, bei Noise aus dem gepolsterten Paket), bei mehreren Verbindungen nach
+der kleinsten Grenze.
+
+**Bluetooth** (seit B-36b1, `packages/launcher/android/FreedomBitchat.kt`): Dienst `f47b5e2d-4a9e-4c5a-9b3f-8e1d2c3a4b5c` (Mainnet
+von Bitchat; Testfassungen nehmen …`4b5a`), ein Merkmal `a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d` (lesen, schreiben mit und ohne
+Antwort, melden). Werbung nur mit der Kennung des Dienstes, ohne Gerätenamen. Ein Wert höchstens 512 Byte (ATT), je Verbindung
+höchstens MTU − 3. Als Central (seit B-36b2) sucht Freedom nur nach diesem Dienst, verbindet sich mit höchstens sechs
+Geräten, erbittet MTU 517 und abonniert das Merkmal; geschrieben wird ohne Antwort. Bei mehr als zwei eigenen Verbindungen sucht
+es 5 s und ruht 10 s; ein Gerät, das in 8 s nicht bereit ist, bleibt 120 s unbeachtet (Werte aus `TransportConfig.swift`).
+
+**Schlüssel an Kontakte** (Kind 38083, seit B-36c1, BC-W3 A): Wer einem Kontakt über Bitchat schreiben will, braucht dessen
+Noise-Schlüssel (daraus die Peer-ID) und Signier-Schlüssel. Die App gibt beide nur versiegelt an Kontakte, je Kontakt ein Umschlag
+(NIP-59, `baueBitchatSchluesselUmschlaege()`) – wie die Reticulum-Adresse (§44). Kein eigenes Merkmal in der Ankündigung: Das
+verriete jedem im Funk, dass hier Freedom läuft.
+
+```json
+{ "kind": 38083, "pubkey": "<Person>", "content": "", "tags": [["noise", "<64 Zeichen Hex>"], ["signier", "<64 Zeichen Hex>"]] }
+```
+
+**Lesen** nur über `oeffneBitchatSchluesselUmschlag()`: der Kern vom Siegel-Autor, der ein Kontakt ist, Kind 38083, leerer Inhalt,
+genau diese zwei Tags in dieser Reihenfolge, zwei verschiedene Schlüssel – sonst nichts.
+
+**In der App** (seit B-36c2b1, BC-W4 A): eine Identität je Gerät (`bitchatIdentitaet()`, zufällig, Name `anon` und vier Ziffern, in
+`geheim` unter `freedom.bitchat.identitaet`, nie in der Sicherung; ein kaputter Eintrag wird nie ersetzt). Versand wie bei §44 – nur
+mit Zustimmung (`freedom.bitchat.teilen`), als Person, je Schlag höchstens ein Umschlag, jeder Kontakt einmal, nach einer neuen
+Identität alle neu; Empfang am Ende der Kette in `oeffneUmschlag()`, gemerkt in `geheim` (`freedom.bitchat.kontakte`).
+
+**Freedom in der Noise-Sitzung** (seit B-36c1, BC-W2 A): Der Klartext einer Noise-Nachricht beginnt bei Bitchat mit dem Typ der
+Nutzlast (`NoisePayloadType`). Freedom nimmt `0xF0` – Bitchat vergibt ihn nicht (Swift `5e9287f`: 0x01–0x09, 0x10–0x12, 0x20,
+0x21) – und dahinter genau einen Umschlag (1059) als JSON. Hinaus nur über `bitchatUmschlagKlartext()`, herein nur über
+`leseBitchatUmschlag()`, beides über `pruefeMeshInhalt()` (hinaus mit den eigenen Schlüsseln: die eigene Kopie geht nie hinaus).
+Anderes als Umschläge geht über Bitchat nicht – kein öffentlicher Chat, keine Transaktionen.
+
+**Knoten** (seit B-36c2a1, `bitchat-knoten.ts`): Ein Kontakt gilt als in der Nähe, wenn seine Ankündigung gültig signiert ist, die
+Peer-ID zum Noise-Schlüssel passt und beide Schlüssel denen aus 38083 gleichen – 60 s lang nach der letzten
+(`bleReachabilityRetentionVerifiedSeconds`). Pakete anderer reicht Freedom roh weiter (§45 oben, `mitBitchatTtl()`), nie zurück über
+die Verbindung, von der sie kamen. Passt ein Paket nicht in die Grenze einer Verbindung, zerlegt Freedom es roh
+(`zerlegeBitchatRoh()`): Die Fragmente tragen Absender, Empfänger, Zeit und TTL des Pakets, ihre Daten sind seine Bytes, wie sie
+kamen – samt Polster und gepackter Nutzlast, nie neu kodiert. Eigene Pakete gehen an alle Verbindungen nach der kleinsten Grenze.
+
+**Sitzungen** (seit B-36c2a2, BC-W2 A): Noise XX (§45 oben) nur mit Kontakten in der Nähe – Handshakes anderer Geräte bleiben
+unbeantwortet, Bitchat-Nutzer können Freedom-Geräte sehen, aber keine Sitzung mit ihnen öffnen. Die drei Nachrichten erkennt der
+Knoten an ihrer Länge ohne Nutzlast (32, 96, 64 Byte); beginnen beide zugleich, bleibt die kleinere Peer-ID Initiator. Eine
+Sitzung gilt erst, wenn der statische Schlüssel aus dem Handshake dem aus 38083 gleicht. Ein Handshake, der länger als 10 s dauert,
+zählt nicht mehr (Freedom-Wert); bis die Sitzung steht, warten höchstens 16 Umschläge je Gegenüber. Darin geht nur Typ `0xF0` mit
+einem Umschlag (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`).
+
+**Direktnachrichten** (seit B-36c2b2): Nimmt kein Relay die Kopie an den Empfänger, gibt die App sie dem Knoten, wenn das Gerät
+des Empfängers in der Nähe ist – vor Reticulum (§44). Die App kündigt sich beim Start, bei jeder neuen Verbindung und sonst alle
+30 s an (Freedom-Wert); Umschläge an sie öffnet sie wie Post aus dem Funk.
+
+**Schlüssel beim Treffen – Bitchat-Karte** (seit B-36e1, BC-W5 A): Wer sich ohne Internet trifft, tauscht die Schlüssel per
+QR-Code. Der Code trägt die Karte
+
+```
+freedom-bitchat:1:<Person, 64 Hex>:<noise, 64 Hex>:<signier, 64 Hex>:<Zeit, Sekunden>:<Signatur, 128 Hex>
+```
+
+Die Signatur gehört zu einem Event Kind 38083 der Person mit genau den Tags `["noise", …]`, `["signier", …]` und leerem Inhalt –
+gebaut nur über `baueBitchatKarte()`, gelesen nur über `leseBitchatKarte()`: genau diese Form (Kleinbuchstaben, keine führenden
+Nullen), zwei verschiedene Schlüssel, Zeit höchstens 600 s voraus, Signatur der genannten Person. Das Event geht nie an ein Relay.
+Wer den Code sieht, verbindet das Gerät im Funk mit der Person – wie ein Kontakt mit den versiegelten Schlüsseln.
+
+Die Vektoren erzeugt `scripts/bitchat-referenz.sh` aus bitchat-android am festen Commit – der GPL-Code wird nur ausgeführt;
+die für Noise kommen aus cacophony und snow (über das gemeinfreie Bitchat-Repository).

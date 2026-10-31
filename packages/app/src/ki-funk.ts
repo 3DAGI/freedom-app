@@ -13,8 +13,8 @@
  * solange sie Netz hat – ohne Netz gibt es keine Angebote.
  */
 import {
-  KIND_GIFT_WRAP, WEITERLEITUNG_MAX_SECS, baueWeiterleitung, buildJobRequest, buildPrivateJobRequest, getTag, kurzParam,
-  type NostrEvent, type ProviderCapabilities, type Signer,
+  KIND_GIFT_WRAP, WEITERLEITUNG_MAX_SECS, baueWeiterleitung, buildJobRequest, buildPrivateJobRequest, getTag, kurzParam, mitBesitzerNachweis,
+  type Kopplung, type NostrEvent, type ProviderCapabilities, type Signer,
 } from "@freedomstack/protocol";
 import { oeffneAntworten } from "./ki-antworten.js";
 import type { KiSitzungen } from "./ki-sitzung.js";
@@ -54,13 +54,38 @@ export function leseFunkGateway(json: string | null): FunkGateway | null {
 }
 
 /**
+ * Der eigene Knoten als Gateway über Reticulum (B-32d3b): sein Schlüssel, seine LXMF-Adresse aus dem Status (nur an den
+ * Besitzer) und die Rechenarbeit seines Angebots – gemerkt, solange Netz da ist. Nur in `geheim`: Er verrät, über wen
+ * man funkt.
+ */
+export interface FunkKnoten {
+  knoten: string;
+  lxmf: string;
+  powBits: number;
+}
+
+/** Den gemerkten Funk-Knoten streng lesen; Unbrauchbares gilt als keiner. */
+export function leseFunkKnoten(json: string | null): FunkKnoten | null {
+  try {
+    const k = JSON.parse(json ?? "null") as Partial<FunkKnoten> | null;
+    if (!k || typeof k.knoten !== "string" || !/^[0-9a-f]{64}$/.test(k.knoten)) return null;
+    if (typeof k.lxmf !== "string" || !/^[0-9a-f]{32}$/.test(k.lxmf)) return null;
+    if (!Number.isInteger(k.powBits) || k.powBits! < 0 || k.powBits! > MAX_POW) return null;
+    return { knoten: k.knoten, lxmf: k.lxmf, powBits: k.powBits! };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Weiterleitung und Auftrag bauen – beide versiegelt vom Sitzungsschlüssel.
- * `zahlTags` (Gutschrift im Zahlkanal) gehören in den Kern, vor dem Versiegeln.
+ * `zahlTags` (Gutschrift im Zahlkanal) gehören in den Kern, vor dem Versiegeln; ebenso der Besitzer-Nachweis
+ * (`kopplung`, B-32d3b), wenn das Gateway der eigene Knoten ist – dann rechnet er gratis.
  */
 export async function baueFunkAuftrag(p: {
-  prompt: string; bidMsat: number; gateway: FunkGateway; sitzung: Signer; zahlTags?: string[][]; nowSecs?: number;
+  prompt: string; bidMsat: number; gateway: FunkGateway; sitzung: Signer; zahlTags?: string[][]; nowSecs?: number; kopplung?: Kopplung;
 }): Promise<{ weiterleitung: NostrEvent; auftrag: NostrEvent; requestId: string; bis: number }> {
-  const request = buildJobRequest({
+  const kern = buildJobRequest({
     customerPubkey: p.sitzung.publicKey(),
     input: p.prompt,
     bidMsat: p.bidMsat,
@@ -68,6 +93,7 @@ export async function baueFunkAuftrag(p: {
     params: [["tier", p.bidMsat > 0 ? "classic" : "free"], kurzParam()],
     extraTags: p.zahlTags ?? [],
   });
+  const request = p.kopplung ? mitBesitzerNachweis(kern, p.kopplung) : kern;
   const { wrap: auftrag, requestId } = await buildPrivateJobRequest({
     request, sessionSigner: p.sitzung, providerPk: p.gateway.pubkey, powBits: p.gateway.powBits, nowSecs: p.nowSecs,
   });

@@ -937,6 +937,7 @@ function starte(): void {
   abrufTakt.melde("ruf", () => import("./ruf.js").then((r) => r.rufTakt()), 1);
   // Reticulum-Adresse an Kontakte (B-32c1) – nur mit Zustimmung, je Schlag höchstens ein Umschlag
   abrufTakt.melde("funk-adressen", () => import("./funk-kontakte.js").then((f) => f.funkAdressTakt()), 1);
+  abrufTakt.melde("bitchat-schluessel", () => import("./bitchat-kontakte.js").then((f) => f.bitchatSchluesselTakt()), 1);
   // Zeitanker (B-17b3a, K2 A): stempeln, nachreichen, Beweis zum Mandat – etwa alle zehn Minuten, ohne Anker kein Netz
   abrufTakt.melde("zeitanker", () => import("./zeitanker-takt.js").then((z) => z.zeitankerSchlag()), 20);
   // Cashu-Pfand (RM2c2): abgebrochenen Tausch klären, nach der Frist zurückholen – etwa alle zehn Minuten, ohne Mint nichts

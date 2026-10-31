@@ -717,6 +717,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   du nennst den Pfad in `MCP_BROWSER` (`aus` schaltet den Browser ab). Fehlt Chromium
   oder Playwright (optionale Abhängigkeit), läuft der Motor ohne Browser, und das Log
   sagt es.
+- **Jupyter-Notebooks (seit VKk2a):** Hermes liest und ändert Notebooks im Projekt Zelle
+  für Zelle – über eine eigene kleine Brücke des Knotens (nur Node, keine Pakete), in der
+  Sandbox des Motors und nur unter dem Projekt. Sie schreibt wie Jupyter selbst, damit
+  git nur die geänderte Zelle zeigt, und führt nichts aus: Code läuft nur über das
+  Terminal von Hermes, das im Modus „fragen“ vorher fragt. Im Modus „fragen“ liest die
+  Brücke nur – ändern geht dort über Hermes, der vorher fragt; im Modus „frei“ ändert
+  sie Zellen selbst. `MCP_JUPYTER=aus` schaltet sie ab.
 - **Bilder (seit VKd2b2):** Mit `COMFYUI_URL` (deine ComfyUI, nur auf diesem Rechner
   oder im Heimnetz, etwa `http://127.0.0.1:8188`) bekommt Hermes `generate_image`: Der
   Knoten fragt deine ComfyUI (SDXL, Checkpoint über `COMFYUI_CHECKPOINT`, Vorgabe
@@ -846,6 +853,20 @@ Frage noch Antwort noch wer fragt.
   TCP-Brücke zum Gerät, z. B.
   `socat TCP-LISTEN:4403,reuseaddr FILE:/dev/ttyUSB0,raw`; je Rahmen zwei Byte
   Länge, dann der Rahmen.
+- **RNode mit Reticulum (seit B-32d2):** `FUNK_GATEWAY=rnode:host:port` und
+  `RETICULUM_REGION=eu-869` (oder `eu-433`) – eine TCP-Brücke zur RNode, z. B.
+  `socat TCP-LISTEN:4404,reuseaddr FILE:/dev/ttyACM0,raw,b115200`. Der Knoten
+  spricht KISS selbst, ohne `rnsd`. Er sendet mit den Vorgaben der Region;
+  eigene Werte nur über `RETICULUM_WERTE=<Frequenz Hz>,<Bandbreite Hz>,<SF>,<CR>,<dBm>`
+  und nur in den Grenzen der Region (sonst startet das Gateway nicht). Die
+  Identität liegt in `~/.freedom/reticulum-identitaet` (0600); die LXMF-Adresse
+  steht beim Start im Log (`[funk] Gateway an … – LXMF-Adresse …`) – in der App
+  unter Netz › Mesh › „Reticulum-Adressen“ als Gegenstelle eintragen. Der Knoten
+  reicht Umschläge ins Netz und funkt seit B-32d3a Antworten auf KI-Aufträge an
+  die Adresse zurück, die den Weiterleitungsauftrag brachte (höchstens drei je
+  Auftrag, in der Sendezeit). Die App fragt KI über Funk mit RNode direkt an
+  diese Adresse, sobald sie den Status des Knotens einmal mit Netz abgefragt hat
+  (Mein Knoten › Status, seit B-32d3b) – als Besitzer gratis.
 - **Sendezeit:** höchstens 1 % je Stunde. Mit Meshtastic zählt die Sendezeit,
   die das Gerät mit seinem Preset braucht (LongFast: rund 1,9 s je Rahmen) –
   eine Antwort mit 500 Zeichen (16 Rahmen) kostet so rund eine halbe Minute,

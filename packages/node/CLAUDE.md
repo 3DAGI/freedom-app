@@ -524,3 +524,26 @@ Bereichs unten anhängen.
   Das Modell (seit B-38b3b3): ohne `WHISPER_MODELL` je Auftrag über `gepruefterWhisper()` (zuletzt geprüft, Datei unverändert) –
   nie einmal beim Start merken, sonst gälte eine veränderte Datei weiter. Die Rolle `sprache` im Status nur mit
   `Whisper.bereit()`.
+- **Reticulum im Knoten nur über `reticulum-gateway.ts`** (seit B-32d2, RN-W7–W10 A): eingeschaltet nur über
+  `reticulumAusUmgebung()` (`FUNK_GATEWAY=rnode:host:port`, `RETICULUM_REGION` Pflicht, `RETICULUM_WERTE` nur in den Grenzen
+  – ungültig → kein Gateway), die RNode nur über `verbindeRNodeTcp()` (TCP-Brücke, KISS im Knoten, Sperre der Region in der
+  Firmware) – kein `rnsd`, kein `@reticulum/node`. Der Kern nur über `starteReticulum()` aus dem Protokoll mit eigenem
+  `Sendezeitkonto`; die Identität nur über `identitaetsSpeicher()` (`~/.freedom/reticulum-identitaet`, 0600, „wx“ – eine
+  kaputte nie ersetzen). Umschläge nimmt nur `UmschlagAnnahme` an (dieselbe wie `GatewayRolle`) – keine zweite Annahme
+  daneben. Zurück (seit B-32d3a) nur über `ReticulumRueckweg`: Post nur aus `postZurueck()` (dieselbe wie `GatewayRolle`,
+  `GatewayBuch` zählt) und nur an die LXMF-Adresse, die die Weiterleitung brachte (`von` aus `starteReticulum()`); ohne
+  Adresse nichts, Fehler nur mit Kennung (`sendezeit`) ins Log, ein Takt nie zweimal zugleich. Das Angebot nennt weiter
+  kein Funk-Gateway dafür (`funkGateway` bleibt `GatewayRolle`) – ein Meshtastic-Gerät erreichte den Knoten so nicht. Die
+  Bibliothek protokolliert selbst ab „error“ – im Test schreiben Links nach dem Stoppen noch ein paar Sekunden Fehler; der
+  Test endet trotzdem.
+- **Jupyter für den Motor nur über die eigene Brücke** (seit VKk2a, `mcp/jupyter-bruecke.mjs`, MENSCH 25.10.): nicht
+  `datalayer/jupyter-mcp-server` (145 Pakete, ~500 MB, Ausführen ohne Rückfrage). Die Brücke führt nie Code aus – kein
+  Werkzeug, das einen Kernel startet; Ausführen nur über das Terminal von Hermes (VKk2b). Hermes fragt vor MCP-Aufrufen
+  nicht: Im Modus „fragen“ bekommt der Motor nur `beimFragen` (`notebook_read`) – `hermesMotor()` schreibt die
+  `config.yaml` je Lauf mit dem Modus aus `MotorStart(ordner, { modus })`, ohne Angabe wie „fragen“. Ein neuer Server, der
+  Dateien ändert, braucht `beimFragen`. Pfade nur über `notebookTeile()`
+  (kein Teil mit Punkt am Anfang, `.ipynb`), Orte nur mit `lstat` je Teil, gelesen mit `O_NOFOLLOW`, geschrieben über eine
+  neue Datei daneben (`wx`) und Umbenennen. Geschrieben nur über `alsJson()`/`neueZelle()` – Byte für Byte wie nbformat
+  (sortierte Schlüssel, Einrückung 1, Quelltext wie `splitlines(True)`); die Referenz nur mit `scripts/jupyter-referenz.py`
+  neu erzeugen. Unicode-Zeilentrenner im Quelltext der Brücke nur als ` `/` ` schreiben – roh beenden sie das
+  Regex-Literal.

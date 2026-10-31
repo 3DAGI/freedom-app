@@ -91,7 +91,16 @@ export interface KnotenStatus {
    * weiter. Fehlt bei Knoten vor E9-3b.
    */
   modellPruefung?: { befunde: ModellBefund[]; laeuft?: ModellLaden };
+  /**
+   * LXMF-Adresse des Reticulum-Gateways (B-32d3b, 32 Zeichen Hex): An sie fragt die App KI über Funk auch mit RNode,
+   * direkt an den eigenen Knoten. Sie ist nicht geheim – sie steht in jeder Antwort im Funk.
+   * Fehlt bei Knoten ohne Reticulum.
+   */
+  lxmf?: string;
 }
+
+/** LXMF-Adresse im Status: 16 Byte als Hex, klein geschrieben. */
+export const STATUS_LXMF = /^[0-9a-f]{32}$/;
 
 /** VAPID-Schlüssel in der Form von `applicationServerKey`: 65 Byte (0x04 …) als base64url ohne Auffüllung. */
 export const WECK_SCHLUESSEL = /^B[A-Za-z0-9_-]{86}$/;
@@ -133,6 +142,7 @@ export function knotenStatusText(s: KnotenStatus): string {
         geladen: s.modellPruefung.laeuft.geladen, gesamt: s.modellPruefung.laeuft.gesamt, seit: s.modellPruefung.laeuft.seit,
       } : undefined,
     },
+    lxmf: s.lxmf !== undefined && STATUS_LXMF.test(s.lxmf) ? s.lxmf : undefined,
   });
 }
 
@@ -212,7 +222,7 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     return null;
   }
   if (!objekt(roh)) return null;
-  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung, weckSchluessel, modellPruefung } = roh;
+  const { fassung, seit, rollen, modelle, auftraege, abgerechnetMsat, speicher, relay, einrichtung, weckSchluessel, modellPruefung, lxmf } = roh;
   if (typeof fassung !== "string" || !new RegExp(`^[0-9A-Za-z.+-]{1,${STATUS_GRENZEN.fassungZeichen}}$`).test(fassung)) return null;
   if (!zahl(seit) || !zahl(abgerechnetMsat)) return null;
   // Rollen: Kennungen aus Buchstaben, je einmal; unbekannte (neuerer Knoten, B-13a) bleiben unbeachtet
@@ -226,6 +236,8 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
   if (relay !== null && (!objekt(relay) || !zahl(relay.events) || !zahl(relay.verbindungen))) return null;
   // Der Weckschlüssel (B-12a) darf fehlen; ist er da, nur in genau dieser Form
   if (weckSchluessel !== undefined && (typeof weckSchluessel !== "string" || !WECK_SCHLUESSEL.test(weckSchluessel))) return null;
+  // Die LXMF-Adresse (B-32d3b) ebenso
+  if (lxmf !== undefined && (typeof lxmf !== "string" || !STATUS_LXMF.test(lxmf))) return null;
   // Die Selbstprüfung (B-11c) darf fehlen; ist sie da, zählt nur ganz richtig
   let befunde: StatusBefund[] | undefined;
   if (einrichtung !== undefined) {
@@ -261,5 +273,6 @@ export function leseKnotenStatus(text: string): KnotenStatus | null {
     ...(befunde ? { einrichtung: befunde } : {}),
     ...(weckSchluessel !== undefined ? { weckSchluessel: weckSchluessel as string } : {}),
     ...(modellStand ? { modellPruefung: modellStand } : {}),
+    ...(lxmf !== undefined ? { lxmf: lxmf as string } : {}),
   };
 }

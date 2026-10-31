@@ -1,8 +1,16 @@
 /**
  * Eine RNode zum Prüfen (B-32b1, B-32b2): antwortet wie die Firmware (KISS, Befehle zurückgemeldet). Mit `luft` hören
- * sich mehrere Attrappen: Was eine sendet (Datenrahmen), kommt bei den anderen an – wie über LoRa.
+ * sich mehrere Attrappen: Was eine sendet (Datenrahmen), kommt bei den anderen an – wie über LoRa. Seit B-32d2 hier im
+ * Protokoll: Die App hängt sie an WebSerial, der Knoten über eine TCP-Brücke an dieselbe Luft.
  */
-import type { RNodePort } from "../src/rnode-funk.js";
+
+/** Was die Attrappe anbietet – die Form eines `SerialPort` aus WebSerial (in der App `RNodePort`). */
+export interface AttrappenPort {
+  open(o: { baudRate: number }): Promise<void>;
+  close(): Promise<void>;
+  readable: ReadableStream<Uint8Array> | null;
+  writable: WritableStream<Uint8Array> | null;
+}
 
 const FEND = 0xc0, FESC = 0xdb, TFEND = 0xdc, TFESC = 0xdd;
 export const CMD = { DATEN: 0x00, FREQUENZ: 0x01, BANDBREITE: 0x02, LEISTUNG: 0x03, SF: 0x04, CR: 0x05, ZUSTAND: 0x06, DETECT: 0x08, LEAVE: 0x0a, ST_ALOCK: 0x0b, LT_ALOCK: 0x0c, PLATTFORM: 0x48, MCU: 0x49, FW: 0x50 };
@@ -37,7 +45,7 @@ export function rnodeAttrappe(o: { firmware?: [number, number]; leistungMeldet?:
     if ([CMD.FREQUENZ, CMD.BANDBREITE, CMD.LEISTUNG, CMD.SF, CMD.CR, CMD.ZUSTAND, CMD.ST_ALOCK, CMD.LT_ALOCK].includes(cmd)) return sende(cmd, daten);
   };
   let offen = false;
-  const port: RNodePort & { geschlossen: boolean } = {
+  const port: AttrappenPort & { geschlossen: boolean } = {
     geschlossen: false,
     readable: null,
     writable: null,

@@ -27,6 +27,7 @@
     "@cashu/cashu-ts": "4.11.0",
     "@freedomstack/mls": "*",
     "@freedomstack/protocol": "*",
+    "@reticulum/core": "0.9.12",
     "@types/ws": "^8.18.1",
     "ws": "^8.21.3"
   },

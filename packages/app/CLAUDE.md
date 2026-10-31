@@ -869,8 +869,9 @@ Fallstricke dieses Bereichs unten anhängen.
   nie stattdessen alles laden. Die Zeit der Runde (`freedom.posteingang.knotenRunde`, im Tresor) erst merken, wenn alles
   Geholte beim Knoten liegt (`vollstaendig`). NIP-77 nur über `gleicheAbAn()` (`state.ts`): im Pool über dessen
   Verbindung, sonst Nebenverbindung – den Fehler an `neben.mit()` vorbei, sonst wäre der Relay ausgesetzt (A-26).
-- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40): `@reticulum/core` und
-  `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, geladen erst bei Bedarf. Die Identität je Gerät nur über
+- **Reticulum nur über `reticulum-umschlag.ts`** (seit B-32a, RN-W1–W5 A, `docs/PROTOCOL.md` §40; seit B-32d1 im Protokoll, dazu
+  `reticulum-kern.ts`): `@reticulum/core` und `@reticulum/lxmf` (0.9.12, exakt gepinnt) nur dort, in der App nur noch
+  `rnode-funk.ts` (WebSerial), geladen erst bei Bedarf. Die Identität je Gerät nur über
   `reticulumIdentitaet()` – zufällig, nie aus dem Nostr-Schlüssel, nur in `geheim` (`freedom.reticulum.identitaet`; alles
   unter `freedom.reticulum.` in `SICHERUNG_NIE`); einen kaputten Eintrag nie ersetzen. Fehler nur als `ReticulumFehler`
   mit Kennung (`fall`, bei `inhalt` dazu die Prüfung) – nie Text, der i18n-Test findet ihn; Texte dazu ab B-32b. Hinaus nur über
@@ -878,7 +879,7 @@ Fallstricke dieses Bereichs unten anhängen.
   `entpackeAusReticulum()` (nur die direkte Form mit der eigenen Adresse am Anfang – sonst setzt `Message.deserialize()`
   die erwartete Adresse selbst ein). LXMF-Felder nur als `Map` mit Zahlen als Schlüssel – ein Objekt machte Text daraus,
   und die Python-Referenz fände das Feld nicht. Die Nachricht kommt aus `@reticulum/lxmf/src/message.js` (Typen über
-  `src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
+  `protocol/src/reticulum-typen.d.ts`) – an der Wurzel heißt sie `LXMessage`.
 - **Gruppenanrufe nur über `shell/gruppenanruf.ts`** (seit B-34c1, LK2–LK4 A, `docs/PROTOCOL.md` §39): anrufen nur über
   `starteGruppenanruf()` – Zugänge nur vom gekoppelten Knoten (`livekitZugaengeVomKnoten()`: frischer Sitzungsschlüssel,
   `wegZumKnoten()`, Antwort nur über `leseLivekitZugaenge()`), je Mitglied der Gruppe einer (auch für sich), die Kennung
@@ -962,21 +963,22 @@ Fallstricke dieses Bereichs unten anhängen.
   die für die Kasse, und die eingebaute hat sie nicht (die geht vor). Sie zahlt Gebühr und Miete selbst (`waehleAbsender()` auf ihr Guthaben)
   und signiert nur über `signiereTransaktion()` – nie `signiereUndSendeTransaktion()`: die Wallet schickte an ihr eigenes Netz, die Kasse
   gibt es nur auf Devnet (`devnetRpc()`). Den Tresor verlangt die Oberfläche dann nicht (`unterschreibtVerbundene()`).
-- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A, `rnode-funk.ts`): Eine RNode sendet mit dem,
+- **Funkparameter der RNode nur aus `FUNK_REGIONEN`** (seit B-32b1, RN-W6 A; seit B-32d1 `funk-region.ts` im Protokoll): Eine RNode sendet mit dem,
   was die App ihr gibt – also nur Werte, die `pruefeFunkParameter()` für die gewählte Region durchlässt (Signal ganz im
   Band, Leistung höchstens die e.r.p.-Grenze, Sendezeit-Sperre der Region in der Firmware über `rnodeOptionen()`), nur nach
   Bestätigung (`freedom.reticulum.funk`, `leseFunkWahl()`). Eine Region gibt es nur mit Quelle; ohne Eintrag sendet die App
   dort nicht – nie eine Vorgabe raten. Neue Regionen oder Grenzen nur mit dem Primärtext (Beschluss der Kommission bzw. der
   Behörde des Landes) und Testfall. Verbunden wird nur über `verbindeRNode()` (`RNodeWebSerialInterface`, prüft das Echo der
   Firmware); Meldungen der Bibliothek nie zeigen. Im Test spricht eine Attrappe KISS wie die Firmware (`rnode-funk.test.ts`).
-- **Reticulum über die RNode nur über `starteReticulum()`** (seit B-32b2, `reticulum-funk.ts`): Jedes Paket an die RNode
-  geht durch das umgelegte `send()` der Schnittstelle und bucht `RETICULUM_KONTO` (`rnodeSendezeit()`); was nicht
+- **Reticulum über die RNode nur über `starteReticulum()`** (seit B-32b2; seit B-32d1 `reticulum-kern.ts` im Protokoll, das
+  Konto gibt die App mit): Jedes Paket an die RNode geht durch das umgelegte `send()` der Schnittstelle und bucht
+  `RETICULUM_KONTO` (`rnodeSendezeit()`); was nicht
   hineinpasst, wird still verworfen und gezählt – nie dort werfen, ein Fehler im Schreibstrom des Kerns bliebe für immer.
   Nie ein Paket an der Schnittstelle vorbei schreiben. Von sich aus kündigt die App nichts an (`announce()`/
   `startAnnouncing()` nie aufrufen – die Grenze „reticulum-ankuendigung“ sagt „erst wer fragt“). Was ankommt, nur über
   `leseReticulumFelder()` und dann `nimmFunkInhalt()` wie Meshtastic. Die Identität nur aus `geheim`
   (`reticulumIdentitaet()`); ist der Tresor gesperrt, gar nicht erst verbinden. Im Test hören sich zwei RNode-Attrappen
-  über `luft` (`test/rnode-attrappe.ts`) – ein Umschlag geht wirklich über Pfad-Anfrage, Link und Ressource.
+  über `luft` (`protocol/test/rnode-attrappe.ts`, seit B-32d2) – ein Umschlag geht wirklich über Pfad-Anfrage, Link und Ressource.
   Im Build führen alle Pfade `@reticulum/…` auf EIN vorab minifiziertes Modul (Plugin „reticulum-klein“ in `build.mjs`):
   Ein neuer Pfad, den die App lädt, gehört dort in die Liste (ein Test vergleicht) – sonst fehlte der Name zur Laufzeit,
   und ein eigenes Modul je Pfad brächte zwei Kopien des Kerns.
@@ -993,6 +995,10 @@ Fallstricke dieses Bereichs unten anhängen.
   `baueFunkAdresseUmschlaege()` – nie offen, nie im Profil, nie alle auf einmal. Die eigene Adresse erst rechnen, wenn es
   etwas zu senden gibt (sonst lädt die Bibliothek für alle). Adressen von Kontakten nur über `alsFunkAdresse()` →
   `FunkAdressBuch` (je Kontakt die neueste, nur Kontakte); alle drei Schlüssel in `geheim` und `GEHEIM_FEST`.
+  Direktnachrichten über Reticulum (seit B-32c2, W3 A) nur über `zustellenDm()` → `dmUeberReticulum()`: erst die Relays,
+  über Funk nur die Kopie an den Empfänger (nie die eigene, nie die an Geräte), Ziele nur aus `funkZiele()` (Kontakt direkt,
+  dann Gegenstelle), nacheinander über `stelleUeberFunkZu()` – bei „sendezeit“ Schluss. Umschläge an mich aus dem Funk
+  (Meshtastic wie Reticulum) öffnet `nimmPostAusFunk()` vor dem Weiterreichen – auch ohne Netz.
 - **Text aus Sprache nur über `sprache-text-ui.ts`** (seit B-38c1, SP-W1 A, SP-W5 A): den Ton nur über `alsSpracheWav()`
   (`ton-wandeln.ts`) – nie die Datei, wie sie ist, an den Knoten; der Knoten nimmt nur die Form aus `baueWav()`. Gefragt wird
   nur ein gekoppelter Knoten, dessen Status `sprache` nennt; Ton und Auftrag nur über `wegZumKnoten()`, die Stücke nur unter
@@ -1004,6 +1010,36 @@ Fallstricke dieses Bereichs unten anhängen.
   „Dieses Gerät“ (seit B-38c3) nur über `sprache-lokal.ts`: Adressen nur aus `lokaleKiAdresse()`, gefragt erst auf Klick in
   der Karte (`pruefeSprachServer()`), gemerkt nur nach „bereit“; ist einer gemerkt, geht der Ton nur dorthin, nie zusätzlich
   zum Knoten. Nie `--convert` voraussetzen – der Server bekommt nur die WAV-Datei aus `alsSpracheWav()`.
+- **KI über Funk mit RNode nur an den eigenen Knoten** (seit B-32d3b): die Adresse nur aus seinem Status (`lxmf`, gemerkt in
+  `freedom.reticulum.knoten` über `frageKnotenStatus()`, gelesen nur über `leseFunkKnoten()`), nur wenn die Kopplung zum
+  Knoten passt (`funkKnotenGateway()`), gesendet nur über `sendeAnKnotenUeberReticulum()` an diese Adresse – nie an die
+  Gegenstelle, nie an ein Gateway aus einem Angebot. Der Auftrag trägt den Besitzer-Nachweis im Kern
+  (`baueFunkAuftrag(…, kopplung)`), nie ein Gebot oder eine Gutschrift. Meshtastic geht vor: Ist ein Gerät verbunden,
+  bleibt es beim gemerkten Gateway.
+- **Bitchat der Hülle nur über `shell/bitchat-huelle.ts`** (seit B-36b3b): nie `bitchat_*` direkt über `invoke` rufen. Den
+  Stand liest nur `leseBitchatStand()` (bekannte Werte, Grenze 20–512, höchstens 64 Verbindungen), Empfangenes nur
+  `leseBitchatWerte()` – ein kaputter Rahmen macht den ganzen Abruf ungültig, nie die Hälfte nehmen. `bitchatSenden()` nimmt
+  nur ganze Pakete bis zur Grenze der Verbindung (vorher `bitchatFuerVerbindung()`), nie selbst teilen. Was ankommt, ist
+  ungeprüft: erst `leseBitchat()`/Signatur, Inhalte nur über `pruefeMeshInhalt()`. Starten nur auf Klick (Rechte).
+  Die eigenen Bitchat-Schlüssel (seit B-36c2b1) an Kontakte nur über `shell/bitchat-kontakte.ts`: derselbe
+  `FunkAdressVersand` wie die Reticulum-Adresse, mit der Art `BITCHAT_SCHLUESSEL` (eigene Einträge in `geheim`, nie die von
+  Reticulum mitbenutzen); die Identität nur aus `bitchatIdentitaet(geheim)`, erst wenn es etwas zu senden gibt. Vier Tests
+  prüfen die Kette in `oeffneUmschlag()` wörtlich – ein neues Glied dort auch in ihnen nachtragen. In `GEHEIM_FEST` bleibt
+  `"freedom.kontakte.geprueft"` der letzte Eintrag (der Test aus B-4 prüft das) – neue Einträge davor.
+  Den Knoten an der Hülle (seit B-36c2b2) nur über `shell/bitchat-weg.ts` (`BitchatLauf` aus `bitchat-lauf.ts`): ein Lauf erst,
+  wenn `bitchatStarten()` „an“ meldet, `eigeneSchluessel` aus `state.keypair`, der Takt mit `setTimeout` und je Lauf einer – hält an,
+  sobald die Hülle nicht mehr „an“ meldet. Direktnachrichten nur über `dmUeberBitchat()` in `zustellenDm()`, nach den Relays und vor
+  Reticulum; `true` heißt „hinaus“, nicht „angekommen“. Umschläge an mich nur über `nimmPostAusFunk()`.
+  Oberfläche (seit B-36c3) nur über `shell/bitchat-ui.ts`: Knöpfe `#mesh-bitchat`/`#mesh-bitchat-kontakte` sind versteckt und
+  erscheinen nur mit `bitchatAufruf()`; an und aus nur im Klick, vorher der Tresor (Identität in `geheim`), die Zustimmung nur
+  als Person (`setzeBitchatTeilen()`), Nahe nur als Namen (`kontaktName`). Ein neuer Stand der Hülle braucht einen Satz in
+  `STAND_TEXT`. Hält der Lauf von selbst an (seit B-36c4), ruft er `bitchatStoppen()` – nie die Hülle laufen lassen, wenn
+  die App sich für aus hält; die Oberfläche erfährt es nur über `wennBitchatHaelt()`. Schlüssel beim Treffen (seit B-36e2,
+  BC-W5 A, BC-W6 A) nur über den Dialog „Bitchat-Kontakte“: der eigene Code nur aus `eigeneBitchatKarte()` (als Person,
+  QR auf Klick), der fremde nur über `leseBitchatKarte()`; eine Person, die noch kein Kontakt ist, erst nach `bestaetige()`
+  über `legeKontaktAn()` – dann `nimmBitchatKarte()`. Die Karte geht nie an ein Relay. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
+  „auditiert“. Im Smoke-Test („bitchat“) spielt `BITCHAT_ATTRAPPE` die Android-Hülle.
+  *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*
 - **Agenten am Repo beauftragen nur über `shell/repo-agent-ui.ts`** (seit 11.5d1, W5 A): nur für Repos mit Raum (offen
   `raumBestaetigt`, privat `privatRaum`) und nur Agenten aus `repoAgenten()`. Die Nachricht mit Repo-Tag geht erst nach der
   Bestätigung des Preises hinaus (`beauftrageAmRepo()` → `RepoWunsch.sende()`), nur in einen Kanal aus `auftragsKanal()` – dort

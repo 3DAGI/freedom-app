@@ -6,15 +6,18 @@
  * (`nimmFunkInhalt()`). Gesendet wird (B-32b3) nur an die gemerkte Gegenstelle (`freedom.reticulum.gegenstelle`, in
  * `geheim`) über `sendeUeberReticulum()` – aus `sendeUeberFunk()`, wenn kein Meshtastic-Gerät verbunden ist. Ein zweiter
  * Klick trennt. Im Adressen-Dialog gibt man die eigene Adresse auf Wunsch versiegelt an Kontakte (B-32c1, `funk-kontakte.ts`).
+ * Direktnachrichten, die kein Relay nahm, gehen über `dmUeberReticulum()` erst an den Kontakt, sonst an die Gegenstelle (B-32c2).
  */
 import { t } from "../i18n.js";
 import {
-  FUNK_REGIONEN, LORA_BANDBREITEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkEingabe, leseFunkWahl, maxSendeleistungDbm, pruefeFunkParameter,
-  verbindeRNode, type FunkFall, type FunkParameter, type FunkRegion, type FunkWahl, type RNodePort,
+  FUNK_QUELLE, LS_RETICULUM_FUNK, funkWahlText, leseFunkEingabe, leseFunkWahl, verbindeRNode, type FunkWahl, type RNodePort,
 } from "../rnode-funk.js";
-import { LS_RETICULUM_GEGENSTELLE, leseLxmfAdresse, type ReticulumFunk } from "../reticulum-funk.js";
-import { ReticulumFehler, type ReticulumFall } from "../reticulum-umschlag.js";
-import type { MeshKind } from "@freedomstack/protocol";
+import { LS_RETICULUM_GEGENSTELLE, RETICULUM_KONTO, funkZiele, stelleUeberFunkZu } from "../reticulum-funk.js";
+import {
+  FUNK_REGIONEN, LORA_BANDBREITEN, MeshKind, ReticulumFehler, leseLxmfAdresse, lxmfAdresse, maxSendeleistungDbm, pruefeFunkParameter,
+  reticulumIdentitaet, starteReticulum, type FunkFall, type FunkParameter, type FunkRegion, type NostrEvent, type ReticulumFall,
+  type ReticulumFunk,
+} from "@freedomstack/protocol";
 import { dialog } from "./dialog.js";
 import { geheim, tresorEingerichtet, tresorOffen } from "./tresor.js";
 import { alsGeraet } from "./state.js";
@@ -75,7 +78,7 @@ export async function waehleFunkRegion(): Promise<FunkWahl | null> {
         text: t("set.rnodeRegionZeile", { von: mhz(r.von), bis: mhz(r.bis), mw: r.maxErpMw, prozent: r.maxSendezeitProzent }),
         hinweis: t("set.rnodeVorgabe", {
           f: mhz(r.vorgabe.frequency), bw: r.vorgabe.bandwidth / 1000, sf: r.vorgabe.spreadingFactor, dbm: r.vorgabe.txPower,
-          max: maxSendeleistungDbm(r), quelle: t(r.quelle),
+          max: maxSendeleistungDbm(r), quelle: t(FUNK_QUELLE[r.kennung]!),
         }),
       })),
     }, {
@@ -117,11 +120,10 @@ export async function rnodeKnopf(status: HTMLElement | null): Promise<void> {
     const port = await serial.requestPort();
     const rnode = await verbindeRNode(port, wahl);
     try {
-      const [{ reticulumIdentitaet }, { starteReticulum }, { nimmFunkInhalt }] = await Promise.all([
-        import("../reticulum-umschlag.js"), import("../reticulum-funk.js"), import("./tabs/mesh.js"),
-      ]);
+      const { nimmFunkInhalt } = await import("./tabs/mesh.js");
       const funk = await starteReticulum({
         rnode, identitaet: await reticulumIdentitaet(geheim), parameter: wahl.parameter, beiEmpfang: nimmFunkInhalt,
+        konto: RETICULUM_KONTO,
       });
       verbunden = funk;
       const p = wahl.parameter;
@@ -172,12 +174,56 @@ export async function sendeUeberReticulum(payload: Uint8Array, kind: MeshKind, e
 }
 
 /**
+ * KI über Funk mit RNode (B-32d3b): ein Umschlag direkt an den eigenen Knoten – an die LXMF-Adresse aus seinem Status,
+ * nicht an die Gegenstelle. Nur mit laufender RNode, sonst false; scheitert es, sagt ein Text warum.
+ */
+export async function sendeAnKnotenUeberReticulum(lxmf: string, payload: Uint8Array, kind: MeshKind, eigeneSchluessel: readonly string[]): Promise<boolean> {
+  const funk = verbunden;
+  const an = leseLxmfAdresse(lxmf);
+  if (!funk || !an) return false;
+  toast(t("set.rnodeSendet"));
+  try {
+    await funk.sende(an, payload, kind, eigeneSchluessel);
+    return true;
+  } catch (e) {
+    toast(reticulumFehlerText(e), true);
+    return false;
+  }
+}
+
+/** Läuft Reticulum über eine RNode? */
+export const rnodeLaeuft = (): boolean => verbunden !== null;
+
+/**
+ * Eine Direktnachricht über Reticulum (B-32c2, W3 A) – nur, wenn kein Relay sie nahm, und nur mit laufender RNode: erst
+ * direkt an die Adresse des Kontakts (B-32c1), sonst an die Gegenstelle, die weiterreicht. false ohne Weg oder wenn
+ * beide scheitern – dann bleibt es beim Fehler des Netzes. Nie die eigene Kopie (`pruefeMeshInhalt()` mit den eigenen Schlüsseln).
+ */
+export async function dmUeberReticulum(wrap: NostrEvent, an: string, eigeneSchluessel: readonly string[]): Promise<boolean> {
+  const funk = verbunden;
+  if (!funk) return false;
+  const [{ funkAdressBuch }, { kontakteJetzt }, { eventToMesh }] = await Promise.all([
+    import("./funk-kontakte.js"), import("./quittungen.js"), import("../mesh-radio.js"),
+  ]);
+  const ziele = funkZiele(leseLxmfAdresse(funkAdressBuch.adresseVon(an, new Set(kontakteJetzt()))), leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE)));
+  if (ziele.length === 0) return false;
+  toast(t("set.rnodeSendetDm"));
+  try {
+    const art = await stelleUeberFunkZu(ziele, (z) => funk.sende(z, eventToMesh(wrap), MeshKind.NostrEvent, eigeneSchluessel));
+    toast(t(art === "kontakt" ? "set.rnodeDmDirekt" : "set.rnodeDmGegenstelle"));
+    return true;
+  } catch (e) {
+    toast(reticulumFehlerText(e), true);
+    return false;
+  }
+}
+
+/**
  * Die eigene Adresse (Text und QR-Code – sie ist nicht geheim, sie steht in jeder Antwort im Funk) und die Gegenstelle:
  * eintippen oder scannen, gemerkt nur in `geheim`. Leer heißt: keine Gegenstelle mehr.
  */
 export async function adressenDialog(): Promise<void> {
   if (tresorEingerichtet() && !tresorOffen()) return toast(t("ein.tresorGesperrt"), true);
-  const { reticulumIdentitaet, lxmfAdresse } = await import("../reticulum-umschlag.js");
   const eigene = hex(verbunden?.adresse ?? await lxmfAdresse(await reticulumIdentitaet(geheim)));
   const gemerkt = leseLxmfAdresse(geheim.getItem(LS_RETICULUM_GEGENSTELLE));
   const { funkAdressStand, funkTeilenAn, setzeFunkTeilen } = await import("./funk-kontakte.js");

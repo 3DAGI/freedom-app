@@ -3243,6 +3243,7 @@ class ProbeRelay:
         self.events: list[dict] = []
         self.gesendet: list[dict] = []  # was die App veröffentlicht (seit C.2c)
         self.abos: dict[tuple, tuple] = {}  # offene REQs je Verbindung (seit B-13e) – für zustellen()
+        self.ablehnen = False  # nimmt kein EVENT an (seit B-32c2)
 
     @staticmethod
     def passt(ev: dict, f: dict) -> bool:
@@ -3274,6 +3275,9 @@ class ProbeRelay:
                         if self.passt(ev, f):
                             ws.send(json.dumps(["EVENT", m[1], ev]))
                 ws.send(json.dumps(["EOSE", m[1]]))
+            elif m[0] == "EVENT" and isinstance(m[1], dict) and self.ablehnen:
+                # Wie ein Relay, das nichts annimmt (seit B-32c2)
+                ws.send(json.dumps(["OK", m[1].get("id", ""), False, "blocked: Attrappe"]))
             elif m[0] == "EVENT" and isinstance(m[1], dict):
                 self.gesendet.append(m[1])
                 self.events.append(m[1])  # wie ein Relay: später abfragbar (seit C.2d2)
@@ -4056,12 +4060,12 @@ def meshtastic_pruefen(browser, url: str) -> dict:
     return erg
 
 
-# RNode über USB (seit B-32b4): antwortet wie die Firmware (KISS, Befehle zurückgemeldet, wie `test/rnode-attrappe.ts`)
+# RNode über USB (seit B-32b4): antwortet wie die Firmware (KISS, Befehle zurückgemeldet, wie `protocol/test/rnode-attrappe.ts`)
 # und zählt Befehle und Datenrahmen – was die App funkt, kommt hier als Datenrahmen an.
 RNODE_ATTRAPPE = """
 (() => {
   const FEND = 0xc0, FESC = 0xdb, TFEND = 0xdc, TFESC = 0xdd;
-  const st = window.__rn = { geoeffnet: 0, geschlossen: 0, befehle: [], daten: 0 };
+  const st = window.__rn = { geoeffnet: 0, geschlossen: 0, befehle: [], daten: 0, rahmen: [] };
   let ctrl, rahmen = [], esc = false;
   const sende = (cmd, d) => {
     const roh = [];
@@ -4069,7 +4073,8 @@ RNODE_ATTRAPPE = """
     ctrl.enqueue(Uint8Array.from([FEND, cmd, ...roh, FEND]));
   };
   const antworte = (cmd, d) => {
-    if (cmd === 0x00) { st.daten++; return; }
+    // Datenrahmen als Hex (seit B-32c2) – so sieht der Test, an welche Adresse die App funkt
+    if (cmd === 0x00) { st.daten++; st.rahmen.push(d.map((b) => b.toString(16).padStart(2, '0')).join('')); return; }
     st.befehle.push([cmd, d]);
     if (cmd === 0x08) return sende(cmd, [0x46]);
     if (cmd === 0x50) return sende(cmd, [1, 82]);
@@ -4094,6 +4099,190 @@ RNODE_ATTRAPPE = """
   Object.defineProperty(navigator, 'serial', { value: { requestPort: async () => port, getPorts: async () => [] } });
 })();
 """
+
+
+# Android-Hülle mit Bitchat (seit B-36c3): eine Verbindung zu einem iPhone (Grenze 182 Byte), nichts empfangen
+BITCHAT_ATTRAPPE = """window.__FREEDOM_NATIVE__ = { huelle: "android" };
+window.__BC__ = { an: false, aufrufe: [], gesendet: [] };
+window.__TAURI_INTERNALS__ = { invoke: async (befehl, a) => {
+  const bc = window.__BC__;
+  if (befehl.startsWith("bitchat_")) bc.aufrufe.push(befehl);
+  if (befehl === "bitchat_starten") { bc.an = true; return "an"; }
+  if (befehl === "bitchat_stoppen") { bc.an = false; return null; }
+  if (befehl === "bitchat_stand") return JSON.stringify({ stand: bc.an ? "an" : "bereit", werbung: bc.an ? "an" : "aus",
+    verbindungen: bc.an ? [{ id: "z1", grenze: 182 }] : [] });
+  if (befehl === "bitchat_holen") return new Uint8Array(0);
+  if (befehl === "bitchat_senden") { bc.gesendet.push({ id: a.id, laenge: a.wert.length, kopf: a.wert.slice(0, 2) }); return true; }
+  throw "unbekannt";
+} };"""
+
+
+def bitchat_pruefen(browser, url: str) -> dict:
+    """Bitchat in der Android-Hülle (B-36c3): Mit einer Attrappe der Hülle zeigt Netz › Ohne Internet „Bitchat (Bluetooth)“
+    samt Hinweis; vor dem Klick fragt die App die Hülle nichts und legt keine Identität an. Der Klick startet: Die App kündigt
+    sich einmal an – ein Paket vom Typ Ankündigung in der Grenze der Verbindung (182 Byte) –, die Identität „anon“ und vier
+    Ziffern entsteht. Der Dialog „Bitchat-Kontakte“ nimmt die Zustimmung (nur mit Haken), ein zweiter Klick hält an, und danach
+    fragt die App die Hülle nichts mehr. Hält die Hülle von selbst an (B-36c4: Bluetooth aus), hält die App sie ganz an, und der
+    Knopf zeigt wieder „Bitchat (Bluetooth)“; ein Klick startet neu. Beim Treffen (B-36e2): der eigene Code als QR-Code auf
+    Klick, ein kaputter Code hält den Dialog offen, der Code eines Fremden (`scripts/bitchat-karte-probe.mts`) legt ihn erst
+    nach Rückfrage als Kontakt an und merkt seine Bitchat-Schlüssel."""
+    wurzel = Path(__file__).resolve().parent.parent
+    probe = json.loads(subprocess.run(["npx", "tsx", "scripts/bitchat-karte-probe.mts"], cwd=wurzel, capture_output=True, text=True,
+                                      timeout=180, check=True).stdout)
+    erg = {"fehler": []}
+    seite = DialogSeite(browser, url, ProbeRelay(), erg, init=BITCHAT_ATTRAPPE)
+    s, ev = seite.s, seite.ev
+    bc = "() => JSON.parse(JSON.stringify(window.__BC__))"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-bitchat", state="visible", timeout=10000)
+    erg["vor_dem_klick"] = {**ev(bc), "identitaet": ev("() => localStorage.getItem('freedom.bitchat.identitaet') !== null"),
+                            "hinweis": ev("() => !!document.getElementById('mesh-bitchat-hinweis').offsetParent")}
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => window.__BC__.gesendet.length > 0", timeout=10000)
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat anhalten'", timeout=10000)
+    erg["status"] = ev("() => document.getElementById('mesh-status').textContent")
+    erg["an"] = ev(bc)
+    erg["identitaet"] = ev("() => /^anon[0-9]{4}$/.test(JSON.parse(localStorage.getItem('freedom.bitchat.identitaet') ?? '{}').name ?? '')")
+    s.wait_for_timeout(1500)  # angekündigt wird nur bei neuer Verbindung und alle 30 s
+    erg["nach_pause"] = ev(bc)
+    s.click("#mesh-bitchat-kontakte")
+    erg["dialog"] = seite.warte_dialog("Bitchat-Kontakte")
+    ev("() => document.querySelector('[role=dialog] .qr-zeigen').click()")
+    erg["qr"] = ev("() => !!document.querySelector('[role=dialog] svg.qr-bild')")
+    feld = "(v) => { const f = document.querySelector('[role=dialog] input:not([type=checkbox])'); f.value = v; f.dispatchEvent(new Event('input')); }"
+    ev(feld, "freedom-bitchat:1:kaputt")
+    dialog_ok(seite, "Merken")
+    s.wait_for_function("() => !!document.querySelector('[role=dialog] [role=alert]')?.textContent", timeout=5000)
+    erg["kaputt"] = seite.stand()["meldung"]
+    ev("() => document.querySelector('[role=dialog] input[type=checkbox][value=ja]').click()")
+    ev(feld, probe["karte"])
+    dialog_ok(seite, "Merken")
+    erg["neu"] = seite.warte_dialog("Neuer Kontakt?")
+    dialog_ok(seite, "Anlegen")
+    seite.warte_zu()
+    s.wait_for_function("(p) => (localStorage.getItem('freedom.bitchat.kontakte') ?? '').includes(p)", arg=probe["person"], timeout=10000)
+    erg["teilen"] = ev("() => localStorage.getItem('freedom.bitchat.teilen')")
+    erg["angelegt"] = ev("(p) => JSON.parse(localStorage.getItem('freedom.chats') ?? '[]').some((c) => c.id === p && c.type === 'dm')", probe["person"])
+    erg["schluessel"] = ev("(p) => JSON.parse(localStorage.getItem('freedom.bitchat.kontakte'))[p]?.adresse", probe["person"])
+    # Die Hülle hält von selbst an: die App ruft `bitchat_stoppen`, der Knopf folgt; ein Klick startet neu
+    vorher = len(ev(bc)["aufrufe"])
+    ev("() => { window.__BC__.an = false; }")
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat (Bluetooth)'", timeout=10000)
+    s.wait_for_timeout(1500)
+    selbst = ev(bc)
+    danach = selbst["aufrufe"][vorher:]
+    erg["von_selbst"] = {"stoppen": danach.count("bitchat_stoppen"),
+                         "nach_stoppen": danach[danach.index("bitchat_stoppen") + 1:] if "bitchat_stoppen" in danach else None,
+                         "status": ev("() => document.getElementById('mesh-status').textContent")}
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => window.__BC__.gesendet.length === 2", timeout=10000)
+    s.wait_for_function("() => document.getElementById('mesh-bitchat').textContent === 'Bitchat anhalten'", timeout=10000)
+    s.click("#mesh-bitchat")
+    s.wait_for_function("() => document.getElementById('mesh-status').textContent === 'Bitchat ist aus.'", timeout=10000)
+    vorher = len(ev(bc)["aufrufe"])
+    s.wait_for_timeout(1500)
+    aus = ev(bc)
+    erg["aus"] = {"stoppen": aus["aufrufe"][vorher - 1:vorher], "danach": aus["aufrufe"][vorher:],
+                  "knopf": ev("() => document.getElementById('mesh-bitchat').textContent")}
+
+    f = erg["fehler"]
+    v = erg["vor_dem_klick"]
+    if v["aufrufe"] or v["gesendet"] or v["identitaet"] or not v["hinweis"]:
+        f.append(f"vor dem Klick {v}")
+    a = erg["an"]
+    erst = a["gesendet"][0] if a["gesendet"] else {}
+    if a["aufrufe"][:1] != ["bitchat_starten"] or erst.get("id") != "z1" or not (0 < erst.get("laenge", 0) <= 182) or erst.get("kopf", [0, 0])[1] != 1:
+        f.append(f"Ankündigung {a['gesendet']} nach {a['aufrufe'][:3]}")
+    if len(erg["nach_pause"]["gesendet"]) != 1 or "bitchat_holen" not in erg["nach_pause"]["aufrufe"]:
+        f.append(f"nach der Pause {erg['nach_pause']['gesendet']}, {sorted(set(erg['nach_pause']['aufrufe']))}")
+    if erg["status"] != "Bitchat ist an – dein Gerät kündigt sich über Bluetooth an." or not erg["identitaet"]:
+        f.append(f"an: {erg['status']!r}, Identität {erg['identitaet']}")
+    d = erg["dialog"] or {}
+    if d.get("haken") != [False] or d.get("felder") != ["Kontakte", "Mit Kontakten", "Mein Bitchat-Code – nur dem Gegenüber zeigen",
+                                                         "Bitchat-Code des Gegenübers (scannen oder einfügen)", "Gerade in der Nähe"] \
+            or d.get("werte") != ["an 0 gegeben, von 0 erhalten", "", "niemand"] or not erg["qr"]:
+        f.append(f"Dialog {d}, QR {erg['qr']}")
+    if erg["kaputt"] != "Kein gültiger Bitchat-Code":
+        f.append(f"kaputter Code {erg['kaputt']!r}")
+    if not (erg["neu"] or {}).get("text", "").endswith("ist noch kein Kontakt. Als Kontakt anlegen und die Bitchat-Schlüssel übernehmen?") \
+            or not erg["angelegt"] or erg["schluessel"] != f"{probe['noise']}:{probe['signier']}":
+        f.append(f"Code übernommen: {erg['neu']}, angelegt {erg['angelegt']}, Schlüssel {erg['schluessel']}")
+    if erg["teilen"] != "1":
+        f.append(f"Zustimmung {erg['teilen']!r}")
+    vs = erg["von_selbst"]
+    if vs["stoppen"] != 1 or vs["nach_stoppen"] != [] or vs["status"] != "Bitchat ist aus – Bluetooth läuft nicht mehr (ausgeschaltet oder Erlaubnis entzogen).":
+        f.append(f"von selbst {vs}")
+    if erg["aus"] != {"stoppen": ["bitchat_stoppen"], "danach": [], "knopf": "Bitchat (Bluetooth)"}:
+        f.append(f"aus {erg['aus']}")
+    if seite.browser_dialoge:
+        f.append(f"Browser-Dialoge {seite.browser_dialoge}")
+    seite.ctx.close()
+    erg["bestanden"] = not f
+    return erg
+
+
+def rnode_dm_pruefen(browser, url: str) -> dict:
+    """Direktnachricht über Reticulum (B-32c2, W3 A): Nimmt kein Relay die Kopie an den Empfänger, funkt die App sie über die
+    RNode – an die Adresse des Kontakts aus B-32c1 (im Rahmen der Pfad-Anfrage zu sehen). Ohne Ausfall der Relays funkt sie nichts."""
+    erg = {"fehler": []}
+    pk = "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"  # ein gültiger Punkt (x von G) – geht nur an die Attrappe
+    adresse = "a1b2c3d4" * 4
+    vorbereitung = f"""
+      if (!localStorage.getItem('freedom.reticulum.kontakte')) {{
+        localStorage.setItem('freedom.reticulum.kontakte', JSON.stringify({{ '{pk}': {{ adresse: '{adresse}', zeit: 1 }} }}));
+        localStorage.setItem('freedom.versand.verzoegerung', '0');
+      }}
+      document.addEventListener('DOMContentLoaded', () => {{
+        const t = document.getElementById('toast');
+        window.__toasts = [];
+        if (t) new MutationObserver(() => window.__toasts.push(t.textContent)).observe(t, {{ childList: true, characterData: true, subtree: true }});
+      }});
+    """
+    relay = ProbeRelay()
+    seite = DialogSeite(browser, url, relay, erg, init=RNODE_ATTRAPPE + vorbereitung)
+    s, ev = seite.s, seite.ev
+    rn = "() => JSON.parse(JSON.stringify(window.__rn))"
+    ev("() => { location.hash = '#/netz'; }")
+    s.wait_for_selector('[data-subtab-group="netz"] [data-subtab="mesh"]', timeout=15000)
+    ev("() => document.querySelector('[data-subtab-group=\"netz\"] [data-subtab=\"mesh\"]').click()")
+    s.wait_for_selector("#mesh-rnode", state="visible", timeout=10000)
+    s.click("#mesh-rnode")
+    seite.warte_dialog("Funkparameter der RNode")
+    dialog_ok(seite, "Bestätigen und verbinden")
+    seite.warte_zu()
+    s.wait_for_function("() => /RNode verbunden/.test(document.getElementById('mesh-status').textContent)", timeout=30000)
+    # Ein Kontakt, dessen Adresse die App hat – und mit Relays, die annehmen, geht nichts in den Funk
+    ev("() => { location.hash = '#/chat'; }")
+    s.wait_for_selector("#chat-new-dm", timeout=30000)
+    ev("() => document.getElementById('chat-new-dm').click()")
+    seite.warte_dialog("Neue Nachricht")
+    seite.tippe(pk)
+    seite.warte_zu()
+    s.wait_for_function("(pk) => !!document.querySelector(`#chat-list .chat-item.active[data-cid='${pk}']`)", arg=pk, timeout=10000)
+    s.fill("#chat-input", "mit Netz")
+    s.click("#chat-send")
+    s.wait_for_function("() => document.getElementById('chat-input').value === ''", timeout=10000)
+    s.wait_for_timeout(1500)  # was die App funken würde, käme in dieser Zeit
+    erg["mit_netz"] = {"daten": ev(rn)["daten"], "umschlaege": sum(1 for e in relay.gesendet if e.get("kind") == 1059)}
+    # Kein Relay nimmt mehr an – die Kopie an den Empfänger geht über Reticulum an die Adresse des Kontakts
+    relay.ablehnen = True
+    s.fill("#chat-input", "ohne Netz")
+    s.click("#chat-send")
+    s.wait_for_function("(a) => window.__rn.rahmen.some((h) => h.includes(a))", arg=adresse, timeout=30000)
+    erg["ohne_netz"] = {"daten": ev(rn)["daten"], "toasts": ev("() => window.__toasts.filter((t) => /Reticulum/.test(t))")}
+    seite.ctx.close()
+    f = erg["fehler"]
+    if erg["mit_netz"]["daten"] != 0 or erg["mit_netz"]["umschlaege"] < 2:
+        f.append(f"mit Netz {erg['mit_netz']}")
+    if not (erg["ohne_netz"]["daten"] > 0 and "Kein Relay hat die Nachricht genommen – sende sie über Reticulum …" in erg["ohne_netz"]["toasts"]):
+        f.append(f"ohne Netz {erg['ohne_netz']}")
+    erg["browser_dialoge"] = seite.browser_dialoge
+    if seite.browser_dialoge:
+        f.append(f"Browser-Dialoge: {seite.browser_dialoge}")
+    erg["bestanden"] = not f
+    return erg
 
 
 def rnode_pruefen(browser, url: str) -> dict:
@@ -7238,6 +7427,14 @@ def main() -> int:
             except Exception as e:
                 erg["rnode"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
             try:
+                erg["rnode_dm"] = rnode_dm_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["rnode_dm"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
+                erg["bitchat"] = bitchat_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
+            except Exception as e:
+                erg["bitchat"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
+            try:
                 erg["einrichtung"] = einrichtung_pruefen(browser, f"http://127.0.0.1:{port}/freedom.html")
             except Exception as e:
                 erg["einrichtung"] = {"bestanden": False, "fehler": [f"{type(e).__name__}: {str(e)[:200]}"]}
@@ -7305,6 +7502,8 @@ def main() -> int:
           and erg.get("lokal", {}).get("bestanden") is True
           and erg.get("meshtastic", {}).get("bestanden") is True
           and erg.get("rnode", {}).get("bestanden") is True
+          and erg.get("rnode_dm", {}).get("bestanden") is True
+          and erg.get("bitchat", {}).get("bestanden") is True
           and erg.get("einrichtung", {}).get("bestanden") is True
           and erg.get("weckworker", {}).get("bestanden") is True
           and erg.get("mobil", {}).get("bestanden") is True)

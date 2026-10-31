@@ -16,6 +16,7 @@ import { mlsAbgleichen, mlsEinladungAnnehmen, mlsGesperrt, mlsVerlauf } from "..
 import { alsRaumMeldung, merkePrivatenRaum } from "../raum-mls.js";
 import { alsRufZusammenfassung } from "../ruf.js";
 import { alsFunkAdresse } from "../funk-kontakte.js";
+import { alsBitchatSchluessel } from "../bitchat-kontakte.js";
 import { geheim } from "../tresor.js";
 import { $, toast } from "../ui.js";
 import { t } from "../../i18n.js";
@@ -71,8 +72,8 @@ async function oeffneUmschlag(w: NostrEvent): Promise<{ partner: string; ev: DmA
       }
     // Keine DM: vielleicht ein SOL-Trinkgeld-Beleg (4.7b), eine Adress-Anfrage (4.9d), Nachfolge (8.11b), ein Pruefauftrag (5.6c),
     // eine Raum-Meldung (8.5), die Zusammenfassung eines Kontakts ueber Provider (5.5c), die Reticulum-Adresse eines Kontakts (B-32c1),
-    // eine Rechnungs-Anfrage (6.3b) oder ein Anruf (B-13d2, erscheint nicht im Chat).
-    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsFunkAdresse(w)) ?? (await alsRechnungsAnfrage(w)) ?? (await alsAnruf(w));
+    // seine Bitchat-Schluessel (B-36c2b1), eine Rechnungs-Anfrage (6.3b) oder ein Anruf (B-13d2, erscheint nicht im Chat).
+    : (await alsTrinkgeld(w)) ?? (await alsAdressAnfrage(w)) ?? (await alsNachfolge(w)) ?? (await alsPruefauftrag(w)) ?? (await alsRaumMeldung(w)) ?? (await alsRufZusammenfassung(w)) ?? (await alsFunkAdresse(w)) ?? (await alsBitchatSchluessel(w)) ?? (await alsRechnungsAnfrage(w)) ?? (await alsAnruf(w));
   dmCache.set(w.id, e);
   return e;
 }
@@ -243,6 +244,33 @@ export async function veroeffentlicheDm(wrap: NostrEvent, empfaenger: string): P
   const pool = await ensurePool();
   if (ziele.length > 0 && (await veroeffentlicheAn(wrap, ziele)) > 0) return;
   await pool.publish(wrap);
+}
+
+/**
+ * Die Kopie an den Empfänger einer Direktnachricht (B-32c2, W3 A): über die Relays; nimmt sie keines, über Bitchat, wenn sein
+ * Gerät in der Nähe ist (B-36c2b2), sonst über Reticulum – erst direkt an die Adresse des Kontakts, sonst an die Gegenstelle.
+ * Ohne Weg bleibt es beim Fehler des Netzes.
+ */
+export async function zustellenDm(wrap: NostrEvent, empfaenger: string): Promise<void> {
+  try {
+    await veroeffentlicheDm(wrap, empfaenger);
+  } catch (e) {
+    const { dmUeberBitchat } = await import("../bitchat-weg.js");
+    if (dmUeberBitchat(wrap, empfaenger)) return;
+    const { dmUeberReticulum } = await import("../rnode-ui.js");
+    if (!(await dmUeberReticulum(wrap, empfaenger, state.keypair ? [state.keypair.pk] : []))) throw e;
+  }
+}
+
+/**
+ * Ein Umschlag an mich, der über Funk kam (B-32c2): gleich öffnen wie aus dem Abo – auch ohne Netz. false, wenn er nicht an
+ * mich geht oder schon offen ist; dann reicht ihn der Aufrufer nur weiter.
+ */
+export async function nimmPostAusFunk(w: NostrEvent): Promise<boolean> {
+  const ich = state.keypair?.pk;
+  if (!ich || w.kind !== 1059 || !w.tags.some((t) => t[0] === "p" && t[1] === ich) || dmCache.has(w.id)) return false;
+  await nimmLivePost(w, ich);
+  return true;
 }
 
 let letzterDmAbgleich = 0;

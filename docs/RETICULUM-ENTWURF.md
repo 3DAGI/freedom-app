@@ -74,8 +74,8 @@ W1 **A** (`@reticulum/core` und `@reticulum/lxmf`, exakt gepinnt), W2 **A** (Adr
 | B-32b2 ✓ | App: Reticulum über die RNode – eigenes LXMF-Ziel, empfangen wie Funk, Sendezeitkonto für jedes Paket an die RNode, Datenschutz-Grenze „reticulum-ankuendigung“ | ~300 |
 | B-32b3 ✓ | Senden: Gegenstelle (Adresse eintippen oder per QR, nur in `geheim`), `sendeUeberFunk()` über Reticulum, eigene Adresse als QR | ~250 |
 | B-32b4 ✓ | Abweichende Werte innerhalb der Grenzen, Smoke-Test mit Attrappe | ~200 |
-| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
-| B-32d | Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`) | ~300 |
+| B-32c | Adresse für Kontakte (W2), Zustellen über den eigenen Knoten (W3 A) – geteilt (22.10.): **c1** ✓ Adresse versiegelt an Kontakte (Kind 38082); **c2** ✓ Nachrichten an Kontakte über Reticulum (direkt an die Adresse des Kontakts, sonst über die Gegenstelle; ankommende Umschläge auch ohne Netz im Posteingang) | ~300 |
+| B-32d | Gateway im Knoten – RN-W7–W10 A (23.10.): **d1** ✓ Bausteine ins Protokoll; **d2** ✓ Knoten mit RNode über eine TCP-Brücke; **d3** KI-Antworten zurück über Reticulum, geteilt: **d3a** ✓ Knoten funkt zurück, **d3b** ✓ App fragt KI über Funk mit RNode | ~300 je Teil |
 
 Live-Proben mit echten RNode-Geräten macht der MENSCH (wie bei Meshtastic, MENSCH-Checkliste).
 
@@ -202,6 +202,118 @@ bestätigt, Abweichen nur innerhalb der Grenzen der Region. Damit ist B-32b frei
 - **Datenschutz:** Die Grenze „reticulum-ankuendigung“ sagt jetzt, dass Kontakte, denen man die Adresse gibt, Pakete im Funk einem
   zuordnen können; Leak-Test `app/test/leak/funk-adresse.test.ts` (nur Umschläge, je Kontakt einer, nie im selben Augenblick).
 - **Benutzt** werden die Adressen der Kontakte erst mit B-32c2.
+
+## Stand B-32c2 (23.10.2026)
+
+- **Senden:** Die Kopie an den Empfänger einer Direktnachricht geht über `zustellenDm()` – erst die Relays; nimmt sie keines
+  und läuft eine RNode, über `dmUeberReticulum()`: Ziele aus `funkZiele()` (erst die Adresse des Kontakts aus B-32c1, dann die
+  Gegenstelle, je Adresse einmal), nacheinander über `stelleUeberFunkZu()`. Erreicht der Kontakt nicht (kein Pfad bis zur Frist),
+  nimmt die Gegenstelle; bei „sendezeit“ ist Schluss. Die eigene Kopie und Kopien an Geräte gehen nie über Funk.
+- **Empfangen:** Ein Umschlag an mich, der über Funk kommt (Meshtastic wie Reticulum), geht über `nimmPostAusFunk()` gleich in
+  den Posteingang – auch ohne Netz –, danach wie bisher weiter an den Pool.
+- **Gemessen** (drei RNode-Attrappen): direkt beim Kontakt; ist er nicht da, nach der Frist bei der Gegenstelle.
+- **Smoke-Test „rnode_dm“:** mit Relays, die annehmen, funkt die App nichts; nehmen sie nichts an, trägt der Rahmen der
+  Pfad-Anfrage die Adresse des Kontakts.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt jetzt auch Pakete an Kontakte und wann die App direkt funkt.
+
+## Fragen vor B-32d (23.10.2026)
+
+Die Karte sagt für B-32d „Gateway im Knoten (`@reticulum/node`, TCP zu `rnsd`)“. Beim Nachsehen passt das nicht mehr:
+
+- **`rnsd` ist die Python-Referenz** mit eigener Lizenz (MIT-Text, Verbot schädlicher Nutzung, Klausel gegen KI – oben unter
+  „Befunde“). Der Entwurf hält fest: Freedom bindet RNS nicht ein. Ein Freedom-Knoten ist ein KI-Provider; ihn an `rnsd` zu
+  hängen, liefe genau darauf hinaus.
+- **`@reticulum/node` 0.9.13** (EUPL-1.2, 360 KB) bringt `@reticulum/rfed` 0.9.13 mit (EUPL-1.2, 270 KB, „federated pub/sub
+  channels, blobs, and node/client sync“ – brauchen wir nicht) und hängt mit `^` an `core` und `lxmf`. Das wären zwei neue,
+  ungeprüfte Pakete im Knoten.
+- **Es geht ohne beides:** `@reticulum/core` hat die Basis `Interface`, `RNodeInterface` (KISS) und einen HDLC-Framer. Wie die
+  App über WebSerial kann der Knoten die RNode selbst steuern – über eine TCP-Brücke zur seriellen Schnittstelle (`socat` oder
+  `ser2net`, wie seit 7.4b2 `FUNK_GATEWAY=host:port`). Dafür reichen `node:net` und die beiden schon gewählten Pakete.
+- **Das Gateway ist heute rahmenweise** (`GatewayRolle`: Rahmen, `Reassembler`, `MeshQueue`). Reticulum bringt ganze
+  Nachrichten mit eigener Zustellung (Link, Ressource) – das Gateway braucht dafür einen Eingang je Nachricht und eine Antwort
+  an die LXMF-Adresse, die den Auftrag brachte.
+
+| Nr. | Frage | Optionen | Empfehlung |
+|---|---|---|---|
+| RN-W7 | Wie erreicht der Knoten den Funk? | **A** RNode über eine TCP-Brücke (`socat`/`ser2net`), KISS spricht der Knoten selbst (`RNodeInterface`); kein `rnsd`, der Knoten ist „Leaf“ wie die App · **B** TCP zu `rnsd` (routet über mehrere Sprünge, aber Python-Referenz mit Klausel gegen KI) · **C** beides | **A** – keine Fremdlizenz auf einem KI-Knoten, dieselbe Technik wie in der App |
+| RN-W8 | Welche Bibliothek im Knoten? | **A** `@reticulum/core` und `@reticulum/lxmf` 0.9.12 exakt wie die App, die TCP-Hülle selbst (`node:net`) · **B** `@reticulum/node` 0.9.13 exakt (mit `rfed`, `^`-Bereiche) | **A** – nichts Neues, eine Fassung für App und Knoten |
+| RN-W9 | Was macht das Gateway über Reticulum? | **A** wie Meshtastic (7.4, 7.5d): Umschläge ins Netz; Antworten auf KI-Aufträge (Weiterleitung 25030, `GatewayBuch`) an die LXMF-Adresse, die den Auftrag brachte; die App nimmt den eigenen Knoten als Gegenstelle für KI über Funk · **B** dazu Post für Funk-Nutzer halten (Postfach je LXMF-Adresse) | **A** – B bräuchte beim Knoten eine Zuordnung Schlüssel ↔ Funk-Adresse und ist ein eigener Schritt |
+| RN-W10 | Funkwerte und Sendezeit im Knoten | **A** wie in der App (RN-W6 A): `RETICULUM_REGION` mit den Vorgaben aus `FUNK_REGIONEN`, eigene Werte nur in deren Grenzen (`pruefeFunkParameter()`), Konto 1 % je Stunde · **B** der Knoten setzt nichts, die RNode behält ihre Werte | **A** – sonst sendete der Knoten womöglich außerhalb der Region |
+
+**Entschieden 23.10.2026** (MENSCH: „Wie empfohlen“): RN-W7 **A**, RN-W8 **A**, RN-W9 **A**, RN-W10 **A**.
+
+**Teilung** (je etwa 300 Zeilen):
+
+- **d1** – Bausteine ins Protokoll: Regionen, Grenzen und Sendezeit (`rnode-funk.ts`, `rnodeSendezeit()`) und der
+  LXMF-Umschlag (`reticulum-umschlag.ts`) ziehen nach `packages/protocol`; die App nimmt sie von dort, ihr Verhalten bleibt.
+- **d2** – Knoten: `FUNK_GATEWAY=rnode:host:port` mit `RETICULUM_REGION`; Kern, eigene Identität (Datei 0600), Empfang wie
+  Funk (`pruefeMeshInhalt()`, Umschläge ins Netz), Sendezeitkonto.
+- **d3** – Antworten zurück: Weiterleitungen und `GatewayBuch` über Reticulum an die Adresse des Auftrags; die App fragt KI
+  über Funk auch mit RNode, wenn die Gegenstelle der eigene Knoten ist.
+
+## Stand B-32d1 (23.10.2026)
+
+- **Im Protokoll** (`packages/protocol/src`, `@reticulum/core` und `@reticulum/lxmf` 0.9.12 exakt dort):
+  - `funk-region.ts`: `FUNK_REGIONEN`, `LORA_BANDBREITEN`, `maxSendeleistungDbm()`, `pruefeFunkParameter()`,
+    `rnodeOptionen()` (nimmt Region und Parameter – der Knoten hat keine bestätigte Wahl) und `rnodeSendezeit()`;
+  - `reticulum-umschlag.ts`: Identität (`reticulumIdentitaet()` mit einem beliebigen Speicher), Umschlag, Felder, Fehler
+    und `leseLxmfAdresse()`;
+  - `reticulum-kern.ts`: `starteReticulum()` über einer RNode-Schnittstelle – das Sendezeitkonto gibt der Aufrufer mit.
+- **In der App bleibt:** die gemerkte Wahl, WebSerial und der Text zur Quelle je Region (`rnode-funk.ts`, `FUNK_QUELLE`),
+  Gegenstelle, Ziele und das Konto der Sitzung
+  (`reticulum-funk.ts`). Ihr Verhalten ist dasselbe; die bestehenden Tests prüfen es weiter.
+- **Bibliothek:** weiter nur dynamisch geladen; im Build führen auch die Pfade aus dem Protokoll auf das eine Modul
+  „reticulum-klein“ (der Test liest jetzt App und Protokoll).
+
+## Stand B-32d2 (23.10.2026)
+
+- **Einschalten:** `FUNK_GATEWAY=rnode:host:port` (Port Pflicht) und `RETICULUM_REGION` (Kennung aus `FUNK_REGIONEN`);
+  eigene Werte frei über `RETICULUM_WERTE` (Frequenz Hz, Bandbreite Hz, SF, CR, dBm), nur nach `pruefeFunkParameter()`.
+  Was nicht passt, startet das Gateway nicht (`reticulumAusUmgebung()`) – nie still die Vorgabe statt eigener Werte.
+- **RNode über TCP:** `verbindeRNodeTcp()` – eine Unterklasse von `RNodeInterface` mit `node:net` als Transport (Brücke
+  wie `socat … FILE:/dev/ttyACM0,raw,b115200`), Sendezeit-Sperre der Region in der Firmware (`rnodeOptionen()`), nach
+  einer Trennung verbindet die Bibliothek neu (30 s). Kein `rnsd`, nichts Neues: `@reticulum/core` 0.9.12 wie App und
+  Protokoll.
+- **Kern:** `starteReticulum()` aus dem Protokoll mit eigenem Sendezeitkonto (1 % je Stunde, jedes Paket an die RNode).
+- **Identität:** `~/.freedom/reticulum-identitaet` (0600, „wx“); eine kaputte Datei wird nie ersetzt. Die LXMF-Adresse
+  steht beim Start im Log – man trägt sie in der App als Gegenstelle ein.
+- **Empfang:** wie über Funk – `UmschlagAnnahme` (aus `GatewayRolle` gelöst, Meshtastic und Reticulum teilen sie):
+  Weiterleitungsaufträge (25030) ins Buch, Umschläge einmal ins Netz. Nachforderungen und Solana-Transaktionen sind nicht
+  Sache des Gateways.
+- **Noch nicht:** Antworten zurück über Reticulum (B-32d3). Bis dahin nennt das Angebot kein Funk-Gateway für Reticulum;
+  die App fragt KI über Funk weiter nur über Meshtastic.
+- **Test:** Die RNode-Attrappe liegt jetzt in `protocol/test` – die App hängt sie an WebSerial, der Knoten über eine echte
+  TCP-Brücke an dieselbe Luft; ein Telefon funkt einen Umschlag an die Adresse des Knotens, er landet einmal im Netz.
+
+## Stand B-32d3a (23.10.2026)
+
+- **Teilung:** d3a der Knoten (zurückfunken), d3b die App (KI über Funk mit RNode, wenn die Gegenstelle der eigene Knoten
+  ist – die App muss dafür die Adresse ihres Knotens kennen).
+- **Absender:** `starteReticulum()` gibt `beiEmpfang` die LXMF-Adresse des Absenders mit (`von`, 16 Byte, aus der
+  Nachricht). LXMF prüft sie nur, wenn der Kern die Identität kennt – wer eine fremde nennt, lenkt höchstens die Antworten
+  seiner eigenen Sitzung um: versiegelt, auf Kosten des Kontos des Knotens. Die App nimmt `von` nicht.
+- **Rückweg:** `ReticulumRueckweg` merkt je Weiterleitung (25030) die Adresse, die sie brachte; der Takt (5 s) holt über
+  `UmschlagAnnahme.postZurueck()` – dieselbe Regel wie bei Meshtastic (`GatewayBuch`: höchstens drei Umschläge je
+  Auftrag, nur ab dem Auftrag) – und funkt jeden Umschlag an diese Adresse. Ohne Adresse nichts; Fehler nur mit Kennung
+  ins Log; ein Takt nie zweimal zugleich. Gesendet über `ReticulumFunk.sende()` – Pfad-Anfrage, Link oder einzelnes Paket
+  macht der Router, jedes Paket bucht das Konto.
+- **Angebot:** weiter kein Funk-Gateway für Reticulum – das Flag sagt Meshtastic-Nutzern, wen sie im Funk erreichen.
+- **Test:** Telefon und Knoten in derselben Luft – Weiterleitung hin, Antwort aus dem Netz zurück ans Telefon; Post für
+  eine Sitzung ohne Weiterleitung bleibt im Netz; jede Antwort einmal.
+
+## Stand B-32d3b (23.10.2026)
+
+- **Adresse aus dem Status:** Der Status an den Besitzer (§24) nennt die LXMF-Adresse des Gateways (`lxmf`, nur nach
+  dem Start). Fragt die App den Status ab, merkt sie Knoten, Adresse und Rechenarbeit in `geheim`
+  (`freedom.reticulum.knoten`, `leseFunkKnoten()`); nennt der Status keine, vergisst sie den Eintrag.
+- **Direkt an den Knoten, nicht an die Gegenstelle:** KI über Funk geht ohne Meshtastic mit laufender RNode an diese
+  Adresse (`sendeAnKnotenUeberReticulum()`) – die Gegenstelle bleibt für Direktnachrichten. Anders als im Entwurf
+  geplant, muss die Gegenstelle dafür nicht der eigene Knoten sein.
+- **Gratis als Besitzer:** Der Auftrag trägt im versiegelten Kern den Besitzer-Nachweis (`baueFunkAuftrag(…, kopplung)`),
+  ohne Gebot und ohne Gutschrift; nur, wenn die Kopplung zu dem Knoten passt, dessen Status die Adresse nannte.
+- **„über Funk“** im Agenten erscheint auch ohne gemerktes Meshtastic-Gateway, sobald die Adresse bekannt ist.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt KI-Fragen an den eigenen Knoten.
+- **Damit ist B-32 fertig.** Offen bleibt die Probe mit echten Geräten (MENSCH).
 
 ## Quellen
 

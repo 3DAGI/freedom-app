@@ -22,13 +22,13 @@ test("VKk1: aus der Umgebung – aus, ungültig heißt kein Start, fehlt heißt 
   const browser = join(d, "chromium");
   writeFileSync(browser, "");
   try {
-    assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus" }, { playwright: "/pw" }), { server: [], fehlt: [] });
+    assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_JUPYTER: "aus" }, { playwright: "/pw" }), { server: [], fehlt: [] });
     for (const falsch of ["chromium", "/gibt/es/nicht", `${d}/../${d.split("/").at(-1)}/chromium`, d]) {
       assert.ok("ungueltig" in mcpAusUmgebung({ MCP_BROWSER: falsch }, { playwright: "/pw" }), falsch);
     }
-    assert.deepEqual(mcpAusUmgebung({}, { playwright: null, orte: [browser] }), { server: [], fehlt: ["mcp.playwright-fehlt"] });
-    assert.deepEqual(mcpAusUmgebung({}, { playwright: "/pw", orte: ["/gibt/es/nicht"] }), { server: [], fehlt: ["mcp.browser-fehlt"] });
-    const gefunden = mcpAusUmgebung({}, { playwright: "/pw", orte: ["/gibt/es/nicht", browser] });
+    assert.deepEqual(mcpAusUmgebung({ MCP_JUPYTER: "aus" }, { playwright: null, orte: [browser] }), { server: [], fehlt: ["mcp.playwright-fehlt"] });
+    assert.deepEqual(mcpAusUmgebung({ MCP_JUPYTER: "aus" }, { playwright: "/pw", orte: ["/gibt/es/nicht"] }), { server: [], fehlt: ["mcp.browser-fehlt"] });
+    const gefunden = mcpAusUmgebung({ MCP_JUPYTER: "aus" }, { playwright: "/pw", orte: ["/gibt/es/nicht", browser] });
     assert.ok("server" in gefunden && gefunden.server.length === 1 && gefunden.fehlt.length === 0);
     assert.ok(gefunden.server[0]!.argumente.includes(browser));
     const gewaehlt = mcpAusUmgebung({ MCP_BROWSER: browser }, { playwright: "/pw", orte: [] });

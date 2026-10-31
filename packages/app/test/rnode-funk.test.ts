@@ -4,11 +4,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  FUNK_REGIONEN, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, maxSendeleistungDbm, pruefeFunkParameter, rnodeOptionen, verbindeRNode,
-  type FunkParameter, type FunkWahl,
-} from "../src/rnode-funk.js";
-import { CMD, rnodeAttrappe } from "./rnode-attrappe.js";
+import { FUNK_REGIONEN, maxSendeleistungDbm, pruefeFunkParameter, rnodeOptionen, type FunkParameter } from "@freedomstack/protocol";
+import { FUNK_QUELLE, LS_RETICULUM_FUNK, funkWahlText, leseFunkWahl, verbindeRNode, type FunkWahl } from "../src/rnode-funk.js";
+import { CMD, rnodeAttrappe } from "../../protocol/test/rnode-attrappe.js";
 
 const EU = FUNK_REGIONEN.find((r) => r.kennung === "eu-869")!;
 const wahl = (p: Partial<FunkParameter> = {}, region = "eu-869"): FunkWahl => ({
@@ -18,7 +16,7 @@ const wahl = (p: Partial<FunkParameter> = {}, region = "eu-869"): FunkWahl => ({
 test("B-32b1: jede Region hat Quelle, Grenzen und Vorgaben darunter – das Signal liegt ganz im Band", () => {
   assert.deepEqual(FUNK_REGIONEN.map((r) => r.kennung), ["eu-869", "eu-433"]);
   for (const r of FUNK_REGIONEN) {
-    assert.match(r.quelle, /^set\.rnodeQuelle/, `${r.kennung}: Quelle als Text in beiden Sprachen`);
+    assert.match(FUNK_QUELLE[r.kennung] ?? "", /^set\.rnodeQuelle/, `${r.kennung}: Quelle als Text in beiden Sprachen`);
     assert.ok(r.von < r.bis && r.maxErpMw > 0 && r.maxSendezeitProzent > 0 && r.maxSendezeitProzent <= 10);
     assert.deepEqual(pruefeFunkParameter(r.kennung, r.vorgabe), { ok: true, region: r }, `${r.kennung}: Vorgabe gültig`);
     assert.ok(r.vorgabe.txPower <= 14, "die Vorgabe bleibt bei höchstens 25 mW");
@@ -109,10 +107,10 @@ test("B-32b1: verdrahtet – Knopf „RNode“ im Funk-Bereich, Region bestätig
   for (const sprache of ["de", "en"] as const) {
     setLang(sprache);
     for (const k of ["set.rnode", "set.rnodeTitel", "set.rnodeText", "set.rnodeRegion", "set.rnodeRegionZeile", "set.rnodeVorgabe", "set.rnodeBestaetigen",
-      "set.rnodeVerbunden", "set.rnodeNicht", "set.rnodeGetrennt", ...FUNK_REGIONEN.map((r) => r.quelle)]) {
+      "set.rnodeVerbunden", "set.rnodeNicht", "set.rnodeGetrennt", ...FUNK_REGIONEN.map((r) => FUNK_QUELLE[r.kennung]!)]) {
       assert.notEqual(t(k), k, `${sprache}: ${k}`);
     }
-    for (const r of FUNK_REGIONEN) assert.match(t(r.quelle), /2006\/771\/(EG|EC).*2019\/1345/, `${sprache}: Quelle ${r.kennung}`);
+    for (const r of FUNK_REGIONEN) assert.match(t(FUNK_QUELLE[r.kennung]!), /2006\/771\/(EG|EC).*2019\/1345/, `${sprache}: Quelle ${r.kennung}`);
   }
   setLang("en");
 });

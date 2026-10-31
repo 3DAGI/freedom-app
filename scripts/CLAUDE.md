@@ -56,8 +56,10 @@ dieses Bereichs unten anhängen.
   Ebenso nach „Patch senden“ im Raum (VKb): erst senden, dann neu laden – auf die Patch-Liste warten; 800 ms reichten
   nicht, als der Rechner nebenher Knoten-Tests rechnete. Den Smoke-Test nie neben anderen schweren Läufen starten.
 - **Meshtastic nur über `meshtastic.ts`** – Im Smoke-Test („meshtastic“) spielt eine Web-Serial-Attrappe das Gerät mit
-  Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `test/rnode-attrappe.ts`;
+  Bytes aus der Referenz. Die RNode (seit B-32b4, Teil „rnode“) spielt `RNODE_ATTRAPPE` – KISS wie `protocol/test/rnode-attrappe.ts`;
   sie zählt Datenrahmen, und „die App funkt von sich aus nichts“ heißt dort: 0 nach dem Verbinden.
+  Seit B-32c2 merkt sie die Rahmen als Hex (`__rn.rahmen`) – „rnode_dm“ sieht daran die Adresse des Kontakts in der
+  Pfad-Anfrage. Relays, die nichts annehmen, spielt `ProbeRelay.ablehnen`.
   *(Weitere Teile: Wurzel (`CLAUDE.md`), `packages/app/CLAUDE.md`, `packages/node/CLAUDE.md`.)*
 - **`check-wiring.py` ordnet Rümpfe nach Namen** (gefunden in B-35a): Deklarationen auf oberster Ebene zählen über alle
   Protokolldateien unter ihrem Namen. Ein privater Helfer mit dem Namen eines verdrahteten in einer anderen Datei (`Leser`
@@ -111,3 +113,11 @@ dieses Bereichs unten anhängen.
   braucht `whisper-cli` Bibliotheken außerhalb von `/usr` und startet in der Sandbox nicht (`ldd`-Prüfung am Ende). Eine
   neue Fassung nur mit Fassung und Commit zusammen und mit dem Echttest (`WHISPER_TEST_CLI`, die CI baut ihn). Das
   Testmodell `for-tests-ggml-tiny.bin` hat Gewichte ohne Sinn – ein leerer Text ist dort richtig, nie auf Inhalt prüfen.
+- **Pakete in der CI nur über den Zwischenspeicher** (seit B-42, `ci.yml`): Der Ubuntu-Spiegel des Runners lieferte am 23.10.2026
+  nur 35 kB/s – GStreamer allein brauchte 20 min, der Testjob riss seine Grenze. `apt-get install` in „Tests und Typpruefung“
+  und „Browser-Test (Smoke)“ legt seine Pakete über `/etc/apt/apt.conf.d/99-freedom-zwischenspeicher` unter
+  `/var/cache/freedom-apt` ab, `actions/cache` hebt den Ordner auf (Schlüssel je Job, Bild des Runners und Fassung von `ci.yml`).
+  Ein neues Paket kommt einfach in einen `apt-get`-Schritt – nach dem Vorbereiten und vor „lesbar machen“ (dort fällt `lock`
+  weg, sonst kann der Cache die Datei nicht lesen). Die Pakete für Playwright holt der Smoke-Job ohne `apt-get update`
+  (`install-deps --dry-run` liefert die Liste), Chromium liegt im Cache mit der Version im Schlüssel – eine neue Version von
+  Playwright heißt: Schlüssel mit ändern. Ein PR liest nur Caches von `main`; der erste Lauf nach einer Änderung lädt neu.

@@ -233,14 +233,14 @@ test("VKd2a: ohne ZIM kein Kiwix, MCP_KIWIX=aus schaltet ab, ohne kiwix-serve l�
   const serve = KIWIX_SERVE;
   const o = { kiwixServe: "/gibt/es/nicht/kiwix-serve", node: "/usr/bin/node", heim: "/home/n", playwright: null };
   // ohne ZIM-Dateien in mcp.json: kein Server, kein Hinweis
-  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus" }, { ...o, zim: [] }), { server: [], fehlt: [] });
-  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus" }, { ...o }), { server: [], fehlt: [] });
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_JUPYTER: "aus" }, { ...o, zim: [] }), { server: [], fehlt: [] });
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_JUPYTER: "aus" }, { ...o }), { server: [], fehlt: [] });
   // aus: nichts, auch ohne kiwix-serve
-  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_KIWIX: "aus" }, { ...o, zim: ["/daten/zim/w.zim"] }), { server: [], fehlt: [] });
+  assert.deepEqual(mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_KIWIX: "aus", MCP_JUPYTER: "aus" }, { ...o, zim: ["/daten/zim/w.zim"] }), { server: [], fehlt: [] });
   // anderes als „aus“: kein Start – die ZIM-Dateien stehen nur in mcp.json
   for (const falsch of ["an", "/daten/zim/w.zim", "1"]) assert.ok("ungueltig" in mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_KIWIX: falsch }, { ...o, zim: ["/daten/zim/w.zim"] }), falsch);
   // ohne kiwix-serve: der Motor läuft ohne, das Log nennt das Paket – der Browser bleibt davon unberührt
-  const ohne = mcpAusUmgebung({}, { ...o, zim: ["/daten/zim/w.zim"], orte: [] });
+  const ohne = mcpAusUmgebung({ MCP_JUPYTER: "aus" }, { ...o, zim: ["/daten/zim/w.zim"], orte: [] });
   assert.deepEqual(ohne, { server: [], fehlt: ["mcp.playwright-fehlt", "mcp.browser-fehlt", "mcp.kiwix-fehlt"] });
   assert.match(MCP_TEXT["mcp.kiwix-fehlt"], /kiwix-tools/);
   // nie die Wurzel oder das Home einbinden – auch nicht über Node oder kiwix-serve

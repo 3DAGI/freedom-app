@@ -227,8 +227,38 @@ cd packages/launcher && cargo tauri android init --ci
 python3 ../../scripts/launcher-symbole.py --android
 cp proguard-tor.pro gen/android/app/freedom-tor.pro
 python3 ../../scripts/android-rechte.py gen/android/app/src/main/AndroidManifest.xml
+python3 ../../scripts/android-bitchat.py gen/android/app
 cargo tauri android build --apk --target aarch64
 ```
+
+## Bitchat über Bluetooth (seit B-36b1, nur Android)
+
+Freedom spricht über Bluetooth LE das Format von Bitchat (`docs/BITCHAT-ENTWURF.md`). Die Klasse
+`android/FreedomBitchat.kt` (eigene Umsetzung, EUPL-1.2) reicht nur Werte weiter – prüfen, zerlegen,
+verschlüsseln und weiterreichen tut die App mit den Bausteinen des Protokolls. Jeder Wert ist ein ganzes
+Paket; was nicht in die Grenze einer Verbindung passt, nimmt `sende()` nicht an.
+
+- **Peripheral (B-36b1):** bietet Dienst und Merkmal von Bitchat an (Werbung nur mit der Kennung des
+  Dienstes, ohne Gerätenamen), nimmt Schreiben an (lange Schreibvorgänge bis 512 Byte) und meldet an
+  Geräte, die abonniert haben.
+- **Central (B-36b2):** sucht nur nach dem Dienst von Bitchat (bei mehr als zwei eigenen Verbindungen 5 s
+  an, 10 s aus), verbindet sich mit höchstens sechs Geräten, erbittet MTU 517, abonniert Meldungen und
+  schreibt ohne Antwort. Wer in 8 s nicht bereit ist, bleibt 120 s unbeachtet. Kann das Gerät keinen
+  Dienst anbieten, verbindet es sich nur selbst (`werbung: nicht-moeglich`).
+- **Rechte erst auf Klick** (`starte()`): ab Android 12 „Geräte in der Nähe“ (`BLUETOOTH_SCAN` nie für den
+  Ort, `BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE`), bis Android 11 der Standort. Bluetooth LE ist keine
+  Pflicht-Hardware.
+- **Ins Projekt** nur über `scripts/android-bitchat.py` nach `tauri android init`: Klasse neben die
+  `MainActivity`, Rechte ins Manifest, Keep-Regel `freedom-bitchat.pro` (die Klasse ruft nur die Hülle über
+  JNI). Die CI prüft Klasse, ihre Methoden (dexdump) und die Rechte im APK.
+- Verbindungen heißen `p1`, `p2` … (andere verbinden sich mit uns) und `z1`, `z2` … (wir mit ihnen) – die
+  App erfährt keine Adressen fremder Geräte.
+- **Kommandos (B-36b3a, `src/bitchat.rs`):** `bitchat_stand`, `bitchat_starten`, `bitchat_stoppen`,
+  `bitchat_senden` (Kennung `p<n>`/`z<n>`, ein Wert bis 512 Byte – sonst Fehler `form`) und `bitchat_holen`
+  (alles Empfangene als Bytes: je Wert Länge der Kennung, Kennung, zwei Byte Länge, Wert). Die Hülle ruft
+  die Klasse über JNI auf dem Hauptthread; außer unter Android antwortet jedes Kommando mit `kein-android`.
+  In der App nur über `shell/bitchat-huelle.ts` (seit B-36b3b).
+- Nur solange die App offen ist – ein Dienst im Hintergrund ist nicht gebaut.
 
 ## Kamera und Mikrofon (seit 6.1d)
 

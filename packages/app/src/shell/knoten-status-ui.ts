@@ -18,6 +18,8 @@ import { aktuellerKurs } from "./marktkurs.js";
 import { meineKopplung } from "./mein-knoten.js";
 import { angebotVon } from "./state.js";
 import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
+import { LS_RETICULUM_KNOTEN } from "../reticulum-funk.js";
+import { geheim } from "./tresor.js";
 import { el } from "./ui.js";
 
 /** Zeilen in die Anzeige – nur als Text. */
@@ -54,7 +56,18 @@ export async function frageKnotenStatus(k: Kopplung, kurzcode?: string): Promise
   if (!antwort) return { grund: t("set.statusSchweigt") };
   if ("abgelehnt" in antwort) return { grund: t("set.statusAbgelehnt", { grund: ablehnungsGrund(antwort.abgelehnt) }) };
   const s = leseKnotenStatus(antwort.ergebnis);
+  if (s) await merkeFunkKnoten(k.knoten, s.lxmf, powBits);
   return s ? { status: s } : { grund: t("set.statusUnlesbar") };
+}
+
+/**
+ * B-32d3b: die LXMF-Adresse des eigenen Knotens merken – für KI über Funk mit RNode, auch später ohne Netz. Nennt der
+ * Status keine (Knoten ohne Reticulum), ist der Eintrag weg.
+ */
+async function merkeFunkKnoten(knoten: string, lxmf: string | undefined, powBits: number): Promise<void> {
+  if (lxmf) await geheim.setItem(LS_RETICULUM_KNOTEN, JSON.stringify({ knoten, lxmf, powBits }));
+  else await geheim.removeItem(LS_RETICULUM_KNOTEN);
+  void import("./funk-gateway-ui.js").then((m) => m.zeigeFunkGateway());
 }
 
 /** „Status abfragen“: einmal fragen, die Antwort als Zeilen zeigen. */

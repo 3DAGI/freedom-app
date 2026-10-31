@@ -13311,6 +13311,505 @@ Schlag einer, je Kontakt einmal, neue Kontakte, neue Adresse; Pause und `bald()`
 
 Knoten-Stand: keiner nötig.
 
+## Schritt B-32c2 – Reticulum: Direktnachrichten an Kontakte (direkt, sonst über die Gegenstelle)
+
+Spur B, `docs/RETICULUM-ENTWURF.md` (V5, RN-W3 A), auf B-32c1. Damit ist B-32c fertig; offen bleibt B-32d (Gateway im Knoten).
+
+- **Senden:** Die Kopie an den Empfänger einer Direktnachricht geht über `zustellenDm()` (`posteingang.ts`) – erst die Relays;
+  nimmt sie keines und läuft eine RNode, über `dmUeberReticulum()` (`rnode-ui.ts`): erst direkt an die Adresse des Kontakts aus
+  B-32c1, sonst an die Gegenstelle (`funkZiele()`, `stelleUeberFunkZu()` in `reticulum-funk.ts`; bei „sendezeit“ Schluss). Die
+  eigene Kopie und Kopien an Geräte nie über Funk.
+- **Empfangen:** `nimmPostAusFunk()` öffnet einen Umschlag an mich aus dem Funk (Meshtastic wie Reticulum) gleich wie das Abo –
+  auch ohne Netz –, dann geht er wie bisher an den Pool.
+- **Datenschutz:** Die Grenze „reticulum-ankuendigung“ nennt Pakete an Kontakte und wann die App direkt funkt (beide Sprachen).
+- **Docs:** Entwurf („Stand B-32c2“), `PROTOCOL.md` §44, Fallstricke in `packages/app/CLAUDE.md` und `scripts/CLAUDE.md`, OFFEN,
+  FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** app +4 (`funk-zustellen.test.ts`: Ziele, Reihenfolge und Abbruch, über die Luft mit drei RNode-Attrappen – direkt beim
+Kontakt, ohne ihn bei der Gegenstelle –, Verdrahtung und Texte); `versand.test.ts` hält jetzt `zustellenDm()` fest; zwei Zeilen in
+`privacy-facts.test.ts`; Smoke-Teil „rnode_dm“ (die Attrappe merkt Rahmen als Hex, `ProbeRelay.ablehnen`).
+
+Knoten-Stand: keiner nötig.
+
+## Schritt B-32d-Entwurf – Reticulum-Gateway im Knoten: Fragen RN-W7–W10
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Fragen vor B-32d“). Die Karte nennt für das Gateway `@reticulum/node` und TCP zu
+`rnsd`. Beides passt nicht mehr:
+- `rnsd` ist die Python-Referenz mit Klausel gegen KI; der Entwurf bindet RNS bewusst nicht ein.
+- `@reticulum/node` 0.9.13 bringt `@reticulum/rfed` mit und hängt mit `^` an `core`/`lxmf`.
+
+Es geht ohne beides: `@reticulum/core` hat `RNodeInterface` (KISS) und einen HDLC-Framer, der Knoten kann die RNode über eine
+TCP-Brücke (`socat`/`ser2net`, wie 7.4b2) selbst steuern.
+
+- **Fragen** (OFFEN 1.6) mit Empfehlungen: RN-W7 A (RNode über TCP-Brücke, kein `rnsd`), RN-W8 A (keine neuen Pakete),
+  RN-W9 A (wie Meshtastic: Umschläge ins Netz, KI-Antworten an die Adresse des Auftrags), RN-W10 A (Region und Grenzen wie in
+  der App).
+- **Teilung** bei den Empfehlungen: d1 Bausteine ins Protokoll, d2 Knoten mit RNode, d3 KI-Antworten zurück.
+- Entwurf, OFFEN (1.6, Zeile B-32), FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** keine (nur Doku); alle Prüfungen gelaufen.
+
+## Schritt B-42 – CI: Pakete zwischenspeichern
+
+Spur B, auf Wunsch des MENSCHEN (23.10.2026: „Pakete zwischenspeichern, sonst dauert jede PR ewig“). Der Ubuntu-Spiegel des
+Runners lieferte nur 35 kB/s. In „Tests und Typpruefung“ brauchte `apt-get install … gstreamer…` 20 min 39 s (#589, #590 –
+der Job riss seine Grenze von 25 min), in „Browser-Test (Smoke)“ der Schritt mit Playwright und Chromium 9 min 37 s.
+
+- **apt über einen Zwischenspeicher:** In beiden Jobs zeigt `/etc/apt/apt.conf.d/99-freedom-zwischenspeicher` die Pakete nach
+  `/var/cache/freedom-apt`; `actions/cache` hebt den Ordner auf (Schlüssel je Job, Bild des Runners und Fassung von `ci.yml`,
+  sonst der neueste des Jobs). Geladen wird nur, was dort fehlt. Vor dem Speichern fällt `lock` (0640, root) weg.
+- **Smoke:** Chromium von Playwright im Cache (Schlüssel mit der festen Version 1.56.0). Die Systempakete holt der Job ohne
+  `apt-get update` über denselben Zwischenspeicher – die Liste aus `playwright install-deps --dry-run`; nur wenn die Listen
+  des Bildes ein Paket nicht mehr finden, doch mit `update`.
+- Lokal geprüft: `apt-get` mit eigenem Archiv-Ordner lädt beim zweiten Lauf nichts („Need to get 0 B“), legt `partial` selbst
+  an; die Paketliste aus dem Probelauf von Playwright 1.56.0 (33 Pakete).
+- Fallstrick in `scripts/CLAUDE.md`, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** keine neuen (nur `ci.yml`); alle Prüfungen gelaufen. Wirksam erst, wenn `main` einmal mit dem Cache gelaufen ist –
+ein PR liest nur Caches seines Basis-Branches.
+
+## Schritt B-32d1 – Reticulum: Bausteine ins Protokoll
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d1“). Entschieden 23.10.2026 (MENSCH: „Wie empfohlen“): RN-W7 A (RNode über
+eine TCP-Brücke, kein `rnsd`), RN-W8 A (`@reticulum/core` und `@reticulum/lxmf` 0.9.12 wie die App), RN-W9 A (wie Meshtastic),
+RN-W10 A (Region und Grenzen wie in der App). Erster Teil: Was der Knoten in d2 braucht, zieht aus der App ins Protokoll.
+
+- **`protocol/src/funk-region.ts`:** Regionen, Bandbreiten, Grenzen, `pruefeFunkParameter()`, `rnodeOptionen()` (nimmt Region
+  und Parameter – der Knoten hat keine bestätigte Wahl) und `rnodeSendezeit()`.
+- **`protocol/src/reticulum-umschlag.ts`** (verschoben aus der App, dazu `leseLxmfAdresse()`): Identität mit beliebigem
+  Speicher, Umschlag, Felder, `ReticulumFehler`; die Typen der LXMF-Unterpfade aus `reticulum-typen.d.ts` (`/// <reference>`).
+- **`protocol/src/reticulum-kern.ts`:** `starteReticulum()` über einer RNode-Schnittstelle; das Sendezeitkonto gibt der
+  Aufrufer mit (die App `RETICULUM_KONTO`).
+- **App:** `rnode-funk.ts` behält Wahl, WebSerial und die Texte zur Quelle je Region (`FUNK_QUELLE` – das Protokoll trägt
+  keine Schlüssel der Oberfläche), `reticulum-funk.ts` Gegenstelle, Ziele und Konto; `rnode-ui.ts` und
+  `funk-kontakte.ts` nehmen den Rest aus dem Protokoll. Verhalten gleich, der Build bleibt bei einem Modul „reticulum-klein“.
+- `protocol/package.json`: beide Pakete exakt 0.9.12 (Sperrdatei nur über `npm install --package-lock-only`, zwei Zeilen).
+- `wiring-ausnahmen.txt`: `verpackeFuerReticulum()` und `entpackeAusReticulum()` – Draht-Form für Tests, App und Knoten
+  senden über den Router.
+- Entwurf (Entscheidung, Stand), OFFEN (1.6 gestrichen, Zeile B-32), Fallstricke in `packages/protocol/CLAUDE.md` und
+  `packages/app/CLAUDE.md`, FORTSCHRITT, Sammlung, Stand-Zeile.
+
+**Tests:** protocol +2 (`reticulum.test.ts`: Funkwerte ohne App, Identität und Umschlag mit beliebigem Speicher); die Tests
+der App laufen unverändert gegen die verschobenen Bausteine – geändert nur Importe und die Prüfungen, die Quelltexte lesen
+(Bibliothek nur in App `rnode-funk.ts` und Protokoll `reticulum-umschlag.ts`/`reticulum-kern.ts`, Pfade für „reticulum-klein“
+aus App und Protokoll). Erster Lauf rot: Der i18n-Test fand die Texte zur Quelle der Regionen nicht mehr in der App – die
+Schlüssel standen mit `FUNK_REGIONEN` im Protokoll. Jetzt nennt sie die App selbst (`FUNK_QUELLE`).
+
+## Schritt B-32d2 – Reticulum: Knoten mit RNode über eine TCP-Brücke
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d2“), RN-W7–W10 A. Der Knoten steuert eine RNode selbst – ohne `rnsd`,
+mit `@reticulum/core` 0.9.12 wie App und Protokoll – und reicht Umschläge aus Reticulum ins Netz.
+
+- **`node/src/reticulum-gateway.ts`** (neu):
+  - `reticulumAusUmgebung()`: `FUNK_GATEWAY=rnode:host:port`, `RETICULUM_REGION` Pflicht, `RETICULUM_WERTE` nur in den
+    Grenzen der Region – sonst ein Grund und kein Gateway;
+  - `verbindeRNodeTcp()`: `RNodeInterface` mit `node:net` als Transport, Sperre der Region in der Firmware, neu verbinden
+    nach 30 s;
+  - `identitaetsSpeicher()`: `~/.freedom/reticulum-identitaet` (0600, „wx“, kaputt → nie ersetzt);
+  - `starteReticulumGateway()`: Kern aus dem Protokoll mit eigenem Sendezeitkonto, Empfang über `nimmAusReticulum()`.
+- **`gateway-role.ts`:** `UmschlagAnnahme` aus `GatewayRolle` gelöst (Buch für Weiterleitungen, einmal ins Netz) – Meshtastic
+  und Reticulum nehmen gleich an; `leseAdresse()` exportiert.
+- **`main.ts`:** `rnode:` vor den anderen Wegen; Rolle „gateway“ erst nach dem Start; die LXMF-Adresse ins Log (sie ist nicht
+  geheim). Das Angebot nennt für Reticulum noch kein Funk-Gateway – Antworten zurück erst mit B-32d3.
+- **Attrappe:** `rnode-attrappe.ts` von `app/test` nach `protocol/test` (eigener Port-Typ), die App-Tests importieren von dort.
+- `node/package.json`: `@reticulum/core` 0.9.12 (Sperrdatei eine Zeile). `docker-compose.yml` reicht `RETICULUM_REGION` und
+  `RETICULUM_WERTE` durch; `docs/PROVIDER.md` beschreibt Brücke, Region, Werte, Identität und Adresse.
+- Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/node/CLAUDE.md`, Stand-Zeile.
+
+**Tests:** node +5 (`reticulum-gateway.test.ts`: Umgebung mit sechs Fehlfällen, Identitätsdatei 0600 und kaputt nie
+ersetzt, über die Luft – Telefon mit RNode über WebSerial, Knoten über eine echte TCP-Brücke: der Umschlag einmal im Netz,
+die Weiterleitung nur im Buch –, ohne Brücke kein Gateway und kein Versuch im Hintergrund, Verdrahtung). Der Fall „ohne
+Brücke“ fand einen Fehler: Scheiterte das erste Verbinden, versuchte es die Bibliothek ohne Ende weiter (der Test hing) –
+jetzt beendet `disconnect()` den Versuch. Erster Lauf rot: `knoten-status.test.ts` (B-11a) prüfte „Rolle erst nach dem
+Start“ nur an der ersten Stelle von `statusRollen.add("gateway")` – die neue für Reticulum steht davor. Jetzt prüft er je
+Start eine Stelle, jede nach ihrem Start und vor dem nächsten (genauer als vorher).
+
+## Schritt B-32d3a – Reticulum: Knoten funkt KI-Antworten zurück
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3a“), RN-W9 A. B-32d3 ist geteilt: a der Knoten, b die App.
+
+- **Protokoll (`reticulum-kern.ts`):** `beiEmpfang` bekommt die LXMF-Adresse des Absenders (`von`, 16 Byte). LXMF prüft sie
+  nur mit bekannter Identität; der Knoten funkt dorthin nur Antworten der Sitzung, deren Weiterleitung sie brachte.
+- **Knoten (`gateway-role.ts`):** `UmschlagAnnahme.nimm()` gibt die gemerkte Weiterleitung zurück; `postZurueck()` holt Post
+  für gemerkte Sitzungen (vorher in `GatewayRolle.holePost()`, jetzt für beide Wege).
+- **Knoten (`reticulum-gateway.ts`):** `ReticulumRueckweg` merkt je Sitzung die Adresse, holt im Takt (5 s) und funkt jeden
+  Umschlag dorthin – ohne Adresse nichts, Fehler nur mit Kennung, nie zweimal zugleich. `starteReticulumGateway()` gibt
+  `{ funk, rueckweg, stoppe }` zurück und braucht den Schlüssel des Knotens (`gatewayPk`).
+- Das Angebot bleibt: kein Funk-Gateway für Reticulum (das Flag gilt für Meshtastic).
+- `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/node/CLAUDE.md`, Stand-Zeile.
+
+**Tests:** node +1 (`reticulum-gateway.test.ts`: Rückweg ohne Funk – nur an die Adresse der Weiterleitung, ohne Adresse
+nichts, „sendezeit“ nur als Kennung im Log, nie zweimal zugleich); der Test über die Luft funkt jetzt auch die Antwort aus
+dem Netz zurück ans Telefon (Post für fremde Sitzungen bleibt, jede Antwort einmal).
+
+## Schritt B-32d3b – Reticulum: KI über Funk mit RNode an den eigenen Knoten
+
+Spur B, `docs/RETICULUM-ENTWURF.md` („Stand B-32d3b“). Damit ist B-32 fertig.
+
+- **Protokoll (`knoten-status.ts`, §24):** Feld `lxmf` (darf fehlen, 32 Zeichen Hex, klein) – was der Leser abwiese,
+  schickt der Knoten nicht.
+- **Knoten (`main.ts`):** meldet die LXMF-Adresse im Status erst nach dem Start des Gateways.
+- **App:**
+  - `frageKnotenStatus()` merkt Knoten, Adresse und Rechenarbeit in `geheim` (`freedom.reticulum.knoten`, in
+    `GEHEIM_FEST`); ohne Adresse im Status vergisst sie den Eintrag.
+  - `funkKnotenGateway()` gilt nur, wenn die Kopplung zu diesem Knoten passt; `baueFunkAuftrag(…, kopplung)` legt den
+    Besitzer-Nachweis in den Kern; `sendeKiUeberFunk(…, eigen)` fragt dann ohne Gebot und ohne Gutschrift.
+  - Im Agenten: ohne Meshtastic mit laufender RNode an die Adresse des Knotens (`sendeAnKnotenUeberReticulum()`), nie an
+    die Gegenstelle; „über Funk“ erscheint auch ohne gemerktes Meshtastic-Gateway.
+  - Datenschutz: Die Grenze „reticulum-ankuendigung“ nennt KI-Fragen an den eigenen Knoten (Protokoll und App, beide
+    Sprachen).
+- `PROTOCOL.md` §24, `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Sammlung, Fallstrick in `packages/app/CLAUDE.md`,
+  Stand-Zeile.
+
+**Tests:** protocol +1 (`knoten-status.test.ts`: Feld `lxmf`), app +3 (`funk-knoten.test.ts`: gemerkter Knoten streng,
+Auftrag mit Nachweis ohne Gebot, Verdrahtung); `privacy-facts.test.ts` zwei Zeilen; `ki-funk.test.ts` und
+`rnode-senden.test.ts` halten die neue Verdrahtung fest – die Reihenfolge „erst das Gerät, dann Gutschrift und Auftrag“
+prüfte `ki-funk.test.ts` mit `indexOf` und wäre mit dem neuen Text still durchgegangen (-1); jetzt mit Fundstelle.
+
+## Schritt B-36-Entwurf – Bitchat in der Android-Hülle: Befunde und Fragen
+
+Spur B, Sammlung B-36. Der MENSCH hat BC1 am 23.10.2026 von B („erst nach einem Audit“) auf A gestellt („ja, nach B-32,
+mit Grenze im Datenschutzbericht“). Nur Dokumente, kein Code.
+
+- **`docs/BITCHAT-ENTWURF.md`:**
+  - Befunde aus den Quellen: Protokoll und iOS-Code gemeinfrei, `bitchat-android` seit 28.02.2026 GPL-3.0 (vorher MIT);
+    Audit im Januar 2026 gemeldet, Bericht nicht öffentlich; Peer-ID fest, Ankündigung mit Schlüsseln, Name und
+    Nachbarn im Klartext; gerichtete Noise-Pakete reichen Bitchat-Geräte ungelesen weiter; das Nostr-Gateway von Bitchat
+    nimmt nur Geohash-Events, keine Umschläge.
+  - Vorschläge V1–V5 und Fragen BC-W1–W4 (Umsetzung, Inhalt, Finden, Identität), Aufteilung a–d.
+- OFFEN (1.6 neu, Zeile aus 1.2 raus, Spur B), Sammlung (B-36, BC1), FORTSCHRITT, Stand-Zeile.
+
+## Schritt B-36a1 – Bitchat: Paketformat im Protokoll
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a1“). Am 23.10.2026 entschied der MENSCH BC-W1–W4 jeweils A.
+
+- **`packages/protocol/src/bitchat-paket.ts`:** Paket in Fassung 1 und 2 kodieren und lesen (nie packen; gepackte Pakete
+  anderer nur bis zum Kopf), PKCS#7-Polster, Signierdaten (TTL 0, aufgefüllt) mit Ed25519 (keine Ankündigung ab 100 Byte),
+  Peer-ID aus dem Noise-Schlüssel. Geteilt, damit jeder Schritt unter 400 Zeilen bleibt: Ankündigung und Fragmente folgen
+  in B-36a2, Noise XX in a3, Fluten in a4.
+- **TypeScript statt Rust** (wie Reticulum): `@noble/…` ist schon da – keine neue Abhängigkeit.
+- **`scripts/bitchat-referenz.sh`:** Vektoren aus bitchat-android am Commit `dfc67da` (kotlinc 2.2.20 mit Prüfsumme, Attrappen
+  für Android) – nur die Bytes kommen ins Repository.
+- `docs/PROTOCOL.md` §45, Entwurf (Entscheidungen, Stand), OFFEN (1.6 raus), Sammlung, FORTSCHRITT, Fallstrick in
+  `packages/protocol/CLAUDE.md`, Ausnahmen in `wiring-ausnahmen.txt` (verdrahtet ab B-36b/c), Stand-Zeile.
+
+**Tests:** protocol +7 (`bitchat-paket.test.ts`): sieben Pakete roh, gepolstert und als Signierdaten Byte für Byte wie
+bitchat-android und zurückgelesen; gepackte Pakete; Polster; Signatur (TTL darf sich ändern, sonst nichts; keine Ankündigung
+ab 100 Byte); Peer-ID; Gegenproben für Unlesbares und falsche Form. Ein absichtlicher Fehler (Signierdaten ohne Polster)
+machte die Tests rot.
+
+## Schritt B-36a2 – Bitchat: Ankündigung und Fragmente
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a2“), auf B-36a1.
+
+- **`bitchat-paket.ts`:**
+  - Ankündigung bauen (nur Name und beide Schlüssel, unter 100 Byte – BC-W3 A) und lesen (auch Fähigkeiten und Nachbarn
+    anderer, Unbekanntes übersprungen).
+  - Fragment-Nutzlast wie `FragmentPayload`; `zerlegeBitchat()` in höchstens 256 Teile, je unter der MTU.
+  - `BitchatZusammensetzer`: je Absender und Kennung, Grenzen wie bitchat-android (64 Sätze, 1 MiB je Satz, 4 MiB
+    insgesamt, 30 s), Widersprüche verwerfen den Satz, das Ganze mit TTL 0.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +4: Ankündigung und Fragmente gegen die Referenz (aus B-36a1 vorbereitet), Zerlegen eines 2-KB-Pakets
+und Zusammensetzen; Zusammensetzen in beliebiger Reihenfolge mit Doppeltem; alle Grenzen einzeln (Sätze, Frist, je Satz,
+insgesamt, 257 Fragmente, Widerspruch, falscher Typ).
+
+## Schritt B-36a3 – Bitchat: Noise XX
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a3“), auf B-36a2.
+
+- **`packages/protocol/src/bitchat-noise.ts`** (neu): `Noise_XX_25519_ChaChaPoly_SHA256` mit `@noble/…` (keine neue
+  Abhängigkeit) – CipherState, HKDF, Handshake XX, Split; `BitchatTransport` wie Bitchat (Nonce als 4 Byte vorn,
+  Ersetzungsfenster 1024, Grenze 2^32 − 1). Ein gescheiterter Handshake-Schritt beendet den Handshake (`abgebrochen`).
+- **Vektoren:** `protocol/test/fixtures/noise-xx-vektoren.json` – cacophony und snow, aus dem gemeinfreien Bitchat-Repository.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +3 (`bitchat-noise.test.ts`): Handshake und Transport Byte für Byte wie cacophony und snow (samt Hash und
+Schlüssel der Gegenseite); Transport wie Bitchat (Nonce vorn, vertauscht ja, doppelt und zu alt nie, Veränderung und fremde
+Sitzung scheitern, ein Fehlversuch verbraucht die Nonce nicht); Handshake nur in Reihenfolge, falscher flüchtiger Schlüssel und
+Veränderung scheitern, ein Fehler beendet ihn. Die Gegenprobe fand den halb fortgeschriebenen Zustand nach einem Fehler.
+
+## Schritt B-36a4 – Bitchat: Fluten
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36a4“), auf B-36a3 (#599). Damit sind die Bausteine im Protokoll fertig.
+
+- **`packages/protocol/src/bitchat-mesh.ts`** (neu): Kennung zum Doppelt-Erkennen wie `BLEIngressLinkRegistry.messageID`,
+  `BitchatDoppel` (1000 Kennungen, 5 Minuten), `bitchatWeiterreichen()` wie `RelayController.decide` (nie Eigenes, nie an mich,
+  nie TTL ≤ 1, nie Sync-Anfragen; Gerichtetes und Handshakes mit TTL − 1; Rundrufe nach Dichte; Fragmente und Sprache eigene
+  Grenzen; Versatz aus einem mitgegebenen Zufall), `mitBitchatTtl()` (roh weiterreichen, nur das TTL-Byte neu),
+  `bitchatFuerVerbindung()` (je Verbindung: das Paket ganz, sonst Fragmente in der Grenze der Verbindung).
+- **Befund aus den Quellen:** Bitchat schreibt und meldet über Bluetooth je Wert genau ein ganzes Paket; was nicht in die
+  Grenze der Verbindung passt (MTU − 3, unter iOS oft 182 Byte), zerlegt es vorher (`fragmentChunkSize(forLinkLimit:)`).
+  bitchat-android liest jeden Wert für sich. Deshalb zerlegt `zerlegeBitchat()` jetzt auch für eine kleinere Grenze
+  (`grenze`) und über das gepolsterte Paket (`polster`); ein Zusammensetzen von Stücken in der Hülle gibt es nicht.
+- `docs/PROTOCOL.md` §45, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Fallstrick in `packages/protocol/CLAUDE.md`, Ausnahmen,
+  Stand-Zeile.
+
+**Tests:** protocol +7 (`bitchat-mesh.test.ts`): Kennung (TTL zählt nicht), Doppeltes mit Frist und Grenze, alle Fälle ohne
+Weiterreichen, Gerichtetes und Handshakes, Rundrufe je Dichte samt Versatzgrenzen, roh weiterreichen mit gültiger Signatur;
++1 je Verbindung (Android 514 Byte ganz und gepolstert, iOS 182 Byte in Fragmenten aus dem gepolsterten Paket, zu kleine
+Grenze). Gegenprobe: ohne Grenze oder ohne Polster beim Zerlegen wird der Test rot.
+
+## Schritt B-36b1 – Bitchat: Bluetooth als Peripheral in der Android-Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b1“), auf B-36a4 (#600). B-36b ist geteilt (b1 Peripheral, b2 Central,
+b3 Brücke), weil die Kotlin-Klasse allein über 400 Zeilen hätte.
+
+- **`packages/launcher/android/FreedomBitchat.kt`** (neu, eigene Umsetzung nach dem gemeinfreien Swift-Code, BC-W1 A):
+  Dienst und Merkmal von Bitchat anbieten (Werbung ohne Gerätenamen), Schreiben annehmen (lange Schreibvorgänge fortlaufend bis
+  512 Byte), an Abonnenten melden, je Verbindung ein Wert zugleich; `stand()`, `starte()`, `stoppe()`, `sende()`, `hole()`
+  für JNI. Rechte erst auf Klick; Werte über der Grenze einer Verbindung abgelehnt, nie geteilt.
+- **`scripts/android-bitchat.py`** (neu): Klasse, Rechte (ab Android 12 „Geräte in der Nähe“, bis 11 Standort) und Keep-Regel
+  ins erzeugte Projekt, `--pruefen`; **`scripts/test_android_bitchat.py`** (neu, in `ci.yml`).
+- **`launcher.yml`:** Bitchat eintragen, im APK prüfen – Klasse und Methoden (dexdump), drei Bluetooth-Rechte (aapt2).
+- `docs/PROTOCOL.md` §45 (Dienst, Merkmal), Entwurf, README und Fallstrick der Hülle, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Skript-Selbsttest 3 (eintragen einmal und prüfen, jede Lücke fällt auf, Klasse bei Dienst, Merkmal, Werbung ohne
+Namen und JNI-Methoden); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14 (`-Werror`) übersetzt; Pakete unverändert.
+
+
+## Schritt B-36b2 – Bitchat: Bluetooth als Central in der Android-Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b2“), auf B-36b1 (#601).
+
+- **`packages/launcher/android/FreedomBitchat.kt`:** Central in derselben Klasse (nach `BLEService.swift`, Werte aus
+  `TransportConfig.swift`) – sucht nur mit Filter auf den Dienst von Bitchat, ab drei eigenen Verbindungen 5 s an und 10 s aus,
+  höchstens sechs Verbindungen; MTU 517, Dienst suchen, Meldungen abonnieren, dann bereit; schreiben ohne Antwort, je
+  Verbindung ein Wert zugleich. Wer in 8 s nicht bereit ist, bleibt 120 s unbeachtet – nur, wer nie bereit war. Verbindungen
+  als Central heißen `z<n>`. Ohne Werbung (`werbung: nicht-moeglich`) läuft Central weiter, statt Bluetooth abzulehnen;
+  `stoppe()` trennt auch die eigenen Verbindungen und beendet die Suche.
+- `scripts/test_android_bitchat.py`: hält Suchfilter und Obergrenze fest.
+- `docs/PROTOCOL.md` §45, Entwurf, README und Fallstrick der Hülle, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Skript-Selbsttest 3 (mit Suchfilter und Obergrenze); Kotlin lokal mit kotlinc 2.2.20 gegen Android 14
+(`-Werror`) übersetzt; die CI baut das APK und prüft Klasse, Methoden und Rechte darin; Pakete unverändert.
+
+## Schritt B-36b3a – Bitchat: Kommandos in der Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b3a“), auf B-36b2 (#602). B-36b3 ist geteilt (zusammen über 400 Zeilen):
+b3a Kommandos der Hülle, b3b Lesemodul der App.
+
+- **`packages/launcher/src/bitchat.rs`** (neu): fünf Kommandos `bitchat_stand`, `bitchat_starten`, `bitchat_stoppen`,
+  `bitchat_senden`, `bitchat_holen` – unter Android über JNI zu `FreedomBitchat` (`jni_handle().exec`, Hauptthread,
+  `find_class()`, Java-Ausnahmen gelöscht), sonst Fehler `kein-android`. Vorher nur die Form: Kennung `p<n>`/`z<n>`
+  (`kennung_ok()`), Wert 1–512 Byte (`wert_ok()`), sonst Fehler `form`. Empfangenes geht als Bytes zurück
+  (`tauri::ipc::Response`). Eingetragen in `lib.rs`, `build.rs` und `capabilities/oberflaeche.json`.
+- README und Fallstrick der Hülle, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** Hülle 59 (vorher 57; neu: Kennungen wie Kotlin sie vergibt samt fremder Ziffern, Werte bis 512 Byte). Den
+Android-Zweig (JNI) übersetzt der APK-Job der CI.
+
+## Schritt B-36b3b – Bitchat: Lesemodul der App für die Hülle
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36b3b“), auf B-36b3a (#603). Damit ist B-36b fertig.
+
+- **`packages/app/src/shell/bitchat-huelle.ts`** (neu): Weg nur unter Android (`bitchatAufruf()`), Stand streng
+  (`leseBitchatStand()`: bekannte Werte, Grenze 20–512 Byte, höchstens 64 Verbindungen, Kennungen `p<n>`/`z<n>`),
+  Empfangenes aus den Bytes der Hülle (`leseBitchatWerte()`, ein Fehler macht alles ungültig), senden nur ganze Werte bis
+  512 Byte (`bitchatSenden()`, nie geteilt); Fehler der Hülle werden zu `null`, `false` oder nichts.
+- Fallstrick der App, README der Hülle, Entwurf, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** App 1345 (+4, `bitchat-huelle.test.ts`): nur unter Android; Stand streng (Unbekanntes, Kaputtes, Grenzen,
+fremde Kennungen); Werte aus der Hülle samt abgeschnitten, leer, über 512 Byte und fremder Kennung; Kommandos – zu Großes,
+Leeres und fremde Kennungen erreichen die Hülle nie, Holen auch als `ArrayBuffer`, Fehler der Hülle.
+
+## Schritt B-36c1 – Bitchat: Schlüssel an Kontakte und Umschläge in der Noise-Sitzung
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c1“), auf B-36b3b (#604). Erster Teil von B-36c (App).
+
+- **`packages/protocol/src/bitchat-kontakt.ts`** (neu): Noise- und Signier-Schlüssel des Geräts versiegelt an Kontakte
+  (`baueBitchatSchluesselUmschlaege()`, Kind 38083, je Kontakt ein Umschlag, wie 38082), gelesen nur von Kontakten
+  (`oeffneBitchatSchluesselUmschlag()`: Kern vom Siegel-Autor, genau `noise` und `signier` in dieser Reihenfolge, zwei
+  verschiedene Schlüssel). Umschläge in der Noise-Sitzung unter dem Nutzlast-Typ `0xF0`, den Bitchat nicht vergibt
+  (`bitchatUmschlagKlartext()`, `leseBitchatUmschlag()`, beide über `pruefeMeshInhalt()`).
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, Ausnahmen (verdrahtet ab B-36c2b), OFFEN, Sammlung, FORTSCHRITT,
+  Stand-Zeile.
+
+**Tests:** protocol 1445 (+3, `bitchat-kontakt.test.ts`): je Kontakt ein Umschlag, offen weder Schlüssel noch Absender noch
+Kind, nur von Kontakten; fremde Kerne (Autor, Kind, Inhalt, Reihenfolge, fehlendes und zusätzliches Tag, derselbe Schlüssel
+zweimal, Großbuchstaben, Zusatz im Tag); in der Noise-Sitzung nur Umschläge unter 0xF0 – nie die eigene Kopie, kein Klartext,
+keine kaputte Signatur, Bitchats eigene Typen nicht.
+
+## Schritt B-36c2a1 – Bitchat: Knoten – ankündigen, Kontakte erkennen, roh weiterreichen
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2a1“), auf B-36c1 (#605). c2a ist geteilt: c2a1 Knoten ohne Sitzungen, c2a2
+Noise-Sitzungen und Umschläge.
+
+- **`packages/protocol/src/bitchat-knoten.ts`** (neu): `BitchatKnoten` ohne Ein- und Ausgabe – ankündigen (signiert, nach der
+  kleinsten Grenze), Kontakte an ihrer Ankündigung erkennen (beide Schlüssel aus 38083, 60 s in der Nähe), Doppeltes und Eigenes
+  verwerfen, Pakete anderer roh weiterreichen (nie zurück, Fragmente zusammensetzen).
+- **`zerlegeBitchatRoh()`** (`bitchat-paket.ts`): ein empfangenes Paket roh zerlegen – die Fragmente tragen Absender, Empfänger, Zeit
+  und TTL, die Daten sind die Bytes, wie sie kamen. `zerlegeBitchat()` teilt sich dafür den Rest mit ihm (`zerlegeDaten()`).
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, Ausnahmen (verdrahtet ab B-36c2b), OFFEN, Sammlung, FORTSCHRITT,
+  Stand-Zeile.
+
+**Tests:** protocol +4 (`bitchat-knoten.test.ts`): A und B erkennen sich über ein fremdes Gerät R (jede Ankündigung einmal je
+Verbindung, TTL − 1, Frist, Kontakt entfernt); Kontakte nur mit beiden Schlüsseln, Doppeltes, Eigenes, Verändertes und Kaputtes
+nie; ein großes Paket geht von R an B in Fragmenten bis 182 Byte und setzt sich wieder zusammen, nichts zurück; roh zerlegen.
+Gegenproben: ohne Signaturprüfung, ohne Abgleich des Signier-Schlüssels und ohne rohes Zerlegen wird je ein Test rot.
+
+## Schritt B-36c2a2 – Bitchat: Sitzungen mit Kontakten und Umschläge darin
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2a2“), auf B-36c2a1 (#606). Damit ist c2a fertig.
+
+- **`packages/protocol/src/bitchat-knoten.ts`:** `sende(person, umschlag, jetzt)` – nur an Kontakte in der Nähe, nur Umschläge
+  (über `bitchatUmschlagKlartext()` mit den eigenen Schlüsseln, nie die eigene Kopie); ohne Sitzung beginnt der Handshake, bis zu
+  16 Umschläge warten. Handshakes nur mit Kontakten in der Nähe, erkannt an der Länge (32/96/64), bei gleichzeitigem Beginn
+  bleibt die kleinere Peer-ID Initiator, Frist 10 s; gültig erst, wenn der statische Schlüssel dem aus 38083 gleicht. `nimm()`
+  gibt Umschläge an mich zurück (Typ `0xF0`, `leseBitchatUmschlag()`). Der Knoten braucht jetzt `eigeneSchluessel`.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick im Protokoll, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +5 (`bitchat-knoten.test.ts`, jetzt 9): A und B tauschen über R Umschläge (R sieht nur Chiffrat, zwischen R
+und B nur Werte bis 182 Byte, die zweite Nachricht ohne Handshake, B antwortet); Fremde bekommen keine Sitzung; beide beginnen
+zugleich; kein Klartext, keine eigene Kopie, ein abgelaufener Handshake beginnt neu; wer sich mit der Peer-ID eines Kontakts,
+aber anderem Noise-Schlüssel ausgibt, bekommt keine Sitzung. Gegenproben: ohne Schlüsselabgleich, ohne Kontaktpflicht, ohne
+Vorrang der kleineren Peer-ID und ohne Frist wird je ein Test rot.
+
+## Schritt B-36c2b1 – Bitchat: Identität je Gerät und Schlüssel an Kontakte
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2b1“), auf B-36c2a2 (#607). c2b ist geteilt: c2b1 Identität und Schlüssel an
+Kontakte, c2b2 Knoten an der Hülle und Direktnachrichten.
+
+- **Protokoll:** `bitchatIdentitaet()` (eine je Gerät, zufällig, Name `anon` und vier Ziffern, kaputt nie ersetzt – Fall
+  `identitaet-kaputt`), `bitchatSchluesselVon()`; `freedom.bitchat.` in `SICHERUNG_NIE`.
+- **App:** `FunkAdressVersand`/`FunkAdressBuch` bekommen eine Art (`KontaktWertArt`: Reticulum-Adresse als Vorgabe, dazu
+  `BITCHAT_SCHLUESSEL` mit 38083); `shell/bitchat-kontakte.ts` – Versand nur mit Zustimmung und als Person im Abruftakt, Empfang
+  `alsBitchatSchluessel()` am Ende der Kette in `oeffneUmschlag()`, alles in `geheim` (`GEHEIM_FEST`). Die vier Tests, die die Kette
+  wörtlich prüfen, kennen das neue Glied.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +1 (Identität: einmal angelegt, danach dieselbe, ein anderes Gerät eine andere, öffentliche Schlüssel wie der
+Knoten sie ankündigt, sechs kaputte Einträge nie ersetzt, nie in der Sicherung); app +3 (`bitchat-schluessel.test.ts`: Versand je
+Kontakt einmal, nicht als Gerät, neue Identität an alle, falsche Form nie; Buch getrennt von Reticulum; Verdrahtung); Leak +2
+(`leak/bitchat-schluessel.test.ts`: nur Umschläge, weder Schlüssel noch Absender, entkoppelt, ohne Zustimmung nichts).
+
+## Schritt B-36c2b2 – Bitchat: Knoten an der Hülle und Direktnachrichten
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c2b2“), auf B-36c2b1 (#608). Damit ist c2 fertig.
+
+- **`packages/app/src/bitchat-lauf.ts`** (ohne DOM): `BitchatLauf.schritt()` holt Stand und Empfangenes von der Hülle, gibt es in
+  `nimm()` und schickt hinaus, was herauskommt (Weitergereichtes mit Versatz); angekündigt beim Start, bei neuer Verbindung und
+  sonst alle 30 s; ohne „an“ hält er an. `sende()` nur an Kontakte in der Nähe.
+- **`packages/app/src/shell/bitchat-weg.ts`:** `starteBitchat()` (Lauf erst nach „an“ der Hülle, Identität aus `geheim`, eigene
+  Schlüssel gegen die eigene Kopie), `stoppeBitchat()`, `dmUeberBitchat()`; Umschläge an mich über `nimmPostAusFunk()`.
+- **`zustellenDm()`** (`shell/tabs/posteingang.ts`): nimmt kein Relay die Kopie, erst Bitchat, dann Reticulum.
+- `scripts/wiring-ausnahmen.txt`: die 26 Ausnahmen der Bitchat-Bausteine sind weg – der Knoten läuft jetzt in der App.
+- `docs/PROTOCOL.md` §45, Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +4 (`bitchat-lauf.test.ts`): zwei Geräte mit echtem Knoten hinter nachgebauter Hülle (Android 512, iPhone 182) –
+ankündigen, erkennen, Handshake und genau ein Umschlag, jeder Wert in der Grenze; angekündigt beim ersten Schritt, bei neuer
+Verbindung (an beide) und sonst nur alle 30 s, Weitergereichtes mit Versatz, ohne „an“ hält der Lauf; Fremde, Klartext und wer
+nicht in der Nähe ist bekommen nichts; Verdrahtung (Bitchat nach den Relays und vor Reticulum, Lauf erst nach „an“, Identität aus
+`geheim`, Post wie aus dem Funk, eigene Schlüssel). Gegenproben: ohne Ankündigung bei neuer Verbindung, ohne Versatz, ohne `post()`
+und ohne Halt wird je ein Test rot.
+
+## Schritt B-36c3 – Bitchat: Oberfläche, Grenze im Datenschutzbericht, Smoke-Test
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36c3“), auf B-36c2b2 (#609). Damit ist B-36c fertig; offen bleibt d, die Probe
+mit Geräten (MENSCH).
+
+- **`packages/app/src/shell/bitchat-ui.ts`** (neu): `bitchatKnopf()` – an und aus nur auf Klick, vorher der Tresor, je Stand der
+  Hülle ein Satz, eine kaputte Identität schaltet Bluetooth wieder aus; `bitchatKontakteDialog()` – Zustimmung nur als Person,
+  Stand des Schlüsseltauschs, wer gerade in der Nähe ist (Namen).
+- **Netz › Ohne Internet** (`index.html`, `tabs/mesh.ts`): „Bitchat (Bluetooth)“, „Bitchat-Kontakte“ und Hinweis – versteckt, nur
+  mit `bitchatAufruf()` (Android-Hülle) sichtbar. `bitchatSchluesselStand()` in `bitchat-kontakte.ts`; `dmUeberBitchat()` meldet
+  „gegeben“.
+- **Datenschutzbericht:** Grenze „bitchat“ (`privacy-facts.ts`, Texte in beiden Sprachen).
+- **Smoke-Test „bitchat“** mit `BITCHAT_ATTRAPPE` (Android-Hülle, eine Verbindung mit 182 Byte).
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +1 (`privacy-facts.test.ts`: Grenze „bitchat“ – Takt, Kennung, Name, Schlüssel, Dienst, Nachbarn,
+Zuordnung, Gründe, kein „auditiert“); app +4 (`bitchat-ui.test.ts`: nur in der Hülle, Start nur im Klick, erst der Tresor,
+kaputte Identität schaltet aus, jeder Stand mit Text in beiden Sprachen, Zustimmung nur als Person, „gegeben“); Smoke
+„bitchat“: vor dem Klick nichts, dann eine Ankündigung in 182 Byte, keine zweite in 1,5 s, Identität „anon“ und vier Ziffern,
+Zustimmung nur mit Haken, nach dem Anhalten keine Frage mehr an die Hülle. Gegenproben: ohne Tresor-Sperre und mit „gegeben“
+ohne Senden wird je ein Test rot.
+
+## Schritt B-36c4 – Bitchat: hält die Hülle von selbst an, hält die App sie ganz an
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Nachtrag B-36c4“), auf B-36c3 (#610) – dort als Risiko genannt.
+
+- **`shell/bitchat-weg.ts`:** Meldet die Hülle nicht mehr „an“ (Bluetooth aus, Erlaubnis entzogen) oder antwortet nicht, endet
+  der Lauf und die App ruft `bitchat_stoppen` – sonst bliebe der Dienst von Bitchat sichtbar, obwohl die App sich für aus hält.
+  `wennBitchatHaelt()` sagt der Oberfläche, dass der Lauf endete (`vonSelbst`), nur wenn einer lief.
+- **`shell/bitchat-ui.ts`:** Knopf und Status folgen („Bitchat ist aus – Bluetooth läuft nicht mehr …“), ein Klick startet neu.
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +1 (`bitchat-ui.test.ts`: von selbst → `halt(true)` und `bitchatStoppen()`, nur ein laufender Lauf meldet sich,
+Anhalten auf Klick ist nicht „von selbst“, die Oberfläche meldet sich vor dem Start an); Smoke „bitchat“ erweitert: Die
+Attrappe hält von selbst an – die App ruft genau einmal `bitchat_stoppen` und danach nichts mehr, Knopf und Status folgen, ein
+Klick startet neu und kündigt wieder an. Gegenprobe: ohne `bitchatStoppen()` wird der Test rot.
+
+## Schritt B-36e1 – Bitchat: Entwurf „Schlüssel beim Treffen“ und Bitchat-Karte im Protokoll
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Schlüssel beim Treffen – B-36e“), auf B-36c4 (#611). MENSCH 24.10.2026: QR-Schlüsseltausch,
+BC-W5 A (signiert), BC-W6 A (auch Neue nach Rückfrage).
+
+- **Entwurf:** Ausgangslage (Schlüssel bisher nur über Relays), Vorschlag (Karte im QR-Code, beide Richtungen wie der
+  Sicherheitscode), Datenschutz, Entscheidungen BC-W5/W6, Aufteilung e1/e2.
+- **`packages/protocol/src/bitchat-kontakt.ts`:** `baueBitchatKarte()` – `freedom-bitchat:1:<person>:<noise>:<signier>:<zeit>:<sig>`,
+  signiert von der Person über ein 38083 mit genau den zwei Tags, selbst nachgeprüft; `leseBitchatKarte()` – Form genau, zwei
+  verschiedene Schlüssel, höchstens 600 s voraus, Signatur der Person.
+- `docs/PROTOCOL.md` §45 („Bitchat-Karte“), Fallstrick im Protokoll, Ausnahmen in `wiring-ausnahmen.txt` bis e2, OFFEN,
+  Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** protocol +4 (`bitchat-karte.test.ts`): bauen und lesen (Werte genau, Leerzeichen, passt in einen QR-Code, gleiche
+oder kaputte Schlüssel nie); andere Person, geänderte oder getauschte Felder, andere Signatur nie; Form (Fassung,
+Großbuchstaben, führende Null, Feld zu viel, leer) und Zukunft bis genau 600 s; ein Signer, der andere Zeit, anderen Schlüssel
+oder mehr Tags signiert, ergibt keine Karte.
+
+## Schritt B-36e2 – Bitchat: Schlüssel beim Treffen per QR-Code in der App
+
+Spur B, `docs/BITCHAT-ENTWURF.md` („Stand B-36e2“), auf B-36e1 (#612). Damit ist B-36e fertig.
+
+- **`shell/bitchat-ui.ts`:** Im Dialog „Bitchat-Kontakte“ der eigene Code (QR auf Klick, nur als Person) und ein Feld für den
+  des Gegenübers (scannen oder einfügen); ein kaputter oder der eigene Code hält den Dialog offen. Ist die Person noch kein
+  Kontakt, fragt die App („Neuer Kontakt?“) und legt sie erst dann an (BC-W6 A).
+- **`shell/bitchat-kontakte.ts`:** `eigeneBitchatKarte()` (Identität aus `geheim`, signiert über den Signer, als Gerät nie),
+  `nimmBitchatKarte()` (ins Buch wie aus einem Umschlag).
+- **`shell/tabs/kommunikation.ts`:** `legeKontaktAn()` – derselbe Weg wie `oeffneDirektnachricht()`, ohne die Unterhaltung zu
+  öffnen (Datei der Spur C, drei Zeilen).
+- **Datenschutzbericht:** Grenze „bitchat“ nennt den Code beim Treffen (wer ihn sieht oder fotografiert) und die Signatur
+  (BC-W5 A).
+- `scripts/bitchat-karte-probe.mts` (Code eines Fremden für den Smoke-Test); die zwei Ausnahmen aus B-36e1 sind wieder weg.
+- Entwurf, Fallstrick der App, OFFEN, Sammlung, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** app +1 (`bitchat-ui.test.ts`: eigener Code nur als Person und nur mit Karte, fremder nur geprüft, erst fragen, dann
+anlegen, dann merken, abgelehnt nichts, nie an ein Relay; der Test aus B-36c3 folgt dem neuen Ablauf); protocol: Grenze
+„bitchat“ mit Code und Signatur; Smoke „bitchat“ erweitert: QR auf Klick, kaputter Code hält den Dialog offen, ein Fremder
+wird nach „Anlegen“ Kontakt und seine Schlüssel stehen im Buch.
+
+## Schritt VKk2a – Jupyter-Notebooks für den Motor: eigene Brücke in der Sandbox
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk „MCP-Katalog“, Büro/Daten – Jupyter). Gemessen: `datalayer/jupyter-mcp-server` 2.2.4
+zöge 145 Pakete mit ~500 MB nach (pyarrow, Datalayer-SDK, code-sandboxes, OpenTelemetry, JupyterLab mit Kollaboration), dazu
+einen Jupyter-Server in der Sandbox, und seine Werkzeuge führten Code ohne Rückfrage aus. MENSCH 25.10.: eigene Brücke.
+
+- **`packages/node/mcp/jupyter-bruecke.mjs`** (nur Node, keine Pakete, wie die Kiwix-Brücke): `notebook_read`,
+  `notebook_create`, `cell_insert`, `cell_edit`, `cell_delete` – nur `.ipynb` unter dem Projekt, kein `..`, kein Teil mit
+  Punkt am Anfang (`.git`, `.ipynb_checkpoints`), keinem Verweis folgen (`lstat`, `O_NOFOLLOW`), geschrieben über eine neue
+  Datei daneben (`wx`) und Umbenennen, Rechte der Datei bleiben. Geschrieben Byte für Byte wie nbformat 5.11.1 (sortierte
+  Schlüssel, Einrückung 1, Quelltext als Zeilen wie `splitlines(True)`, Kennungen ab 4.5); eine geänderte Code-Zelle
+  verliert ihre Ausgaben. Lesen zeigt Ausgaben als Text, Bilder nur mit Typ, ohne Farbcodes, lange Notebooks in Teilen.
+  Ausgeführt wird nichts – Code läuft nur über das Terminal von Hermes. Nie nach stderr.
+- **`src/mcp-katalog.ts`:** `jupyterMcp()` (Brücke nur lesbar unter `/freedom/mcp/jupyter`, Wurzel `/arbeit`), in
+  `mcpAusUmgebung()` von selbst dabei, `MCP_JUPYTER=aus` schaltet ab, anderes heißt kein Start.
+- **Modus „fragen“:** Hermes fragt vor MCP-Aufrufen nicht – dort bekommt der Motor nur `notebook_read` (`beimFragen`),
+  ändern geht über die Werkzeuge von Hermes, die vorher fragen. `CodeLaeufe` gibt den Modus an den Motor
+  (`MotorStart(ordner, { modus })`, `code-motor.ts`, eine Zeile), `hermesMotor()` schreibt `config.yaml` je Lauf danach.
+- **`scripts/jupyter-referenz.py`** erzeugt `test/fixtures/jupyter-referenz.json` mit nbformat 5.11.1.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +10 (`jupyter-mcp.test.ts`): Referenz (neues Notebook, neue Zellen, fremdes unverändert, geänderte Code-Zelle);
+anlegen, einfügen, ändern, löschen (Kennungen, nie ersetzt, 4.4 ohne Kennung, Rechte bleiben); Pfade und Verweise; feste
+Fehlertexte (Nummer, Art, Länge, fehlende Quelle, nbformat 3, kaputtes JSON, zu groß, kein `run_cell`); lesen in Teilen;
+über stdio ohne stderr; Katalog und `config.yaml`; je Modus die Werkzeuge in `config.yaml`, der Lauf gibt den Modus an den
+Motor; in bubblewrap wie Hermes. Die Tests aus VKk1 und VKd2a, die genau „kein
+Server“ erwarten, schalten Jupyter mit `MCP_JUPYTER=aus` ab. Gegenproben: ohne `lstat`, ohne Punkt-Regel, ohne Sortierung,
+ohne `O_NOFOLLOW`, ohne die Einschränkung im Modus „fragen“ je ein roter Test.
+
 ## Schritt 11.5d1 – Agent am Repo beauftragen
 
 Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V1, V6, W2 A, W5 A; Aufteilung 11.5d). Erster Teil von 11.5d – die Oberfläche
