@@ -5705,6 +5705,16 @@ def raum_pruefen(browser, url: str) -> dict:
         zurueck_raum = ev("""() => ({ hash: location.hash, raum: document.getElementById('space-name').textContent,
           fokus: document.activeElement?.classList.contains('raum-repo') ?? false,
           sichtbar: (document.getElementById('raum-repos')?.getBoundingClientRect().height ?? 0) > 0 })""")
+        # 11.5d3: „Agent beauftragen“ auch im Raum-Menü – der Raum hat ein Repo, also da; ohne Agenten nur der Hinweis
+        if not mobil:
+            agent_menue = ev("() => !document.getElementById('space-repo-agent')?.classList.contains('hidden')")
+            ev("() => { document.getElementById('toast').textContent = ''; document.getElementById('space-repo-agent')?.click(); }")
+            try:
+                s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('In diesem Raum ist kein Agent')", timeout=10000)
+            except Exception:
+                erg["fehler"].append(f"{groesse}: Agent beauftragen im Raum {ev(toast_text)!r}")
+            if not agent_menue:
+                erg["fehler"].append(f"{groesse}: Agent beauftragen fehlt im Raum-Menü")
         erg[groesse]["raum_repos"] = {"im_raum": im_raum, "seite": auf_seite, "zurueck": zurueck_raum}
         if im_raum != {"repos": [["werkzeug", "1"]], "sichtbar": True, "anlegen": False}:
             erg["fehler"].append(f"{groesse}: Repos im Raum {im_raum}")

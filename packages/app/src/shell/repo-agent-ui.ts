@@ -9,6 +9,7 @@
  *   den Raum, privat nur als inneres Event der Gruppe (`mlsSendeEventId()`), nie offen.
  * - Gelesen wird nur, was der Raum selbst sagt: offen seine Struktur und die Karten seiner Agenten,
  *   privat der Verlauf der Gruppe.
+ * - Seit 11.5d3 auch aus dem Raum selbst (Menü „Agent beauftragen“): ein Repo gleich, mehrere zur Wahl.
  */
 import {
   KIND_RAUM_KANAL, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES, buildChannelMessage, gruppenRaum, leseRaumAdresse, raumAgentKarten,
@@ -95,4 +96,17 @@ export async function beauftrageAgentAmRepo(k: RepoKarte): Promise<void> {
   if (!kanal) return toast(t("agentRepo.keinKanal", { name: agent.name }), true);
   const n = repoAuftragNachricht({ name: agent.name, aufgabe, repo: repo.adresse });
   await beauftrageAmRepo(ort.raum, agent, { gebotSats, repo: k.name, sende: () => ort.sende(kanal, agent.agent, n).catch(() => null) });
+}
+
+/** „Agent beauftragen“ im Raum (11.5d3): bei einem Repo gleich, bei mehreren erst die Wahl – dann wie auf der Repo-Seite. */
+export async function beauftrageAgentImRaum(repos: readonly RepoKarte[]): Promise<void> {
+  const mit = repos.filter((k) => k.repo);
+  if (mit.length <= 1) return mit[0] ? beauftrageAgentAmRepo(mit[0]) : undefined;
+  const w = await dialog({
+    titel: t("agentRepo.welchesRepo"),
+    felder: [{ art: "wahl", name: "repo", label: t("agentRepo.repo"), optionen: mit.map((k) => ({ wert: k.schluessel, text: k.name })), wert: mit[0]!.schluessel, pflicht: true }],
+    ok: t("raum.weiter"),
+  });
+  const k = w ? mit.find((x) => x.schluessel === w.repo) : undefined;
+  if (k) await beauftrageAgentAmRepo(k);
 }

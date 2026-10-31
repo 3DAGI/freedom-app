@@ -311,6 +311,8 @@ export const raeume: Texte = {
   "agentRepo.ohnePakete": { de: "Die Pakete aus der Sperrdatei ließen sich nicht holen – der Agent arbeitete ohne sie.", en: "The packages from the lock file could not be fetched – the agent worked without them." },
   "agentRepo.patchAnsehen": { de: "Patch ansehen", en: "View patch" },
   "agentRepo.patchFehlt": { de: "Den Patch findet die App unter den Repos dieses Raums nicht.", en: "The app cannot find the patch among this room's repos." },
+  "agentRepo.welchesRepo": { de: "An welchem Repo soll ein Agent arbeiten?", en: "Which repo should an agent work on?" },
+  "agentRepo.repo": { de: "Repo", en: "Repo" },
   "agentRepo.vonAgent": { de: "Agent", en: "Agent" },
   "agentRepo.vonAgentTitel": { de: "Vorschlag eines Agenten – lies ihn, bevor du ihn annimmst.", en: "Proposed by an agent – read it before you accept it." },
   "raum.infoOffen": {

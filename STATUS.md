@@ -13894,3 +13894,18 @@ Repo-Seite gleich mit diesem Patch (`oeffnePatchBeimZeigen()`); sonst ein Hinwei
 neun Formen, die der Knoten nie schreibt, sind keine. `app/test/repo-agent.test.ts` (+2): je Kennung des Knotens ein eigener
 Satz in beiden Sprachen (aus dem Quelltext gelesen), Unbekanntes auch „constructor“ ergibt keinen; verdrahtet – nur Agenten
 des Raums, der Satz statt des Textes, der Knopf nur mit Patch, der Patch nur unter den Repos des Raums. Gegenproben 11 von 11 rot.
+
+## Schritt 11.5d3 – „Agent beauftragen“ auch im Raum
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, letzter Teil). Statt des Repo-Tags von selbst, wenn der Raum genau ein
+Repo hat (V1), gibt es den Auftrag ausdrücklich: Im Raum-Menü steht „Agent beauftragen“, sobald der Raum ein Repo hat
+(`#space-repo-agent`, sichtbar über `zeigeRaumRepos()` – dieselbe Liste wie unter den Kanälen, nur mit Identität). Bei
+einem Repo geht es gleich weiter, bei mehreren fragt `beauftrageAgentImRaum()` erst, an welchem; danach derselbe Weg wie
+auf der Repo-Seite (`beauftrageAgentAmRepo()`: Agent, Aufgabe, Obergrenze, Preis, dann die Nachricht). Ob ein Agent da
+ist, sagt der Dialog.
+
+**Damit ist 11.5d fertig** – und mit ihm der App-Teil von 11.5 (Repo-Agenten).
+
+**Tests:** `app/test/repo-agent.test.ts` (+1) – Menüpunkt mit Text-Schlüssel und versteckt, sichtbar nur mit Identität und
+Repo, übergibt die Repos des Raums, ein Repo gleich, mehrere zur Wahl, die Wahl zählt, sendet selbst nichts. Smoke-Test
+„raum“: der Menüpunkt ist im Probe-Raum da und meldet, dass kein Agent auf einem Knoten da ist. Gegenproben 5 von 5 rot.

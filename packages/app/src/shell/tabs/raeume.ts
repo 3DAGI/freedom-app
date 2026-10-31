@@ -490,6 +490,10 @@ function zeigeRaumRepos(): void {
   const ziel = raumZiel();
   const repos = ziel ? reposVonRaum(ziel) : [];
   box.classList.toggle("hidden", repos.length === 0);
+  // „Agent beauftragen“ im Raum (11.5d3): sobald der Raum ein Repo hat – ob ein Agent da ist, sagt der Dialog
+  const agentAmRepo = !!state.keypair && repos.some((k) => k.repo);
+  document.getElementById("space-repo-agent")?.classList.toggle("hidden", !agentAmRepo);
+  if (agentAmRepo) document.querySelector("#space-menue .menue-trenner")?.classList.remove("hidden");
   liste.replaceChildren(...repos.map((k) => {
     const b = el("button", undefined, "channel-item raum-repo");
     b.type = "button";
@@ -1625,6 +1629,10 @@ export async function wireSpacesTab(): Promise<void> {
     if (ziel && darfRepos()) void legeRepoImRaumAn(ziel, name);
   });
   beiReposGeladen(zeigeRaumRepos);
+  document.getElementById("space-repo-agent")?.addEventListener("click", () => {
+    const ziel = raumZiel();
+    if (ziel) void import("../repo-agent-ui.js").then((m) => m.beauftrageAgentImRaum(reposVonRaum(ziel)));
+  });
   // Agenten sprechen Agenten an (11.3e3): Schalter mit Grenze in der Definition
   document.getElementById("space-ketten")?.addEventListener("click", () => {
     const ort = agentOrt();

@@ -9,6 +9,7 @@
  *    privat nur als inneres Event; die App wartet so lange wie der Lauf beim Knoten
  *  - 11.5d2a: jede Absage eines Repo-Auftrags hat ihren eigenen Satz; Patches von Agenten tragen ein Kennzeichen
  *  - 11.5d2b: die Antwort eines Agenten im Raum zeigt einen eigenen Satz je Kennung und führt zum Patch
+ *  - 11.5d3: „Agent beauftragen“ auch im Raum-Menü – ein Repo gleich, mehrere zur Wahl
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -219,4 +220,20 @@ test("11.5d2b: verdrahtet – nur Antworten von Agenten des Raums, der Satz stat
   assert.match(weg, /if \(!k\) return toast\(t\("agentRepo\.patchFehlt"\), true\);\n {2}oeffneRepo\(k\.schluessel, patch\);/);
   assert.match(repos, /export function oeffneRepo\(schluessel: string, patch\?: string\): void \{[^}]*vergissReiter\(\);\n {2}if \(patch\) oeffnePatchBeimZeigen\(patch\);/);
   assert.match(seite, /export const oeffnePatchBeimZeigen = \(id: string\): void => \{ offenerPatch = id; \};/);
+});
+
+test("11.5d3: „Agent beauftragen“ auch im Raum – sobald er ein Repo hat; ein Repo gleich, mehrere zur Wahl", () => {
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  assert.match(html, /<button id="space-repo-agent" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="agentRepo\.knopf">/);
+  const raeume = lies("shell/tabs/raeume.ts"), ui = lies("shell/repo-agent-ui.ts");
+  // Sichtbar nur mit Identität und einem Repo des Raums (dieselbe Liste wie unter den Kanälen), versteckt sonst
+  assert.match(raeume, /const agentAmRepo = !!state\.keypair && repos\.some\(\(k\) => k\.repo\);\n {2}document\.getElementById\("space-repo-agent"\)\?\.classList\.toggle\("hidden", !agentAmRepo\);/);
+  assert.match(raeume, /if \(ziel\) void import\("\.\.\/repo-agent-ui\.js"\)\.then\(\(m\) => m\.beauftrageAgentImRaum\(reposVonRaum\(ziel\)\)\);/);
+  // Danach derselbe Weg wie auf der Repo-Seite – nie ein zweiter
+  const im = ui.slice(ui.indexOf("export async function beauftrageAgentImRaum("));
+  assert.match(im, /if \(mit\.length <= 1\) return mit\[0\] \? beauftrageAgentAmRepo\(mit\[0\]\) : undefined;/);
+  assert.match(im, /const k = w \? mit\.find\(\(x\) => x\.schluessel === w\.repo\) : undefined;\n {2}if \(k\) await beauftrageAgentAmRepo\(k\);/);
+  assert.ok(!/publish\(|mlsSendeEvent/.test(im), "sendet selbst nichts");
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  for (const s of ["agentRepo.welchesRepo", "agentRepo.repo", "agentRepo.knopf"]) assert.ok(texte[s]?.de && texte[s]?.en, s);
 });
