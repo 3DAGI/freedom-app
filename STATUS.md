@@ -13833,3 +13833,28 @@ beauftragen“ im Raum selbst (statt des Tags von selbst bei genau einem Repo �
 Nachricht und Tag wie der Knoten sie liest, Texte, Verdrahtung (Knopf nur mit Raum, Preis vor der Nachricht, privat nur in
 der Gruppe, Warten länger als der Lauf); Gegenproben 15 von 15 rot. Smoke-Test „raum“: der Knopf auf der Repo-Seite meldet
 im Probe-Raum, dass kein Agent da ist.
+
+## Schritt A-33 – Test-Mint wieder installierbar, CI scheitert laut
+
+**Befund (beim Prüfen von 11.5d1):** `scripts/cashu-testmint.sh` installierte nicht mehr. Nutshell 0.21.0 verlangt
+`breez-sdk-spark >=0.17.0,<0.18.0`, und alle Fassungen 0.17.x sind von PyPI verschwunden (erhältlich ab 0.18.0). Der
+CI-Schritt `echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"` schluckte den Fehler – in einer
+Befehlsersetzung innerhalb von `echo` zählt ihr Exit-Code nicht. Seitdem übersprangen sich in der CI still 10 Tests der
+App (Cashu-Topf, Pfand) und 8 des Knotens (Pfand-Kasse, Pfand-Auftrag), auch auf `main`.
+
+**Fix:**
+- `cashu-testmint.txt`: `breez_sdk_spark==0.18.0` statt 0.17.2 (MIT). Nutshell braucht das Paket nur für das
+  Spark-Backend; importiert wird es immer, mit FakeWallet nie benutzt.
+- `cashu-testmint.sh`: `pip install --no-deps` – die Liste ist ohnehin vollständig fest (pip freeze), ohne bestünde pip auf
+  `<0.18`.
+- `ci.yml`: erst `mint="$(bash scripts/cashu-testmint.sh)"`, dann `echo "CASHU_TEST_MINT=$mint"` – unter `bash -e` endet
+  der Schritt jetzt rot, wenn die Mint nicht startet.
+
+**Geprüft:** frische Installation über das Skript mit Python 3.11 und 3.12 (wie die CI, venv ohne setuptools), Mint antwortet
+in rund 20 s; gegen sie App `cashu-topf` + `cashu-pfand` 14 von 14, Knoten `pfand-kasse` + `pfand-auftrag` 15 von 15
+grün. Der alte Schritt endete bei einer kaputten Mint mit 0, der neue mit 1.
+
+**Tests:** `node/test/pfand-kasse.test.ts` (+1, ohne Mint): jede Zeile der Liste fest (`name==version`), Nutshell
+0.21.0, `breez_sdk_spark` nicht 0.17.2, das Skript mit `--no-deps`, der CI-Schritt weist erst zu und hat keine
+`$(…)` im `echo`. Gegenproben 5 von 5 rot: alte CI-Form, ohne `--no-deps`, 0.17.2, eine Zeile ohne feste Version,
+Zuweisung da und trotzdem `$(…)` im `echo`.

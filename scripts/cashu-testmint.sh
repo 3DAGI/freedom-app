@@ -10,7 +10,8 @@ HIER="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$ORT/daten"
 [ -x "$ORT/venv/bin/mint" ] || {
   python3 -m venv "$ORT/venv"
-  "$ORT/venv/bin/pip" install -q --disable-pip-version-check -r "$HIER/cashu-testmint.txt"
+  # --no-deps: die Liste ist vollstaendig fest (pip freeze); ohne bestuende pip auf breez_sdk_spark < 0.18, das es nicht mehr gibt
+  "$ORT/venv/bin/pip" install -q --disable-pip-version-check --no-deps -r "$HIER/cashu-testmint.txt"
 }
 # Schluessel der Mint je Start neu – nur fuer diesen Lauf
 SCHLUESSEL="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"

@@ -101,8 +101,11 @@ jobs:
 
       - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest
-        # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests.
-        run: echo "CASHU_TEST_MINT=$(bash scripts/cashu-testmint.sh)" >> "$GITHUB_ENV"
+        # (scripts/cashu-testmint.txt). Ohne CASHU_TEST_MINT ueberspringen sich diese Tests – deshalb erst zuweisen (A-33):
+        # in `echo "…$(…)"` zaehlte der Exit-Code nicht, und die Tests fielen still weg.
+        run: |
+          mint="$(bash scripts/cashu-testmint.sh)"
+          echo "CASHU_TEST_MINT=$mint" >> "$GITHUB_ENV"
 
       - name: whisper-cli fuer den Sprach-Test (B-38b3)
         # Aus den Quellen in fester Fassung (scripts/whisper-bauen.sh, rund 2 min), dazu das Testmodell des Projekts

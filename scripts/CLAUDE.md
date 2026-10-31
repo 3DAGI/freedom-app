@@ -121,3 +121,8 @@ dieses Bereichs unten anhängen.
   weg, sonst kann der Cache die Datei nicht lesen). Die Pakete für Playwright holt der Smoke-Job ohne `apt-get update`
   (`install-deps --dry-run` liefert die Liste), Chromium liegt im Cache mit der Version im Schlüssel – eine neue Version von
   Playwright heißt: Schlüssel mit ändern. Ein PR liest nur Caches von `main`; der erste Lauf nach einer Änderung lädt neu.
+- **Hilfsdienste in der CI scheitern laut** (seit A-33): Eine Adresse aus einem Skript erst einer Variablen zuweisen
+  (`mint="$(bash scripts/cashu-testmint.sh)"`), dann nach `$GITHUB_ENV` schreiben – in `echo "X=$(…)"` zählt der
+  Exit-Code der Befehlsersetzung nicht, der Schritt bleibt grün, und Tests, die sich ohne den Dienst überspringen, fallen
+  still weg (so fehlten die Cashu-Tests in der CI, als `breez_sdk_spark` 0.17.x von PyPI verschwand). Die Test-Mint
+  installiert nur mit `--no-deps` genau `cashu-testmint.txt` – ein neues Paket dort mit fester Version, sonst fehlt es still.
