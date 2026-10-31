@@ -1114,7 +1114,7 @@ async function aendereMitglied(tun: () => Promise<boolean>): Promise<void> {
  * Karten der Agenten eines offenen Raums (11.3d1b1): nur Mitglieder mit der Rolle
  * `agent`, je Agent die neueste gültige Karte (`aktuelleAgentKarten()`). Ohne Netz leer.
  */
-async function agentKartenIm(stand: unknown, pool: Awaited<ReturnType<typeof ensurePool>>): Promise<RaumAgentKarte[]> {
+export async function agentKartenIm(stand: unknown, pool: Awaited<ReturnType<typeof ensurePool>>): Promise<RaumAgentKarte[]> {
   const { KIND_AGENT_KARTE, aktuelleAgentKarten, istAgentIm } = await import("@freedomstack/protocol");
   const s = stand as Parameters<typeof istAgentIm>[0] | null;
   const agenten = s ? [...s.grants.keys()].filter(istAgentIm(s)) : [];

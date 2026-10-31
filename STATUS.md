@@ -13809,3 +13809,27 @@ Fehlertexte (Nummer, Art, Länge, fehlende Quelle, nbformat 3, kaputtes JSON, zu
 Motor; in bubblewrap wie Hermes. Die Tests aus VKk1 und VKd2a, die genau „kein
 Server“ erwarten, schalten Jupyter mit `MCP_JUPYTER=aus` ab. Gegenproben: ohne `lstat`, ohne Punkt-Regel, ohne Sortierung,
 ohne `O_NOFOLLOW`, ohne die Einschränkung im Modus „fragen“ je ein roter Test.
+
+## Schritt 11.5d1 – Agent am Repo beauftragen
+
+Spur A, `docs/REPO-AGENTEN-ENTWURF.md` (V1, V6, W2 A, W5 A; Aufteilung 11.5d). Erster Teil von 11.5d – die Oberfläche
+gehört zu Spur C, die Dateien sind die der Agenten in Räumen (11.3d, Spur A).
+
+**Neu:** „Agent beauftragen“ auf der Repo-Seite, für Repos, die bestätigt zu einem offenen Raum gehören oder in einem
+privaten Raum stehen (`shell/repo-agent-ui.ts`). Zur Wahl stehen Agenten auf einem Knoten aus diesem Raum, bei denen
+zahlt, wer fragt (`repoAgenten()`). Im Dialog stehen Aufgabe (höchstens 2000 Zeichen) und Obergrenze in sats
+(Vorgabe 1000, höchstens 20 000, W5 A). Erst zeigt `beauftrageAmRepo()` den Preis, nach der Bestätigung geht die Nachricht
+mit Erwähnung und Repo-Tag (`repoAuftragNachricht()` → `repoAuftragTags()`) in den ersten Kanal, in dem beide schreiben
+dürfen (`auftragsKanal()`) – offen signiert an den Raum, privat nur als inneres Event (`mlsSendeEventId()`). Danach geht der
+bezahlte Auftrag an den Knoten. `bezahlterAuftrag()` wartet für Repo-Aufträge 35 Minuten statt 3 (`wartenMs`, der Lauf beim
+Knoten darf 30) und fragt dann alle 15 s statt alle 3 s – vorher hätte die App nach 3 Minuten aufgegeben, der Patch hätte im
+Raum gestanden, bezahlt worden wäre er nie.
+
+**Offen:** 11.5d2 – Ablehnungen `agent-repo-…` mit eigenem Satz (bis dahin der allgemeine mit Kennung), Kennzeichen an
+Patches von Agenten, die Antwort im Raum aus `fall` und `pakete` in eigenen Sätzen mit Weg zum Patch; 11.5d3 – „Agent
+beauftragen“ im Raum selbst (statt des Tags von selbst bei genau einem Repo – sonst würde jede Frage ein bezahlter Repo-Lauf).
+
+**Tests:** `app/test/repo-agent.test.ts` (+6) – Auswahl der Agenten, Grenzen von Obergrenze und Aufgabe, Kanal für beide,
+Nachricht und Tag wie der Knoten sie liest, Texte, Verdrahtung (Knopf nur mit Raum, Preis vor der Nachricht, privat nur in
+der Gruppe, Warten länger als der Lauf); Gegenproben 15 von 15 rot. Smoke-Test „raum“: der Knopf auf der Repo-Seite meldet
+im Probe-Raum, dass kein Agent da ist.

@@ -5689,6 +5689,14 @@ def raum_pruefen(browser, url: str) -> dict:
         auf_seite = ev("""() => ({ hash: location.hash, seite: document.getElementById('repo-seite').getBoundingClientRect().height > 0,
           titel: document.querySelector('#repo-seite .repo-titel span:last-child')?.textContent,
           raum: document.querySelector('#repo-seite .repo-raum span')?.textContent, fokus: document.activeElement?.classList.contains('repo-zurueck') })""")
+        toast_text = "() => document.getElementById('toast')?.textContent ?? ''"
+        # 11.5d1: „Agent beauftragen“ liest den Raum – im Probe-Raum ist kein Agent auf einem Knoten, also nur der Hinweis
+        if not mobil:
+            ev("() => { document.getElementById('toast').textContent = ''; document.querySelector('#repo-seite .repo-agent')?.click(); }")
+            try:
+                s.wait_for_function("() => (document.getElementById('toast')?.textContent ?? '').startsWith('In diesem Raum ist kein Agent')", timeout=10000)
+            except Exception:
+                erg["fehler"].append(f"{groesse}: Agent beauftragen ohne Agenten {ev(toast_text)!r}")
         ev("() => document.querySelector('#repo-seite .repo-zum-raum')?.click()")
         try:
             s.wait_for_function("() => location.hash === '#/chat' && document.activeElement?.classList.contains('raum-repo')", timeout=10000)

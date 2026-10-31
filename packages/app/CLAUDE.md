@@ -1040,3 +1040,9 @@ Fallstricke dieses Bereichs unten anhängen.
   über `legeKontaktAn()` – dann `nimmBitchatKarte()`. Die Karte geht nie an ein Relay. Was das Gerät im Funk zeigt, steht nur in der Grenze „bitchat“ – Texte versprechen nichts anderes, nie
   „auditiert“. Im Smoke-Test („bitchat“) spielt `BITCHAT_ATTRAPPE` die Android-Hülle.
   *(Weitere Teile: `packages/launcher/CLAUDE.md`.)*
+- **Agenten am Repo beauftragen nur über `shell/repo-agent-ui.ts`** (seit 11.5d1, W5 A): nur für Repos mit Raum (offen
+  `raumBestaetigt`, privat `privatRaum`) und nur Agenten aus `repoAgenten()`. Die Nachricht mit Repo-Tag geht erst nach der
+  Bestätigung des Preises hinaus (`beauftrageAmRepo()` → `RepoWunsch.sende()`), nur in einen Kanal aus `auftragsKanal()` – dort
+  schreiben ich und der Agent, sonst schwiege er –, privat nur über `mlsSendeEventId()`. Repo-Aufträge warten mit
+  `wartenMs: REPO_WARTEN_MS`: kürzer als der Lauf beim Knoten (`REPO_LAUF_GRENZEN.zeitMs`) hieße, der Patch steht im Raum und
+  bezahlt wird nie (ein Test vergleicht beide).

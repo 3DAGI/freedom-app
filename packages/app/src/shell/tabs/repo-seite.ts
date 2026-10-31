@@ -182,6 +182,10 @@ function raumZeile(k: RepoKarte, h: RepoSeiteHilfe): HTMLElement | undefined {
   const name = k.raumName || (k.privatRaum ? t("repo.privaterRaum") : k.repo?.raum ?? "");
   zeile.append(el("span", t(k.privatRaum ? "repo.imPrivatenRaum" : "repo.imRaum", { name })),
     knopf(t("repo.zumRaum"), "ghost mini repo-zum-raum", h.zumRaum));
+  // Agent beauftragen (11.5d1): ein Agent auf einem Knoten aus diesem Raum, wer fragt, zahlt
+  if (k.repo && state.keypair) {
+    zeile.append(knopf(t("agentRepo.knopf"), "ghost mini repo-agent", () => void import("../repo-agent-ui.js").then((m) => m.beauftrageAgentAmRepo(k))));
+  }
   return zeile;
 }
 
