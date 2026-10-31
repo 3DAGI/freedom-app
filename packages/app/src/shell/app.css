@@ -1783,7 +1783,7 @@ button.repo-karte:hover, button.repo-karte:focus-visible { border-color: var(--a
 /* Ganze Namen, umgebrochen statt abgeschnitten (C-35, Nutzertest R-4) */
 .member-row .mitglied-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .member-row .msg-role.rolle-gruender { color: var(--gold); }
-.member-row .msg-role.rolle-agent { color: var(--accent); }
+.member-row .msg-role.rolle-agent, .repo-patch .msg-role.rolle-agent, .patch-meta .msg-role.rolle-agent { color: var(--accent); }
 .member-row .mitglied-knopf { min-height: 28px; padding: 2px 8px; }
 .menue-schwebend { z-index: 900; }
 button.menue-punkt.menue-gefahr { color: var(--red-text); }

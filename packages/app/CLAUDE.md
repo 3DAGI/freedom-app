@@ -1046,3 +1046,6 @@ Fallstricke dieses Bereichs unten anhängen.
   schreiben ich und der Agent, sonst schwiege er –, privat nur über `mlsSendeEventId()`. Repo-Aufträge warten mit
   `wartenMs: REPO_WARTEN_MS`: kürzer als der Lauf beim Knoten (`REPO_LAUF_GRENZEN.zeitMs`) hieße, der Patch steht im Raum und
   bezahlt wird nie (ein Test vergleicht beide).
+  Absagen `agent-repo-…` (seit 11.5d2a) nur über `ablehnungsText()`, je Kennung ein eigener Satz – ein Test liest die
+  Kennungen aus Knoten und Protokoll, eine neue braucht dort einen Fall. Das Kennzeichen „Agent“ an Patches (`vonAgent`)
+  kommt nur aus `istAgent` des Raums in `patchZeilen()` und ist nur ein Hinweis – annehmen bleibt `darfAnnehmen()`.

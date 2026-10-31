@@ -22,7 +22,7 @@ import { type BundleQuelle, codeReiter, commitsReiter, netzQuelle } from "./code
 import { lokaleRepos } from "../lokale-repos-ablage.js";
 import { issuesReiter, vergissIssue } from "./issues-reiter.js";
 import { diskussion } from "./diskussion.js";
-import { zeigePatch } from "./patch-seite.js";
+import { agentMarke, zeigePatch } from "./patch-seite.js";
 import { reviewAnsicht } from "./review-ui.js";
 import { releasesReiter } from "./releases-reiter.js";
 import { labelLeiste } from "./labels-ui.js";
@@ -276,6 +276,7 @@ function patchReiter(k: RepoKarte, h: RepoSeiteHilfe, neu: () => void): HTMLElem
     return zeigePatch({
       betreff: offen.patch.betreff, commit: offen.patch.commit, text: offen.patch.text,
       von: eigentuemerName(offen.patch.autor), zeit: offen.patch.zeit, marke: statusMarke(offen.status), aktionen: aktionsKnoepfe(offen, k, h),
+      ...(offen.vonAgent ? { vonAgent: true } : {}),
       status: statusAngaben(offen),
       // Labels und Zuständige (C-20i2) – ändern nur Eigentümer und Maintainer
       ...(repo ? { labels: labelLeiste({
@@ -354,6 +355,7 @@ function patchZeile(z: PatchZeile, k: RepoKarte, h: RepoSeiteHilfe, neu: () => v
   });
   betreff.dataset.patch = z.patch.id;
   const meta = el("div", t("repo.patchVon", { name: eigentuemerName(z.patch.autor), datum: datum(z.patch.zeit) }), "mono-sm muted");
+  if (z.vonAgent) meta.prepend(agentMarke(), " ");
   const zahl = k.patchKommentare?.[z.patch.id]?.length ?? 0;
   if (zahl) meta.append(el("span", ` · ${t("repo.kommentareZahl", { n: zahl })}`));
   links.append(betreff, meta);

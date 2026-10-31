@@ -13858,3 +13858,20 @@ grün. Der alte Schritt endete bei einer kaputten Mint mit 0, der neue mit 1.
 0.21.0, `breez_sdk_spark` nicht 0.17.2, das Skript mit `--no-deps`, der CI-Schritt weist erst zu und hat keine
 `$(…)` im `echo`. Gegenproben 5 von 5 rot: alte CI-Form, ohne `--no-deps`, 0.17.2, eine Zeile ohne feste Version,
 Zuweisung da und trotzdem `$(…)` im `echo`.
+
+## Schritt 11.5d2a – Absagen eines Repo-Auftrags in eigenen Sätzen, Kennzeichen an Patches von Agenten
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, Teil d2 in zwei Teilen). Lehnte der Knoten einen Repo-Auftrag ab,
+zeigte die App bisher den allgemeinen Satz mit der Kennung („… antwortet hier nicht (agent-repo-bundle)“). Jetzt hat jede
+der acht Kennungen ihren Satz (`ablehnungsText()`): Der Knoten arbeitet nicht an Repos, nur bezahlt, das Repo gehört nicht
+zum Raum, das Bundle fehlt oder ist nicht vollständig, das Issue fehlt, privat ohne Modell auf dem eigenen Rechner, gerade
+belegt, Modell oder Sandbox gescheitert. Patches, die ein Agent des Raums eingereicht hat, tragen in der Liste und auf ihrer
+Seite das Kennzeichen „Agent“ (`PatchZeile.vonAgent` aus `patchZeilen()` mit `istAgent` des Raums, `agentMarke()`) – mit dem
+Hinweis, den Vorschlag vor dem Annehmen zu lesen. Annehmen dürfen weiter nur Eigentümer und Maintainer.
+
+**Offen:** 11.5d2b – die Antwort des Agenten im Raum aus `fall` und `pakete` in eigenen Sätzen, mit Weg zum Patch; 11.5d3 –
+„Agent beauftragen“ im Raum selbst.
+
+**Tests:** `app/test/repo-agent.test.ts` (+2) – die acht Kennungen aus Knoten und Protokoll gelesen, je ein eigener Satz mit
+`{name}` in beiden Sprachen, Unbekanntes (auch „constructor“) beim allgemeinen; das Kennzeichen nur am Patch des Agenten,
+ohne Agenten des Raums keins, die Aktionen bleiben gleich; verdrahtet in Liste und Seite. Gegenproben 8 von 8 rot.
