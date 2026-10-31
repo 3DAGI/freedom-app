@@ -93,6 +93,9 @@ export const vergissReiter = (): void => {
   vorschau = null;
 };
 
+/** Beim nächsten Zeigen gleich diesen Patch öffnen (11.5d2b, aus der Antwort eines Agenten im Raum). */
+export const oeffnePatchBeimZeigen = (id: string): void => { offenerPatch = id; };
+
 /** Filter der Patches – „offen“ umfasst Entwürfe. */
 type PatchFilter = "offen" | "angenommen" | "geschlossen";
 const filterVon = (s: PatchStatus): PatchFilter => (s === "entwurf" ? "offen" : s);

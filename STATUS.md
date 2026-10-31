@@ -13875,3 +13875,22 @@ Hinweis, den Vorschlag vor dem Annehmen zu lesen. Annehmen dürfen weiter nur Ei
 **Tests:** `app/test/repo-agent.test.ts` (+2) – die acht Kennungen aus Knoten und Protokoll gelesen, je ein eigener Satz mit
 `{name}` in beiden Sprachen, Unbekanntes (auch „constructor“) beim allgemeinen; das Kennzeichen nur am Patch des Agenten,
 ohne Agenten des Raums keins, die Aktionen bleiben gleich; verdrahtet in Liste und Seite. Gegenproben 8 von 8 rot.
+
+## Schritt 11.5d2b – Antwort des Agenten im Raum in eigenen Sätzen, mit Weg zum Patch
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, zweiter Teil von d2). Der Knoten schreibt nach einem Repo-Auftrag einen
+festen deutschen Satz in den Raum und hängt Kennungen an (`fall`, den Patch als `["e", …, "mention"]`, seit 11.5c3
+`pakete`). Bisher zeigte die App nur den Satz – auf Englisch blieb er deutsch, und zum Patch führte nichts. Jetzt liest sie
+die Tags über `leseRepoAntwort()` (Protokoll, Gegenstück zu `repoAntwortTags()`: je Tag höchstens eines, Kennungen in
+derselben Form, der Patch genau bei `repo.patch`) und nur bei Nachrichten von Agenten des Raums (offen die Karten mit Rolle,
+privat die der Gruppe). Gezeigt wird ein eigener Satz je Kennung (`REPO_FALL_TEXT`, die zehn aus `REPO_TEXT` des Knotens),
+fehlten die Pakete, ein Satz dazu; eine unbekannte Kennung lässt den Text, wie er ist. Mit Patch gibt es „Patch ansehen“:
+gesucht nur unter den Repos dieses Raums (`reposVonRaum()`, notfalls einmal neu geladen), dann öffnet `oeffneRepo()` die
+Repo-Seite gleich mit diesem Patch (`oeffnePatchBeimZeigen()`); sonst ein Hinweis.
+
+**Damit ist 11.5d2 fertig.** **Offen:** 11.5d3 – „Agent beauftragen“ im Raum selbst.
+
+**Tests:** `protocol/test/repo-auftrag.test.ts` (+1): hin und zurück offen und privat, eine gewöhnliche Antwort ist keine,
+neun Formen, die der Knoten nie schreibt, sind keine. `app/test/repo-agent.test.ts` (+2): je Kennung des Knotens ein eigener
+Satz in beiden Sprachen (aus dem Quelltext gelesen), Unbekanntes auch „constructor“ ergibt keinen; verdrahtet – nur Agenten
+des Raums, der Satz statt des Textes, der Knopf nur mit Patch, der Patch nur unter den Repos des Raums. Gegenproben 11 von 11 rot.

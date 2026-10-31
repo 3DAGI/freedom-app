@@ -229,6 +229,34 @@ export function repoAntwortTags(r: { patch?: string; fall?: string; pakete?: str
   return tags;
 }
 
+/** Was eine Antwort auf einen Repo-Auftrag sagt (11.5d2b) – Kennungen, nie Text. */
+export interface RepoAntwort {
+  /** Wie der Auftrag endete: `repo.…`. */
+  fall: string;
+  /** Der eingereichte Patch (offen das Event, privat das innere Event) – genau bei `repo.patch`. */
+  patch?: string;
+  /** Warum die Pakete der Sperrdatei fehlten: `paket-…`. */
+  pakete?: string;
+}
+
+/**
+ * Gegenstück zu `repoAntwortTags()` (11.5d2b): nur, was der Knoten in genau dieser Form schreibt – je Tag höchstens
+ * eines, Kennungen wie beim Bauen, der Patch genau bei `repo.patch`. Alles andere ist keine Antwort auf einen
+ * Repo-Auftrag (`null`); ob der Absender ein Agent des Raums ist, prüft der Aufrufer.
+ */
+export function leseRepoAntwort(tags: readonly (readonly string[])[]): RepoAntwort | null {
+  const je = (name: string, art?: string) => tags.filter((t) => t[0] === name && (art === undefined || t[3] === art));
+  const [fall, ...mehrFall] = je("fall");
+  const [patch, ...mehrPatch] = je("e", "mention");
+  const [pakete, ...mehrPakete] = je("pakete");
+  if (!fall || mehrFall.length || mehrPatch.length || mehrPakete.length) return null;
+  if (!/^repo\.[a-z-]{1,40}$/.test(fall[1] ?? "")) return null;
+  if (patch && !/^[0-9a-f]{64}$/.test(patch[1] ?? "")) return null;
+  if (pakete && !/^paket-[a-z-]{1,40}$/.test(pakete[1] ?? "")) return null;
+  if ((fall[1] === "repo.patch") !== !!patch) return null;
+  return { fall: fall[1]!, ...(patch ? { patch: patch[1]! } : {}), ...(pakete ? { pakete: pakete[1]! } : {}) };
+}
+
 /** Antwort im privaten Raum – inneres Event, wie jede Nachricht der Gruppe; auf einen Repo-Auftrag mit Patch und Kennung (11.5c2b). */
 export function raumAgentAntwort(auf: RaumNachricht, text: string, repo: { patch?: string; fall?: string; pakete?: string } = {}): InneresSenden {
   const s = raumNachricht({ kanal: auf.kanal, text: kuerzeAgentAntwort(text), ...(auf.threadRoot ? { threadRoot: auf.threadRoot } : {}), replyTo: auf.id, erwaehnt: [auf.von] });

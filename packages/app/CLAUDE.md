@@ -1049,3 +1049,7 @@ Fallstricke dieses Bereichs unten anhängen.
   Absagen `agent-repo-…` (seit 11.5d2a) nur über `ablehnungsText()`, je Kennung ein eigener Satz – ein Test liest die
   Kennungen aus Knoten und Protokoll, eine neue braucht dort einen Fall. Das Kennzeichen „Agent“ an Patches (`vonAgent`)
   kommt nur aus `istAgent` des Raums in `patchZeilen()` und ist nur ein Hinweis – annehmen bleibt `darfAnnehmen()`.
+  Die Antwort des Agenten im Raum (seit 11.5d2b) nur über `leseRepoAntwort()` und nur von Agenten des Raums (Karten wie bei
+  Erwähnungen); gezeigt wird der Satz aus `repoFallSchluessel()` statt des Textes vom Knoten – eine neue Kennung in `REPO_TEXT`
+  des Knotens braucht dort einen Eintrag (ein Test vergleicht). „Patch ansehen“ öffnet nur einen Patch unter den Repos dieses
+  Raums (`reposVonRaum()`), nie eine Kennung aus der Nachricht allein.

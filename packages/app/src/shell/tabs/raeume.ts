@@ -8,7 +8,7 @@
  */
 import { kontaktKurzName } from "../../kontakt-name.js";
 import {
-  JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_KASSEN_RECHT, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type Space, type SpaceState, type ThreadView,
+  JEDER_RECHTE, JEDER_ROLLE, MELDE_GRUENDE, RAUM_KASSEN_RECHT, RAUM_REPO_RECHT, applyModeration, can as darf, darfKanalAendern, gruenderZurKennung, leseRaumAdresse, raumAdresse, raumModeration, raumZustandFuer, type Channel, type ChannelMessage, type MeldeGrund, type RepoAntwort, type Space, type SpaceState, type ThreadView,
 } from "@freedomstack/protocol";
 import { pkShort, schluesselAusEingabe } from "../../shell-logic.js";
 import { alsGeraet, ensurePool, mitBunker, signiere, state } from "../state.js";
@@ -33,6 +33,7 @@ import { fremderProfilName, ladeFremdeProfilNamen } from "./kontakte.js";
 import type { RaumZiel, RepoKarte } from "../../repo-ansicht.js";
 import { type AgentZiel, agentKennzeichen, eigeneAgentAktionen } from "../raum-agenten-ui.js";
 import type { RaumAgentKarte } from "../../knoten-agent-wahl.js";
+import { repoFallSchluessel } from "../../repo-agent.js";
 import { switchTab } from "../app.js";
 import { beiReposGeladen, ladeNip34Repos, legeRepoImRaumAn, merkeRaumAdresse, oeffneRepo, reposVonRaum } from "./repos.js";
 import { beitreten, bindeKennung, istAdresse, kennungVon, raumEintraege } from "../../oeffentliche-raeume.js";
@@ -678,7 +679,7 @@ async function oeffneKanal(channelId: string): Promise<void> {
   // auch wenn der Verlauf neu gezeichnet wird (der Lesestand selbst springt beim Öffnen auf jetzt)
   if (neuSeit?.kanal !== channelId) neuSeit = { kanal: channelId, seit: spacesUi.lastRead.get(channelId) ?? 0 };
   const st = spacesUi.state as never;
-  const { buildThreads, canWriteTo, can } = await import("@freedomstack/protocol");
+  const { buildThreads, canWriteTo, can, leseRepoAntwort, raumAgentKarten } = await import("@freedomstack/protocol");
   const darfModerieren = state.keypair ? can(state.keypair.pk, "moderieren", st) : false;
   const space = (spacesUi.state as { space?: { channels: never[] } })?.space;
   if (!space) return;
@@ -702,7 +703,13 @@ async function oeffneKanal(channelId: string): Promise<void> {
   const { topLevel, threads } = buildThreads(nachrichten as never[], kanal as never, st);
   const darf = state.keypair ? canWriteTo(state.keypair.pk, kanal as never, st) : false;
   const alle = new Map([...topLevel, ...[...threads.values()].flatMap((f) => f.replies)].map((m) => [m.id, m]));
-  spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false, neuSeit: neuSeit?.seit ?? 0 };
+  // Antworten von Agenten des Raums auf Repo-Aufträge (11.5d2b): ein eigener Satz aus der Kennung, ein Weg zum Patch
+  const agenten = new Set((spacesUi.privat ? raumAgentKarten(spacesUi.privat.ereignisse) : spacesUi.agentKarten).map((k) => k.agent));
+  const repoAntworten = new Map((nachrichten as { id: string; pubkey: string; tags: string[][] }[]).flatMap((e) => {
+    const a = agenten.has(e.pubkey) ? leseRepoAntwort(e.tags) : null;
+    return a ? [[e.id, a] as const] : [];
+  }));
+  spacesUi.verlauf = { threads, alle, darfModerieren, darfSchreiben: darf, imThread: false, neuSeit: neuSeit?.seit ?? 0, repoAntworten };
   const thread = $("#channel-thread");
   if (thread) {
     // Seit C.2b2 gruppiert, mit Namen statt Schlüsseln – nur DOM und textContent
@@ -801,6 +808,8 @@ interface VerlaufKontext {
   darfModerieren: boolean;
   darfSchreiben: boolean;
   imThread: boolean;
+  /** Antworten von Agenten auf Repo-Aufträge nach Id (11.5d2b). */
+  repoAntworten?: Map<string, RepoAntwort>;
 }
 
 const nameVon = (pk: string): string => (pk === state.keypair?.pk ? t("raum.ich") : kontaktName(pk));
@@ -813,7 +822,11 @@ function nachrichtZeile(m: ChannelMessage, k: VerlaufKontext): HTMLElement {
   // Im Thread (C.2c): auf welche Antwort sich diese bezieht – nur als Text
   const bezug = k.imThread && m.replyTo && m.replyTo !== m.threadRoot ? k.alle.get(m.replyTo) : undefined;
   if (bezug) z.append(el("div", t("raum.zitat", { name: nameVon(bezug.authorPubkey), text: bezug.content.slice(0, 80) }), "msg-bezug"));
-  z.append(el("div", m.content, "msg-text"));
+  // Antwort eines Agenten auf einen Repo-Auftrag (11.5d2b): der Satz kommt aus der Kennung, nie vom Knoten
+  const antwort = k.repoAntworten?.get(m.id);
+  const satz = antwort ? repoAntwortText(antwort) : null;
+  z.append(el("div", satz ?? m.content, "msg-text"));
+  if (antwort?.patch) z.append(knopf(t("agentRepo.patchAnsehen"), "patch-ansehen", () => void oeffnePatchAusRaum(antwort.patch!)));
   const faden = k.imThread ? undefined : k.threads.get(m.id);
   if (faden) {
     // B8: „n Antworten“ öffnet den Thread (bis C.2c ohne Handler)
@@ -838,6 +851,25 @@ function nachrichtZeile(m: ChannelMessage, k: VerlaufKontext): HTMLElement {
     z.append(leiste);
   }
   return z;
+}
+
+/** Satz zu einer Antwort auf einen Repo-Auftrag (11.5d2b) – `null` bei einer unbekannten Kennung (dann bleibt der Text). */
+function repoAntwortText(a: RepoAntwort): string | null {
+  const s = repoFallSchluessel(a.fall);
+  return s ? `${t(s)}${a.pakete ? ` ${t("agentRepo.ohnePakete")}` : ""}` : null;
+}
+
+/** Den Patch aus der Antwort eines Agenten öffnen (11.5d2b) – nur unter den Repos dieses Raums, sonst ein Hinweis. */
+async function oeffnePatchAusRaum(patch: string): Promise<void> {
+  const ziel = raumZiel();
+  const finde = () => (ziel ? reposVonRaum(ziel) : []).find((k) => k.zeilen.some((z) => z.patch.id === patch));
+  let k = finde();
+  if (!k) {
+    await ladeNip34Repos(spacesUi.privat ? { privat: true } : {}).catch(() => undefined);
+    k = finde();
+  }
+  if (!k) return toast(t("agentRepo.patchFehlt"), true);
+  oeffneRepo(k.schluessel, patch);
 }
 
 /** Nachrichten nach Absender und Tag gruppiert (C.2b2), mit Namen statt Schlüsseln. */

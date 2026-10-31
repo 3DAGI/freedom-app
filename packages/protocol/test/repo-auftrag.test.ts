@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AGENT_ROLLE, agentAntwortEvent, raumAgentAntwort, baueRepoAnkuendigung, bauePatch, baueStatus, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace,
-  generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAuftrag, mitRaumRechten, neuesterBundleVerweis, patchStatus,
+  generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAntwort, leseRepoAuftrag, mitRaumRechten, neuesterBundleVerweis, patchStatus,
   raumAdresse, raumZustandFuer, repoAdresse, repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verschluesseleDatei,
   type NostrEvent,
 } from "../src/index.js";
@@ -177,4 +177,28 @@ test("11.5c3: fehlten die Pakete der Sperrdatei, nennt die Antwort die Kennung �
   for (const falsch of ["Text der Registry", "repo.patch", "paket-", "paket-Netz"]) {
     assert.throws(() => agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", pakete: falsch }), /Kennung/, falsch);
   }
+});
+
+test("11.5d2b: die App liest die Antwort so, wie der Knoten sie schreibt – sonst ist es keine", () => {
+  const auf = { id: "aa".repeat(32), von: autor.pk, zeit: 1, text: "@Agent", kanal: "allgemein", erwaehnt: [agent.pk] };
+  const patch = "bb".repeat(32);
+  // Hin und zurück, offen wie privat – die Erwähnung und die Antwort auf `auf` sind keine Patch-Verweise
+  const offen = agentAntwortEvent({ agent: agent.pk, kennung: SPACE, auf, text: "x", jetzt: 5, patch, fall: "repo.patch", pakete: "paket-netz" });
+  assert.deepEqual(leseRepoAntwort(offen.tags), { fall: "repo.patch", patch, pakete: "paket-netz" });
+  assert.deepEqual(leseRepoAntwort(raumAgentAntwort(auf, "x", { fall: "repo.zeit" }).tags), { fall: "repo.zeit" });
+  assert.equal(leseRepoAntwort(raumAgentAntwort(auf, "Hallo").tags), null, "gewöhnliche Antwort");
+  // Gegenproben: alles, was der Knoten so nie schreibt
+  const basis = [["h", "allgemein"], ["e", auf.id, "", "reply"]];
+  const falsch: [string, string[][]][] = [
+    ["Patch ohne repo.patch", [...basis, ["e", patch, "", "mention"], ["fall", "repo.zeit"]]],
+    ["repo.patch ohne Patch", [...basis, ["fall", "repo.patch"]]],
+    ["zwei Kennungen", [...basis, ["fall", "repo.zeit"], ["fall", "repo.gross"]]],
+    ["zwei Patches", [...basis, ["e", patch, "", "mention"], ["e", "cc".repeat(32), "", "mention"], ["fall", "repo.patch"]]],
+    ["Text statt Kennung", [...basis, ["fall", "Abgebrochen"]]],
+    ["fremde Kennung", [...basis, ["fall", "agent-repo-fremd"]]],
+    ["Patch keine Id", [...basis, ["e", "PATCH", "", "mention"], ["fall", "repo.patch"]]],
+    ["Pakete mit Text", [...basis, ["fall", "repo.zeit"], ["pakete", "Netz weg"]]],
+    ["zweimal Pakete", [...basis, ["fall", "repo.zeit"], ["pakete", "paket-netz"], ["pakete", "paket-zeit"]]],
+  ];
+  for (const [name, tags] of falsch) assert.equal(leseRepoAntwort(tags), null, name);
 });

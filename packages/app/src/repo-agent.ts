@@ -49,3 +49,23 @@ export function auftragsKanal(zustand: SpaceState, ich: string, agent: string): 
 export function repoAuftragNachricht(p: { name: string; aufgabe: string; repo: string; issue?: string }): { text: string; tags: string[][] } {
   return { text: `@${p.name} ${p.aufgabe}`, tags: repoAuftragTags({ repo: p.repo, ...(p.issue ? { issue: p.issue } : {}) }) };
 }
+
+/**
+ * Wie ein Repo-Auftrag endete (11.5d2b): je Kennung des Knotens (`REPO_TEXT` in `knoten-agent.ts`) ein eigener Satz –
+ * die App zeigt ihn statt des deutschen Satzes, den der Knoten in den Raum schreibt.
+ */
+export const REPO_FALL_TEXT: Readonly<Record<string, string>> = Object.freeze({
+  "repo.patch": "agentRepo.ergebnisPatch",
+  "repo.keine-aenderung": "agentRepo.ergebnisKeineAenderung",
+  "repo.gross": "agentRepo.ergebnisGross",
+  "repo.binaer": "agentRepo.ergebnisBinaer",
+  "repo.ordner": "agentRepo.ergebnisOrdner",
+  "repo.angaben": "agentRepo.ergebnisAngaben",
+  "repo.schritte": "agentRepo.ergebnisSchritte",
+  "repo.zeit": "agentRepo.ergebnisZeit",
+  "repo.tokens": "agentRepo.ergebnisTokens",
+  "repo.formfehler": "agentRepo.ergebnisFormfehler",
+});
+
+/** Text-Schlüssel zu einer Kennung – `null`, wenn die App sie nicht kennt. */
+export const repoFallSchluessel = (fall: string): string | null => (Object.hasOwn(REPO_FALL_TEXT, fall) ? REPO_FALL_TEXT[fall]! : null);
