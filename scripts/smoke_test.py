@@ -5530,6 +5530,11 @@ def raum_pruefen(browser, url: str) -> dict:
             stand = """() => { const m = document.getElementById('space-menue'); const d = document.querySelector('[role=dialog]');
               return { offen: !m.classList.contains('hidden'), expanded: document.getElementById('space-menue-knopf').getAttribute('aria-expanded'),
                 fokus: document.activeElement?.id || null, dialog: d ? d.querySelector('h3').textContent : null }; }"""
+            # Seit 11.5d3 steht „Agent beauftragen“ im Menü, sobald die Repos des Raums geladen sind – erst darauf warten
+            try:
+                s.wait_for_function("() => document.querySelectorAll('#raum-repos .raum-repo').length > 0", timeout=10000)
+            except Exception:
+                pass
             ev("() => document.getElementById('space-menue-knopf').focus()")
             schritte = {}
             for taste in ["ArrowDown", "End", "ArrowDown", "Escape", "Enter", "ArrowDown", "ArrowDown", "Enter", "Escape"]:
@@ -5538,17 +5543,18 @@ def raum_pruefen(browser, url: str) -> dict:
                 schritte.setdefault(taste, []).append(ev(stand))
             erg["desktop"]["menue"] = schritte
             # Seit C.2d2 nach Rechten: im fremden Raum weder Moderatoren noch Kanal anlegen. Seit 11.3e1 steht
-            # „Agent hinzufügen“ vorn – ich bin im Probe-Raum „mod“ mit „rollen_vergeben“ –, danach „Raum beitreten“
+            # „Agent hinzufügen“ im Menü – ich bin im Probe-Raum „mod“ mit „rollen_vergeben“ –, danach „Raum beitreten“;
+            # seit 11.5d3 davor „Agent beauftragen“ (der Probe-Raum hat ein Repo)
             soll = {
-                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
+                "ArrowDown": [{"offen": True, "expanded": "true", "fokus": "space-repo-agent", "dialog": None},
+                              {"offen": True, "expanded": "true", "fokus": "space-repo-agent", "dialog": None},
                               {"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
-                              {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None},
-                              {"offen": True, "expanded": "true", "fokus": "space-create", "dialog": None}],
+                              {"offen": True, "expanded": "true", "fokus": "space-join", "dialog": None}],
                 "End": [{"offen": True, "expanded": "true", "fokus": "space-create-public", "dialog": None}],
                 "Escape": [{"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None},
                            {"offen": False, "expanded": "false", "fokus": "space-menue-knopf", "dialog": None}],
-                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-agent-neu", "dialog": None},
-                          {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum anlegen (privat)"}],
+                "Enter": [{"offen": True, "expanded": "true", "fokus": "space-repo-agent", "dialog": None},
+                          {"offen": False, "expanded": "false", "fokus": None, "dialog": "Raum beitreten"}],
             }
             # Im Dialog steht der Fokus auf dem Eingabefeld – dessen Id ist nicht fest
             schritte["Enter"][1]["fokus"] = None

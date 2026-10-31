@@ -13908,4 +13908,6 @@ ist, sagt der Dialog.
 
 **Tests:** `app/test/repo-agent.test.ts` (+1) – Menüpunkt mit Text-Schlüssel und versteckt, sichtbar nur mit Identität und
 Repo, übergibt die Repos des Raums, ein Repo gleich, mehrere zur Wahl, die Wahl zählt, sendet selbst nichts. Smoke-Test
-„raum“: der Menüpunkt ist im Probe-Raum da und meldet, dass kein Agent auf einem Knoten da ist. Gegenproben 5 von 5 rot.
+„raum“: der Menüpunkt ist im Probe-Raum da und meldet, dass kein Agent auf einem Knoten da ist; die Tastatur-Prüfung
+des Raum-Menüs (C.2b2) wartet jetzt auf die Repos des Raums und kennt den neuen ersten Punkt. Angepasst: die Prüfung aus
+C.2b2 in `raum-verlauf.test.ts` nennt den Satz der Repo-Antwort (weiter nur `textContent`). Gegenproben 5 von 5 rot.
