@@ -70,7 +70,8 @@ test("C.2b2 (B9): Verlauf mit Namen, gebaut aus DOM und textContent; Mitglieder 
   assert.match(zeichnen, /return gruppiereVerlauf\(liste\)\.flatMap/);
   assert.match(zeichnen, /const nameVon = \(pk: string\): string => \(pk === state\.keypair\?\.pk \? t\("raum\.ich"\) : kontaktName\(pk\)\);/);
   assert.match(zeichnen, /const name = el\("span", nameVon\(g\.autor\), "msg-author"\);/);
-  assert.match(zeichnen, /z\.append\(el\("div", m\.content, "msg-text"\)\);/, "Inhalt nur als textContent");
+  // Seit 11.5d2b steht bei Antworten von Agenten auf Repo-Aufträge statt des Inhalts ein eigener Satz – beides nur als textContent
+  assert.match(zeichnen, /z\.append\(el\("div", satz \?\? m\.content, "msg-text"\)\);/, "Inhalt nur als textContent");
   // Aktionen je Nachricht als Werkzeugleiste – dieselben Wege wie bisher
   assert.match(zeichnen, /leiste\.setAttribute\("role", "toolbar"\);/);
   assert.match(zeichnen, /knopf\(t\("komm\.moderieren"\), "mod-hide", \(\) => void moderiere\("hide", m\.id, m\.authorPubkey\)\)/);
