@@ -13858,3 +13858,56 @@ grün. Der alte Schritt endete bei einer kaputten Mint mit 0, der neue mit 1.
 0.21.0, `breez_sdk_spark` nicht 0.17.2, das Skript mit `--no-deps`, der CI-Schritt weist erst zu und hat keine
 `$(…)` im `echo`. Gegenproben 5 von 5 rot: alte CI-Form, ohne `--no-deps`, 0.17.2, eine Zeile ohne feste Version,
 Zuweisung da und trotzdem `$(…)` im `echo`.
+
+## Schritt 11.5d2a – Absagen eines Repo-Auftrags in eigenen Sätzen, Kennzeichen an Patches von Agenten
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, Teil d2 in zwei Teilen). Lehnte der Knoten einen Repo-Auftrag ab,
+zeigte die App bisher den allgemeinen Satz mit der Kennung („… antwortet hier nicht (agent-repo-bundle)“). Jetzt hat jede
+der acht Kennungen ihren Satz (`ablehnungsText()`): Der Knoten arbeitet nicht an Repos, nur bezahlt, das Repo gehört nicht
+zum Raum, das Bundle fehlt oder ist nicht vollständig, das Issue fehlt, privat ohne Modell auf dem eigenen Rechner, gerade
+belegt, Modell oder Sandbox gescheitert. Patches, die ein Agent des Raums eingereicht hat, tragen in der Liste und auf ihrer
+Seite das Kennzeichen „Agent“ (`PatchZeile.vonAgent` aus `patchZeilen()` mit `istAgent` des Raums, `agentMarke()`) – mit dem
+Hinweis, den Vorschlag vor dem Annehmen zu lesen. Annehmen dürfen weiter nur Eigentümer und Maintainer.
+
+**Offen:** 11.5d2b – die Antwort des Agenten im Raum aus `fall` und `pakete` in eigenen Sätzen, mit Weg zum Patch; 11.5d3 –
+„Agent beauftragen“ im Raum selbst.
+
+**Tests:** `app/test/repo-agent.test.ts` (+2) – die acht Kennungen aus Knoten und Protokoll gelesen, je ein eigener Satz mit
+`{name}` in beiden Sprachen, Unbekanntes (auch „constructor“) beim allgemeinen; das Kennzeichen nur am Patch des Agenten,
+ohne Agenten des Raums keins, die Aktionen bleiben gleich; verdrahtet in Liste und Seite. Gegenproben 8 von 8 rot.
+
+## Schritt 11.5d2b – Antwort des Agenten im Raum in eigenen Sätzen, mit Weg zum Patch
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, zweiter Teil von d2). Der Knoten schreibt nach einem Repo-Auftrag einen
+festen deutschen Satz in den Raum und hängt Kennungen an (`fall`, den Patch als `["e", …, "mention"]`, seit 11.5c3
+`pakete`). Bisher zeigte die App nur den Satz – auf Englisch blieb er deutsch, und zum Patch führte nichts. Jetzt liest sie
+die Tags über `leseRepoAntwort()` (Protokoll, Gegenstück zu `repoAntwortTags()`: je Tag höchstens eines, Kennungen in
+derselben Form, der Patch genau bei `repo.patch`) und nur bei Nachrichten von Agenten des Raums (offen die Karten mit Rolle,
+privat die der Gruppe). Gezeigt wird ein eigener Satz je Kennung (`REPO_FALL_TEXT`, die zehn aus `REPO_TEXT` des Knotens),
+fehlten die Pakete, ein Satz dazu; eine unbekannte Kennung lässt den Text, wie er ist. Mit Patch gibt es „Patch ansehen“:
+gesucht nur unter den Repos dieses Raums (`reposVonRaum()`, notfalls einmal neu geladen), dann öffnet `oeffneRepo()` die
+Repo-Seite gleich mit diesem Patch (`oeffnePatchBeimZeigen()`); sonst ein Hinweis.
+
+**Damit ist 11.5d2 fertig.** **Offen:** 11.5d3 – „Agent beauftragen“ im Raum selbst.
+
+**Tests:** `protocol/test/repo-auftrag.test.ts` (+1): hin und zurück offen und privat, eine gewöhnliche Antwort ist keine,
+neun Formen, die der Knoten nie schreibt, sind keine. `app/test/repo-agent.test.ts` (+2): je Kennung des Knotens ein eigener
+Satz in beiden Sprachen (aus dem Quelltext gelesen), Unbekanntes auch „constructor“ ergibt keinen; verdrahtet – nur Agenten
+des Raums, der Satz statt des Textes, der Knopf nur mit Patch, der Patch nur unter den Repos des Raums. Gegenproben 11 von 11 rot.
+
+## Schritt 11.5d3 – „Agent beauftragen“ auch im Raum
+
+Spur A, nach `docs/REPO-AGENTEN-ENTWURF.md` (11.5d, letzter Teil). Statt des Repo-Tags von selbst, wenn der Raum genau ein
+Repo hat (V1), gibt es den Auftrag ausdrücklich: Im Raum-Menü steht „Agent beauftragen“, sobald der Raum ein Repo hat
+(`#space-repo-agent`, sichtbar über `zeigeRaumRepos()` – dieselbe Liste wie unter den Kanälen, nur mit Identität). Bei
+einem Repo geht es gleich weiter, bei mehreren fragt `beauftrageAgentImRaum()` erst, an welchem; danach derselbe Weg wie
+auf der Repo-Seite (`beauftrageAgentAmRepo()`: Agent, Aufgabe, Obergrenze, Preis, dann die Nachricht). Ob ein Agent da
+ist, sagt der Dialog.
+
+**Damit ist 11.5d fertig** – und mit ihm der App-Teil von 11.5 (Repo-Agenten).
+
+**Tests:** `app/test/repo-agent.test.ts` (+1) – Menüpunkt mit Text-Schlüssel und versteckt, sichtbar nur mit Identität und
+Repo, übergibt die Repos des Raums, ein Repo gleich, mehrere zur Wahl, die Wahl zählt, sendet selbst nichts. Smoke-Test
+„raum“: der Menüpunkt ist im Probe-Raum da und meldet, dass kein Agent auf einem Knoten da ist; die Tastatur-Prüfung
+des Raum-Menüs (C.2b2) wartet jetzt auf die Repos des Raums und kennt den neuen ersten Punkt. Angepasst: die Prüfung aus
+C.2b2 in `raum-verlauf.test.ts` nennt den Satz der Repo-Antwort (weiter nur `textContent`). Gegenproben 5 von 5 rot.

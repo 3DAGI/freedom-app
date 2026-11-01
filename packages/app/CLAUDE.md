@@ -1046,3 +1046,12 @@ Fallstricke dieses Bereichs unten anhängen.
   schreiben ich und der Agent, sonst schwiege er –, privat nur über `mlsSendeEventId()`. Repo-Aufträge warten mit
   `wartenMs: REPO_WARTEN_MS`: kürzer als der Lauf beim Knoten (`REPO_LAUF_GRENZEN.zeitMs`) hieße, der Patch steht im Raum und
   bezahlt wird nie (ein Test vergleicht beide).
+  Absagen `agent-repo-…` (seit 11.5d2a) nur über `ablehnungsText()`, je Kennung ein eigener Satz – ein Test liest die
+  Kennungen aus Knoten und Protokoll, eine neue braucht dort einen Fall. Das Kennzeichen „Agent“ an Patches (`vonAgent`)
+  kommt nur aus `istAgent` des Raums in `patchZeilen()` und ist nur ein Hinweis – annehmen bleibt `darfAnnehmen()`.
+  Die Antwort des Agenten im Raum (seit 11.5d2b) nur über `leseRepoAntwort()` und nur von Agenten des Raums (Karten wie bei
+  Erwähnungen); gezeigt wird der Satz aus `repoFallSchluessel()` statt des Textes vom Knoten – eine neue Kennung in `REPO_TEXT`
+  des Knotens braucht dort einen Eintrag (ein Test vergleicht). „Patch ansehen“ öffnet nur einen Patch unter den Repos dieses
+  Raums (`reposVonRaum()`), nie eine Kennung aus der Nachricht allein.
+  Im Raum (seit 11.5d3) nur über `beauftrageAgentImRaum()` mit den Repos aus `reposVonRaum()` – derselbe Weg wie auf der
+  Repo-Seite, nie ein zweiter; der Menüpunkt `#space-repo-agent` folgt der Liste unter den Kanälen (`zeigeRaumRepos()`).

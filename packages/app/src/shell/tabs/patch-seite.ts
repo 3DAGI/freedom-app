@@ -29,6 +29,13 @@ export function patchKnopf(text: string, klasse: string, tun: () => void): HTMLB
   return b;
 }
 
+/** Kennzeichen an Patches von Agenten (11.5d2a): Ein Agent schlägt nur vor – annehmen müssen Menschen. */
+export function agentMarke(): HTMLElement {
+  const m = el("span", t("agentRepo.vonAgent"), "msg-role rolle-agent");
+  m.title = t("agentRepo.vonAgentTitel");
+  return m;
+}
+
 export interface PatchAnsicht {
   betreff: string;
   commit: string;
@@ -39,6 +46,8 @@ export interface PatchAnsicht {
   zeit?: number;
   /** Status-Marke, Knöpfe für Aktionen, ein Hinweis darüber (Vorschau). */
   marke?: HTMLElement;
+  /** Eingereicht von einem Agenten des Raums (11.5d2a). */
+  vonAgent?: boolean;
   /** Wer den Status setzte, Commits, Begründung (seit C.3b2). */
   status?: HTMLElement | undefined;
   /** Labels und Zuständige (seit C-20i2) – fehlt in der Vorschau. */
@@ -61,6 +70,7 @@ export function zeigePatch(p: PatchAnsicht): HTMLElement[] {
   teile.push(el("h3", p.betreff, "patch-titel"));
   const meta = el("div", undefined, "patch-meta mono-sm muted");
   if (p.marke) meta.append(p.marke);
+  if (p.vonAgent) meta.append(agentMarke());
   const datum = p.zeit ? new Date(p.zeit * 1000).toLocaleDateString(gebietsschema(), { day: "numeric", month: "short", year: "numeric" }) : "";
   if (p.von) meta.append(el("span", t("repo.patchVon", { name: p.von, datum })));
   meta.append(el("span", t("repo.commitKurz", { sha: p.commit.slice(0, 7) })));

@@ -7,18 +7,23 @@
  *  - die Nachricht zeigt mit genau einem Repo-Tag auf das Repo – der Knoten liest es (`leseRepoAuftrag()`)
  *  - verdrahtet: Knopf auf der Repo-Seite nur mit Raum, erst der Preis, dann die Nachricht, dann der Auftrag;
  *    privat nur als inneres Event; die App wartet so lange wie der Lauf beim Knoten
+ *  - 11.5d2a: jede Absage eines Repo-Auftrags hat ihren eigenen Satz; Patches von Agenten tragen ein Kennzeichen
+ *  - 11.5d2b: die Antwort eines Agenten im Raum zeigt einen eigenen Satz je Kennung und führt zum Patch
+ *  - 11.5d3: „Agent beauftragen“ auch im Raum-Menü – ein Repo gleich, mehrere zur Wahl
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  AGENT_ROLLE, JEDER_RECHTE, JEDER_ROLLE, buildRoleGrant, buildRoles, buildSpace, generateKeypair, leseRepoAuftrag,
-  raumAdresse, raumZustandFuer, signEvent, type Channel,
+  AGENT_ROLLE, JEDER_RECHTE, JEDER_ROLLE, baueRepoAnkuendigung, bauePatch, buildRoleGrant, buildRoles, buildSpace, generateKeypair,
+  leseRepoAnkuendigung, leseRepoAuftrag, raumAdresse, raumZustandFuer, signEvent, type Channel,
 } from "@freedomstack/protocol";
 import { BEREICHE } from "../src/i18n.js";
-import type { RaumAgentKarte } from "../src/knoten-agent-wahl.js";
+import { type RaumAgentKarte, ablehnungsText } from "../src/knoten-agent-wahl.js";
+import { patchZeilen } from "../src/repo-ansicht.js";
 import {
-  REPO_AUFGABE_MAX, REPO_GEBOT_SATS, REPO_WARTEN_MS, auftragsKanal, leseAufgabe, leseObergrenze, repoAgenten, repoAuftragNachricht,
+  REPO_AUFGABE_MAX, REPO_FALL_TEXT, REPO_GEBOT_SATS, REPO_WARTEN_MS, auftragsKanal, leseAufgabe, leseObergrenze, repoAgenten, repoAuftragNachricht,
+  repoFallSchluessel,
 } from "../src/repo-agent.js";
 
 const lies = (datei: string) => readFileSync(new URL(`../src/${datei}`, import.meta.url), "utf8");
@@ -143,4 +148,92 @@ test("11.5d1: verdrahtet – Knopf nur mit Raum, Preis vor der Nachricht, privat
   const lauf = readFileSync(new URL("../../node/src/repo-lauf.ts", import.meta.url), "utf8");
   const zeit = /zeitMs: (\d+) \* 60_000,/.exec(lauf.slice(lauf.indexOf("export const REPO_LAUF_GRENZEN")));
   assert.ok(zeit && REPO_WARTEN_MS > Number(zeit[1]) * 60_000, "länger als der Lauf beim Knoten");
+});
+
+test("11.5d2a: jede Absage eines Repo-Auftrags hat ihren eigenen Satz – nie der allgemeine mit Kennung", () => {
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  const quelle = ["../../node/src/knoten-agent.ts", "../../node/src/dvm-provider.ts", "../../node/src/repo-bundle.ts", "../../protocol/src/repo-auftrag.ts"]
+    .map((d) => readFileSync(new URL(d, import.meta.url), "utf8")).join("\n");
+  const faelle = [...new Set([...quelle.matchAll(/"(agent-repo-[a-z-]+)"/g)].map((m) => m[1]!))];
+  assert.equal(faelle.length, 8, faelle.join(", "));
+  const saetze = faelle.map((f) => ablehnungsText(f));
+  assert.equal(new Set(saetze).size, faelle.length, "je Kennung ein anderer Satz");
+  for (const [i, s] of saetze.entries()) {
+    assert.match(s, /^agentRepo\./, `${faelle[i]} → ${s}`);
+    for (const sprache of ["de", "en"] as const) assert.ok(texte[s]?.[sprache].includes("{name}"), `${s} ${sprache}`);
+  }
+  // Was der Knoten nicht kennt, bleibt beim allgemeinen Satz – auch, was nur so aussieht
+  for (const f of ["agent-repo-neu", "agent-repo", "constructor", "agentRepo.aus"]) assert.equal(ablehnungsText(f), "agentKnoten.abgelehnt", f);
+});
+
+test("11.5d2a: Patches von Agenten tragen ein Kennzeichen – nur, wenn der Raum den Autor als Agenten kennt", () => {
+  const eigen = generateKeypair(), mensch = generateKeypair();
+  const repo = leseRepoAnkuendigung(signEvent(baueRepoAnkuendigung({ id: "demo", name: "Demo", klon: [] }, eigen.pk), eigen.sk));
+  const text = `From ${"a".repeat(40)} Mon Sep 17 00:00:00 2001\nSubject: [PATCH] X\n\n---\ndiff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n`;
+  const vom = (k: { pk: string; sk: Uint8Array }, zeit: number) => signEvent({ ...bauePatch({ repo, text }, k.pk), created_at: zeit }, k.sk);
+  const patches = [vom(AGENT, 20), vom(mensch, 10)];
+  const zeilen = patchZeilen(repo, patches, [], eigen.pk, (pk) => pk === AGENT.pk);
+  assert.deepEqual(zeilen.map((z) => [z.patch.autor, z.vonAgent]), [[AGENT.pk, true], [mensch.pk, undefined]]);
+  assert.ok(patchZeilen(repo, patches, [], eigen.pk).every((z) => !("vonAgent" in z)), "ohne Agenten des Raums kein Kennzeichen");
+  assert.deepEqual(zeilen[0]!.aktionen, ["annehmen", "entwurf", "schliessen"], "annehmen bleibt beim Eigentümer – das Kennzeichen ändert nichts daran");
+  // Verdrahtet: in der Liste und auf der Seite des Patches, als Text mit Erklärung
+  const seite = lies("shell/tabs/repo-seite.ts"), patch = lies("shell/tabs/patch-seite.ts");
+  assert.match(seite, /if \(z\.vonAgent\) meta\.prepend\(agentMarke\(\), " "\);/);
+  assert.match(seite, /\.\.\.\(offen\.vonAgent \? \{ vonAgent: true \} : \{\}\),/);
+  assert.match(patch, /if \(p\.vonAgent\) meta\.append\(agentMarke\(\)\);/);
+  assert.match(patch, /el\("span", t\("agentRepo\.vonAgent"\), "msg-role rolle-agent"\);\n {2}m\.title = t\("agentRepo\.vonAgentTitel"\);/);
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  assert.match(texte["agentRepo.vonAgentTitel"]!.de, /bevor du ihn annimmst/);
+});
+
+test("11.5d2b: jede Kennung, mit der ein Repo-Auftrag endet, hat einen eigenen Satz – Unbekanntes behält den Text", () => {
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  const knoten = readFileSync(new URL("../../node/src/knoten-agent.ts", import.meta.url), "utf8");
+  const block = knoten.slice(knoten.indexOf("export const REPO_TEXT = {"), knoten.indexOf("} as const;", knoten.indexOf("export const REPO_TEXT = {")));
+  const faelle = [...block.matchAll(/"(repo\.[a-z-]+)":/g)].map((m) => m[1]!);
+  assert.equal(faelle.length, 10, faelle.join(", "));
+  assert.deepEqual(Object.keys(REPO_FALL_TEXT).sort(), [...faelle].sort(), "genau die Kennungen des Knotens");
+  const saetze = faelle.map((f) => repoFallSchluessel(f));
+  assert.equal(new Set(saetze).size, faelle.length, "je Kennung ein anderer Satz");
+  for (const s of [...saetze, "agentRepo.ohnePakete", "agentRepo.patchAnsehen", "agentRepo.patchFehlt"]) assert.ok(texte[s!]?.de && texte[s!]?.en, String(s));
+  for (const f of ["repo.neu", "constructor", "__proto__", "toString", ""]) assert.equal(repoFallSchluessel(f), null, f);
+  // Ehrlich: ein Patch ist ein Vorschlag, und ohne Patch steht es da
+  assert.match(texte["agentRepo.ergebnisPatch"]!.de, /Vorschlag – annehmen können Eigentümer und Maintainer/);
+  for (const f of ["repo.keine-aenderung", "repo.schritte", "repo.zeit", "repo.tokens", "repo.formfehler", "repo.ordner"]) {
+    assert.match(texte[repoFallSchluessel(f)!]!.de, /kein Patch/, f);
+  }
+});
+
+test("11.5d2b: verdrahtet – nur Antworten von Agenten des Raums, der Satz statt des Textes, der Patch nur aus den Repos des Raums", () => {
+  const raeume = lies("shell/tabs/raeume.ts"), repos = lies("shell/tabs/repos.ts"), seite = lies("shell/tabs/repo-seite.ts");
+  // Wer: die Karten des Raums – offen aus der Rolle, privat aus der Gruppe; gelesen nur über leseRepoAntwort()
+  assert.match(raeume, /const agenten = new Set\(\(spacesUi\.privat \? raumAgentKarten\(spacesUi\.privat\.ereignisse\) : spacesUi\.agentKarten\)\.map\(\(k\) => k\.agent\)\);/);
+  assert.match(raeume, /const a = agenten\.has\(e\.pubkey\) \? leseRepoAntwort\(e\.tags\) : null;/);
+  assert.match(raeume, /repoAntworten \};/, "im Kontext des Verlaufs – auch im Thread");
+  // Was: der eigene Satz, sonst der Text; der Knopf nur mit Patch
+  assert.match(raeume, /z\.append\(el\("div", satz \?\? m\.content, "msg-text"\)\);/);
+  assert.match(raeume, /if \(antwort\?\.patch\) z\.append\(knopf\(t\("agentRepo\.patchAnsehen"\), "patch-ansehen", \(\) => void oeffnePatchAusRaum\(antwort\.patch!\)\)\);/);
+  assert.match(raeume, /const s = repoFallSchluessel\(a\.fall\);\n {2}return s \? `\$\{t\(s\)\}\$\{a\.pakete \? ` \$\{t\("agentRepo\.ohnePakete"\)\}` : ""\}` : null;/);
+  // Wohin: nur ein Patch unter den Repos dieses Raums, sonst ein Hinweis – nie eine Adresse aus der Nachricht
+  const weg = raeume.slice(raeume.indexOf("async function oeffnePatchAusRaum("), raeume.indexOf("/** Nachrichten nach Absender und Tag gruppiert"));
+  assert.match(weg, /\(ziel \? reposVonRaum\(ziel\) : \[\]\)\.find\(\(k\) => k\.zeilen\.some\(\(z\) => z\.patch\.id === patch\)\)/);
+  assert.match(weg, /if \(!k\) return toast\(t\("agentRepo\.patchFehlt"\), true\);\n {2}oeffneRepo\(k\.schluessel, patch\);/);
+  assert.match(repos, /export function oeffneRepo\(schluessel: string, patch\?: string\): void \{[^}]*vergissReiter\(\);\n {2}if \(patch\) oeffnePatchBeimZeigen\(patch\);/);
+  assert.match(seite, /export const oeffnePatchBeimZeigen = \(id: string\): void => \{ offenerPatch = id; \};/);
+});
+
+test("11.5d3: „Agent beauftragen“ auch im Raum – sobald er ein Repo hat; ein Repo gleich, mehrere zur Wahl", () => {
+  const html = readFileSync(new URL("../src/shell/index.html", import.meta.url), "utf8");
+  assert.match(html, /<button id="space-repo-agent" class="menue-punkt hidden" role="menuitem" type="button" data-i18n="agentRepo\.knopf">/);
+  const raeume = lies("shell/tabs/raeume.ts"), ui = lies("shell/repo-agent-ui.ts");
+  // Sichtbar nur mit Identität und einem Repo des Raums (dieselbe Liste wie unter den Kanälen), versteckt sonst
+  assert.match(raeume, /const agentAmRepo = !!state\.keypair && repos\.some\(\(k\) => k\.repo\);\n {2}document\.getElementById\("space-repo-agent"\)\?\.classList\.toggle\("hidden", !agentAmRepo\);/);
+  assert.match(raeume, /if \(ziel\) void import\("\.\.\/repo-agent-ui\.js"\)\.then\(\(m\) => m\.beauftrageAgentImRaum\(reposVonRaum\(ziel\)\)\);/);
+  // Danach derselbe Weg wie auf der Repo-Seite – nie ein zweiter
+  const im = ui.slice(ui.indexOf("export async function beauftrageAgentImRaum("));
+  assert.match(im, /if \(mit\.length <= 1\) return mit\[0\] \? beauftrageAgentAmRepo\(mit\[0\]\) : undefined;/);
+  assert.match(im, /const k = w \? mit\.find\(\(x\) => x\.schluessel === w\.repo\) : undefined;\n {2}if \(k\) await beauftrageAgentAmRepo\(k\);/);
+  assert.ok(!/publish\(|mlsSendeEvent/.test(im), "sendet selbst nichts");
+  const texte = Object.assign({}, ...Object.values(BEREICHE)) as Record<string, { de: string; en: string }>;
+  for (const s of ["agentRepo.welchesRepo", "agentRepo.repo", "agentRepo.knopf"]) assert.ok(texte[s]?.de && texte[s]?.en, s);
 });

@@ -57,6 +57,8 @@ export interface PatchZeile {
   commits?: string[];
   /** Was ich hier tun darf. */
   aktionen: PatchAktion[];
+  /** Eingereicht von einem Agenten des Raums (11.5d2a) – nur ein Vorschlag, annehmen müssen Menschen. */
+  vonAgent?: true;
 }
 
 /**
@@ -111,6 +113,7 @@ export function patchZeilen(
     zeilen.push({
       patch, status: st.status, aktionen: patchAktionen(st, repo, patch.autor, ich),
       ...(st.von ? { statusVon: st.von, statusZeit: st.zeit } : {}), ...(notiz ? { notiz } : {}), ...(st.commits ? { commits: st.commits } : {}),
+      ...(istAgent?.(patch.autor) ? { vonAgent: true as const } : {}),
     });
   }
   return zeilen.sort((a, b) => b.patch.zeit - a.patch.zeit);

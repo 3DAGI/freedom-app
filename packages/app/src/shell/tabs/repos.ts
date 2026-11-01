@@ -22,7 +22,7 @@ import { leererZustand, toast } from "../ui.js";
 import { switchTab } from "../app.js";
 import { geheZuRaum, oeffentlicheRaeume } from "./raeume.js";
 import { kennungVon } from "../../oeffentliche-raeume.js";
-import { eigentuemerName, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
+import { eigentuemerName, oeffnePatchBeimZeigen, vergissReiter, zeigeRepoSeite } from "./repo-seite.js";
 import { geheim } from "../tresor.js";
 import { type Gesehen, LS_REPOS_GESEHEN, type Neuigkeiten, beteiligt, gesehenAbgleichen, leseGesehen, neuGesamt, neuigkeiten } from "../../repo-neuigkeiten.js";
 import { LOKAL_MAX, LokalVoll } from "../../lokale-repos.js";
@@ -292,11 +292,12 @@ function karte(k: RepoKarte): HTMLElement {
   return b;
 }
 
-/** Ein Repo aus seinem Raum öffnen (11.4c): Seite „Repos“, gleich die Repo-Seite. */
-export function oeffneRepo(schluessel: string): void {
+/** Ein Repo aus seinem Raum öffnen (11.4c): Seite „Repos“, gleich die Repo-Seite – seit 11.5d2b auch gleich einen Patch. */
+export function oeffneRepo(schluessel: string, patch?: string): void {
   offenesRepo = schluessel;
   gesehenJetzt(schluessel);
   vergissReiter();
+  if (patch) oeffnePatchBeimZeigen(patch);
   switchTab("repos");
   zeige(true);
 }

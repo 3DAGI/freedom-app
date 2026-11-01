@@ -34,6 +34,15 @@ export function ablehnungsText(fall: string | undefined): string {
     case "agent-agent-ohne-schreibrecht": return "agentKnoten.agentOhneRecht";
     case "agent-kein-schreibrecht": return "agentKnoten.keinRecht";
     case "agent-bremse": return "agentKnoten.bremse";
+    // Repo-Aufträge (11.5d2a): je Kennung des Knotens ein eigener Satz
+    case "agent-repo-aus": return "agentRepo.aus";
+    case "agent-repo-bezahlt": return "agentRepo.bezahlt";
+    case "agent-repo-fremd": return "agentRepo.fremd";
+    case "agent-repo-bundle": return "agentRepo.bundle";
+    case "agent-repo-issue": return "agentRepo.issue";
+    case "agent-repo-modell": return "agentRepo.modell";
+    case "agent-repo-belegt": return "agentRepo.belegt";
+    case "agent-repo-fehler": return "agentRepo.fehler";
     default: return "agentKnoten.abgelehnt";
   }
 }
