@@ -16,6 +16,20 @@ RUN mkdir -p /aus && if [ "$WHISPER" = "1" ]; then \
       && install -D -m 0644 /tmp/whisper/whisper.cpp-LICENSE /aus/usr/local/share/doc/whisper.cpp/LICENSE; \
     fi
 
+# Godot für Spiele im Bild (VKk3a) – nur mit VIBECODEN=1: das offizielle Release in fester Fassung, gegen SHA-512 geprüft
+# (scripts/godot-holen.sh; MIT, Lizenztexte liegen im Bild). Eigene Stufe: curl und unzip bleiben draußen, ins Bild kommt
+# nur das Programm (rund 150 MB). Ohne VIBECODEN=1 bleibt /aus leer.
+FROM node:22-slim AS godot-holen
+ARG VIBECODEN=0
+COPY scripts/godot-holen.sh /tmp/godot-holen.sh
+RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ]; then apt-get update \
+      && apt-get install -y --no-install-recommends curl ca-certificates unzip \
+      && bash /tmp/godot-holen.sh /tmp/godot \
+      && install -D -m 0755 /tmp/godot/godot /aus/usr/local/bin/godot \
+      && install -D -m 0644 /tmp/godot/LICENSE.txt /aus/usr/local/share/doc/godot/LICENSE.txt \
+      && install -D -m 0644 /tmp/godot/COPYRIGHT.txt /aus/usr/local/share/doc/godot/COPYRIGHT.txt; \
+    fi
+
 FROM node:22-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -35,6 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewra
 
 # whisper-cli aus der Stufe oben (nur mit WHISPER=1 – sonst kommt nichts)
 COPY --from=whisper-bau /aus/ /
+# Godot aus der Stufe oben (nur mit VIBECODEN=1 – sonst kommt nichts)
+COPY --from=godot-holen /aus/ /
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes
@@ -46,12 +62,15 @@ COPY --from=whisper-bau /aus/ /
 # python-xlib (LGPL-2.1+) – eigene Programme, nur in der Bild-Sandbox (bildstrom.ts); Chromium zeigt dort Web-Projekte.
 # Notebooks ausführen (VKk2b): ipykernel und nbclient (BSD-3) aus Debian – der Motor führt sie im Terminal in seiner
 # Sandbox aus (mcp/notebook_ausfuehren.py), nie die Jupyter-Brücke selbst.
+# Godot-Projekte im Bild (VKk3a): OpenGL über Mesa in Software (libgl1, libglx-mesa0, libgl1-mesa-dri, MIT) und die
+# X-Bibliotheken, die Godot zur Laufzeit lädt – nur in der Sandbox des Programms.
 ARG VIBECODEN=0
 COPY docker/hermes-requirements.txt /tmp/hermes-requirements.txt
 RUN if [ "$VIBECODEN" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep chromium fonts-liberation \
         xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice \
         gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib python3-ipykernel python3-nbclient \
+        libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6 libxrandr2 \
       && rm -rf /var/lib/apt/lists/* \
       && python3 -m venv /opt/hermes \
       && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \

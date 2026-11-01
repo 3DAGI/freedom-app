@@ -17,7 +17,8 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, WEB_DEV_START, bildBefehl, bildFehlt, bildKodierer, browserArgumente, nvencDa,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, bildBefehl, bildFehlt, bildKodierer,
+  browserArgumente, godotArgumente, godotAusUmgebung, nvencDa,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -98,6 +99,59 @@ test("VKg2c1: Dev-Server im Bild – erst `npm run dev` mit PORT und HOST, Chrom
   assert.equal(readFileSync(join(d, "browser.txt"), "utf8"), `--kiosk http://127.0.0.1:${DEV_PORT}/\n`, "der Browser kam erst, als der Server antwortete");
 });
 
+test("VKk3a: Godot-Projekte – project.godot nur mit Godot, nach .freedom/start, vor main.py und Web, nur eine echte Datei", () => {
+  const a = ablage("spiel", "start", "verweis", "ordner");
+  const g = { breite: 800, hoehe: 600 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const godot = ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)];
+  for (const [f, inhalt] of [["project.godot", "config_version=5\n"], ["main.py", ""], ["index.html", "<p>"]]) writeFileSync(join(a.ort("spiel"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("spiel"), undefined, g), godot, "vor main.py");
+  assert.deepEqual(bildBefehl(a.ort("spiel"), web, g), godot, "vor Web");
+  assert.deepEqual(bildBefehl(a.ort("spiel")), ["python3", "/arbeit/main.py"], "ohne Godot zählt project.godot nicht");
+  mkdirSync(join(a.ort("start"), ".freedom"));
+  writeFileSync(join(a.ort("start"), ".freedom", "start"), "");
+  writeFileSync(join(a.ort("start"), "project.godot"), "");
+  assert.deepEqual(bildBefehl(a.ort("start"), undefined, g), ["/bin/sh", "/arbeit/.freedom/start"], "der eigene Startbefehl geht vor");
+  symlinkSync(join(a.ort("spiel"), "project.godot"), join(a.ort("verweis"), "project.godot"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, g), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "project.godot"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, g), null, "ein Ordner auch nicht");
+  // das Spiel, nie der Editor: X11, OpenGL in Software, ohne Ton, so groß wie das Bild
+  assert.deepEqual(godotArgumente(g), ["--path", "/arbeit", "--display-driver", "x11", "--rendering-method", "gl_compatibility",
+    "--rendering-driver", "opengl3", "--audio-driver", "Dummy", "--resolution", "800x600", "--position", "0,0"]);
+});
+
+test("VKk3a: Godot aus der Umgebung – GODOT als absoluter Pfad einer Datei, sonst die Orte; mit aus, ungültig oder ohne Fund keins", () => {
+  const d = tmp("godot");
+  const datei = join(d, "godot");
+  writeFileSync(datei, "");
+  assert.equal(godotAusUmgebung({ GODOT: datei }, []), datei);
+  assert.equal(godotAusUmgebung({ GODOT: "aus" }, [datei]), null);
+  assert.equal(godotAusUmgebung({ GODOT: "godot" }, [datei]), null, "relativ");
+  assert.equal(godotAusUmgebung({ GODOT: `${d}/./godot` }, [datei]), null, "nicht in Normalform");
+  assert.equal(godotAusUmgebung({ GODOT: d }, [datei]), null, "ein Ordner");
+  assert.equal(godotAusUmgebung({ GODOT: join(d, "fehlt") }, [datei]), null, "ein falscher Pfad heißt nicht: dann eben woanders");
+  assert.equal(godotAusUmgebung({ GODOT: " " }, [join(d, "fehlt"), datei]), datei, "leer wie nicht gesetzt");
+  assert.equal(godotAusUmgebung({}, [join(d, "fehlt")]), null);
+  assert.deepEqual(GODOT_ORTE, ["/usr/local/bin/godot", "/usr/bin/godot"], "das Docker-Bild legt es nach /usr/local/bin");
+});
+
+test("VKk3a: Start – erst der Import ohne Bildschirm, dann wird die Shell zum Spiel, auch wenn der Import scheitert", async () => {
+  for (const importGeht of [true, false]) {
+    const d = tmp("godot-start");
+    const aufrufe = join(d, "aufrufe.txt");
+    // ein Godot, das nur aufschreibt, womit es kam – und als Spiel seine Prozessnummer
+    writeFileSync(join(d, "godot"), `#!/bin/sh\necho "$*" >> "${aufrufe}"\ncase "$*" in *--import*) exit ${importGeht ? 0 : 1};; esac\necho "$$" >> "${aufrufe}"\n`);
+    chmodSync(join(d, "godot"), 0o755);
+    const g = { breite: 320, hoehe: 200 };
+    const sh = spawn("/bin/sh", ["-c", GODOT_START, join(d, "godot"), ...godotArgumente(g)], { stdio: "ignore" });
+    const code = await new Promise((r) => sh.once("close", r));
+    assert.equal(code, 0);
+    assert.deepEqual(readFileSync(aufrufe, "utf8").trim().split("\n"),
+      ["--headless --path /arbeit --import", godotArgumente(g).join(" "), String(sh.pid)], "exec: das Spiel ist der Prozess der Sandbox");
+  }
+});
+
 /** Statt bubblewrap: merkt sich, was gestartet würde, und spielt die Bild-Sandbox nach (`antworte`). */
 function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => string | null, o: { programmEndet?: boolean } = {}) {
   const starts: Array<{ befehl: readonly string[]; ort: Parameters<typeof sandboxDienst>[1]; beendet: boolean }> = [];
@@ -128,6 +182,29 @@ function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => stri
 }
 
 const abgelehnt = (fall: string) => (e: unknown) => e instanceof CodeAbgelehnt && e.fall === fall;
+
+test("VKk3a: Godot nur für das Programm – die eine Datei nur lesbar, nie für die Bild-Sandbox; ohne Godot kein Programm", async () => {
+  const a = ablage("spiel");
+  writeFileSync(join(a.ort("spiel"), "project.godot"), "config_version=5\n");
+  const godot = join(tmp("godot-datei"), "godot");
+  writeFileSync(godot, "");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, godot });
+  try {
+    assert.equal(await b.starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const [bild, programm] = starts as [typeof starts[0], typeof starts[0]];
+    assert.deepEqual(programm.befehl,
+      ["/usr/bin/env", "DISPLAY=:99", "/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente({ breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11, GODOT_IN_SANDBOX]);
+    assert.equal(programm.ort.nurLesbar!.find((s) => s.ziel === GODOT_IN_SANDBOX)!.quelle, godot, "die Datei, nie ihr Ordner");
+    assert.equal(programm.ort.gpu, undefined, "gerechnet in Software – die GPU nie für Code des Projekts");
+    assert.ok(!bild.ort.nurLesbar!.some((s) => s.quelle === godot || s.ziel === GODOT_IN_SANDBOX), "nicht in der Bild-Sandbox");
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
 
 test("VKg2a2: zwei Sandboxen – Zugang, Tunnel und Antwort nur im Bild, das Programm sieht nur den Bildschirm", async () => {
   const a = ablage("spiel");
@@ -409,6 +486,35 @@ test("VKg2c1: Ende zu Ende – ein Web-Projekt mit Dev-Server in Chromium im Bil
       const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("app", angebot, { breite: 640, hoehe: 480 }), rot, { farbe: [0, 192, 0] });
       console.log(`[bild] Dev-Server: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+/**
+ * Godot (VKk3a) – das echte Programm nur, wo GODOT_TEST darauf zeigt: in der CI aus `scripts/godot-holen.sh` (gegen SHA-512
+ * geprüft). Den Agenten ist das Starten heruntergeladener Programme hier verwehrt; sie prüfen die Bausteine mit Attrappe.
+ */
+const godotTest = process.env.GODOT_TEST;
+
+test("VKk3a: Ende zu Ende – ein Godot-Spiel im Bild (OpenGL in Software), ein Klick über den Datenkanal ändert es", {
+  skip: ohne || (!godotTest && "Godot fehlt (GODOT_TEST, scripts/godot-holen.sh)"), timeout: 150_000,
+}, async () => {
+  assert.ok(existsSync(godotTest!), `GODOT_TEST zeigt auf Godot (${godotTest})`);
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("spiel");
+    for (const f of ["project.godot", "haupt.tscn", "haupt.gd"]) copyFileSync(new URL(`./fixtures/godot/${f}`, import.meta.url), join(a.ort("spiel"), f));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, godot: godotTest! });
+    try {
+      const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
+      // vorher grün (darauf wartet der Empfänger: das Spiel läuft), nach dem Klick rot
+      const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("spiel", angebot, { breite: 640, hoehe: 480 }), rot, { farbe: [0, 192, 0] });
+      console.log(`[bild] Godot: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
+      assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
+      assert.ok(existsSync(join(a.ort("spiel"), ".godot")), "importiert wie im Editor");
     } finally {
       b.beendeAlle();
     }

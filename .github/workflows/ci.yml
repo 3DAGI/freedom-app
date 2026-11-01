@@ -98,6 +98,19 @@ jobs:
           sudo apt-get install -y --no-install-recommends python3-ipykernel python3-nbclient
           /usr/bin/python3 -c "import nbclient, ipykernel"
 
+      # VKk3a: Godot-Projekte zeigt Godot selbst im Bild – das Release (rund 78 MB) im Zwischenspeicher, geprüft wird es bei
+      # jedem Lauf (scripts/godot-holen.sh); OpenGL rechnet Mesa in Software. Ohne GODOT_TEST überspränge sich der Echttest
+      - name: Godot aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/freedom-godot
+          key: godot-${{ hashFiles('scripts/godot-holen.sh') }}
+      - name: Godot fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6 libxrandr2
+          bash scripts/godot-holen.sh "$HOME/.cache/freedom-godot"
+          echo "GODOT_TEST=$HOME/.cache/freedom-godot/godot" >> "$GITHUB_ENV"
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

@@ -54,7 +54,7 @@ import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js"
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt, bildKodierer, nvencDa } from "./bildstrom.js";
+import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, nvencDa } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -553,10 +553,12 @@ async function main(): Promise<void> {
           console.error("[bild] BILD_KODIERER ungültig (vp8, auto oder leer) – der Knoten startet nicht");
           process.exit(1);
         }
-        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}) });
+        // Godot-Projekte (VKk3a): Godot aus GODOT oder /usr/local/bin (Docker-Bild mit VIBECODEN=1) – ohne zeigt das Bild sie nicht
+        const godot = godotAusUmgebung(process.env);
+        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}) });
         process.on("exit", () => b.beendeAlle());
         bild = b;
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

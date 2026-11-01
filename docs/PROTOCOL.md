@@ -1289,7 +1289,7 @@ Tag, nie am Text:
 | `code-commit` | `diff`, `zurueck`: den Commit gibt es nicht, er ist keiner, oder er führt nicht zu `HEAD` |
 | `code-vorschau-aus` | `vorschau`: der Knoten hat keine Vorschau (`VORSCHAU_URL` fehlt, oder der Port war belegt) |
 | `code-bild-aus` | `bild`: der Knoten hat keinen Bildstrom (keine Sandbox, kein eigener TURN, oder GStreamer fehlt) |
-| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` – und, wo der Knoten Chromium hat (seit VKg2c1), weder ein Skript `dev` in `package.json` noch `index.html` |
+| `code-bild-kein-programm` | `bild`: im Projekt gibt es weder `.freedom/start` noch `main.py` – und, wo der Knoten Godot hat (seit VKk3a), kein `project.godot`, wo er Chromium hat (seit VKg2c1), weder ein Skript `dev` in `package.json` noch `index.html` |
 | `code-bild-fehler` | `bild`: das Angebot passt nicht, das Programm endete gleich, oder es gab keine Antwort |
 
 `neu` mit einem vorhandenen Namen ändert nichts und antwortet wie beim Anlegen.

@@ -776,13 +776,21 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   andere nehmen `PORT`. Höchstens drei laufen zugleich, nach 30 Minuten ohne Aufruf
   endet einer; ohne Sandbox zeigt die Vorschau nur die Dateien.
 - **Bild (seit VKg2a2, für Programme ohne Web):** Spiele und Programme mit Fenster
-  (Python mit pygame oder tkinter, später Godot und andere) zeigt der Knoten als
+  (Python mit pygame oder tkinter, Godot-Spiele, später weitere) zeigt der Knoten als
   Bildstrom in der App – auch unterwegs ohne `VORSCHAU_URL`. Das Programm nennt
   `.freedom/start` im Projekt (ein Befehl für `sh`), sonst startet der Knoten
   `main.py`. Web-Projekte zeigt Chromium im Bild (seit VKg2c1, derselbe wie für den
   Motor: `MCP_BROWSER`, sonst Chromium aus Debian) – mit Skript `dev` in
   `package.json` der Dev-Server wie in der Vorschau, sonst `index.html`; WebGL rechnet
-  dort SwiftShader in Software. Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
+  dort SwiftShader in Software. Godot-Projekte (`project.godot`, seit VKk3a) zeigt Godot
+  selbst: erst importiert wie im Editor (dabei entsteht `.godot/` – das gehört wie in
+  Godots Vorlage in `.gitignore`), dann das Spiel; OpenGL rechnet Mesa in Software, ohne
+  Ton, nur GDScript (C# bräuchte die .NET-Fassung). Godot sucht der Knoten unter
+  `/usr/local/bin/godot` (`GODOT` nennt einen anderen Pfad, `GODOT=aus` schaltet es ab);
+  `bash scripts/godot-holen.sh <ordner>` holt das Release in fester Fassung, gegen SHA-512
+  geprüft, dazu `libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6
+  libxrandr2`.
+  Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
   eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
   NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
   WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN
@@ -798,7 +806,7 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
   Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
   Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
-  270 MB);
+  270 MB; Godot seit VKk3a rund 150 MB mehr);
   läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
   dort `host.docker.internal:3478`. NVENC unter Docker (seit VKg2c2) nur mit
   NVIDIA Container Toolkit und der dritten Datei: `docker compose -f
