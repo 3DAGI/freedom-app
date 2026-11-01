@@ -129,6 +129,12 @@ jobs:
       - name: Tests node
         run: npm test --workspace @freedomstack/node
 
+      # 11.5s4b: Speicher und Prozesse je Befehl über cgroups v2 brauchen einen eigenen Teilbaum – wie Delegate= im Dienst des
+      # Installers; hier eine Scope mit Delegate=yes, als root (pids.max gilt auch dann). Fehlt er, ist der Test rot, nicht übersprungen
+      - name: Sandbox mit cgroups v2 (Speicher und Prozesse je Befehl)
+        working-directory: packages/node
+        run: sudo CGROUP_TEST_PFLICHT=1 PATH="$PATH" systemd-run --scope --quiet -p Delegate=yes -- "$(command -v node)" --import tsx --test test/sandbox-cgroup.test.ts
+
       - name: Tests app
         run: npm test --workspace @freedomstack/app
 

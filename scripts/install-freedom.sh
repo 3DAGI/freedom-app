@@ -373,6 +373,8 @@ PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
 ReadWritePaths=$HOME/freedom-data $STATE_DIR
+# Eigener cgroup-Teilbaum (11.5s4b): je Befehl in der Sandbox Speicher und Prozesse zusammen begrenzt
+Delegate=memory pids
 
 [Install]
 WantedBy=multi-user.target

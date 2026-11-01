@@ -14,18 +14,21 @@
  *   (die Commits macht der Knoten, VKc2); `/tmp` als tmpfs mit Grenze;
  * - die Umgebung leer bis auf `PATH`, `HOME` und `LANG` – keine Variable des
  *   Knotens, sein Home und `~/.freedom` sind nicht sichtbar;
- * - ohne Netz (VK4: Pakete holt der Knoten); GPU nur auf Wunsch.
+ * - ohne Netz (VK4: Pakete holt der Knoten); GPU nur auf Wunsch;
+ * - mit eigenem cgroup-Teilbaum (11.5s4b, `nutzeCgroups()`) je Befehl in einer eigenen Gruppe: Speicher und Prozesse
+ *   aller Programme zusammen begrenzt, sonst nur je Prozess.
  * Ohne bubblewrap oder ohne Nutzer-Namensräume (Docker-Seccomp, AppArmor) gibt
  * es kein Ausführen – `pruefeSandbox()` sagt das, nie läuft etwas direkt auf
  * dem Rechner.
  */
-import { spawn } from "node:child_process";
-import { closeSync, existsSync, lstatSync, mkdtempSync, openSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { accessSync, closeSync, constants, existsSync, lstatSync, mkdtempSync, openSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { ndJsonStream } from "@agentclientprotocol/sdk";
 import { CODE_GRENZEN } from "@freedomstack/protocol";
+import { inCgroup, type CgroupVerwalter } from "./cgroup.js";
 import { kuerzeAusgabe, lebt, type MotorStart } from "./code-motor.js";
 import { seccompFilter } from "./seccomp.js";
 
@@ -47,10 +50,41 @@ export const SANDBOX_GRENZEN = {
   /**
    * Prozesse und Threads aller Programme eines Befehls zusammen (11.5s4a) – gegen Fork-Bomben. `RLIMIT_NPROC` zählt seit
    * Linux 5.14 je Nutzer-Namensraum, also je Sandbox; gesetzt erst darin, damit die Prozesse des Knotens nicht mitzählen.
-   * Für den globalen root zählt der Kern nicht (`pruefeSandbox()` sagt das).
+   * Für den globalen root zählt der Kern nicht (`pruefeSandbox()` sagt das) – mit cgroups (11.5s4b) gilt `pids.max` auch dann.
    */
   prozesse: 1024,
+  /** Arbeitsspeicher aller Prozesse eines Befehls zusammen (KiB, 11.5s4b) – nur mit eigenem cgroup-Teilbaum. */
+  speicherGesamtKiB: 8 * 1024 * 1024,
 } as const;
+
+let gruppen: CgroupVerwalter | null = null;
+
+/** Ab jetzt läuft jeder Befehl, Motor und Dienst in einer eigenen Gruppe (11.5s4b, aus `richteCgroupsEin()`); `null` beendet das. */
+export function nutzeCgroups(v: CgroupVerwalter | null): void {
+  gruppen = v;
+}
+
+/** Laufen Befehle in eigenen Gruppen? */
+export function cgroupsAktiv(): boolean {
+  return gruppen !== null;
+}
+
+/** Ein Programm im PATH (oder mit Pfad) finden – ohne bubblewrap startet `spawn` es direkt und meldet `error` wie bisher. */
+function findeProgramm(name: string): boolean {
+  const ausfuehrbar = (p: string) => { try { accessSync(p, constants.X_OK); return true; } catch { return false; } };
+  return name.includes("/") ? ausfuehrbar(name) : (process.env.PATH ?? "").split(delimiter).some((d) => d !== "" && ausfuehrbar(join(d, name)));
+}
+
+/** bubblewrap starten – mit eigenem Teilbaum in einer neuen Gruppe, in die der Befehl vor bubblewrap selbst eintritt. */
+function starteBwrap(bwrap: string | undefined, argumente: string[], o: SpawnOptions): { kind: ChildProcess; aufraeumen: () => void } {
+  const programm = bwrap ?? "bwrap";
+  let gruppe: { procs: string; weg: () => void } | null = null;
+  if (gruppen && findeProgramm(programm)) {
+    try { gruppe = gruppen.neu(); } catch { /* ohne Gruppe bleiben die Grenzen je Prozess */ }
+  }
+  const [befehl, ...rest] = gruppe ? inCgroup(gruppe.procs, [programm, ...argumente]) : [programm, ...argumente];
+  return { kind: spawn(befehl!, rest, o), aufraeumen: () => gruppe?.weg() };
+}
 
 export interface SandboxOrt {
   /** Arbeitsordner – als `/arbeit` schreibbar eingebunden. */
@@ -87,7 +121,7 @@ export const SANDBOX_TEXT: Record<"sandbox.ok" | "sandbox.ok-ohne-seccomp" | "sa
 
 export function sandboxText(p: SandboxPruefung): string {
   const satz = SANDBOX_TEXT[p.ok ? (p.seccomp ? "sandbox.ok" : "sandbox.ok-ohne-seccomp") : p.fall];
-  return p.ok && p.root ? `${satz}. ${SANDBOX_TEXT["sandbox.root"]}` : satz;
+  return p.ok && p.root && !gruppen ? `${satz}. ${SANDBOX_TEXT["sandbox.root"]}` : satz;
 }
 
 const PATH_INNEN = "/usr/local/bin:/usr/bin:/bin";
@@ -202,7 +236,7 @@ export function fuehreAus(
   if (o.rechenzeitSek !== undefined && (!Number.isSafeInteger(o.rechenzeitSek) || o.rechenzeitSek < 1)) throw new Error("Rechenzeit ungültig");
   const etc = eigenesEtc(!o.ohneSeccomp);
   return new Promise((fertig, scheitern) => {
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, o.rechenzeitSek ?? true)], {
+    const { kind, aufraeumen } = starteBwrap(o.bwrap, [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, o.rechenzeitSek ?? true)], {
       stdio: ["ignore", "pipe", "pipe", ...(etc.fd === null ? [] : [etc.fd])], detached: true, env: { PATH: process.env.PATH ?? "/usr/bin:/bin" },
     });
     let text = "";
@@ -218,10 +252,11 @@ export function fuehreAus(
       zeitUm = true;
       if (kind.pid !== undefined) try { process.kill(-kind.pid, "SIGKILL"); } catch { /* schon weg */ }
     }, zeitMs);
-    kind.on("error", (e) => { clearTimeout(uhr); etc.weg(); scheitern(Object.assign(new Error("Sandbox startet nicht"), { name: "SandboxFehlt", cause: e })); });
+    kind.on("error", (e) => { clearTimeout(uhr); etc.weg(); aufraeumen(); scheitern(Object.assign(new Error("Sandbox startet nicht"), { name: "SandboxFehlt", cause: e })); });
     kind.on("close", (code) => {
       clearTimeout(uhr);
       etc.weg();
+      aufraeumen();
       fertig({ code: zeitUm ? null : code, ...kuerzeAusgabe(text), zeitUm });
     });
   });
@@ -265,11 +300,11 @@ export function sandboxMotor(befehl: readonly string[], o: {
       arbeit: ordner, ...(o.home ? { home: o.home(ordner) } : {}), ...(nurLesbar ? { nurLesbar } : {}),
       ...(o.gpu ? { gpu: true } : {}), ...(o.bwrap ? { bwrap: o.bwrap } : {}),
     };
-    const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
+    const { kind, aufraeumen } = starteBwrap(o.bwrap, [...sandboxArgumente(ort, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
       stdio: ["pipe", "pipe", "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
     });
     kind.on("error", () => { /* fehlt bubblewrap, endet der Strom – der Lauf endet mit „fehler“ */ });
-    kind.on("close", () => etc.weg());
+    kind.on("close", () => { etc.weg(); aufraeumen(); });
     return {
       strom: ndJsonStream(Writable.toWeb(kind.stdin!) as WritableStream<Uint8Array>, Readable.toWeb(kind.stdout!) as ReadableStream<Uint8Array>),
       beende: () => { if (lebt(kind)) kind.kill("SIGTERM"); },
@@ -290,12 +325,12 @@ export function sandboxDienst(befehl: readonly string[], o: SandboxOrt & { mitEi
   if (befehl.length === 0 || befehl.some((t) => t === "" || t.includes("\0"))) throw new Error("Befehl leer oder ungültig");
   const etc = eigenesEtc();
   const ea = o.mitEinAusgabe ? "pipe" : "ignore";
-  const kind = spawn(o.bwrap ?? "bwrap", [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
+  const { kind, aufraeumen } = starteBwrap(o.bwrap, [...sandboxArgumente(o, etc.ort), ...mitSeccomp(etc.fd), "--", ...mitGrenzen(befehl, false)], {
     stdio: [ea, ea, "ignore", ...(etc.fd === null ? [] : [etc.fd])], env: { PATH: process.env.PATH ?? "/usr/bin:/bin" }, windowsHide: true,
   });
   const ende = new Promise<void>((fertig) => {
-    kind.on("error", () => { etc.weg(); fertig(); });
-    kind.on("close", () => { etc.weg(); fertig(); });
+    kind.on("error", () => { etc.weg(); aufraeumen(); fertig(); });
+    kind.on("close", () => { etc.weg(); aufraeumen(); fertig(); });
   });
   kind.stdin?.on("error", () => undefined);
   return {

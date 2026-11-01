@@ -557,3 +557,14 @@ Bereichs unten anhängen.
   `notebooksAusfuehrbar()` den Kernel `python3` findet (einmal je Prozess; sonst `mcp.jupyter-kernel-fehlt` im Log).
   Lokal liegt in den Containern der Agenten ein Google Chrome unter `/opt/google/chrome` – den nimmt der Browser-Test aus VKk1
   zuerst, und er stürzt in der Sandbox ab; lokal mit `MCP_TEST_BROWSER` auf das Chromium von Playwright zeigen.
+- **Speicher und Prozesse je Befehl zusammen nur über `cgroup.ts`** (seit 11.5s4b): nur mit eigenem Teilbaum (cgroups v2,
+  `Delegate=memory pids` im Dienst des Installers) – `richteCgroupsEin()` einmal beim Start in `main.ts`, bevor der Knoten
+  Kinder startet, `nutzeCgroups()` gibt ihn der Sandbox. cgroups v2 schaltet Controller für Kinder nur ein, wenn die Gruppe
+  selbst keine Prozesse hält: erst alles aus der eigenen Gruppe nach `knoten` (je Schreiben ein Prozess), dann
+  `cgroup.subtree_control`. Bubblewrap startet nur über `starteBwrap()` – nie `spawn("bwrap", …)` daneben: Der Befehl tritt
+  über `inCgroup()` selbst ein, bevor er bubblewrap wird; ein Umzug nach dem Start käme zu spät (bubblewrap hat dann schon
+  Kinder). `memory.swap.max` 0, sonst wiche ein Befehl in den Swap aus; `pids.max` gilt auch für root, `ulimit -u` nicht.
+  Fehlt bubblewrap, startet `spawn` es direkt wie bisher (`error` → „Sandbox fehlt“), nie über die Shell (sonst Exit 127).
+  Docker gibt dem Container keinen schreibbaren Teilbaum – dort bleibt es je Prozess. Den Echttest gibt es nur mit Teilbaum:
+  die CI startet ihn in `systemd-run --scope -p Delegate=yes` mit `CGROUP_TEST_PFLICHT=1`; in den Containern der Agenten
+  gibt es nur cgroups v1 für den Speicher, dort überspringt er sich.

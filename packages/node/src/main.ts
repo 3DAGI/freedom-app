@@ -42,7 +42,8 @@ import { livekitAusUmgebung } from "./livekit.js";
 import { Whisper, whisperAusUmgebung } from "./whisper.js";
 import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
-import { pruefeSandbox, sandboxText } from "./sandbox.js";
+import { nutzeCgroups, pruefeSandbox, SANDBOX_GRENZEN, sandboxText } from "./sandbox.js";
+import { CGROUP_TEXT, richteCgroupsEin } from "./cgroup.js";
 import { sandboxPlattform } from "./repo-lauf.js";
 import { CodeLaeufe } from "./code-motor.js";
 import { hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
@@ -222,6 +223,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log(`Inference-Backend bereit: ${backend.name()}`);
+
+  // 11.5s4b: mit eigenem cgroup-Teilbaum (Delegate= im Dienst) je Befehl Speicher und Prozesse zusammen – bevor der Knoten
+  // Kinder startet (MCP-Server, aria2c), sonst blieben sie in der Gruppe, die keine Prozesse halten darf
+  const gruppen = richteCgroupsEin({ speicherBytes: SANDBOX_GRENZEN.speicherGesamtKiB * 1024, prozesse: SANDBOX_GRENZEN.prozesse });
+  nutzeCgroups(gruppen);
+  console.log(`[sandbox] ${gruppen ? CGROUP_TEXT.an : CGROUP_TEXT.aus}`);
 
   // Werkzeuge über MCP (B-31a, MC1-Größe B): Server nur aus ~/.freedom/mcp.json, nur in der Sandbox – ungültig → kein
   // Start; ohne Sandbox oder wenn ein Server nicht startet, rechnet der Knoten ohne ihn (das Log sagt es)
