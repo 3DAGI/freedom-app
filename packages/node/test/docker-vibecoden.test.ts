@@ -8,6 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { GODOT_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -94,4 +95,29 @@ test("VKg2c2: NVENC nur über docker-compose.nvenc.yml – GPU mit Video-Kodiere
   const knoten = standard.slice(standard.indexOf("\n  node:"), standard.indexOf("\n  coturn:"));
   assert.ok(knoten.length > 0 && !/driver: nvidia/.test(knoten), "der Knoten ohne GPU im Standard");
   assert.ok(!/nvidia/.test(lies("docker-compose.vibecoden.yml")), "Vibecoden ohne NVIDIA – läuft auch auf einem Raspberry Pi");
+});
+
+test("VKk3a: Godot nur mit VIBECODEN=1 – das Release in fester Fassung gegen SHA-512 geprüft, Mesa im Bild; die CI prüft es echt", () => {
+  const skript = lies("scripts/godot-holen.sh");
+  assert.match(skript, /^GODOT_FASSUNG=4\.7\.2-stable$/m);
+  for (const s of ["x86_64", "arm64", "LICENSE\\.txt", "COPYRIGHT\\.txt"]) assert.match(skript, new RegExp(`^  \\[${s}\\]=[0-9a-f]{128}$`, "m"), s);
+  assert.match(skript, /curl -fsSL --retry 3 --proto '=https' --tlsv1\.2 -o "\$2\.teil" "\$1"/, "nur https");
+  assert.match(skript, /stimmt "\$2\.teil" "\$3" \|\| \{ rm -f "\$2\.teil";/, "erst geprüft, dann unter dem Namen");
+  assert.match(skript, /unzip -p "\$ZIEL\/\$ARCHIV" "Godot_v\$\{GODOT_FASSUNG\}_linux\.\$ARCH" > "\$ZIEL\/godot\.teil"/, "nur die eine Datei");
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /FROM node:22-slim AS godot-holen\nARG VIBECODEN=0\nCOPY scripts\/godot-holen\.sh \/tmp\/godot-holen\.sh\n/);
+  assert.match(docker, /if \[ "\$VIBECODEN" = "1" \]; then apt-get update \\\n\s+&& apt-get install -y --no-install-recommends curl ca-certificates unzip \\\n\s+&& bash \/tmp\/godot-holen\.sh \/tmp\/godot \\\n/);
+  assert.match(docker, /install -D -m 0755 \/tmp\/godot\/godot \/aus\/usr\/local\/bin\/godot/);
+  assert.match(docker, /\nCOPY --from=godot-holen \/aus\/ \/\n/);
+  assert.equal(GODOT_ORTE[0], "/usr/local/bin/godot", "dort findet der Knoten es von selbst");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  for (const p of ["libgl1", "libglx-mesa0", "libgl1-mesa-dri", "libxcursor1", "libxinerama1", "libxi6", "libxrandr2"]) {
+    assert.ok(vibecoden.includes(p), p);
+    assert.ok(!immer.includes(p), `${p} nicht im schlanken Bild`);
+  }
+  const ci = lies(".github/workflows/ci.yml");
+  assert.match(ci, /key: godot-\$\{\{ hashFiles\('scripts\/godot-holen\.sh'\) \}\}\n/);
+  assert.match(ci, /\n\s+bash scripts\/godot-holen\.sh "\$HOME\/\.cache\/freedom-godot"\n\s+echo "GODOT_TEST=\$HOME\/\.cache\/freedom-godot\/godot" >> "\$GITHUB_ENV"\n/);
 });

@@ -126,3 +126,9 @@ dieses Bereichs unten anhängen.
   Exit-Code der Befehlsersetzung nicht, der Schritt bleibt grün, und Tests, die sich ohne den Dienst überspringen, fallen
   still weg (so fehlten die Cashu-Tests in der CI, als `breez_sdk_spark` 0.17.x von PyPI verschwand). Die Test-Mint
   installiert nur mit `--no-deps` genau `cashu-testmint.txt` – ein neues Paket dort mit fester Version, sonst fehlt es still.
+- **Godot nur aus `godot-holen.sh`** (seit VKk3a): das offizielle Release – anders als whisper-cli und die Tor-Brücken, die aus
+  den Quellen kommen (Godot zu bauen dauerte rund eine Stunde je Prozessor). Fassung und vier SHA-512 fest im Skript: die Archive
+  für x86_64 und arm64 aus `SHA512-SUMS.txt` des Releases, `LICENSE.txt` und `COPYRIGHT.txt` selbst gerechnet – nie zur Laufzeit
+  eine Summenliste lesen. Eine neue Fassung nur mit allen vier Summen; der Zwischenspeicher der CI folgt dem Skript. Aus dem
+  Archiv nur die eine Datei (`unzip -p`), unter dem Namen erst nach der Prüfung.
+

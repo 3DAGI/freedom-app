@@ -568,3 +568,12 @@ Bereichs unten anhängen.
   Docker gibt dem Container keinen schreibbaren Teilbaum – dort bleibt es je Prozess. Den Echttest gibt es nur mit Teilbaum:
   die CI startet ihn in `systemd-run --scope -p Delegate=yes` mit `CGROUP_TEST_PFLICHT=1`; in den Containern der Agenten
   gibt es nur cgroups v1 für den Speicher, dort überspringt er sich.
+- **Godot-Projekte im Bild nur über `bildBefehl()`** (seit VKk3a, `bildstrom.ts`): `project.godot` zählt nur mit Godot
+  (`godotAusUmgebung()`: `GODOT` oder `/usr/local/bin/godot`, ein falscher Pfad heißt keins – nie woanders suchen) und nur als
+  echte Datei; gestartet nur in der Sandbox des Programms über `GODOT_START` (erst `--headless --import`, dann `exec`) mit
+  `godotArgumente()` – X11, `gl_compatibility` mit `opengl3` (Mesa in Software), `Dummy` für den Ton, nie der Editor. Godot sieht
+  das Programm nur als einzelne Datei unter `GODOT_IN_SANDBOX`, nie seinen Ordner; die GPU bekommt es nie (nur die Bild-Sandbox).
+  Der Import legt `.godot/` an und ergänzt `config/features` in `project.godot` – wie der Editor; nie versprechen, dass das Bild
+  das Projekt nicht anfasst. Heruntergeladene Programme dürfen die Agenten hier nicht starten: Godot nur mit Attrappe prüfen
+  (Start mit `$$`), den Echttest macht die CI (`GODOT_TEST`).
+

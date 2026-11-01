@@ -12,6 +12,9 @@
  * Web-Projekte (VKg2c1) zeigt Chromium im Bild – mit dem Dev-Server wie in der Vorschau (VKg1c) oder `index.html`, beides in
  * der Sandbox des Programms. So geht auch eine Web-App unterwegs nur über den TURN, ohne Adresse des Knotens.
  *
+ * Godot-Projekte (VKk3a) zeigt Godot selbst, ebenfalls in der Sandbox des Programms – erst importiert wie im Editor, dann das
+ * Spiel, gerechnet in Software (`GODOT_START`, `godotArgumente()`).
+ *
  * Kodiert wird nach dem Angebot der App (VKg2c2): mit der Nummer des Formats aus dem Angebot, H.264 über NVENC, wo der Knoten
  * es hat (nur die Bild-Sandbox bekommt dann die GPU), sonst VP8 in Software (`bildKodierer()`).
  *
@@ -20,9 +23,9 @@
  * Verbindung, mit dem Programm, mit `bild-ende` oder wenn der Zugang zum TURN abläuft. Ins Log nur Zahlen.
  */
 import { execFile } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, normalize } from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { istBildSdp } from "@freedomstack/protocol";
@@ -117,12 +120,52 @@ export const WEB_DEV_START = [
   `exec "$0" "$@"`,
 ].join("\n");
 
+/** Godot in der Sandbox des Programms (VKk3a): als einzelne Datei nur lesbar hier – nie sein Ordner. */
+export const GODOT_IN_SANDBOX = "/freedom/godot";
+/** Wo der Knoten Godot sucht – das Docker-Bild legt es mit `VIBECODEN=1` nach `/usr/local/bin` (`scripts/godot-holen.sh`). */
+export const GODOT_ORTE: readonly string[] = ["/usr/local/bin/godot", "/usr/bin/godot"];
+
+/** Godot aus der Umgebung: `GODOT` (absoluter Pfad einer Datei), sonst der erste aus `GODOT_ORTE`; null mit `aus`, einem Pfad, der nicht stimmt, oder ohne Fund. */
+export function godotAusUmgebung(env: { GODOT?: string }, orte: readonly string[] = GODOT_ORTE): string | null {
+  const istDatei = (p: string) => {
+    try {
+      return statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  };
+  const wahl = env.GODOT?.trim();
+  if (wahl === "aus") return null;
+  if (wahl) return isAbsolute(wahl) && normalize(wahl) === wahl && istDatei(wahl) ? wahl : null;
+  return orte.find(istDatei) ?? null;
+}
+
 /**
- * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), sonst `main.py` (mit dem Python
- * aus `.venv`, wo es eins gibt). Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in `package.json` der
- * Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
+ * Ein Godot-Projekt im Bild (VKk3a): erst importieren wie der Editor, ohne Bildschirm – sonst fehlen Texturen und Klänge;
+ * dabei entsteht `.godot/` und Godot ergänzt `config/features` in `project.godot`, wie beim Öffnen im Editor. Dann das
+ * Spiel, auch wenn der Import scheitert (die Fehler zeigt dann das Spiel). `$0` ist Godot, `$@` die Argumente für das Spiel.
  */
-export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number }): string[] | null {
+export const GODOT_START = `"$0" --headless --path /arbeit --import\nexec "$0" "$@"`;
+
+/**
+ * Das Spiel auf dem ganzen Bildschirm, über X11 (in der Sandbox gibt es kein Wayland). Gerechnet wird in Software – OpenGL
+ * über Mesa (`gl_compatibility`); die GPU bekommt nur die Bild-Sandbox, nie das Programm. Ohne Ton – die Sandbox hat keinen.
+ */
+export function godotArgumente(groesse: { breite: number; hoehe: number }): string[] {
+  return [
+    "--path", "/arbeit", "--display-driver", "x11", "--rendering-method", "gl_compatibility", "--rendering-driver", "opengl3",
+    "--audio-driver", "Dummy", "--resolution", `${groesse.breite}x${groesse.hoehe}`, "--position", "0,0",
+  ];
+}
+
+/**
+ * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
+ * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt). Mit Browser (VKg2c1) dann
+ * ein Web-Projekt: mit Skript `dev` in `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App,
+ * wie man ein Programm nennt.
+ */
+export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
+  godot?: { breite: number; hoehe: number }): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -132,6 +175,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
     }
   };
   if (ist(".freedom", "ordner") && ist(".freedom/start", "datei")) return ["/bin/sh", "/arbeit/.freedom/start"];
+  if (godot && ist("project.godot", "datei")) return ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(godot)];
   if (ist("main.py", "datei")) {
     const venv = ist(".venv", "ordner") && existsSync(join(projektOrdner, ".venv", "bin", "python3"));
     return [venv ? "/arbeit/.venv/bin/python3" : "python3", "/arbeit/main.py"];
@@ -166,7 +210,7 @@ type Starte = typeof sandboxDienst;
 export class BildStrom {
   private readonly laufend = new Map<string, Laufend>();
   private readonly sandbox: Starte;
-  /** Was das Programm außer dem Bildschirm lesen darf – mit Browser dessen Ordner und die Schriften. */
+  /** Was das Programm außer dem Bildschirm lesen darf – mit Browser dessen Ordner und die Schriften, mit Godot die eine Datei. */
   private readonly programmLesbar: ReadonlyArray<{ quelle: string; ziel: string }>;
 
   constructor(private readonly ablage: Pick<ProjektAblage, "ort">, private readonly o: {
@@ -177,6 +221,8 @@ export class BildStrom {
     kodierer?: "vp8" | "h264"; gpu?: boolean;
     /** Chromium für Web-Projekte (VKg2c1, `browserAusUmgebung()`) – ohne zeigt das Bild nur Programme. */
     browser?: string;
+    /** Godot für Godot-Projekte (VKk3a, `godotAusUmgebung()`) – das Programm sieht es als `GODOT_IN_SANDBOX`. */
+    godot?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
     nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
     /** Nur für Tests: statt `bildBefehl()`. */
@@ -185,7 +231,9 @@ export class BildStrom {
     starte?: Starte;
   }) {
     this.sandbox = o.starte ?? ((befehl, ort) => sandboxDienst(befehl, { ...ort, ...(o.bwrap ? { bwrap: o.bwrap } : {}) }));
-    this.programmLesbar = [...(o.browser ? browserLesbar(o.browser) : []), ...(o.nurLesbar ?? [])];
+    this.programmLesbar = [
+      ...(o.browser ? browserLesbar(o.browser) : []), ...(o.godot ? [{ quelle: o.godot, ziel: GODOT_IN_SANDBOX }] : []), ...(o.nurLesbar ?? []),
+    ];
   }
 
   /** Läuft für das Projekt ein Bild? */
@@ -201,7 +249,7 @@ export class BildStrom {
     this.beende(projekt);
     if (this.laufend.size >= BILD_GRENZEN.gesamt) throw new CodeAbgelehnt("code-zu-viele");
     const browser = this.o.browser;
-    const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined);
+    const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, this.o.godot ? groesse : undefined);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
 
     // Den Platz gleich belegen – zwei Starts zugleich kämen sonst beide an der Grenze vorbei

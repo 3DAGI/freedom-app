@@ -1,0 +1,13 @@
+; Ein Spiel für den Echttest des Bildstroms (VKk3a): eine grüne Fläche, ein Klick macht sie rot.
+config_version=5
+
+[application]
+
+config/name="Freedom Bildtest"
+run/main_scene="res://haupt.tscn"
+boot_splash/show_image=false
+
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=480
