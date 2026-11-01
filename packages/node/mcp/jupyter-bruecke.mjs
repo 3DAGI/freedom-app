@@ -1,10 +1,11 @@
 // Jupyter-Notebooks als MCP-Server für den Motor (VKk2a, `docs/VIBECODEN-ENTWURF.md` VKk): Zellen lesen, anlegen,
 // ändern und löschen – geschrieben wie Jupyter selbst (nbformat 4, sortierte Schlüssel, Quelltext als Zeilen), damit git
 // nur die geänderte Zelle zeigt. Läuft nur als Kind von Hermes in dessen Sandbox, nur unter dem Projekt (`/arbeit`).
-// Ausgeführt wird hier nichts: Code läuft nur über das Terminal von Hermes, das vorher fragt. Nur Node, keine Pakete;
+// Ausgeführt wird hier nichts: Code läuft nur über das Terminal von Hermes, das vorher fragt – seit VKk2b mit
+// `notebook_ausfuehren.py` daneben; den Befehl nennt `notebook_read` nur, wenn ein Kernel da ist. Nur Node, keine Pakete;
 // stdout ist der MCP-Kanal (eine JSON-Nachricht je Zeile), nach stderr schreibt die Brücke nie – Zellen sind Inhalt des
 // Projekts.
-//   node jupyter-bruecke.mjs <projekt>
+//   node jupyter-bruecke.mjs <projekt> [--ausfuehren=<skript in der sandbox>]
 import { randomBytes } from "node:crypto";
 import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
@@ -212,6 +213,14 @@ function neueId(nb) {
 
 const istIndex = (i, n) => Number.isSafeInteger(i) && i >= 0 && i < n;
 
+/** Die Werkzeuge, wie der Motor sie sieht – mit Kernel nennt `notebook_read`, wie man im Terminal ausführt (VKk2b). */
+export function werkzeuge(ausfuehren) {
+  if (!ausfuehren) return WERKZEUGE;
+  return WERKZEUGE.map((w) => (w.name === "notebook_read"
+    ? { ...w, description: `${w.description} To run all code cells, use the terminal: ${ausfuehren} <path> – the outputs are saved in the notebook, then read them here.` }
+    : w));
+}
+
 /** Ein Aufruf des Modells – Fehler nur als feste Texte. */
 export function rufe(wurzel, name, args) {
   const a = typeof args === "object" && args !== null ? args : {};
@@ -261,8 +270,9 @@ export function rufe(wurzel, name, args) {
 }
 
 async function lauf() {
-  const wurzel = process.argv[2];
-  if (!wurzel || !isAbsolute(wurzel)) process.exit(2);
+  const [wurzel, ...rest] = process.argv.slice(2);
+  const ausfuehren = rest.length === 1 && /^--ausfuehren=\/[^\s]+\.py$/.test(rest[0]) ? rest[0].slice("--ausfuehren=".length) : null;
+  if (!wurzel || !isAbsolute(wurzel) || rest.length > (ausfuehren ? 1 : 0)) process.exit(2);
   const sende = (m) => process.stdout.write(`${JSON.stringify(m)}\n`);
   const zeilenStrom = createInterface({ input: process.stdin, crlfDelay: Infinity });
   zeilenStrom.on("close", () => process.exit(0));
@@ -278,7 +288,7 @@ async function lauf() {
     if (m.method === "initialize") {
       antwort({ protocolVersion: FASSUNGEN.includes(m.params?.protocolVersion) ? m.params.protocolVersion : FASSUNGEN.at(-1), capabilities: { tools: {} }, serverInfo: { name: "freedom-jupyter", version: "1" } });
     } else if (m.method === "ping") antwort({});
-    else if (m.method === "tools/list") antwort({ tools: WERKZEUGE });
+    else if (m.method === "tools/list") antwort({ tools: werkzeuge(ausfuehren) });
     else if (m.method === "tools/call") {
       const r = rufe(wurzel, m.params?.name, m.params?.arguments);
       antwort({ content: [{ type: "text", text: r.text }], isError: r.fehler });

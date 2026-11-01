@@ -545,5 +545,15 @@ Bereichs unten anhängen.
   (kein Teil mit Punkt am Anfang, `.ipynb`), Orte nur mit `lstat` je Teil, gelesen mit `O_NOFOLLOW`, geschrieben über eine
   neue Datei daneben (`wx`) und Umbenennen. Geschrieben nur über `alsJson()`/`neueZelle()` – Byte für Byte wie nbformat
   (sortierte Schlüssel, Einrückung 1, Quelltext wie `splitlines(True)`); die Referenz nur mit `scripts/jupyter-referenz.py`
-  neu erzeugen. Unicode-Zeilentrenner im Quelltext der Brücke nur als ` `/` ` schreiben – roh beenden sie das
+  neu erzeugen. Unicode-Zeilentrenner im Quelltext der Brücke nur als `\u2028`/`\u2029` schreiben – roh beenden sie das
   Regex-Literal.
+- **Notebooks ausführen nur über `notebook_ausfuehren.py`** (seit VKk2b, neben der Brücke): Der Motor ruft es im Terminal auf –
+  in seiner Sandbox, im Modus „fragen“ nach der Rückfrage von Hermes –, nie die Brücke und nie der Knoten. Fest
+  `#!/usr/bin/python3` (ausführbar im Repo): Kernel und Pakete gehören zur Python der Distribution (python3-ipykernel,
+  python3-nbclient, im Bild nur mit `VIBECODEN=1`); im PATH der Sandbox steht `/usr/local/bin` vorn, dort kann eine andere
+  liegen. Nur die Schnittstelle von nbclient (`NotebookClient`) – `jupyter execute --inplace` kennt erst nbclient 0.10,
+  Ubuntu 24.04 bringt 0.8. Gespeichert wird auch bis zu einer Zelle, die scheitert (mit `nbformat.write`, das schreibt Byte für
+  Byte wie die Brücke). Den Befehl nennt `notebook_read` nur mit `--ausfuehren=<pfad>`, und das setzt `jupyterMcp()` nur, wenn
+  `notebooksAusfuehrbar()` den Kernel `python3` findet (einmal je Prozess; sonst `mcp.jupyter-kernel-fehlt` im Log).
+  Lokal liegt in den Containern der Agenten ein Google Chrome unter `/opt/google/chrome` – den nimmt der Browser-Test aus VKk1
+  zuerst, und er stürzt in der Sandbox ab; lokal mit `MCP_TEST_BROWSER` auf das Chromium von Playwright zeigen.

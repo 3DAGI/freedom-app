@@ -17,8 +17,10 @@
  *
  * VKk2a: Jupyter-Notebooks – die eigene Brücke (`mcp/jupyter-bruecke.mjs`, nur Node): Zellen lesen, anlegen, ändern und
  * löschen, nur unter `/arbeit`, geschrieben wie nbformat. Sie führt nichts aus – Code läuft nur über das Terminal von
- * Hermes, das vorher fragt.
+ * Hermes, das vorher fragt. VKk2b: dort mit `notebook_ausfuehren.py` neben der Brücke und dem Kernel der Distribution
+ * (python3-ipykernel, python3-nbclient); nur wenn es ihn gibt, nennt die Brücke den Befehl.
  */
+import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
@@ -71,9 +73,24 @@ export const KIWIX_IN_SANDBOX = "/freedom/mcp/kiwix";
 /** Die Jupyter-Brücke (VKk2a) und wo sie in der Sandbox liegt – nie unter `/arbeit`. */
 export const JUPYTER_BRUECKE = fileURLToPath(new URL("../mcp/jupyter-bruecke.mjs", import.meta.url));
 export const JUPYTER_IN_SANDBOX = "/freedom/mcp/jupyter";
+/** Das Skript zum Ausführen (VKk2b), wie der Motor es in der Sandbox sieht – neben der Brücke. */
+export const NOTEBOOK_AUSFUEHREN_IN_SANDBOX = join(JUPYTER_IN_SANDBOX, "notebook_ausfuehren.py");
+
+let ausfuehrbar: boolean | undefined;
+
+/**
+ * Hat die Python der Distribution nbclient und einen Kernel `python3` (VKk2b)? Einmal je Prozess gefragt – mit
+ * `/usr/bin/python3`, wie das Skript und der Kernel selbst; in die Sandbox kommt davon nichts, `/usr` sieht sie schon.
+ */
+export function notebooksAusfuehrbar(): boolean {
+  ausfuehrbar ??= spawnSync("/usr/bin/python3", ["-c",
+    "import nbclient, nbformat\nfrom jupyter_client.kernelspec import KernelSpecManager\nassert 'python3' in KernelSpecManager().find_kernel_specs()"],
+  { stdio: "ignore", timeout: 30_000, env: { PATH: "/usr/bin:/bin" } }).status === 0;
+  return ausfuehrbar;
+}
 
 /** Was für einen Server des Katalogs fehlt – ins Log nur diese Kennungen. */
-export type McpFehlt = "mcp.playwright-fehlt" | "mcp.browser-fehlt" | "mcp.kiwix-fehlt";
+export type McpFehlt = "mcp.playwright-fehlt" | "mcp.browser-fehlt" | "mcp.kiwix-fehlt" | "mcp.jupyter-kernel-fehlt";
 
 /**
  * `playwright-core` des Knotens (optionale Abhängigkeit). `null`, wenn es fehlt oder die Fassung den MCP-Einstieg
@@ -144,13 +161,13 @@ function kiwixMcp(o: { zim: readonly string[]; kiwixServe: string; node?: string
  * Die Jupyter-Brücke für den Motor (VKk2a): `node` des Knotens, das Projekt als Wurzel – geschrieben wird nur dort, wo
  * die Sandbox ohnehin schreiben darf. Der Motor bekommt genau die Werkzeuge der Brücke.
  */
-export function jupyterMcp(o: { node?: string; heim?: string } = {}): McpServer {
+export function jupyterMcp(o: { node?: string; heim?: string; ausfuehren?: boolean } = {}): McpServer {
   const node = o.node ?? process.execPath;
   if (!isAbsolute(node) || normalize(node) !== node) throw new Error("Pfad ungültig");
   return {
     name: "jupyter",
     befehl: node,
-    argumente: [join(JUPYTER_IN_SANDBOX, basename(JUPYTER_BRUECKE)), "/arbeit"],
+    argumente: [join(JUPYTER_IN_SANDBOX, basename(JUPYTER_BRUECKE)), "/arbeit", ...(o.ausfuehren ? [`--ausfuehren=${NOTEBOOK_AUSFUEHREN_IN_SANDBOX}`] : [])],
     werkzeuge: JUPYTER_WERKZEUGE.map((w) => w.name),
     beimFragen: ["notebook_read"],
     nurLesbar: [
@@ -166,21 +183,24 @@ export function jupyterMcp(o: { node?: string; heim?: string } = {}): McpServer 
  *   `BROWSER_ORTE`.
  * - `MCP_KIWIX` – nur `aus`: Die ZIM-Dateien (`zim`) kommen aus `mcp.json` (B-31b); stehen dort welche, bekommt der Motor
  *   Kiwix von selbst.
- * - `MCP_JUPYTER` – nur `aus`: Die Jupyter-Brücke braucht nichts außer Node, der Motor bekommt sie von selbst.
+ * - `MCP_JUPYTER` – nur `aus`: Die Jupyter-Brücke braucht nichts außer Node, der Motor bekommt sie von selbst; ohne
+ *   Kernel (`notebooks`, sonst `notebooksAusfuehrbar()`) liest und ändert er Notebooks nur.
  *
  * Eine Angabe, die nicht stimmt, heißt kein Start (`ungueltig`); fehlt nur etwas, läuft der Motor ohne den Server (`fehlt`).
  */
 export function mcpAusUmgebung(
   env: { MCP_BROWSER?: string; MCP_KIWIX?: string; MCP_JUPYTER?: string },
-  o: { playwright?: string | null; orte?: readonly string[]; zim?: readonly string[]; kiwixServe?: string; node?: string; heim?: string } = {},
+  o: { playwright?: string | null; orte?: readonly string[]; zim?: readonly string[]; kiwixServe?: string; node?: string; heim?: string; notebooks?: boolean } = {},
 ): { server: McpServer[]; fehlt: McpFehlt[] } | { ungueltig: string } {
   const ohneJupyter = katalogOhneJupyter(env, o);
   if ("ungueltig" in ohneJupyter) return ohneJupyter;
   const jupyter = env.MCP_JUPYTER?.trim();
   if (jupyter === "aus") return ohneJupyter;
   if (jupyter) return { ungueltig: "MCP_JUPYTER kennt nur „aus“" };
+  const ausfuehren = o.notebooks ?? notebooksAusfuehrbar();
   try {
-    return { server: [...ohneJupyter.server, jupyterMcp({ ...(o.node ? { node: o.node } : {}), ...(o.heim ? { heim: o.heim } : {}) })], fehlt: ohneJupyter.fehlt };
+    const s = jupyterMcp({ ...(o.node ? { node: o.node } : {}), ...(o.heim ? { heim: o.heim } : {}), ausfuehren });
+    return { server: [...ohneJupyter.server, s], fehlt: [...ohneJupyter.fehlt, ...(ausfuehren ? [] : ["mcp.jupyter-kernel-fehlt" as const])] };
   } catch {
     return { ungueltig: "Node liegt direkt im Home oder in der Wurzel – die Sandbox bekäme zu viel zu sehen (Jupyter)" };
   }
@@ -264,6 +284,7 @@ export const MCP_TEXT: Record<McpFehlt, string> = {
   "mcp.playwright-fehlt": "Browser für den Motor fehlt: playwright-core ist nicht installiert (optionale Abhängigkeit) – der Motor läuft ohne",
   "mcp.browser-fehlt": "Browser für den Motor fehlt: kein Chromium gefunden (MCP_BROWSER) – der Motor läuft ohne",
   "mcp.kiwix-fehlt": "Kiwix für den Motor fehlt: kiwix-serve ist nicht installiert (Paket kiwix-tools) – der Motor läuft ohne",
+  "mcp.jupyter-kernel-fehlt": "Notebooks ausführen fehlt: python3-ipykernel und python3-nbclient sind nicht installiert – der Motor liest und ändert Notebooks nur",
 };
 
 /** Der Eintrag für `mcp_servers` in `config.yaml` (Hermes 0.19: `command`, `args`, `tools.include`). */

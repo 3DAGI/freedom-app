@@ -13911,3 +13911,27 @@ Repo, übergibt die Repos des Raums, ein Repo gleich, mehrere zur Wahl, die Wahl
 „raum“: der Menüpunkt ist im Probe-Raum da und meldet, dass kein Agent auf einem Knoten da ist; die Tastatur-Prüfung
 des Raum-Menüs (C.2b2) wartet jetzt auf die Repos des Raums und kennt den neuen ersten Punkt. Angepasst: die Prüfung aus
 C.2b2 in `raum-verlauf.test.ts` nennt den Satz der Repo-Antwort (weiter nur `textContent`). Gegenproben 5 von 5 rot.
+
+## Schritt VKk2b – Notebooks ausführen: über das Terminal des Motors, mit dem Kernel der Distribution
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk), auf VKk2a (#614). Damit ist VKk2 fertig.
+
+- **`packages/node/mcp/notebook_ausfuehren.py`** (neu, ausführbar, `#!/usr/bin/python3`): führt alle Code-Zellen in einem
+  Kernel aus und speichert die Ausgaben ins Notebook – auch bis zu einer Zelle, die scheitert („stopped at cell N (Fehler)“,
+  Exit 1). Nur die Schnittstelle von nbclient: `jupyter execute --inplace` kennt erst nbclient 0.10, Ubuntu 24.04 (CI) bringt
+  0.8. Fest die Python der Distribution – im PATH der Sandbox steht `/usr/local/bin` vorn. Der Motor ruft es im Terminal auf:
+  in seiner Sandbox, ohne Netz, im Modus „fragen“ nach der Rückfrage von Hermes; die Brücke selbst führt weiter nichts aus.
+- **Brücke:** Mit `--ausfuehren=<pfad>` nennt `notebook_read` den Befehl (`werkzeuge()`); anderes auf der Befehlszeile heißt
+  kein Start.
+- **`src/mcp-katalog.ts`:** `notebooksAusfuehrbar()` (einmal je Prozess: nbclient und ein Kernel `python3` bei
+  `/usr/bin/python3`), `jupyterMcp({ ausfuehren })`; ohne Kernel `mcp.jupyter-kernel-fehlt` im Log und in `npm run pruefen`.
+- **Bild und CI:** `python3-ipykernel` und `python3-nbclient` aus Debian nur mit `VIBECODEN=1`; die CI installiert sie für
+  den Echttest (Zwischenspeicher wie B-42).
+- Fallstrick im Knoten (dazu die rohen Zeilentrenner aus VKk2a in `packages/node/CLAUDE.md` als ` `/` `), Provider-
+  Anleitung, Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +4 (`jupyter-ausfuehren.test.ts`): Befehl nur mit Kernel, Log sagt, was fehlt, Skript ausführbar mit der
+Python der Distribution; die Brücke nimmt nur ein Skript mit absolutem Pfad; Pakete nur im Bild mit Vibecoden und in der CI;
+echt in bubblewrap: 42 und π im Notebook, kein Netz, Halt bei `1/0` mit gespeicherten Ausgaben, nach der Korrektur laufen
+alle Zellen, nbformat schreibt Byte für Byte wie die Brücke. Gegenprobe: ohne Speichern beim Fehler rot. Der Kiwix-Test
+aus VKd2a, der genau „nichts fehlt“ erwartet, schaltet Jupyter ab.
