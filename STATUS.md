@@ -13935,3 +13935,27 @@ Python der Distribution; die Brücke nimmt nur ein Skript mit absolutem Pfad; Pa
 echt in bubblewrap: 42 und π im Notebook, kein Netz, Halt bei `1/0` mit gespeicherten Ausgaben, nach der Korrektur laufen
 alle Zellen, nbformat schreibt Byte für Byte wie die Brücke. Gegenprobe: ohne Speichern beim Fehler rot. Der Kiwix-Test
 aus VKd2a, der genau „nichts fehlt“ erwartet, schaltet Jupyter ab.
+
+## Schritt 11.5s4b – Speicher und Prozesse je Befehl zusammen: cgroups v2 mit eigenem Teilbaum
+
+Spur B, `docs/REPO-AGENTEN-ENTWURF.md` (Aufteilung W3: 11.5s4b), nach 11.5s3 (4 GiB je Prozess) und 11.5s4a (1024 Prozesse je
+Befehl über `ulimit`). MENSCH 01.11.: nächster Schritt der Spur.
+
+- **`packages/node/src/cgroup.ts`** (neu): `richteCgroupsEin()` – nur mit reinem cgroups v2 und schreibbarer eigener Gruppe mit
+  `memory` und `pids`; zieht alles aus der eigenen Gruppe nach `knoten` und schaltet die Controller für die Kinder ein.
+  `CgroupVerwalter.neu()` legt je Befehl `befehl-<zufall>` an (`memory.max`, `memory.swap.max` 0, `pids.max`), `weg()` beendet
+  den Rest (`cgroup.kill`) und räumt auf. `inCgroup()`: Der Befehl tritt selbst ein und wird dann zu bubblewrap.
+- **`src/sandbox.ts`:** Befehle, Motor und Dienste starten über `starteBwrap()` – mit Teilbaum je in einer eigenen Gruppe
+  (8 GiB, 1024 Prozesse zusammen, `SANDBOX_GRENZEN.speicherGesamtKiB`); ohne wie bisher. Die Warnung „läuft als root“ entfällt
+  mit Gruppen (`pids.max` gilt auch für root).
+- **`src/main.ts`:** einmal beim Start, vor den ersten Kindern; Log `[sandbox] …` (`CGROUP_TEXT`).
+- **Installer:** `Delegate=memory pids` im Dienst `freedom-node`. Unter Docker bleibt es je Prozess.
+- **CI:** eigener Schritt nach den Knoten-Tests – `systemd-run --scope -p Delegate=yes` als root mit `CGROUP_TEST_PFLICHT=1`.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, Entwurf, OFFEN (Zeile entfernt), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +5 (`sandbox-cgroup.test.ts`): eigene Gruppe nur aus reinem cgroups v2; einrichten erst umziehen, dann
+einschalten, sonst nichts geändert (ohne Controller, ohne Delegation, cgroups v1, nur prüfen); je Befehl Grenzen, ohne Swap-Datei
+keine, halbe Gruppe wieder weg, Aufräumen auch nach Verzögerung; die Sandbox tritt vor bubblewrap ein (derselbe Prozess), Dienste
+ebenso, ohne bubblewrap „fehlt“ wie bisher; echt (nur mit Teilbaum, in der CI Pflicht): drei Prozesse zu je 150 MiB über
+256 MiB zusammen – einer endet, ohne Gruppe laufen alle; als root höchstens 64 Prozesse; keine Gruppe bleibt liegen. Gegenprobe:
+ohne Eintreten rot.

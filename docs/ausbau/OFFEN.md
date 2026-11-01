@@ -179,7 +179,6 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 
 | Schritt | Inhalt | Stand |
 |---|---|---|
-| 11.5s4b | Speicher aller Prozesse eines Befehls zusammen (cgroups v2, wo es sie gibt) (11.5s3 ✓: 4 GiB je Prozess über `ulimit -d`; 11.5s4a ✓: höchstens 1024 Prozesse je Befehl) | später, nachrangig |
 | 11.3d3 | Monatsbudget mit Pfand beim Knoten-Agenten | nach M-2 |
 | B-18 (8.9c) | Speicher bezahlen in sats und SOL | nach M-2 |
 | B-32 | Reticulum als zweiter Funkweg (a ✓ Bibliothek und Identität, b1 ✓ Funkparameter je Region und RNode verbinden, b2 ✓ Reticulum über die RNode – empfangen, Sendezeitkonto, Datenschutz-Grenze, b3 ✓ Senden an eine Gegenstelle (Adresse eintippen oder per QR), b4 ✓ abweichende Werte in den Grenzen und Smoke-Test, c geteilt: c1 ✓ Adresse versiegelt an Kontakte (Kind 38082), c2 ✓ Nachrichten an Kontakte über Reticulum (direkt, sonst Gegenstelle), d Gateway – RN-W7–W10 A (23.10.): d1 ✓ Bausteine ins Protokoll, d2 ✓ Knoten mit RNode über TCP-Brücke (Umschläge ins Netz), d3 geteilt: d3a ✓ Knoten funkt KI-Antworten zurück, d3b ✓ App fragt KI über Funk mit RNode an den eigenen Knoten) – fertig; offen nur die Probe mit Geräten (MENSCH) | Code fertig (RN-W1–W10 A; [`RETICULUM-ENTWURF.md`](../RETICULUM-ENTWURF.md)); MENSCH: Proben mit RNodes (zwei Geräte, Knoten mit TCP-Brücke) |
