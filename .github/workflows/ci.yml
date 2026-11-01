@@ -92,6 +92,12 @@ jobs:
             gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib
           /usr/bin/python3 -c "import gi; gi.require_version('GstWebRTC', '1.0'); import Xlib"
 
+      # VKk2b: Notebooks führt der Motor mit dem Kernel der Distribution aus – der Test läuft gegen echtes ipykernel in bubblewrap
+      - name: ipykernel und nbclient fuer den Notebook-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends python3-ipykernel python3-nbclient
+          /usr/bin/python3 -c "import nbclient, ipykernel"
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

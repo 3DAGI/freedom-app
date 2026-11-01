@@ -12,4 +12,5 @@ export declare function neueZelle(art: "code" | "markdown" | "raw", quelle: stri
 export declare function istNotebook(nb: unknown): boolean;
 export declare function ausgabenText(ausgaben: unknown): string;
 export declare function notebookText(nb: unknown, start?: number): string;
+export declare function werkzeuge(ausfuehren?: string | null): ReadonlyArray<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
 export declare function rufe(wurzel: string, name: unknown, args: unknown): { text: string; fehler: boolean };

@@ -723,7 +723,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   git nur die geänderte Zelle zeigt, und führt nichts aus: Code läuft nur über das
   Terminal von Hermes, das im Modus „fragen“ vorher fragt. Im Modus „fragen“ liest die
   Brücke nur – ändern geht dort über Hermes, der vorher fragt; im Modus „frei“ ändert
-  sie Zellen selbst. `MCP_JUPYTER=aus` schaltet sie ab.
+  sie Zellen selbst. Ausführen (seit VKk2b) kann Hermes ein Notebook im Terminal mit
+  `/freedom/mcp/jupyter/notebook_ausfuehren.py <datei>` – in derselben Sandbox, ohne Netz,
+  die Ausgaben landen im Notebook. Dafür braucht der Rechner `python3-ipykernel` und
+  `python3-nbclient` (Docker: im Bild mit `VIBECODEN=1`); fehlen sie, sagt es das Log,
+  und Hermes liest und ändert Notebooks nur. `MCP_JUPYTER=aus` schaltet die Brücke ab.
 - **Bilder (seit VKd2b2):** Mit `COMFYUI_URL` (deine ComfyUI, nur auf diesem Rechner
   oder im Heimnetz, etwa `http://127.0.0.1:8188`) bekommt Hermes `generate_image`: Der
   Knoten fragt deine ComfyUI (SDXL, Checkpoint über `COMFYUI_CHECKPOINT`, Vorgabe

@@ -205,7 +205,7 @@ test("VKd2a: Kiwix für den Motor – dieselben ZIM-Dateien wie aus mcp.json, Or
     const serve = join(d, "kiwix-serve");
     writeFileSync(serve, "");
     const zim = ["/daten/zim/wikipedia_de.zim", "/daten/zim/wiktionary.zim", "/opt/zim/x.zim", "/daten/zim/wikipedia_de.zim"];
-    const wahl = mcpAusUmgebung({ MCP_BROWSER: "aus" }, { zim, kiwixServe: serve, node: "/usr/bin/node", heim: "/home/n" });
+    const wahl = mcpAusUmgebung({ MCP_BROWSER: "aus", MCP_JUPYTER: "aus" }, { zim, kiwixServe: serve, node: "/usr/bin/node", heim: "/home/n" });
     assert.ok("server" in wahl);
     assert.deepEqual(wahl.fehlt, []);
     const s = wahl.server.find((x) => x.name === "kiwix")!;
