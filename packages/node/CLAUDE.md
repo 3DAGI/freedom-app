@@ -582,7 +582,8 @@ Bereichs unten anhängen.
   /desktop=…`, ohne Fenstermanager hätten Fenster sonst keine Rahmen), Präfix nur im Home der Sandbox (tmpfs, nie im Projekt),
   ohne Mono und Gecko (Wine fragte sonst nach einem Download) und ohne `winemenubuilder`. Das Präfix nie ohne Bildschirm
   vorab anlegen (`env -u DISPLAY … wineboot`): Dann zeichnet das Programm zwar, erscheint im Bildstrom aber nie (gemessen
-  02.11., auch mit `wineserver -w`; mit Xvfb außerhalb der Sandbox ging es – die Ursache ist offen). Programme starten seit VKi1 erst nach der Antwort der Bild-Sandbox (`BildStrom.starte()`) –
+  02.11., auch mit `wineserver -w`; mit Xvfb außerhalb der Sandbox ging es – Ursache seit VKi2: MIT-SHM über zwei
+  IPC-Namensräume, siehe dort). Programme starten seit VKi1 erst nach der Antwort der Bild-Sandbox (`BildStrom.starte()`) –
   Wine hielt sie beim Anlegen des Präfixes sonst 11,7 s statt 0,7 s auf, die Frist ist `BILD_GRENZEN.startMs`. Im Probeskript
   Windows-Pfade in TypeScript-Strings doppelt schreiben (`"Z:\\arbeit\\main.exe"`) – `\a` und `\f` sind Steuerzeichen, Wine
   fand dann kein Programm und es sah aus wie ein Fehler in Wine.
@@ -594,4 +595,9 @@ Bereichs unten anhängen.
   erkennen FEX und box64 die Merkmale des Prozessors falsch, und das Programm endet mit `c000001d` (unerlaubter Befehl) – die
   Sandbox des Programms bekommt den Ordner auf ARM64 nur lesbar und nur für Wine (`wineLesbar()`). Zeigt der Job kein Bild, startet
   er `test/fixtures/wine/diagnose.mts` (ohne und in der Sandbox, mit Protokoll von Wine) – so fand sich die Ursache.
+  Der Bildschirm nur ohne MIT-SHM (`-extension MIT-SHM` in `freedom_bild.py`): Programm und Xvfb haben getrennte
+  IPC-Namensräume – hängt das Programm sein Stück Nummer N an, hängt Xvfb das Stück N der Bild-Sandbox an (ximagesrc, Rechte
+  1777). Das Bild bleibt dann schwarz (so auf ARM64), und das Programm käme an den Speicher der Bild-Sandbox. ximagesrc liest
+  ohne SHM nur mit `remote=true` – sonst nur Schwarz (GStreamer 1.24). python-xlib kennt `has_extension("MIT-SHM")` nie
+  (nur Erweiterungen mit eigenem Modul) – fragen mit `query_extension()`.
 

@@ -796,7 +796,8 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Auf ARM64 (GX10) laufen x86-Programme seit VKi2 über Hangover (Wine mit FEX für x86_64,
   box64 für 32 Bit): `bash scripts/hangover-holen.sh <ordner> noble` und `sudo apt install
   <ordner>/*.deb`; FEX braucht Speicherseiten von 4 KB (`getconf PAGESIZE`).
-  Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
+  Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:
+  die beiden Sandboxen teilen nur den Bildschirm, keinen Speicher);
   eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
   NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
   WebRTC nur über deinen TURN (B-13, `TURN_URLS` und `TURN_SECRET`). Den TURN

@@ -17,7 +17,8 @@ d.sync()
 f.set_input_focus(X.RevertToParent, X.CurrentTime)
 d.sync()
 with open(sys.argv[1], "a", buffering=1) as aus:
-    aus.write("bereit\n")
+    # MIT-SHM gaebe es nur ueber den IPC-Namensraum der Bild-Sandbox hinweg (VKi2) - der Bildschirm bietet es nicht an
+    aus.write(f"mit-shm {'nein' if d.query_extension('MIT-SHM') is None else 'ja'}\nbereit\n")
     while True:
         e = d.next_event()
         if e.type == X.KeyPress:

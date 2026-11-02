@@ -249,7 +249,7 @@ test("VKi1: Wine im Bildstrom – main.exe in der Sandbox des Programms, nichts 
   const a = ablage("exe");
   writeFileSync(join(a.ort("exe"), "main.exe"), "MZ");
   const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
-  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine" });
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine", arch: "x64" }); // ARM64: VKi2
   try {
     assert.equal(await b.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
     const programm = starts[1]!;
@@ -524,7 +524,7 @@ test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen i
       console.log(`[bild] Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder empfangen, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       const tasten = readFileSync(datei, "utf8");
-      assert.match(tasten, /^bereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
+      assert.match(tasten, /^mit-shm nein\nbereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
       assert.equal(b.beende("spiel"), true);
     } finally {
       b.beendeAlle();

@@ -187,10 +187,19 @@ Spur B, `docs/VIBECODEN-ENTWURF.md` (VKi), nach VKi1. Damit ist VKi fertig: `mai
   diagnose.mts`, im Job nur bei Fehlern) trennte die Fälle – ohne Sandbox grün, mit deren Speichergrenze grün, in der Sandbox
   schwarz, in der Sandbox mit `/sys/devices/system/cpu` grün: Ohne den Ordner erkennen FEX und box64 die Merkmale des Prozessors
   falsch. `wineLesbar()` gibt ihn der Sandbox des Programms auf ARM64 nur lesbar und nur für Wine.
+- **Bild ohne MIT-SHM:** Auch mit dem Ordner blieb der Echttest schwarz, obwohl Wine in der Diagnose zeichnete. Der
+  Unterschied: Dort lief Xvfb außerhalb der Sandbox, im Bildstrom läuft er in der Bild-Sandbox mit eigenem IPC-Namensraum.
+  Hängt das Programm ein Stück gemeinsamen Speichers an (MIT-SHM), hängt Xvfb das mit derselben Nummer in *seinem* Namensraum an
+  – ximagesrc hat dort die Nummern 1 und 2 mit Rechten 1777. Lokal mit einem kleinen C-Programm nachgestellt: Stück 1 „hängt“,
+  das Bild bleibt schwarz; ohne MIT-SHM grün. Das erklärt auch das offene Rätsel aus VKi1 (Präfix ohne Bildschirm: andere
+  Nummern), und es war ein Weg in den Speicher der Bild-Sandbox. `freedom_bild.py` startet Xvfb jetzt mit
+  `-extension MIT-SHM`; ximagesrc braucht dann `remote=true` – ohne SHM liefert es sonst nur Schwarz (GStreamer 1.24).
 - Fallstricke im Knoten und in den Skripten, `docs/PROVIDER.md`, Entwurf, OFFEN (VKi-Zeile weg, Probe am GX10 unter 2.3),
   FORTSCHRITT, Stand-Zeile.
 
-**Tests:** node +2 – `bildstrom.test.ts` +1: die Angaben zum Prozessor nur auf ARM64, nur für Wine, nie für die Bild-Sandbox;
+**Tests:** node +2 – `bildstrom.test.ts` +1: die Angaben zum Prozessor nur auf ARM64, nur für Wine, nie für die Bild-Sandbox
+(der Test aus VKi1 nennt seine Architektur jetzt selbst); der Echttest mit dem Testprogramm prüft, dass der Bildschirm kein
+MIT-SHM anbietet (Gegenprobe mit MIT-SHM: rot);
 `docker-vibecoden.test.ts` +1 (Fassung, Summen, nur https, nur die vier Pakete, nur ARM64); der Test zu Bild und
 CI aus VKi1 prüft jetzt beide Wege (amd64 Wine, arm64 Hangover über den Mount, nie per `COPY`) und den ARM64-Job. Der Echttest
 im Bildstrom ist in diesem Job Pflicht (`WINE_TEST_PFLICHT`, sonst überspringt er sich ohne Wine oder mingw-w64). Hier lief das
