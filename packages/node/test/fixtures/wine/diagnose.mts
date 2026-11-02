@@ -35,21 +35,39 @@ const warte = async (s: number) => {
 };
 const umgebung = { WINEDEBUG: "err+all,fixme-all", WINEDLLOVERRIDES: "mscoree,mshtml=;winemenubuilder.exe=d" };
 
-console.log(`== Wine ${wine} auf ${process.arch}, ohne Sandbox`);
-const ohne = spawn("/bin/sh", ["-c", `"$0" "$@" > "${d}/ohne.log" 2>&1`, wine, "explorer", "/desktop=freedom,640x480", `Z:${arbeit.replaceAll("/", "\\")}\\main.exe`],
-  { env: { ...process.env, ...umgebung, DISPLAY: ANZEIGE, WINEPREFIX: join(d, "praefix") }, stdio: "ignore", detached: true });
-console.log(await warte(60));
-try { process.kill(-ohne.pid!); } catch { /* schon weg */ }
-await new Promise<void>((r) => execFile(join(wine, "..", "wineserver"), ["-k"], { env: { ...process.env, WINEPREFIX: join(d, "praefix") } }, () => r()));
-console.log(ende(join(d, "ohne.log")));
+const exe = `Z:${arbeit.replaceAll("/", "\\")}\\main.exe`;
+/** Ohne Sandbox – `vorher` setzt etwa Grenzen wie in der Sandbox. */
+async function ohneSandbox(name: string, vorher: string): Promise<void> {
+  console.log(`== ${name}`);
+  const praefix = join(d, `praefix-${name.replaceAll(" ", "-")}`);
+  const log = join(d, `${name.replaceAll(" ", "-")}.log`);
+  const k = spawn("/bin/sh", ["-c", `${vorher}"$0" "$@" > "${log}" 2>&1`, wine!, "explorer", "/desktop=freedom,640x480", exe],
+    { env: { ...process.env, ...umgebung, DISPLAY: ANZEIGE, WINEPREFIX: praefix }, stdio: "ignore", detached: true });
+  console.log(await warte(60));
+  try { process.kill(-k.pid!); } catch { /* schon weg */ }
+  await new Promise<void>((r) => execFile(join(wine!, "..", "wineserver"), ["-k"], { env: { ...process.env, WINEPREFIX: praefix } }, () => r()));
+  console.log(ende(log));
+}
+/** In der Sandbox – `lesbar` bindet zusätzlich nur lesbar ein. */
+async function inSandbox(name: string, lesbar: Array<{ quelle: string; ziel: string }>): Promise<void> {
+  console.log(`== ${name}`);
+  const log = `${name.replaceAll(" ", "-")}.log`;
+  const k = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "WINEPREFIX=/home/agent/.wine", `WINEDEBUG=${umgebung.WINEDEBUG}`,
+    `WINEDLLOVERRIDES=${umgebung.WINEDLLOVERRIDES}`, "/bin/sh", "-c", `grep -m1 -i features /proc/cpuinfo > /arbeit/${log}.cpu 2>&1; "$0" "$@" > /arbeit/${log} 2>&1`, wine!,
+    "explorer", "/desktop=freedom,640x480", "Z:\\arbeit\\main.exe"], { arbeit, nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: "/tmp/.X11-unix" }, ...lesbar] });
+  console.log(await warte(60));
+  k.beende();
+  await k.ende;
+  console.log(`cpuinfo in der Sandbox: ${ende(join(arbeit, `${log}.cpu`))}`);
+  console.log(ende(join(arbeit, log)));
+}
 
-console.log(`== Wine in der Sandbox`);
-const mit = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "WINEPREFIX=/home/agent/.wine", `WINEDEBUG=${umgebung.WINEDEBUG}`,
-  `WINEDLLOVERRIDES=${umgebung.WINEDLLOVERRIDES}`, "/bin/sh", "-c", '"$0" "$@" > /arbeit/mit.log 2>&1', wine, "explorer", "/desktop=freedom,640x480",
-  "Z:\\arbeit\\main.exe"], { arbeit, nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: "/tmp/.X11-unix" }] });
-console.log(await warte(90));
-mit.beende();
-await mit.ende;
-console.log(ende(join(arbeit, "mit.log")));
+console.log(`Wine ${wine} auf ${process.arch}`);
+console.log(`cpuinfo außen: ${execFileSync("/bin/sh", ["-c", "grep -m1 -i features /proc/cpuinfo || true"]).toString().trim()}`);
+await ohneSandbox("ohne Sandbox", "");
+// dieselben Grenzen wie in der Sandbox (SANDBOX_GRENZEN: Speicher je Prozess, Prozesse)
+await ohneSandbox("ohne Sandbox mit Grenzen", "ulimit -d 4194304; ");
+await inSandbox("in der Sandbox", []);
+if (existsSync("/sys/devices/system/cpu")) await inSandbox("in der Sandbox mit sys-cpu", [{ quelle: "/sys/devices/system/cpu", ziel: "/sys/devices/system/cpu" }]);
 xvfb.kill();
 process.exit(0);
