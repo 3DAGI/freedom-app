@@ -306,6 +306,12 @@ jobs:
         working-directory: packages/node
         run: WINE_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKi" test/bildstrom.test.ts
 
+      # Zeigt der Echttest kein Bild: Wine einmal ohne, einmal in der Sandbox – mit Protokoll von Wine und der Farbe des Bildschirms
+      - name: Diagnose Wine (nur bei Fehlern)
+        if: failure()
+        working-directory: packages/node
+        run: timeout 300 node --import tsx test/fixtures/wine/diagnose.mts
+
   smoke:
     name: Browser-Test (Smoke)
     # C-18 (entschieden 29.09.2026): der Smoke-Test lief bis dahin nur lokal bei
