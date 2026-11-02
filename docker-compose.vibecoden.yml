@@ -11,6 +11,8 @@ services:
     build:
       args:
         VIBECODEN: "1"
+        # Windows-Programme im Bild (VKi1): WINE=1 baut Wine und mingw-w64 dazu – nur amd64, rund 1,2 GB
+        WINE: "${WINE:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

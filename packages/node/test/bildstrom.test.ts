@@ -17,8 +17,8 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, bildBefehl, bildFehlt, bildKodierer,
-  browserArgumente, godotArgumente, godotAusUmgebung, nvencDa,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt,
+  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -105,17 +105,17 @@ test("VKk3a: Godot-Projekte – project.godot nur mit Godot, nach .freedom/start
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const godot = ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)];
   for (const [f, inhalt] of [["project.godot", "config_version=5\n"], ["main.py", ""], ["index.html", "<p>"]]) writeFileSync(join(a.ort("spiel"), f!), inhalt!);
-  assert.deepEqual(bildBefehl(a.ort("spiel"), undefined, g), godot, "vor main.py");
-  assert.deepEqual(bildBefehl(a.ort("spiel"), web, g), godot, "vor Web");
-  assert.deepEqual(bildBefehl(a.ort("spiel")), ["python3", "/arbeit/main.py"], "ohne Godot zählt project.godot nicht");
+  assert.deepEqual(bildBefehl(a.ort("spiel"), undefined, { ...g, godot: true }), godot, "vor main.py");
+  assert.deepEqual(bildBefehl(a.ort("spiel"), web, { ...g, godot: true }), godot, "vor Web");
+  assert.deepEqual(bildBefehl(a.ort("spiel"), undefined, g), ["python3", "/arbeit/main.py"], "ohne Godot zählt project.godot nicht");
   mkdirSync(join(a.ort("start"), ".freedom"));
   writeFileSync(join(a.ort("start"), ".freedom", "start"), "");
   writeFileSync(join(a.ort("start"), "project.godot"), "");
-  assert.deepEqual(bildBefehl(a.ort("start"), undefined, g), ["/bin/sh", "/arbeit/.freedom/start"], "der eigene Startbefehl geht vor");
+  assert.deepEqual(bildBefehl(a.ort("start"), undefined, { ...g, godot: true }), ["/bin/sh", "/arbeit/.freedom/start"], "der eigene Startbefehl geht vor");
   symlinkSync(join(a.ort("spiel"), "project.godot"), join(a.ort("verweis"), "project.godot"));
-  assert.equal(bildBefehl(a.ort("verweis"), undefined, g), null, "ein Verweis zählt nicht");
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, { ...g, godot: true }), null, "ein Verweis zählt nicht");
   mkdirSync(join(a.ort("ordner"), "project.godot"));
-  assert.equal(bildBefehl(a.ort("ordner"), undefined, g), null, "ein Ordner auch nicht");
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, { ...g, godot: true }), null, "ein Ordner auch nicht");
   // das Spiel, nie der Editor: X11, OpenGL in Software, ohne Ton, so groß wie das Bild
   assert.deepEqual(godotArgumente(g), ["--path", "/arbeit", "--display-driver", "x11", "--rendering-method", "gl_compatibility",
     "--rendering-driver", "opengl3", "--audio-driver", "Dummy", "--resolution", "800x600", "--position", "0,0"]);
@@ -152,8 +152,46 @@ test("VKk3a: Start – erst der Import ohne Bildschirm, dann wird die Shell zum 
   }
 });
 
+test("VKi1: Windows-Programme – main.exe nur mit Wine, nach main.py und Godot, vor Web, nur eine echte Datei", () => {
+  const a = ablage("exe", "beides", "godot", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mitWine = { ...g, wine: "/usr/bin/wine" };
+  for (const [f, inhalt] of [["main.exe", "MZ"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("exe"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("exe"), web, mitWine), wineBefehl("/usr/bin/wine", g), "vor Web");
+  assert.deepEqual(bildBefehl(a.ort("exe"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne Wine zählt main.exe nicht");
+  for (const f of ["main.exe", "main.py"]) writeFileSync(join(a.ort("beides"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("beides"), undefined, mitWine), ["python3", "/arbeit/main.py"], "main.py geht vor");
+  for (const f of ["main.exe", "project.godot"]) writeFileSync(join(a.ort("godot"), f), "");
+  assert.equal(bildBefehl(a.ort("godot"), undefined, { ...mitWine, godot: true })![2], GODOT_START, "ein Godot-Projekt geht vor");
+  symlinkSync(join(a.ort("exe"), "main.exe"), join(a.ort("verweis"), "main.exe"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mitWine), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.exe"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mitWine), null, "ein Ordner auch nicht");
+});
+
+test("VKi1: Wine – eigenes Präfix im Home der Sandbox, ohne Mono, Gecko und Menü, eine Arbeitsfläche so groß wie das Bild", () => {
+  const b = wineBefehl("/usr/lib/wine/wine64", { breite: 800, hoehe: 600 });
+  assert.deepEqual(b, ["/usr/bin/env", "WINEPREFIX=/home/agent/.wine", "WINEDEBUG=-all", "WINEDLLOVERRIDES=mscoree,mshtml=;winemenubuilder.exe=d",
+    "/usr/lib/wine/wine64", "explorer", "/desktop=freedom,800x600", "Z:\\arbeit\\main.exe"]);
+  assert.ok(!b.some((t) => t.startsWith("WINEPREFIX=/arbeit")), "das Präfix nie im Projekt");
+});
+
+test("VKi1: Wine aus der Distribution – nur die Orte unter /usr, WINE=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("wine");
+  const datei = join(d, "wine");
+  writeFileSync(datei, "");
+  assert.equal(wineAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(wineAusUmgebung({ WINE: "aus" }, [datei]), null);
+  assert.equal(wineAusUmgebung({ WINE: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – Wine sind viele Dateien unter /usr");
+  assert.equal(wineAusUmgebung({}, [d]), null, "ein Ordner ist kein Wine");
+  assert.deepEqual(WINE_ORTE, ["/usr/lib/wine/wine64", "/usr/bin/wine"]);
+  assert.ok(WINE_ORTE.every((o) => o.startsWith("/usr/")), "die Sandbox sieht /usr ohnehin – nichts weiter einbinden");
+});
+
 /** Statt bubblewrap: merkt sich, was gestartet würde, und spielt die Bild-Sandbox nach (`antworte`). */
-function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => string | null, o: { programmEndet?: boolean } = {}) {
+function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => string | null,
+  o: { programmEndet?: boolean; verzoegerung?: number; ereignisse?: string[] } = {}) {
   const starts: Array<{ befehl: readonly string[]; ort: Parameters<typeof sandboxDienst>[1]; beendet: boolean }> = [];
   const starte = ((befehl, ort) => {
     const eintrag = { befehl, ort, beendet: false };
@@ -162,6 +200,7 @@ function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => stri
     const ende = new Promise<void>((r) => { fertig = r; });
     const beende = () => { eintrag.beendet = true; fertig(); };
     if (!ort.mitEinAusgabe) {
+      o.ereignisse?.push("programm");
       if (o.programmEndet) setTimeout(beende, 10);
       return { ende, beende };
     }
@@ -174,7 +213,11 @@ function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => stri
       // der Bildschirm steht: Socket im geteilten Ordner
       writeFileSync(join(ort.schreibbar!.find((s) => s.ziel === BILD_IN_SANDBOX.x11)!.quelle, "X99"), "");
       const z = antworte(JSON.parse(text));
-      setTimeout(() => (z === null ? beende() : aus.write(`${z}\n`)), 30);
+      setTimeout(() => {
+        o.ereignisse?.push("antwort");
+        if (z === null) beende();
+        else aus.write(`${z}\n`);
+      }, o.verzoegerung ?? 30);
     });
     return { ende, beende, ein, aus };
   }) as typeof sandboxDienst;
@@ -182,6 +225,43 @@ function attrappe(antworte: (eingabe: { turn: string; angebot: string }) => stri
 }
 
 const abgelehnt = (fall: string) => (e: unknown) => e instanceof CodeAbgelehnt && e.fall === fall;
+
+test("VKi1: das Programm erst nach der Antwort – ein langsamer Start hält sie nicht auf; ohne Antwort gar kein Programm", async () => {
+  const a = ablage("spiel");
+  writeFileSync(join(a.ort("spiel"), "main.py"), "");
+  // die Bild-Sandbox braucht für die Antwort länger, als der Bildschirm zum Stehen braucht
+  const ereignisse: string[] = [];
+  const ok = attrappe(() => JSON.stringify({ antwort: ANTWORT }), { verzoegerung: 300, ereignisse });
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: ok.starte });
+  try {
+    assert.equal(await b.starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    assert.deepEqual(ereignisse, ["antwort", "programm"]);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = attrappe(() => JSON.stringify({ fehler: "gstreamer" }), { verzoegerung: 300 });
+  await assert.rejects(new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: ohne.starte }).starte("spiel", ANGEBOT, { breite: 640, hoehe: 480 }),
+    abgelehnt("code-bild-fehler"));
+  assert.equal(ohne.starts.length, 1, "nur die Bild-Sandbox – kein Programm ohne Antwort");
+});
+
+test("VKi1: Wine im Bildstrom – main.exe in der Sandbox des Programms, nichts weiter eingebunden; ohne Wine kein Programm", async () => {
+  const a = ablage("exe");
+  writeFileSync(join(a.ort("exe"), "main.exe"), "MZ");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine" });
+  try {
+    assert.equal(await b.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...wineBefehl("/usr/bin/wine", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
 
 test("VKk3a: Godot nur für das Programm – die eine Datei nur lesbar, nie für die Bild-Sandbox; ohne Godot kein Programm", async () => {
   const a = ablage("spiel");
@@ -368,7 +448,7 @@ async function mitCoturn(fn: (turn: { urls: string[]; geheimnis: string; gueltig
  */
 async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: number }, turnPort: number, eingaben: unknown[],
   starte: (angebot: string) => Promise<string>, gewirkt: (farbe: number[] | null, bilder: number) => boolean,
-  optionen: { farbe?: number[]; pt?: number } = {}):
+  optionen: { farbe?: number[]; pt?: number; frist?: number } = {}):
   Promise<{ bilder: number; farbe: number[] | null; antwortMs: number }> {
   const z = turnZugang(turn);
   const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
@@ -392,7 +472,7 @@ async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: n
   assert.ok(istBildSdp(antwort), "die Antwort nur mit Relay-Kandidaten");
   app.stdin.write(`${JSON.stringify({ antwort })}\n`);
   const letzte = () => [...zeilen].reverse().find((z) => "farbe" in z) ?? {};
-  for (const bis = Date.now() + 40_000; !gewirkt((letzte().farbe ?? null) as number[] | null, (letzte().bilder ?? 0) as number)
+  for (const bis = Date.now() + (optionen.frist ?? 40) * 1000; !gewirkt((letzte().farbe ?? null) as number[] | null, (letzte().bilder ?? 0) as number)
     && !zeilen.some((z) => "fertig" in z) && Date.now() < bis;) {
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -515,6 +595,34 @@ test("VKk3a: Ende zu Ende – ein Godot-Spiel im Bild (OpenGL in Software), ein 
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
       assert.ok(existsSync(join(a.ort("spiel"), ".godot")), "importiert wie im Editor");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+/** Wine (VKi1) aus der Distribution und mingw-w64 zum Bauen des Test-Programms – in der CI installiert, hier je nach Rechner. */
+const wine = wineAusUmgebung({});
+const mingw = await hat("x86_64-w64-mingw32-gcc");
+
+test("VKi1: Ende zu Ende – ein Windows-Programm in Wine im Bild, ein Klick über den Datenkanal ändert es", {
+  skip: ohne || (!wine && "Wine fehlt (wine64)") || (!mingw && "mingw-w64 fehlt (gcc-mingw-w64-x86-64)"), timeout: 150_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("fenster");
+    await new Promise<void>((r, f) => execFile("x86_64-w64-mingw32-gcc",
+      ["-O2", "-mwindows", "-o", join(a.ort("fenster"), "main.exe"), new URL("./fixtures/wine/fenster.c", import.meta.url).pathname], (e) => (e ? f(e) : r())));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, wine: wine! });
+    try {
+      const klick = [{ t: "d", x: 0.5, y: 0.5, k: 1 }, { t: "u", x: 0.5, y: 0.5, k: 1 }];
+      // vorher grün (darauf wartet der Empfänger – Wine legt sein Präfix erst an, rund 10 s), nach dem Klick rot
+      const rot = (f: number[] | null) => !!f && f[0]! > 150 && f[1]! < 60 && f[2]! < 60;
+      const e = await empfange(turn, turnPort, klick, (angebot) => b.starte("fenster", angebot, { breite: 640, hoehe: 480 }), rot,
+        { farbe: [0, 192, 0], frist: 90 });
+      console.log(`[bild] Wine: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
+      assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("fenster")).sort(), ["main.exe"], "das Präfix liegt nie im Projekt");
     } finally {
       b.beendeAlle();
     }

@@ -121,3 +121,18 @@ test("VKk3a: Godot nur mit VIBECODEN=1 – das Release in fester Fassung gegen S
   assert.match(ci, /key: godot-\$\{\{ hashFiles\('scripts\/godot-holen\.sh'\) \}\}\n/);
   assert.match(ci, /\n\s+bash scripts\/godot-holen\.sh "\$HOME\/\.cache\/freedom-godot"\n\s+echo "GODOT_TEST=\$HOME\/\.cache\/freedom-godot\/godot" >> "\$GITHUB_ENV"\n/);
 });
+
+test("VKi1: Wine und mingw-w64 nur mit VIBECODEN=1 und WINE=1, nur auf amd64; die CI prüft Wine echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG WINE=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$WINE" = "1" \]; then \\\n\s+if \[ "\$\(dpkg --print-architecture\)" = "amd64" \]; then \\\n/);
+  assert.match(docker, /apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64 \\\n/);
+  assert.match(docker, /erst mit Hangover \(VKi2\) – übersprungen/, "auf arm64 nichts, und das Log sagt warum");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  for (const p of ["wine", "wine64"]) assert.ok(!immer.includes(p) && !vibecoden.includes(p), `${p} nur mit WINE=1`);
+  assert.match(lies("docker-compose.vibecoden.yml"), /build:\n\s+args:\n\s+VIBECODEN: "1"\n(\s+#[^\n]*\n)?\s+WINE: "\$\{WINE:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("WINE"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends wine64 gcc-mingw-w64-x86-64\n\s+\/usr\/lib\/wine\/wine64 --version && x86_64-w64-mingw32-gcc --version/);
+});
+

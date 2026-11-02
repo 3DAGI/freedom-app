@@ -76,6 +76,18 @@ RUN if [ "$VIBECODEN" = "1" ]; then \
       && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \
            --only-binary :all: --no-deps -r /tmp/hermes-requirements.txt; \
     fi && rm /tmp/hermes-requirements.txt
+
+# Windows-Programme im Bild (VKi1) – nur mit VIBECODEN=1 und WINE=1 (docker-compose.vibecoden.yml reicht es durch), nur auf
+# amd64: x86-Programme laufen auf arm64 erst mit Hangover (VKi2). Wine (LGPL-2.1+) startet main.exe in der Sandbox des
+# Programms (bildstrom.ts), mingw-w64 (GCC, GPL mit Ausnahme für die Laufzeit) baut Windows-Programme im Terminal des Motors –
+# eigene Programme, getrennte Prozesse; zusammen rund 1,2 GB (gemessen unter Ubuntu 24.04).
+ARG WINE=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ]; then \
+      if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
+        && rm -rf /var/lib/apt/lists/*; \
+      else echo "WINE=1: x86-Programme gibt es auf $(dpkg --print-architecture) erst mit Hangover (VKi2) – übersprungen"; fi; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

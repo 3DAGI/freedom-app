@@ -54,7 +54,7 @@ import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js"
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, nvencDa } from "./bildstrom.js";
+import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, nvencDa, wineAusUmgebung } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -555,10 +555,14 @@ async function main(): Promise<void> {
         }
         // Godot-Projekte (VKk3a): Godot aus GODOT oder /usr/local/bin (Docker-Bild mit VIBECODEN=1) – ohne zeigt das Bild sie nicht
         const godot = godotAusUmgebung(process.env);
-        const b = new BildStrom(projekte, { turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}) });
+        // Windows-Programme (VKi1): Wine der Distribution (Docker-Bild mit WINE=1, nur amd64) – ohne zeigt das Bild main.exe nicht
+        const wine = wineAusUmgebung(process.env);
+        const b = new BildStrom(projekte, {
+          turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
+        });
         process.on("exit", () => b.beendeAlle());
         bild = b;
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);
