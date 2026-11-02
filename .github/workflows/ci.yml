@@ -244,6 +244,68 @@ jobs:
           "
           node --check packages/website/js/dashboard-daten.js
 
+  # VKi2: Windows-Programme auf ARM64 (GX10) über Hangover – Wine mit FEX für x86_64. Nur hier auf einem ARM64-Runner (das Repo
+  # ist öffentlich); der Echttest im Bildstrom ist Pflicht (WINE_TEST_PFLICHT) – fehlt etwas, ist er rot statt übersprungen
+  hangover:
+    name: Windows-Programme auf ARM64 (Hangover)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Abhaengigkeiten installieren
+        run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      # B-42: Pakete über den Zwischenspeicher wie im Testjob
+      - name: Paket-Zwischenspeicher vorbereiten
+        run: |
+          echo "IMAGE_VERSION=$ImageVersion" >> "$GITHUB_ENV"
+          sudo mkdir -p /var/cache/freedom-apt
+          sudo chown "$(id -u):$(id -g)" /var/cache/freedom-apt
+          printf 'Dir::Cache::archives "/var/cache/freedom-apt";\nAPT::Keep-Downloaded-Packages "true";\n' | sudo tee /etc/apt/apt.conf.d/99-freedom-zwischenspeicher
+
+      - name: Pakete aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/freedom-apt
+          key: apt-${{ github.job }}-${{ env.IMAGE_VERSION }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: apt-${{ github.job }}-
+
+      - name: Hangover aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/freedom-hangover
+          key: hangover-${{ hashFiles('scripts/hangover-holen.sh') }}
+
+      # Sandbox und Bildstrom wie im Testjob, mingw-w64 baut das x86_64-Programm des Tests, Hangover (rund 300 MB) läuft es
+      - name: Sandbox, Bildstrom, mingw-w64 und Hangover
+        run: |
+          PAKETE="bubblewrap coturn xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib gcc-mingw-w64-x86-64"
+          sudo apt-get install -y --no-install-recommends $PAKETE \
+            || { sudo apt-get update && sudo apt-get install -y --no-install-recommends $PAKETE; }
+          bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --unshare-all --ro-bind / / true
+          bash scripts/hangover-holen.sh "$HOME/.cache/freedom-hangover" noble
+          sudo apt-get install -y --no-install-recommends "$HOME"/.cache/freedom-hangover/*.deb
+          wine --version && x86_64-w64-mingw32-gcc --version | head -1 && getconf PAGESIZE
+
+      - name: Paket-Zwischenspeicher lesbar machen
+        run: |
+          sudo rm -f /var/cache/freedom-apt/lock
+          sudo chown -R "$(id -u):$(id -g)" /var/cache/freedom-apt
+
+      - name: Windows-Programm in Hangover im Bild (x86_64 über FEX)
+        working-directory: packages/node
+        run: WINE_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKi" test/bildstrom.test.ts
+
   smoke:
     name: Browser-Test (Smoke)
     # C-18 (entschieden 29.09.2026): der Smoke-Test lief bis dahin nur lokal bei

@@ -131,4 +131,10 @@ dieses Bereichs unten anhängen.
   für x86_64 und arm64 aus `SHA512-SUMS.txt` des Releases, `LICENSE.txt` und `COPYRIGHT.txt` selbst gerechnet – nie zur Laufzeit
   eine Summenliste lesen. Eine neue Fassung nur mit allen vier Summen; der Zwischenspeicher der CI folgt dem Skript. Aus dem
   Archiv nur die eine Datei (`unzip -p`), unter dem Namen erst nach der Prüfung.
+- **Hangover nur aus `hangover-holen.sh`** (seit VKi2): das Release von AndreRH/hangover in fester Fassung – das Projekt
+  veröffentlicht keine Prüfsummen, die SHA-256 je Distribution (`noble` für Ubuntu 24.04 und die CI, `bookworm` fürs Docker-Bild)
+  stehen fest im Skript, beim ersten Laden selbst gerechnet. Eine neue Fassung nur mit beiden Summen und einem grünen CI-Job
+  „Windows-Programme auf ARM64“. Aus dem Archiv nur die vier Pakete (`PAKETE`, ohne DXVK), je Name flach mit `tar -xO`. Im Bild
+  nur über `RUN --mount` aus der Stufe `hangover-holen` installieren, nie per `COPY` – sonst bliebe das Paket (rund 300 MB) in
+  einer Schicht.
 

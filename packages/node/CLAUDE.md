@@ -586,4 +586,9 @@ Bereichs unten anhängen.
   Wine hielt sie beim Anlegen des Präfixes sonst 11,7 s statt 0,7 s auf, die Frist ist `BILD_GRENZEN.startMs`. Im Probeskript
   Windows-Pfade in TypeScript-Strings doppelt schreiben (`"Z:\\arbeit\\main.exe"`) – `\a` und `\f` sind Steuerzeichen, Wine
   fand dann kein Programm und es sah aus wie ein Fehler in Wine.
+- **Windows-Programme auf ARM64 nur über Hangover** (seit VKi2, `scripts/hangover-holen.sh`): dasselbe `wineBefehl()` wie auf
+  x86_64 – Hangover bringt sein Wine unter `/usr/bin/wine` mit (`WINE_ORTE`), die Emulatoren wählt es selbst (FEX über ARM64EC
+  für x86_64, `libarm64ecfex.dll`; box64 für 32 Bit, `wowbox64.dll`) – keine eigene Variable dafür. DXVK nie: Direct3D über
+  Vulkan braucht eine GPU, die der Code des Projekts nie bekommt. FEX braucht 4-KB-Seiten; den Echttest gibt es nur im CI-Job auf
+  `ubuntu-24.04-arm` (`WINE_TEST_PFLICHT`) – in den Containern der Agenten gibt es kein ARM64.
 

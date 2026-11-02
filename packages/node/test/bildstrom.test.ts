@@ -601,13 +601,19 @@ test("VKk3a: Ende zu Ende – ein Godot-Spiel im Bild (OpenGL in Software), ein 
   });
 });
 
-/** Wine (VKi1) aus der Distribution und mingw-w64 zum Bauen des Test-Programms – in der CI installiert, hier je nach Rechner. */
+/**
+ * Wine (VKi1; auf ARM64 Hangover, VKi2) und mingw-w64 zum Bauen des Test-Programms – in der CI installiert, hier je nach Rechner.
+ * Mit `WINE_TEST_PFLICHT` (CI-Job auf ARM64) ist der Test rot, statt sich zu überspringen, wenn etwas fehlt.
+ */
 const wine = wineAusUmgebung({});
 const mingw = await hat("x86_64-w64-mingw32-gcc");
+const ohneWine = ohne || (!wine && "Wine fehlt (wine64, auf ARM64 Hangover)") || (!mingw && "mingw-w64 fehlt (gcc-mingw-w64-x86-64)");
 
 test("VKi1: Ende zu Ende – ein Windows-Programm in Wine im Bild, ein Klick über den Datenkanal ändert es", {
-  skip: ohne || (!wine && "Wine fehlt (wine64)") || (!mingw && "mingw-w64 fehlt (gcc-mingw-w64-x86-64)"), timeout: 150_000,
+  skip: process.env.WINE_TEST_PFLICHT ? false : ohneWine, timeout: 150_000,
 }, async () => {
+  assert.equal(ohneWine, false, `WINE_TEST_PFLICHT: ${ohneWine}`);
+  console.log(`[bild] Wine: ${wine} auf ${process.arch}`);
   await mitCoturn(async (turn, turnPort) => {
     const a = ablage("fenster");
     await new Promise<void>((r, f) => execFile("x86_64-w64-mingw32-gcc",

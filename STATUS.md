@@ -170,3 +170,25 @@ Programm: grüne Fläche über den TURN, ein Klick macht sie rot, Antwort nach 0
 Präfix. `docker-vibecoden.test.ts` +1: Wine und mingw-w64 nur mit beiden Schaltern und nur auf amd64, Compose reicht `WINE`
 durch, der Standard bleibt ohne, die CI installiert beides.
 
+## Schritt VKi2 – Windows-Programme auf ARM64: Hangover im Bild, Echttest auf einem ARM64-Runner
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKi), nach VKi1. Damit ist VKi fertig: `main.exe` läuft im Bild auch auf dem GX10.
+
+- **`scripts/hangover-holen.sh`** (neu): Hangover 11.16 (AndreRH/hangover) für Ubuntu 24.04 (`noble`) und Debian 12 (`bookworm`),
+  SHA-256 je Archiv fest im Skript (das Projekt veröffentlicht keine – beim ersten Laden selbst gerechnet), nur https, nur auf
+  ARM64; aus dem Archiv nur die vier Pakete (Wine, FEX für x86_64 über ARM64EC, FEX und box64 für 32 Bit) – ohne DXVK.
+- **Bild:** Stufe `hangover-holen` (nur mit `VIBECODEN=1`, `WINE=1`, arm64), installiert im Hauptbild über `RUN --mount` – das
+  Archiv liegt in keiner Schicht; dazu mingw-w64 wie auf amd64. Rund 3 GB. `docker buildx build --check`: keine Warnungen.
+- **CI:** eigener Job „Windows-Programme auf ARM64 (Hangover)“ auf `ubuntu-24.04-arm` – Sandbox, Bildstrom, mingw-w64, Hangover
+  aus dem Skript (Zwischenspeicher), dann die VKi-Tests mit `WINE_TEST_PFLICHT` (fehlt etwas, ist der Echttest rot).
+- **Code:** keiner nötig – Hangover bringt sein Wine unter `/usr/bin/wine` (in `WINE_ORTE`), die Emulatoren wählt es selbst
+  (`libarm64ecfex.dll` steht in seinem `ntdll`, `wowbox64.dll` in `wow64` – nachgesehen in den Paketen).
+- Fallstricke im Knoten und in den Skripten, `docs/PROVIDER.md`, Entwurf, OFFEN (VKi-Zeile weg, Probe am GX10 unter 2.3),
+  FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +1 (`docker-vibecoden.test.ts`: Fassung, Summen, nur https, nur die vier Pakete, nur ARM64); der Test zu Bild und
+CI aus VKi1 prüft jetzt beide Wege (amd64 Wine, arm64 Hangover über den Mount, nie per `COPY`) und den ARM64-Job. Der Echttest
+im Bildstrom ist in diesem Job Pflicht (`WINE_TEST_PFLICHT`, sonst überspringt er sich ohne Wine oder mingw-w64). Hier lief das
+Skript mit einer Attrappe für `uname` (Archiv prüfen, vier Pakete, falsche Distribution, x86_64 abgelehnt); Hangover selbst läuft
+nur auf ARM64.
+
