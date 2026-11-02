@@ -165,9 +165,8 @@ export function godotArgumente(groesse: { breite: number; hoehe: number }): stri
  */
 export const WINE_ORTE: readonly string[] = ["/usr/lib/wine/wine64", "/usr/bin/wine"];
 
-/** Wine aus der Distribution (VKi1): der erste aus `WINE_ORTE`; null mit `WINE=aus` oder ohne Fund. */
-export function wineAusUmgebung(env: { WINE?: string }, orte: readonly string[] = WINE_ORTE): string | null {
-  if (env.WINE?.trim() === "aus") return null;
+/** Der erste Ort, an dem eine Datei liegt – für Programme der Distribution (Wine, OpenSCAD); null ohne Fund. */
+function ersteDatei(orte: readonly string[]): string | null {
   return orte.find((p) => {
     try {
       return statSync(p).isFile();
@@ -175,6 +174,11 @@ export function wineAusUmgebung(env: { WINE?: string }, orte: readonly string[] 
       return false;
     }
   }) ?? null;
+}
+
+/** Wine aus der Distribution (VKi1): der erste aus `WINE_ORTE`; null mit `WINE=aus` oder ohne Fund. */
+export function wineAusUmgebung(env: { WINE?: string }, orte: readonly string[] = WINE_ORTE): string | null {
+  return env.WINE?.trim() === "aus" ? null : ersteDatei(orte);
 }
 
 /**
@@ -199,14 +203,38 @@ export function wineLesbar(arch: string = process.arch): Array<{ quelle: string;
   return arch === "arm64" && existsSync("/sys/devices/system/cpu") ? [{ quelle: "/sys/devices/system/cpu", ziel: "/sys/devices/system/cpu" }] : [];
 }
 
+/** Wo der Knoten OpenSCAD sucht (VKk4a) – nur das Paket der Distribution unter `/usr` (mit Qt und CGAL viele Dateien). */
+export const OPENSCAD_ORTE: readonly string[] = ["/usr/bin/openscad"];
+
+/** OpenSCAD aus der Distribution (VKk4a): der erste aus `OPENSCAD_ORTE`; null mit `OPENSCAD=aus` oder ohne Fund. */
+export function openscadAusUmgebung(env: { OPENSCAD?: string }, orte: readonly string[] = OPENSCAD_ORTE): string | null {
+  return env.OPENSCAD?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Ein OpenSCAD-Modell im Bild (VKk4a): `main.scad` mit Editor, Vorschau und Konsole, das Fenster so groß wie das Bild, ohne
+ * Customizer und Fehlerliste, mit „Automatic Reload and Preview“ – ändert der Agent die Datei, zeigt das Bild das neue Modell.
+ * Die Vorschau rechnet Mesa in Software. Die Einstellungen stehen im Home der Sandbox (tmpfs) und vergehen mit ihr. `$0` ist
+ * OpenSCAD, `$1` und `$2` die Größe.
+ */
+export const OPENSCAD_START = [
+  `mkdir -p "$HOME/.config/OpenSCAD"`,
+  `printf '%s\\n' '[design]' 'autoReload=true' '[view]' 'hideCustomizer=true' 'hideErrorLog=true' '[window]' "size=@Size($1 $2)" 'position=@Point(0 0)' > "$HOME/.config/OpenSCAD/OpenSCAD.conf"`,
+  `exec "$0" /arbeit/main.scad`,
+].join("\n");
+
+export function openscadBefehl(openscad: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", OPENSCAD_START, openscad, String(groesse.breite), String(groesse.hoehe)];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
- * `main.exe`. Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in `package.json` der Dev-Server, sonst
- * `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
+ * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`. Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in
+ * `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
-  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string }): string[] | null {
+  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string }): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -222,6 +250,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
     return [venv ? "/arbeit/.venv/bin/python3" : "python3", "/arbeit/main.py"];
   }
   if (programme?.wine && ist("main.exe", "datei")) return wineBefehl(programme.wine, programme);
+  if (programme?.openscad && ist("main.scad", "datei")) return openscadBefehl(programme.openscad, programme);
   if (!web) return null;
   if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
@@ -267,6 +296,8 @@ export class BildStrom {
     godot?: string;
     /** Wine für `main.exe` (VKi1, `wineAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     wine?: string;
+    /** OpenSCAD für `main.scad` (VKk4a, `openscadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    openscad?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -295,7 +326,10 @@ export class BildStrom {
     this.beende(projekt);
     if (this.laufend.size >= BILD_GRENZEN.gesamt) throw new CodeAbgelehnt("code-zu-viele");
     const browser = this.o.browser;
-    const programme = { ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}) };
+    const programme = {
+      ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
+      ...(this.o.openscad ? { openscad: this.o.openscad } : {}),
+    };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
 

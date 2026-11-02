@@ -600,4 +600,11 @@ Bereichs unten anhängen.
   1777). Das Bild bleibt dann schwarz (so auf ARM64), und das Programm käme an den Speicher der Bild-Sandbox. ximagesrc liest
   ohne SHM nur mit `remote=true` – sonst nur Schwarz (GStreamer 1.24). python-xlib kennt `has_extension("MIT-SHM")` nie
   (nur Erweiterungen mit eigenem Modul) – fragen mit `query_extension()`.
-
+- **OpenSCAD-Modelle im Bild nur über `bildBefehl()` und `openscadBefehl()`** (seit VKk4a, `bildstrom.ts`): `main.scad` zählt nur
+  mit OpenSCAD aus `openscadAusUmgebung()` – nur `OPENSCAD_ORTE` unter `/usr` (mit Qt und CGAL viele Dateien; kein eigener
+  Pfad), `OPENSCAD=aus` schaltet ab – und nur als echte Datei, nach `main.exe`, vor Web. Die Einstellungen schreibt nur
+  `OPENSCAD_START` ins Home der Sandbox (tmpfs, nie ins Projekt): Fenster so groß wie das Bild (ohne Fenstermanager sonst
+  800×600), ohne Customizer und Fehlerliste, `design/autoReload` – ohne das zeigt OpenSCAD nicht einmal das erste Modell, nur den
+  Hintergrund (Gegenprobe im Echttest). Im Terminal des Motors (ohne Bildschirm) rechnet es STL; ein PNG endet dort mit einem
+  Speicherfehler – nie Bilder aus dem Terminal versprechen, die zeigt das Bild. Im Test die Farbe in der Vorschau messen
+  (`stelle` im Empfänger) – links steht der Editor.

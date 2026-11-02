@@ -117,6 +117,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends wine64 gcc-mingw-w64-x86-64
           /usr/lib/wine/wine64 --version && x86_64-w64-mingw32-gcc --version | head -1
 
+      # VKk4a: OpenSCAD-Modelle zeigt OpenSCAD im Bild – der Echttest ändert main.scad, das Bild zeigt das neue Modell
+      - name: OpenSCAD fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends openscad
+          openscad --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |
