@@ -2,13 +2,13 @@
 Sandbox, nur ueber den TURN (UDP, ice-transport-policy=relay), Angebot mit Video zum Empfangen und
 Datenkanal "eingabe" - wie die App in VKg2b.
 
-Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<JSON {"farbe": [r, g, b], "pt": n, "frist": s}>]
+Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<JSON {"farbe": [r, g, b], "pt": n, "frist": s, "stelle": [x, y]}>]
 Es bietet VP8 an, ohne Angabe mit 96 (wie Chromium); "pt" aendert die Nummer (VKg2c2: Firefox nennt VP8 120).
 stdout: {"angebot": SDP}, dann je Sekunde {"bilder": n, "farbe": [r, g, b]}, am Ende {"fertig": n, "farbe": [r, g, b]}
 stdin: {"antwort": SDP}, dann {"ende": true}. Sind 20 Bilder da (und, mit Farbe, zeigt das Bild diese Farbe),
 schickt es die Eingaben; es endet erst mit "ende" (der Test wartet vorher, bis die Eingaben wirken - keine feste Pause)
 oder nach 40 Sekunden ("frist"). "farbe" ist die Farbe des letzten Bildes bei einem Viertel von Breite und Hoehe - nicht in der
-Mitte, dort steht der Zeiger (VKg2c1: Chromium im Bild).
+Mitte, dort steht der Zeiger (VKg2c1: Chromium im Bild); "stelle" nennt eine andere als Anteile (VKk4a: die Vorschau von OpenSCAD).
 """
 
 import json
@@ -36,6 +36,7 @@ def main(argv):
     warte_auf = optionen.get("farbe")
     pt = int(optionen.get("pt", 96))
     frist = int(optionen.get("frist", 40))
+    sx, sy = optionen.get("stelle", [0.25, 0.25])
     Gst.init(None)
     pipe = Gst.Pipeline.new("empfaenger")
     w = Gst.ElementFactory.make("webrtcbin", "w")
@@ -56,7 +57,7 @@ def main(argv):
         breite, hoehe = s.get_value("width"), s.get_value("height")
         ok, info = puffer.map(Gst.MapFlags.READ)
         if ok:
-            stelle = (hoehe // 4) * ((breite * 3 + 3) & ~3) + (breite // 4) * 3
+            stelle = int(hoehe * sy) * ((breite * 3 + 3) & ~3) + int(breite * sx) * 3
             zustand["farbe"] = list(info.data[stelle:stelle + 3])
             puffer.unmap(info)
 

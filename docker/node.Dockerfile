@@ -77,13 +77,15 @@ COPY --from=godot-holen /aus/ /
 # Sandbox aus (mcp/notebook_ausfuehren.py), nie die Jupyter-Brücke selbst.
 # Godot-Projekte im Bild (VKk3a): OpenGL über Mesa in Software (libgl1, libglx-mesa0, libgl1-mesa-dri, MIT) und die
 # X-Bibliotheken, die Godot zur Laufzeit lädt – nur in der Sandbox des Programms.
+# OpenSCAD-Modelle im Bild (VKk4a): OpenSCAD aus Debian (GPL-2.0+, eigenes Programm, nur in den Sandboxen) – zeigt main.scad im Bild
+# und rechnet im Terminal des Motors Modelle (STL); Bilder (PNG) brauchen einen Bildschirm, die zeigt das Bild.
 ARG VIBECODEN=0
 COPY docker/hermes-requirements.txt /tmp/hermes-requirements.txt
 RUN if [ "$VIBECODEN" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ripgrep chromium fonts-liberation \
         xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-nice \
         gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 python3-gi python3-xlib python3-ipykernel python3-nbclient \
-        libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6 libxrandr2 \
+        libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6 libxrandr2 openscad \
       && rm -rf /var/lib/apt/lists/* \
       && python3 -m venv /opt/hermes \
       && /opt/hermes/bin/pip install --no-cache-dir --disable-pip-version-check --require-hashes \

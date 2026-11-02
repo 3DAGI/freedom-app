@@ -796,6 +796,9 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Auf ARM64 (GX10) laufen x86-Programme seit VKi2 über Hangover (Wine mit FEX für x86_64,
   box64 für 32 Bit): `bash scripts/hangover-holen.sh <ordner> noble` und `sudo apt install
   <ordner>/*.deb`; FEX braucht Speicherseiten von 4 KB (`getconf PAGESIZE`).
+  OpenSCAD-Modelle (`main.scad`, seit VKk4a) zeigt OpenSCAD aus der Distribution
+  (`openscad`, unter `/usr`; `OPENSCAD=aus` schaltet es ab) mit Editor und Vorschau;
+  ändert der Agent die Datei, lädt es neu. Im Terminal rechnet der Agent damit STL.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:
   die beiden Sandboxen teilen nur den Bildschirm, keinen Speicher);
   eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über

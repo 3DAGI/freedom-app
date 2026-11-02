@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GODOT_ORTE } from "../src/bildstrom.js";
+import { GODOT_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -144,6 +144,17 @@ test("VKi1/VKi2: Wine und mingw-w64 nur mit VIBECODEN=1 und WINE=1 – amd64 Win
   assert.match(ci, /\n  hangover:\n    name: Windows-Programme auf ARM64 \(Hangover\)\n    runs-on: ubuntu-24.04-arm\n/);
   assert.match(ci, /bash scripts\/hangover-holen\.sh "\$HOME\/\.cache\/freedom-hangover" noble\n\s+sudo apt-get install -y --no-install-recommends "\$HOME"\/\.cache\/freedom-hangover\/\*\.deb\n/);
   assert.match(ci, /run: WINE_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKi" test\/bildstrom\.test\.ts\n/);
+});
+
+test("VKk4a: OpenSCAD nur mit VIBECODEN=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(vibecoden.includes("openscad"), "im großen Bild");
+  assert.ok(!immer.includes("openscad"), "nicht im schlanken Bild");
+  assert.deepEqual(OPENSCAD_ORTE, ["/usr/bin/openscad"], "dort legt Debian es ab");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends openscad\n\s+openscad --version\n/);
 });
 
 test("VKi2: Hangover in fester Fassung – SHA-256 je Distribution fest im Skript, nur https, nur die vier Pakete, nur ARM64", () => {

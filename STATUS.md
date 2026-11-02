@@ -206,3 +206,27 @@ im Bildstrom ist in diesem Job Pflicht (`WINE_TEST_PFLICHT`, sonst überspringt 
 Skript mit einer Attrappe für `uname` (Archiv prüfen, vier Pakete, falsche Distribution, x86_64 abgelehnt); Hangover selbst läuft
 nur auf ARM64.
 
+## Schritt VKk4a – OpenSCAD im Bild: `main.scad` mit Editor und Vorschau, neu geladen nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: OpenSCAD), nach VKi. Das kleinste der grafischen
+Programme und das für einen Agenten passendste: Das Modell ist Text.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.scad` (nur eine echte Datei), wenn der Knoten OpenSCAD hat –
+  nach `main.exe`, vor Web. `openscadAusUmgebung()`: nur das Paket der Distribution unter `/usr` (`OPENSCAD_ORTE`), `OPENSCAD=aus`
+  schaltet ab. `OPENSCAD_START` schreibt die Einstellungen ins Home der Sandbox (tmpfs) – Fenster so groß wie das Bild, ohne
+  Customizer und Fehlerliste, „Automatic Reload and Preview“ – und wird dann zu OpenSCAD (`exec`). Wine und OpenSCAD suchen ihr
+  Programm über denselben Helfer (`ersteDatei()`).
+- **`packages/node/src/main.ts`:** gibt OpenSCAD an den Bildstrom; das Log sagt „OpenSCAD-Modelle“ oder „ohne OpenSCAD“.
+- **Bild:** `openscad` aus Debian mit `VIBECODEN=1` (GPL-2.0+, eigenes Programm, nur in den Sandboxen). **CI:** `openscad` im
+  Testjob, der Echttest läuft dort.
+- **Test-Empfänger:** `stelle` – wo er die Farbe misst (links steht bei OpenSCAD der Editor).
+- Fallstrick im Knoten, `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +6 – `bildstrom.test.ts` +5: Erkennung (nur mit OpenSCAD, `main.py` und `main.exe` gehen vor, Web danach, kein
+Verweis, kein Ordner), OpenSCAD aus der Umgebung, Start mit Attrappe (Einstellungen Byte für Byte, dann `exec` mit derselben
+Prozessnummer), Bildstrom (nichts weiter eingebunden, keine GPU, ohne OpenSCAD `code-bild-kein-programm`); dazu der Echttest mit
+OpenSCAD 2021.01: grüne Platte im Bild, der Test ändert `main.scad` wie der Agent, das Bild wird rot (Antwort nach 0,6–1,0 s, vier
+Läufe ohne Fehler); im Projekt liegt danach nur `main.scad`. Gegenprobe ohne `autoReload`: rot – OpenSCAD zeigt dann nur den
+Hintergrund. `docker-vibecoden.test.ts` +1: OpenSCAD nur im großen Bild, dort, wo der Knoten es sucht, und in der CI. Im Terminal
+der Sandbox geprüft: STL geht, PNG endet ohne Bildschirm mit einem Speicherfehler – die Doku verspricht nur Modelle.
+

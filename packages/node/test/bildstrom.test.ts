@@ -17,8 +17,9 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt,
-  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl, wineLesbar,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, OPENSCAD_ORTE, OPENSCAD_START, WEB_DEV_START, WINE_ORTE,
+  bildBefehl, bildFehlt, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, openscadAusUmgebung, openscadBefehl,
+  wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -187,6 +188,70 @@ test("VKi1: Wine aus der Distribution – nur die Orte unter /usr, WINE=aus scha
   assert.equal(wineAusUmgebung({}, [d]), null, "ein Ordner ist kein Wine");
   assert.deepEqual(WINE_ORTE, ["/usr/lib/wine/wine64", "/usr/bin/wine"]);
   assert.ok(WINE_ORTE.every((o) => o.startsWith("/usr/")), "die Sandbox sieht /usr ohnehin – nichts weiter einbinden");
+});
+
+test("VKk4a: OpenSCAD-Modelle – main.scad nur mit OpenSCAD, nach main.py und main.exe, vor Web, nur eine echte Datei", () => {
+  const a = ablage("modell", "beides", "exe", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, openscad: "/usr/bin/openscad" };
+  for (const [f, inhalt] of [["main.scad", "cube(1);"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("modell"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("modell"), web, mit), openscadBefehl("/usr/bin/openscad", g), "vor Web");
+  assert.deepEqual(bildBefehl(a.ort("modell"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne OpenSCAD zählt main.scad nicht");
+  for (const f of ["main.scad", "main.py"]) writeFileSync(join(a.ort("beides"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("beides"), undefined, mit), ["python3", "/arbeit/main.py"], "main.py geht vor");
+  for (const f of ["main.scad", "main.exe"]) writeFileSync(join(a.ort("exe"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("exe"), undefined, { ...mit, wine: "/usr/bin/wine" }), wineBefehl("/usr/bin/wine", g), "main.exe geht vor");
+  symlinkSync(join(a.ort("modell"), "main.scad"), join(a.ort("verweis"), "main.scad"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.scad"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4a: OpenSCAD aus der Distribution – nur die Orte unter /usr, OPENSCAD=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("openscad");
+  const datei = join(d, "openscad");
+  writeFileSync(datei, "");
+  assert.equal(openscadAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(openscadAusUmgebung({ OPENSCAD: "aus" }, [datei]), null);
+  assert.equal(openscadAusUmgebung({ OPENSCAD: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit Qt und CGAL viele Dateien unter /usr");
+  assert.equal(openscadAusUmgebung({}, [d]), null, "ein Ordner ist kein OpenSCAD");
+  assert.deepEqual(OPENSCAD_ORTE, ["/usr/bin/openscad"]);
+});
+
+test("VKk4a: Start – Einstellungen im Home der Sandbox (Größe, Neuladen, ohne Customizer), dann wird die Shell zu OpenSCAD", async () => {
+  const d = tmp("openscad-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const aufrufe = join(d, "aufrufe.txt");
+  // ein OpenSCAD, das nur aufschreibt, womit es kam, und seine Prozessnummer
+  writeFileSync(join(d, "openscad"), `#!/bin/sh\necho "$*" >> "${aufrufe}"\necho "$$" >> "${aufrufe}"\n`);
+  chmodSync(join(d, "openscad"), 0o755);
+  const befehl = openscadBefehl(join(d, "openscad"), { breite: 800, hoehe: 600 });
+  assert.deepEqual(befehl.slice(0, 3), ["/bin/sh", "-c", OPENSCAD_START]);
+  const sh = spawn(befehl[0]!, befehl.slice(1), { stdio: "ignore", env: { PATH: process.env.PATH, HOME: heim } });
+  assert.equal(await new Promise((r) => sh.once("close", r)), 0);
+  assert.deepEqual(readFileSync(aufrufe, "utf8").trim().split("\n"), ["/arbeit/main.scad", String(sh.pid)], "exec: OpenSCAD ist der Prozess der Sandbox");
+  assert.equal(readFileSync(join(heim, ".config", "OpenSCAD", "OpenSCAD.conf"), "utf8"),
+    "[design]\nautoReload=true\n[view]\nhideCustomizer=true\nhideErrorLog=true\n[window]\nsize=@Size(800 600)\nposition=@Point(0 0)\n");
+});
+
+test("VKk4a: OpenSCAD im Bildstrom – main.scad in der Sandbox des Programms, nichts weiter eingebunden; ohne OpenSCAD kein Programm", async () => {
+  const a = ablage("modell");
+  writeFileSync(join(a.ort("modell"), "main.scad"), "cube(1);");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, openscad: "/usr/bin/openscad" });
+  try {
+    assert.equal(await b.starte("modell", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...openscadBefehl("/usr/bin/openscad", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined, "die Vorschau rechnet in Software");
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("modell", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 /** Statt bubblewrap: merkt sich, was gestartet würde, und spielt die Bild-Sandbox nach (`antworte`). */
@@ -470,7 +535,7 @@ async function mitCoturn(fn: (turn: { urls: string[]; geheimnis: string; gueltig
  */
 async function empfange(turn: { urls: string[]; geheimnis: string; gueltigSek: number }, turnPort: number, eingaben: unknown[],
   starte: (angebot: string) => Promise<string>, gewirkt: (farbe: number[] | null, bilder: number) => boolean,
-  optionen: { farbe?: number[]; pt?: number; frist?: number } = {}):
+  optionen: { farbe?: number[]; pt?: number; frist?: number; stelle?: [number, number] } = {}):
   Promise<{ bilder: number; farbe: number[] | null; antwortMs: number }> {
   const z = turnZugang(turn);
   const app = spawn(python!, [new URL("./fixtures/bild/empfaenger.py", import.meta.url).pathname,
@@ -651,6 +716,42 @@ test("VKi1: Ende zu Ende – ein Windows-Programm in Wine im Bild, ein Klick üb
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       assert.ok(rot(e.farbe), `nach dem Klick rot (${JSON.stringify(e.farbe)})`);
       assert.deepEqual(readdirSync(a.ort("fenster")).sort(), ["main.exe"], "das Präfix liegt nie im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const openscad = openscadAusUmgebung({});
+const ohneOpenscad = ohne || (!openscad && "OpenSCAD fehlt (openscad)");
+/** Draufsicht aus der Nähe: die Oberseite der Platte füllt die Vorschau. */
+const scad = (farbe: string) => `$vpr = [0, 0, 0]; $vpt = [0, 0, 0]; $vpd = 40;\ncolor(${farbe}) cube([200, 200, 10], center = true);\n`;
+
+test("VKk4a: Ende zu Ende – ein OpenSCAD-Modell im Bild; ändert der Agent die Datei, zeigt das Bild das neue Modell", { skip: ohneOpenscad, timeout: 120_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("modell");
+    const datei = join(a.ort("modell"), "main.scad");
+    writeFileSync(datei, scad("[0, 0.75, 0]"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, openscad: openscad! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann ändert der Test die Datei wie der Agent in seiner Sandbox – OpenSCAD lädt neu, das Bild wird rot
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          geaendert = true;
+          writeFileSync(datei, scad("[0.8, 0, 0]"));
+        }
+        return geaendert && rot(f);
+      };
+      // die Vorschau rechts oben, fern der Achsen in der Mitte
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("modell", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 60, stelle: [0.9, 0.15] });
+      console.log(`[bild] OpenSCAD: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach der Änderung rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("modell")), ["main.scad"], "die Einstellungen liegen nie im Projekt");
     } finally {
       b.beendeAlle();
     }
