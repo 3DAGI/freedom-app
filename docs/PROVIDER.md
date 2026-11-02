@@ -789,7 +789,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `/usr/local/bin/godot` (`GODOT` nennt einen anderen Pfad, `GODOT=aus` schaltet es ab);
   `bash scripts/godot-holen.sh <ordner>` holt das Release in fester Fassung, gegen SHA-512
   geprüft, dazu `libgl1 libglx-mesa0 libgl1-mesa-dri libxcursor1 libxinerama1 libxi6
-  libxrandr2`.
+  libxrandr2`. Windows-Programme (`main.exe`, seit VKi1) zeigt Wine aus der Distribution
+  (`wine64`, unter `/usr`; `WINE=aus` schaltet es ab) auf einer eigenen Arbeitsfläche; das
+  Präfix entsteht bei jedem Start neu im Speicher der Sandbox (rund 10 s), ohne Mono und
+  Gecko. Bauen kann der Agent sie mit mingw-w64 im Terminal (`x86_64-w64-mingw32-gcc`).
+  Nur auf x86_64 – auf ARM64 (GX10) laufen x86-Programme erst mit Hangover (VKi2).
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm;
   eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über
   NVENC, wo es die GPU gibt – `BILD_KODIERER=vp8` erzwingt VP8) und schickt es über
@@ -806,7 +810,8 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   (seit VKg2a3, dafür `python3-xlib`). In der App öffnet „Bild“ auf dem Blatt des
   Projekts die Ansicht (seit VKg2b) – die App muss den TURN des Knotens erreichen.
   Unter Docker bringt `docker-compose.vibecoden.yml` alle Pakete mit (seit VKg2c1, rund
-  270 MB; Godot seit VKk3a rund 150 MB mehr);
+  270 MB; Godot seit VKk3a rund 150 MB mehr; Wine und mingw-w64 nur mit `WINE=1` beim Bauen,
+  nur auf amd64, rund 1,2 GB mehr);
   läuft coturn mit dem Profil „anrufe“ auf demselben Rechner, ist `TURN_INTERN`
   dort `host.docker.internal:3478`. NVENC unter Docker (seit VKg2c2) nur mit
   NVIDIA Container Toolkit und der dritten Datei: `docker compose -f

@@ -2,12 +2,12 @@
 Sandbox, nur ueber den TURN (UDP, ice-transport-policy=relay), Angebot mit Video zum Empfangen und
 Datenkanal "eingabe" - wie die App in VKg2b.
 
-Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<JSON {"farbe": [r, g, b], "pt": n}>]
+Aufruf: python3 empfaenger.py <turn://...> <eingaben als JSON-Liste> [<JSON {"farbe": [r, g, b], "pt": n, "frist": s}>]
 Es bietet VP8 an, ohne Angabe mit 96 (wie Chromium); "pt" aendert die Nummer (VKg2c2: Firefox nennt VP8 120).
 stdout: {"angebot": SDP}, dann je Sekunde {"bilder": n, "farbe": [r, g, b]}, am Ende {"fertig": n, "farbe": [r, g, b]}
 stdin: {"antwort": SDP}, dann {"ende": true}. Sind 20 Bilder da (und, mit Farbe, zeigt das Bild diese Farbe),
 schickt es die Eingaben; es endet erst mit "ende" (der Test wartet vorher, bis die Eingaben wirken - keine feste Pause)
-oder nach 40 Sekunden. "farbe" ist die Farbe des letzten Bildes bei einem Viertel von Breite und Hoehe - nicht in der
+oder nach 40 Sekunden ("frist"). "farbe" ist die Farbe des letzten Bildes bei einem Viertel von Breite und Hoehe - nicht in der
 Mitte, dort steht der Zeiger (VKg2c1: Chromium im Bild).
 """
 
@@ -35,6 +35,7 @@ def main(argv):
     optionen = json.loads(argv[3]) if len(argv) > 3 else {}
     warte_auf = optionen.get("farbe")
     pt = int(optionen.get("pt", 96))
+    frist = int(optionen.get("frist", 40))
     Gst.init(None)
     pipe = Gst.Pipeline.new("empfaenger")
     w = Gst.ElementFactory.make("webrtcbin", "w")
@@ -117,7 +118,7 @@ def main(argv):
         return True
 
     GLib.timeout_add_seconds(1, takt)
-    GLib.timeout_add_seconds(40, schleife.quit)
+    GLib.timeout_add_seconds(frist, schleife.quit)
     schleife.run()
     melde({"fertig": zustand["bilder"], "farbe": zustand["farbe"]})
     pipe.set_state(Gst.State.NULL)

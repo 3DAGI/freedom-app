@@ -576,4 +576,14 @@ Bereichs unten anhängen.
   Der Import legt `.godot/` an und ergänzt `config/features` in `project.godot` – wie der Editor; nie versprechen, dass das Bild
   das Projekt nicht anfasst. Heruntergeladene Programme dürfen die Agenten hier nicht starten: Godot nur mit Attrappe prüfen
   (Start mit `$$`), den Echttest macht die CI (`GODOT_TEST`).
+- **Windows-Programme im Bild nur über `bildBefehl()` und `wineBefehl()`** (seit VKi1, `bildstrom.ts`): `main.exe` zählt nur mit
+  Wine aus `wineAusUmgebung()` – nur `WINE_ORTE` unter `/usr` (Wine sind viele Dateien; nie einen Ordner einbinden, kein eigener
+  Pfad), `WINE=aus` schaltet ab. Gestartet nur in der Sandbox des Programms, auf einer eigenen Arbeitsfläche (`explorer
+  /desktop=…`, ohne Fenstermanager hätten Fenster sonst keine Rahmen), Präfix nur im Home der Sandbox (tmpfs, nie im Projekt),
+  ohne Mono und Gecko (Wine fragte sonst nach einem Download) und ohne `winemenubuilder`. Das Präfix nie ohne Bildschirm
+  vorab anlegen (`env -u DISPLAY … wineboot`): Dann zeichnet das Programm zwar, erscheint im Bildstrom aber nie (gemessen
+  02.11., auch mit `wineserver -w`; mit Xvfb außerhalb der Sandbox ging es – die Ursache ist offen). Programme starten seit VKi1 erst nach der Antwort der Bild-Sandbox (`BildStrom.starte()`) –
+  Wine hielt sie beim Anlegen des Präfixes sonst 11,7 s statt 0,7 s auf, die Frist ist `BILD_GRENZEN.startMs`. Im Probeskript
+  Windows-Pfade in TypeScript-Strings doppelt schreiben (`"Z:\\arbeit\\main.exe"`) – `\a` und `\f` sind Steuerzeichen, Wine
+  fand dann kein Programm und es sah aus wie ein Fehler in Wine.
 

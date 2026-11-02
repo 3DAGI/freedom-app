@@ -111,6 +111,12 @@ jobs:
           bash scripts/godot-holen.sh "$HOME/.cache/freedom-godot"
           echo "GODOT_TEST=$HOME/.cache/freedom-godot/godot" >> "$GITHUB_ENV"
 
+      # VKi1: Windows-Programme zeigt Wine im Bild – der Test baut sein Programm mit mingw-w64 und startet es in Wine
+      - name: Wine und mingw fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends wine64 gcc-mingw-w64-x86-64
+          /usr/lib/wine/wine64 --version && x86_64-w64-mingw32-gcc --version | head -1
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

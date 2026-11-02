@@ -140,3 +140,33 @@ Mesa nur im großen Bild, CI mit Zwischenspeicher und `GODOT_TEST`. Gegenprobe: 
 den Agenten ist das Starten heruntergeladener Programme verwehrt; das Skript (laden, prüfen, auspacken, Zwischenspeicher,
 kaputtes Archiv neu laden) lief hier.
 
+## Schritt VKi1 – Windows-Programme im Bild: `main.exe` in Wine, das Programm erst nach der Antwort
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKi), nach VKg2 (Bildstrom). Erster Teil: x86_64; auf ARM64 (GX10) laufen x86-Programme erst
+mit Hangover (VKi2).
+
+- **`packages/node/src/bildstrom.ts`:**
+  - `bildBefehl()` erkennt `main.exe` (eine echte Datei), wenn der Knoten Wine hat – nach `.freedom/start`, Godot und `main.py`,
+    vor Web. `wineBefehl()`: Wine auf einer eigenen Arbeitsfläche so groß wie das Bild (ohne Fenstermanager hätten Fenster sonst
+    keine Rahmen), Präfix im Home der Sandbox (tmpfs, rund 10 s je Start, nie im Projekt), ohne Mono, Gecko und Menü.
+  - `wineAusUmgebung()`: nur Wine der Distribution unter `/usr` (`WINE_ORTE`), `WINE=aus` schaltet ab – kein eigener Pfad, Wine
+    sind viele Dateien.
+  - **Das Programm startet erst nach der Antwort der Bild-Sandbox**, nicht schon, wenn der Bildschirm steht: Wine hielt die
+    Antwort beim Anlegen des Präfixes sonst auf (gemessen 11,7 s statt 0,7 s, die Frist ist 20 s). Das gilt für alle Programme;
+    ohne Antwort startet keins.
+- **`src/main.ts`:** Wine an den Bildstrom; das Log sagt „Windows-Programme in Wine“ oder „ohne Wine“.
+- **Bild:** `ARG WINE=0` – nur mit `VIBECODEN=1` und `WINE=1` (`docker-compose.vibecoden.yml` reicht es durch) und nur auf amd64:
+  `wine wine64` und mingw-w64 für C und C++ zum Bauen im Terminal des Motors, zusammen rund 1,2 GB; auf arm64 ein Hinweis auf VKi2.
+- **CI:** `wine64` und `gcc-mingw-w64-x86-64` im Testjob (Zwischenspeicher wie B-42).
+- **Test-Empfänger:** `frist` in `fixtures/bild/empfaenger.py` (Vorgabe 40 s) – Wine braucht mit dem Präfix länger.
+- Fallstrick im Knoten (auch: das Präfix nie ohne Bildschirm vorab anlegen – im Bildstrom erschien das Programm dann nie),
+  `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +7 – `bildstrom.test.ts` +6: `main.exe` nur mit Wine, nach `main.py` und Godot, vor Web, kein Verweis, kein Ordner;
+der Befehl (Präfix im Home, nie im Projekt, ohne Mono, Gecko, Menü, Arbeitsfläche in Bildgröße); Wine nur aus `/usr`, `aus`, kein
+eigener Pfad; im Bildstrom nichts weiter eingebunden, ohne Wine `code-bild-kein-programm`; das Programm erst nach der Antwort,
+ohne Antwort keins (Gegenprobe mit der alten Reihenfolge rot); Ende zu Ende mit echtem Wine 9.0 und einem mit mingw-w64 gebauten
+Programm: grüne Fläche über den TURN, ein Klick macht sie rot, Antwort nach 0,6–0,9 s (fünf Läufe), das Projekt bleibt ohne
+Präfix. `docker-vibecoden.test.ts` +1: Wine und mingw-w64 nur mit beiden Schaltern und nur auf amd64, Compose reicht `WINE`
+durch, der Standard bleibt ohne, die CI installiert beides.
+

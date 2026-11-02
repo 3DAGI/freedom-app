@@ -13,7 +13,8 @@
  * der Sandbox des Programms. So geht auch eine Web-App unterwegs nur über den TURN, ohne Adresse des Knotens.
  *
  * Godot-Projekte (VKk3a) zeigt Godot selbst, ebenfalls in der Sandbox des Programms – erst importiert wie im Editor, dann das
- * Spiel, gerechnet in Software (`GODOT_START`, `godotArgumente()`).
+ * Spiel, gerechnet in Software (`GODOT_START`, `godotArgumente()`). Windows-Programme (VKi1, `main.exe`) laufen dort in Wine
+ * auf einer eigenen Arbeitsfläche (`wineBefehl()`).
  *
  * Kodiert wird nach dem Angebot der App (VKg2c2): mit der Nummer des Formats aus dem Angebot, H.264 über NVENC, wo der Knoten
  * es hat (nur die Bild-Sandbox bekommt dann die GPU), sonst VP8 in Software (`bildKodierer()`).
@@ -159,13 +160,44 @@ export function godotArgumente(groesse: { breite: number; hoehe: number }): stri
 }
 
 /**
+ * Wo der Knoten Wine sucht – nur Pakete der Distribution unter `/usr` (Wine sind viele Dateien, nie einen Ordner einbinden):
+ * Debian und Ubuntu der Starter selbst, sonst `/usr/bin/wine`.
+ */
+export const WINE_ORTE: readonly string[] = ["/usr/lib/wine/wine64", "/usr/bin/wine"];
+
+/** Wine aus der Distribution (VKi1): der erste aus `WINE_ORTE`; null mit `WINE=aus` oder ohne Fund. */
+export function wineAusUmgebung(env: { WINE?: string }, orte: readonly string[] = WINE_ORTE): string | null {
+  if (env.WINE?.trim() === "aus") return null;
+  return orte.find((p) => {
+    try {
+      return statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  }) ?? null;
+}
+
+/**
+ * Ein Windows-Programm im Bild (VKi1): `main.exe` in Wine, auf einer eigenen Arbeitsfläche so groß wie das Bild – ohne
+ * Fenstermanager hätten die Fenster sonst keine Rahmen. Das Präfix liegt im Home der Sandbox (tmpfs), entsteht bei jedem Start
+ * neu (rund 10 s) und vergeht mit ihr; nie im Projekt. Ohne Mono und Gecko (Wine fragte sonst nach einem Download, die Sandbox
+ * hat kein Netz) und ohne Verknüpfungen fürs Menü.
+ */
+export function wineBefehl(wine: string, groesse: { breite: number; hoehe: number }): string[] {
+  return [
+    "/usr/bin/env", "WINEPREFIX=/home/agent/.wine", "WINEDEBUG=-all", "WINEDLLOVERRIDES=mscoree,mshtml=;winemenubuilder.exe=d",
+    wine, "explorer", `/desktop=freedom,${groesse.breite}x${groesse.hoehe}`, "Z:\\arbeit\\main.exe",
+  ];
+}
+
+/**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
- * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt). Mit Browser (VKg2c1) dann
- * ein Web-Projekt: mit Skript `dev` in `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App,
- * wie man ein Programm nennt.
+ * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
+ * `main.exe`. Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in `package.json` der Dev-Server, sonst
+ * `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
-  godot?: { breite: number; hoehe: number }): string[] | null {
+  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string }): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -175,11 +207,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
     }
   };
   if (ist(".freedom", "ordner") && ist(".freedom/start", "datei")) return ["/bin/sh", "/arbeit/.freedom/start"];
-  if (godot && ist("project.godot", "datei")) return ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(godot)];
+  if (programme?.godot && ist("project.godot", "datei")) return ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(programme)];
   if (ist("main.py", "datei")) {
     const venv = ist(".venv", "ordner") && existsSync(join(projektOrdner, ".venv", "bin", "python3"));
     return [venv ? "/arbeit/.venv/bin/python3" : "python3", "/arbeit/main.py"];
   }
+  if (programme?.wine && ist("main.exe", "datei")) return wineBefehl(programme.wine, programme);
   if (!web) return null;
   if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
@@ -223,6 +256,8 @@ export class BildStrom {
     browser?: string;
     /** Godot für Godot-Projekte (VKk3a, `godotAusUmgebung()`) – das Programm sieht es als `GODOT_IN_SANDBOX`. */
     godot?: string;
+    /** Wine für `main.exe` (VKi1, `wineAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    wine?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
     nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
     /** Nur für Tests: statt `bildBefehl()`. */
@@ -249,7 +284,8 @@ export class BildStrom {
     this.beende(projekt);
     if (this.laufend.size >= BILD_GRENZEN.gesamt) throw new CodeAbgelehnt("code-zu-viele");
     const browser = this.o.browser;
-    const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, this.o.godot ? groesse : undefined);
+    const programme = { ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}) };
+    const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
 
     // Den Platz gleich belegen – zwei Starts zugleich kämen sonst beide an der Grenze vorbei
@@ -303,18 +339,8 @@ export class BildStrom {
 
     // stdin bleibt offen: Endet es, endet das Bild (so endet es auch, wenn der Knoten endet)
     b.ein!.write(`${JSON.stringify({ turn, angebot })}\n`);
-    // Das Programm erst, wenn der Bildschirm steht – in seiner eigenen Sandbox, mit dem Socket des Bildschirms nur lesbar
-    const bis = Date.now() + BILD_GRENZEN.startMs;
-    while (!vorbei && !existsSync(join(x11, "X99")) && Date.now() < bis) await new Promise((r) => setTimeout(r, 50));
-    if (!vorbei && existsSync(join(x11, "X99"))) {
-      programm = this.sandbox(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, ...befehl], {
-        arbeit: ort,
-        nurLesbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }, ...this.programmLesbar],
-      });
-      void programm.ende.then(eintrag.beende);
-    }
-    // endet die Bild-Sandbox (oder das Programm, das sie mitnimmt), nicht bis zur Frist warten
-    const zeile = await Promise.race([ersteZeile(b.aus!, BILD_GRENZEN.antwortBytes, Math.max(0, bis - Date.now())), b.ende.then(() => null)]);
+    // endet die Bild-Sandbox, nicht bis zur Frist warten
+    const zeile = await Promise.race([ersteZeile(b.aus!, BILD_GRENZEN.antwortBytes, BILD_GRENZEN.startMs), b.ende.then(() => null)]);
     let antwort: unknown;
     let kodierer: unknown;
     try {
@@ -322,7 +348,15 @@ export class BildStrom {
     } catch {
       antwort = null;
     }
-    if (vorbei || !istBildSdp(antwort)) return abgelehnt();
+    if (vorbei || !istBildSdp(antwort) || !existsSync(join(x11, "X99"))) return abgelehnt();
+    // Das Programm erst, wenn die Antwort steht (und mit ihr der Bildschirm) – ein Programm, das beim Start den Bildschirm
+    // aufhält, verzögerte sonst die Antwort (VKi1: Wine legt sein Präfix an, gemessen 11,7 s statt 0,7 s). In seiner eigenen
+    // Sandbox, mit dem Socket des Bildschirms nur lesbar
+    programm = this.sandbox(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, ...befehl], {
+      arbeit: ort,
+      nurLesbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }, ...this.programmLesbar],
+    });
+    void programm.ende.then(eintrag.beende);
     // Mit dem Zugang zum TURN endet auch das Bild – ohne ihn erneuert der TURN die Allokation nicht
     setTimeout(eintrag.beende, Math.max(0, z.bis * 1000 - Date.now())).unref();
     const name = typeof kodierer === "string" && Object.hasOwn(KODIERER_NAME, kodierer) ? KODIERER_NAME[kodierer] : "?";
