@@ -191,6 +191,15 @@ export function wineBefehl(wine: string, groesse: { breite: number; hoehe: numbe
 }
 
 /**
+ * Was Wine zusätzlich lesen darf (VKi2): auf ARM64 die Angaben zum Prozessor – ohne `/sys/devices/system/cpu` erkennen FEX und
+ * box64 (Hangover) die Merkmale falsch, und das Programm endet mit einem unerlaubten Befehl (`c000001d`, gemessen auf
+ * `ubuntu-24.04-arm`). Nur lesbar, nur für Wine; auf x86_64 nichts.
+ */
+export function wineLesbar(arch: string = process.arch): Array<{ quelle: string; ziel: string }> {
+  return arch === "arm64" && existsSync("/sys/devices/system/cpu") ? [{ quelle: "/sys/devices/system/cpu", ziel: "/sys/devices/system/cpu" }] : [];
+}
+
+/**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
  * `main.exe`. Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in `package.json` der Dev-Server, sonst
@@ -258,6 +267,8 @@ export class BildStrom {
     godot?: string;
     /** Wine für `main.exe` (VKi1, `wineAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     wine?: string;
+    /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
+    arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
     nurLesbar?: ReadonlyArray<{ quelle: string; ziel: string }>;
     /** Nur für Tests: statt `bildBefehl()`. */
@@ -354,7 +365,10 @@ export class BildStrom {
     // Sandbox, mit dem Socket des Bildschirms nur lesbar
     programm = this.sandbox(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, ...befehl], {
       arbeit: ort,
-      nurLesbar: [{ quelle: x11, ziel: BILD_IN_SANDBOX.x11 }, ...this.programmLesbar],
+      nurLesbar: [
+        { quelle: x11, ziel: BILD_IN_SANDBOX.x11 }, ...this.programmLesbar,
+        ...(this.o.wine !== undefined && JSON.stringify(befehl) === JSON.stringify(wineBefehl(this.o.wine, groesse)) ? wineLesbar(this.o.arch) : []),
+      ],
     });
     void programm.ende.then(eintrag.beende);
     // Mit dem Zugang zum TURN endet auch das Bild – ohne ihn erneuert der TURN die Allokation nicht

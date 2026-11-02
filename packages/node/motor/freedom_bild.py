@@ -182,7 +182,9 @@ def formate(angebot):
 
 def pipeline_text(kodierer, pt, plid=None):
     """Bildschirm -> Kodierer -> RTP mit der Nummer aus dem Angebot -> webrtcbin (nur ueber den TURN)."""
-    quelle = (f"ximagesrc display-name={ANZEIGE} use-damage=false show-pointer=true ! video/x-raw,framerate=30/1 "
+    # remote=true: Xvfb laeuft ohne MIT-SHM (VKi2), und ohne SHM liefert ximagesrc (GStreamer 1.24) sonst nur Schwarz -
+    # mit remote liest es ueber XGetSubImage
+    quelle = (f"ximagesrc display-name={ANZEIGE} use-damage=false remote=true show-pointer=true ! video/x-raw,framerate=30/1 "
               "! videoconvert ! queue leaky=downstream max-size-buffers=2 ")
     if kodierer == "vp8enc":
         rtp = (f"! rtpvp8pay pt={pt} ! application/x-rtp,media=video,encoding-name=VP8,payload={pt},clock-rate=90000 ")
@@ -230,8 +232,12 @@ def main(argv):
         return 3
 
     leise = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    # Ohne MIT-SHM: Das Programm laeuft in einer anderen Sandbox mit eigenem IPC-Namensraum. Haengt es ein Stueck an, haengt
+    # Xvfb das mit derselben Nummer HIER an - etwa das von ximagesrc (Rechte 1777). Das Programm erschien dann nie im Bild
+    # (VKi2: Wine auf ARM64), und es haette den Speicher dieser Sandbox lesen und beschreiben lassen.
     try:
-        xvfb = subprocess.Popen(["Xvfb", ANZEIGE, "-screen", "0", f"{breite}x{hoehe}x24", "-nolisten", "tcp", "-noreset"], **leise)
+        xvfb = subprocess.Popen(["Xvfb", ANZEIGE, "-screen", "0", f"{breite}x{hoehe}x24", "-nolisten", "tcp", "-noreset",
+                                 "-extension", "MIT-SHM"], **leise)
     except OSError:
         melde({"fehler": "anzeige"})
         return 3

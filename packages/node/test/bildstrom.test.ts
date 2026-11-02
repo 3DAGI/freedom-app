@@ -18,7 +18,7 @@ import {
 } from "@freedomstack/protocol";
 import {
   BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt,
-  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl,
+  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -249,7 +249,7 @@ test("VKi1: Wine im Bildstrom – main.exe in der Sandbox des Programms, nichts 
   const a = ablage("exe");
   writeFileSync(join(a.ort("exe"), "main.exe"), "MZ");
   const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
-  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine" });
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine", arch: "x64" }); // ARM64: VKi2
   try {
     assert.equal(await b.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
     const programm = starts[1]!;
@@ -261,6 +261,28 @@ test("VKi1: Wine im Bildstrom – main.exe in der Sandbox des Programms, nichts 
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKi2: auf ARM64 liest Wine die Angaben zum Prozessor – nur lesbar, nur für Wine, auf x86_64 nichts", async () => {
+  const cpu = { quelle: "/sys/devices/system/cpu", ziel: "/sys/devices/system/cpu" };
+  assert.deepEqual(wineLesbar("x64"), []);
+  assert.deepEqual(wineLesbar("arm64"), existsSync(cpu.quelle) ? [cpu] : []);
+  const a = ablage("exe", "py");
+  writeFileSync(join(a.ort("exe"), "main.exe"), "MZ");
+  writeFileSync(join(a.ort("py"), "main.py"), "");
+  for (const [arch, projekt, erwartet] of [["arm64", "exe", true], ["arm64", "py", false], ["x64", "exe", false]] as const) {
+    const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+    const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine", arch });
+    try {
+      await b.starte(projekt, ANGEBOT, { breite: 640, hoehe: 480 });
+      const [bild, programm] = starts as [typeof starts[0], typeof starts[0]];
+      const hat = programm.ort.nurLesbar!.some((x) => x.ziel === cpu.ziel);
+      assert.equal(hat, erwartet && existsSync(cpu.quelle), `${arch} ${projekt}`);
+      assert.ok(!bild.ort.nurLesbar!.some((x) => x.ziel === cpu.ziel), "nie für die Bild-Sandbox");
+    } finally {
+      b.beendeAlle();
+    }
+  }
 });
 
 test("VKk3a: Godot nur für das Programm – die eine Datei nur lesbar, nie für die Bild-Sandbox; ohne Godot kein Programm", async () => {
@@ -502,7 +524,7 @@ test("VKg2a2/a3: Ende zu Ende – Bild über den TURN, Tasten und Klick kommen i
       console.log(`[bild] Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder empfangen, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
       assert.ok(e.bilder >= 20, `Bilder angekommen (${e.bilder})`);
       const tasten = readFileSync(datei, "utf8");
-      assert.match(tasten, /^bereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
+      assert.match(tasten, /^mit-shm nein\nbereit\ntaste h\n(taste 0xffe1\n)?taste A\ntaste (adiaeresis|ä)\ntaste \r\nklick 1 320 120\n$/, tasten);
       assert.equal(b.beende("spiel"), true);
     } finally {
       b.beendeAlle();
@@ -601,13 +623,19 @@ test("VKk3a: Ende zu Ende – ein Godot-Spiel im Bild (OpenGL in Software), ein 
   });
 });
 
-/** Wine (VKi1) aus der Distribution und mingw-w64 zum Bauen des Test-Programms – in der CI installiert, hier je nach Rechner. */
+/**
+ * Wine (VKi1; auf ARM64 Hangover, VKi2) und mingw-w64 zum Bauen des Test-Programms – in der CI installiert, hier je nach Rechner.
+ * Mit `WINE_TEST_PFLICHT` (CI-Job auf ARM64) ist der Test rot, statt sich zu überspringen, wenn etwas fehlt.
+ */
 const wine = wineAusUmgebung({});
 const mingw = await hat("x86_64-w64-mingw32-gcc");
+const ohneWine = ohne || (!wine && "Wine fehlt (wine64, auf ARM64 Hangover)") || (!mingw && "mingw-w64 fehlt (gcc-mingw-w64-x86-64)");
 
 test("VKi1: Ende zu Ende – ein Windows-Programm in Wine im Bild, ein Klick über den Datenkanal ändert es", {
-  skip: ohne || (!wine && "Wine fehlt (wine64)") || (!mingw && "mingw-w64 fehlt (gcc-mingw-w64-x86-64)"), timeout: 150_000,
+  skip: process.env.WINE_TEST_PFLICHT ? false : ohneWine, timeout: 150_000,
 }, async () => {
+  assert.equal(ohneWine, false, `WINE_TEST_PFLICHT: ${ohneWine}`);
+  console.log(`[bild] Wine: ${wine} auf ${process.arch}`);
   await mitCoturn(async (turn, turnPort) => {
     const a = ablage("fenster");
     await new Promise<void>((r, f) => execFile("x86_64-w64-mingw32-gcc",

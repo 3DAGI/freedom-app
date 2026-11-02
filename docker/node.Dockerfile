@@ -30,6 +30,19 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ]; then apt-get update \
       && install -D -m 0644 /tmp/godot/COPYRIGHT.txt /aus/usr/local/share/doc/godot/COPYRIGHT.txt; \
     fi
 
+# Hangover für Windows-Programme auf ARM64 (VKi2) – nur mit VIBECODEN=1, WINE=1 und auf arm64: die Pakete des Releases in
+# fester Fassung, gegen SHA-256 geprüft (scripts/hangover-holen.sh). Eigene Stufe: curl bleibt draußen; installiert werden die
+# Pakete unten über einen Mount, damit das Archiv in keiner Schicht des Bilds liegt.
+FROM node:22-slim AS hangover-holen
+ARG VIBECODEN=0
+ARG WINE=0
+COPY scripts/hangover-holen.sh /tmp/hangover-holen.sh
+RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ] && [ "$(dpkg --print-architecture)" = "arm64" ]; then apt-get update \
+      && apt-get install -y --no-install-recommends curl ca-certificates \
+      && bash /tmp/hangover-holen.sh /tmp/hangover bookworm \
+      && mv /tmp/hangover/*.deb /aus/; \
+    fi
+
 FROM node:22-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -77,16 +90,19 @@ RUN if [ "$VIBECODEN" = "1" ]; then \
            --only-binary :all: --no-deps -r /tmp/hermes-requirements.txt; \
     fi && rm /tmp/hermes-requirements.txt
 
-# Windows-Programme im Bild (VKi1) – nur mit VIBECODEN=1 und WINE=1 (docker-compose.vibecoden.yml reicht es durch), nur auf
-# amd64: x86-Programme laufen auf arm64 erst mit Hangover (VKi2). Wine (LGPL-2.1+) startet main.exe in der Sandbox des
-# Programms (bildstrom.ts), mingw-w64 (GCC, GPL mit Ausnahme für die Laufzeit) baut Windows-Programme im Terminal des Motors –
-# eigene Programme, getrennte Prozesse; zusammen rund 1,2 GB (gemessen unter Ubuntu 24.04).
+# Windows-Programme im Bild (VKi1, VKi2) – nur mit VIBECODEN=1 und WINE=1 (docker-compose.vibecoden.yml reicht es durch).
+# amd64: Wine der Distribution (LGPL-2.1+), zusammen mit mingw-w64 rund 1,2 GB. arm64 (GX10): Hangover aus der Stufe oben –
+# Wine mit FEX für x86_64 und box64 für 32 Bit (LGPL-2.1+ bzw. MIT), zusammen mit mingw-w64 rund 3 GB. Wine startet main.exe in
+# der Sandbox des Programms (bildstrom.ts), mingw-w64 (GCC, GPL mit Ausnahme für die Laufzeit) baut Windows-Programme im
+# Terminal des Motors – eigene Programme, getrennte Prozesse.
 ARG WINE=0
-RUN if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ]; then \
-      if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-        apt-get update && apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
-        && rm -rf /var/lib/apt/lists/*; \
-      else echo "WINE=1: x86-Programme gibt es auf $(dpkg --print-architecture) erst mit Hangover (VKi2) – übersprungen"; fi; \
+RUN --mount=type=bind,from=hangover-holen,source=/aus,target=/tmp/hangover \
+    if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ]; then \
+      apt-get update && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64; \
+      else \
+        apt-get install -y --no-install-recommends /tmp/hangover/*.deb gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64; \
+      fi && rm -rf /var/lib/apt/lists/*; \
     fi
 WORKDIR /app
 

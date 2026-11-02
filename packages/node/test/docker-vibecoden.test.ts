@@ -122,17 +122,37 @@ test("VKk3a: Godot nur mit VIBECODEN=1 – das Release in fester Fassung gegen S
   assert.match(ci, /\n\s+bash scripts\/godot-holen\.sh "\$HOME\/\.cache\/freedom-godot"\n\s+echo "GODOT_TEST=\$HOME\/\.cache\/freedom-godot\/godot" >> "\$GITHUB_ENV"\n/);
 });
 
-test("VKi1: Wine und mingw-w64 nur mit VIBECODEN=1 und WINE=1, nur auf amd64; die CI prüft Wine echt", () => {
+test("VKi1/VKi2: Wine und mingw-w64 nur mit VIBECODEN=1 und WINE=1 – amd64 Wine der Distribution, arm64 Hangover; die CI prüft beide echt", () => {
   const docker = lies("docker/node.Dockerfile");
-  assert.match(docker, /\nARG WINE=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$WINE" = "1" \]; then \\\n\s+if \[ "\$\(dpkg --print-architecture\)" = "amd64" \]; then \\\n/);
-  assert.match(docker, /apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64 \\\n/);
-  assert.match(docker, /erst mit Hangover \(VKi2\) – übersprungen/, "auf arm64 nichts, und das Log sagt warum");
+  assert.match(docker, /\nARG WINE=0\nRUN --mount=type=bind,from=hangover-holen,source=\/aus,target=\/tmp\/hangover \\\n\s+if \[ "\$VIBECODEN" = "1" \] && \[ "\$WINE" = "1" \]; then \\\n/);
+  assert.match(docker, /if \[ "\$\(dpkg --print-architecture\)" = "amd64" \]; then \\\n\s+apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64; \\\n/);
+  assert.match(docker, /else \\\n\s+apt-get install -y --no-install-recommends \/tmp\/hangover\/\*\.deb gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64; \\\n/);
+  // Hangover nur in einer eigenen Stufe geholt – das Archiv liegt in keiner Schicht, curl nicht im Bild
+  assert.match(docker, /FROM node:22-slim AS hangover-holen\nARG VIBECODEN=0\nARG WINE=0\nCOPY scripts\/hangover-holen\.sh \/tmp\/hangover-holen\.sh\n/);
+  assert.match(docker, /if \[ "\$VIBECODEN" = "1" \] && \[ "\$WINE" = "1" \] && \[ "\$\(dpkg --print-architecture\)" = "arm64" \]; then apt-get update/);
+  assert.match(docker, /bash \/tmp\/hangover-holen\.sh \/tmp\/hangover bookworm \\\n/);
+  assert.ok(!/COPY --from=hangover-holen/.test(docker), "nie per COPY – sonst bliebe das Paket in einer Schicht");
   const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
   const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
   const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
   for (const p of ["wine", "wine64"]) assert.ok(!immer.includes(p) && !vibecoden.includes(p), `${p} nur mit WINE=1`);
   assert.match(lies("docker-compose.vibecoden.yml"), /build:\n\s+args:\n\s+VIBECODEN: "1"\n(\s+#[^\n]*\n)?\s+WINE: "\$\{WINE:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("WINE"), "der Standard bleibt ohne");
-  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends wine64 gcc-mingw-w64-x86-64\n\s+\/usr\/lib\/wine\/wine64 --version && x86_64-w64-mingw32-gcc --version/);
+  const ci = lies(".github/workflows/ci.yml");
+  assert.match(ci, /apt-get install -y --no-install-recommends wine64 gcc-mingw-w64-x86-64\n\s+\/usr\/lib\/wine\/wine64 --version && x86_64-w64-mingw32-gcc --version/);
+  // ARM64: eigener Job, Hangover aus dem Skript, der Echttest ist Pflicht
+  assert.match(ci, /\n  hangover:\n    name: Windows-Programme auf ARM64 \(Hangover\)\n    runs-on: ubuntu-24.04-arm\n/);
+  assert.match(ci, /bash scripts\/hangover-holen\.sh "\$HOME\/\.cache\/freedom-hangover" noble\n\s+sudo apt-get install -y --no-install-recommends "\$HOME"\/\.cache\/freedom-hangover\/\*\.deb\n/);
+  assert.match(ci, /run: WINE_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKi" test\/bildstrom\.test\.ts\n/);
 });
 
+test("VKi2: Hangover in fester Fassung – SHA-256 je Distribution fest im Skript, nur https, nur die vier Pakete, nur ARM64", () => {
+  const skript = lies("scripts/hangover-holen.sh");
+  assert.match(skript, /^HANGOVER_FASSUNG=11\.16$/m);
+  for (const d of ["noble", "bookworm"]) assert.match(skript, new RegExp(`^  \\[${d}\\]=[0-9a-f]{64}$`, "m"), d);
+  assert.match(skript, /curl -fsSL --retry 3 --proto '=https' --tlsv1\.2 -o "\$tar_datei\.teil"/, "nur https");
+  assert.match(skript, /stimmt "\$tar_datei\.teil" "\$\{SUMME\[\$DIST\]\}" \|\| \{ rm -f "\$tar_datei\.teil";/, "erst geprüft, dann unter dem Namen");
+  assert.match(skript, /^PAKETE=\(hangover-wine hangover-libarm64ecfex hangover-libwow64fex hangover-wowbox64\)$/m, "ohne DXVK");
+  assert.match(skript, /tar -xOf "\$tar_datei" "\$name" > "\$ZIEL\/\$name"/, "nur flache Namen, nie entpacken, wohin es will");
+  assert.match(skript, /aarch64 \| arm64\) ;;/);
+});

@@ -170,3 +170,39 @@ Programm: grüne Fläche über den TURN, ein Klick macht sie rot, Antwort nach 0
 Präfix. `docker-vibecoden.test.ts` +1: Wine und mingw-w64 nur mit beiden Schaltern und nur auf amd64, Compose reicht `WINE`
 durch, der Standard bleibt ohne, die CI installiert beides.
 
+## Schritt VKi2 – Windows-Programme auf ARM64: Hangover im Bild, Echttest auf einem ARM64-Runner
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKi), nach VKi1. Damit ist VKi fertig: `main.exe` läuft im Bild auch auf dem GX10.
+
+- **`scripts/hangover-holen.sh`** (neu): Hangover 11.16 (AndreRH/hangover) für Ubuntu 24.04 (`noble`) und Debian 12 (`bookworm`),
+  SHA-256 je Archiv fest im Skript (das Projekt veröffentlicht keine – beim ersten Laden selbst gerechnet), nur https, nur auf
+  ARM64; aus dem Archiv nur die vier Pakete (Wine, FEX für x86_64 über ARM64EC, FEX und box64 für 32 Bit) – ohne DXVK.
+- **Bild:** Stufe `hangover-holen` (nur mit `VIBECODEN=1`, `WINE=1`, arm64), installiert im Hauptbild über `RUN --mount` – das
+  Archiv liegt in keiner Schicht; dazu mingw-w64 wie auf amd64. Rund 3 GB. `docker buildx build --check`: keine Warnungen.
+- **CI:** eigener Job „Windows-Programme auf ARM64 (Hangover)“ auf `ubuntu-24.04-arm` – Sandbox, Bildstrom, mingw-w64, Hangover
+  aus dem Skript (Zwischenspeicher), dann die VKi-Tests mit `WINE_TEST_PFLICHT` (fehlt etwas, ist der Echttest rot).
+- **Code:** Hangover bringt sein Wine unter `/usr/bin/wine` (in `WINE_ORTE`), die Emulatoren wählt es selbst
+  (`libarm64ecfex.dll` steht in seinem `ntdll`, `wowbox64.dll` in `wow64` – nachgesehen in den Paketen). Im ersten Lauf des Jobs
+  blieb das Bild schwarz: In der Sandbox endete FEX mit `c000001d` (unerlaubter Befehl). Die Diagnose (`test/fixtures/wine/
+  diagnose.mts`, im Job nur bei Fehlern) trennte die Fälle – ohne Sandbox grün, mit deren Speichergrenze grün, in der Sandbox
+  schwarz, in der Sandbox mit `/sys/devices/system/cpu` grün: Ohne den Ordner erkennen FEX und box64 die Merkmale des Prozessors
+  falsch. `wineLesbar()` gibt ihn der Sandbox des Programms auf ARM64 nur lesbar und nur für Wine.
+- **Bild ohne MIT-SHM:** Auch mit dem Ordner blieb der Echttest schwarz, obwohl Wine in der Diagnose zeichnete. Der
+  Unterschied: Dort lief Xvfb außerhalb der Sandbox, im Bildstrom läuft er in der Bild-Sandbox mit eigenem IPC-Namensraum.
+  Hängt das Programm ein Stück gemeinsamen Speichers an (MIT-SHM), hängt Xvfb das mit derselben Nummer in *seinem* Namensraum an
+  – ximagesrc hat dort die Nummern 1 und 2 mit Rechten 1777. Lokal mit einem kleinen C-Programm nachgestellt: Stück 1 „hängt“,
+  das Bild bleibt schwarz; ohne MIT-SHM grün. Das erklärt auch das offene Rätsel aus VKi1 (Präfix ohne Bildschirm: andere
+  Nummern), und es war ein Weg in den Speicher der Bild-Sandbox. `freedom_bild.py` startet Xvfb jetzt mit
+  `-extension MIT-SHM`; ximagesrc braucht dann `remote=true` – ohne SHM liefert es sonst nur Schwarz (GStreamer 1.24).
+- Fallstricke im Knoten und in den Skripten, `docs/PROVIDER.md`, Entwurf, OFFEN (VKi-Zeile weg, Probe am GX10 unter 2.3),
+  FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +2 – `bildstrom.test.ts` +1: die Angaben zum Prozessor nur auf ARM64, nur für Wine, nie für die Bild-Sandbox
+(der Test aus VKi1 nennt seine Architektur jetzt selbst); der Echttest mit dem Testprogramm prüft, dass der Bildschirm kein
+MIT-SHM anbietet (Gegenprobe mit MIT-SHM: rot);
+`docker-vibecoden.test.ts` +1 (Fassung, Summen, nur https, nur die vier Pakete, nur ARM64); der Test zu Bild und
+CI aus VKi1 prüft jetzt beide Wege (amd64 Wine, arm64 Hangover über den Mount, nie per `COPY`) und den ARM64-Job. Der Echttest
+im Bildstrom ist in diesem Job Pflicht (`WINE_TEST_PFLICHT`, sonst überspringt er sich ohne Wine oder mingw-w64). Hier lief das
+Skript mit einer Attrappe für `uname` (Archiv prüfen, vier Pakete, falsche Distribution, x86_64 abgelehnt); Hangover selbst läuft
+nur auf ARM64.
+
