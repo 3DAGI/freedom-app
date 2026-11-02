@@ -590,5 +590,8 @@ Bereichs unten anhängen.
   x86_64 – Hangover bringt sein Wine unter `/usr/bin/wine` mit (`WINE_ORTE`), die Emulatoren wählt es selbst (FEX über ARM64EC
   für x86_64, `libarm64ecfex.dll`; box64 für 32 Bit, `wowbox64.dll`) – keine eigene Variable dafür. DXVK nie: Direct3D über
   Vulkan braucht eine GPU, die der Code des Projekts nie bekommt. FEX braucht 4-KB-Seiten; den Echttest gibt es nur im CI-Job auf
-  `ubuntu-24.04-arm` (`WINE_TEST_PFLICHT`) – in den Containern der Agenten gibt es kein ARM64.
+  `ubuntu-24.04-arm` (`WINE_TEST_PFLICHT`) – in den Containern der Agenten gibt es kein ARM64. Ohne `/sys/devices/system/cpu`
+  erkennen FEX und box64 die Merkmale des Prozessors falsch, und das Programm endet mit `c000001d` (unerlaubter Befehl) – die
+  Sandbox des Programms bekommt den Ordner auf ARM64 nur lesbar und nur für Wine (`wineLesbar()`). Zeigt der Job kein Bild, startet
+  er `test/fixtures/wine/diagnose.mts` (ohne und in der Sandbox, mit Protokoll von Wine) – so fand sich die Ursache.
 

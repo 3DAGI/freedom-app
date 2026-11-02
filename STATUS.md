@@ -181,12 +181,17 @@ Spur B, `docs/VIBECODEN-ENTWURF.md` (VKi), nach VKi1. Damit ist VKi fertig: `mai
   Archiv liegt in keiner Schicht; dazu mingw-w64 wie auf amd64. Rund 3 GB. `docker buildx build --check`: keine Warnungen.
 - **CI:** eigener Job „Windows-Programme auf ARM64 (Hangover)“ auf `ubuntu-24.04-arm` – Sandbox, Bildstrom, mingw-w64, Hangover
   aus dem Skript (Zwischenspeicher), dann die VKi-Tests mit `WINE_TEST_PFLICHT` (fehlt etwas, ist der Echttest rot).
-- **Code:** keiner nötig – Hangover bringt sein Wine unter `/usr/bin/wine` (in `WINE_ORTE`), die Emulatoren wählt es selbst
-  (`libarm64ecfex.dll` steht in seinem `ntdll`, `wowbox64.dll` in `wow64` – nachgesehen in den Paketen).
+- **Code:** Hangover bringt sein Wine unter `/usr/bin/wine` (in `WINE_ORTE`), die Emulatoren wählt es selbst
+  (`libarm64ecfex.dll` steht in seinem `ntdll`, `wowbox64.dll` in `wow64` – nachgesehen in den Paketen). Im ersten Lauf des Jobs
+  blieb das Bild schwarz: In der Sandbox endete FEX mit `c000001d` (unerlaubter Befehl). Die Diagnose (`test/fixtures/wine/
+  diagnose.mts`, im Job nur bei Fehlern) trennte die Fälle – ohne Sandbox grün, mit deren Speichergrenze grün, in der Sandbox
+  schwarz, in der Sandbox mit `/sys/devices/system/cpu` grün: Ohne den Ordner erkennen FEX und box64 die Merkmale des Prozessors
+  falsch. `wineLesbar()` gibt ihn der Sandbox des Programms auf ARM64 nur lesbar und nur für Wine.
 - Fallstricke im Knoten und in den Skripten, `docs/PROVIDER.md`, Entwurf, OFFEN (VKi-Zeile weg, Probe am GX10 unter 2.3),
   FORTSCHRITT, Stand-Zeile.
 
-**Tests:** node +1 (`docker-vibecoden.test.ts`: Fassung, Summen, nur https, nur die vier Pakete, nur ARM64); der Test zu Bild und
+**Tests:** node +2 – `bildstrom.test.ts` +1: die Angaben zum Prozessor nur auf ARM64, nur für Wine, nie für die Bild-Sandbox;
+`docker-vibecoden.test.ts` +1 (Fassung, Summen, nur https, nur die vier Pakete, nur ARM64); der Test zu Bild und
 CI aus VKi1 prüft jetzt beide Wege (amd64 Wine, arm64 Hangover über den Mount, nie per `COPY`) und den ARM64-Job. Der Echttest
 im Bildstrom ist in diesem Job Pflicht (`WINE_TEST_PFLICHT`, sonst überspringt er sich ohne Wine oder mingw-w64). Hier lief das
 Skript mit einer Attrappe für `uname` (Archiv prüfen, vier Pakete, falsche Distribution, x86_64 abgelehnt); Hangover selbst läuft

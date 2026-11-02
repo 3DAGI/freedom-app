@@ -18,7 +18,7 @@ import {
 } from "@freedomstack/protocol";
 import {
   BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt,
-  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl,
+  bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -261,6 +261,28 @@ test("VKi1: Wine im Bildstrom – main.exe in der Sandbox des Programms, nichts 
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("exe", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKi2: auf ARM64 liest Wine die Angaben zum Prozessor – nur lesbar, nur für Wine, auf x86_64 nichts", async () => {
+  const cpu = { quelle: "/sys/devices/system/cpu", ziel: "/sys/devices/system/cpu" };
+  assert.deepEqual(wineLesbar("x64"), []);
+  assert.deepEqual(wineLesbar("arm64"), existsSync(cpu.quelle) ? [cpu] : []);
+  const a = ablage("exe", "py");
+  writeFileSync(join(a.ort("exe"), "main.exe"), "MZ");
+  writeFileSync(join(a.ort("py"), "main.py"), "");
+  for (const [arch, projekt, erwartet] of [["arm64", "exe", true], ["arm64", "py", false], ["x64", "exe", false]] as const) {
+    const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+    const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, wine: "/usr/bin/wine", arch });
+    try {
+      await b.starte(projekt, ANGEBOT, { breite: 640, hoehe: 480 });
+      const [bild, programm] = starts as [typeof starts[0], typeof starts[0]];
+      const hat = programm.ort.nurLesbar!.some((x) => x.ziel === cpu.ziel);
+      assert.equal(hat, erwartet && existsSync(cpu.quelle), `${arch} ${projekt}`);
+      assert.ok(!bild.ort.nurLesbar!.some((x) => x.ziel === cpu.ziel), "nie für die Bild-Sandbox");
+    } finally {
+      b.beendeAlle();
+    }
+  }
 });
 
 test("VKk3a: Godot nur für das Programm – die eine Datei nur lesbar, nie für die Bild-Sandbox; ohne Godot kein Programm", async () => {
