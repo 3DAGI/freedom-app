@@ -230,3 +230,17 @@ Läufe ohne Fehler); im Projekt liegt danach nur `main.scad`. Gegenprobe ohne `a
 Hintergrund. `docker-vibecoden.test.ts` +1: OpenSCAD nur im großen Bild, dort, wo der Knoten es sucht, und in der CI. Im Terminal
 der Sandbox geprüft: STL geht, PNG endet ohne Bildschirm mit einem Speicherfehler – die Doku verspricht nur Modelle.
 
+## Schritt B-43 – Docker-Bild fest auf Debian 12: `node:22-bookworm-slim` in jeder Stufe
+
+Spur B, gefunden nach VKk4a beim Vergleich der Paketfassungen für weitere Programme im Bild.
+
+- **`docker/node.Dockerfile`:** alle vier Stufen (`whisper-bau`, `godot-holen`, `hangover-holen`, Knoten) von `node:22-slim` auf
+  `node:22-bookworm-slim`. Heute ist das dasselbe Bild (gleicher Digest auf `mirror.gcr.io`, 02.11.), aber `node:22-slim` wandert
+  mit der nächsten Debian-Fassung mit – die Pakete des Bilds sind für Debian 12 gewählt, Hangover holt das Paket für `bookworm`,
+  und auf Debian 13 schlüge der Bau mit `WINE=1` auf arm64 fehl oder liefe mit fremden Bibliotheken.
+- Fallstrick im Knoten („Vibecoden unter Docker“), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +1 – `docker-vibecoden.test.ts`: jede Stufe `node:22-bookworm-slim`, Hangover für `bookworm`, `.nvmrc` mit
+derselben Hauptversion; die Tests aus B-38b3 und VKk3a/VKi2 lesen die neuen Zeilen. Gegenprobe mit einer Stufe auf
+`node:22-slim`: rot. `docker buildx build --check`: keine Warnungen.
+

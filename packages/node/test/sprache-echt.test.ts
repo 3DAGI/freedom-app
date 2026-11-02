@@ -48,7 +48,7 @@ test("B-38b3: whisper-bauen.sh – feste Fassung und Commit, ohne OpenMP, ohne S
   assert.doesNotMatch(s, /curl |wget /, "nie ein fertiges Programm herunterladen");
   const lies = (p: string) => readFileSync(new URL(`../../../${p}`, import.meta.url), "utf8");
   const docker = lies("docker/node.Dockerfile");
-  assert.match(docker, /FROM node:22-slim AS whisper-bau\nARG WHISPER=0\n/, "eigene Stufe – Compiler bleiben draußen");
+  assert.match(docker, /FROM node:22-bookworm-slim AS whisper-bau\nARG WHISPER=0\n/, "eigene Stufe – Compiler bleiben draußen");
   assert.match(docker, /&& bash \/tmp\/whisper-bauen\.sh \/tmp\/whisper \\\n/);
   assert.match(docker, /COPY --from=whisper-bau \/aus\/ \/\n/);
   const sprache = lies("docker-compose.sprache.yml");
