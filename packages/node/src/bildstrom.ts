@@ -300,6 +300,37 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
 }
 
+/**
+ * Was der Motor über das Bild wissen muss (VKk5, `SOUL.md` im Home von Hermes): welche Datei das Bild startet, in der
+ * Reihenfolge von `bildBefehl()` und nur mit den Programmen, die der Knoten hat – sonst nennte der Agent seine Datei
+ * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
+ * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht.
+ */
+export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; browser?: boolean }): string {
+  const dateien = [
+    "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
+    ...(p.godot ? ["- `project.godot` – a Godot 4 project, imported and run as the game"] : []),
+    "- `main.py` – run with python3 (with `.venv/bin/python3` if the project has one)",
+    ...(p.wine ? ["- `main.exe` – a Windows program in Wine; build it with `x86_64-w64-mingw32-gcc` where it is installed"] : []),
+    ...(p.openscad ? ["- `main.scad` – OpenSCAD with editor and preview; it reloads after every save. In the terminal, "
+      + "`openscad -o model.stl main.scad` exports meshes; images need the screen, leave them to the view"] : []),
+    ...(p.kicad ? ["- `main.kicad_sch` – the KiCad schematic editor; it restarts after every save. In the terminal, "
+      + "`kicad-cli sch export svg` and `kicad-cli sch export netlist` work"] : []),
+    ...(p.browser ? ["- `package.json` with a `dev` script (started with PORT and HOST set), else `index.html` – shown in Chromium"] : []),
+  ];
+  return [
+    "# Showing the project",
+    "",
+    "The user can open a live view of the project (\"Bild\") in the FreedomStack app. It runs the first of these files that",
+    "exists in /arbeit, on a virtual X11 screen, without network and without a GPU:",
+    "",
+    ...dateien,
+    "",
+    "Name the main file accordingly, so the user sees the result. When none fits, write `.freedom/start`.",
+    "",
+  ].join("\n");
+}
+
 /** Die erste Zeile eines Stroms – höchstens `max` Byte, bis `ms`; sonst null. */
 function ersteZeile(aus: Readable, max: number, ms: number): Promise<string | null> {
   return new Promise((fertig) => {
