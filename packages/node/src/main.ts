@@ -54,7 +54,9 @@ import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js"
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt, bildHinweise, bildKodierer, godotAusUmgebung, kicadAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung } from "./bildstrom.js";
+import {
+  BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, godotAusUmgebung, kicadAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung,
+} from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -562,15 +564,17 @@ async function main(): Promise<void> {
         const openscad = openscadAusUmgebung(process.env);
         // Schaltpläne (VKk4b): KiCad der Distribution (Docker-Bild mit KICAD=1) – ohne zeigt das Bild main.kicad_sch nicht
         const kicad = kicadAusUmgebung(process.env);
+        // Szenen (VKk4c): Blender der Distribution (Docker-Bild mit BLENDER=1) – ohne zeigt das Bild main.blend nicht
+        const blender = blenderAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
-          ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}),
+          ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
         // was der Motor über das Bild wissen muss (VKk5) – nur die Programme, die es hier gibt
-        bildText = bildHinweise({ godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, browser: !!browser });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"})`);
+        bildText = bildHinweise({ godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, browser: !!browser });
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

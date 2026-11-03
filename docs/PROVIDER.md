@@ -804,6 +804,9 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `KICAD=aus` schaltet es ab); ändert der Agent die Datei, startet der Editor neu
   (rund 2 s). Im Terminal exportiert der Agent mit `kicad-cli` (SVG, PDF, Netzliste;
   die Prüfung `sch erc` ab KiCad 8 – das Bild nimmt KiCad aus `bookworm-backports`).
+  Szenen (`main.blend`, seit VKk4c) zeigt Blender (`blender`, im Bild nur mit
+  `BLENDER=1`, rund 400 MB; `BLENDER=aus` schaltet es ab); baut der Agent die Szene im
+  Terminal neu (`blender -b --python …`), startet Blender im Bild neu.
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

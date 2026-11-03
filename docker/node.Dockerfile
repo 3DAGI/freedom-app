@@ -118,6 +118,13 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$KICAD" = "1" ]; then \
       && apt-get update && apt-get install -y --no-install-recommends -t bookworm-backports kicad kicad-symbols kicad-footprints \
       && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/bookworm-backports.list; \
     fi
+
+# Szenen im Bild (VKk4c) – nur mit VIBECODEN=1 und BLENDER=1 (docker-compose.vibecoden.yml reicht es durch). Blender aus Debian
+# (GPL-3.0+, eigenes Programm, nur in den Sandboxen), rund 400 MB – zeigt main.blend im Bild und baut Szenen im Terminal des Motors.
+ARG BLENDER=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$BLENDER" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends blender && rm -rf /var/lib/apt/lists/*; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

@@ -290,3 +290,29 @@ nannte ein Modell vielleicht `zahnrad.scad`, und das Bild fand nichts; nur die A
 `SOUL.md` mit Rolle und Hinweisen im Home (0600), nie durch einen Verweis, nie im Projekt; ohne Bild gelöscht. Gegenproben:
 `main.exe` hinter Web genannt – rot; ohne Löschen – rot.
 
+## Schritt VKk4c – Blender im Bild: `main.blend`, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: Blender), nach VKk5.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.blend` (nur eine echte Datei), wenn der Knoten Blender hat –
+  nach `main.kicad_sch`, vor Web. `blenderAusUmgebung()`: nur das Paket der Distribution unter `/usr` (`BLENDER_ORTE`),
+  `BLENDER=aus` schaltet ab. `BLENDER_START` speichert erst ohne Bildschirm die Einstellungen ins Home der Sandbox, ohne
+  Begrüßung, dann startet es Blender nach jeder Änderung neu. Die Schleife dafür teilen Blender und KiCad jetzt
+  (`neustartSchleife()`); KiCads Verhalten bleibt (seine Tests unverändert grün). `bildHinweise()` nennt `main.blend` und den Bau
+  im Terminal (`blender -b --python …`, gespeichert mit `save_as_mainfile()`).
+- **`packages/node/src/main.ts`:** gibt Blender an den Bildstrom und an die Hinweise; das Log sagt „Szenen in Blender“ oder
+  „ohne Blender“.
+- **Bild:** `ARG BLENDER=0`, nur mit `VIBECODEN=1` und `BLENDER=1` (`docker-compose.vibecoden.yml` reicht es durch): Blender aus
+  Debian, rund 400 MB. **CI:** `blender` (4.0.2 aus Ubuntu 24.04) im Testjob, der Echttest läuft dort.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf (Zeile und Tabelle), OFFEN,
+  FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +6 – `bildstrom.test.ts` +5: Erkennung (nur mit Blender, `main.kicad_sch` geht vor, Web danach, kein Verweis,
+kein Ordner), Blender aus der Umgebung, Start mit Attrappe (erst die Einstellungen mit `-b` und ohne Begrüßung, dann Blender, neu
+nach einer Änderung, die Einstellungen nur einmal, Ende mit dem Programm), Bildstrom (nichts weiter eingebunden, keine GPU, ohne
+Blender `code-bild-kein-programm`); dazu der Echttest mit Blender 4.0.2: der Test baut die Szene wie der Agent mit
+`blender -b --python`, eine grüne Fläche kommt im Bild an, nach dem Neubau ist sie rot (Antwort nach 0,6–0,7 s, drei Läufe ohne
+Fehler); im Projekt liegen danach nur `main.blend` und Blenders Sicherung `main.blend1`. Gegenproben: ohne die Einstellungen rot
+(der Dialog deckt die Szene zu), ohne Neustart rot (das Bild bleibt grün). Der VKk5-Test prüft `main.blend` an seiner Stelle in den
+Hinweisen. `docker-vibecoden.test.ts` +1: Blender nur mit beiden Schaltern, Compose und CI.
+

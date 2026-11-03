@@ -227,6 +227,29 @@ export function openscadBefehl(openscad: string, groesse: { breite: number; hoeh
   return ["/bin/sh", "-c", OPENSCAD_START, openscad, String(groesse.breite), String(groesse.hoehe)];
 }
 
+/**
+ * Neustart nach jeder Änderung (VKk4b, VKk4c) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
+ * mit `$1` neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent schreibt
+ * vielleicht in Stücken). Überhört das Programm das Ende (Rückfrage zum Speichern), endet es nach drei Sekunden hart. Endet es
+ * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start.
+ */
+function neustartSchleife(vorStart?: string): string[] {
+  return [
+    `datei="$1"`,
+    `stand() { stat -c '%.9Y %s' "$datei" 2>/dev/null; }`,
+    `while :; do`,
+    ...(vorStart ? [`  ${vorStart}`] : []),
+    `  alt=$(stand)`,
+    `  "$0" "$datei" & pid=$!`,
+    `  while kill -0 "$pid" 2>/dev/null && [ "$(stand)" = "$alt" ]; do sleep 1; done`,
+    `  kill -0 "$pid" 2>/dev/null || exit 0`,
+    `  neu=$(stand); sleep 1; while [ "$(stand)" != "$neu" ]; do neu=$(stand); sleep 1; done`,
+    `  kill "$pid"; for i in 1 2 3; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done`,
+    `  kill -9 "$pid" 2>/dev/null; wait "$pid"`,
+    `done`,
+  ];
+}
+
 /** Wo der Knoten KiCad sucht (VKk4b) – nur der Schaltplan-Editor der Distribution unter `/usr` (mit wxWidgets viele Dateien). */
 export const KICAD_ORTE: readonly string[] = ["/usr/bin/eeschema"];
 
@@ -239,10 +262,8 @@ export function kicadAusUmgebung(env: { KICAD?: string }, orte: readonly string[
  * Ein Schaltplan im Bild (VKk4b): `main.kicad_sch` im Schaltplan-Editor von KiCad. Die Einstellungen legt das Skript im Home
  * der Sandbox an (tmpfs) – sonst fragt KiCad beim ersten Start, wie es sich einrichten soll –, mit den Bibliothekstabellen der
  * Distribution, wo es sie gibt, für jede Fassung von 6 bis 9. KiCad lädt eine geänderte Datei nicht von selbst: Das Skript
- * startet den Editor neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent
- * schreibt vielleicht in Stücken). Ignoriert der Editor das Ende (Rückfrage zum Speichern), endet er nach drei Sekunden hart.
- * Endet er von selbst, endet das Programm. Die Sperrdatei, die KiCad neben die Datei legt, löscht das Skript vor jedem Start –
- * nach einem harten Ende bliebe sie liegen. `$0` ist eeschema, `$1` die Datei.
+ * startet den Editor nach jeder Änderung neu (`neustartSchleife()`). Die Sperrdatei, die KiCad neben die Datei legt, löscht es
+ * vor jedem Start – nach einem harten Ende bliebe sie liegen. `$0` ist eeschema, `$1` die Datei.
  */
 export const KICAD_START = [
   `for v in 6.0 7.0 8.0 9.0; do`,
@@ -251,33 +272,48 @@ export const KICAD_START = [
   `    if [ -f "/usr/share/kicad/template/$t" ]; then cp "/usr/share/kicad/template/$t" "$d/$t"; else echo "(\${t%-table}_table (version 7))" | tr - _ > "$d/$t"; fi`,
   `  done`,
   `done`,
-  `datei="$1"; sperre="\${datei%/*}/~\${datei##*/}.lck"`,
-  `stand() { stat -c '%.9Y %s' "$datei" 2>/dev/null; }`,
-  `while :; do`,
-  `  rm -f "$sperre"`,
-  `  alt=$(stand)`,
-  `  "$0" "$datei" & pid=$!`,
-  `  while kill -0 "$pid" 2>/dev/null && [ "$(stand)" = "$alt" ]; do sleep 1; done`,
-  `  kill -0 "$pid" 2>/dev/null || exit 0`,
-  `  neu=$(stand); sleep 1; while [ "$(stand)" != "$neu" ]; do neu=$(stand); sleep 1; done`,
-  `  kill "$pid"; for i in 1 2 3; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done`,
-  `  kill -9 "$pid" 2>/dev/null; wait "$pid"`,
-  `done`,
+  ...neustartSchleife(`rm -f "\${1%/*}/~\${1##*/}.lck"`),
 ].join("\n");
 
 export function kicadBefehl(eeschema: string): string[] {
   return ["/bin/sh", "-c", KICAD_START, eeschema, "/arbeit/main.kicad_sch"];
 }
 
+/** Wo der Knoten Blender sucht (VKk4c) – nur das Paket der Distribution unter `/usr` (mit Python und Bibliotheken viele Dateien). */
+export const BLENDER_ORTE: readonly string[] = ["/usr/bin/blender"];
+
+/** Blender aus der Distribution (VKk4c): der erste aus `BLENDER_ORTE`; null mit `BLENDER=aus` oder ohne Fund. */
+export function blenderAusUmgebung(env: { BLENDER?: string }, orte: readonly string[] = BLENDER_ORTE): string | null {
+  return env.BLENDER?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Eine Szene im Bild (VKk4c): `main.blend` in Blender. Erst speichert Blender ohne Bildschirm seine Einstellungen ins Home der
+ * Sandbox (tmpfs), ohne Begrüßung – sonst zeigt es beim ersten Start einen Dialog über der Szene. Blender lädt eine geänderte
+ * Datei nicht von selbst: Das Skript startet es nach jeder Änderung neu (`neustartSchleife()`); der Agent baut die Szene im
+ * Terminal mit `blender -b --python …` und speichert sie als `main.blend`. Die Vorschau rechnet Mesa in Software. `$0` ist
+ * Blender, `$1` die Datei.
+ */
+export const BLENDER_START = [
+  `"$0" -b --factory-startup --python-expr "import bpy; bpy.context.preferences.view.show_splash = False; bpy.ops.wm.save_userpref()" > /dev/null 2>&1`,
+  ...neustartSchleife(),
+].join("\n");
+
+export function blenderBefehl(blender: string): string[] {
+  return ["/bin/sh", "-c", BLENDER_START, blender, "/arbeit/main.blend"];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
- * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`. Mit Browser (VKg2c1) dann ein
+ * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`, mit Blender (VKk4c) dann
+ * `main.blend`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
-  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string }): string[] | null {
+  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string },
+): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -295,6 +331,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.wine && ist("main.exe", "datei")) return wineBefehl(programme.wine, programme);
   if (programme?.openscad && ist("main.scad", "datei")) return openscadBefehl(programme.openscad, programme);
   if (programme?.kicad && ist("main.kicad_sch", "datei")) return kicadBefehl(programme.kicad);
+  if (programme?.blender && ist("main.blend", "datei")) return blenderBefehl(programme.blender);
   if (!web) return null;
   if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
@@ -306,7 +343,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht.
  */
-export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; browser?: boolean }): string {
+export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; browser?: boolean }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
     ...(p.godot ? ["- `project.godot` – a Godot 4 project, imported and run as the game"] : []),
@@ -316,6 +353,8 @@ export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: bo
       + "`openscad -o model.stl main.scad` exports meshes; images need the screen, leave them to the view"] : []),
     ...(p.kicad ? ["- `main.kicad_sch` – the KiCad schematic editor; it restarts after every save. In the terminal, "
       + "`kicad-cli sch export svg` and `kicad-cli sch export netlist` work"] : []),
+    ...(p.blender ? ["- `main.blend` – Blender; it restarts after every save. In the terminal, build the scene with "
+      + "`blender -b --python build.py` and save it with `bpy.ops.wm.save_as_mainfile(filepath=\"/arbeit/main.blend\")`"] : []),
     ...(p.browser ? ["- `package.json` with a `dev` script (started with PORT and HOST set), else `index.html` – shown in Chromium"] : []),
   ];
   return [
@@ -375,6 +414,8 @@ export class BildStrom {
     openscad?: string;
     /** KiCad für `main.kicad_sch` (VKk4b, `kicadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     kicad?: string;
+    /** Blender für `main.blend` (VKk4c, `blenderAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    blender?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -406,6 +447,7 @@ export class BildStrom {
     const programme = {
       ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
+      ...(this.o.blender ? { blender: this.o.blender } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

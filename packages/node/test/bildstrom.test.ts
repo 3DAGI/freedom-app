@@ -17,8 +17,8 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START, OPENSCAD_ORTE, OPENSCAD_START,
-  WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START, OPENSCAD_ORTE, OPENSCAD_START,
+  WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
   kicadBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
@@ -316,9 +316,9 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
-  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, browser: true });
-  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "index.html"];
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
+  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, browser: true });
+  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "index.html"];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
@@ -326,10 +326,10 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
-  const programme = { ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema" };
+  const programme = { ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender" };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
-    wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"),
+    wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
     [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")],
   ];
   for (let i = 0; i < reihe.length; i++) {
@@ -340,6 +340,85 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
     }
     assert.deepEqual(bildBefehl(a.ort("reihe"), web, programme), erwartet[i], reihe[i]);
   }
+});
+
+test("VKk4c: Szenen – main.blend nur mit Blender, nach main.kicad_sch, vor Web, nur eine echte Datei", () => {
+  const a = ablage("szene", "plan", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, blender: "/usr/bin/blender" };
+  for (const [f, inhalt] of [["main.blend", "BLENDER"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("szene"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("szene"), web, mit), blenderBefehl("/usr/bin/blender"), "vor Web");
+  assert.deepEqual(blenderBefehl("/usr/bin/blender"), ["/bin/sh", "-c", BLENDER_START, "/usr/bin/blender", "/arbeit/main.blend"]);
+  assert.deepEqual(bildBefehl(a.ort("szene"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne Blender zählt main.blend nicht");
+  for (const f of ["main.blend", "main.kicad_sch"]) writeFileSync(join(a.ort("plan"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("plan"), undefined, { ...mit, kicad: "/usr/bin/eeschema" }), kicadBefehl("/usr/bin/eeschema"), "main.kicad_sch geht vor");
+  symlinkSync(join(a.ort("szene"), "main.blend"), join(a.ort("verweis"), "main.blend"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.blend"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4c: Blender aus der Distribution – nur die Orte unter /usr, BLENDER=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("blender");
+  const datei = join(d, "blender");
+  writeFileSync(datei, "");
+  assert.equal(blenderAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(blenderAusUmgebung({ BLENDER: "aus" }, [datei]), null);
+  assert.equal(blenderAusUmgebung({ BLENDER: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit Python und Bibliotheken viele Dateien unter /usr");
+  assert.equal(blenderAusUmgebung({}, [d]), null, "ein Ordner ist kein Blender");
+  assert.deepEqual(BLENDER_ORTE, ["/usr/bin/blender"]);
+});
+
+test("VKk4c: Start – erst die Einstellungen ohne Bildschirm und ohne Begrüßung, dann Blender, neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("blender-start");
+  const szene = join(d, "main.blend");
+  writeFileSync(szene, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  // ein Blender, das aufschreibt, womit es kam; mit -b endet es gleich (Einstellungen), sonst läuft es wie das Fenster
+  writeFileSync(join(d, "blender"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\n[ "$1" = "-b" ] && exit 0\nexec sleep 600\n`);
+  chmodSync(join(d, "blender"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", BLENDER_START, join(d, "blender"), szene], { stdio: "ignore" });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [einstellungen, erste] = await zeilen(2);
+    assert.match(einstellungen!, /^-b --factory-startup --python-expr import bpy; bpy\.context\.preferences\.view\.show_splash = False; bpy\.ops\.wm\.save_userpref\(\) \d+$/,
+      "ohne Bildschirm, ohne Begrüßung gespeichert");
+    assert.equal(erste!.split(" ")[0], szene);
+    writeFileSync(szene, "zwei");
+    const [, , zweite] = await zeilen(3);
+    assert.equal(zweite!.split(" ")[0], szene, "neu gestartet, die Einstellungen nur einmal");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4c: Blender im Bildstrom – main.blend in der Sandbox des Programms, nichts weiter eingebunden; ohne Blender kein Programm", async () => {
+  const a = ablage("szene");
+  writeFileSync(join(a.ort("szene"), "main.blend"), "BLENDER");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, blender: "/usr/bin/blender" });
+  try {
+    assert.equal(await b.starte("szene", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...blenderBefehl("/usr/bin/blender")]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("szene", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -921,6 +1000,59 @@ test("VKk4b: Ende zu Ende – ein Schaltplan in KiCad im Bild; ändert der Agent
       assert.ok(rot(e.farbe), `nach der Änderung rot (${JSON.stringify(e.farbe)})`);
       // KiCad legt eine Sperrdatei neben den Plan; endet die Sandbox hart, bleibt sie liegen (KiCads .gitignore nennt *.lck)
       assert.deepEqual(readdirSync(a.ort("plan")).filter((f) => f !== "~main.kicad_sch.lck"), ["main.kicad_sch"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const blender = blenderAusUmgebung({});
+const ohneBlender = ohne || (!blender && "Blender fehlt (blender)");
+/** Baut main.blend wie der Agent im Terminal: eine Fläche in Draufsicht, im Ansichtsmodus mit der Farbe des Materials. */
+const SZENE_PY = `import bpy, sys
+r, g, b = (float(x) for x in sys.argv[sys.argv.index("--") + 1].split(","))
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.mesh.primitive_plane_add(size=200)
+m = bpy.data.materials.new("farbe")
+m.diffuse_color = (r, g, b, 1)
+bpy.context.object.data.materials.append(m)
+for s in bpy.data.screens:
+    for a in s.areas:
+        for sp in a.spaces:
+            if sp.type == "VIEW_3D":
+                sp.shading.type, sp.shading.color_type, sp.shading.light = "SOLID", "MATERIAL", "FLAT"
+                sp.region_3d.view_perspective, sp.region_3d.view_rotation, sp.region_3d.view_distance = "ORTHO", (1, 0, 0, 0), 5
+bpy.ops.wm.save_as_mainfile(filepath=sys.argv[sys.argv.index("--") + 2])
+`;
+
+test("VKk4c: Ende zu Ende – eine Szene in Blender im Bild; baut der Agent sie neu, zeigt das Bild die neue", { skip: ohneBlender, timeout: 150_000 }, async () => {
+  const d = tmp("szene-py");
+  writeFileSync(join(d, "szene.py"), SZENE_PY);
+  const baue = (datei: string, farbe: string) => new Promise<void>((r, f) => execFile(blender!,
+    ["-b", "--factory-startup", "--python", join(d, "szene.py"), "--", farbe, datei], { env: { PATH: process.env.PATH, HOME: d } }, (e) => (e ? f(e) : r())));
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("szene");
+    const datei = join(a.ort("szene"), "main.blend");
+    await baue(datei, "0,0.75,0");
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, blender: blender! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann baut der Test die Szene neu wie der Agent – das Skript startet Blender neu, das Bild wird rot
+      let geaendert: Promise<void> | null = null;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) geaendert = baue(datei, "0.8,0,0");
+        return !!geaendert && rot(f);
+      };
+      // in der 3D-Ansicht, links vom Zeiger in der Mitte und unter der Leiste oben
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("szene", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.3, 0.6] });
+      console.log(`[bild] Blender: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      await geaendert;
+      assert.ok(rot(e.farbe), `nach dem Neubau rot (${JSON.stringify(e.farbe)})`);
+      // Blender legt beim Überschreiben eine Sicherung an (main.blend1) – sonst nichts im Projekt
+      assert.deepEqual(readdirSync(a.ort("szene")).filter((f) => f !== "main.blend1"), ["main.blend"], "sonst nichts im Projekt");
     } finally {
       b.beendeAlle();
     }

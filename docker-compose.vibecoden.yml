@@ -15,6 +15,8 @@ services:
         WINE: "${WINE:-0}"
         # Schaltpläne im Bild (VKk4b): KICAD=1 baut KiCad mit Symbolen und Footprints dazu, rund 700 MB
         KICAD: "${KICAD:-0}"
+        # Szenen im Bild (VKk4c): BLENDER=1 baut Blender dazu, rund 400 MB
+        BLENDER: "${BLENDER:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot
