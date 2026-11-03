@@ -799,6 +799,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   OpenSCAD-Modelle (`main.scad`, seit VKk4a) zeigt OpenSCAD aus der Distribution
   (`openscad`, unter `/usr`; `OPENSCAD=aus` schaltet es ab) mit Editor und Vorschau;
   ändert der Agent die Datei, lädt es neu. Im Terminal rechnet der Agent damit STL.
+  Schaltpläne (`main.kicad_sch`, seit VKk4b) zeigt der Schaltplan-Editor von KiCad
+  (`kicad`, im Bild nur mit `KICAD=1`, rund 700 MB samt Symbolen und Footprints;
+  `KICAD=aus` schaltet es ab); ändert der Agent die Datei, startet der Editor neu
+  (rund 2 s). Im Terminal exportiert der Agent mit `kicad-cli` (SVG, PDF, Netzliste;
+  die Prüfung `sch erc` ab KiCad 8 – das Bild nimmt KiCad aus `bookworm-backports`).
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:
   die beiden Sandboxen teilen nur den Bildschirm, keinen Speicher);
   eine zweite Sandbox kodiert das Bild (VP8 in Software; seit VKg2c2 H.264 über

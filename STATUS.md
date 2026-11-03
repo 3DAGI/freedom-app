@@ -244,3 +244,28 @@ Spur B, gefunden nach VKk4a beim Vergleich der Paketfassungen für weitere Progr
 derselben Hauptversion; die Tests aus B-38b3 und VKk3a/VKi2 lesen die neuen Zeilen. Gegenprobe mit einer Stufe auf
 `node:22-slim`: rot. `docker buildx build --check`: keine Warnungen.
 
+## Schritt VKk4b – KiCad im Bild: `main.kicad_sch` im Schaltplan-Editor, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: KiCad), nach VKk4a und B-43.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.kicad_sch` (nur eine echte Datei), wenn der Knoten KiCad hat –
+  nach `main.scad`, vor Web. `kicadAusUmgebung()`: nur eeschema der Distribution unter `/usr` (`KICAD_ORTE`), `KICAD=aus` schaltet ab.
+  `KICAD_START` legt die Einstellungen ins Home der Sandbox (für KiCad 6 bis 9, Bibliothekstabellen aus der Distribution, wo es sie
+  gibt) – sonst zeigt KiCad beim ersten Start nur einen Willkommensdialog. KiCad lädt eine geänderte Datei nicht von selbst: Das
+  Skript startet den Editor neu, sobald sich Zeit oder Größe geändert haben und die Datei eine Sekunde ruhig ist (rund 2 s); überhört
+  er das Ende, nach drei Sekunden hart. Endet er von selbst, endet das Programm. Die Sperrdatei löscht das Skript vor jedem Start.
+- **`packages/node/src/main.ts`:** gibt KiCad an den Bildstrom; das Log sagt „Schaltpläne in KiCad“ oder „ohne KiCad“.
+- **Bild:** `ARG KICAD=0`, nur mit `VIBECODEN=1` und `KICAD=1` (`docker-compose.vibecoden.yml` reicht es durch): KiCad mit Symbolen
+  und Footprints aus `bookworm-backports` (Debian 12 selbst hat nur KiCad 6 ohne `kicad-cli`), rund 700 MB; die Quelle steht nur für
+  diesen Schritt in `sources.list.d`. **CI:** `kicad` (7.0 aus Ubuntu 24.04) im Testjob, der Echttest läuft dort.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +6 – `bildstrom.test.ts` +5: Erkennung (nur mit KiCad, `main.scad` geht vor, Web danach, kein Verweis, kein Ordner),
+KiCad aus der Umgebung, das Startskript mit Attrappe (Einstellungen für 6 bis 9, alte Sperrdatei weg, Neustart nach einer Änderung
+erst nach drei Sekunden hart, weil die Attrappe das Ende überhört, Ende mit dem Editor), Bildstrom (nichts weiter eingebunden, keine
+GPU, ohne KiCad `code-bild-kein-programm`); dazu der Echttest mit KiCad 7.0.11: eine grüne Fläche im Schaltplan kommt im Bild an, der
+Test ändert die Datei wie der Agent, das Bild wird rot (Antwort nach 0,6–0,9 s, drei Läufe ohne Fehler). Gegenprobe ohne Neustart:
+rot – das Bild bleibt grün. `docker-vibecoden.test.ts` +1: KiCad nur mit beiden Schaltern, aus den Backports, die Quelle danach weg,
+Compose und CI. Im Terminal der Sandbox geprüft: `kicad-cli sch export svg` und `netlist` gehen ohne Bildschirm; `sch erc` kennt
+KiCad 7 noch nicht.
+

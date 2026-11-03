@@ -227,14 +227,57 @@ export function openscadBefehl(openscad: string, groesse: { breite: number; hoeh
   return ["/bin/sh", "-c", OPENSCAD_START, openscad, String(groesse.breite), String(groesse.hoehe)];
 }
 
+/** Wo der Knoten KiCad sucht (VKk4b) – nur der Schaltplan-Editor der Distribution unter `/usr` (mit wxWidgets viele Dateien). */
+export const KICAD_ORTE: readonly string[] = ["/usr/bin/eeschema"];
+
+/** KiCad aus der Distribution (VKk4b): der erste aus `KICAD_ORTE`; null mit `KICAD=aus` oder ohne Fund. */
+export function kicadAusUmgebung(env: { KICAD?: string }, orte: readonly string[] = KICAD_ORTE): string | null {
+  return env.KICAD?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Ein Schaltplan im Bild (VKk4b): `main.kicad_sch` im Schaltplan-Editor von KiCad. Die Einstellungen legt das Skript im Home
+ * der Sandbox an (tmpfs) – sonst fragt KiCad beim ersten Start, wie es sich einrichten soll –, mit den Bibliothekstabellen der
+ * Distribution, wo es sie gibt, für jede Fassung von 6 bis 9. KiCad lädt eine geänderte Datei nicht von selbst: Das Skript
+ * startet den Editor neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent
+ * schreibt vielleicht in Stücken). Ignoriert der Editor das Ende (Rückfrage zum Speichern), endet er nach drei Sekunden hart.
+ * Endet er von selbst, endet das Programm. Die Sperrdatei, die KiCad neben die Datei legt, löscht das Skript vor jedem Start –
+ * nach einem harten Ende bliebe sie liegen. `$0` ist eeschema, `$1` die Datei.
+ */
+export const KICAD_START = [
+  `for v in 6.0 7.0 8.0 9.0; do`,
+  `  d="$HOME/.config/kicad/$v"; mkdir -p "$d" && echo '{}' > "$d/kicad_common.json"`,
+  `  for t in sym-lib-table fp-lib-table; do`,
+  `    if [ -f "/usr/share/kicad/template/$t" ]; then cp "/usr/share/kicad/template/$t" "$d/$t"; else echo "(\${t%-table}_table (version 7))" | tr - _ > "$d/$t"; fi`,
+  `  done`,
+  `done`,
+  `datei="$1"; sperre="\${datei%/*}/~\${datei##*/}.lck"`,
+  `stand() { stat -c '%.9Y %s' "$datei" 2>/dev/null; }`,
+  `while :; do`,
+  `  rm -f "$sperre"`,
+  `  alt=$(stand)`,
+  `  "$0" "$datei" & pid=$!`,
+  `  while kill -0 "$pid" 2>/dev/null && [ "$(stand)" = "$alt" ]; do sleep 1; done`,
+  `  kill -0 "$pid" 2>/dev/null || exit 0`,
+  `  neu=$(stand); sleep 1; while [ "$(stand)" != "$neu" ]; do neu=$(stand); sleep 1; done`,
+  `  kill "$pid"; for i in 1 2 3; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done`,
+  `  kill -9 "$pid" 2>/dev/null; wait "$pid"`,
+  `done`,
+].join("\n");
+
+export function kicadBefehl(eeschema: string): string[] {
+  return ["/bin/sh", "-c", KICAD_START, eeschema, "/arbeit/main.kicad_sch"];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
- * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`. Mit Browser (VKg2c1) dann ein Web-Projekt: mit Skript `dev` in
+ * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`. Mit Browser (VKg2c1) dann ein
+ * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
-  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string }): string[] | null {
+  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string }): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
       const st = lstatSync(join(projektOrdner, pfad));
@@ -251,6 +294,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   }
   if (programme?.wine && ist("main.exe", "datei")) return wineBefehl(programme.wine, programme);
   if (programme?.openscad && ist("main.scad", "datei")) return openscadBefehl(programme.openscad, programme);
+  if (programme?.kicad && ist("main.kicad_sch", "datei")) return kicadBefehl(programme.kicad);
   if (!web) return null;
   if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
@@ -298,6 +342,8 @@ export class BildStrom {
     wine?: string;
     /** OpenSCAD für `main.scad` (VKk4a, `openscadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     openscad?: string;
+    /** KiCad für `main.kicad_sch` (VKk4b, `kicadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    kicad?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -328,7 +374,7 @@ export class BildStrom {
     const browser = this.o.browser;
     const programme = {
       ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
-      ...(this.o.openscad ? { openscad: this.o.openscad } : {}),
+      ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

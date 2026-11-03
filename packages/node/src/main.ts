@@ -54,7 +54,7 @@ import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js"
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung } from "./bildstrom.js";
+import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, kicadAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -559,13 +559,15 @@ async function main(): Promise<void> {
         const wine = wineAusUmgebung(process.env);
         // OpenSCAD-Modelle (VKk4a): OpenSCAD der Distribution (Docker-Bild mit VIBECODEN=1) – ohne zeigt das Bild main.scad nicht
         const openscad = openscadAusUmgebung(process.env);
+        // Schaltpläne (VKk4b): KiCad der Distribution (Docker-Bild mit KICAD=1) – ohne zeigt das Bild main.kicad_sch nicht
+        const kicad = kicadAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
-          ...(openscad ? { openscad } : {}),
+          ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);
