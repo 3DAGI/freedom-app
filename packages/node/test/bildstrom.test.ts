@@ -17,9 +17,9 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, OPENSCAD_ORTE, OPENSCAD_START, WEB_DEV_START, WINE_ORTE,
-  bildBefehl, bildFehlt, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, nvencDa, openscadAusUmgebung, openscadBefehl,
-  wineAusUmgebung, wineBefehl, wineLesbar,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START, OPENSCAD_ORTE, OPENSCAD_START,
+  WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
+  kicadBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -234,6 +234,101 @@ test("VKk4a: Start – Einstellungen im Home der Sandbox (Größe, Neuladen, ohn
   assert.deepEqual(readFileSync(aufrufe, "utf8").trim().split("\n"), ["/arbeit/main.scad", String(sh.pid)], "exec: OpenSCAD ist der Prozess der Sandbox");
   assert.equal(readFileSync(join(heim, ".config", "OpenSCAD", "OpenSCAD.conf"), "utf8"),
     "[design]\nautoReload=true\n[view]\nhideCustomizer=true\nhideErrorLog=true\n[window]\nsize=@Size(800 600)\nposition=@Point(0 0)\n");
+});
+
+test("VKk4b: Schaltpläne – main.kicad_sch nur mit KiCad, nach main.scad, vor Web, nur eine echte Datei", () => {
+  const a = ablage("plan", "scad", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, kicad: "/usr/bin/eeschema" };
+  for (const [f, inhalt] of [["main.kicad_sch", "(kicad_sch)"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("plan"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("plan"), web, mit), kicadBefehl("/usr/bin/eeschema"), "vor Web");
+  assert.deepEqual(kicadBefehl("/usr/bin/eeschema"), ["/bin/sh", "-c", KICAD_START, "/usr/bin/eeschema", "/arbeit/main.kicad_sch"]);
+  assert.deepEqual(bildBefehl(a.ort("plan"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne KiCad zählt main.kicad_sch nicht");
+  for (const f of ["main.kicad_sch", "main.scad"]) writeFileSync(join(a.ort("scad"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("scad"), undefined, { ...mit, openscad: "/usr/bin/openscad" }), openscadBefehl("/usr/bin/openscad", g), "main.scad geht vor");
+  symlinkSync(join(a.ort("plan"), "main.kicad_sch"), join(a.ort("verweis"), "main.kicad_sch"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.kicad_sch"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4b: KiCad aus der Distribution – nur die Orte unter /usr, KICAD=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("kicad");
+  const datei = join(d, "eeschema");
+  writeFileSync(datei, "");
+  assert.equal(kicadAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(kicadAusUmgebung({ KICAD: "aus" }, [datei]), null);
+  assert.equal(kicadAusUmgebung({ KICAD: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit wxWidgets viele Dateien unter /usr");
+  assert.equal(kicadAusUmgebung({}, [d]), null, "ein Ordner ist kein KiCad");
+  assert.deepEqual(KICAD_ORTE, ["/usr/bin/eeschema"]);
+});
+
+test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach einer Änderung, hart nach drei Sekunden, Ende mit dem Editor", { timeout: 60_000 }, async () => {
+  const d = tmp("kicad-start");
+  const [heim, projekt] = [join(d, "heim"), join(d, "projekt")];
+  for (const o of [heim, projekt]) mkdirSync(o);
+  const plan = join(projekt, "main.kicad_sch");
+  writeFileSync(plan, "(kicad_sch eins)");
+  writeFileSync(join(projekt, "~main.kicad_sch.lck"), "{}");
+  const aufrufe = join(d, "aufrufe.txt");
+  // ein eeschema, das aufschreibt, womit es kam, und das Ende überhört (wie bei einer Rückfrage zum Speichern)
+  writeFileSync(join(d, "eeschema"), `#!/bin/sh\ntrap '' TERM\necho "$* $$" >> "${aufrufe}"\nwhile :; do sleep 0.2; done\n`);
+  chmodSync(join(d, "eeschema"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", KICAD_START, join(d, "eeschema"), plan], { stdio: "ignore", env: { PATH: process.env.PATH, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Starts`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.equal(erste!.split(" ")[0], plan);
+    assert.ok(!existsSync(join(projekt, "~main.kicad_sch.lck")), "die alte Sperrdatei ist vor dem Start weg");
+    for (const v of ["6.0", "7.0", "8.0", "9.0"]) {
+      const ordner = join(heim, ".config", "kicad", v);
+      assert.equal(readFileSync(join(ordner, "kicad_common.json"), "utf8"), "{}\n", `${v}: kein Willkommensdialog`);
+      for (const t of ["sym-lib-table", "fp-lib-table"]) {
+        const vorlage = `/usr/share/kicad/template/${t}`;
+        assert.equal(readFileSync(join(ordner, t), "utf8"), existsSync(vorlage) ? readFileSync(vorlage, "utf8") : `(${t.replaceAll("-", "_")} (version 7))\n`, `${v}/${t}`);
+      }
+    }
+    const pid1 = Number(erste!.split(" ").at(-1));
+    writeFileSync(plan, "(kicad_sch zwei)");
+    const t0 = Date.now();
+    const [, zweite] = await zeilen(2);
+    const pid2 = Number(zweite!.split(" ").at(-1));
+    assert.notEqual(pid2, pid1, "ein neuer Editor");
+    assert.ok(Date.now() - t0 >= 3000, "erst nach drei Sekunden hart beendet");
+    assert.throws(() => process.kill(pid1, 0), "der alte ist weg");
+    // endet der Editor von selbst, endet das Programm
+    process.kill(pid2, "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
+  const a = ablage("plan");
+  writeFileSync(join(a.ort("plan"), "main.kicad_sch"), "(kicad_sch)");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, kicad: "/usr/bin/eeschema" });
+  try {
+    assert.equal(await b.starte("plan", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...kicadBefehl("/usr/bin/eeschema")]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("plan", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4a: OpenSCAD im Bildstrom – main.scad in der Sandbox des Programms, nichts weiter eingebunden; ohne OpenSCAD kein Programm", async () => {
@@ -752,6 +847,51 @@ test("VKk4a: Ende zu Ende – ein OpenSCAD-Modell im Bild; ändert der Agent die
       assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
       assert.ok(rot(e.farbe), `nach der Änderung rot (${JSON.stringify(e.farbe)})`);
       assert.deepEqual(readdirSync(a.ort("modell")), ["main.scad"], "die Einstellungen liegen nie im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const kicad = kicadAusUmgebung({});
+const ohneKicad = ohne || (!kicad && "KiCad fehlt (kicad)");
+/** Ein Schaltplan mit einer gefüllten Fläche über das ganze Blatt (KiCad 7). */
+const schaltplan = (farbe: string) => `(kicad_sch (version 20230121) (generator eeschema)
+  (uuid 0b3f4c1e-1111-4a2b-9c3d-000000000001)
+  (paper "A4")
+  (lib_symbols)
+  (rectangle (start 10 10) (end 287 200) (stroke (width 0) (type default)) (fill (type color) (color ${farbe} 1))
+    (uuid 0b3f4c1e-1111-4a2b-9c3d-000000000003))
+  (sheet_instances (path "/" (page "1")))
+)
+`;
+
+test("VKk4b: Ende zu Ende – ein Schaltplan in KiCad im Bild; ändert der Agent die Datei, zeigt das Bild den neuen", { skip: ohneKicad, timeout: 120_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("plan");
+    const datei = join(a.ort("plan"), "main.kicad_sch");
+    writeFileSync(datei, schaltplan("0 192 0"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, kicad: kicad! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann ändert der Test die Datei wie der Agent – das Skript startet den Editor neu, das Bild wird rot
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          geaendert = true;
+          writeFileSync(datei, schaltplan("200 0 0"));
+        }
+        return geaendert && rot(f);
+      };
+      // mitten im Blatt, rechts von Hierarchie und Werkzeugleiste
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("plan", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 60, stelle: [0.6, 0.5] });
+      console.log(`[bild] KiCad: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach der Änderung rot (${JSON.stringify(e.farbe)})`);
+      // KiCad legt eine Sperrdatei neben den Plan; endet die Sandbox hart, bleibt sie liegen (KiCads .gitignore nennt *.lck)
+      assert.deepEqual(readdirSync(a.ort("plan")).filter((f) => f !== "~main.kicad_sch.lck"), ["main.kicad_sch"], "sonst nichts im Projekt");
     } finally {
       b.beendeAlle();
     }

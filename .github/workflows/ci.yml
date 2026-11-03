@@ -123,6 +123,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends openscad
           openscad --version
 
+      # VKk4b: Schaltpläne zeigt KiCad im Bild – der Echttest ändert main.kicad_sch, das Skript startet den Editor neu
+      - name: KiCad fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends kicad
+          kicad-cli version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

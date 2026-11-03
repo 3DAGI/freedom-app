@@ -611,3 +611,13 @@ Bereichs unten anhängen.
   Hintergrund (Gegenprobe im Echttest). Im Terminal des Motors (ohne Bildschirm) rechnet es STL; ein PNG endet dort mit einem
   Speicherfehler – nie Bilder aus dem Terminal versprechen, die zeigt das Bild. Im Test die Farbe in der Vorschau messen
   (`stelle` im Empfänger) – links steht der Editor.
+- **Schaltpläne im Bild nur über `bildBefehl()` und `kicadBefehl()`** (seit VKk4b, `bildstrom.ts`): `main.kicad_sch` zählt nur mit
+  KiCad aus `kicadAusUmgebung()` – nur `KICAD_ORTE` unter `/usr` (eeschema; kein eigener Pfad), `KICAD=aus` schaltet ab – und nur als
+  echte Datei, nach `main.scad`, vor Web. Die Einstellungen legt nur `KICAD_START` im Home der Sandbox an, für jede Fassung von 6 bis 9
+  (`kicad_common.json`, Bibliothekstabellen aus `/usr/share/kicad/template` oder leer) – ohne sie zeigt KiCad beim ersten Start einen
+  Willkommensdialog, und das Bild zeigt nur ihn. KiCad lädt eine geänderte Datei nicht selbst: Das Skript startet den Editor neu,
+  sobald Zeit oder Größe sich geändert haben und die Datei eine Sekunde ruhig ist; überhört er das Ende (Rückfrage zum Speichern),
+  nach drei Sekunden hart. Speichert der Nutzer im Bild, startet er ebenso neu. KiCad legt `~main.kicad_sch.lck` neben die Datei –
+  nach einem harten Ende bleibt sie liegen, das Skript löscht sie vor jedem Start; nie versprechen, dass das Bild das Projekt nicht
+  anfasst (KiCads eigene `.gitignore` nennt `*.lck`). Im Bild nur mit `KICAD=1` aus `bookworm-backports` (Debian 12 hat nur KiCad 6
+  ohne `kicad-cli`); die CI prüft mit KiCad 7 aus Ubuntu 24.04 – `kicad-cli sch erc` gibt es erst ab 8.

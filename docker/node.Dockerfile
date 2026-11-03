@@ -108,6 +108,16 @@ RUN --mount=type=bind,from=hangover-holen,source=/aus,target=/tmp/hangover \
         apt-get install -y --no-install-recommends /tmp/hangover/*.deb gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64; \
       fi && rm -rf /var/lib/apt/lists/*; \
     fi
+
+# Schaltpläne im Bild (VKk4b) – nur mit VIBECODEN=1 und KICAD=1 (docker-compose.vibecoden.yml reicht es durch). KiCad mit
+# Symbolen und Footprints (GPL-3.0+ bzw. CC-BY-SA-4.0, eigenes Programm, nur in den Sandboxen), zusammen rund 700 MB. Aus
+# bookworm-backports: Debian 12 selbst hat nur KiCad 6, ohne kicad-cli für Prüfungen und Exporte im Terminal des Motors.
+ARG KICAD=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$KICAD" = "1" ]; then \
+      echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list \
+      && apt-get update && apt-get install -y --no-install-recommends -t bookworm-backports kicad kicad-symbols kicad-footprints \
+      && rm -rf /var/lib/apt/lists/* /etc/apt/sources.list.d/bookworm-backports.list; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

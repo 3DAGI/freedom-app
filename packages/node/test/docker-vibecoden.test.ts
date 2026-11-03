@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GODOT_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
+import { GODOT_ORTE, KICAD_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -155,6 +155,22 @@ test("VKk4a: OpenSCAD nur mit VIBECODEN=1 aus der Distribution, dort, wo der Kno
   assert.ok(!immer.includes("openscad"), "nicht im schlanken Bild");
   assert.deepEqual(OPENSCAD_ORTE, ["/usr/bin/openscad"], "dort legt Debian es ab");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends openscad\n\s+openscad --version\n/);
+});
+
+test("VKk4b: KiCad nur mit VIBECODEN=1 und KICAD=1 – aus bookworm-backports mit kicad-cli, Symbolen und Footprints; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG KICAD=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$KICAD" = "1" \]; then \\\n/);
+  assert.match(docker, /echo "deb http:\/\/deb\.debian\.org\/debian bookworm-backports main" > \/etc\/apt\/sources\.list\.d\/bookworm-backports\.list/);
+  assert.match(docker, /apt-get install -y --no-install-recommends -t bookworm-backports kicad kicad-symbols kicad-footprints \\\n/);
+  assert.match(docker, /rm -rf \/var\/lib\/apt\/lists\/\* \/etc\/apt\/sources\.list\.d\/bookworm-backports\.list;/, "Backports nur für diesen Schritt");
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("kicad") && !vibecoden.includes("kicad"), "nur mit KICAD=1 – rund 700 MB");
+  assert.deepEqual(KICAD_ORTE, ["/usr/bin/eeschema"], "dort legt Debian es ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+KICAD: "\$\{KICAD:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("KICAD"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends kicad\n\s+kicad-cli version\n/);
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
