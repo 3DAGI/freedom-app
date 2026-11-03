@@ -3,10 +3,12 @@
 # Bewusst schlank: Playwright ist eine OPTIONALE Abhaengigkeit (~300 MB inkl.
 # Browser) und kommt nur mit VIBECODEN=1 ins Bild (Browser des Motors, VKk1) —
 # dem Normalfall diese Groesse aufzuzwingen waere der falsche Standardfall.
+# Basis fest auf Debian 12 (B-43): node:22-bookworm-slim, nie node:22-slim – das wandert mit der nächsten Debian-Fassung mit,
+# und die Pakete hier sind für Debian 12 gewählt (Hangover für bookworm, Namen und Fassungen aus Debian). Alle Stufen gleich.
 # whisper-cli für Text aus Sprache (B-38b3, SP-W1 A) – nur mit WHISPER=1 gebaut (docker-compose.sprache.yml), aus den
 # Quellen in fester Fassung (scripts/whisper-bauen.sh; whisper.cpp ist MIT, der Text liegt im Bild). Eigene Stufe: Compiler
 # und cmake bleiben draußen, ins Bild kommen nur das Programm und seine Lizenz. Ohne WHISPER=1 bleibt /aus leer.
-FROM node:22-slim AS whisper-bau
+FROM node:22-bookworm-slim AS whisper-bau
 ARG WHISPER=0
 COPY scripts/whisper-bauen.sh /tmp/whisper-bauen.sh
 RUN mkdir -p /aus && if [ "$WHISPER" = "1" ]; then \
@@ -19,7 +21,7 @@ RUN mkdir -p /aus && if [ "$WHISPER" = "1" ]; then \
 # Godot für Spiele im Bild (VKk3a) – nur mit VIBECODEN=1: das offizielle Release in fester Fassung, gegen SHA-512 geprüft
 # (scripts/godot-holen.sh; MIT, Lizenztexte liegen im Bild). Eigene Stufe: curl und unzip bleiben draußen, ins Bild kommt
 # nur das Programm (rund 150 MB). Ohne VIBECODEN=1 bleibt /aus leer.
-FROM node:22-slim AS godot-holen
+FROM node:22-bookworm-slim AS godot-holen
 ARG VIBECODEN=0
 COPY scripts/godot-holen.sh /tmp/godot-holen.sh
 RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ]; then apt-get update \
@@ -33,7 +35,7 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ]; then apt-get update \
 # Hangover für Windows-Programme auf ARM64 (VKi2) – nur mit VIBECODEN=1, WINE=1 und auf arm64: die Pakete des Releases in
 # fester Fassung, gegen SHA-256 geprüft (scripts/hangover-holen.sh). Eigene Stufe: curl bleibt draußen; installiert werden die
 # Pakete unten über einen Mount, damit das Archiv in keiner Schicht des Bilds liegt.
-FROM node:22-slim AS hangover-holen
+FROM node:22-bookworm-slim AS hangover-holen
 ARG VIBECODEN=0
 ARG WINE=0
 COPY scripts/hangover-holen.sh /tmp/hangover-holen.sh
@@ -43,7 +45,7 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ] && [ "$(dpkg
       && mv /tmp/hangover/*.deb /aus/; \
     fi
 
-FROM node:22-slim
+FROM node:22-bookworm-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
 # Rechteumfang begrenzt, ist hier eine Investition.

@@ -365,6 +365,9 @@ Bereichs unten anhängen.
   `docker-compose.yml` selbst – der Standard bleibt bei den Regeln von Docker (`docker-vibecoden.test.ts`). In dieser
   Umgebung baut ein Bild nur mit dem Zertifikat des Proxys (`--build-context`, nicht im Repo) und dem Basisbild von
   `mirror.gcr.io` (Docker Hub antwortet mit 429).
+  Die Basis jeder Stufe ist fest Debian 12 (seit B-43): `node:22-bookworm-slim`, nie `node:22-slim` – das wandert mit der
+  nächsten Debian-Fassung mit, und die Pakete sind für Debian 12 gewählt (Hangover `bookworm`, Namen und Fassungen aus Debian).
+  Eine neue Debian-Fassung nur zusammen mit Hangover (`hangover-holen.sh`) und einem Bau des Bilds; ein Test prüft alle `FROM`.
 - **`kill()` nur mit pid** (seit VKc3b): Scheitert `spawn` (Programm fehlt), hält Node bis zum Ereignis „error“ noch
   den Griff, und `kind.kill()` schickt `kill()` an eine nie gesetzte pid. Steht dort 0 oder -1, geht SIGTERM an die
   ganze Gruppe bzw. jeden Prozess des Nutzers – so endete in der CI zweimal der Runner („received a shutdown signal“),

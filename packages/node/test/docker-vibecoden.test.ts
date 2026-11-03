@@ -105,7 +105,7 @@ test("VKk3a: Godot nur mit VIBECODEN=1 – das Release in fester Fassung gegen S
   assert.match(skript, /stimmt "\$2\.teil" "\$3" \|\| \{ rm -f "\$2\.teil";/, "erst geprüft, dann unter dem Namen");
   assert.match(skript, /unzip -p "\$ZIEL\/\$ARCHIV" "Godot_v\$\{GODOT_FASSUNG\}_linux\.\$ARCH" > "\$ZIEL\/godot\.teil"/, "nur die eine Datei");
   const docker = lies("docker/node.Dockerfile");
-  assert.match(docker, /FROM node:22-slim AS godot-holen\nARG VIBECODEN=0\nCOPY scripts\/godot-holen\.sh \/tmp\/godot-holen\.sh\n/);
+  assert.match(docker, /FROM node:22-bookworm-slim AS godot-holen\nARG VIBECODEN=0\nCOPY scripts\/godot-holen\.sh \/tmp\/godot-holen\.sh\n/);
   assert.match(docker, /if \[ "\$VIBECODEN" = "1" \]; then apt-get update \\\n\s+&& apt-get install -y --no-install-recommends curl ca-certificates unzip \\\n\s+&& bash \/tmp\/godot-holen\.sh \/tmp\/godot \\\n/);
   assert.match(docker, /install -D -m 0755 \/tmp\/godot\/godot \/aus\/usr\/local\/bin\/godot/);
   assert.match(docker, /\nCOPY --from=godot-holen \/aus\/ \/\n/);
@@ -128,7 +128,7 @@ test("VKi1/VKi2: Wine und mingw-w64 nur mit VIBECODEN=1 und WINE=1 – amd64 Win
   assert.match(docker, /if \[ "\$\(dpkg --print-architecture\)" = "amd64" \]; then \\\n\s+apt-get install -y --no-install-recommends wine wine64 gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64; \\\n/);
   assert.match(docker, /else \\\n\s+apt-get install -y --no-install-recommends \/tmp\/hangover\/\*\.deb gcc-mingw-w64-x86-64 g\+\+-mingw-w64-x86-64; \\\n/);
   // Hangover nur in einer eigenen Stufe geholt – das Archiv liegt in keiner Schicht, curl nicht im Bild
-  assert.match(docker, /FROM node:22-slim AS hangover-holen\nARG VIBECODEN=0\nARG WINE=0\nCOPY scripts\/hangover-holen\.sh \/tmp\/hangover-holen\.sh\n/);
+  assert.match(docker, /FROM node:22-bookworm-slim AS hangover-holen\nARG VIBECODEN=0\nARG WINE=0\nCOPY scripts\/hangover-holen\.sh \/tmp\/hangover-holen\.sh\n/);
   assert.match(docker, /if \[ "\$VIBECODEN" = "1" \] && \[ "\$WINE" = "1" \] && \[ "\$\(dpkg --print-architecture\)" = "arm64" \]; then apt-get update/);
   assert.match(docker, /bash \/tmp\/hangover-holen\.sh \/tmp\/hangover bookworm \\\n/);
   assert.ok(!/COPY --from=hangover-holen/.test(docker), "nie per COPY – sonst bliebe das Paket in einer Schicht");
@@ -155,6 +155,17 @@ test("VKk4a: OpenSCAD nur mit VIBECODEN=1 aus der Distribution, dort, wo der Kno
   assert.ok(!immer.includes("openscad"), "nicht im schlanken Bild");
   assert.deepEqual(OPENSCAD_ORTE, ["/usr/bin/openscad"], "dort legt Debian es ab");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends openscad\n\s+openscad --version\n/);
+});
+
+test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
+  const docker = lies("docker/node.Dockerfile");
+  const basen = [...docker.matchAll(/^FROM (\S+)/gm)].map((m) => m[1]);
+  assert.ok(basen.length >= 4, "Stufen gefunden");
+  assert.deepEqual([...new Set(basen)], ["node:22-bookworm-slim"], "nie node:22-slim – das wandert mit der nächsten Debian-Fassung mit");
+  // die Pakete von Hangover gibt es je Distribution: die im Bild muss zur Basis passen
+  assert.deepEqual([...docker.matchAll(/hangover-holen\.sh \S+ (\w+)/g)].map((m) => m[1]), ["bookworm"]);
+  assert.match(lies("scripts/hangover-holen.sh"), /bookworm: Debian 12 \(Docker-Bild\)/);
+  assert.equal(lies(".nvmrc").trim().split(".")[0], "22", "dieselbe Hauptversion wie CI und Pages");
 });
 
 test("VKi2: Hangover in fester Fassung – SHA-256 je Distribution fest im Skript, nur https, nur die vier Pakete, nur ARM64", () => {
