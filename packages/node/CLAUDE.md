@@ -629,3 +629,10 @@ Bereichs unten anhängen.
   keine Wendungen wie „you are now a …“, „register as a node“, „connect to the network“ (geprüft mit den Mustern von 0.19, nicht
   ausgeführt). Eine neue Datei im Bild braucht eine Zeile in `bildHinweise()` an derselben Stelle wie in `bildBefehl()` – ein Test
   vergleicht die Reihenfolge; im Terminal nur versprechen, was dort geprüft ist.
+- **Szenen im Bild nur über `bildBefehl()` und `blenderBefehl()`** (seit VKk4c, `bildstrom.ts`): `main.blend` zählt nur mit Blender aus
+  `blenderAusUmgebung()` – nur `BLENDER_ORTE` unter `/usr` (kein eigener Pfad), `BLENDER=aus` schaltet ab – und nur als echte Datei,
+  nach `main.kicad_sch`, vor Web. `BLENDER_START` speichert erst ohne Bildschirm die Einstellungen ins Home der Sandbox
+  (`show_splash = False`, `save_userpref()`) – ohne sie zeigt Blender beim ersten Start einen Dialog über der Szene (Gegenprobe im
+  Echttest). Neu geladen wird wie bei KiCad über `neustartSchleife()` – Programme ohne eigenes Neuladen nur über diese Schleife, nie
+  eine zweite daneben. Speichert Blender über eine Datei (auch `save_as_mainfile()` im Terminal), legt es `main.blend1` als Sicherung
+  daneben – nie versprechen, dass das Projekt nur `main.blend` enthält. Ubuntu 24.04 (CI) hat Blender 4.0, Debian 12 (Bild) 3.4.

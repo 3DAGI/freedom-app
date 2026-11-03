@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { GODOT_ORTE, KICAD_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
+import { BLENDER_ORTE, GODOT_ORTE, KICAD_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -171,6 +171,19 @@ test("VKk4b: KiCad nur mit VIBECODEN=1 und KICAD=1 – aus bookworm-backports mi
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+KICAD: "\$\{KICAD:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("KICAD"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends kicad\n\s+kicad-cli version\n/);
+});
+
+test("VKk4c: Blender nur mit VIBECODEN=1 und BLENDER=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG BLENDER=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$BLENDER" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends blender && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("blender") && !vibecoden.includes("blender"), "nur mit BLENDER=1 – rund 400 MB");
+  assert.deepEqual(BLENDER_ORTE, ["/usr/bin/blender"], "dort legt Debian es ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+BLENDER: "\$\{BLENDER:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("BLENDER"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends blender\n\s+blender --version \| head -1\n/);
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
