@@ -54,7 +54,7 @@ import { bilderAusUmgebung, bilderOrdner, erzeugeBild } from "./bilder-motor.js"
 import { McpProjekte, mcpAntwort } from "./freedom-mcp.js";
 import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
-import { BildStrom, bildFehlt, bildKodierer, godotAusUmgebung, kicadAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung } from "./bildstrom.js";
+import { BildStrom, bildFehlt, bildHinweise, bildKodierer, godotAusUmgebung, kicadAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
 import { BrowserExecutor, ToolRegistry, WebSearchExecutor } from "./tools.js";
@@ -518,6 +518,7 @@ async function main(): Promise<void> {
   // mit Sandbox und Hermes; das Modell erreicht er nur über die Brücke. Fehlt eins: Läufe mit `code-ohne-motor`
   let code: CodeLaeufe | undefined;
   let bild: BildStrom | undefined;
+  let bildText: string | undefined;
   if (projekte) {
     const sandbox = await pruefeSandbox();
     console.log(`[code] ${sandboxText(sandbox)}`);
@@ -567,6 +568,8 @@ async function main(): Promise<void> {
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
+        // was der Motor über das Bild wissen muss (VKk5) – nur die Programme, die es hier gibt
+        bildText = bildHinweise({ godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, browser: !!browser });
         console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"})`);
       }
     }
@@ -614,6 +617,7 @@ async function main(): Promise<void> {
         motor: hermesMotor({
           hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server,
           mcpZeichen: (p) => mcpProjekte.zeichen(p), ...(bilder ? { bilder: (p: string) => bilderOrdner(projekte, p) } : {}),
+          ...(bildText !== undefined ? { bild: bildText } : {}),
         }),
       });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);

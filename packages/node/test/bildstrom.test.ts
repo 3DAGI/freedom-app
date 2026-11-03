@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 import {
   KIND_DVM_KNOTEN_CODE, LocalSigner, MemoryRelay, OutboxPool, baueCodeAuftrag, generateKeypair, getTag, istBildSdp,
@@ -18,7 +18,7 @@ import {
 } from "@freedomstack/protocol";
 import {
   BILD_GRENZEN, BILD_IN_SANDBOX, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START, OPENSCAD_ORTE, OPENSCAD_START,
-  WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
+  WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
   kicadBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
@@ -310,6 +310,35 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
     assert.equal(await zu, 0);
   } finally {
     try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
+  const wenig = bildHinweise({});
+  for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
+  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, browser: true });
+  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "index.html"];
+  const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
+  assert.ok(stellen.every((s) => s >= 0), "alle genannt");
+  assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
+  assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
+  // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
+  const g = { breite: 640, hoehe: 480 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const programme = { ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema" };
+  const erwartet = [
+    ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
+    wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"),
+    [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")],
+  ];
+  for (let i = 0; i < reihe.length; i++) {
+    const a = ablage("reihe");
+    for (const d of reihe.slice(i)) {
+      mkdirSync(dirname(join(a.ort("reihe"), d)), { recursive: true });
+      writeFileSync(join(a.ort("reihe"), d), "");
+    }
+    assert.deepEqual(bildBefehl(a.ort("reihe"), web, programme), erwartet[i], reihe[i]);
   }
 });
 

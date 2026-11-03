@@ -621,3 +621,11 @@ Bereichs unten anhängen.
   nach einem harten Ende bleibt sie liegen, das Skript löscht sie vor jedem Start; nie versprechen, dass das Bild das Projekt nicht
   anfasst (KiCads eigene `.gitignore` nennt `*.lck`). Im Bild nur mit `KICAD=1` aus `bookworm-backports` (Debian 12 hat nur KiCad 6
   ohne `kicad-cli`); die CI prüft mit KiCad 7 aus Ubuntu 24.04 – `kicad-cli sch erc` gibt es erst ab 8.
+- **Hinweise zum Bild für den Motor nur über `bildHinweise()` und `hermesSeele()`** (seit VKk5): `hermesMotor({ bild })` schreibt
+  sie vor jedem Start als `.hermes/SOUL.md` ins Home des Projekts (`schreibeInsHeim()`, nie durch einen Verweis) – nie ins Projekt,
+  eine `AGENTS.md` dort läge im Commit. Ohne Bildstrom keine Datei (eine alte wird gelöscht), sonst versprächen alte Hinweise ein
+  Bild. Hermes 0.19 nimmt `SOUL.md` als Identität statt der eigenen (`load_soul_md()`, auch über ACP) – die Rolle steht daher vorn.
+  Er prüft die Datei auf Prompt-Injection (`tools/threat_patterns.py`, Bereich „context“), ein Treffer blockiert die ganze Datei:
+  keine Wendungen wie „you are now a …“, „register as a node“, „connect to the network“ (geprüft mit den Mustern von 0.19, nicht
+  ausgeführt). Eine neue Datei im Bild braucht eine Zeile in `bildHinweise()` an derselben Stelle wie in `bildBefehl()` – ein Test
+  vergleicht die Reihenfolge; im Terminal nur versprechen, was dort geprüft ist.

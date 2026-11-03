@@ -108,6 +108,8 @@ export function hermesMotor(o: {
   mcpZeichen?: (projekt: string) => string;
   /** Bilder (VKd2b2): der Ordner mit den Bildern des Projekts – nur lesbar unter `/freedom/bilder`. */
   bilder?: (projekt: string) => string;
+  /** Hinweise zum Bild (VKk5, `bildHinweise()`) – nur, wenn der Bildstrom an ist; ohne kein `SOUL.md`. */
+  bild?: string;
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
@@ -136,8 +138,26 @@ export function hermesMotor(o: {
     // ohne den Ordner bände bubblewrap nichts ein und startete nicht
     if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });
     schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
+    // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild keine, sonst versprächen alte Hinweise ein Bild
+    if (o.bild !== undefined) schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild));
+    else rmSync(join(heim, ".hermes", "SOUL.md"), { force: true });
     return start(projekt);
   };
+}
+
+/**
+ * `SOUL.md` für Hermes (VKk5): Hermes 0.19 nimmt sie aus seinem Home als Identität (`load_soul_md()`) statt seiner eigenen –
+ * daher steht die Rolle vorn, danach die Hinweise zum Bild. Ins Projekt schreibt der Knoten nie (dort läge eine `AGENTS.md`
+ * im Commit).
+ */
+export function hermesSeele(bild: string): string {
+  return [
+    "You are Hermes Agent, a coding agent in a FreedomStack project. The project is /arbeit, a git repository; the node",
+    "commits your changes. You work in a sandbox without network – use the tools you are given; npm and pip install",
+    "packages through the node's mirror.",
+    "",
+    bild,
+  ].join("\n");
 }
 
 /** Ein echter Ordner (0700) – nie ein Verweis: Das Home ist in der Sandbox schreibbar. */

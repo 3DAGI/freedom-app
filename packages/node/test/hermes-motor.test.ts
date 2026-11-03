@@ -9,12 +9,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ChildProcess } from "node:child_process";
 import { createServer, request, type IncomingHttpHeaders } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CodeLaeufe, lebt, prozessMotor } from "../src/code-motor.js";
-import { HERMES_ORDNER, STARTSKRIPT, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor } from "../src/hermes-motor.js";
+import { bildHinweise } from "../src/bildstrom.js";
+import { HERMES_ORDNER, STARTSKRIPT, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, brueckenZiel, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { ProjektAblage } from "../src/projekte.js";
 import { fuehreAus, pruefeSandbox, sandboxArgumente, sandboxMotor } from "../src/sandbox.js";
@@ -167,6 +168,35 @@ test("VKc3: Motor – Konfiguration vor jedem Start, nie durch einen Verweis; oh
   const heim2 = hermesHeim(ablage, ablage.ort("zwei"));
   symlinkSync(tmp("fremd"), heim2);
   assert.throws(() => motor("coder:7b")(ablage.ort("zwei")), { name: "HeimKaputt" });
+});
+
+test("VKk5: SOUL.md – mit Bild Rolle und Hinweise im Home, nie durch einen Verweis, nie im Projekt; ohne Bild keine", () => {
+  const ablage = new ProjektAblage(join(tmp("ablage"), "projekte"));
+  mkdirSync(ablage.ort("app"), { recursive: true });
+  const motor = (bild?: string) => hermesMotor({
+    hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: tmp("b") }, modell: () => "coder:7b", bwrap: "/gibt/es/nicht",
+    ...(bild !== undefined ? { bild } : {}),
+  });
+  const seele = join(hermesHeim(ablage, ablage.ort("app")), ".hermes", "SOUL.md");
+  const hinweise = bildHinweise({ openscad: true });
+  assert.equal(killOhnePid(() => motor(hinweise)(ablage.ort("app")).beende()), 0);
+  const text = readFileSync(seele, "utf8");
+  assert.equal(text, hermesSeele(hinweise));
+  assert.match(text, /^You are Hermes Agent, a coding agent in a FreedomStack project\./, "die Rolle vorn – SOUL.md ersetzt die von Hermes");
+  assert.ok(text.includes("`main.scad`") && !text.includes("main.kicad_sch"), "nur, was der Knoten hat");
+  assert.equal((statSync(seele).mode & 0o777).toString(8), "600");
+  // Der Motor des letzten Laufs ersetzt die Datei durch einen Verweis – der Knoten schreibt nie dorthin
+  const ziel = join(tmp("ziel"), "node-key");
+  writeFileSync(ziel, "schluessel");
+  rmSync(seele);
+  symlinkSync(ziel, seele);
+  assert.equal(killOhnePid(() => motor(hinweise)(ablage.ort("app")).beende()), 0);
+  assert.equal(readFileSync(ziel, "utf8"), "schluessel");
+  assert.equal(readFileSync(seele, "utf8"), text);
+  // ohne Bild keine – alte Hinweise versprächen sonst ein Bild
+  assert.equal(killOhnePid(() => motor()(ablage.ort("app")).beende()), 0);
+  assert.ok(!existsSync(seele));
+  assert.deepEqual(readdirSync(ablage.ort("app")), [], "nie ins Projekt");
 });
 
 test("VKc3: Sandbox – weitere Orte nur lesbar, nie über /arbeit", () => {

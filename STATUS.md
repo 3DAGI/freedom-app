@@ -269,3 +269,24 @@ rot – das Bild bleibt grün. `docker-vibecoden.test.ts` +1: KiCad nur mit beid
 Compose und CI. Im Terminal der Sandbox geprüft: `kicad-cli sch export svg` und `netlist` gehen ohne Bildschirm; `sch erc` kennt
 KiCad 7 noch nicht.
 
+## Schritt VKk5 – Der Motor kennt das Bild: `SOUL.md` im Home von Hermes
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk), nach VKk4b. Bis hierher erfuhr der Agent nicht, welche Datei das Bild startet – er
+nannte ein Modell vielleicht `zahnrad.scad`, und das Bild fand nichts; nur die App nannte Nutzern `.freedom/start`.
+
+- **`packages/node/src/bildstrom.ts`:** `bildHinweise()` – welche Datei das Bild startet, in der Reihenfolge von `bildBefehl()` und
+  nur mit den Programmen, die der Knoten hat; dazu, was im Terminal geht (STL aus OpenSCAD, Exporte aus `kicad-cli`). Englisch wie
+  die Anweisungen in `repo-lauf.ts`.
+- **`packages/node/src/hermes-motor.ts`:** `hermesSeele()` (die Rolle vorn – Hermes nimmt `SOUL.md` als Identität statt der
+  eigenen) und `hermesMotor({ bild })`: schreibt `.hermes/SOUL.md` vor jedem Start ins Home des Projekts, ohne Bild löscht er sie.
+- **`packages/node/src/main.ts`:** baut die Hinweise mit dem Bildstrom aus denselben Programmen und gibt sie dem Motor.
+- Nachgesehen im Quelltext von Hermes 0.19 (das gepinnte Rad, SHA-256 geprüft, nur gelesen): `load_soul_md()` liest
+  `~/.hermes/SOUL.md`, die ACP-Sitzung überspringt Kontextdateien nicht; der Text trifft keines der 28 Muster der Prüfung auf
+  Prompt-Injection (Bereich „context“).
+- Fallstrick im Knoten, `docs/PROVIDER.md`, Entwurf, OFFEN, FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +2 – `bildstrom.test.ts`: nur die Programme des Knotens; alle Dateien genannt und in der Reihenfolge, in der
+`bildBefehl()` sie wählt (je Stufe ein Projekt mit allen Dateien ab dort); keine Bilder aus dem Terminal. `hermes-motor.test.ts`:
+`SOUL.md` mit Rolle und Hinweisen im Home (0600), nie durch einen Verweis, nie im Projekt; ohne Bild gelöscht. Gegenproben:
+`main.exe` hinter Web genannt – rot; ohne Löschen – rot.
+
