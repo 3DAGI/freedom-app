@@ -65,6 +65,23 @@ try { process.kill(-k.pid!, "SIGKILL"); } catch { /* schon weg */ }
 console.log(ende(log));
 await new Promise((r) => setTimeout(r, 2000));
 
+console.log("== in der Sandbox: ein anderes X-Programm, die Profile von AppArmor");
+const x11 = [{ quelle: "/tmp/.X11-unix", ziel: "/tmp/.X11-unix" }];
+const probe = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "/bin/sh", "-c", [
+  "exec > /arbeit/probe.log 2>&1",
+  "echo \"Profil der Shell: $(cat /proc/self/attr/current 2>&1)\"",
+  "/usr/bin/python3 -c 'from Xlib import display; display.Display(); print(\"python-xlib verbindet\")' 2>&1 | tail -1",
+  "\"$0\" --norestore --nologo /arbeit/main.fodt & sleep 8",
+  "for p in /proc/[0-9]*; do n=$(tr \"\\0\" \" \" < $p/cmdline 2>/dev/null | cut -c1-60); [ -n \"$n\" ] && echo \"$(cat $p/attr/current 2>/dev/null) | $n\"; done",
+].join("\n"), soffice, "/arbeit/main.fodt"], { arbeit, nurLesbar: x11 });
+await new Promise((r) => setTimeout(r, 12_000));
+probe.beende();
+await probe.ende;
+console.log(ende(join(arbeit, "probe.log")));
+try {
+  console.log(execFileSync("/bin/sh", ["-c", "sudo -n dmesg 2>/dev/null | grep -i apparmor | tail -25 || true"]).toString().trim() || "(dmesg ohne AppArmor-Zeilen oder nicht lesbar)");
+} catch { console.log("(dmesg nicht lesbar)"); }
+
 console.log("== in der Sandbox (wie das Bild)");
 const s = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "/bin/sh", "-c", `exec > /arbeit/sandbox.log 2>&1\n${LIBREOFFICE_START}`, soffice, "/arbeit/main.fodt"],
   { arbeit, nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: "/tmp/.X11-unix" }] });
