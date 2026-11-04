@@ -410,19 +410,45 @@ export function inkscapeBefehl(inkscape: string): string[] {
   return ["/bin/sh", "-c", INKSCAPE_START, inkscape, "/arbeit/main.svg"];
 }
 
+/** Wo der Knoten GIMP sucht (VKk4f) – nur das Paket der Distribution unter `/usr` (mit GTK und GEGL viele Dateien). */
+export const GIMP_ORTE: readonly string[] = ["/usr/bin/gimp"];
+
+/** GIMP aus der Distribution (VKk4f): der erste aus `GIMP_ORTE`; null mit `GIMP=aus` oder ohne Fund. */
+export function gimpAusUmgebung(env: { GIMP?: string }, orte: readonly string[] = GIMP_ORTE): string | null {
+  return env.GIMP?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Ein Bild im Bild (VKk4f): `main.xcf` in GIMP – sein eigenes Format, Strg+S im Bild speichert ohne Rückfrage dorthin. Ohne
+ * Fenstermanager stünde das Fenster, wo `sessionrc` es hinlegt (200,100 mit 1024×768, über den Rand); das Skript schreibt die
+ * Vorlage der Distribution (`/etc/gimp/2.0`, in der Sandbox nur lesbar) mit Ort 0,0 und der Größe des Bilds ins Home der
+ * Sandbox (tmpfs, nie ins Projekt) – Werkzeugkasten und Docks bleiben. Eine geänderte Datei lädt GIMP nicht von selbst:
+ * Neustart über `neustartSchleife()`. `$0` ist GIMP, `$1` die Datei, `$2` und `$3` die Größe.
+ */
+export const GIMP_START = [
+  `mkdir -p "$HOME/.config/GIMP/2.10"`,
+  `sed -e 's/(position [0-9]* [0-9]*)/(position 0 0)/' -e "s/(size [0-9]* [0-9]*)/(size $2 $3)/" /etc/gimp/2.0/sessionrc > "$HOME/.config/GIMP/2.10/sessionrc"`,
+  ...neustartSchleife(undefined, "--no-splash "),
+].join("\n");
+
+export function gimpBefehl(gimp: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", GIMP_START, gimp, "/arbeit/main.xcf", String(groesse.breite), String(groesse.hoehe)];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
  * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`, mit Blender (VKk4c) dann
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
- * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) zuletzt `main.svg`. Sonst null – dann sagt die App,
+ * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) zuletzt `main.xcf`.
+ * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
-    inkscape?: string;
+    inkscape?: string; gimp?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -449,6 +475,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (web && ist("index.html", "datei")) return [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")];
   // eine Zeichnung erst nach Web (VKk4e): Ein Logo `main.svg` in einem Web-Projekt soll die Seite nicht verdrängen
   if (programme?.inkscape && ist("main.svg", "datei")) return inkscapeBefehl(programme.inkscape);
+  // ebenso ein Bild aus GIMP (VKk4f) – die Quelle eines Logos liegt oft daneben
+  if (programme?.gimp && ist("main.xcf", "datei")) return gimpBefehl(programme.gimp, programme);
   return null;
 }
 
@@ -456,11 +484,11 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * Was der Motor über das Bild wissen muss (VKk5, `SOUL.md` im Home von Hermes): welche Datei das Bild startet, in der
  * Reihenfolge von `bildBefehl()` und nur mit den Programmen, die der Knoten hat – sonst nennte der Agent seine Datei
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
- * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht.
+ * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
-  inkscape?: boolean;
+  inkscape?: boolean; gimp?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -479,6 +507,9 @@ export function bildHinweise(p: {
     ...(p.browser ? ["- `package.json` with a `dev` script (started with PORT and HOST set), else `index.html` – shown in Chromium"] : []),
     ...(p.inkscape ? ["- `main.svg` – Inkscape (only if no web project is there); it restarts after every save. In the terminal, "
       + "`inkscape --export-type=pdf main.svg` works"] : []),
+    ...(p.gimp ? ["- `main.xcf` – GIMP (only if no web project is there); it restarts after every save. In the terminal, Script-Fu runs "
+      + "without the screen, for example to turn another image into `main.xcf`: `gimp -i -b '(let* ((i (car (gimp-file-load 1 \"bild.jpg\" "
+      + "\"bild.jpg\")))) (gimp-xcf-save 0 i (car (gimp-image-get-active-drawable i)) \"main.xcf\" \"main.xcf\"))' -b '(gimp-quit 0)'`"] : []),
   ];
   return [
     "# Showing the project",
@@ -543,6 +574,8 @@ export class BildStrom {
     libreoffice?: string;
     /** Inkscape für `main.svg` (VKk4e, `inkscapeAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     inkscape?: string;
+    /** GIMP für `main.xcf` (VKk4f, `gimpAusUmgebung()`) – unter `/usr`, dazu `/etc/gimp` aus der Sandbox. */
+    gimp?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -575,7 +608,7 @@ export class BildStrom {
       ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
       ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
-      ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}),
+      ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

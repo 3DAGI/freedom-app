@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -17,11 +17,12 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, INKSCAPE_ORTE, INKSCAPE_START,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GIMP_ORTE, GIMP_START, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START,
+  INKSCAPE_ORTE, INKSCAPE_START,
   KICAD_ORTE, KICAD_START,
   LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START,
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
-  X11_UMWEG, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
+  X11_UMWEG, gimpAusUmgebung, gimpBefehl, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
   wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
@@ -319,9 +320,15 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
-  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true });
-  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg"];
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf"]) {
+    assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
+  }
+  const alles = bildHinweise({
+    godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true,
+  });
+  const reihe = [
+    ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
+  ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
@@ -332,12 +339,13 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
-    inkscape: "/usr/bin/inkscape",
+    inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
+    gimpBefehl("/usr/bin/gimp", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -599,6 +607,98 @@ test("VKk4e: Inkscape im Bildstrom – main.svg in der Sandbox des Programms, ni
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("zeichnung", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4f: Bilder – main.xcf nur mit GIMP, nach Web und main.svg, auch ohne Browser, nur eine echte Datei", () => {
+  const a = ablage("bild", "web", "zeichnung", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, gimp: "/usr/bin/gimp" };
+  writeFileSync(join(a.ort("bild"), "main.xcf"), "gimp xcf ");
+  assert.deepEqual(bildBefehl(a.ort("bild"), web, mit), gimpBefehl("/usr/bin/gimp", g));
+  assert.deepEqual(bildBefehl(a.ort("bild"), undefined, mit), gimpBefehl("/usr/bin/gimp", g), "auch ohne Browser");
+  assert.deepEqual(gimpBefehl("/usr/bin/gimp", g), ["/bin/sh", "-c", GIMP_START, "/usr/bin/gimp", "/arbeit/main.xcf", "1024", "768"]);
+  assert.equal(bildBefehl(a.ort("bild"), web, g), null, "ohne GIMP zählt main.xcf nicht");
+  // die Quelle eines Logos verdrängt die Seite nicht, und nach der Zeichnung
+  for (const [f, inhalt] of [["main.xcf", "gimp xcf "], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  assert.deepEqual(bildBefehl(a.ort("web"), undefined, mit), gimpBefehl("/usr/bin/gimp", g), "ohne Browser bleibt das Bild");
+  for (const f of ["main.xcf", "main.svg"]) writeFileSync(join(a.ort("zeichnung"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("zeichnung"), undefined, { ...mit, inkscape: "/usr/bin/inkscape" }), inkscapeBefehl("/usr/bin/inkscape"), "main.svg geht vor");
+  symlinkSync(join(a.ort("bild"), "main.xcf"), join(a.ort("verweis"), "main.xcf"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.xcf"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4f: GIMP aus der Distribution – nur die Orte unter /usr, GIMP=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("gimp");
+  const datei = join(d, "gimp");
+  writeFileSync(datei, "");
+  assert.equal(gimpAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(gimpAusUmgebung({ GIMP: "aus" }, [datei]), null);
+  assert.equal(gimpAusUmgebung({ GIMP: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit GTK und GEGL viele Dateien unter /usr");
+  assert.equal(gimpAusUmgebung({}, [d]), null, "ein Ordner ist kein GIMP");
+  assert.deepEqual(GIMP_ORTE, ["/usr/bin/gimp"]);
+});
+
+test("VKk4f: Start – das Fenster aus der Vorlage der Distribution auf die Größe des Bilds, GIMP ohne Splash, neu nach jeder Änderung", { timeout: 60_000 }, async (t) => {
+  if (!existsSync("/etc/gimp/2.0/sessionrc")) return t.skip("keine Vorlage (/etc/gimp/2.0/sessionrc, Paket gimp)");
+  const d = tmp("gimp-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const xcf = join(d, "main.xcf");
+  writeFileSync(xcf, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "gimp"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "gimp"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", GIMP_START, join(d, "gimp"), xcf, "640", "480"], { stdio: "ignore", env: { ...process.env, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.match(erste!, new RegExp(`^--no-splash ${xcf} \\d+$`), "ohne Splash, nur die Datei");
+    // die Vorlage mit Ort 0,0 und der Größe des Bilds – Werkzeugkasten und Docks bleiben
+    const rc = readFileSync(join(heim, ".config", "GIMP", "2.10", "sessionrc"), "utf8");
+    const vorlage = readFileSync("/etc/gimp/2.0/sessionrc", "utf8");
+    assert.ok(/\(position \d+ \d+\)/.test(vorlage) && /\(size \d+ \d+\)/.test(vorlage), "die Vorlage nennt Ort und Größe");
+    assert.deepEqual([...new Set(rc.match(/\(position \d+ \d+\)/g))], ["(position 0 0)"]);
+    assert.deepEqual([...new Set(rc.match(/\(size \d+ \d+\)/g))], ["(size 640 480)"]);
+    assert.match(rc, /\(factory-entry "gimp-single-image-window"\)/);
+    for (const teil of ["(gimp-toolbox", "(gimp-dock", "(single-window-mode yes)"]) assert.ok(rc.includes(teil), teil);
+    writeFileSync(xcf, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4f: GIMP im Bildstrom – main.xcf in der Sandbox des Programms, nichts weiter eingebunden; ohne GIMP kein Programm", async () => {
+  const a = ablage("bild");
+  writeFileSync(join(a.ort("bild"), "main.xcf"), "gimp xcf ");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, gimp: "/usr/bin/gimp" });
+  try {
+    assert.equal(await b.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...gimpBefehl("/usr/bin/gimp", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -1372,6 +1472,61 @@ test("VKk4e: im Terminal – inkscape exportiert die Zeichnung in der Sandbox al
   assert.equal(r.code, 0, r.ausgabe);
   assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
   assert.deepEqual(readdirSync(arbeit).sort(), ["main.pdf", "main.svg"]);
+});
+
+const gimp = gimpAusUmgebung({});
+const ohneGimp = ohne || (!gimp && "GIMP fehlt (gimp)");
+/** Der Befehl aus den Hinweisen für den Motor (VKk5) – genau so, wie der Agent ihn im Terminal abschreibt. */
+const gimpBefehlAusHinweisen = () => /`(gimp -i -b [^`]*)`/.exec(bildHinweise({ gimp: true }))![1]!;
+/**
+ * Wie der Agent ein Bild in `main.xcf` bringt: ein Bild in einer Farbe (PPM, ein Format ohne Bibliothek), umgewandelt mit dem
+ * Befehl aus den Hinweisen in der Sandbox – danach liegt nur `main.xcf` im Projekt.
+ */
+async function bildAlsXcf(arbeit: string, rgb: readonly [number, number, number]): Promise<void> {
+  const [breite, hoehe] = [800, 600];
+  const px = Buffer.alloc(breite * hoehe * 3);
+  for (let i = 0; i < breite * hoehe; i++) px.set(rgb, i * 3);
+  writeFileSync(join(arbeit, "bild.ppm"), Buffer.concat([Buffer.from(`P6\n${breite} ${hoehe}\n255\n`), px]));
+  const r = await fuehreAus(["/bin/sh", "-c", gimpBefehlAusHinweisen().replaceAll("bild.jpg", "bild.ppm")], { arbeit }, 90_000);
+  assert.equal(r.code, 0, r.ausgabe);
+  rmSync(join(arbeit, "bild.ppm"));
+}
+
+test("VKk4f: Ende zu Ende – ein Bild in GIMP im Bild; bringt der Agent ein neues nach main.xcf, zeigt das Bild das neue", { skip: ohneGimp, timeout: 180_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("bild");
+    await bildAlsXcf(a.ort("bild"), [0, 192, 0]);
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, gimp: gimp! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann wandelt der Test wie der Agent ein rotes Bild um – das Skript startet GIMP neu, das Bild wird rot
+      let geaendert: Promise<void> | null = null;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) geaendert = bildAlsXcf(a.ort("bild"), [204, 0, 0]);
+        return !!geaendert && rot(f);
+      };
+      // auf dem Bild zwischen Werkzeugkasten und Docks, über dem Zeiger in der Mitte
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("bild", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 120, stelle: [0.5, 0.4] });
+      console.log(`[bild] GIMP: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      await geaendert;
+      assert.ok(rot(e.farbe), `nach dem Umwandeln rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("bild")), ["main.xcf"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4f: im Terminal – der Befehl aus den Hinweisen wandelt in der Sandbox ein Bild in main.xcf", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!gimp && "GIMP fehlt (gimp)"), timeout: 120_000,
+}, async () => {
+  const arbeit = tmp("bild-terminal");
+  await bildAlsXcf(arbeit, [0, 192, 0]);
+  assert.equal(readFileSync(join(arbeit, "main.xcf")).subarray(0, 9).toString(), "gimp xcf ", "das Format von GIMP");
+  assert.deepEqual(readdirSync(arbeit), ["main.xcf"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

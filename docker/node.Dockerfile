@@ -141,6 +141,13 @@ ARG INKSCAPE=0
 RUN if [ "$VIBECODEN" = "1" ] && [ "$INKSCAPE" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends inkscape && rm -rf /var/lib/apt/lists/*; \
     fi
+
+# Bilder im Bild (VKk4f) – nur mit VIBECODEN=1 und GIMP=1 (docker-compose.vibecoden.yml reicht es durch). GIMP 2.10 aus Debian
+# (GPL-3.0+, eigenes Programm, nur in den Sandboxen), rund 250 MB – zeigt main.xcf im Bild, Script-Fu im Terminal des Motors.
+ARG GIMP=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$GIMP" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends gimp && rm -rf /var/lib/apt/lists/*; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

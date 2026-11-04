@@ -817,6 +817,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `INKSCAPE=1`, rund 200 MB; `INKSCAPE=aus` schaltet es ab) – nur, wenn kein Web-Projekt
   da ist; schreibt der Agent die Zeichnung neu, startet Inkscape im Bild neu. Im Terminal
   exportiert er mit `inkscape --export-type=pdf main.svg`.
+  Bilder (`main.xcf`, seit VKk4f) zeigt GIMP 2.10 (`gimp`, im Bild nur mit `GIMP=1`, rund
+  250 MB; `GIMP=aus` schaltet es ab) – nach Web und `main.svg`; das Fenster füllt das Bild,
+  Strg+S speichert dorthin. Ändert der Agent die Datei, startet GIMP im Bild neu. Im Terminal
+  wandelt er mit Script-Fu (`gimp -i -b …`) ein anderes Bild in `main.xcf`.
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

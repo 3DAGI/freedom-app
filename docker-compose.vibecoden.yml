@@ -21,6 +21,8 @@ services:
         LIBREOFFICE: "${LIBREOFFICE:-0}"
         # Zeichnungen im Bild (VKk4e): INKSCAPE=1 baut Inkscape dazu, rund 200 MB
         INKSCAPE: "${INKSCAPE:-0}"
+        # Bilder im Bild (VKk4f): GIMP=1 baut GIMP dazu, rund 250 MB
+        GIMP: "${GIMP:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

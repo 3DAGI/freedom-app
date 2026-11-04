@@ -33,9 +33,9 @@ test("VKb: Argumente – alle Namensräume, keine Fähigkeiten, leere Umgebung, 
   // aus /etc nur drei Dateien, nie das ganze /etc, nie das Home des Knotens
   assert.deepEqual(nach(a, "--ro-bind").filter((q) => q === "/etc" || q.startsWith("/etc/")), []);
   assert.deepEqual([...new Set(a.filter((x) => x.startsWith("/etc/")))].sort(),
-    ["/etc/alternatives", "/etc/fonts", "/etc/group", "/etc/hosts", "/etc/ld.so.cache", "/etc/libreoffice", "/etc/passwd"]);
-  assert.deepEqual(nach(a, "--ro-bind-try"), ["/etc/alternatives", "/etc/ld.so.cache", "/etc/fonts", "/etc/libreoffice"],
-    "nur Verweise, der Cache des Laders und Konfiguration der Distribution (VKk4d), nur lesbar");
+    ["/etc/alternatives", "/etc/fonts", "/etc/gimp", "/etc/group", "/etc/hosts", "/etc/ld.so.cache", "/etc/libreoffice", "/etc/passwd"]);
+  assert.deepEqual(nach(a, "--ro-bind-try"), ["/etc/alternatives", "/etc/ld.so.cache", "/etc/fonts", "/etc/libreoffice", "/etc/gimp"],
+    "nur Verweise, der Cache des Laders und Konfiguration der Distribution (VKk4d, VKk4f), nur lesbar");
   assert.ok(!a.some((x) => x === process.env.HOME || x.includes(".freedom")));
   // schreibbar nur der Arbeitsordner – .git danach nur lesbar darüber
   assert.deepEqual(nach(a, "--bind"), [arbeit]);

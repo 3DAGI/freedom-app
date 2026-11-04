@@ -399,3 +399,32 @@ und erwartet denselben Text in einem neuen Element. Fallstrick in `packages/app/
 (20261018) nennt `python3-tornado 6.4.0-1ubuntu0.5`, der Spiegel hat nur noch die neuere Fassung (404). Der Testjob lädt die
 Paketliste jetzt vor dem ersten `apt-get install` neu (Schritt „Paketliste auffrischen“), die Pakete kommen weiter aus dem
 Zwischenspeicher. Der Job für Hangover fiel schon bisher auf `apt-get update` zurück. Fallstrick in `scripts/CLAUDE.md`.
+
+## Schritt VKk4f – GIMP im Bild: `main.xcf`, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: GIMP), nach VKk4e.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.xcf` (nur eine echte Datei), wenn der Knoten GIMP hat – als Letztes,
+  nach Web und `main.svg` (die Quelle eines Logos verdrängt keine Seite); XCF ist GIMPs eigenes Format, Strg+S im Bild speichert ohne
+  Rückfrage dorthin. `gimpAusUmgebung()`: nur `/usr/bin/gimp`, `GIMP=aus` schaltet ab. `GIMP_START` schreibt die Vorlage
+  `/etc/gimp/2.0/sessionrc` mit Ort 0,0 und der Größe des Bilds ins Home der Sandbox – ohne Fenstermanager läge das Fenster sonst bei
+  200,100 mit 1024×768, über den Rand; Werkzeugkasten und Docks bleiben. Danach die Neustart-Schleife. `bildHinweise()` nennt
+  `main.xcf` nach `main.svg` und den Befehl für Script-Fu im Terminal (ein anderes Bild mit `gimp-file-load` laden, mit `gimp-xcf-save`
+  als `main.xcf` schreiben).
+- **`packages/node/src/sandbox.ts`:** zusätzlich nur lesbar `/etc/gimp` – ohne scheitert schon der erste Start („User installation
+  failed“), im Bild wie im Terminal.
+- **`packages/node/src/main.ts`:** gibt GIMP an den Bildstrom und an die Hinweise; das Log sagt „Bilder in GIMP“ oder „ohne GIMP“.
+- **Bild:** `ARG GIMP=0`, nur mit `VIBECODEN=1` und `GIMP=1`: GIMP 2.10 aus Debian, rund 250 MB (hier 210 MB, GTK 3 lag schon).
+  **CI:** `gimp` (2.10.36 aus Ubuntu 24.04) im Testjob.
+- Fallstrick im Knoten (dazu `/etc/gimp` im Eintrag zur Sandbox), `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`),
+  Entwurf (Zeile und Tabelle), OFFEN (Probe am GX10, Zeile VKk), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +7 – `bildstrom.test.ts` +6: Erkennung (nur mit GIMP, `index.html` und `main.svg` gehen vor, ohne Browser zählt das Bild,
+kein Verweis, kein Ordner), GIMP aus der Umgebung, Start mit Attrappe (`sessionrc` aus der Vorlage mit Ort 0,0 und der Größe des Bilds,
+Werkzeugkasten und Docks bleiben; ohne Splash, neu nach einer Änderung, Ende mit dem Programm), Bildstrom (nichts weiter eingebunden,
+ohne GIMP `code-bild-kein-programm`), der Echttest mit GIMP 2.10.36 (der Test wandelt wie der Agent ein Bild mit genau dem Befehl aus
+den Hinweisen in `main.xcf`: grün im Bild, nach dem zweiten Umwandeln rot, Antwort nach 0,8 s; im Projekt nur `main.xcf`) und Script-Fu
+im Terminal in der Sandbox. Gegenproben: ohne die Lage des Fensters rot (nur Grau an der Stelle des Bilds), ohne `/etc/gimp` rot (im Bild
+wie im Terminal), ohne die Prüfung in der CI rot. Der VKk5-Test prüft `main.xcf` an seiner Stelle, `sandbox.test.ts` kennt `/etc/gimp`.
+`docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, CI.
+

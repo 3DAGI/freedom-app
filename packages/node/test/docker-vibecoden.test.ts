@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BLENDER_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
+import { BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -212,6 +212,19 @@ test("VKk4e: Inkscape nur mit VIBECODEN=1 und INKSCAPE=1 aus der Distribution, d
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+INKSCAPE: "\$\{INKSCAPE:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("INKSCAPE"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends inkscape\n\s+inkscape --version\n/);
+});
+
+test("VKk4f: GIMP nur mit VIBECODEN=1 und GIMP=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG GIMP=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$GIMP" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends gimp && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("gimp") && !vibecoden.includes("gimp"), "nur mit GIMP=1 – rund 250 MB");
+  assert.deepEqual(GIMP_ORTE, ["/usr/bin/gimp"], "dort legt Debian den Verweis ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+GIMP: "\$\{GIMP:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("GIMP"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends gimp\n\s+gimp --version\n/);
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
