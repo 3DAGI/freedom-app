@@ -6,7 +6,8 @@
  * Wie die Proxy-Brücke von Codex – nie, indem die Sandbox das Netz des Rechners teilt. Seit VKd beantwortet sie dazu
  * `POST /mcp/<zeichen>` im Knoten selbst (Freedom-MCP, `freedom-mcp.ts`, seit VKd2b1 je Projekt) – Werkzeuge des Knotens,
  * nie ein weiterer Weg nach draußen.
- * Seit VKd3 dazu `GET /npm/…` und `/pypi/…`: Pakete nur von der festen Liste der Registries (`paket-spiegel.ts`).
+ * Seit VKd3 dazu `GET /npm/…` und `/pypi/…`, seit VKh1 `/maven/…`: Pakete nur von der festen Liste der Registries
+ * (`paket-spiegel.ts`).
  *
  * Der Schlüssel des Antriebs (`KI_SCHLUESSEL`) kommt erst hier dazu; Kopfzeilen aus der Sandbox gehen nicht
  * weiter. Was durchfließt, sind Fragen und Antworten des eigenen Projekts: nie ins Log, Fehler nach außen nur
@@ -102,7 +103,7 @@ export async function oeffneModellBruecke(antrieb: KiAntrieb, o: {
     const mcp = o.mcp && /^\/mcp\/([0-9a-f]{64})$/.exec(req.url ?? "");
     const fuerProjekt = mcp ? o.mcp!(mcp[1]!) : undefined;
     if (fuerProjekt) return beantworteMcp(req, res, fuerProjekt).catch(() => absage(res, 502));
-    if (o.spiegel && /^\/(?:npm|pypi)\//.test(req.url ?? "")) return o.spiegel(req, res).catch(() => absage(res, 502));
+    if (o.spiegel && /^\/(?:npm|pypi|maven)\//.test(req.url ?? "")) return o.spiegel(req, res).catch(() => absage(res, 502));
     const ziel = brueckenZiel(antrieb, req.method, req.url);
     if (!ziel) {
       req.resume();

@@ -12,7 +12,8 @@
  *   Knoten vor jedem Start neu: eigener Endpunkt, Freigaben `manual` über ACP, keine Nachinstallation von Paketen.
  *   Hermes fragt über ACP vor Änderungen an Dateien und vor riskanten Befehlen – nicht vor jedem Befehl.
  * - **Pakete** (seit VKd3) über dieselbe Brücke: `.npmrc` und `pip.conf` im Home zeigen auf den Spiegel des Knotens
- *   (`paket-spiegel.ts`), nur npm und PyPI von der festen Liste.
+ *   (`paket-spiegel.ts`), nur npm und PyPI von der festen Liste; seit VKh1 auch Gradle (Init-Skript in `~/.gradle/init.d`)
+ *   mit Google Maven und Maven Central.
  */
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSync, writeSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -81,12 +82,49 @@ export function hermesKonfiguration(modell: string, mcp: readonly McpServer[] = 
 /**
  * `.npmrc` und `pip.conf` (VKd3): npm und pip fragen die Brücke statt des Netzes; ohne Prüfung der Sicherheitslücken
  * (`audit`, an einen anderen Endpunkt von npm) und ohne Versionsabfrage von pip, die nur warten ließen.
+ *
+ * Dazu seit VKh1 ein Init-Skript für Gradle (`~/.gradle/init.d/`, Gradle liest es vor jedem Bau): Es lenkt die
+ * Repositories des Projekts – `google()`, `mavenCentral()`, `gradlePluginPortal()` und dieselben Adressen von Hand – auf
+ * den Spiegel (`allowInsecureProtocol`: http nur zu 127.0.0.1 in der Sandbox) und gibt den Plugins diese beiden statt des
+ * Portals, das Gradle sonst ohne Liste fragte. Andere Repositories bleiben, wie sie sind – ohne Netz erreicht Gradle sie nicht.
  */
-export function paketKonfiguration(): { npmrc: string; pip: string } {
+export function paketKonfiguration(): { npmrc: string; pip: string; gradle: string } {
   const bruecke = `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`;
   return {
     npmrc: [`registry=${bruecke}/npm/`, "audit=false", "fund=false", "update-notifier=false", ""].join("\n"),
     pip: ["[global]", `index-url = ${bruecke}/pypi/simple/`, "trusted-host = 127.0.0.1", "disable-pip-version-check = true", ""].join("\n"),
+    gradle: [
+      "// FreedomStack (VKh1): Die Sandbox hat kein Netz. Bibliotheken und Plugins holt Gradle nur über den Spiegel des",
+      "// Knotens – von Google Maven und Maven Central. Der Knoten schreibt diese Datei vor jedem Lauf neu.",
+      `def spiegel = "${bruecke}/maven"`,
+      "def ziele = [",
+      '  "dl.google.com/dl/android/maven2": "google", "maven.google.com": "google",',
+      '  "repo.maven.apache.org/maven2": "central", "repo1.maven.org/maven2": "central", "plugins.gradle.org/m2": "central",',
+      "]",
+      "def umlenken = { RepositoryHandler repos ->",
+      "  repos.withType(MavenArtifactRepository).configureEach { r ->",
+      "    def ziel = ziele[r.url.toString().replaceFirst('^https?://', '').replaceFirst('/+$', '')]",
+      "    if (ziel != null) {",
+      '      r.url = new URI("${spiegel}/${ziel}/")',
+      "      r.allowInsecureProtocol = true",
+      "    }",
+      "  }",
+      "}",
+      "beforeSettings { settings ->",
+      "  settings.pluginManagement.repositories {",
+      '    maven { name = "FreedomGoogle"; url = new URI("${spiegel}/google/"); allowInsecureProtocol = true }',
+      '    maven { name = "FreedomCentral"; url = new URI("${spiegel}/central/"); allowInsecureProtocol = true }',
+      "  }",
+      "  umlenken(settings.pluginManagement.repositories)",
+      "  umlenken(settings.buildscript.repositories)",
+      "  umlenken(settings.dependencyResolutionManagement.repositories)",
+      "}",
+      "allprojects { p ->",
+      "  umlenken(p.buildscript.repositories)",
+      "  umlenken(p.repositories)",
+      "}",
+      "",
+    ].join("\n"),
   };
 }
 
@@ -138,6 +176,7 @@ export function hermesMotor(o: {
     // ohne den Ordner bände bubblewrap nichts ein und startete nicht
     if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });
     schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
+    schreibeInsHeim(heim, [".gradle", "init.d", "freedom-spiegel.gradle"], pakete.gradle);
     // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild keine, sonst versprächen alte Hinweise ein Bild
     if (o.bild !== undefined) schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild));
     else rmSync(join(heim, ".hermes", "SOUL.md"), { force: true });
@@ -153,8 +192,8 @@ export function hermesMotor(o: {
 export function hermesSeele(bild: string): string {
   return [
     "You are Hermes Agent, a coding agent in a FreedomStack project. The project is /arbeit, a git repository; the node",
-    "commits your changes. You work in a sandbox without network – use the tools you are given; npm and pip install",
-    "packages through the node's mirror.",
+    "commits your changes. You work in a sandbox without network – use the tools you are given; npm, pip and Gradle get",
+    "packages through the node's mirror (Gradle only from Google Maven and Maven Central).",
     "",
     bild,
   ].join("\n");
@@ -168,7 +207,7 @@ function echterOrdner(pfad: string): void {
 }
 
 /**
- * Eine Datei im Home neu schreiben (`config.yaml`, `.npmrc`, `pip.conf`), ohne Verweisen zu folgen: Der Motor des
+ * Eine Datei im Home neu schreiben (`config.yaml`, `.npmrc`, `pip.conf`, Init-Skript von Gradle), ohne Verweisen zu folgen: Der Motor des
  * letzten Laufs hätte sie durch einen Verweis ersetzen können (etwa auf `~/.freedom/node-key`) – der Knoten schriebe
  * sonst außerhalb der Sandbox. Jeder Ordner davor muss ein echter sein.
  */

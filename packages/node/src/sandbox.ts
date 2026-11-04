@@ -10,7 +10,7 @@
  *   Sitzung, keine Fähigkeiten (`--cap-drop ALL`);
  * - nur lesbar: `/usr` und die Bibliotheken; aus `/etc` nur ein eigenes
  *   `passwd`, `group` und `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache`, `/etc/fonts` und
- *   `/etc/libreoffice` (VKk4d), `/etc/gimp` (VKk4f) – nicht das ganze `/etc`;
+ *   `/etc/libreoffice` (VKk4d), `/etc/gimp` (VKk4f), `/etc/java-<N>-openjdk` (VKh1) – nicht das ganze `/etc`;
  * - schreibbar nur der Arbeitsordner (`/arbeit`), darin `.git` wieder nur lesbar
  *   (die Commits macht der Knoten, VKc2); `/tmp` als tmpfs mit Grenze;
  * - die Umgebung leer bis auf `PATH`, `HOME` und `LANG` – keine Variable des
@@ -126,6 +126,8 @@ export function sandboxText(p: SandboxPruefung): string {
 }
 
 const PATH_INNEN = "/usr/local/bin:/usr/bin:/bin";
+/** Konfiguration der JDKs aus Debian 12/13 und Ubuntu 24.04 (17, 21, 25) – fest, nicht aus `/etc` gelesen. */
+export const JAVA_ETC = ["/etc/java-17-openjdk", "/etc/java-21-openjdk", "/etc/java-25-openjdk"] as const;
 
 /** Die Wurzel nur lesbar: `/usr` und, wo es sie als eigene Ordner gibt, `/bin`, `/lib`, `/lib64`, `/sbin`. */
 function wurzel(): string[] {
@@ -153,8 +155,10 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
     "--ro-bind-try", "/etc/alternatives", "/etc/alternatives", "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
     // Konfiguration der Distribution (VKk4d): Fontconfig (ohne sie zeichnen Programme mit Ersatzschrift) und LibreOffice –
     // unter Debian und Ubuntu ist `/usr/lib/libreoffice/share/registry` ein Verweis dorthin, ohne ihn startet es nicht –,
-    // seit VKk4f GIMP (ohne `/etc/gimp/2.0` scheitert sein erster Start, auch im Terminal)
+    // seit VKk4f GIMP (ohne `/etc/gimp/2.0` scheitert sein erster Start, auch im Terminal), seit VKh1 Java von Debian und
+    // Ubuntu (`conf/security/java.security` im JDK ist ein Verweis dorthin – ohne ihn startet keine JVM, auch Gradle nicht)
     "--ro-bind-try", "/etc/fonts", "/etc/fonts", "--ro-bind-try", "/etc/libreoffice", "/etc/libreoffice", "--ro-bind-try", "/etc/gimp", "/etc/gimp",
+    ...JAVA_ETC.flatMap((d) => ["--ro-bind-try", d, d]),
     "--proc", "/proc", "--dev", "/dev",
     "--size", String(SANDBOX_GRENZEN.tmpBytes), "--tmpfs", "/tmp",
     ...(o.home ? ["--bind", o.home, "/home/agent"] : ["--tmpfs", "/home/agent"]),

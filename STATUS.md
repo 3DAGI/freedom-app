@@ -460,3 +460,45 @@ App-Tests. Ursache: Mit der frischen Paketliste (VKk4e) lädt apt jede neuere Fa
 nächsten wieder leer beginnen. Jetzt holt der Testjob den Zwischenspeicher nur (`actions/cache/restore`) und speichert ihn gleich
 nach den Paketen (`actions/cache/save`, nur ohne genauen Treffer); die Grenze ist 35 Minuten. Fallstrick in `scripts/CLAUDE.md`.
 
+
+## Schritt VKh1 – Maven über den Spiegel der Brücke
+
+Spur B, `docs/ANDROID-ENTWURF.md`. Der MENSCH hat am 04.11. VKh-W1–W4 wie empfohlen entschieden: W1 C, danach A; W2 A; W3 A;
+W4 A. Eingetragen im Entwurf (Abschnitt „Entscheidungen“) und in OFFEN (1.6 entfällt). Maven kommt zuerst, denn ohne Maven
+lädt Gradle nicht einmal das Android-Plugin. Neue Teile: VKh2 JDK, Gradle und SDK im Bild, VKh3 `aapt2` für ARM64, VKh4
+Cuttlefish nach der Probe am GX10; das Blob-Netz erst bei Bedarf.
+
+- **`paket-spiegel.ts`:**
+  - Neue Wege `/maven/google/…` (dl.google.com/dl/android/maven2) und `/maven/central/…` (repo.maven.apache.org/maven2).
+  - Nur Archive, POMs, `.module`, `maven-metadata.xml` und ihre Prüfsummen und Signaturen (`MAVEN_DATEI`). Teile ohne `%`,
+    `@` und `~`, mindestens drei Teile. Nichts wird umgeschrieben.
+  - Je Datei bis 128 MB (`SPIEGEL_GRENZEN.bytesJe.maven`; `kotlin-compiler-embeddable` hat 58 MB); npm und PyPI wie bisher 50 MB.
+  - Archive aller drei Registries gehen als Strom weiter (`leiteWeiter()`), mit Gegendruck der Sandbox, nie ganz im Speicher.
+    Die Länge nur ohne `content-encoding`. Über der Grenze bricht die Verbindung ab.
+- **`pakete.ts`:** `maven` in `PAKET_QUELLEN` (nur für den Spiegel; `PaketRegistry` bleibt npm und PyPI für Repo-Aufträge).
+  `antwortOderFehlt()` liefert die ungelesene Antwort; `holeOderFehlt()` liest daraus wie bisher.
+- **`hermes-motor.ts`:** Init-Skript für Gradle in `~/.gradle/init.d/freedom-spiegel.gradle`, vor jedem Lauf neu, nie durch einen
+  Verweis.
+  - Es lenkt `google()`, `mavenCentral()`, `gradlePluginPortal()` und dieselben Adressen von Hand auf den Spiegel.
+  - Es setzt Google Maven und Maven Central vor die Plugin-Repositories – ohne eigene Liste fragte Gradle das Portal selbst.
+  - `SOUL.md` nennt Gradle neben npm und pip.
+- **`sandbox.ts`:** liest `/etc/java-17|21|25-openjdk` (`--ro-bind-try`). Das JDK von Debian und Ubuntu verweist für
+  `java.security` dorthin; ohne bricht jede JVM ab, auch Gradle und auch im Terminal.
+- **`modell-bruecke.ts`:** reicht `/maven/` an den Spiegel.
+- Docs: PROVIDER (Gradle, wer was sieht), Fallstrick in `packages/node/CLAUDE.md` (dazu Java im Eintrag zur Sandbox), Entwurf,
+  VIBECODEN-Entwurf, OFFEN, FORTSCHRITT, Stand.
+
+**Tests** (`paket-spiegel.test.ts` +6, `sandbox.test.ts` angepasst):
+- Ziele für Maven samt 19 Gegenbeispielen.
+- Über die Brücke: POM unverändert, als Strom ohne Länge, gepackt ohne Länge, `HEAD`, 404, zu groß mit Länge (413) und im Strom
+  (abgebrochen), 60 Stücke mit Gegendruck ohne Warnung.
+- Motor: Init-Skript im Home, 0600, neu nach einer Änderung, kein Start bei einem Verweis statt `init.d`.
+- Echttests mit Gradle 8.14.3 und Java 21 in der Sandbox ohne Netz:
+  - Plugins nur über den Spiegel – Gradle nennt die Orte, die es fragte; das Portal zeigt auf Maven Central.
+  - Gson von Maven Central gebaut und gestartet.
+  - `androidx.annotation` von Google Maven – hier gesperrt, läuft in der CI.
+- Gegenproben:
+  - ohne `/etc/java-*` rot („Error loading java.security file“);
+  - mit Init-Skript ohne Wirkung rot (Gradle fragt repo.maven.apache.org direkt);
+  - ohne Grenze im Strom rot;
+  - mit Zuhörern, die liegen bleiben, rot (`MaxListenersExceededWarning`).

@@ -269,7 +269,7 @@ Bereichs unten anhängen.
   bubblewrap mit allen Namensräumen (`--unshare-all` und `--unshare-user`, kein Netz), leere Umgebung, nur lesbar
   `/usr` und die Wurzel (`--remount-ro /` zuletzt – sonst ist die tmpfs-Wurzel samt `/etc` schreibbar), aus `/etc`
   nur die drei eigenen Dateien und nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (ohne sie startet etwa
-  `python3` nicht – unter Debian ein Verweis dorthin), seit VKk4d dazu nur lesbar `/etc/fonts` und `/etc/libreoffice`, seit VKk4f `/etc/gimp` (nur
+  `python3` nicht – unter Debian ein Verweis dorthin), seit VKk4d dazu nur lesbar `/etc/fonts` und `/etc/libreoffice`, seit VKk4f `/etc/gimp`, seit VKh1 `/etc/java-<N>-openjdk` (nur
   Konfiguration der Distribution, nichts Geheimes), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
   dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
   Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
@@ -666,3 +666,13 @@ Bereichs unten anhängen.
   Größe des Bilds ins Home der Sandbox – ohne das misst der Echttest nur Grau (Gegenprobe). Neu geladen wird über `neustartSchleife()`. Im
   Terminal geht Script-Fu ohne Bildschirm (`gimp -i -b '…' -b '(gimp-quit 0)'`); der Befehl in `bildHinweise()` ist genau der, den der Echttest
   ausführt (`gimpBefehlAusHinweisen()`) – ihn nur zusammen ändern. Beim Beenden meldet GEGL „GeglBuffers leaked“ – harmlos, Exit 0.
+- **Maven nur über den Spiegel und Java nur mit `/etc/java-<N>-openjdk`** (seit VKh1, `paket-spiegel.ts`, VKh-W3 A): Gradle findet
+  Google Maven und Maven Central nur über das Init-Skript im Home (`paketKonfiguration().gradle` → `~/.gradle/init.d/`, über
+  `schreibeInsHeim()`); es lenkt Repositories mit bekannter Adresse um und setzt die beiden vor die Plugin-Repositories –
+  ohne sie fragte Gradle das Portal selbst (implizite Vorgabe, die `configureEach` nie sieht). Der Spiegel nimmt auf
+  `/maven/google|central/…` nur Archive, POMs, `.module`, `maven-metadata.xml` und ihre Prüfsummen (`MAVEN_DATEI`) und
+  schreibt nichts um. Archive (npm, PyPI, Maven) gehen seit VKh1 als Strom weiter (`antwortOderFehlt()` → `leiteWeiter()`),
+  nie ganz im Speicher; die Länge nur ohne `content-encoding` – `fetch` entpackt selbst, die genannte Länge gälte für andere
+  Bytes. Das JDK von Debian und Ubuntu liest `conf/security/java.security` über einen Verweis nach `/etc/java-<N>-openjdk`:
+  ohne `JAVA_ETC` in der Sandbox bricht jede JVM schon beim Start ab („Error loading java.security file“), auch Gradle.
+  Gradle prüft in den Echttests auch Fehler: Seine Liste „Searched in the following repositories“ zeigt, wohin es fragte.

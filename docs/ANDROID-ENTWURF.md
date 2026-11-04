@@ -2,8 +2,8 @@
 
 Stand 04.11.2026, Spur B. Ausgangspunkt ist `docs/VIBECODEN-ENTWURF.md`, Zeile VKh: „Android: redroid und scrcpy in der
 Sandbox, APKs bauen (arm64-`aapt2` oder FEX)“. Dazu gehört VK-W8 **A** (14.10.2026): erst Web und Linux, dann Android, dann
-Windows. Web und Linux sind fertig (VKg2, VKk3–VKk4), Windows auch (VKi). Dieser Entwurf hält Befunde und Fragen fest. Gebaut
-wird erst nach Freigabe, aus drei Gründen:
+Windows. Web und Linux sind fertig (VKg2, VKk3–VKk4), Windows auch (VKi). Dieser Entwurf hält Befunde und Fragen fest.
+**Entschieden am 04.11.2026** (Abschnitt „Entscheidungen“). Gebaut wurde erst nach der Freigabe, aus drei Gründen:
 - Jeder Weg bringt neue Abhängigkeiten.
 - Einer davon bräuchte Rechte, die keine Sandbox des Knotens heute hat.
 - Der Bau der Apps braucht einen neuen Weg nach draußen.
@@ -92,15 +92,34 @@ wird erst nach Freigabe, aus drei Gründen:
 | VKh-W3 | Woher holt Gradle Bibliotheken? | **A** Maven über den Spiegel der Brücke (nur `GET`, nur Google Maven und Maven Central, nur Archive und POMs) · **B** ein Gradle-Cache mit festen Fassungen, gefüllt beim Bau des Bilds · **C** kein Gradle-Bau mit Bibliotheken, nur `aapt2`, `d8` und `apksigner` direkt | **A** – dieselben Regeln wie npm und PyPI (VKd3). Ohne Maven gehen weder Kotlin-Bibliotheken noch Compose |
 | VKh-W4 | Wie kommt das APK aufs Handy? | **A** über die Vorschau (gibt es schon, soweit sie erreichbar ist) · **B** versiegelt über das Blob-Netz wie die Bundles (VKl), überall · **C** beides | **A** jetzt, **B**, wenn die Vorschau von unterwegs nicht reicht |
 
-## Aufteilung (nach Freigabe, Empfehlungen)
+## Entscheidungen vom 04.11.2026 (MENSCH: „wie empfohlen“)
+
+- **VKh-W1 C, danach A:** erst bauen und auf dem eigenen Handy laufen lassen; Cuttlefish als VM, sobald die Probe am GX10 KVM
+  zeigt. redroid nicht.
+- **VKh-W2 A:** `aapt2` für ARM64 selbst aus den AOSP-Quellen, mit fester Fassung und `--pruefen`.
+- **VKh-W3 A:** Maven über den Spiegel der Brücke – nur `GET`, nur Google Maven und Maven Central.
+- **VKh-W4 A:** das APK über die Vorschau; das Blob-Netz erst, wenn die Vorschau von unterwegs nicht reicht.
+
+## Aufteilung (nach den Entscheidungen)
+
+Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
 
 | Teil | Inhalt | Umfang |
 |---|---|---|
-| VKh1 | Bauen im Terminal des Motors: SDK und Gradle beim Bau des Bilds (`ARG ANDROID=1`, Lizenz des SDK nur lokal), auf amd64 mit Googles `aapt2`. Hinweis in `SOUL.md` („APK bauen, über die Vorschau laden“), Echttest in der CI (amd64) | ~350 |
-| VKh2 | `aapt2` für ARM64 aus den Quellen (`scripts/aapt2-bauen.sh`, Fassung und Commit fest, `--pruefen`), im Bild über `android.aapt2FromMavenOverride` | ~250 |
-| VKh3 | Maven über den Spiegel der Brücke (`/maven/…`, `PAKET_QUELLEN` erweitert, nur Archive, POMs und Prüfsummen) | ~250 |
-| VKh4 | Android im Bild: Cuttlefish als eigener Dienst (Installer bzw. Compose-Profil „android“), Socket in die Sandbox des Programms, Viewer bzw. scrcpy, Installation über adb nach jeder Änderung – nur nach der Probe am GX10 | ~400 |
-| VKh5 | Das APK versiegelt über das Blob-Netz (nur bei VKh-W4 B oder C) | ~200 |
+| VKh1 ✓ | Maven über den Spiegel der Brücke (W3 A): `/maven/google/…` und `/maven/central/…`, nur Archive, POMs, Gradle-Metadaten und Prüfsummen, als Strom; Init-Skript für Gradle im Home des Motors (Plugin-Portal → Maven Central); Java in der Sandbox (`/etc/java-<N>-openjdk`). Echttest mit Gradle in der Sandbox | ~400 |
+| VKh2 | Bauen im Terminal des Motors (W1 C, W4 A): JDK, Gradle und SDK beim Bau des Bilds (`ARG ANDROID=1`, Lizenz des SDK nur lokal), auf amd64 mit Googles `aapt2`. Hinweis in `SOUL.md` („APK bauen, über die Vorschau laden“), Echttest in der CI (amd64) | ~350 |
+| VKh3 | `aapt2` für ARM64 aus den Quellen (W2 A, `scripts/aapt2-bauen.sh`, Fassung und Commit fest, `--pruefen`), im Bild über `android.aapt2FromMavenOverride` | ~250 |
+| VKh4 | Android im Bild (W1 A): Cuttlefish als eigener Dienst (Installer bzw. Compose-Profil „android“), Socket in die Sandbox des Programms, Viewer bzw. scrcpy, Installation über adb nach jeder Änderung – nur nach der Probe am GX10 | ~400 |
+| – | Das APK versiegelt über das Blob-Netz (VKh-W4 B) – erst, wenn die Vorschau von unterwegs nicht reicht | ~200 |
+
+**Befunde aus VKh1:**
+- Das JDK von Debian und Ubuntu liest `conf/security/java.security` über einen Verweis nach `/etc/java-<N>-openjdk`. Ohne
+  diesen Ordner bricht jede JVM in der Sandbox schon beim Start ab, auch im Terminal. Die Sandbox liest ihn jetzt mit.
+- Plugins: Ohne eigene Liste fragt Gradle das Plugin-Portal selbst. Das Init-Skript setzt deshalb Google Maven und Maven
+  Central vor die Plugin-Repositories und lenkt `gradlePluginPortal()` auf Maven Central. Die Marker des Android- und des
+  Kotlin-Plugins liegen auf Google Maven bzw. Maven Central. Plugins, die es nur im Portal gibt, findet Gradle nicht.
+- `./gradlew` lädt seine Gradle-Fassung von services.gradle.org und scheitert ohne Netz. Gradle selbst kommt mit VKh2 ins
+  Bild.
 
 ## Proben am GX10 (MENSCH)
 
