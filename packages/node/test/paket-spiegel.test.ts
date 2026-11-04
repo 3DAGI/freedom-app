@@ -346,8 +346,9 @@ test("VKh1 (Gradle): eine Bibliothek von Maven Central – gebaut und gestartet 
   assert.deepEqual([r.code, r.ausgabe.trim().split("\n").at(-1)], [0, 'WERT {"gruen":1}'], r.ausgabe);
 });
 
+// wie ein Android-Projekt: androidx braucht dazu kotlin-stdlib von Maven Central
 test("VKh1 (Gradle): eine Bibliothek von Google Maven – gebaut in der Sandbox ohne Netz", { skip: ohneGradle || (!googleDa && "Google Maven nicht erreichbar") }, async () => {
-  const r = await baueMitGradle(JAVA_PROJEKT("google()", "androidx.annotation:annotation:1.9.1",
+  const r = await baueMitGradle(JAVA_PROJEKT("google(); mavenCentral()", "androidx.annotation:annotation:1.9.1",
     'public class Probe { @androidx.annotation.NonNull static String wert() { return "WERT gruen"; } public static void main(String[] a) { System.out.println(wert()); } }\n'),
   { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() });
   assert.deepEqual([r.code, r.ausgabe.trim().split("\n").at(-1)], [0, "WERT gruen"], r.ausgabe);

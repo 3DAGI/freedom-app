@@ -496,7 +496,9 @@ Cuttlefish nach der Probe am GX10; das Blob-Netz erst bei Bedarf.
 - Echttests mit Gradle 8.14.3 und Java 21 in der Sandbox ohne Netz:
   - Plugins nur über den Spiegel – Gradle nennt die Orte, die es fragte; das Portal zeigt auf Maven Central.
   - Gson von Maven Central gebaut und gestartet.
-  - `androidx.annotation` von Google Maven – hier gesperrt, läuft in der CI.
+  - `androidx.annotation` von Google Maven – hier gesperrt, läuft in der CI. Der erste Lauf dort war rot: Gradle holte
+    `annotation-jvm` über den Spiegel von Google, fand aber `kotlin-stdlib` nicht – das Testprojekt nannte nur `google()`.
+    Wie ein Android-Projekt nennt es jetzt auch `mavenCentral()`.
 - Gegenproben:
   - ohne `/etc/java-*` rot („Error loading java.security file“);
   - mit Init-Skript ohne Wirkung rot (Gradle fragt repo.maven.apache.org direkt);
