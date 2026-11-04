@@ -19,6 +19,8 @@ services:
         BLENDER: "${BLENDER:-0}"
         # Dokumente im Bild (VKk4d): LIBREOFFICE=1 baut LibreOffice dazu (Writer, Calc, Impress, Draw), rund 400 MB
         LIBREOFFICE: "${LIBREOFFICE:-0}"
+        # Zeichnungen im Bild (VKk4e): INKSCAPE=1 baut Inkscape dazu, rund 200 MB
+        INKSCAPE: "${INKSCAPE:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

@@ -653,3 +653,8 @@ Bereichs unten anhängen.
   sie zuerst, sie hat keinen Pfad) und reicht an den Socket weiter. Ein anderes Programm mit eigenem Profil braucht denselben Umweg;
   ob eins greift, zeigt `/proc/<pid>/attr/current` – `test/fixtures/libreoffice/diagnose.mts` (CI, nur bei Fehlern) gibt es aus.
   Lokal liegt unter `/usr/local/bin/python3` ein Python, dessen PIL kaputt ist – für Bildschirmfotos `/usr/bin/python3`.
+- **Zeichnungen im Bild nur über `bildBefehl()` und `inkscapeBefehl()`** (seit VKk4e, `bildstrom.ts`): `main.svg` zählt nur mit Inkscape aus
+  `inkscapeAusUmgebung()` – nur `INKSCAPE_ORTE` unter `/usr` (kein eigener Pfad), `INKSCAPE=aus` schaltet ab – und nur als echte Datei,
+  **nach** Web: Ein Web-Projekt hat oft ein `main.svg` als Logo, das die Seite nicht verdrängen darf (Dev-Server und `index.html` gehen
+  vor; ohne Browser zählt die Zeichnung). Mit einer Datei startet Inkscape ohne Begrüßung und legt nichts neben sie; neu geladen wird
+  über `neustartSchleife()`. Ubuntu bringt für Inkscape kein AppArmor-Profil mit – ein Umweg wie `X11_UMWEG` ist nicht nötig.

@@ -17,10 +17,11 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, INKSCAPE_ORTE, INKSCAPE_START,
+  KICAD_ORTE, KICAD_START,
   LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START,
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
-  X11_UMWEG, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
+  X11_UMWEG, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
   wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
@@ -318,9 +319,9 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
-  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true });
-  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html"];
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
+  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true });
+  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg"];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
@@ -331,11 +332,12 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
+    inkscape: "/usr/bin/inkscape",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
-    libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")],
+    libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -516,6 +518,87 @@ test("VKk4d: LibreOffice im Bildstrom – das Dokument in der Sandbox des Progra
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("dok", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4e: Zeichnungen – main.svg nur mit Inkscape, nach Web (Dev-Server und index.html gehen vor), auch ohne Browser, nur eine echte Datei", () => {
+  const a = ablage("zeichnung", "web", "dev", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, inkscape: "/usr/bin/inkscape" };
+  writeFileSync(join(a.ort("zeichnung"), "main.svg"), "<svg/>");
+  assert.deepEqual(bildBefehl(a.ort("zeichnung"), web, mit), inkscapeBefehl("/usr/bin/inkscape"));
+  assert.deepEqual(bildBefehl(a.ort("zeichnung"), undefined, mit), inkscapeBefehl("/usr/bin/inkscape"), "auch ohne Browser");
+  assert.deepEqual(inkscapeBefehl("/usr/bin/inkscape"), ["/bin/sh", "-c", INKSCAPE_START, "/usr/bin/inkscape", "/arbeit/main.svg"]);
+  assert.equal(bildBefehl(a.ort("zeichnung"), web, g), null, "ohne Inkscape zählt main.svg nicht");
+  // ein Logo im Web-Projekt verdrängt die Seite nicht
+  for (const [f, inhalt] of [["main.svg", "<svg/>"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  assert.deepEqual(bildBefehl(a.ort("web"), undefined, mit), inkscapeBefehl("/usr/bin/inkscape"), "ohne Browser bleibt die Zeichnung");
+  for (const [f, inhalt] of [["main.svg", "<svg/>"], ["package.json", JSON.stringify({ scripts: { dev: "vite" } })]]) writeFileSync(join(a.ort("dev"), f!), inhalt!);
+  assert.equal(bildBefehl(a.ort("dev"), web, mit)?.[2], WEB_DEV_START, "der Dev-Server geht vor");
+  symlinkSync(join(a.ort("zeichnung"), "main.svg"), join(a.ort("verweis"), "main.svg"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.svg"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4e: Inkscape aus der Distribution – nur die Orte unter /usr, INKSCAPE=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("inkscape");
+  const datei = join(d, "inkscape");
+  writeFileSync(datei, "");
+  assert.equal(inkscapeAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(inkscapeAusUmgebung({ INKSCAPE: "aus" }, [datei]), null);
+  assert.equal(inkscapeAusUmgebung({ INKSCAPE: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit GTK viele Dateien unter /usr");
+  assert.equal(inkscapeAusUmgebung({}, [d]), null, "ein Ordner ist kein Inkscape");
+  assert.deepEqual(INKSCAPE_ORTE, ["/usr/bin/inkscape"]);
+});
+
+test("VKk4e: Start – Inkscape mit der Datei, neu nach jeder Änderung, Ende mit dem Programm", { timeout: 60_000 }, async () => {
+  const d = tmp("inkscape-start");
+  const svg = join(d, "main.svg");
+  writeFileSync(svg, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "inkscape"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "inkscape"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", INKSCAPE_START, join(d, "inkscape"), svg], { stdio: "ignore" });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.match(erste!, new RegExp(`^${svg} \\d+$`), "nur die Datei");
+    writeFileSync(svg, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4e: Inkscape im Bildstrom – main.svg in der Sandbox des Programms, nichts weiter eingebunden; ohne Inkscape kein Programm", async () => {
+  const a = ablage("zeichnung");
+  writeFileSync(join(a.ort("zeichnung"), "main.svg"), "<svg/>");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, inkscape: "/usr/bin/inkscape" });
+  try {
+    assert.equal(await b.starte("zeichnung", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...inkscapeBefehl("/usr/bin/inkscape")]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("zeichnung", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -1241,6 +1324,54 @@ test("VKk4d: im Terminal – soffice --headless wandelt das Dokument in der Sand
   assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
   for (const f of ["main.odt", "main.docx"]) assert.equal(readFileSync(join(arbeit, f)).subarray(0, 2).toString(), "PK", f);
   assert.deepEqual(readdirSync(arbeit).sort(), ["main.docx", "main.fodt", "main.odt", "main.pdf"]);
+});
+
+const inkscape = inkscapeAusUmgebung({});
+const ohneInkscape = ohne || (!inkscape && "Inkscape fehlt (inkscape)");
+/** Eine Zeichnung, wie sie der Agent als Text schreibt: eine Fläche in einer Farbe. */
+const zeichnung = (farbe: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="#${farbe}"/></svg>\n`;
+
+test("VKk4e: Ende zu Ende – eine Zeichnung in Inkscape im Bild; schreibt der Agent sie neu, zeigt das Bild die neue", { skip: ohneInkscape, timeout: 150_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("zeichnung");
+    const datei = join(a.ort("zeichnung"), "main.svg");
+    writeFileSync(datei, zeichnung("00c000"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, inkscape: inkscape! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann schreibt der Test die Zeichnung neu wie der Agent – das Skript startet Inkscape neu, das Bild wird rot
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          writeFileSync(datei, zeichnung("cc0000"));
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // auf der Fläche, neben dem Zeiger in der Mitte
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("zeichnung", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.4, 0.55] });
+      console.log(`[bild] Inkscape: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("zeichnung")), ["main.svg"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4e: im Terminal – inkscape exportiert die Zeichnung in der Sandbox als PDF", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!inkscape && "Inkscape fehlt (inkscape)"), timeout: 120_000,
+}, async () => {
+  const arbeit = tmp("zeichnung-terminal");
+  writeFileSync(join(arbeit, "main.svg"), zeichnung("00c000"));
+  const r = await fuehreAus(["/bin/sh", "-c", "inkscape --export-type=pdf main.svg"], { arbeit }, 90_000);
+  assert.equal(r.code, 0, r.ausgabe);
+  assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
+  assert.deepEqual(readdirSync(arbeit).sort(), ["main.pdf", "main.svg"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

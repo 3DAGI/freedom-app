@@ -360,3 +360,27 @@ nach dem Neuschreiben rot (Antwort nach 0,7–3,3 s, drei Läufe ohne Fehler), i
 Umwandlung scheitert), ohne `/etc/fonts` rot (Fontconfig). `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, die
 CI mit denselben Paketen (Gegenproben: ein Paket weniger in der CI, LibreOffice im Grundbild – beide rot). `sandbox.test.ts`: die
 zwei Ordner in der Liste aus `/etc`. Der VKk5-Test prüft `main.odt` an seiner Stelle und alle elf Namen in den Hinweisen.
+
+## Schritt VKk4e – Inkscape im Bild: `main.svg`, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: Inkscape), nach VKk4d.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.svg` (nur eine echte Datei), wenn der Knoten Inkscape hat –
+  als Letztes, **nach** Web: Ein Logo `main.svg` in einem Web-Projekt soll die Seite nicht verdrängen; ohne Browser zählt die
+  Zeichnung. `inkscapeAusUmgebung()`: nur `/usr/bin/inkscape`, `INKSCAPE=aus` schaltet ab. `INKSCAPE_START` ist die Neustart-Schleife
+  allein – mit einer Datei startet Inkscape ohne Begrüßung und legt nichts neben sie; ein AppArmor-Profil bringt Ubuntu für Inkscape
+  nicht mit. `bildHinweise()` nennt `main.svg` nach den Web-Projekten und den Export im Terminal (`inkscape --export-type=pdf`).
+- **`packages/node/src/main.ts`:** gibt Inkscape an den Bildstrom und an die Hinweise; das Log sagt „Zeichnungen in Inkscape“ oder
+  „ohne Inkscape“.
+- **Bild:** `ARG INKSCAPE=0`, nur mit `VIBECODEN=1` und `INKSCAPE=1`: Inkscape aus Debian, rund 200 MB (hier, wo GTK schon lag, 116 MB).
+  **CI:** `inkscape` (1.2.2 aus Ubuntu 24.04) im Testjob.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf (Zeile und Tabelle), OFFEN (Probe
+  am GX10), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +7 – `bildstrom.test.ts` +6: Erkennung (nur mit Inkscape, Dev-Server und `index.html` gehen vor, ohne Browser zählt
+die Zeichnung, kein Verweis, kein Ordner), Inkscape aus der Umgebung, Start mit Attrappe (die Datei, neu nach einer Änderung, Ende
+mit dem Programm), Bildstrom (nichts weiter eingebunden, ohne Inkscape `code-bild-kein-programm`), der Echttest mit Inkscape 1.2.2
+(grüne Fläche im Bild, nach dem Neuschreiben rot, Antwort nach 1,1 s; im Projekt nur `main.svg`) und der Export als PDF im Terminal
+in der Sandbox. Gegenproben: ohne Neustart rot (das Bild bleibt grün), `main.svg` vor Web rot (Erkennung und Reihenfolge der
+Hinweise). Der VKk5-Test prüft `main.svg` an seiner Stelle. `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, CI
+(Gegenprobe ohne die Prüfung in der CI: rot).

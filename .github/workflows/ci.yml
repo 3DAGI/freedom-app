@@ -142,6 +142,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw
           soffice --version
 
+      # VKk4e: Zeichnungen zeigt Inkscape im Bild – der Echttest schreibt main.svg neu, das Skript startet Inkscape neu
+      - name: Inkscape fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends inkscape
+          inkscape --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

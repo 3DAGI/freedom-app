@@ -134,6 +134,13 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$LIBREOFFICE" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
       && rm -rf /var/lib/apt/lists/*; \
     fi
+
+# Zeichnungen im Bild (VKk4e) – nur mit VIBECODEN=1 und INKSCAPE=1 (docker-compose.vibecoden.yml reicht es durch). Inkscape aus
+# Debian (GPL-3.0+, eigenes Programm, nur in den Sandboxen), rund 200 MB – zeigt main.svg im Bild und exportiert im Terminal des Motors.
+ARG INKSCAPE=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$INKSCAPE" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends inkscape && rm -rf /var/lib/apt/lists/*; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,
