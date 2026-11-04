@@ -360,3 +360,42 @@ nach dem Neuschreiben rot (Antwort nach 0,7–3,3 s, drei Läufe ohne Fehler), i
 Umwandlung scheitert), ohne `/etc/fonts` rot (Fontconfig). `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, die
 CI mit denselben Paketen (Gegenproben: ein Paket weniger in der CI, LibreOffice im Grundbild – beide rot). `sandbox.test.ts`: die
 zwei Ordner in der Liste aus `/etc`. Der VKk5-Test prüft `main.odt` an seiner Stelle und alle elf Namen in den Hinweisen.
+
+## Schritt VKk4e – Inkscape im Bild: `main.svg`, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: Inkscape), nach VKk4d.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt `main.svg` (nur eine echte Datei), wenn der Knoten Inkscape hat –
+  als Letztes, **nach** Web: Ein Logo `main.svg` in einem Web-Projekt soll die Seite nicht verdrängen; ohne Browser zählt die
+  Zeichnung. `inkscapeAusUmgebung()`: nur `/usr/bin/inkscape`, `INKSCAPE=aus` schaltet ab. `INKSCAPE_START` ist die Neustart-Schleife
+  allein – mit einer Datei startet Inkscape ohne Begrüßung und legt nichts neben sie; ein AppArmor-Profil bringt Ubuntu für Inkscape
+  nicht mit. `bildHinweise()` nennt `main.svg` nach den Web-Projekten und den Export im Terminal (`inkscape --export-type=pdf`).
+- **`packages/node/src/main.ts`:** gibt Inkscape an den Bildstrom und an die Hinweise; das Log sagt „Zeichnungen in Inkscape“ oder
+  „ohne Inkscape“.
+- **Bild:** `ARG INKSCAPE=0`, nur mit `VIBECODEN=1` und `INKSCAPE=1`: Inkscape aus Debian, rund 200 MB (hier, wo GTK schon lag, 116 MB).
+  **CI:** `inkscape` (1.2.2 aus Ubuntu 24.04) im Testjob.
+- Fallstrick im Knoten, `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf (Zeile und Tabelle), OFFEN (Probe
+  am GX10), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +7 – `bildstrom.test.ts` +6: Erkennung (nur mit Inkscape, Dev-Server und `index.html` gehen vor, ohne Browser zählt
+die Zeichnung, kein Verweis, kein Ordner), Inkscape aus der Umgebung, Start mit Attrappe (die Datei, neu nach einer Änderung, Ende
+mit dem Programm), Bildstrom (nichts weiter eingebunden, ohne Inkscape `code-bild-kein-programm`), der Echttest mit Inkscape 1.2.2
+(grüne Fläche im Bild, nach dem Neuschreiben rot, Antwort nach 1,1 s; im Projekt nur `main.svg`) und der Export als PDF im Terminal
+in der Sandbox. Gegenproben: ohne Neustart rot (das Bild bleibt grün), `main.svg` vor Web rot (Erkennung und Reihenfolge der
+Hinweise). Der VKk5-Test prüft `main.svg` an seiner Stelle. `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, CI
+(Gegenprobe ohne die Prüfung in der CI: rot).
+
+**Dazu (B-38c3, Befund im Smoke-Test):** Der Teil „als_text_lokal“ war in der CI zweimal rot (auf 4ee7c50d und 671d5a81,
+`wait_for_function` nach 30 s; `main` grün, lokal grün, auch mit sechsfach gedrosselter CPU). Ursache in der App: Die offene
+Unterhaltung zeichnet sich neu, sobald die eigenen Kopien hinaus sind (`loadChatMessages()` nach beiden Kopien) – mit ihr jeden
+Abspieler. Kam „Als Text“ kurz davor, landete der Text in einem Element, das niemand mehr sah; ebenso bei jeder neuen Nachricht
+in der offenen Unterhaltung. Jetzt merkt `TonTexte` (`app/src/ton-texte.ts`, nur im Speicher, höchstens 50) je Ton den Versuch, und
+`mitAlsText(…, kennung)` (`shell/sprache-text-ui.ts`) zeigt ihn im neuen Abspieler weiter – fertig oder noch unterwegs; die Kennung
+ist die `data:`-Adresse bzw. die Blob-Id (`shell/tabs/chat-anhaenge.ts`). **Tests:** app +1 (`sprache-lokal.test.ts`: je Ton, ein
+neuer Klick ersetzt, begrenzt, nur im Speicher); der Smoke-Teil zeichnet die Unterhaltung nach dem Text neu (Klick auf die offene)
+und erwartet denselben Text in einem neuen Element. Fallstrick in `packages/app/CLAUDE.md`.
+
+**Dazu (CI, B-42):** Der Testjob auf 5ff15fd5 scheiterte vor den Tests mit Exit 100 im Schritt für Jupyter: Das Bild des Runners
+(20261018) nennt `python3-tornado 6.4.0-1ubuntu0.5`, der Spiegel hat nur noch die neuere Fassung (404). Der Testjob lädt die
+Paketliste jetzt vor dem ersten `apt-get install` neu (Schritt „Paketliste auffrischen“), die Pakete kommen weiter aus dem
+Zwischenspeicher. Der Job für Hangover fiel schon bisher auf `apt-get update` zurück. Fallstrick in `scripts/CLAUDE.md`.

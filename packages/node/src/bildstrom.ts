@@ -228,7 +228,7 @@ export function openscadBefehl(openscad: string, groesse: { breite: number; hoeh
 }
 
 /**
- * Neustart nach jeder Änderung (VKk4b, VKk4c, VKk4d) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
+ * Neustart nach jeder Änderung (VKk4b, VKk4c, VKk4d, VKk4e) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
  * mit `$1` neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent schreibt
  * vielleicht in Stücken). Überhört das Programm das Ende (Rückfrage zum Speichern), endet es nach drei Sekunden hart. Endet es
  * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start, `argumente` stehen vor der Datei (Text für die Shell).
@@ -390,17 +390,39 @@ export function libreofficeBefehl(soffice: string, datei: string): string[] {
   return ["/bin/sh", "-c", LIBREOFFICE_START, soffice, `/arbeit/${datei}`, X11_UMWEG];
 }
 
+/** Wo der Knoten Inkscape sucht (VKk4e) – nur das Paket der Distribution unter `/usr` (mit GTK viele Dateien). */
+export const INKSCAPE_ORTE: readonly string[] = ["/usr/bin/inkscape"];
+
+/** Inkscape aus der Distribution (VKk4e): der erste aus `INKSCAPE_ORTE`; null mit `INKSCAPE=aus` oder ohne Fund. */
+export function inkscapeAusUmgebung(env: { INKSCAPE?: string }, orte: readonly string[] = INKSCAPE_ORTE): string | null {
+  return env.INKSCAPE?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Eine Zeichnung im Bild (VKk4e): `main.svg` in Inkscape. Mit einer Datei startet Inkscape ohne Begrüßung und legt nichts neben
+ * sie; eine geänderte Datei lädt es nicht von selbst – das Skript startet es nach jeder Änderung neu (`neustartSchleife()`). Ein
+ * eigenes AppArmor-Profil bringt Ubuntu für Inkscape nicht mit (anders als für LibreOffice, `X11_UMWEG`). `$0` ist Inkscape, `$1`
+ * die Datei.
+ */
+export const INKSCAPE_START = neustartSchleife().join("\n");
+
+export function inkscapeBefehl(inkscape: string): string[] {
+  return ["/bin/sh", "-c", INKSCAPE_START, inkscape, "/arbeit/main.svg"];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
  * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`, mit Blender (VKk4c) dann
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
- * `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
+ * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) zuletzt `main.svg`. Sonst null – dann sagt die App,
+ * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
+    inkscape?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -423,9 +445,11 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.blender && ist("main.blend", "datei")) return blenderBefehl(programme.blender);
   const dokument = programme?.libreoffice ? LIBREOFFICE_DATEIEN.find((d) => ist(d, "datei")) : undefined;
   if (programme?.libreoffice && dokument) return libreofficeBefehl(programme.libreoffice, dokument);
-  if (!web) return null;
-  if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
-  return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
+  if (web && devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
+  if (web && ist("index.html", "datei")) return [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")];
+  // eine Zeichnung erst nach Web (VKk4e): Ein Logo `main.svg` in einem Web-Projekt soll die Seite nicht verdrängen
+  if (programme?.inkscape && ist("main.svg", "datei")) return inkscapeBefehl(programme.inkscape);
+  return null;
 }
 
 /**
@@ -436,6 +460,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
+  inkscape?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -452,6 +477,8 @@ export function bildHinweise(p: {
       + "`main.fods`, `main.fodp`, `main.fodg`) or as `main.docx`, `main.xlsx`, `main.pptx`; it restarts after every save. In the terminal, "
       + "`soffice --headless --convert-to pdf main.fodt` works, as do `odt` and `docx`"] : []),
     ...(p.browser ? ["- `package.json` with a `dev` script (started with PORT and HOST set), else `index.html` – shown in Chromium"] : []),
+    ...(p.inkscape ? ["- `main.svg` – Inkscape (only if no web project is there); it restarts after every save. In the terminal, "
+      + "`inkscape --export-type=pdf main.svg` works"] : []),
   ];
   return [
     "# Showing the project",
@@ -514,6 +541,8 @@ export class BildStrom {
     blender?: string;
     /** LibreOffice für Dokumente (VKk4d, `libreofficeAusUmgebung()`) – unter `/usr`, dazu `/etc/libreoffice` aus der Sandbox. */
     libreoffice?: string;
+    /** Inkscape für `main.svg` (VKk4e, `inkscapeAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    inkscape?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -546,6 +575,7 @@ export class BildStrom {
       ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
       ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
+      ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

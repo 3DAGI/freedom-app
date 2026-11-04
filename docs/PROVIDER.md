@@ -813,6 +813,10 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `LIBREOFFICE=aus` schaltet es ab) – ohne Sperrdatei im Projekt; schreibt der Agent das
   Dokument neu, startet LibreOffice im Bild neu. Im Terminal wandelt er mit
   `soffice --headless --convert-to pdf …` um (auch `odt` und `docx`).
+  Zeichnungen (`main.svg`, seit VKk4e) zeigt Inkscape (`inkscape`, im Bild nur mit
+  `INKSCAPE=1`, rund 200 MB; `INKSCAPE=aus` schaltet es ab) – nur, wenn kein Web-Projekt
+  da ist; schreibt der Agent die Zeichnung neu, startet Inkscape im Bild neu. Im Terminal
+  exportiert er mit `inkscape --export-type=pdf main.svg`.
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

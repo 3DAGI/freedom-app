@@ -64,6 +64,12 @@ jobs:
           key: apt-${{ github.job }}-${{ env.IMAGE_VERSION }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: apt-${{ github.job }}-
 
+      # Das Bild des Runners bringt die Paketliste vom Tag seines Baus mit. Ersetzt Ubuntu danach ein Paket
+      # (Sicherheitsupdate), liefert der Spiegel die alte Fassung nicht mehr – am 04.11.2026 python3-tornado (404, Exit 100
+      # im Schritt für Jupyter). Die Liste daher neu laden; die Pakete selbst kommen weiter aus dem Zwischenspeicher.
+      - name: Paketliste auffrischen
+        run: sudo apt-get update
+
       # B-29c2b: Modelle im Schwarm laufen gegen echtes aria2c – ohne es übersprängen sich die Tests
       - name: aria2c fuer die Schwarm-Tests
         run: sudo apt-get install -y --no-install-recommends aria2 && aria2c --version | head -1
@@ -141,6 +147,12 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw
           soffice --version
+
+      # VKk4e: Zeichnungen zeigt Inkscape im Bild – der Echttest schreibt main.svg neu, das Skript startet Inkscape neu
+      - name: Inkscape fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends inkscape
+          inkscape --version
 
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen

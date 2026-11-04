@@ -1647,6 +1647,12 @@ def als_text_lokal_pruefen(browser, url: str) -> dict:
     s.click("#chat-thread .ton-als-text")
     s.wait_for_function("() => /^Probe: /.test(document.querySelector('#chat-thread .ton-text').textContent)", timeout=30000)
     erg["als_text"] = ev("() => document.querySelector('#chat-thread .ton-text').textContent")
+    # Neu gezeichnet (die offene Unterhaltung lädt nach jeder Nachricht neu, auch wenn die eigenen Kopien hinaus sind): der
+    # neue Abspieler zeigt den Text weiter – bis B-38c3 ging er dabei verloren, im CI-Runner zweimal kam „Als Text“ so zu früh
+    ev("() => { document.querySelector('#chat-thread .ton-text').dataset.alt = '1'; }")
+    s.click("#chat-list .chat-item.active[data-cid]")
+    s.wait_for_function("() => { const e = document.querySelector('#chat-thread .ton-text'); return !!e && !e.dataset.alt; }", timeout=15000)
+    erg["neu_gezeichnet"] = ev("() => document.querySelector('#chat-thread .ton-text').textContent")
     # Diktieren in der Sprache der App
     ev("() => { location.hash = '#/agent'; }")
     s.wait_for_selector("#ai-diktieren", state="visible", timeout=15000)
@@ -1670,6 +1676,8 @@ def als_text_lokal_pruefen(browser, url: str) -> dict:
         erg["fehler"].append(f"gemerkt {erg['gemerkt']}")
     if not re.fullmatch(r"Probe: 4[34]\d Hz, 16000/1, Sprache auto", erg["als_text"]) or not re.fullmatch(r"Probe: 4[34]\d Hz, 16000/1, Sprache de", erg["diktat"]):
         erg["fehler"].append(f"Text {erg['als_text']} / {erg['diktat']}")
+    if erg["neu_gezeichnet"] != erg["als_text"]:
+        erg["fehler"].append(f"neu gezeichnet {erg['neu_gezeichnet']!r} statt {erg['als_text']!r}")
     if erg["netz"]["nachher"] != erg["netz"]["vorher"] or erg["netz"]["vorher"]["blob"] != 0:
         erg["fehler"].append(f"ins Netz {erg['netz']}")
     if erg["gefragt"] != [("GET", "/health"), ("POST", "/inference"), ("POST", "/inference")]:

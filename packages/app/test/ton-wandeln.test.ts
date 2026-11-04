@@ -82,7 +82,9 @@ test("B-38c1: verdrahtet – erst wandeln, dann die Rolle `sprache`, dann Ton un
 
   const chat = readFileSync(new URL("../src/shell/tabs/chat-anhaenge.ts", import.meta.url), "utf8");
   assert.match(chat, /if \(v\.art === "audio" && v\.url\.startsWith\("data:"\)\) \{/, "nur Ton aus der Nachricht selbst – nie eine Adresse im Netz");
-  assert.match(chat, /el\.replaceWith\(mitAlsText\(ton, async \(\) => bytes\)\)/, "entschlüsselte Sprachnachrichten aus dem Blob-Netz");
+  assert.match(chat, /el\.replaceWith\(mitAlsText\(ton, async \(\) => bytes, d\.blob \?\? d\.url\)\)/, "entschlüsselte Sprachnachrichten aus dem Blob-Netz");
+  // je Ton eine Kennung (Befund in VKk4e): der Text übersteht das Neuzeichnen der Unterhaltung
+  assert.match(chat, /\(c\) => c\.charCodeAt\(0\)\), url\);/, "Ton in der Nachricht: die data:-Adresse");
 });
 
 test("B-38c1: für jede Kennung des Knotens und jeden Ausgang ein Satz in beiden Sprachen", () => {

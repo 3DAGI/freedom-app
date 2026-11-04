@@ -121,6 +121,9 @@ dieses Bereichs unten anhängen.
   weg, sonst kann der Cache die Datei nicht lesen). Die Pakete für Playwright holt der Smoke-Job ohne `apt-get update`
   (`install-deps --dry-run` liefert die Liste), Chromium liegt im Cache mit der Version im Schlüssel – eine neue Version von
   Playwright heißt: Schlüssel mit ändern. Ein PR liest nur Caches von `main`; der erste Lauf nach einer Änderung lädt neu.
+  Die Paketliste lädt der Testjob seit VKk4e vor dem ersten `apt-get install` neu („Paketliste auffrischen“): Das Bild des Runners
+  bringt die Liste vom Tag seines Baus mit, und eine von Ubuntu ersetzte Fassung liefert der Spiegel nicht mehr (04.11.2026:
+  `python3-tornado`, 404, Exit 100) – ohne frische Liste scheitert der Schritt, sobald ein Paket nicht im Zwischenspeicher liegt.
 - **Hilfsdienste in der CI scheitern laut** (seit A-33): Eine Adresse aus einem Skript erst einer Variablen zuweisen
   (`mint="$(bash scripts/cashu-testmint.sh)"`), dann nach `$GITHUB_ENV` schreiben – in `echo "X=$(…)"` zählt der
   Exit-Code der Befehlsersetzung nicht, der Schritt bleibt grün, und Tests, die sich ohne den Dienst überspringen, fallen

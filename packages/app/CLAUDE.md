@@ -1010,6 +1010,10 @@ Fallstricke dieses Bereichs unten anhängen.
   „Dieses Gerät“ (seit B-38c3) nur über `sprache-lokal.ts`: Adressen nur aus `lokaleKiAdresse()`, gefragt erst auf Klick in
   der Karte (`pruefeSprachServer()`), gemerkt nur nach „bereit“; ist einer gemerkt, geht der Ton nur dorthin, nie zusätzlich
   zum Knoten. Nie `--convert` voraussetzen – der Server bekommt nur die WAV-Datei aus `alsSpracheWav()`.
+  Den Text je Ton (seit VKk4e, Befund im Smoke-Test) nur über `TonTexte` (`ton-texte.ts`, `mitAlsText(…, kennung)` mit der
+  `data:`-Adresse oder der Blob-Id), nur im Speicher: Die offene Unterhaltung zeichnet sich neu, sobald etwas ankommt oder die
+  eigenen Kopien hinaus sind (`loadChatMessages()`) – ein Text im alten Abspieler ging dabei verloren (Smoke „als_text_lokal“ war
+  im CI-Runner so zweimal rot). Ein neuer Abspieler mit „Als Text“ gibt eine Kennung mit.
 - **KI über Funk mit RNode nur an den eigenen Knoten** (seit B-32d3b): die Adresse nur aus seinem Status (`lxmf`, gemerkt in
   `freedom.reticulum.knoten` über `frageKnotenStatus()`, gelesen nur über `leseFunkKnoten()`), nur wenn die Kopplung zum
   Knoten passt (`funkKnotenGateway()`), gesendet nur über `sendeAnKnotenUeberReticulum()` an diese Adresse – nie an die
