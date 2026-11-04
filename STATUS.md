@@ -328,6 +328,14 @@ Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme
   `.~lock.main.odt#` im Projekt; `UseDocumentOOoLockFile` allein reichte nicht) –, zeichnet über X11 und startet mit `--norestore`
   nach jeder Änderung neu (`neustartSchleife()`, jetzt mit Argumenten vor der Datei). `bildHinweise()` nennt die Dateien und die
   Umwandlung im Terminal.
+- **Umweg zum Bildschirm (`X11_UMWEG`):** In der CI blieb das Bild schwarz, LibreOffice meldete „Can't open display“ – ohne
+  Sandbox ging es nach 2 s, KiCad und Blender gingen in derselben Sandbox. Die Diagnose fand es: Ubuntu bringt für LibreOffice
+  AppArmor-Profile mit (`complain`), `soffice.bin` trägt in der Sandbox das von `oosplash`, und unter einem Profil scheitert das
+  Verbinden mit dem Socket von Xvfb („disconnected path“, `EACCES`, auch in `complain`) – der Socket entstand in einem anderen
+  Mount-Namensraum. Das träfe jeden Ubuntu-Rechner mit LibreOffice. `LIBREOFFICE_START` startet deshalb vorher einen Umweg in
+  Python (ohne Profil): Er lauscht auf der abstrakten Adresse `@/tmp/.X11-unix/X<n>` in der Sandbox (libxcb versucht sie zuerst,
+  sie hat keinen Pfad) und reicht an den Socket weiter. Hier im Container gibt es kein AppArmor; gezeigt: Mit nur dem Umweg und
+  ohne Socket unter `/tmp/.X11-unix` zeigt LibreOffice das Dokument, ohne Umweg bleibt es schwarz.
 - **`packages/node/src/sandbox.ts`:** nur lesbar dazu `/etc/fonts` und `/etc/libreoffice`. Unter Debian und Ubuntu ist
   `/usr/lib/libreoffice/share/registry` ein Verweis nach `/etc/libreoffice` – ohne startet LibreOffice in der Sandbox nicht. Ohne
   `/etc/fonts` findet Fontconfig keine Konfiguration, Programme zeichnen mit Ersatzschrift (gilt für alle Programme im Bild).
@@ -336,11 +344,13 @@ Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme
 - **Bild:** `ARG LIBREOFFICE=0`, nur mit `VIBECODEN=1` und `LIBREOFFICE=1`: Writer, Calc, Impress und Draw aus Debian, rund 400 MB.
   **CI:** dieselben vier Pakete (24.2 aus Ubuntu 24.04) im Testjob. Dazu schreiben die Node-Tests einen zweiten Bericht (spec)
   in eine Datei; bei Rot nennt ein Schritt danach die roten Tests am Ende des Logs – das Log hat über 27 000 Zeilen, und die
-  Werkzeuge der Agenten lesen nur die letzten 5000 (so blieb der erste rote Lauf dieses Schritts unlesbar).
+  Werkzeuge der Agenten lesen nur die letzten 5000 (so blieb der erste rote Lauf dieses Schritts unlesbar). Bei Fehlern startet
+  danach `test/fixtures/libreoffice/diagnose.mts` (Fenster, Farbe, AppArmor-Profile, Meldungen des Kernels zu AppArmor).
 - Fallstrick im Knoten (dazu die Sandbox), `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN (die
   Proben am GX10 nennen jetzt alle Programme im Bild), FORTSCHRITT, Stand-Zeile.
 
-**Tests:** node +7 – `bildstrom.test.ts` +6: Erkennung (nur mit LibreOffice, die Reihenfolge aller elf Namen, `main.blend` geht vor,
+**Tests:** node +8 – `bildstrom.test.ts` +7: der Umweg mit echtem Xvfb in der Sandbox (über die abstrakte Adresse nimmt der
+Bildschirm die Begrüßung an, ohne Umweg gibt es die Adresse dort nicht, `ECONNREFUSED`), Erkennung (nur mit LibreOffice, die Reihenfolge aller elf Namen, `main.blend` geht vor,
 Web danach, ein Verweis oder Ordner zählt nicht – dann die nächste echte Datei), LibreOffice aus der Umgebung, Start mit Attrappe
 (X11, `--norestore`, beide Einstellungen, neu nach einer Änderung, Ende mit dem Programm), Bildstrom (nichts weiter eingebunden,
 ohne LibreOffice `code-bild-kein-programm`), der Echttest mit LibreOffice 24.2: `main.fodt` mit grüner Seite kommt im Bild an,

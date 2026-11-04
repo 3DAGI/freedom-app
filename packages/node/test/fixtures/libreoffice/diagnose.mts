@@ -10,7 +10,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LIBREOFFICE_START, libreofficeAusUmgebung } from "../../../src/bildstrom.js";
+import { LIBREOFFICE_START, X11_UMWEG, libreofficeAusUmgebung } from "../../../src/bildstrom.js";
 import { sandboxDienst } from "../../../src/sandbox.js";
 
 const ANZEIGE = ":78";
@@ -83,7 +83,7 @@ try {
 } catch { console.log("(dmesg nicht lesbar)"); }
 
 console.log("== in der Sandbox (wie das Bild)");
-const s = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "/bin/sh", "-c", `exec > /arbeit/sandbox.log 2>&1\n${LIBREOFFICE_START}`, soffice, "/arbeit/main.fodt"],
+const s = sandboxDienst(["/usr/bin/env", `DISPLAY=${ANZEIGE}`, "/bin/sh", "-c", `exec > /arbeit/sandbox.log 2>&1\n${LIBREOFFICE_START}`, soffice, "/arbeit/main.fodt", X11_UMWEG],
   { arbeit, nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: "/tmp/.X11-unix" }] });
 console.log(await warte(60));
 console.log(bild());

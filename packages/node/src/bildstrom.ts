@@ -320,11 +320,54 @@ export const LIBREOFFICE_DATEIEN: readonly string[] = [
 ];
 
 /**
+ * Umweg zum Bildschirm (VKk4d), in Python für die Sandbox des Programms: lauscht auf der abstrakten Adresse des Bildschirms
+ * (`@/tmp/.X11-unix/X<n>`, nur im Netz-Namensraum dieser Sandbox) und reicht jede Verbindung an den Socket im geteilten Ordner
+ * weiter. Für Programme mit eigenem AppArmor-Profil: Ubuntu bringt für LibreOffice welche mit (`complain`), und unter einem
+ * Profil scheitert das Verbinden mit dem Socket – Xvfb hat ihn in einem anderen Mount-Namensraum angelegt, AppArmor findet
+ * seinen Pfad nicht („disconnected path“) und antwortet mit `EACCES`, auch im Modus `complain`. libxcb versucht die abstrakte
+ * Adresse zuerst; sie hat keinen Pfad. Python selbst hat kein Profil. `argv[1]` ist die Nummer des Bildschirms.
+ */
+export const X11_UMWEG = [
+  "import socket, sys, threading",
+  "ziel = '/tmp/.X11-unix/X' + sys.argv[1]",
+  "hoeren = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)",
+  "hoeren.bind('\\0' + ziel)",
+  "hoeren.listen(16)",
+  "def pumpe(von, nach):",
+  "    try:",
+  "        while True:",
+  "            daten = von.recv(65536)",
+  "            if not daten:",
+  "                break",
+  "            nach.sendall(daten)",
+  "    except OSError:",
+  "        pass",
+  "    for s in (von, nach):",
+  "        try:",
+  "            s.shutdown(socket.SHUT_RDWR)",
+  "        except OSError:",
+  "            pass",
+  "while True:",
+  "    a, _ = hoeren.accept()",
+  "    b = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)",
+  "    try:",
+  "        b.connect(ziel)",
+  "    except OSError:",
+  "        a.close()",
+  "        b.close()",
+  "        continue",
+  "    threading.Thread(target=pumpe, args=(a, b), daemon=True).start()",
+  "    threading.Thread(target=pumpe, args=(b, a), daemon=True).start()",
+].join("\n");
+
+/**
  * Ein Dokument im Bild (VKk4d): eine Datei aus `LIBREOFFICE_DATEIEN` in LibreOffice. Die Einstellungen legt das Skript im Home
  * der Sandbox an (tmpfs): ohne Tipp des Tages und ohne Sperrdatei – sonst läge `.~lock.main.odt#` im Projekt und käme in den
  * Commit. Gezeichnet wird über X11 (`SAL_USE_VCLPLUGIN=gen`, gleich welche Oberflächen installiert sind). LibreOffice lädt eine
  * geänderte Datei nicht von selbst: Das Skript startet es nach jeder Änderung neu (`neustartSchleife()`), mit `--norestore` – nach
- * einem harten Ende fragte es sonst nach der Wiederherstellung. `$0` ist soffice, `$1` die Datei.
+ * einem harten Ende fragte es sonst nach der Wiederherstellung. Vor dem ersten Start legt es den Umweg zum Bildschirm an
+ * (`X11_UMWEG`, `$2`) und wartet, bis er lauscht – ohne ihn sähe LibreOffice unter dem Profil von Ubuntu keinen Bildschirm. `$0`
+ * ist soffice, `$1` die Datei.
  */
 export const LIBREOFFICE_START = [
   `d="$HOME/.config/libreoffice/4/user"; mkdir -p "$d"`,
@@ -336,11 +379,15 @@ export const LIBREOFFICE_START = [
   `</oor:items>`,
   `XCU`,
   `export SAL_USE_VCLPLUGIN=gen`,
+  `if [ -n "$DISPLAY" ]; then`,
+  `  /usr/bin/python3 -c "$2" "\${DISPLAY#:}" &`,
+  `  for i in $(seq 50); do grep -q "@/tmp/.X11-unix/X\${DISPLAY#:}$" /proc/net/unix && break; sleep 0.1; done`,
+  `fi`,
   ...neustartSchleife(undefined, "--norestore --nologo "),
 ].join("\n");
 
 export function libreofficeBefehl(soffice: string, datei: string): string[] {
-  return ["/bin/sh", "-c", LIBREOFFICE_START, soffice, `/arbeit/${datei}`];
+  return ["/bin/sh", "-c", LIBREOFFICE_START, soffice, `/arbeit/${datei}`, X11_UMWEG];
 }
 
 /**

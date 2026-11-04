@@ -20,7 +20,8 @@ import {
   BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START,
   LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START,
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
-  kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl, wineLesbar,
+  X11_UMWEG, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
+  wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -432,7 +433,7 @@ test("VKk4d: Dokumente – die erste aus LIBREOFFICE_DATEIEN nur mit LibreOffice
   const mit = { ...g, libreoffice: "/usr/bin/soffice" };
   for (const [f, inhalt] of [["main.fodt", "<office:document/>"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("dok"), f!), inhalt!);
   assert.deepEqual(bildBefehl(a.ort("dok"), web, mit), libreofficeBefehl("/usr/bin/soffice", "main.fodt"), "vor Web");
-  assert.deepEqual(libreofficeBefehl("/usr/bin/soffice", "main.fodt"), ["/bin/sh", "-c", LIBREOFFICE_START, "/usr/bin/soffice", "/arbeit/main.fodt"]);
+  assert.deepEqual(libreofficeBefehl("/usr/bin/soffice", "main.fodt"), ["/bin/sh", "-c", LIBREOFFICE_START, "/usr/bin/soffice", "/arbeit/main.fodt", X11_UMWEG]);
   assert.deepEqual(bildBefehl(a.ort("dok"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne LibreOffice zählt kein Dokument");
   // liegen alle ab der i-ten im Projekt, zeigt das Bild die i-te
   assert.equal(LIBREOFFICE_DATEIEN.length, 11);
@@ -1204,6 +1205,29 @@ test("VKk4d: Ende zu Ende – ein Dokument in LibreOffice im Bild; schreibt der 
       b.beendeAlle();
     }
   });
+});
+
+test("VKk4d: Umweg zum Bildschirm – in der Sandbox über die abstrakte Adresse, die libxcb zuerst versucht; ohne Umweg gibt es sie dort nicht", {
+  skip: ohne, timeout: 60_000,
+}, async () => {
+  const nummer = 73;
+  const xvfb = spawn("Xvfb", [`:${nummer}`, "-screen", "0", "64x64x24", "-nolisten", "tcp", "-noreset", "-extension", "MIT-SHM"], { stdio: "ignore" });
+  try {
+    for (let i = 0; i < 100 && !existsSync(`/tmp/.X11-unix/X${nummer}`); i++) await new Promise((r) => setTimeout(r, 50));
+    // die Begrüßung von X11 über die abstrakte Adresse – das erste Byte der Antwort 1 heißt: angenommen
+    const hallo = ["import socket, sys", "s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)", "try:",
+      "    s.connect('\\0/tmp/.X11-unix/X' + sys.argv[1])", "except OSError as e:", "    print('keine', e.errno)", "    sys.exit()",
+      "s.sendall(b'l\\0\\x0b\\0\\0\\0\\0\\0\\0\\0\\0\\0')", "print('Antwort', s.recv(1)[0])"].join("\n");
+    const ort = { arbeit: tmp("x11-umweg"), nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: BILD_IN_SANDBOX.x11 }] };
+    const mit = await fuehreAus(["/bin/sh", "-c", `/usr/bin/python3 -c "$0" ${nummer} &
+for i in $(seq 50); do grep -q "@/tmp/.X11-unix/X${nummer}$" /proc/net/unix && break; sleep 0.1; done
+/usr/bin/python3 -c "$1" ${nummer}`, X11_UMWEG, hallo], ort, 30_000);
+    assert.match(mit.ausgabe, /^Antwort 1$/m, `über den Umweg angenommen (${mit.ausgabe})`);
+    const ohneUmweg = await fuehreAus(["/usr/bin/python3", "-c", hallo, String(nummer)], ort, 30_000);
+    assert.match(ohneUmweg.ausgabe, /^keine 111$/m, `ohne Umweg ist die Adresse von Xvfb hier nicht zu sehen – eigener Netz-Namensraum (${ohneUmweg.ausgabe})`);
+  } finally {
+    xvfb.kill();
+  }
 });
 
 test("VKk4d: im Terminal – soffice --headless wandelt das Dokument in der Sandbox um, mit Schriften", {

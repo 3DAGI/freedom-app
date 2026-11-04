@@ -645,4 +645,11 @@ Bereichs unten anhängen.
   harten Ende nach der Wiederherstellung; `SAL_USE_VCLPLUGIN=gen` (X11). Neu geladen wird über `neustartSchleife()`. Unter Debian
   und Ubuntu ist `/usr/lib/libreoffice/share/registry` ein Verweis nach `/etc/libreoffice` – ohne ihn in der Sandbox startet
   LibreOffice nicht (Bild schwarz, im Terminal „Unspecified Application Error“); ohne `/etc/fonts` zeichnet es mit Ersatzschrift.
+  Ubuntu bringt für LibreOffice AppArmor-Profile mit (`complain`); in der Sandbox trägt `soffice.bin` das von `oosplash` (mit
+  `no_new_privs` kein Wechsel). Unter einem Profil scheitert das Verbinden mit dem Socket des Bildschirms: Xvfb hat ihn in einem
+  anderen Mount-Namensraum angelegt, AppArmor findet den Pfad nicht („Failed name lookup – disconnected path“) und gibt `EACCES`,
+  auch im Modus `complain` – „Can't open display“, das Bild bleibt schwarz (so in der CI; hier im Container gibt es kein AppArmor).
+  Deshalb startet `LIBREOFFICE_START` vorher `X11_UMWEG`: Python lauscht in der Sandbox auf der abstrakten Adresse (libxcb versucht
+  sie zuerst, sie hat keinen Pfad) und reicht an den Socket weiter. Ein anderes Programm mit eigenem Profil braucht denselben Umweg;
+  ob eins greift, zeigt `/proc/<pid>/attr/current` – `test/fixtures/libreoffice/diagnose.mts` (CI, nur bei Fehlern) gibt es aus.
   Lokal liegt unter `/usr/local/bin/python3` ein Python, dessen PIL kaputt ist – für Bildschirmfotos `/usr/bin/python3`.
