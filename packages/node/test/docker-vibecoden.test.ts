@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BLENDER_ORTE, GODOT_ORTE, KICAD_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
+import { BLENDER_ORTE, GODOT_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
 import { HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -184,6 +184,21 @@ test("VKk4c: Blender nur mit VIBECODEN=1 und BLENDER=1 aus der Distribution, dor
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+BLENDER: "\$\{BLENDER:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("BLENDER"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends blender\n\s+blender --version \| head -1\n/);
+});
+
+test("VKk4d: LibreOffice nur mit VIBECODEN=1 und LIBREOFFICE=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  const lo = "libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw";
+  assert.match(docker, new RegExp(`\\nARG LIBREOFFICE=0\\nRUN if \\[ "\\$VIBECODEN" = "1" \\] && \\[ "\\$LIBREOFFICE" = "1" \\]; then \\\\\\n`
+    + `\\s+apt-get update && apt-get install -y --no-install-recommends ${lo} \\\\\\n\\s+&& rm -rf /var/lib/apt/lists/\\*; \\\\\\n`));
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(![...immer, ...vibecoden].some((p) => p.startsWith("libreoffice")), "nur mit LIBREOFFICE=1 – rund 400 MB");
+  assert.deepEqual(LIBREOFFICE_ORTE, ["/usr/bin/soffice"], "dort legt Debian den Verweis ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+LIBREOFFICE: "\$\{LIBREOFFICE:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("LIBREOFFICE"), "der Standard bleibt ohne");
+  assert.ok(lies(".github/workflows/ci.yml").includes(`apt-get install -y --no-install-recommends ${lo}\n          soffice --version\n`), "die CI installiert dieselben");
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {

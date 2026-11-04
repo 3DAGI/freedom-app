@@ -17,15 +17,17 @@ import {
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
 } from "@freedomstack/protocol";
 import {
-  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START, OPENSCAD_ORTE, OPENSCAD_START,
+  BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START, KICAD_ORTE, KICAD_START,
+  LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START,
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
-  kicadBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl, wineLesbar,
+  X11_UMWEG, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
+  wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 import { DvmProvider } from "../src/dvm-provider.js";
 import { CodeAbgelehnt, ProjektAblage } from "../src/projekte.js";
-import { pruefeSandbox, type sandboxDienst } from "../src/sandbox.js";
+import { fuehreAus, pruefeSandbox, type sandboxDienst } from "../src/sandbox.js";
 import { turnZugang } from "../src/turn.js";
 
 const tmp = (n: string) => mkdtempSync(join(tmpdir(), `vkg2a2-${n}-`));
@@ -316,21 +318,24 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
-  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, browser: true });
-  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "index.html"];
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html"]) assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
+  const alles = bildHinweise({ godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true });
+  const reihe = [".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html"];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
   assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
+  for (const d of LIBREOFFICE_DATEIEN) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
-  const programme = { ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender" };
+  const programme = {
+    ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
+  };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
-    [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")],
+    libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")],
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -419,6 +424,98 @@ test("VKk4c: Blender im Bildstrom – main.blend in der Sandbox des Programms, n
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("szene", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4d: Dokumente – die erste aus LIBREOFFICE_DATEIEN nur mit LibreOffice, nach main.blend, vor Web, nur echte Dateien", () => {
+  const a = ablage("dok", "reihe", "szene", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, libreoffice: "/usr/bin/soffice" };
+  for (const [f, inhalt] of [["main.fodt", "<office:document/>"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("dok"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("dok"), web, mit), libreofficeBefehl("/usr/bin/soffice", "main.fodt"), "vor Web");
+  assert.deepEqual(libreofficeBefehl("/usr/bin/soffice", "main.fodt"), ["/bin/sh", "-c", LIBREOFFICE_START, "/usr/bin/soffice", "/arbeit/main.fodt", X11_UMWEG]);
+  assert.deepEqual(bildBefehl(a.ort("dok"), web, g), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "ohne LibreOffice zählt kein Dokument");
+  // liegen alle ab der i-ten im Projekt, zeigt das Bild die i-te
+  assert.equal(LIBREOFFICE_DATEIEN.length, 11);
+  for (let i = LIBREOFFICE_DATEIEN.length - 1; i >= 0; i--) {
+    writeFileSync(join(a.ort("reihe"), LIBREOFFICE_DATEIEN[i]!), "");
+    assert.deepEqual(bildBefehl(a.ort("reihe"), undefined, mit), libreofficeBefehl("/usr/bin/soffice", LIBREOFFICE_DATEIEN[i]!), LIBREOFFICE_DATEIEN[i]);
+  }
+  for (const f of ["main.odt", "main.blend"]) writeFileSync(join(a.ort("szene"), f), "");
+  assert.deepEqual(bildBefehl(a.ort("szene"), undefined, { ...mit, blender: "/usr/bin/blender" }), blenderBefehl("/usr/bin/blender"), "main.blend geht vor");
+  // ein Verweis oder ein Ordner zählt nicht – dann die nächste echte Datei
+  symlinkSync(join(a.ort("dok"), "main.fodt"), join(a.ort("verweis"), "main.odt"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  writeFileSync(join(a.ort("verweis"), "main.docx"), "");
+  assert.deepEqual(bildBefehl(a.ort("verweis"), undefined, mit), libreofficeBefehl("/usr/bin/soffice", "main.docx"), "die nächste echte Datei");
+  mkdirSync(join(a.ort("ordner"), "main.odt"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4d: LibreOffice aus der Distribution – nur die Orte unter /usr, LIBREOFFICE=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("libreoffice");
+  const datei = join(d, "soffice");
+  writeFileSync(datei, "");
+  assert.equal(libreofficeAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(libreofficeAusUmgebung({ LIBREOFFICE: "aus" }, [datei]), null);
+  assert.equal(libreofficeAusUmgebung({ LIBREOFFICE: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – LibreOffice sind viele Dateien unter /usr");
+  assert.equal(libreofficeAusUmgebung({}, [d]), null, "ein Ordner ist kein LibreOffice");
+  assert.deepEqual(LIBREOFFICE_ORTE, ["/usr/bin/soffice"]);
+});
+
+test("VKk4d: Start – Einstellungen ohne Tipp und ohne Sperrdatei, über X11, ohne Wiederherstellung, neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("libreoffice-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const dok = join(d, "main.fodt");
+  writeFileSync(dok, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  // ein soffice, das aufschreibt, womit es kam, und läuft wie das Fenster
+  writeFileSync(join(d, "soffice"), `#!/bin/sh\necho "$SAL_USE_VCLPLUGIN $* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "soffice"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", LIBREOFFICE_START, join(d, "soffice"), dok], { stdio: "ignore", env: { PATH: process.env.PATH, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.match(erste!, new RegExp(`^gen --norestore --nologo ${dok} \\d+$`), "über X11, ohne Wiederherstellung");
+    const xcu = readFileSync(join(heim, ".config", "libreoffice", "4", "user", "registrymodifications.xcu"), "utf8");
+    for (const n of ["ShowTipOfTheDay", "UseLocking"]) {
+      assert.match(xcu, new RegExp(`<item oor:path="/org\\.openoffice\\.Office\\.Common/Misc"><prop oor:name="${n}" oor:op="fuse"><value>false</value></prop></item>`), n);
+    }
+    writeFileSync(dok, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4d: LibreOffice im Bildstrom – das Dokument in der Sandbox des Programms, nichts weiter eingebunden; ohne LibreOffice kein Programm", async () => {
+  const a = ablage("dok");
+  writeFileSync(join(a.ort("dok"), "main.xlsx"), "PK");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, libreoffice: "/usr/bin/soffice" });
+  try {
+    assert.equal(await b.starte("dok", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...libreofficeBefehl("/usr/bin/soffice", "main.xlsx")]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms – /etc/libreoffice bringt die Sandbox mit");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("dok", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -1057,6 +1154,93 @@ test("VKk4c: Ende zu Ende – eine Szene in Blender im Bild; baut der Agent sie 
       b.beendeAlle();
     }
   });
+});
+
+const libreoffice = libreofficeAusUmgebung({});
+const ohneLibreoffice = ohne || (!libreoffice && "LibreOffice fehlt (soffice)");
+/** Ein Textdokument als flaches XML, wie es der Agent im Terminal schreibt: eine Seite in einer Farbe. */
+const dokument = (farbe: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+ xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
+ xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" office:version="1.3" office:mimetype="application/vnd.oasis.opendocument.text">
+ <office:automatic-styles>
+  <style:page-layout style:name="seite"><style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm"
+   fo:background-color="#${farbe}" draw:fill="solid" draw:fill-color="#${farbe}"/></style:page-layout>
+ </office:automatic-styles>
+ <office:master-styles><style:master-page style:name="Standard" style:page-layout-name="seite"/></office:master-styles>
+ <office:body><office:text><text:p>Freedom</text:p></office:text></office:body>
+</office:document>
+`;
+
+test("VKk4d: Ende zu Ende – ein Dokument in LibreOffice im Bild; schreibt der Agent es neu, zeigt das Bild das neue", { skip: ohneLibreoffice, timeout: 150_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("dok");
+    const datei = join(a.ort("dok"), "main.fodt");
+    writeFileSync(datei, dokument("00c000"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, libreoffice: libreoffice! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann schreibt der Test das Dokument neu wie der Agent – das Skript startet LibreOffice neu, das Bild wird rot
+      let geaendert = false;
+      let imProjekt: string[] = [];
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          // solange LibreOffice läuft: keine Sperrdatei neben dem Dokument
+          imProjekt = readdirSync(a.ort("dok"));
+          writeFileSync(datei, dokument("cc0000"));
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // auf der Seite, links vom Zeiger in der Mitte und unter den Leisten oben
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("dok", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.3, 0.6] });
+      console.log(`[bild] LibreOffice: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(imProjekt, ["main.fodt"], "keine Sperrdatei, sonst nichts im Projekt");
+      assert.deepEqual(readdirSync(a.ort("dok")), ["main.fodt"], "auch nach dem Neustart");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4d: Umweg zum Bildschirm – in der Sandbox über die abstrakte Adresse, die libxcb zuerst versucht; ohne Umweg gibt es sie dort nicht", {
+  skip: ohne, timeout: 60_000,
+}, async () => {
+  const nummer = 73;
+  const xvfb = spawn("Xvfb", [`:${nummer}`, "-screen", "0", "64x64x24", "-nolisten", "tcp", "-noreset", "-extension", "MIT-SHM"], { stdio: "ignore" });
+  try {
+    for (let i = 0; i < 100 && !existsSync(`/tmp/.X11-unix/X${nummer}`); i++) await new Promise((r) => setTimeout(r, 50));
+    // die Begrüßung von X11 über die abstrakte Adresse – das erste Byte der Antwort 1 heißt: angenommen
+    const hallo = ["import socket, sys", "s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)", "try:",
+      "    s.connect('\\0/tmp/.X11-unix/X' + sys.argv[1])", "except OSError as e:", "    print('keine', e.errno)", "    sys.exit()",
+      "s.sendall(b'l\\0\\x0b\\0\\0\\0\\0\\0\\0\\0\\0\\0')", "print('Antwort', s.recv(1)[0])"].join("\n");
+    const ort = { arbeit: tmp("x11-umweg"), nurLesbar: [{ quelle: "/tmp/.X11-unix", ziel: BILD_IN_SANDBOX.x11 }] };
+    const mit = await fuehreAus(["/bin/sh", "-c", `/usr/bin/python3 -c "$0" ${nummer} &
+for i in $(seq 50); do grep -q "@/tmp/.X11-unix/X${nummer}$" /proc/net/unix && break; sleep 0.1; done
+/usr/bin/python3 -c "$1" ${nummer}`, X11_UMWEG, hallo], ort, 30_000);
+    assert.match(mit.ausgabe, /^Antwort 1$/m, `über den Umweg angenommen (${mit.ausgabe})`);
+    const ohneUmweg = await fuehreAus(["/usr/bin/python3", "-c", hallo, String(nummer)], ort, 30_000);
+    assert.match(ohneUmweg.ausgabe, /^keine 111$/m, `ohne Umweg ist die Adresse von Xvfb hier nicht zu sehen – eigener Netz-Namensraum (${ohneUmweg.ausgabe})`);
+  } finally {
+    xvfb.kill();
+  }
+});
+
+test("VKk4d: im Terminal – soffice --headless wandelt das Dokument in der Sandbox um, mit Schriften", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!libreoffice && "LibreOffice fehlt (soffice)"), timeout: 150_000,
+}, async () => {
+  const arbeit = tmp("dok-terminal");
+  writeFileSync(join(arbeit, "main.fodt"), dokument("00c000"));
+  const r = await fuehreAus(["/bin/sh", "-c", "soffice --headless --convert-to pdf main.fodt && soffice --headless --convert-to odt main.fodt && soffice --headless --convert-to docx main.fodt"], { arbeit }, 120_000);
+  assert.equal(r.code, 0, r.ausgabe);
+  assert.ok(!r.ausgabe.includes("Fontconfig error"), `Fontconfig findet seine Konfiguration (${r.ausgabe})`);
+  assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
+  for (const f of ["main.odt", "main.docx"]) assert.equal(readFileSync(join(arbeit, f)).subarray(0, 2).toString(), "PK", f);
+  assert.deepEqual(readdirSync(arbeit).sort(), ["main.docx", "main.fodt", "main.odt", "main.pdf"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

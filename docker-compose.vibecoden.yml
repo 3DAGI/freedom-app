@@ -17,6 +17,8 @@ services:
         KICAD: "${KICAD:-0}"
         # Szenen im Bild (VKk4c): BLENDER=1 baut Blender dazu, rund 400 MB
         BLENDER: "${BLENDER:-0}"
+        # Dokumente im Bild (VKk4d): LIBREOFFICE=1 baut LibreOffice dazu (Writer, Calc, Impress, Draw), rund 400 MB
+        LIBREOFFICE: "${LIBREOFFICE:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

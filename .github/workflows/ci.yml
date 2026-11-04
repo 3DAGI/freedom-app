@@ -135,6 +135,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends blender
           blender --version | head -1
 
+      # VKk4d: Dokumente zeigt LibreOffice im Bild – der Echttest schreibt main.fodt neu, das Skript startet es neu; dazu die
+      # Umwandlung im Terminal
+      - name: LibreOffice fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw
+          soffice --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |
@@ -163,8 +170,22 @@ jobs:
       - name: Chrome fuer den Browser-Test des Motors
         run: /opt/google/chrome/chrome --version
 
+      # VKk4d: ein zweiter Bericht (spec) in eine Datei – das Log hat über 27 000 Zeilen, wer es nur von hinten lesen kann
+      # (Werkzeuge der Agenten), sah einen roten Test nicht; bei Rot nennt der Schritt danach die roten Tests am Ende
       - name: Tests node
+        env:
+          NODE_OPTIONS: --test-reporter=tap --test-reporter-destination=stdout --test-reporter=spec --test-reporter-destination=${{ runner.temp }}/node-tests.txt
         run: npm test --workspace @freedomstack/node
+
+      - name: Rote Node-Tests (Zusammenfassung)
+        if: failure()
+        run: sed -n '/failing tests:/,$p' "$RUNNER_TEMP/node-tests.txt" | head -400
+
+      # VKk4d: Zeigt LibreOffice im Echttest kein Bild, startet die Diagnose es ohne und in der Sandbox und nennt Fenster und Protokoll
+      - name: Diagnose LibreOffice (nur bei Fehlern)
+        if: failure()
+        working-directory: packages/node
+        run: timeout 300 node --import tsx test/fixtures/libreoffice/diagnose.mts
 
       # 11.5s4b: Speicher und Prozesse je Befehl über cgroups v2 brauchen einen eigenen Teilbaum – wie Delegate= im Dienst des
       # Installers; hier eine Scope mit Delegate=yes, als root (pids.max gilt auch dann). Fehlt er, ist der Test rot, nicht übersprungen
