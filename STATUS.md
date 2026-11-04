@@ -394,3 +394,8 @@ in der offenen Unterhaltung. Jetzt merkt `TonTexte` (`app/src/ton-texte.ts`, nur
 ist die `data:`-Adresse bzw. die Blob-Id (`shell/tabs/chat-anhaenge.ts`). **Tests:** app +1 (`sprache-lokal.test.ts`: je Ton, ein
 neuer Klick ersetzt, begrenzt, nur im Speicher); der Smoke-Teil zeichnet die Unterhaltung nach dem Text neu (Klick auf die offene)
 und erwartet denselben Text in einem neuen Element. Fallstrick in `packages/app/CLAUDE.md`.
+
+**Dazu (CI, B-42):** Der Testjob auf 5ff15fd5 scheiterte vor den Tests mit Exit 100 im Schritt für Jupyter: Das Bild des Runners
+(20261018) nennt `python3-tornado 6.4.0-1ubuntu0.5`, der Spiegel hat nur noch die neuere Fassung (404). Der Testjob lädt die
+Paketliste jetzt vor dem ersten `apt-get install` neu (Schritt „Paketliste auffrischen“), die Pakete kommen weiter aus dem
+Zwischenspeicher. Der Job für Hangover fiel schon bisher auf `apt-get update` zurück. Fallstrick in `scripts/CLAUDE.md`.
