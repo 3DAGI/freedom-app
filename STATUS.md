@@ -428,3 +428,35 @@ im Terminal in der Sandbox. Gegenproben: ohne die Lage des Fensters rot (nur Gra
 wie im Terminal), ohne die Prüfung in der CI rot. Der VKk5-Test prüft `main.xcf` an seiner Stelle, `sandbox.test.ts` kennt `/etc/gimp`.
 `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, CI.
 
+## Schritt VKh-Entwurf – Android-Apps bauen und im Bild zeigen
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (Zeile VKh, VK-W8 A: nach Web und Linux kommt Android). Nur Doku – gebaut wird nach Freigabe:
+Jeder Weg bringt neue Abhängigkeiten, einer bräuchte Rechte, die keine Sandbox des Knotens hat, und der Bau der Apps einen neuen Weg
+nach draußen.
+
+**Neu:** `docs/ANDROID-ENTWURF.md`.
+- **Ausgangslage:** Bildstrom mit zwei Sandboxen ohne Rechte, Spiegel der Brücke nur für npm und PyPI, GX10 ARM64 (KVM und `binder`
+  ungeprüft), Werkbank (VKj) als Weg für x86-Programme.
+- **Befunde:**
+  - redroid braucht einen privilegierten Container und `binder_linux`.
+  - Waydroid braucht dasselbe und dazu Wayland.
+  - Cuttlefish ist eine VM über KVM, Hosts x86 und arm64, Bild über WebRTC oder VNC.
+  - Den offiziellen Emulator gibt es für Linux ARM64 nur als Bau aus den Quellen (2020).
+  - `aapt2` liefert Google nur für x86-64; ab AGP 9 holt Gradle es aus Maven.
+  - Gradle braucht Maven – ein neuer Weg im Spiegel.
+  - Das APK liefert die Vorschau (VKg1) heute schon aus.
+- **Vorschlag:** erst bauen und das APK auf dem eigenen Handy installieren, dann Cuttlefish im Bild (nur mit KVM), redroid nicht.
+- **Fragen:** VKh-W1–W4 mit Empfehlung (C dann A, A, A, A).
+- **Aufteilung:** VKh1–VKh5.
+- **Proben am GX10** (`/dev/kvm`, `binder`).
+
+Dazu OFFEN 1.6, Zeile VKh und Probe „Android“ in 2.3, Zeile VKh im Entwurf, FORTSCHRITT, Stand.
+
+**Tests:** keine (nur Doku); alle Prüfungen gelaufen.
+
+**Dazu (CI, B-42):** Der Testjob riss auf `main` (ac293899) und auf 0ebf2a9b seine Grenze von 25 Minuten, kurz vor dem Ende der
+App-Tests. Ursache: Mit der frischen Paketliste (VKk4e) lädt apt jede neuere Fassung neu (Wine 223 s, LibreOffice 171 s, Blender
+151 s statt je rund 20 s), und `actions/cache` speichert nur am Ende eines erfolgreichen Jobs – ein abgebrochener Lauf ließ den
+nächsten wieder leer beginnen. Jetzt holt der Testjob den Zwischenspeicher nur (`actions/cache/restore`) und speichert ihn gleich
+nach den Paketen (`actions/cache/save`, nur ohne genauen Treffer); die Grenze ist 35 Minuten. Fallstrick in `scripts/CLAUDE.md`.
+

@@ -68,6 +68,17 @@ Quelle: [`KIT-PLAN.md`](../KIT-PLAN.md), „Fragen“.
 
 Quelle: [`WERKBANK-ENTWURF.md`](../WERKBANK-ENTWURF.md), „Fragen an den MENSCHEN“.
 
+### 1.6 Android im Bild (VKh, Spur B, 04.11.2026)
+
+| Nr. | Frage | Empfehlung |
+|---|---|---|
+| VKh-W1 | Wie laufen Android-Apps? A Cuttlefish als VM (KVM), eigener Dienst, Bild im Bildstrom · B redroid (privilegierter Container, `binder`) · C erst nur bauen, laufen lassen auf dem eigenen Handy (APK über die Vorschau) · D über eine x86-Werkbank mit dem offiziellen Emulator (VKj) | **C** zuerst, danach **A**, wenn der GX10 KVM hat – B nicht: Code des Agenten in einem privilegierten Container |
+| VKh-W2 | Woher kommt `aapt2` für ARM64? A selbst aus AOSP-Quellen bauen · B Gemeinschafts-Build mit fester Prüfsumme · C FEX für x86-Programme · D Android nur auf x86-Knoten bauen | **A** – wie whisper-cli und die Tor-Brücken: in der Sandbox nur, was wir aus den Quellen gebaut haben |
+| VKh-W3 | Woher holt Gradle Bibliotheken? A Maven über den Spiegel der Brücke (nur `GET`, Google Maven und Maven Central) · B fester Gradle-Cache im Bild · C kein Gradle mit Bibliotheken | **A** – dieselben Regeln wie npm und PyPI (VKd3) |
+| VKh-W4 | Wie kommt das APK aufs Handy? A über die Vorschau (gibt es schon) · B versiegelt über das Blob-Netz wie die Bundles · C beides | **A** jetzt, B, wenn die Vorschau von unterwegs nicht reicht |
+
+Quelle: [`ANDROID-ENTWURF.md`](../ANDROID-ENTWURF.md), „Fragen an den MENSCHEN“.
+
 ### 1.3 Oberfläche (Spur C, 15.10.2026)
 
 | Nr. | Frage | Empfehlung |
@@ -146,6 +157,7 @@ Keine Frage für jetzt; hier, damit nichts verloren geht.
 | Oberfläche | kurzer Nutzertest: fünf Personen ohne Nostr-Vorwissen, drei Aufgaben (erste Frage, Wallet verbinden, Freund anschreiben), Zeit und Abbrüche | Review 15.10. |
 | Sonstiges | fremde Person richtet die App in unter fünf Minuten ein; QR-Scan am Handy; Radicle-Spiegel mit `rad` | 8.1, 11.1b, 8.10 |
 | Vibecoden | Bild mit `VIBECODEN=1`, `WINE=1`, `KICAD=1`, `BLENDER=1`, `LIBREOFFICE=1`, `INKSCAPE=1` und `GIMP=1` auf dem GX10 bauen (`getconf PAGESIZE` muss 4096 sagen – FEX braucht 4-KB-Seiten), je ein Godot-Projekt, ein Windows-Programm (`main.exe`), ein OpenSCAD-Modell, einen Schaltplan, eine Szene, ein Dokument, eine Zeichnung und ein Bild (`main.xcf`) über „Bild“ öffnen; Hermes einmal bitten, ein Modell in OpenSCAD zu bauen (die Hinweise in `SOUL.md`) | VKk3a, VKi1, VKi2, VKk4a–f, VKk5 |
+| Android | am GX10 `ls -l /dev/kvm` (Cuttlefish braucht KVM) und `grep -i binder /boot/config-$(uname -r)` (nur für redroid oder Waydroid) – Ergebnis in [`ANDROID-ENTWURF.md`](../ANDROID-ENTWURF.md) eintragen | VKh-Entwurf, VKh4 |
 
 ### 2.4 Phase 9
 
@@ -188,7 +200,7 @@ Stand: `frei` = ohne Entscheidung baubar · `nach …` = wartet darauf.
 | B-37 | MeshCore als zweites LoRa-Format | wartet auf ein Gerät vor Ort (MCO-W2 B, 18.10.); MCO-W1 dann ([`MESHCORE-ENTWURF.md`](../MESHCORE-ENTWURF.md)) |
 | B-38 | Sprache lokal (a Vorlesen auf dem Gerät, b Whisper im eigenen Knoten, c App: als Text und Diktieren) – Entwurf ✓ ([`SPRACHE-ENTWURF.md`](../SPRACHE-ENTWURF.md)) | frei (SP-W1–W6, 19.10.) – a ✓ (Vorlesen nur mit lokalen Stimmen), b geteilt: b1 ✓ (Protokoll: Kind 5083, WAV in einer Form), b2 ✓ (Knoten: whisper-cli je Auftrag in der Sandbox, Rolle `sprache`), b3 geteilt: b3a ✓ (whisper-cli aus den Quellen, Stufe im Docker-Bild, die CI prüft das echte Programm), b3b geteilt: b3b1 ✓ (Protokoll: Whisper-Manifest mit genau einer ggml-Datei), b3b2 ✓ (Knoten lädt es geprüft: `npm run modell -- --whisper`), b3b3 ✓ (Whisper nimmt je Auftrag das geprüfte Modell) – b fertig; c App geteilt: c1 ✓ („Als Text“ an Sprachnachrichten über den eigenen Knoten, Ton im Browser zu WAV), c2 ✓ (Diktieren im Agenten), c3 ✓ („Dieses Gerät“: whisper-server auf diesem Rechner) – B-38 fertig bis auf die Proben (MENSCH) |
 | VKk | MCP-Katalog ([`VIBECODEN-ENTWURF.md`](../VIBECODEN-ENTWURF.md), Tabelle „MCP für gängige Programme“): je Server ein Schritt, gepinnt, nur in der Sandbox des Motors – VKk1 ✓ Browser (Playwright MCP, Chromium); VKk2 ✓ Jupyter (MENSCH 25.10.: eigene Brücke statt `datalayer/jupyter-mcp-server`) – a ✓ Brücke: Zellen lesen und ändern, b ✓ Ausführen über das Terminal (ipykernel, nbclient im Bild); VKk3a ✓ Godot-Spiele im Bild (Release gegen SHA-512, OpenGL in Software); VKk4a ✓ OpenSCAD im Bild (`main.scad`, lädt nach jeder Änderung neu); VKk4b ✓ KiCad im Bild (`main.kicad_sch`, Neustart nach jeder Änderung, `KICAD=1`); VKk5 ✓ der Motor kennt das Bild (`SOUL.md` im Home von Hermes); VKk4c ✓ Blender im Bild (`main.blend`, Neustart nach jeder Änderung, `BLENDER=1`); VKk4d ✓ LibreOffice im Bild (`main.odt` & Co., auch als flaches XML, Neustart nach jeder Änderung, `LIBREOFFICE=1`); VKk4e ✓ Inkscape im Bild (`main.svg` nach Web, Neustart nach jeder Änderung, `INKSCAPE=1`); VKk4f ✓ GIMP im Bild (`main.xcf` nach Web, Fenster auf Bildgröße, Script-Fu im Terminal, `GIMP=1`); Referenz-Server für git und Dateien entfallen (Hermes hat Werkzeuge für Dateien und Terminal) | frei – weitere grafische Programme (FreeCAD fehlt in Ubuntu 24.04) und ihre MCP-Server, `godot-mcp` nur bei Bedarf |
-| VKh | Android: redroid und scrcpy in der Sandbox, APKs bauen (arm64-`aapt2` oder FEX) | nach VKg2 (Bildstrom) |
+| VKh | Android: APKs bauen und Android-Apps im Bild – Entwurf ✓ ([`ANDROID-ENTWURF.md`](../ANDROID-ENTWURF.md)) | wartet auf VKh-W1–W4 (1.6); VKh4 zusätzlich auf die Probe am GX10 (`/dev/kvm`) |
 
 ### Spur C – Oberfläche
 
