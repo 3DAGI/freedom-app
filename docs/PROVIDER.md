@@ -754,6 +754,18 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   npm und pip selbst. Die Registry sieht die IP deines Knotens (oder den Ausgang von
   Tor) und die Namen der Pakete. Andere Adressen (GitHub, CDNs) gehen aus der
   Sandbox nicht.
+- **Gradle (seit VKh1):** Bibliotheken und Plugins holt Gradle über denselben
+  Spiegel, nur von Google Maven (dl.google.com) und Maven Central
+  (repo.maven.apache.org), nur Archive, POMs, Gradle-Metadaten und Prüfsummen, je
+  Datei bis 128 MB. Ein Init-Skript im Home des Motors lenkt `google()`,
+  `mavenCentral()` und das Plugin-Portal dorthin; andere Repositories (JitPack,
+  eigene) erreicht Gradle nicht, Plugins nur, wenn sie auch auf Maven Central
+  liegen. Gradle prüft Prüfsummen nur mit `gradle/verification-metadata.xml` im
+  Projekt – sonst bürgt die TLS-Verbindung deines Knotens zur Registry. Auch hier
+  sehen Google bzw. Maven Central die IP deines Knotens (oder den Ausgang von Tor)
+  und die Namen der Bibliotheken. Gradle selbst kommt nicht über den Spiegel:
+  `./gradlew` lädt seine Fassung von services.gradle.org und scheitert in der
+  Sandbox.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

@@ -21,12 +21,18 @@ import { join } from "node:path";
 import { torGet, type SocksZiel } from "./tor.js";
 import { safeFetch } from "./url-guard.js";
 
-/** Die feste Liste: je Registry die Hosts, von denen geholt wird – genau diese, keine Unterdomain. */
+/**
+ * Die feste Liste: je Registry die Hosts, von denen geholt wird – genau diese, keine Unterdomain. Maven (Google Maven und
+ * Maven Central, seit VKh1) nur für den Spiegel der Brücke (`paket-spiegel.ts`), nie für Repo-Aufträge.
+ */
 export const PAKET_QUELLEN = {
   npm: ["registry.npmjs.org"],
   pypi: ["pypi.org", "files.pythonhosted.org"],
+  maven: ["dl.google.com", "repo.maven.apache.org"],
 } as const;
-export type PaketRegistry = keyof typeof PAKET_QUELLEN;
+export type PaketQuelle = keyof typeof PAKET_QUELLEN;
+/** Registries für Repo-Aufträge (Sperrdateien, `paket_holen`). */
+export type PaketRegistry = Exclude<PaketQuelle, "maven">;
 
 export const PAKET_GRENZEN = {
   /** Pakete je Auftrag (aus der Sperrdatei). */
@@ -87,7 +93,7 @@ export const istPypiName = (n: string): boolean => n.length <= 100 && PYPI_NAME.
 export const standardPlattform = (): PaketPlattform => ({ cpu: process.arch });
 
 /** Nur https und genau ein Host der Liste – die Prüfung vor jedem Abruf, auch für Adressen aus Sperrdatei oder Metadaten. */
-function aufDerListe(url: string, registry: PaketRegistry): boolean {
+function aufDerListe(url: string, registry: PaketQuelle): boolean {
   try {
     const u = new URL(url);
     return u.protocol === "https:" && !u.username && !u.password && !u.port
@@ -220,7 +226,7 @@ export function passendeDateien(dateien: PaketArchiv[], plattform: PaketPlattfor
 }
 
 /** Wie der Knoten abruft – in Tests eine Attrappe; sonst `safeFetch()` bzw. `torGet()`, ohne Weiterleitung. */
-export type PaketAbruf = (url: string, registry: PaketRegistry) => Promise<Response>;
+export type PaketAbruf = (url: string, registry: PaketQuelle) => Promise<Response>;
 
 const direktAbruf: PaketAbruf = (url, registry) =>
   safeFetch(url, { allowHosts: [...PAKET_QUELLEN[registry]], timeoutMs: PAKET_GRENZEN.zeitJeAbrufMs, maxRedirects: 0 });
@@ -228,10 +234,6 @@ const torAbruf = (proxy: SocksZiel): PaketAbruf => (url) => torGet(proxy, url, P
 
 /** Antwort als Bytes, höchstens `max` – darüber `paket-zu-gross`, ohne den Rest zu lesen. */
 async function bytesBegrenzt(res: Response, max: number): Promise<Uint8Array> {
-  if (Number(res.headers.get("content-length") ?? "0") > max) {
-    await res.body?.cancel().catch(() => undefined);
-    throw new PaketAbgelehnt("paket-zu-gross");
-  }
   const leser = res.body?.getReader();
   if (!leser) return new Uint8Array(0);
   const teile: Uint8Array[] = [];
@@ -272,22 +274,37 @@ async function hole(url: string, registry: PaketRegistry, max: number, o: PaketO
  * Wie `hole()`, aber 404 als null – für den Spiegel der Brücke (VKd3, `paket-spiegel.ts`): npm und pip sagen dem
  * Agenten dann „gibt es nicht“ statt „Registry nicht erreichbar“.
  */
-export async function holeOderFehlt(url: string, registry: PaketRegistry, max: number, o: PaketOptionen): Promise<Uint8Array | null> {
-  if (!aufDerListe(url, registry)) throw new PaketAbgelehnt("paket-quelle");
+export async function holeOderFehlt(url: string, registry: PaketQuelle, max: number, o: PaketOptionen): Promise<Uint8Array | null> {
+  const res = await antwortOderFehlt(url, registry, max, o);
   try {
-    const res = await (o.abruf ?? (o.tor ? torAbruf(o.tor) : direktAbruf))(url, registry);
-    if (res.status === 404) {
-      await res.body?.cancel().catch(() => undefined);
-      return null;
-    }
-    if (res.status !== 200) {
-      await res.body?.cancel().catch(() => undefined);
-      throw new PaketAbgelehnt("paket-netz");
-    }
-    return await bytesBegrenzt(res, max);
+    return res === null ? null : await bytesBegrenzt(res, max);
   } catch (e) {
     throw e instanceof PaketAbgelehnt ? e : new PaketAbgelehnt("paket-netz");
   }
+}
+
+/**
+ * Die Antwort selbst, Status 200, noch ungelesen – für Archive im Spiegel (seit VKh1), die als Strom weitergehen statt
+ * ganz im Speicher. Eine genannte Länge über `max` ist schon hier `paket-zu-gross`; wer liest, zählt selbst mit.
+ */
+export async function antwortOderFehlt(url: string, registry: PaketQuelle, max: number, o: PaketOptionen): Promise<Response | null> {
+  if (!aufDerListe(url, registry)) throw new PaketAbgelehnt("paket-quelle");
+  let res: Response;
+  try {
+    res = await (o.abruf ?? (o.tor ? torAbruf(o.tor) : direktAbruf))(url, registry);
+  } catch {
+    throw new PaketAbgelehnt("paket-netz");
+  }
+  const verwerfen = async () => { await res.body?.cancel().catch(() => undefined); };
+  if (res.status === 404) {
+    await verwerfen();
+    return null;
+  }
+  if (res.status !== 200 || Number(res.headers.get("content-length") ?? "0") > max) {
+    await verwerfen();
+    throw new PaketAbgelehnt(res.status !== 200 ? "paket-netz" : "paket-zu-gross");
+  }
+  return res;
 }
 
 /** Wohin ein Archiv kommt: npm nach Inhalt wie im Cache von npm, PyPI unter dem Dateinamen. */
