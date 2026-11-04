@@ -269,7 +269,8 @@ Bereichs unten anhängen.
   bubblewrap mit allen Namensräumen (`--unshare-all` und `--unshare-user`, kein Netz), leere Umgebung, nur lesbar
   `/usr` und die Wurzel (`--remount-ro /` zuletzt – sonst ist die tmpfs-Wurzel samt `/etc` schreibbar), aus `/etc`
   nur die drei eigenen Dateien und nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (ohne sie startet etwa
-  `python3` nicht – unter Debian ein Verweis dorthin), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
+  `python3` nicht – unter Debian ein Verweis dorthin), seit VKk4d dazu nur lesbar `/etc/fonts` und `/etc/libreoffice` (nur
+  Konfiguration der Distribution, nichts Geheimes), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
   dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
   Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
 - **Arbeitsordner nur über `arbeitskopie.ts`** (seit 11.5a1): je Repo-Auftrag `neuerArbeitsordner()` (0700, in
@@ -636,3 +637,12 @@ Bereichs unten anhängen.
   Echttest). Neu geladen wird wie bei KiCad über `neustartSchleife()` – Programme ohne eigenes Neuladen nur über diese Schleife, nie
   eine zweite daneben. Speichert Blender über eine Datei (auch `save_as_mainfile()` im Terminal), legt es `main.blend1` als Sicherung
   daneben – nie versprechen, dass das Projekt nur `main.blend` enthält. Ubuntu 24.04 (CI) hat Blender 4.0, Debian 12 (Bild) 3.4.
+- **Dokumente im Bild nur über `bildBefehl()` und `libreofficeBefehl()`** (seit VKk4d, `bildstrom.ts`): ein Dokument zählt nur mit
+  LibreOffice aus `libreofficeAusUmgebung()` – nur `LIBREOFFICE_ORTE` (`/usr/bin/soffice`, kein eigener Pfad), `LIBREOFFICE=aus`
+  schaltet ab –, nur als echte Datei und nur mit einem Namen aus `LIBREOFFICE_DATEIEN` (die erste gilt), nach `main.blend`, vor Web.
+  `LIBREOFFICE_START` schreibt die Einstellungen ins Home der Sandbox: `UseLocking` aus – ohne liegt `.~lock.main.odt#` im Projekt
+  und käme in den Commit (`UseDocumentOOoLockFile` allein reicht nicht, gemessen); `--norestore`, sonst fragt LibreOffice nach einem
+  harten Ende nach der Wiederherstellung; `SAL_USE_VCLPLUGIN=gen` (X11). Neu geladen wird über `neustartSchleife()`. Unter Debian
+  und Ubuntu ist `/usr/lib/libreoffice/share/registry` ein Verweis nach `/etc/libreoffice` – ohne ihn in der Sandbox startet
+  LibreOffice nicht (Bild schwarz, im Terminal „Unspecified Application Error“); ohne `/etc/fonts` zeichnet es mit Ersatzschrift.
+  Lokal liegt unter `/usr/local/bin/python3` ein Python, dessen PIL kaputt ist – für Bildschirmfotos `/usr/bin/python3`.

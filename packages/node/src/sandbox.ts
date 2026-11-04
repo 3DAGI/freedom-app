@@ -9,7 +9,8 @@
  *   (`--unshare-all`), endet mit dem Knoten (`--die-with-parent`), eigene
  *   Sitzung, keine Fähigkeiten (`--cap-drop ALL`);
  * - nur lesbar: `/usr` und die Bibliotheken; aus `/etc` nur ein eigenes
- *   `passwd`, `group` und `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` – nicht das ganze `/etc`;
+ *   `passwd`, `group` und `hosts`, dazu nur lesbar `/etc/alternatives` und `/etc/ld.so.cache`, `/etc/fonts` und
+ *   `/etc/libreoffice` (VKk4d) – nicht das ganze `/etc`;
  * - schreibbar nur der Arbeitsordner (`/arbeit`), darin `.git` wieder nur lesbar
  *   (die Commits macht der Knoten, VKc2); `/tmp` als tmpfs mit Grenze;
  * - die Umgebung leer bis auf `PATH`, `HOME` und `LANG` – keine Variable des
@@ -150,6 +151,9 @@ export function sandboxArgumente(o: SandboxOrt, etc: string): string[] {
     // Verweise der Paketverwaltung (`/usr/bin/python3` → `/etc/alternatives/python3`) und der Cache des Laders –
     // ohne sie starten viele Programme nicht; beide tragen nichts Geheimes
     "--ro-bind-try", "/etc/alternatives", "/etc/alternatives", "--ro-bind-try", "/etc/ld.so.cache", "/etc/ld.so.cache",
+    // Konfiguration der Distribution (VKk4d): Fontconfig (ohne sie zeichnen Programme mit Ersatzschrift) und LibreOffice –
+    // unter Debian und Ubuntu ist `/usr/lib/libreoffice/share/registry` ein Verweis dorthin, ohne ihn startet es nicht
+    "--ro-bind-try", "/etc/fonts", "/etc/fonts", "--ro-bind-try", "/etc/libreoffice", "/etc/libreoffice",
     "--proc", "/proc", "--dev", "/dev",
     "--size", String(SANDBOX_GRENZEN.tmpBytes), "--tmpfs", "/tmp",
     ...(o.home ? ["--bind", o.home, "/home/agent"] : ["--tmpfs", "/home/agent"]),

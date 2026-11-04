@@ -807,6 +807,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Szenen (`main.blend`, seit VKk4c) zeigt Blender (`blender`, im Bild nur mit
   `BLENDER=1`, rund 400 MB; `BLENDER=aus` schaltet es ab); baut der Agent die Szene im
   Terminal neu (`blender -b --python …`), startet Blender im Bild neu.
+  Dokumente (`main.odt`, `main.ods`, `main.odp`, `main.odg`, dieselben als flaches XML
+  `main.fodt` … oder `main.docx`, `main.xlsx`, `main.pptx`, seit VKk4d) zeigt LibreOffice
+  (Writer, Calc, Impress, Draw; im Bild nur mit `LIBREOFFICE=1`, rund 400 MB;
+  `LIBREOFFICE=aus` schaltet es ab) – ohne Sperrdatei im Projekt; schreibt der Agent das
+  Dokument neu, startet LibreOffice im Bild neu. Im Terminal wandelt er mit
+  `soffice --headless --convert-to pdf …` um (auch `odt` und `docx`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

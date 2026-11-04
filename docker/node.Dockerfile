@@ -125,6 +125,15 @@ ARG BLENDER=0
 RUN if [ "$VIBECODEN" = "1" ] && [ "$BLENDER" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends blender && rm -rf /var/lib/apt/lists/*; \
     fi
+
+# Dokumente im Bild (VKk4d) – nur mit VIBECODEN=1 und LIBREOFFICE=1 (docker-compose.vibecoden.yml reicht es durch). LibreOffice
+# aus Debian (MPL-2.0, eigenes Programm, nur in den Sandboxen) mit Writer, Calc, Impress und Draw, rund 400 MB – zeigt main.odt
+# & Co. im Bild und wandelt im Terminal des Motors um (soffice --headless).
+ARG LIBREOFFICE=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$LIBREOFFICE" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 WORKDIR /app
 
 # Erst die Manifeste kopieren: So bleibt der Installationsschritt im Cache,

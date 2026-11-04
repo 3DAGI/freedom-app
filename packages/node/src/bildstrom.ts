@@ -228,19 +228,19 @@ export function openscadBefehl(openscad: string, groesse: { breite: number; hoeh
 }
 
 /**
- * Neustart nach jeder Änderung (VKk4b, VKk4c) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
+ * Neustart nach jeder Änderung (VKk4b, VKk4c, VKk4d) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
  * mit `$1` neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent schreibt
  * vielleicht in Stücken). Überhört das Programm das Ende (Rückfrage zum Speichern), endet es nach drei Sekunden hart. Endet es
- * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start.
+ * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start, `argumente` stehen vor der Datei (Text für die Shell).
  */
-function neustartSchleife(vorStart?: string): string[] {
+function neustartSchleife(vorStart?: string, argumente = ""): string[] {
   return [
     `datei="$1"`,
     `stand() { stat -c '%.9Y %s' "$datei" 2>/dev/null; }`,
     `while :; do`,
     ...(vorStart ? [`  ${vorStart}`] : []),
     `  alt=$(stand)`,
-    `  "$0" "$datei" & pid=$!`,
+    `  "$0" ${argumente}"$datei" & pid=$!`,
     `  while kill -0 "$pid" 2>/dev/null && [ "$(stand)" = "$alt" ]; do sleep 1; done`,
     `  kill -0 "$pid" 2>/dev/null || exit 0`,
     `  neu=$(stand); sleep 1; while [ "$(stand)" != "$neu" ]; do neu=$(stand); sleep 1; done`,
@@ -303,16 +303,58 @@ export function blenderBefehl(blender: string): string[] {
   return ["/bin/sh", "-c", BLENDER_START, blender, "/arbeit/main.blend"];
 }
 
+/** Wo der Knoten LibreOffice sucht (VKk4d) – nur das Paket der Distribution (`soffice`, ein Verweis nach `/usr/lib/libreoffice`). */
+export const LIBREOFFICE_ORTE: readonly string[] = ["/usr/bin/soffice"];
+
+/** LibreOffice aus der Distribution (VKk4d): der erste aus `LIBREOFFICE_ORTE`; null mit `LIBREOFFICE=aus` oder ohne Fund. */
+export function libreofficeAusUmgebung(env: { LIBREOFFICE?: string }, orte: readonly string[] = LIBREOFFICE_ORTE): string | null {
+  return env.LIBREOFFICE?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Dokumente, die das Bild in LibreOffice zeigt (VKk4d), in dieser Reihenfolge: OpenDocument, dasselbe als flaches XML (Text,
+ * den der Agent direkt schreibt), dann die Formate von Microsoft Office. Die erste, die als echte Datei im Projekt liegt, zählt.
+ */
+export const LIBREOFFICE_DATEIEN: readonly string[] = [
+  "main.odt", "main.ods", "main.odp", "main.odg", "main.fodt", "main.fods", "main.fodp", "main.fodg", "main.docx", "main.xlsx", "main.pptx",
+];
+
+/**
+ * Ein Dokument im Bild (VKk4d): eine Datei aus `LIBREOFFICE_DATEIEN` in LibreOffice. Die Einstellungen legt das Skript im Home
+ * der Sandbox an (tmpfs): ohne Tipp des Tages und ohne Sperrdatei – sonst läge `.~lock.main.odt#` im Projekt und käme in den
+ * Commit. Gezeichnet wird über X11 (`SAL_USE_VCLPLUGIN=gen`, gleich welche Oberflächen installiert sind). LibreOffice lädt eine
+ * geänderte Datei nicht von selbst: Das Skript startet es nach jeder Änderung neu (`neustartSchleife()`), mit `--norestore` – nach
+ * einem harten Ende fragte es sonst nach der Wiederherstellung. `$0` ist soffice, `$1` die Datei.
+ */
+export const LIBREOFFICE_START = [
+  `d="$HOME/.config/libreoffice/4/user"; mkdir -p "$d"`,
+  `cat > "$d/registrymodifications.xcu" <<'XCU'`,
+  `<?xml version="1.0" encoding="UTF-8"?>`,
+  `<oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`,
+  `<item oor:path="/org.openoffice.Office.Common/Misc"><prop oor:name="ShowTipOfTheDay" oor:op="fuse"><value>false</value></prop></item>`,
+  `<item oor:path="/org.openoffice.Office.Common/Misc"><prop oor:name="UseLocking" oor:op="fuse"><value>false</value></prop></item>`,
+  `</oor:items>`,
+  `XCU`,
+  `export SAL_USE_VCLPLUGIN=gen`,
+  ...neustartSchleife(undefined, "--norestore --nologo "),
+].join("\n");
+
+export function libreofficeBefehl(soffice: string, datei: string): string[] {
+  return ["/bin/sh", "-c", LIBREOFFICE_START, soffice, `/arbeit/${datei}`];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
  * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`, mit Blender (VKk4c) dann
- * `main.blend`. Mit Browser (VKg2c1) dann ein
+ * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Sonst null – dann sagt die App, wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
-  programme?: { breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string },
+  programme?: {
+    breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
+  },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
     try {
@@ -332,6 +374,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.openscad && ist("main.scad", "datei")) return openscadBefehl(programme.openscad, programme);
   if (programme?.kicad && ist("main.kicad_sch", "datei")) return kicadBefehl(programme.kicad);
   if (programme?.blender && ist("main.blend", "datei")) return blenderBefehl(programme.blender);
+  const dokument = programme?.libreoffice ? LIBREOFFICE_DATEIEN.find((d) => ist(d, "datei")) : undefined;
+  if (programme?.libreoffice && dokument) return libreofficeBefehl(programme.libreoffice, dokument);
   if (!web) return null;
   if (devBefehl(projektOrdner)) return ["/bin/sh", "-c", WEB_DEV_START, web.browser, ...browserArgumente(web, `http://127.0.0.1:${DEV_PORT}/`)];
   return ist("index.html", "datei") ? [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")] : null;
@@ -343,7 +387,9 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht.
  */
-export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; browser?: boolean }): string {
+export function bildHinweise(p: {
+  godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
+}): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
     ...(p.godot ? ["- `project.godot` – a Godot 4 project, imported and run as the game"] : []),
@@ -355,6 +401,9 @@ export function bildHinweise(p: { godot?: boolean; wine?: boolean; openscad?: bo
       + "`kicad-cli sch export svg` and `kicad-cli sch export netlist` work"] : []),
     ...(p.blender ? ["- `main.blend` – Blender; it restarts after every save. In the terminal, build the scene with "
       + "`blender -b --python build.py` and save it with `bpy.ops.wm.save_as_mainfile(filepath=\"/arbeit/main.blend\")`"] : []),
+    ...(p.libreoffice ? ["- `main.odt`, `main.ods`, `main.odp`, `main.odg` – LibreOffice, also as flat XML you write as text (`main.fodt`, "
+      + "`main.fods`, `main.fodp`, `main.fodg`) or as `main.docx`, `main.xlsx`, `main.pptx`; it restarts after every save. In the terminal, "
+      + "`soffice --headless --convert-to pdf main.fodt` works, as do `odt` and `docx`"] : []),
     ...(p.browser ? ["- `package.json` with a `dev` script (started with PORT and HOST set), else `index.html` – shown in Chromium"] : []),
   ];
   return [
@@ -416,6 +465,8 @@ export class BildStrom {
     kicad?: string;
     /** Blender für `main.blend` (VKk4c, `blenderAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     blender?: string;
+    /** LibreOffice für Dokumente (VKk4d, `libreofficeAusUmgebung()`) – unter `/usr`, dazu `/etc/libreoffice` aus der Sandbox. */
+    libreoffice?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -447,7 +498,7 @@ export class BildStrom {
     const programme = {
       ...groesse, ...(this.o.godot ? { godot: true } : {}), ...(this.o.wine ? { wine: this.o.wine } : {}),
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
-      ...(this.o.blender ? { blender: this.o.blender } : {}),
+      ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

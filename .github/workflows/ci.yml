@@ -135,6 +135,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends blender
           blender --version | head -1
 
+      # VKk4d: Dokumente zeigt LibreOffice im Bild – der Echttest schreibt main.fodt neu, das Skript startet es neu; dazu die
+      # Umwandlung im Terminal
+      - name: LibreOffice fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw
+          soffice --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

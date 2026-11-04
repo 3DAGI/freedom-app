@@ -316,3 +316,35 @@ Fehler); im Projekt liegen danach nur `main.blend` und Blenders Sicherung `main.
 (der Dialog deckt die Szene zu), ohne Neustart rot (das Bild bleibt grün). Der VKk5-Test prüft `main.blend` an seiner Stelle in den
 Hinweisen. `docker-vibecoden.test.ts` +1: Blender nur mit beiden Schaltern, Compose und CI.
 
+
+## Schritt VKk4d – LibreOffice im Bild: Dokumente, neu gestartet nach jeder Änderung
+
+Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme“: LibreOffice), nach VKk4c.
+
+- **`packages/node/src/bildstrom.ts`:** `bildBefehl()` erkennt ein Dokument, wenn der Knoten LibreOffice hat – nach `main.blend`,
+  vor Web, die erste echte Datei aus `LIBREOFFICE_DATEIEN` (OpenDocument `main.odt`/`.ods`/`.odp`/`.odg`, dasselbe als flaches XML
+  `main.fodt` …, dann `main.docx`/`.xlsx`/`.pptx`). `libreofficeAusUmgebung()`: nur `/usr/bin/soffice`, `LIBREOFFICE=aus` schaltet
+  ab. `LIBREOFFICE_START` schreibt die Einstellungen ins Home der Sandbox – ohne Tipp des Tages, `UseLocking` aus (sonst läge
+  `.~lock.main.odt#` im Projekt; `UseDocumentOOoLockFile` allein reichte nicht) –, zeichnet über X11 und startet mit `--norestore`
+  nach jeder Änderung neu (`neustartSchleife()`, jetzt mit Argumenten vor der Datei). `bildHinweise()` nennt die Dateien und die
+  Umwandlung im Terminal.
+- **`packages/node/src/sandbox.ts`:** nur lesbar dazu `/etc/fonts` und `/etc/libreoffice`. Unter Debian und Ubuntu ist
+  `/usr/lib/libreoffice/share/registry` ein Verweis nach `/etc/libreoffice` – ohne startet LibreOffice in der Sandbox nicht. Ohne
+  `/etc/fonts` findet Fontconfig keine Konfiguration, Programme zeichnen mit Ersatzschrift (gilt für alle Programme im Bild).
+- **`packages/node/src/main.ts`:** gibt LibreOffice an den Bildstrom und an die Hinweise; das Log sagt „Dokumente in LibreOffice“
+  oder „ohne LibreOffice“.
+- **Bild:** `ARG LIBREOFFICE=0`, nur mit `VIBECODEN=1` und `LIBREOFFICE=1`: Writer, Calc, Impress und Draw aus Debian, rund 400 MB.
+  **CI:** dieselben vier Pakete (24.2 aus Ubuntu 24.04) im Testjob.
+- Fallstrick im Knoten (dazu die Sandbox), `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN (die
+  Proben am GX10 nennen jetzt alle Programme im Bild), FORTSCHRITT, Stand-Zeile.
+
+**Tests:** node +7 – `bildstrom.test.ts` +6: Erkennung (nur mit LibreOffice, die Reihenfolge aller elf Namen, `main.blend` geht vor,
+Web danach, ein Verweis oder Ordner zählt nicht – dann die nächste echte Datei), LibreOffice aus der Umgebung, Start mit Attrappe
+(X11, `--norestore`, beide Einstellungen, neu nach einer Änderung, Ende mit dem Programm), Bildstrom (nichts weiter eingebunden,
+ohne LibreOffice `code-bild-kein-programm`), der Echttest mit LibreOffice 24.2: `main.fodt` mit grüner Seite kommt im Bild an,
+nach dem Neuschreiben rot (Antwort nach 0,7–3,3 s, drei Läufe ohne Fehler), im Projekt liegt währenddessen und danach nur
+`main.fodt`; dazu die Umwandlung im Terminal in der Sandbox (PDF, ODT, DOCX, ohne Fehler von Fontconfig). Gegenproben: ohne
+`UseLocking` rot (Sperrdatei im Projekt), ohne Neustart rot (das Bild bleibt grün), ohne `/etc/libreoffice` rot (Bild schwarz,
+Umwandlung scheitert), ohne `/etc/fonts` rot (Fontconfig). `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, die
+CI mit denselben Paketen (Gegenproben: ein Paket weniger in der CI, LibreOffice im Grundbild – beide rot). `sandbox.test.ts`: die
+zwei Ordner in der Liste aus `/etc`. Der VKk5-Test prüft `main.odt` an seiner Stelle und alle elf Namen in den Hinweisen.
