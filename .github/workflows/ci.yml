@@ -18,8 +18,10 @@ jobs:
   test:
     name: Tests und Typpruefung
     runs-on: ubuntu-latest
-    # 25 seit B-38b3: whisper-cli wird für den Sprach-Test gebaut (rund 2 min)
-    timeout-minutes: 25
+    # 25 seit B-38b3: whisper-cli wird für den Sprach-Test gebaut (rund 2 min). 35 seit dem VKh-Entwurf: Ohne passenden
+    # Zwischenspeicher lädt der Job alle Pakete neu (Wine, Blender, LibreOffice, GIMP …, seit der frischen Paketliste auch jede
+    # neuere Fassung) – das dauerte am 04.11.2026 rund 27 statt 14 Minuten
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +59,11 @@ jobs:
           sudo chown "$(id -u):$(id -g)" /var/cache/freedom-apt
           printf 'Dir::Cache::archives "/var/cache/freedom-apt";\nAPT::Keep-Downloaded-Packages "true";\n' | sudo tee /etc/apt/apt.conf.d/99-freedom-zwischenspeicher
 
+      # Nur holen – gespeichert wird gleich nach den Paketen („Pakete in den Zwischenspeicher“), nicht erst am Ende des Jobs:
+      # Ein Job, der in den Tests abbricht, speicherte sonst nichts, und der nächste begänne wieder leer (so am 04.11.2026)
       - name: Pakete aus dem Zwischenspeicher
-        uses: actions/cache@v4
+        id: apt-zwischenspeicher
+        uses: actions/cache/restore@v4
         with:
           path: /var/cache/freedom-apt
           key: apt-${{ github.job }}-${{ env.IMAGE_VERSION }}-${{ hashFiles('.github/workflows/ci.yml') }}
@@ -167,6 +172,13 @@ jobs:
           sudo rm -f /var/cache/freedom-apt/lock
           sudo chown -R "$(id -u):$(id -g)" /var/cache/freedom-apt
           du -sh /var/cache/freedom-apt
+
+      - name: Pakete in den Zwischenspeicher
+        if: steps.apt-zwischenspeicher.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: /var/cache/freedom-apt
+          key: apt-${{ github.job }}-${{ env.IMAGE_VERSION }}-${{ hashFiles('.github/workflows/ci.yml') }}
 
       - name: Cashu-Mint fuer Topf und Pfand-Kasse (A-17c, RM2b1)
         # Nutshell mit FakeWallet auf 127.0.0.1 – kein Lightning, kein Geld; Versionen fest

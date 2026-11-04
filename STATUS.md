@@ -454,3 +454,9 @@ Dazu OFFEN 1.6, Zeile VKh und Probe „Android“ in 2.3, Zeile VKh im Entwurf, 
 
 **Tests:** keine (nur Doku); alle Prüfungen gelaufen.
 
+**Dazu (CI, B-42):** Der Testjob riss auf `main` (ac293899) und auf 0ebf2a9b seine Grenze von 25 Minuten, kurz vor dem Ende der
+App-Tests. Ursache: Mit der frischen Paketliste (VKk4e) lädt apt jede neuere Fassung neu (Wine 223 s, LibreOffice 171 s, Blender
+151 s statt je rund 20 s), und `actions/cache` speichert nur am Ende eines erfolgreichen Jobs – ein abgebrochener Lauf ließ den
+nächsten wieder leer beginnen. Jetzt holt der Testjob den Zwischenspeicher nur (`actions/cache/restore`) und speichert ihn gleich
+nach den Paketen (`actions/cache/save`, nur ohne genauen Treffer); die Grenze ist 35 Minuten. Fallstrick in `scripts/CLAUDE.md`.
+
