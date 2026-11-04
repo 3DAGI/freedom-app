@@ -269,7 +269,7 @@ Bereichs unten anhängen.
   bubblewrap mit allen Namensräumen (`--unshare-all` und `--unshare-user`, kein Netz), leere Umgebung, nur lesbar
   `/usr` und die Wurzel (`--remount-ro /` zuletzt – sonst ist die tmpfs-Wurzel samt `/etc` schreibbar), aus `/etc`
   nur die drei eigenen Dateien und nur lesbar `/etc/alternatives` und `/etc/ld.so.cache` (ohne sie startet etwa
-  `python3` nicht – unter Debian ein Verweis dorthin), seit VKk4d dazu nur lesbar `/etc/fonts` und `/etc/libreoffice` (nur
+  `python3` nicht – unter Debian ein Verweis dorthin), seit VKk4d dazu nur lesbar `/etc/fonts` und `/etc/libreoffice`, seit VKk4f `/etc/gimp` (nur
   Konfiguration der Distribution, nichts Geheimes), schreibbar nur `/arbeit` mit `.git` nur lesbar. `ulimit` je Grenze ein Aufruf –
   dash nimmt nur eine. Geht bubblewrap nicht (`pruefeSandbox()`), läuft nichts; Sätze nur aus `SANDBOX_TEXT`.
   Tests mit echtem bubblewrap überspringen sich nur, wenn die Prüfung scheitert – die CI gibt Nutzer-Namensräume frei.
@@ -658,3 +658,11 @@ Bereichs unten anhängen.
   **nach** Web: Ein Web-Projekt hat oft ein `main.svg` als Logo, das die Seite nicht verdrängen darf (Dev-Server und `index.html` gehen
   vor; ohne Browser zählt die Zeichnung). Mit einer Datei startet Inkscape ohne Begrüßung und legt nichts neben sie; neu geladen wird
   über `neustartSchleife()`. Ubuntu bringt für Inkscape kein AppArmor-Profil mit – ein Umweg wie `X11_UMWEG` ist nicht nötig.
+- **Bilder im Bild nur über `bildBefehl()` und `gimpBefehl()`** (seit VKk4f, `bildstrom.ts`): `main.xcf` zählt nur mit GIMP aus `gimpAusUmgebung()` – nur
+  `GIMP_ORTE` unter `/usr` (kein eigener Pfad), `GIMP=aus` schaltet ab – und nur als echte Datei, nach Web und `main.svg` (wie die Zeichnung:
+  die Quelle eines Logos verdrängt keine Seite). GIMP braucht `/etc/gimp/2.0` – ohne scheitert schon der erste Start („User installation
+  failed“), im Bild wie im Terminal; die Sandbox liest den Ordner seit VKk4f nur lesbar wie `/etc/libreoffice`. Ohne Fenstermanager legt GIMP
+  sein Fenster nach `sessionrc` (200,100 mit 1024×768, über den Rand): `GIMP_START` schreibt die Vorlage der Distribution mit Ort 0,0 und der
+  Größe des Bilds ins Home der Sandbox – ohne das misst der Echttest nur Grau (Gegenprobe). Neu geladen wird über `neustartSchleife()`. Im
+  Terminal geht Script-Fu ohne Bildschirm (`gimp -i -b '…' -b '(gimp-quit 0)'`); der Befehl in `bildHinweise()` ist genau der, den der Echttest
+  ausführt (`gimpBefehlAusHinweisen()`) – ihn nur zusammen ändern. Beim Beenden meldet GEGL „GeglBuffers leaked“ – harmlos, Exit 0.
