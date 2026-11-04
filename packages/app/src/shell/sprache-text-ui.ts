@@ -17,6 +17,7 @@ import { STATUS_TAKT_MS } from "../knoten-status-ansicht.js";
 import { fehlerText } from "../protokoll-texte.js";
 import { type TonFall, alsSpracheWav, browserDekoder } from "../ton-wandeln.js";
 import { lokaleSprachAdresse, textAufDiesemGeraet } from "../sprache-lokal.js";
+import { TonTexte } from "../ton-texte.js";
 import { frageKnotenStatus, powFuerKnoten } from "./knoten-status-ui.js";
 import { warteAufKnoten, wegZumKnoten } from "./knoten-weg-ui.js";
 import { meineKopplung } from "./mein-knoten.js";
@@ -108,31 +109,41 @@ export async function textAusSprache(bytes: Uint8Array, sprache: SpracheWahl = "
   return { text: transkript.text.trim() };
 }
 
+/** Was „Als Text“ je Ton ergab oder gerade versucht – nur im Speicher, übersteht das Neuzeichnen der Unterhaltung. */
+const tonTexte = new TonTexte<{ text: string } | { grund: string }>();
+
 /**
  * Den Abspieler einer Sprachnachricht um „Als Text“ ergänzen – nur mit einem Weg dafür (Server auf diesem Rechner oder
  * eigener Knoten), sonst bleibt er, wie er ist. Gefragt wird erst beim Klick; die Bytes holt `bytes()` erst dann.
+ * `kennung` nennt den Ton (die `data:`-Adresse, die Blob-Id): Zeichnet sich die Unterhaltung neu, zeigt der neue Abspieler
+ * den Text oder den laufenden Versuch weiter (`TonTexte`); ohne Kennung nichts gemerkt.
  */
-export function mitAlsText(ton: HTMLElement, bytes: () => Promise<Uint8Array>): HTMLElement {
+export function mitAlsText(ton: HTMLElement, bytes: () => Promise<Uint8Array>, kennung: string | undefined): HTMLElement {
   if (!textAusSpracheMoeglich()) return ton;
   const knopf = el("button", t("komm.alsText"), "ghost mini ton-als-text");
   knopf.type = "button";
   knopf.title = t("komm.alsTextTitel");
   const aus = el("div", undefined, "ton-text");
   aus.setAttribute("aria-live", "polite");
-  knopf.addEventListener("click", async () => {
+  const folge = (versuch: Promise<{ text: string } | { grund: string }>) => {
     knopf.disabled = true;
     aus.textContent = t("komm.alsTextLaeuft");
-    try {
-      // Sprachnachrichten kommen von Kontakten in jeder Sprache – Whisper erkennt sie selbst
-      const r = await textAusSprache(await bytes(), "auto");
+    versuch.then((r) => {
       aus.textContent = "text" in r ? r.text || t("komm.alsTextStille") : r.grund;
       aus.classList.toggle("ton-text-hinweis", !("text" in r));
-    } catch (e) {
+    }, (e: unknown) => {
       aus.textContent = t("komm.alsTextFehler", { fehler: fehlerText(e) });
       aus.classList.add("ton-text-hinweis");
-    } finally {
+    }).finally(() => {
       knopf.disabled = false;
-    }
+    });
+  };
+  const frueher = kennung === undefined ? undefined : tonTexte.hole(kennung);
+  if (frueher) folge(frueher);
+  knopf.addEventListener("click", () => {
+    // Sprachnachrichten kommen von Kontakten in jeder Sprache – Whisper erkennt sie selbst
+    const versuch = (async () => textAusSprache(await bytes(), "auto"))();
+    folge(kennung === undefined ? versuch : tonTexte.merke(kennung, versuch));
   });
   const huelle = el("div", undefined, "ton-mit-text");
   huelle.append(ton, knopf, aus);

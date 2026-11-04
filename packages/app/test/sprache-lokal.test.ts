@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SPRACHE_GRENZEN, baueWav, pruefeWav } from "@freedomstack/protocol";
 import { setLang, t } from "../src/i18n.js";
+import { TON_TEXTE_MAX, TonTexte } from "../src/ton-texte.js";
 import {
   LS_SPRACHE_LOKAL, leseSprachServerAntwort, lokaleSprachAdresse, pruefeSprachServer, textAufDiesemGeraet,
 } from "../src/sprache-lokal.js";
@@ -103,4 +104,29 @@ test("B-38c3: verdrahtet – dieses Gerät vor dem Knoten, Karte nur auf Klick, 
       "set.spracheLokalHttp", "set.spracheLokalVergessenOk"]) assert.notEqual(t(k), k, `${k} (${sprache})`);
   }
   setLang("de");
+});
+
+test("B-38c3: Texte zu Sprachnachrichten überstehen das Neuzeichnen – je Ton, nur im Speicher, begrenzt", async () => {
+  const texte = new TonTexte<string>(3);
+  assert.equal(texte.hole("a"), undefined);
+  // ein laufender Versuch: der neue Abspieler bekommt denselben und zeigt sein Ergebnis
+  let fertig!: (s: string) => void;
+  const versuch = texte.merke("a", new Promise((r) => { fertig = r; }));
+  assert.equal(texte.hole("a"), versuch);
+  fertig("Probe");
+  assert.equal(await texte.hole("a"), "Probe");
+  // ein neuer Klick ersetzt den alten Versuch
+  texte.merke("a", Promise.resolve("neu"));
+  assert.equal(await texte.hole("a"), "neu");
+  // höchstens drei, der älteste geht zuerst – ein ersetzter zählt als neu
+  for (const k of ["b", "c"]) texte.merke(k, Promise.resolve(k));
+  texte.merke("a", Promise.resolve("noch einmal"));
+  texte.merke("d", Promise.resolve("d"));
+  assert.equal(texte.groesse, 3);
+  assert.equal(texte.hole("b"), undefined, "b war der älteste");
+  for (const k of ["a", "c", "d"]) assert.ok(texte.hole(k), k);
+  assert.equal(TON_TEXTE_MAX, 50);
+  // nur im Speicher: das Modul kennt weder localStorage noch geheim
+  const quelle = readFileSync(new URL("../src/ton-texte.ts", import.meta.url), "utf8");
+  for (const wort of ["localStorage.", "sessionStorage.", "geheim.", "indexedDB."]) assert.ok(!quelle.includes(wort), wort);
 });

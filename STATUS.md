@@ -384,3 +384,13 @@ mit dem Programm), Bildstrom (nichts weiter eingebunden, ohne Inkscape `code-bil
 in der Sandbox. Gegenproben: ohne Neustart rot (das Bild bleibt grün), `main.svg` vor Web rot (Erkennung und Reihenfolge der
 Hinweise). Der VKk5-Test prüft `main.svg` an seiner Stelle. `docker-vibecoden.test.ts` +1: nur mit beiden Schaltern, Compose, CI
 (Gegenprobe ohne die Prüfung in der CI: rot).
+
+**Dazu (B-38c3, Befund im Smoke-Test):** Der Teil „als_text_lokal“ war in der CI zweimal rot (auf 4ee7c50d und 671d5a81,
+`wait_for_function` nach 30 s; `main` grün, lokal grün, auch mit sechsfach gedrosselter CPU). Ursache in der App: Die offene
+Unterhaltung zeichnet sich neu, sobald die eigenen Kopien hinaus sind (`loadChatMessages()` nach beiden Kopien) – mit ihr jeden
+Abspieler. Kam „Als Text“ kurz davor, landete der Text in einem Element, das niemand mehr sah; ebenso bei jeder neuen Nachricht
+in der offenen Unterhaltung. Jetzt merkt `TonTexte` (`app/src/ton-texte.ts`, nur im Speicher, höchstens 50) je Ton den Versuch, und
+`mitAlsText(…, kennung)` (`shell/sprache-text-ui.ts`) zeigt ihn im neuen Abspieler weiter – fertig oder noch unterwegs; die Kennung
+ist die `data:`-Adresse bzw. die Blob-Id (`shell/tabs/chat-anhaenge.ts`). **Tests:** app +1 (`sprache-lokal.test.ts`: je Ton, ein
+neuer Klick ersetzt, begrenzt, nur im Speicher); der Smoke-Teil zeichnet die Unterhaltung nach dem Text neu (Klick auf die offene)
+und erwartet denselben Text in einem neuen Element. Fallstrick in `packages/app/CLAUDE.md`.

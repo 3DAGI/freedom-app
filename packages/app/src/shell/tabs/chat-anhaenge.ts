@@ -141,7 +141,7 @@ export function anhangElement(a: ChatAttachment): HTMLElement {
       // „Als Text“ (B-38c1) nur für Ton in der Nachricht selbst – eine Adresse im Netz fragte einen fremden Server
       if (v.art === "audio" && v.url.startsWith("data:")) {
         const url = v.url;
-        return mitAlsText(m, async () => Uint8Array.from(atob(url.slice(url.indexOf(",") + 1)), (c) => c.charCodeAt(0)));
+        return mitAlsText(m, async () => Uint8Array.from(atob(url.slice(url.indexOf(",") + 1)), (c) => c.charCodeAt(0)), url);
       }
       return m;
     }
@@ -193,7 +193,7 @@ export function wireBlobButtons(root: HTMLElement): void {
           ton.controls = true;
           ton.src = url;
           const bytes = datei.bytes;
-          el.replaceWith(mitAlsText(ton, async () => bytes));
+          el.replaceWith(mitAlsText(ton, async () => bytes, d.blob ?? d.url));
           ton.play().catch(() => { /* ohne Erlaubnis zum Abspielen: der Knopf im Abspieler */ });
           return;
         }
