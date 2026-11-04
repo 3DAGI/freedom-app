@@ -334,7 +334,9 @@ Spur B, `docs/VIBECODEN-ENTWURF.md` (VKk, Tabelle „MCP für gängige Programme
 - **`packages/node/src/main.ts`:** gibt LibreOffice an den Bildstrom und an die Hinweise; das Log sagt „Dokumente in LibreOffice“
   oder „ohne LibreOffice“.
 - **Bild:** `ARG LIBREOFFICE=0`, nur mit `VIBECODEN=1` und `LIBREOFFICE=1`: Writer, Calc, Impress und Draw aus Debian, rund 400 MB.
-  **CI:** dieselben vier Pakete (24.2 aus Ubuntu 24.04) im Testjob.
+  **CI:** dieselben vier Pakete (24.2 aus Ubuntu 24.04) im Testjob. Dazu schreiben die Node-Tests einen zweiten Bericht (spec)
+  in eine Datei; bei Rot nennt ein Schritt danach die roten Tests am Ende des Logs – das Log hat über 27 000 Zeilen, und die
+  Werkzeuge der Agenten lesen nur die letzten 5000 (so blieb der erste rote Lauf dieses Schritts unlesbar).
 - Fallstrick im Knoten (dazu die Sandbox), `docs/PROVIDER.md`, `docs/PROTOCOL.md` (`code-bild-kein-programm`), Entwurf, OFFEN (die
   Proben am GX10 nennen jetzt alle Programme im Bild), FORTSCHRITT, Stand-Zeile.
 

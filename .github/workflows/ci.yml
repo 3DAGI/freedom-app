@@ -170,8 +170,16 @@ jobs:
       - name: Chrome fuer den Browser-Test des Motors
         run: /opt/google/chrome/chrome --version
 
+      # VKk4d: ein zweiter Bericht (spec) in eine Datei – das Log hat über 27 000 Zeilen, wer es nur von hinten lesen kann
+      # (Werkzeuge der Agenten), sah einen roten Test nicht; bei Rot nennt der Schritt danach die roten Tests am Ende
       - name: Tests node
+        env:
+          NODE_OPTIONS: --test-reporter=tap --test-reporter-destination=stdout --test-reporter=spec --test-reporter-destination=${{ runner.temp }}/node-tests.txt
         run: npm test --workspace @freedomstack/node
+
+      - name: Rote Node-Tests (Zusammenfassung)
+        if: failure()
+        run: sed -n '/failing tests:/,$p' "$RUNNER_TEMP/node-tests.txt" | head -400
 
       # 11.5s4b: Speicher und Prozesse je Befehl über cgroups v2 brauchen einen eigenen Teilbaum – wie Delegate= im Dienst des
       # Installers; hier eine Scope mit Delegate=yes, als root (pids.max gilt auch dann). Fehlt er, ist der Test rot, nicht übersprungen
