@@ -181,6 +181,12 @@ jobs:
         if: failure()
         run: sed -n '/failing tests:/,$p' "$RUNNER_TEMP/node-tests.txt" | head -400
 
+      # VKk4d: Zeigt LibreOffice im Echttest kein Bild, startet die Diagnose es ohne und in der Sandbox und nennt Fenster und Protokoll
+      - name: Diagnose LibreOffice (nur bei Fehlern)
+        if: failure()
+        working-directory: packages/node
+        run: timeout 300 node --import tsx test/fixtures/libreoffice/diagnose.mts
+
       # 11.5s4b: Speicher und Prozesse je Befehl über cgroups v2 brauchen einen eigenen Teilbaum – wie Delegate= im Dienst des
       # Installers; hier eine Scope mit Delegate=yes, als root (pids.max gilt auch dann). Fehlt er, ist der Test rot, nicht übersprungen
       - name: Sandbox mit cgroups v2 (Speicher und Prozesse je Befehl)
