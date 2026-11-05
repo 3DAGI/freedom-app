@@ -24,46 +24,46 @@ ZLIB_TAG=v1.3.1
 
 # <pfad unter src/> <repo bei AOSP> <commit des Tags> – zlib: <pfad> <url> <commit>, Tag ZLIB_TAG
 STAENDE="
-abseil-cpp           platform/external/abseil-cpp            0000000000000000000000000000000000000000
-adb                  platform/packages/modules/adb           0000000000000000000000000000000000000000
-aidl                 platform/system/tools/aidl              0000000000000000000000000000000000000000
-art                  platform/art                            0000000000000000000000000000000000000000
-avb                  platform/external/avb                   0000000000000000000000000000000000000000
+abseil-cpp           platform/external/abseil-cpp            8817f93011f172bbb199dacd6310d5b146e6fde9
+adb                  platform/packages/modules/adb           ce9ea51f30f69f7560db692f7cb4d5d5502c3653
+aidl                 platform/system/tools/aidl              4e2b7b3dc8c8ac9ae3fabec9460dd6d99f92a6ab
+art                  platform/art                            114291d98c93cc0e030dbb2b870dca47777a9fba
+avb                  platform/external/avb                   6eedb12491da292911a1b88911a6682fd2e827bd
 base                 platform/frameworks/base                723419df1a0769b63587722a8a0a0980f454ffd2
-boringssl            platform/external/boringssl             0000000000000000000000000000000000000000
-brotli               platform/external/brotli                0000000000000000000000000000000000000000
+boringssl            platform/external/boringssl             2a7146e5d8c55fb53d31f66f8e1351baa3fb0d4e
+brotli               platform/external/brotli                0d40cc0076003b010b2902894e3eac1d1ccffb8e
 build                platform/build                          46581c7be3390d0ecd0a037e6e6ebc2893d5768a
 core                 platform/system/core                    90e4908e776d2be9b26b87af649e63e4208cf085
 dalvik               platform/dalvik                         c7e490537adfaa04030757014e590c1b442f748a
 development          platform/development                    db0a64ff5d737accf45252d05f97320373edad34
-e2fsprogs            platform/external/e2fsprogs             0000000000000000000000000000000000000000
+e2fsprogs            platform/external/e2fsprogs             81357db29373b2bab58af88dc4b747662047b7e7
 expat                platform/external/expat                 20fd404393d65d2aff6dbc79dcbf4da6e68cabb2
-extras               platform/system/extras                  0000000000000000000000000000000000000000
-f2fs-tools           platform/external/f2fs-tools            0000000000000000000000000000000000000000
-fmtlib               platform/external/fmtlib                0000000000000000000000000000000000000000
-googletest           platform/external/googletest            0000000000000000000000000000000000000000
-incremental_delivery platform/system/incremental_delivery    0000000000000000000000000000000000000000
-jsoncpp              platform/external/jsoncpp               0000000000000000000000000000000000000000
-libbase              platform/system/libbase                 0000000000000000000000000000000000000000
+extras               platform/system/extras                  d8e488a499f5a96f788eac9d5364f0b839306c57
+f2fs-tools           platform/external/f2fs-tools            f49d4274ddd9de595129741fbf0a62c5901c0223
+fmtlib               platform/external/fmtlib                c230d4f0a5a7058a6f0468cd384200ba2ed2d8c6
+googletest           platform/external/googletest            b9640af0b0a5b0e94bbef3f584763be6926b1ce3
+incremental_delivery platform/system/incremental_delivery    d5b8d81edc4a1e5a1995e1e4858cb1b340080137
+jsoncpp              platform/external/jsoncpp               4d823700a3d9c5727a039d65587ca99519f32de2
+libbase              platform/system/libbase                 328768fabb054387ad7f64c984d4afcea70d25c9
 libpng               platform/external/libpng                3f98a222b00621de0815c70bcbee9f3d19434359
-libusb               platform/external/libusb                0000000000000000000000000000000000000000
-libziparchive        platform/system/libziparchive           0000000000000000000000000000000000000000
-logging              platform/system/logging                 0000000000000000000000000000000000000000
-lz4                  platform/external/lz4                   0000000000000000000000000000000000000000
-mdnsresponder        platform/external/mdnsresponder         0000000000000000000000000000000000000000
-mkbootimg            platform/system/tools/mkbootimg         0000000000000000000000000000000000000000
-native               platform/frameworks/native              0000000000000000000000000000000000000000
-openscreen           platform/external/openscreen            0000000000000000000000000000000000000000
-pcre                 platform/external/pcre                  0000000000000000000000000000000000000000
+libusb               platform/external/libusb                ab84e07b9a3575bc6eddb87dba87f85f0ab8490f
+libziparchive        platform/system/libziparchive           b1d0c47e59e1a59b79f38ed0cbb94191cbf37416
+logging              platform/system/logging                 153a153f1fccc0cc6b96766d1557518303aebd5e
+lz4                  platform/external/lz4                   96cc9e92d0bdc4811d15c962ce457128d419cc80
+mdnsresponder        platform/external/mdnsresponder         3169df7f1376b098b98c3576f9f45c6d786c462e
+mkbootimg            platform/system/tools/mkbootimg         cbf4ce939fb73c0b74127c4cb5e1092b127a4f4f
+native               platform/frameworks/native              55c639d4b83235438ae431c76ffcb6e49be34f75
+openscreen           platform/external/openscreen            ced29e3d2bc4f1549738c1c2bb702a1c7232a8bb
+pcre                 platform/external/pcre                  06781197cc1b93713b9c07aebc75d9790d2d4d76
 protobuf             platform/external/protobuf              5b489930dd17777ea9173840faba912c2db1748a
-selinux              platform/external/selinux               0000000000000000000000000000000000000000
-soong                platform/build/soong                    0000000000000000000000000000000000000000
+selinux              platform/external/selinux               0496d8248e0cb20d6512387f109f41f37f68f6e1
+soong                platform/build/soong                    050e044df577a106757e9df904535bde9e6f83ce
 sqlite               platform/external/sqlite                f6e15f48aceb7421bbbb515a91076c1a7e12c14f
-tinyxml2             platform/external/tinyxml2              0000000000000000000000000000000000000000
-unwinding            platform/system/unwinding               0000000000000000000000000000000000000000
+tinyxml2             platform/external/tinyxml2              c1a174ab5c7f50e6877d3f1c8355759890e61300
+unwinding            platform/system/unwinding               540353061e864599723d4a838d503b80ecdf61ed
 zlib                 $ZLIB                                   51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf
-zopfli               platform/external/zopfli                0000000000000000000000000000000000000000
-zstd                 platform/external/zstd                  0000000000000000000000000000000000000000
+zopfli               platform/external/zopfli                502a8f40590050c27a0a6259a0c08ed858f27f8e
+zstd                 platform/external/zstd                  667562a5a6e0d0296db762110e437283472cf455
 "
 # Was aapt2 statisch enthält (aapt2.cmake des Rezepts) – je Repo ein Lizenztext, sonst Abbruch
 GELINKT="base core libbase logging libziparchive incremental_delivery soong selinux protobuf abseil-cpp boringssl expat libpng pcre fmtlib zlib"
