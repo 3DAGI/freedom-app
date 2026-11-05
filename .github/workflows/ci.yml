@@ -182,6 +182,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends gimp
           gimp --version
 
+      # VKk4g: Karten zeigt QGIS im Bild – der Echttest baut wie der Agent mit PyQGIS ein Projekt neu, das Skript startet QGIS
+      # neu; dazu die Befehle aus den Hinweisen im Terminal
+      - name: QGIS fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends qgis
+          QT_QPA_PLATFORM=offscreen qgis --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

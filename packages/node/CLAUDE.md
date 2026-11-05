@@ -698,3 +698,17 @@ Bereichs unten anhängen.
   das Android-Plugin den Umweg nicht; nur ASCII in der Datei (Java liest Properties als ISO-8859-1).
   Echttests mit Gradle rechnen länger als `SANDBOX_GRENZEN.cpuSek` (120 s für alle Threads): `rechenzeitSek` mitgeben – der Motor
   selbst hat keine Grenze der Rechenzeit.
+- **Karten im Bild nur über `bildBefehl()` und `qgisBefehl()`** (seit VKk4g, `bildstrom.ts`): ein Projekt zählt nur mit QGIS aus
+  `qgisAusUmgebung()` – nur `QGIS_ORTE` unter `/usr` (kein eigener Pfad), `QGIS=aus` schaltet ab –, nur als echte Datei und nur mit einem
+  Namen aus `QGIS_DATEIEN` (`main.qgs` vor `main.qgz`), nach Web, `main.svg` und `main.xcf` (das Projekt hinter einer Web-Karte verdrängt die
+  Seite nicht). QGIS liest seine Argumente selbst: `-geometry` hielte es für eine Datei. Die Größe setzt darum ein Skript beim Start
+  (`--code`, `QGIS_START`) mit `setGeometry()` – den Ausschnitt der Karte passt QGIS dabei selbst neu ein; maximiert und Vollbild setzt Qt
+  ohne Fenstermanager nicht um, eine vorab geschriebene `UI/geometry` verkleinert Qt um eine Titelleiste. Die Statusleiste allein braucht
+  rund 1000 Pixel: In einem schmaleren Bild ragte die Karte über den Rand (der Echttest maß dann nur Weiß, Gegenprobe) – das Skript blendet
+  sie dann aus und rechnet das Layout sofort neu (`layout().activate()`, sonst gilt die alte Mindestbreite). Ohne
+  `fonts/downloadMissingFonts=false` in `QGIS3.ini` will QGIS beim ersten Start „Open Sans“ laden und meldet das Scheitern über der Karte
+  (der Name des Schlüssels steht nur als UTF-16 in der Bibliothek – `strings -el`). Ein Projekt ohne Standardansicht öffnet mit leerer
+  Karte – der Befehl in `bildHinweise()` setzt sie und ist genau der, den der Echttest ausführt (`qgisBefehleAusHinweisen()`). Im Terminal
+  brauchen PyQGIS und `qgis_process` `QT_QPA_PLATFORM=offscreen` (sonst Abbruch ohne Bildschirm) und das Python der Distribution
+  (`/usr/bin/python3`). Beim Speichern legt QGIS `main.qgs~` und (3.34 gemessen) `main_attachments.zip` daneben – nie versprechen, dass das
+  Projekt nur `main.qgs` enthält. Ubuntu bringt für QGIS kein AppArmor-Profil mit.

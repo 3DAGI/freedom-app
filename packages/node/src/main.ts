@@ -56,7 +56,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import {
   BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, gimpAusUmgebung, godotAusUmgebung, inkscapeAusUmgebung, kicadAusUmgebung,
-  libreofficeAusUmgebung, nvencDa, openscadAusUmgebung, wineAusUmgebung,
+  libreofficeAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, wineAusUmgebung,
 } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
@@ -573,19 +573,21 @@ async function main(): Promise<void> {
         const inkscape = inkscapeAusUmgebung(process.env);
         // Bilder (VKk4f): GIMP der Distribution (Docker-Bild mit GIMP=1) – ohne zeigt das Bild main.xcf nicht
         const gimp = gimpAusUmgebung(process.env);
+        // Karten (VKk4g): QGIS der Distribution (Docker-Bild mit QGIS=1) – ohne zeigt das Bild main.qgs und main.qgz nicht
+        const qgis = qgisAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
           ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}), ...(libreoffice ? { libreoffice } : {}),
-          ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}),
+          ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}), ...(qgis ? { qgis } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
         // was der Motor über das Bild wissen muss (VKk5) – nur die Programme, die es hier gibt
         bildText = bildHinweise({
           godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, libreoffice: !!libreoffice, browser: !!browser,
-          inkscape: !!inkscape, gimp: !!gimp,
+          inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis,
         });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);
