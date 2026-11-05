@@ -58,7 +58,9 @@ Windows. Web und Linux sind fertig (VKg2, VKk3–VKk4), Windows auch (VKi). Dies
     (aus AOSP-Quellen). Beides wären fremde Programme.
   - Ebenso möglich: selbst aus AOSP bauen, wie `whisper-cli` und die Tor-Brücken.
   - Oder FEX für x86-Programme. Das Bild hat FEX nur innerhalb von Hangover für Wine; ein FEX für Linux-Programme wäre neu.
-  - Debian hat für ARM64 nur `aapt` (Fassung 1), kein `aapt2`.
+  - ~~Debian hat für ARM64 nur `aapt` (Fassung 1), kein `aapt2`.~~ Korrektur (VKh3a): Das Paket `aapt` bringt auch `aapt2`, aus
+    den Quellen gebaut – aber alt: Debian 12 aus Android 10 (zu alt für compileSdk 36), Ubuntu 24.04 aus Android 14 (Beta 1),
+    dazu an Bibliotheken der Distribution gebunden (`android-libandroidfw` …). Für compileSdk 36 bleibt der eigene Bau (W2 A).
 - **Gradle lädt Bibliotheken aus Maven** (Google Maven, Maven Central).
   - In der Sandbox ohne Netz geht das nur über einen weiteren Weg im Spiegel der Brücke, nach denselben Regeln wie npm und
     PyPI.
@@ -109,7 +111,8 @@ Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
 | VKh1 ✓ | Maven über den Spiegel der Brücke (W3 A): `/maven/google/…` und `/maven/central/…`, nur Archive, POMs, Gradle-Metadaten und Prüfsummen, als Strom; Init-Skript für Gradle im Home des Motors (Plugin-Portal → Maven Central); Java in der Sandbox (`/etc/java-<N>-openjdk`). Echttest mit Gradle in der Sandbox | ~400 |
 | VKh2a ✓ | Gradle und JDK im Bild (`GRADLE=1`): Gradle 9.8.2 in fester Fassung gegen SHA-256 (`scripts/gradle-holen.sh`, die CI vergleicht mit gradle.org), JDK 17 aus Debian; Hinweis in `SOUL.md` („`gradle`, nicht `./gradlew`“); die Echttests aus VKh1 laufen in der CI mit dieser Fassung | ~250 |
 | VKh2b ✓ | Bauen von APKs (W1 C, W4 A): SDK beim Bau des Bilds (`ANDROID=1`, `scripts/android-sdk-holen.sh`; die Lizenz nimmt nur an, wer baut: `ANDROID_SDK_LIZENZ=angenommen`), Plattform 36 und Build-Tools 36.0.0; auf amd64 mit Googles `aapt2`. Hinweis in `SOUL.md` (Plugin 9.5.0, `gradle assembleDebug`, APK über die Vorschau), Vorschau liefert APKs mit ihrem Typ, Echttest in der CI (amd64, SDK des Runners) | ~350 |
-| VKh3 | `aapt2` für ARM64 aus den Quellen (W2 A, `scripts/aapt2-bauen.sh`, Fassung und Commit fest, `--pruefen`), im Bild über `android.aapt2FromMavenOverride` | ~250 |
+| VKh3a ✓ | `aapt2` aus den AOSP-Quellen (W2 A): `scripts/aapt2-bauen.sh` nach dem Rezept von Commit451/android-arm-build-tools (MIT, CMake statt Soong, für glibc und GCC 12; Commit fest), Android 17 (`android-17.0.0_r1`, Build-Tools 37.0.0), jedes der 39 Repos am Commit geprüft; gebaut wie im Bild auf Debian 12; CI-Job auf x86-64 und ARM64 (Zwischenspeicher je Fassung des Skripts), Echttests: Ressourcen in der Sandbox verlinkt, auf x86-64 ein APK mit `android.aapt2FromMavenOverride` | ~400 |
+| VKh3b | `aapt2` im Bild auf ARM64 (Stufe mit den Werkzeugen von Debian 12), der Motor setzt `android.aapt2FromMavenOverride` in `~/.gradle/gradle.properties`, `androidSdkAusUmgebung()` und der Hinweis in `SOUL.md` auch auf ARM64 | ~250 |
 | VKh4 | Android im Bild (W1 A): Cuttlefish als eigener Dienst (Installer bzw. Compose-Profil „android“), Socket in die Sandbox des Programms, Viewer bzw. scrcpy, Installation über adb nach jeder Änderung – nur nach der Probe am GX10 | ~400 |
 | – | Das APK versiegelt über das Blob-Netz (VKh-W4 B) – erst, wenn die Vorschau von unterwegs nicht reicht | ~200 |
 
@@ -121,6 +124,13 @@ Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
   Kotlin-Plugins liegen auf Google Maven bzw. Maven Central. Plugins, die es nur im Portal gibt, findet Gradle nicht.
 - `./gradlew` lädt seine Gradle-Fassung von services.gradle.org und scheitert ohne Netz. Gradle selbst kommt seit VKh2a mit
   `GRADLE=1` ins Bild.
+
+**Befunde aus VKh3a:**
+- Das Rezept von lzhiyong/android-sdk-tools baut nur für Android (bionic); mit glibc scheiterte es an Dutzenden Stellen. Gebaut
+  wird nach dem Rezept von Commit451/android-arm-build-tools (MIT, für glibc und GCC 12 auf Debian 12), aus Android 17.
+- `aapt2` aus Android 17 arbeitet mit dem Android-Plugin 9.5.0 und compileSdk 36 über `android.aapt2FromMavenOverride`
+  (Echttest in der CI auf x86-64; auf ARM64 übersetzt und verlinkt es Ressourcen in der Sandbox).
+- Das Programm hängt nur an glibc, libstdc++ und zlib – im Bild (Debian 12) sind sie da.
 
 ## Proben am GX10 (MENSCH)
 

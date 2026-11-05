@@ -398,6 +398,105 @@ jobs:
         working-directory: packages/node
         run: timeout 300 node --import tsx test/fixtures/wine/diagnose.mts
 
+  # VKh3: aapt2 aus den AOSP-Quellen (scripts/aapt2-bauen.sh) – Google liefert es nur für x86-64. Gebaut wie im Docker-Bild:
+  # in node:22-bookworm-slim (Debian 12, GCC 12) mit den Paketen aus dem Skript, je Prozessor einmal je Fassung des Skripts,
+  # danach aus dem Zwischenspeicher; gespeichert gleich nach dem Bau, nicht erst am Ende (ein roter Test hielte sonst den
+  # nächsten Lauf beim Bauen auf). Geprüft in der Sandbox gegen android.jar, auf x86-64 auch mit dem Android-Plugin
+  # (android-36 gibt es nur mit dem SDK des Runners)
+  aapt2:
+    name: aapt2 aus den Quellen (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Abhaengigkeiten installieren
+        run: npm install --workspaces --include-workspace-root --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      # B-42: Pakete über den Zwischenspeicher wie im Testjob
+      - name: Paket-Zwischenspeicher vorbereiten
+        run: |
+          echo "IMAGE_VERSION=$ImageVersion" >> "$GITHUB_ENV"
+          sudo mkdir -p /var/cache/freedom-apt
+          sudo chown "$(id -u):$(id -g)" /var/cache/freedom-apt
+          printf 'Dir::Cache::archives "/var/cache/freedom-apt";\nAPT::Keep-Downloaded-Packages "true";\n' | sudo tee /etc/apt/apt.conf.d/99-freedom-zwischenspeicher
+
+      - name: Pakete aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/freedom-apt
+          key: apt-${{ github.job }}-${{ matrix.arch }}-${{ env.IMAGE_VERSION }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: apt-${{ github.job }}-${{ matrix.arch }}-
+
+      # Die Sandbox und android.jar (API 23) aus Ubuntu – aus den Quellen gebaut
+      - name: Sandbox und android.jar
+        run: |
+          PAKETE="bubblewrap libandroid-23-java"
+          sudo apt-get install -y --no-install-recommends $PAKETE \
+            || { sudo apt-get update && sudo apt-get install -y --no-install-recommends $PAKETE; }
+          bwrap --unshare-user --ro-bind / / true || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --unshare-all --ro-bind / / true
+
+      - name: Paket-Zwischenspeicher lesbar machen
+        run: |
+          sudo rm -f /var/cache/freedom-apt/lock
+          sudo chown -R "$(id -u):$(id -g)" /var/cache/freedom-apt
+
+      - name: aapt2 aus dem Zwischenspeicher
+        id: aapt2-zwischenspeicher
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/freedom-aapt2
+          key: aapt2-${{ matrix.arch }}-${{ hashFiles('scripts/aapt2-bauen.sh') }}
+
+      - name: aapt2 bauen
+        if: steps.aapt2-zwischenspeicher.outputs.cache-hit != 'true'
+        run: |
+          pakete="$(sed -n 's/^AAPT2_BAU_PAKETE="\(.*\)"$/\1/p' scripts/aapt2-bauen.sh)"
+          mkdir -p "$HOME/.cache/freedom-aapt2" && df -h / | tail -1
+          docker run --rm -v "$PWD/scripts:/skripte:ro" -v "$HOME/.cache/freedom-aapt2:/aus" node:22-bookworm-slim bash -c \
+            "apt-get update -qq && apt-get install -y -qq --no-install-recommends $pakete > /dev/null && bash /skripte/aapt2-bauen.sh /aus"
+
+      - name: aapt2 in den Zwischenspeicher
+        if: steps.aapt2-zwischenspeicher.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/freedom-aapt2
+          key: aapt2-${{ matrix.arch }}-${{ hashFiles('scripts/aapt2-bauen.sh') }}
+
+      - name: Gradle aus dem Zwischenspeicher
+        if: matrix.arch == 'x86_64'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/freedom-gradle
+          key: gradle-${{ hashFiles('scripts/gradle-holen.sh') }}
+      - name: Gradle fuer das APK
+        if: matrix.arch == 'x86_64'
+        run: |
+          bash scripts/gradle-holen.sh "$HOME/.cache/freedom-gradle"
+          echo "GRADLE_TEST=$HOME/.cache/freedom-gradle/gradle-$(sed -n 's/^GRADLE_FASSUNG=//p' scripts/gradle-holen.sh)/bin/gradle" >> "$GITHUB_ENV"
+          echo "AAPT2_APK_PFLICHT=1" >> "$GITHUB_ENV"
+
+      - name: aapt2 in der Sandbox (und auf x86-64 ein APK damit)
+        working-directory: packages/node
+        run: |
+          file "$HOME/.cache/freedom-aapt2/aapt2"
+          AAPT2_TEST="$HOME/.cache/freedom-aapt2/aapt2" AAPT2_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKh3" test/paket-spiegel.test.ts
+
   smoke:
     name: Browser-Test (Smoke)
     # C-18 (entschieden 29.09.2026): der Smoke-Test lief bis dahin nur lokal bei

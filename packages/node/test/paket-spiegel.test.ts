@@ -315,7 +315,7 @@ async function baueMitGradle(
         gradle!.gradle, "--no-daemon", "--console=plain", "-q", "--project-dir", "/arbeit", ...befehl],
       { arbeit, home, nurLesbar, ...(mehr.rechenzeitSek ? { rechenzeitSek: mehr.rechenzeitSek } : {}) }, mehr.zeitMs ?? 300_000,
     );
-    return { ...ergebnis, arbeit };
+    return { ...ergebnis, arbeit, home };
   } finally {
     bruecke.schliesse();
   }
@@ -370,51 +370,112 @@ function findeSdk(): string | null {
 }
 const sdk = findeSdk();
 
-test("VKh2b (Gradle): ein APK mit dem Android-Plugin – gebaut in der Sandbox ohne Netz, das SDK nur lesbar", {
-  skip: ohneGradle || (!sdk && "Android-SDK mit android-36 und build-tools 36.0.0 fehlt") || (!googleDa && "Google Maven nicht erreichbar"),
-}, async () => {
-  const r = await baueMitGradle({
-    "settings.gradle": 'rootProject.name = "probe"\n',
-    "gradle.properties": "org.gradle.jvmargs=-Xmx2g\n",
-    "local.properties": `sdk.dir=${sdk}\n`,
-    "build.gradle": [
-      `plugins { id "com.android.application" version "${ANDROID_PLUGIN_FASSUNG}" }`,
-      "repositories { google(); mavenCentral() }",
-      "android {",
-      '  namespace = "org.freedom.probe"',
-      "  compileSdk = 36",
-      '  defaultConfig { applicationId = "org.freedom.probe"; minSdk = 24; targetSdk = 36; versionCode = 1; versionName = "1" }',
-      "}",
-      "",
-    ].join("\n"),
-    "src/main/AndroidManifest.xml": [
-      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-      '  <application android:label="Probe">',
-      '    <activity android:name=".Probe" android:exported="true">',
-      '      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>',
-      "    </activity>",
-      "  </application>",
-      "</manifest>",
-      "",
-    ].join("\n"),
-    "src/main/java/org/freedom/probe/Probe.java": [
-      "package org.freedom.probe;",
-      "public class Probe extends android.app.Activity {",
-      "  @Override protected void onCreate(android.os.Bundle b) {",
-      "    super.onCreate(b);",
-      "    android.widget.TextView t = new android.widget.TextView(this);",
-      '    t.setText("Freedom");',
-      "    setContentView(t);",
-      "  }",
-      "}",
-      "",
-    ].join("\n"),
-  }, { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() }, ["assembleDebug"], {
+/** Ein Android-Projekt wie das, das der Agent baut: eine Activity, das Plugin in `ANDROID_PLUGIN_FASSUNG`, compileSdk 36. */
+const ANDROID_PROJEKT = (eigenschaften: string) => ({
+  "settings.gradle": 'rootProject.name = "probe"\n',
+  "gradle.properties": `org.gradle.jvmargs=-Xmx2g\n${eigenschaften}`,
+  "local.properties": `sdk.dir=${sdk}\n`,
+  "build.gradle": [
+    `plugins { id "com.android.application" version "${ANDROID_PLUGIN_FASSUNG}" }`,
+    "repositories { google(); mavenCentral() }",
+    "android {",
+    '  namespace = "org.freedom.probe"',
+    "  compileSdk = 36",
+    '  defaultConfig { applicationId = "org.freedom.probe"; minSdk = 24; targetSdk = 36; versionCode = 1; versionName = "1" }',
+    "}",
+    "",
+  ].join("\n"),
+  "src/main/AndroidManifest.xml": [
+    '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+    '  <application android:label="Probe">',
+    '    <activity android:name=".Probe" android:exported="true">',
+    '      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>',
+    "    </activity>",
+    "  </application>",
+    "</manifest>",
+    "",
+  ].join("\n"),
+  "src/main/java/org/freedom/probe/Probe.java": [
+    "package org.freedom.probe;",
+    "public class Probe extends android.app.Activity {",
+    "  @Override protected void onCreate(android.os.Bundle b) {",
+    "    super.onCreate(b);",
+    "    android.widget.TextView t = new android.widget.TextView(this);",
+    '    t.setText("Freedom");',
+    "    setContentView(t);",
+    "  }",
+    "}",
+    "",
+  ].join("\n"),
+});
+
+/** Das APK bauen und prüfen; `nurLesbar` kommt zum SDK dazu (etwa das eigene aapt2). Gibt das Home von Gradle zurück. */
+async function baueApk(eigenschaften = "", nurLesbar: Array<{ quelle: string; ziel: string }> = []) {
+  const r = await baueMitGradle(ANDROID_PROJEKT(eigenschaften), { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() }, ["assembleDebug"], {
     // ein SDK außerhalb von /usr nur lesbar dazu; das Android-Plugin rechnet länger als die Grenze für einen Befehl
-    nurLesbar: sdk!.startsWith("/usr/") ? [] : [{ quelle: sdk!, ziel: sdk! }], zeitMs: 900_000, rechenzeitSek: 3600,
+    nurLesbar: [...(sdk!.startsWith("/usr/") ? [] : [{ quelle: sdk!, ziel: sdk! }]), ...nurLesbar], zeitMs: 900_000, rechenzeitSek: 3600,
   });
   assert.equal(r.code, 0, r.ausgabe);
   const apk = join(r.arbeit, "build", "outputs", "apk", "debug", "probe-debug.apk");
   const eintraege = execFileSync("unzip", ["-Z1", apk], { encoding: "utf8" }).split("\n");
   assert.ok(eintraege.includes("AndroidManifest.xml") && eintraege.includes("classes.dex"), eintraege.join(", "));
+  return r.home;
+}
+/** Hat Gradle aapt2 aus Maven geholt (das Programm von Google, nur x86-64)? */
+const aapt2AusMaven = (home: string) => existsSync(join(home, ".gradle", "caches", "modules-2", "files-2.1", "com.android.tools.build", "aapt2"));
+
+test("VKh2b (Gradle): ein APK mit dem Android-Plugin – gebaut in der Sandbox ohne Netz, das SDK nur lesbar", {
+  skip: ohneGradle || (!sdk && "Android-SDK mit android-36 und build-tools 36.0.0 fehlt") || (!googleDa && "Google Maven nicht erreichbar"),
+}, async () => {
+  // ohne Umweg nimmt das Plugin aapt2 aus Maven – die Gegenprobe zu VKh3
+  assert.ok(aapt2AusMaven(await baueApk()), "aapt2 aus Maven");
+});
+
+// --- aapt2 aus den Quellen (VKh3) ------------------------------------------------------------------------------------
+
+/**
+ * aapt2 aus `scripts/aapt2-bauen.sh` (`AAPT2_TEST`; die CI baut es auf x86-64 und ARM64). Mit `AAPT2_TEST_PFLICHT=1` ist der
+ * Test rot, statt sich zu überspringen, wenn etwas fehlt; mit `AAPT2_APK_PFLICHT=1` ebenso der Bau eines APK (nur x86-64:
+ * android-36 gibt es nur mit dem SDK von Google).
+ */
+const aapt2 = process.env.AAPT2_TEST && existsSync(process.env.AAPT2_TEST) ? realpathSync(process.env.AAPT2_TEST) : null;
+/** android.jar zum Verlinken: android-36 aus dem SDK, android-23 aus Debian/Ubuntu (libandroid-23-java, aus den Quellen gebaut). */
+const androidJars = [sdk && join(sdk, "platforms", "android-36", "android.jar"), "/usr/lib/android-sdk/platforms/android-23/android.jar"]
+  .filter((j): j is string => !!j && existsSync(j));
+const ohneAapt2 = (!sandbox.ok && `Sandbox geht hier nicht (${sandbox.fall})`) || (!aapt2 && "AAPT2_TEST fehlt (scripts/aapt2-bauen.sh)")
+  || (androidJars.length === 0 && "kein android.jar");
+
+test("VKh3 (aapt2): aus den Quellen – übersetzt und verlinkt Ressourcen in der Sandbox ohne Netz", {
+  skip: process.env.AAPT2_TEST_PFLICHT === "1" ? false : ohneAapt2,
+}, async () => {
+  assert.equal(ohneAapt2, false, `AAPT2_TEST_PFLICHT: ${ohneAapt2}`);
+  for (const jar of androidJars) {
+    const arbeit = tmp("aapt2");
+    mkdirSync(join(arbeit, "res", "values"), { recursive: true });
+    writeFileSync(join(arbeit, "res", "values", "strings.xml"), '<resources><string name="name">Freedom</string></resources>\n');
+    // das Thema kommt aus android.jar – verlinkt heißt: aapt2 hat dessen Ressourcen gelesen
+    writeFileSync(join(arbeit, "AndroidManifest.xml"), '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.freedom.probe">'
+      + '<application android:label="@string/name" android:theme="@android:style/Theme.Material"/></manifest>\n');
+    const r = await fuehreAus(["sh", "-c", [
+      "/freedom/aapt2 version",
+      "/freedom/aapt2 compile res/values/strings.xml -o .",
+      "/freedom/aapt2 link -I /freedom/android.jar --manifest AndroidManifest.xml -o probe.apk values_strings.arsc.flat",
+      "/freedom/aapt2 dump badging probe.apk",
+    ].join(" && ")], { arbeit, nurLesbar: [{ quelle: aapt2!, ziel: "/freedom/aapt2" }, { quelle: jar, ziel: "/freedom/android.jar" }] });
+    assert.equal(r.code, 0, `${jar}\n${r.ausgabe}`);
+    assert.match(r.ausgabe, /Android Asset Packaging Tool \(aapt\) 2\./);
+    assert.match(r.ausgabe, /application-label:'Freedom'/);
+    const eintraege = execFileSync("unzip", ["-Z1", join(arbeit, "probe.apk")], { encoding: "utf8" }).split("\n");
+    assert.ok(eintraege.includes("AndroidManifest.xml") && eintraege.includes("resources.arsc"), eintraege.join(", "));
+  }
+});
+
+const ohneApk = ohneGradle || (!sdk && "Android-SDK mit android-36 und build-tools 36.0.0 fehlt") || (!googleDa && "Google Maven nicht erreichbar")
+  || (!aapt2 && "AAPT2_TEST fehlt (scripts/aapt2-bauen.sh)");
+test("VKh3 (Gradle): ein APK mit dem eigenen aapt2 – über android.aapt2FromMavenOverride, nichts aus Maven", {
+  skip: process.env.AAPT2_APK_PFLICHT === "1" ? false : ohneApk,
+}, async () => {
+  assert.equal(ohneApk, false, `AAPT2_APK_PFLICHT: ${ohneApk}`);
+  const home = await baueApk(`android.aapt2FromMavenOverride=${aapt2}\n`, aapt2!.startsWith("/usr/") ? [] : [{ quelle: aapt2!, ziel: aapt2! }]);
+  assert.equal(aapt2AusMaven(home), false, "aapt2 kam aus Maven, nicht aus den Quellen");
 });

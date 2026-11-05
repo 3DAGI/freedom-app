@@ -277,6 +277,40 @@ test("VKh2b: Android-SDK nur mit VIBECODEN=1, ANDROID=1 und GRADLE=1 – die Liz
   assert.ok(!lies("docker-compose.yml").includes("ANDROID"), "der Standard bleibt ohne");
 });
 
+test("VKh3a: aapt2 nur aus den Quellen – Rezept und jedes Repo am Commit geprüft, bevor etwas davon läuft; die CI baut es wie das Bild auf beiden Prozessoren", () => {
+  const skript = lies("scripts/aapt2-bauen.sh");
+  assert.match(skript, /^AAPT2_FASSUNG=37\.0\.0$/m);
+  assert.match(skript, /^AOSP_TAG=android-17\.0\.0_r1$/m);
+  assert.match(skript, /^AOSP=https:\/\/android\.googlesource\.com$/m);
+  assert.match(skript, /^REZEPT=https:\/\/github\.com\/Commit451\/android-arm-build-tools$/m);
+  assert.match(skript, /^REZEPT_COMMIT=[0-9a-f]{40}$/m);
+  const staende = skript.match(/^STAENDE="\n([\s\S]*?)\n"$/m)![1].split("\n");
+  assert.equal(staende.length, 39, "alle Repos aus repos.json des Rezepts");
+  for (const z of staende) assert.match(z, /^[a-z0-9_-]+ +platform\/[a-z0-9_/-]+ +[0-9a-f]{40}$/, z);
+  assert.ok(!staende.some((z) => / 0{40}$/.test(z)), "kein Platzhalter – jeder Commit fest");
+  // erst holen und prüfen, dann die Liste des Rezepts vergleichen – erst danach laufen dessen Skript und CMake
+  const stelle = (t: string) => { const i = skript.indexOf(t); assert.ok(i > 0, t); return i; };
+  assert.ok(stelle('[ "$stand" != "$commit" ]') < stelle("repos.json des Rezepts nennt andere Repos"));
+  assert.ok(stelle("repos.json des Rezepts nennt andere Repos") < stelle('python3 -I "$R/scripts/fetch_sources.py"'));
+  assert.ok(stelle('python3 -I "$R/scripts/fetch_sources.py"') < stelle('cmake -S "$R"'));
+  assert.match(skript, /grep -q ": cloned\$" "\$ARBEIT\/quellen\.log" \|\| grep -q "!!" "\$ARBEIT\/quellen\.log"/, "das Rezept holt nichts selbst, jeder Patch passt");
+  assert.match(skript, /-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g\+\+/);
+  assert.match(skript, /bibliotheken="\$\(ldd "\$PROGRAMM"\)" \|\| \{/, "scheitert ldd, bricht es ab – leer hieße sonst „nichts Fremdes“");
+  assert.match(skript, /grep -vqE 'linux-vdso\|ld-linux\|lib\(c\|m\|dl\|rt\|pthread\|stdc\\\+\\\+\|gcc_s\|z\)\\\.so'/, "nur glibc, libstdc++ und zlib");
+  assert.match(skript, /Lizenztext fehlt für\$fehlt – Abbruch/);
+  assert.ok(stelle("Lizenztext fehlt für") < stelle('cmake -S "$R"'), "Lizenztexte vor dem langen Bau");
+  assert.ok(!/\b(curl|wget)\b/.test(skript), "nichts Fertiges laden – nur Quellen über git");
+  const ci = lies(".github/workflows/ci.yml");
+  assert.match(ci, /- \{ arch: x86_64, runner: ubuntu-24\.04 \}\n\s+- \{ arch: aarch64, runner: ubuntu-24\.04-arm \}/);
+  assert.equal([...ci.matchAll(/key: aapt2-\$\{\{ matrix\.arch \}\}-\$\{\{ hashFiles\('scripts\/aapt2-bauen\.sh'\) \}\}/g)].length, 2, "geholt und gleich nach dem Bau gespeichert");
+  // gebaut wie im Bild: dieselbe Basis wie jede Stufe (B-43), genau die Pakete aus dem Skript
+  assert.match(ci, /pakete="\$\(sed -n 's\/\^AAPT2_BAU_PAKETE="\\\(\.\*\\\)"\$\/\\1\/p' scripts\/aapt2-bauen\.sh\)"/);
+  assert.match(ci, /docker run --rm -v "\$PWD\/scripts:\/skripte:ro" -v "\$HOME\/\.cache\/freedom-aapt2:\/aus" node:22-bookworm-slim bash -c/);
+  assert.match(ci, /apt-get install -y -qq --no-install-recommends \$pakete > \/dev\/null && bash \/skripte\/aapt2-bauen\.sh \/aus"/);
+  assert.match(ci, /AAPT2_TEST="\$HOME\/\.cache\/freedom-aapt2\/aapt2" AAPT2_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKh3" test\/paket-spiegel\.test\.ts\n/);
+  assert.match(ci, /echo "AAPT2_APK_PFLICHT=1" >> "\$GITHUB_ENV"/, "auf x86-64 auch das APK, nie übersprungen");
+});
+
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
   const docker = lies("docker/node.Dockerfile");
   const basen = [...docker.matchAll(/^FROM (\S+)/gm)].map((m) => m[1]);
