@@ -435,20 +435,53 @@ export function gimpBefehl(gimp: string, groesse: { breite: number; hoehe: numbe
   return ["/bin/sh", "-c", GIMP_START, gimp, "/arbeit/main.xcf", String(groesse.breite), String(groesse.hoehe)];
 }
 
+/** Wo der Knoten QGIS sucht (VKk4g) – nur das Paket der Distribution unter `/usr` (mit Qt, GDAL und PROJ viele Dateien). */
+export const QGIS_ORTE: readonly string[] = ["/usr/bin/qgis"];
+
+/** QGIS aus der Distribution (VKk4g): der erste aus `QGIS_ORTE`; null mit `QGIS=aus` oder ohne Fund. */
+export function qgisAusUmgebung(env: { QGIS?: string }, orte: readonly string[] = QGIS_ORTE): string | null {
+  return env.QGIS?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Karten, die das Bild in QGIS zeigt (VKk4g): das Projekt als XML (Text), dann als Archiv – die erste echte Datei zählt. */
+export const QGIS_DATEIEN: readonly string[] = ["main.qgs", "main.qgz"];
+
+/**
+ * Eine Karte im Bild (VKk4g): ein Projekt aus `QGIS_DATEIEN` in QGIS. Die Einstellungen legt das Skript im Home der Sandbox an
+ * (tmpfs, nie im Projekt): kein Download fehlender Schriften – sonst versucht QGIS beim ersten Start „Open Sans“ zu laden und
+ * meldet über der Karte, dass es scheiterte (die Sandbox hat kein Netz). Ohne Fenstermanager öffnet QGIS sein Fenster in eigener
+ * Größe; ein Skript beim Start (`--code`, Python in QGIS) setzt es auf 0,0 und genau die Größe des Bilds – den Ausschnitt der Karte
+ * passt QGIS dabei selbst neu ein. Die Statusleiste allein braucht rund 1000 Pixel Breite: Ist das Bild schmaler, blendet das
+ * Skript sie aus, sonst ragte die Karte über den Rand. Ein geändertes Projekt lädt QGIS nicht von selbst: Neustart über
+ * `neustartSchleife()`. `$0` ist QGIS, `$1` die Datei, `$2` und `$3` die Größe.
+ */
+export const QGIS_START = [
+  `p="$HOME/.local/share/QGIS/QGIS3/profiles/default/QGIS"; mkdir -p "$p"`,
+  `printf '%s\\n' '[fonts]' 'downloadMissingFonts=false' > "$p/QGIS3.ini"`,
+  `printf '%s\\n' 'from qgis.utils import iface' 'w = iface.mainWindow()' "if w.minimumSizeHint().width() > $2:" '    w.statusBar().hide()' \\`,
+  `  '    w.layout().activate()' "w.setGeometry(0, 0, $2, $3)" > "$HOME/.freedom-qgis.py"`,
+  ...neustartSchleife(undefined, `--nologo --code "$HOME/.freedom-qgis.py" `),
+].join("\n");
+
+export function qgisBefehl(qgis: string, datei: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", QGIS_START, qgis, `/arbeit/${datei}`, String(groesse.breite), String(groesse.hoehe)];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
  * `main.exe`, mit OpenSCAD (VKk4a) dann `main.scad`, mit KiCad (VKk4b) dann `main.kicad_sch`, mit Blender (VKk4c) dann
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
- * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) zuletzt `main.xcf`.
+ * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
+ * QGIS (VKk4g) zuletzt ein Projekt aus `QGIS_DATEIEN`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
-    inkscape?: string; gimp?: string;
+    inkscape?: string; gimp?: string; qgis?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -477,6 +510,9 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.inkscape && ist("main.svg", "datei")) return inkscapeBefehl(programme.inkscape);
   // ebenso ein Bild aus GIMP (VKk4f) – die Quelle eines Logos liegt oft daneben
   if (programme?.gimp && ist("main.xcf", "datei")) return gimpBefehl(programme.gimp, programme);
+  // ebenso eine Karte aus QGIS (VKk4g) – das Projekt hinter einer Web-Karte liegt oft daneben
+  const karte = programme?.qgis ? QGIS_DATEIEN.find((d) => ist(d, "datei")) : undefined;
+  if (programme?.qgis && karte) return qgisBefehl(programme.qgis, karte, programme);
   return null;
 }
 
@@ -484,11 +520,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * Was der Motor über das Bild wissen muss (VKk5, `SOUL.md` im Home von Hermes): welche Datei das Bild startet, in der
  * Reihenfolge von `bildBefehl()` und nur mit den Programmen, die der Knoten hat – sonst nennte der Agent seine Datei
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
- * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht.
+ * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
+ * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
-  inkscape?: boolean; gimp?: boolean;
+  inkscape?: boolean; gimp?: boolean; qgis?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -510,6 +547,14 @@ export function bildHinweise(p: {
     ...(p.gimp ? ["- `main.xcf` – GIMP (only if no web project is there); it restarts after every save. In the terminal, Script-Fu runs "
       + "without the screen, for example to turn another image into `main.xcf`: `gimp -i -b '(let* ((i (car (gimp-file-load 1 \"bild.jpg\" "
       + "\"bild.jpg\")))) (gimp-xcf-save 0 i (car (gimp-image-get-active-drawable i)) \"main.xcf\" \"main.xcf\"))' -b '(gimp-quit 0)'`"] : []),
+    ...(p.qgis ? ["- `main.qgs` (or `main.qgz`) – a QGIS project (only if no web project is there); it restarts after every save of the "
+      + "project. Keep the layers as files next to it (GeoJSON, GeoPackage) with relative paths, and set a default view – without "
+      + "one the map opens empty. In the terminal, QGIS needs `QT_QPA_PLATFORM=offscreen`; build the project with PyQGIS and the "
+      + "system Python, for example `QT_QPA_PLATFORM=offscreen /usr/bin/python3 -c 'from qgis.core import *; a = QgsApplication([], "
+      + "False); a.initQgis(); p = QgsProject.instance(); l = QgsVectorLayer(\"karte.geojson\", \"karte\", \"ogr\"); p.addMapLayer(l); "
+      + "p.setCrs(l.crs()); p.viewSettings().setDefaultViewExtent(QgsReferencedRectangle(l.extent(), l.crs())); p.write(\"main.qgs\"); "
+      + "a.exitQgis()'`, and run processing algorithms with `QT_QPA_PLATFORM=offscreen qgis_process run native:buffer "
+      + "--INPUT=karte.geojson --DISTANCE=1 --OUTPUT=puffer.geojson`"] : []),
   ];
   return [
     "# Showing the project",
@@ -576,6 +621,8 @@ export class BildStrom {
     inkscape?: string;
     /** GIMP für `main.xcf` (VKk4f, `gimpAusUmgebung()`) – unter `/usr`, dazu `/etc/gimp` aus der Sandbox. */
     gimp?: string;
+    /** QGIS für Karten (VKk4g, `qgisAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    qgis?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -609,6 +656,7 @@ export class BildStrom {
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
       ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
       ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
+      ...(this.o.qgis ? { qgis: this.o.qgis } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

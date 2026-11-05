@@ -853,6 +853,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   250 MB; `GIMP=aus` schaltet es ab) – nach Web und `main.svg`; das Fenster füllt das Bild,
   Strg+S speichert dorthin. Ändert der Agent die Datei, startet GIMP im Bild neu. Im Terminal
   wandelt er mit Script-Fu (`gimp -i -b …`) ein anderes Bild in `main.xcf`.
+  Karten (`main.qgs`, sonst `main.qgz`, seit VKk4g) zeigt QGIS (`qgis`, im Bild nur mit
+  `QGIS=1`, mit GDAL, PROJ und PyQGIS bis zu 900 MB; `QGIS=aus` schaltet es ab) – nach Web,
+  `main.svg` und `main.xcf`; das Fenster füllt das Bild, ist es schmaler als rund 1000 Pixel,
+  ohne Statusleiste. Baut der Agent das Projekt neu, startet QGIS im Bild neu; beim Speichern
+  legt QGIS selbst `main.qgs~` und `main_attachments.zip` daneben. Im Terminal baut er das
+  Projekt mit PyQGIS und rechnet mit `qgis_process` (beides mit `QT_QPA_PLATFORM=offscreen`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

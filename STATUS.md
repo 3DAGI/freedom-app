@@ -662,3 +662,57 @@ Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W2 A), nach VKh3a. Damit baut der Agent A
 - Die Shell der Stufe unter `dash` nachgestellt: auf amd64 baut sie nichts, auf arm64 installiert sie die Pakete aus dem Skript
   und baut. `docker buildx build --check`: keine Warnungen.
 - `SOUL.md` mit allen Hinweisen, Gradle und Android mit `aapt2` gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+## Schritt VKk4g – QGIS im Bild
+
+Spur B, VKk („weitere grafische Programme“, `docs/VIBECODEN-ENTWURF.md`), nach VKk4f. Karten sind ein neues Gebiet; das Projekt
+baut der Agent als Text oder mit PyQGIS, die Ebenen liegen als Dateien daneben.
+
+**Änderungen:**
+- **`bildstrom.ts`:**
+  - `qgisAusUmgebung()` sucht nur `/usr/bin/qgis` (`QGIS_ORTE`), `QGIS=aus` schaltet ab.
+  - `bildBefehl()` zeigt `main.qgs`, sonst `main.qgz` (`QGIS_DATEIEN`, nur echte Dateien) – nach Web, `main.svg` und `main.xcf`:
+    Das Projekt hinter einer Web-Karte verdrängt die Seite nicht.
+  - `QGIS_START`: ohne Download fehlender Schriften (`fonts/downloadMissingFonts=false` im Home der Sandbox), dazu ein Skript beim
+    Start (`--code`), das das Fenster auf 0,0 und genau die Größe des Bilds setzt – in Bildern unter rund 1000 Pixeln Breite ohne
+    Statusleiste. Neustart nach jeder Änderung über `neustartSchleife()`.
+  - `bildHinweise()` nennt `main.qgs`/`main.qgz`, die Standardansicht (ohne öffnet die Karte leer) und die Befehle im Terminal:
+    PyQGIS mit dem Python der Distribution und `qgis_process`, beide mit `QT_QPA_PLATFORM=offscreen`.
+- **`main.ts`:** gibt QGIS an den Bildstrom und die Hinweise, das Log nennt es.
+- **Bild:** `ARG QGIS=0`, nur mit `VIBECODEN=1` und `QGIS=1`: QGIS aus Debian (3.22, GPL-2.0+), mit GDAL, PROJ und PyQGIS bis zu
+  900 MB (hier, ohne die schon installierten Teile, 920 MB mit 115 Paketen); Compose reicht `QGIS` durch.
+- **CI:** Schritt „QGIS fuer den Bild-Test“ im Testjob (Paket der Distribution, 3.34 in Ubuntu 24.04), über den Zwischenspeicher.
+- **Docs:** PROVIDER (Karten), PROTOCOL (`code-bild-kein-programm`), Fallstrick in `packages/node/CLAUDE.md`, VIBECODEN-Entwurf
+  (Tabelle, VKk), OFFEN (VKk, Probe „Vibecoden“ mit `QGIS=1` und einer Karte), FORTSCHRITT, Stand.
+
+**Befunde:**
+- QGIS liest seine Argumente selbst: `-geometry` setzt Qt zwar um, QGIS hält es aber zusätzlich für Dateien („Invalid Data
+  Source“). Maximiert und Vollbild in `UI/geometry` übergeht Qt ohne Fenstermanager, eine normale Größe verkleinert es um eine
+  Titelleiste (20 Pixel) und verschiebt das Fenster – darum das Skript mit `setGeometry()`. Den Ausschnitt der Karte passt QGIS
+  bei der neuen Größe selbst neu ein (gemessen bei 1024 und 640 Pixeln, mit und ohne vorab geschriebene Größe gleich).
+- Die Statusleiste allein braucht 1011 Pixel (Koordinate, Maßstab, Lupe, Drehung, KBS); in einem schmaleren Bild bleibt das
+  Fenster so breit, und die Karte ragt über den Rand. Ohne sie sind es 446 Pixel. Die Mindestbreite gilt erst nach
+  `layout().activate()` – sonst bleibt `setGeometry()` bei 1011.
+- Ohne `downloadMissingFonts=false` will QGIS 3.34 beim ersten Start „Open Sans“ laden und meldet das Scheitern über der Karte.
+  Der Schlüssel steht nur als UTF-16 in `libqgis_core` (`strings -el`); `download-missing` wirkt nicht.
+- Ein mit PyQGIS geschriebenes Projekt ohne Standardansicht öffnet mit leerer Karte – der Befehl in den Hinweisen setzt sie.
+- Beim Speichern legt QGIS `main.qgs~` (die alte Fassung) und `main_attachments.zip` (eine Stil-Datenbank) neben das Projekt;
+  beim Öffnen legt es nichts an. Im Terminal brechen `qgis_process` und PyQGIS ohne Bildschirm ab, mit
+  `QT_QPA_PLATFORM=offscreen` laufen sie. Ubuntu bringt für QGIS kein AppArmor-Profil mit (anders als für LibreOffice).
+
+**Tests:**
+- `bildstrom.test.ts` +6:
+  - Karten: `main.qgs` vor `main.qgz`, nur mit QGIS, auch ohne Browser; `index.html` und `main.xcf` gehen vor; Verweis und Ordner
+    zählen nicht.
+  - Erkennung: nur die Orte unter `/usr`, `QGIS=aus`, kein eigener Pfad, ein Ordner ist kein QGIS.
+  - Start mit Attrappe: Argumente (`--nologo --code … main.qgs`), `QGIS3.ini` genau ohne Download, das Skript Zeile für Zeile;
+    Neustart nach der Änderung.
+  - Bildstrom: in der Sandbox des Programms, nur der Socket des Bildschirms; ohne QGIS kein Programm.
+  - Ende zu Ende (QGIS 3.34, bubblewrap, Xvfb, coturn): erst grün, der Test baut die Karte mit dem Befehl aus den Hinweisen rot
+    neu, das Bild wird rot; im Projekt nur, was QGIS beim Speichern selbst anlegt. Gegenprobe: ohne das Skript beim Start misst
+    der Test bei 640 Pixeln nur Weiß.
+  - Terminal: beide Befehle aus den Hinweisen in der Sandbox – Projekt mit relativem Pfad und Standardansicht, ein Puffer
+    mit `qgis_process`.
+- `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.qgs` am Ende.
+- `docker-vibecoden.test.ts` +1: `ARG QGIS`, nur mit `QGIS=1`, Compose, nicht im Standard, die CI installiert es.
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.

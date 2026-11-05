@@ -20,10 +20,10 @@ import {
   BILD_GRENZEN, BILD_IN_SANDBOX, BLENDER_ORTE, BLENDER_START, BildStrom, GIMP_ORTE, GIMP_START, GODOT_IN_SANDBOX, GODOT_ORTE, GODOT_START,
   INKSCAPE_ORTE, INKSCAPE_START,
   KICAD_ORTE, KICAD_START,
-  LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START,
+  LIBREOFFICE_DATEIEN, LIBREOFFICE_ORTE, LIBREOFFICE_START, OPENSCAD_ORTE, OPENSCAD_START, QGIS_DATEIEN, QGIS_ORTE, QGIS_START,
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
   X11_UMWEG, gimpAusUmgebung, gimpBefehl, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
-  wineLesbar,
+  qgisAusUmgebung, qgisBefehl, wineLesbar,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -320,32 +320,33 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
-    godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true,
+    godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
+    "main.qgs",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
   assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
-  for (const d of LIBREOFFICE_DATEIEN) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
+  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
-    inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp",
+    inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
-    gimpBefehl("/usr/bin/gimp", g),
+    gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -699,6 +700,101 @@ test("VKk4f: GIMP im Bildstrom – main.xcf in der Sandbox des Programms, nichts
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4g: Karten – main.qgs, sonst main.qgz, nur mit QGIS, nach Web, main.svg und main.xcf, nur eine echte Datei", () => {
+  const a = ablage("karte", "archiv", "beide", "web", "bild", "verweis", "ordner");
+  const g = { breite: 1024, hoehe: 768 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...g };
+  const mit = { ...g, qgis: "/usr/bin/qgis" };
+  assert.deepEqual(QGIS_DATEIEN, ["main.qgs", "main.qgz"], "erst das Projekt als Text, dann das Archiv");
+  writeFileSync(join(a.ort("karte"), "main.qgs"), "<qgis/>");
+  assert.deepEqual(bildBefehl(a.ort("karte"), web, mit), qgisBefehl("/usr/bin/qgis", "main.qgs", g));
+  assert.deepEqual(bildBefehl(a.ort("karte"), undefined, mit), qgisBefehl("/usr/bin/qgis", "main.qgs", g), "auch ohne Browser");
+  assert.deepEqual(qgisBefehl("/usr/bin/qgis", "main.qgs", g), ["/bin/sh", "-c", QGIS_START, "/usr/bin/qgis", "/arbeit/main.qgs", "1024", "768"]);
+  assert.equal(bildBefehl(a.ort("karte"), web, g), null, "ohne QGIS zählt main.qgs nicht");
+  writeFileSync(join(a.ort("archiv"), "main.qgz"), "PK");
+  assert.deepEqual(bildBefehl(a.ort("archiv"), undefined, mit), qgisBefehl("/usr/bin/qgis", "main.qgz", g));
+  for (const f of QGIS_DATEIEN) writeFileSync(join(a.ort("beide"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("beide"), undefined, mit), qgisBefehl("/usr/bin/qgis", "main.qgs", g), "main.qgs geht vor");
+  // das Projekt hinter einer Web-Karte verdrängt die Seite nicht, und nach Zeichnung und Bild
+  for (const [f, inhalt] of [["main.qgs", "<qgis/>"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  assert.deepEqual(bildBefehl(a.ort("web"), undefined, mit), qgisBefehl("/usr/bin/qgis", "main.qgs", g), "ohne Browser bleibt die Karte");
+  for (const f of ["main.qgs", "main.xcf"]) writeFileSync(join(a.ort("bild"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("bild"), undefined, { ...mit, gimp: "/usr/bin/gimp" }), gimpBefehl("/usr/bin/gimp", g), "main.xcf geht vor");
+  symlinkSync(join(a.ort("karte"), "main.qgs"), join(a.ort("verweis"), "main.qgs"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.qgs"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4g: QGIS aus der Distribution – nur die Orte unter /usr, QGIS=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("qgis");
+  const datei = join(d, "qgis");
+  writeFileSync(datei, "");
+  assert.equal(qgisAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(qgisAusUmgebung({ QGIS: "aus" }, [datei]), null);
+  assert.equal(qgisAusUmgebung({ QGIS: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad – mit Qt, GDAL und PROJ viele Dateien unter /usr");
+  assert.equal(qgisAusUmgebung({}, [d]), null, "ein Ordner ist kein QGIS");
+  assert.deepEqual(QGIS_ORTE, ["/usr/bin/qgis"]);
+});
+
+test("VKk4g: Start – ohne Download fehlender Schriften, das Fenster per Skript auf die Größe des Bilds, neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("qgis-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const qgs = join(d, "main.qgs");
+  writeFileSync(qgs, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "qgis"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "qgis"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", QGIS_START, join(d, "qgis"), qgs, "640", "480"], { stdio: "ignore", env: { ...process.env, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    const skript = join(heim, ".freedom-qgis.py");
+    assert.equal(erste!.replace(/ \d+$/, ""), `--nologo --code ${skript} ${qgs}`, "ohne Logo, mit dem Skript, nur die Datei");
+    const ini = readFileSync(join(heim, ".local", "share", "QGIS", "QGIS3", "profiles", "default", "QGIS", "QGIS3.ini"), "utf8");
+    assert.equal(ini, "[fonts]\ndownloadMissingFonts=false\n", "kein Download fehlender Schriften – die Sandbox hat kein Netz");
+    assert.equal(readFileSync(skript, "utf8"), [
+      "from qgis.utils import iface", "w = iface.mainWindow()", "if w.minimumSizeHint().width() > 640:", "    w.statusBar().hide()",
+      "    w.layout().activate()", "w.setGeometry(0, 0, 640, 480)", "",
+    ].join("\n"), "Statusleiste nur, wenn das Bild zu schmal ist; dann das Fenster genau so groß wie das Bild");
+    writeFileSync(qgs, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4g: QGIS im Bildstrom – main.qgs in der Sandbox des Programms, nichts weiter eingebunden; ohne QGIS kein Programm", async () => {
+  const a = ablage("karte");
+  writeFileSync(join(a.ort("karte"), "main.qgs"), "<qgis/>");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, qgis: "/usr/bin/qgis" });
+  try {
+    assert.equal(await b.starte("karte", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...qgisBefehl("/usr/bin/qgis", "main.qgs", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("karte", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -1527,6 +1623,80 @@ test("VKk4f: im Terminal – der Befehl aus den Hinweisen wandelt in der Sandbox
   await bildAlsXcf(arbeit, [0, 192, 0]);
   assert.equal(readFileSync(join(arbeit, "main.xcf")).subarray(0, 9).toString(), "gimp xcf ", "das Format von GIMP");
   assert.deepEqual(readdirSync(arbeit), ["main.xcf"]);
+});
+
+const qgis = qgisAusUmgebung({});
+const ohneQgis = ohne || (!qgis && "QGIS fehlt (qgis)");
+/** Die Befehle aus den Hinweisen für den Motor (VKk5) – genau so, wie der Agent sie im Terminal abschreibt: Projekt, Algorithmus. */
+const qgisBefehleAusHinweisen = () => [...bildHinweise({ qgis: true }).matchAll(/`(QT_QPA_PLATFORM=offscreen [^`]*)`/g)].map((m) => m[1]!);
+/** Eine Fläche, wie der Agent sie als GeoJSON schreibt: von 0,0 bis 10,10 in Grad. */
+const flaeche = JSON.stringify({
+  type: "FeatureCollection",
+  features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]] } }],
+});
+/**
+ * Wie der Agent eine Karte baut: die Fläche als GeoJSON, das Projekt mit dem Befehl aus den Hinweisen in der Sandbox – dazu nur
+ * eine feste Farbe für die Fläche (sonst wählt QGIS eine zufällige).
+ */
+async function karteAlsQgs(arbeit: string, rgb: readonly [number, number, number]): Promise<void> {
+  writeFileSync(join(arbeit, "karte.geojson"), flaeche);
+  const befehl = qgisBefehleAusHinweisen()[0]!
+    .replace("-c 'from qgis.core import *;", "-c 'from qgis.PyQt.QtGui import QColor; from qgis.core import *;")
+    .replace("p.write(", `l.renderer().symbol().setColor(QColor(${rgb.join(", ")})); p.write(`);
+  const r = await fuehreAus(["/bin/sh", "-c", befehl], { arbeit }, 120_000);
+  assert.equal(r.code, 0, r.ausgabe);
+}
+/** Was QGIS beim Speichern neben das Projekt legt: die alte Fassung als Sicherung und (3.34) die Anhänge – sonst nichts. */
+const NEBEN_QGS = ["karte.geojson", "main.qgs", "main.qgs~", "main_attachments.zip"];
+
+test("VKk4g: Ende zu Ende – eine Karte in QGIS im Bild; baut der Agent sie neu, zeigt das Bild die neue", { skip: ohneQgis, timeout: 180_000 }, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("karte");
+    await karteAlsQgs(a.ort("karte"), [0, 192, 0]);
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, qgis: qgis! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // erst grün, dann baut der Test die Karte wie der Agent rot neu – das Skript startet QGIS neu, das Bild wird rot
+      let geaendert: Promise<void> | null = null;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) geaendert = karteAlsQgs(a.ort("karte"), [204, 0, 0]);
+        return !!geaendert && rot(f);
+      };
+      // auf der Karte rechts der Panels, neben dem Zeiger in der Mitte – das Bild ist schmaler als die Statusleiste von QGIS
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("karte", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 120, stelle: [0.72, 0.6] });
+      console.log(`[bild] QGIS: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      await geaendert;
+      assert.ok(rot(e.farbe), `nach dem Neubauen rot (${JSON.stringify(e.farbe)})`);
+      const da = readdirSync(a.ort("karte"));
+      assert.deepEqual(da.filter((f) => !NEBEN_QGS.includes(f)), [], `vom Bild nichts im Projekt (${da.join(", ")})`);
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4g: im Terminal – die Befehle aus den Hinweisen bauen in der Sandbox ein Projekt mit Ansicht und rechnen einen Puffer", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!qgis && "QGIS fehlt (qgis)"), timeout: 150_000,
+}, async () => {
+  const arbeit = tmp("karte-terminal");
+  writeFileSync(join(arbeit, "karte.geojson"), flaeche);
+  const befehle = qgisBefehleAusHinweisen();
+  assert.equal(befehle.length, 2, "Projekt und Algorithmus");
+  for (const befehl of befehle) {
+    const r = await fuehreAus(["/bin/sh", "-c", befehl], { arbeit }, 120_000);
+    assert.equal(r.code, 0, r.ausgabe);
+  }
+  const qgs = readFileSync(join(arbeit, "main.qgs"), "utf8");
+  assert.match(qgs, /<datasource>\.\/karte\.geojson<\/datasource>/, "die Ebene mit relativem Pfad");
+  assert.match(qgs, /<DefaultViewExtent [^>]*xmax="10"/, "mit Standardansicht – ohne öffnet die Karte leer");
+  const puffer = JSON.parse(readFileSync(join(arbeit, "puffer.geojson"), "utf8")) as { type: string; features: unknown[] };
+  assert.equal(puffer.type, "FeatureCollection");
+  assert.equal(puffer.features.length, 1);
+  const da = readdirSync(arbeit);
+  assert.deepEqual(da.filter((f) => ![...NEBEN_QGS, "puffer.geojson"].includes(f)), [], da.join(", "));
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

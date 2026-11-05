@@ -206,6 +206,14 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$GIMP" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends gimp && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Karten im Bild (VKk4g) – nur mit VIBECODEN=1 und QGIS=1 (docker-compose.vibecoden.yml reicht es durch). QGIS aus Debian
+# (GPL-2.0+, eigenes Programm, nur in den Sandboxen), mit GDAL, PROJ und PyQGIS bis zu 900 MB – zeigt main.qgs im Bild, PyQGIS und
+# qgis_process im Terminal des Motors.
+ARG QGIS=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$QGIS" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends qgis && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Java-Projekte mit Gradle (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1 (docker-compose.vibecoden.yml reicht es durch). Das JDK 17
 # aus Debian (GPL-2.0 mit Classpath-Ausnahme, eigenes Programm, nur in den Sandboxen), rund 250 MB; Gradle kommt aus der Stufe
 # oben. Die Konfiguration des JDK liegt unter /etc/java-17-openjdk – die Sandbox liest sie (VKh1). Die slim-Bilder haben kein
