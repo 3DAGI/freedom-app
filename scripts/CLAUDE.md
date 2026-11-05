@@ -143,11 +143,15 @@ dieses Bereichs unten anhängen.
   „Windows-Programme auf ARM64“. Aus dem Archiv nur die vier Pakete (`PAKETE`, ohne DXVK), je Name flach mit `tar -xO`. Im Bild
   nur über `RUN --mount` aus der Stufe `hangover-holen` installieren, nie per `COPY` – sonst bliebe das Paket (rund 300 MB) in
   einer Schicht.
-- **aapt2 nur aus `aapt2-bauen.sh`** (seit VKh3a): aus den AOSP-Quellen nach dem Rezept von lzhiyong/android-sdk-tools (Apache-2.0,
-  CMake statt Soong, Commit fest), mit clang des Rechners, statisch – nie ein fertiges Programm (Gemeinschafts-Builds) und nie das
-  `aapt2` der Distribution (Debian 12: Android 10, zu alt für compileSdk 36). Jedes der 40 Repos wird nach dem Holen gegen seinen
-  Commit in `STAENDE` geprüft, bevor etwas daraus läuft; `repository.json` des Rezepts muss genau diese Liste nennen – sonst holte
-  `get_source.py` selbst, ungeprüft. Eine neue Fassung nur mit allen Commits zusammen (das Skript nennt jeden abweichenden) und einem
-  grünen Job „aapt2 aus den Quellen“ auf beiden Prozessoren. android.googlesource.com ist aus der Entwicklungsumgebung gesperrt,
-  der GitHub-Spiegel `aosp-mirror` hat nur einen Teil der Repos – gebaut wird nur in der CI; die Logik des Skripts lässt sich hier
-  mit lokalen Repos und einem Rezept als Attrappe prüfen.
+- **aapt2 nur aus `aapt2-bauen.sh`** (seit VKh3a): aus den AOSP-Quellen (Android 17, `android-17.0.0_r1`) nach dem Rezept von
+  Commit451/android-arm-build-tools (MIT, CMake statt Soong, für glibc und GCC 12; Commit fest) – nie ein fertiges Programm und nie
+  das `aapt2` der Distribution (Debian 12: Android 10, zu alt für compileSdk 36). Das Rezept von lzhiyong baut nur für Android
+  (bionic): mit glibc und dem Compiler des Rechners scheiterte es an Dutzenden Stellen (fehlende Includes, `sys/limits.h`, liblog
+  für Geräte). Jedes der 39 Repos wird nach dem Holen gegen seinen Commit in `STAENDE` geprüft, samt Tag, damit `fetch_sources.py`
+  des Rezepts es als vorhanden erkennt und nichts selbst holt; seine Liste (`repos.json`) muss genau unsere sein, und ein „!!“ in
+  seiner Ausgabe (Patch passt nicht, Ergänzung fehlt) bricht ab – das Skript selbst meldet dann keinen Fehler. Gebaut wird wie im
+  Bild auf Debian 12 (die CI in `node:22-bookworm-slim` mit `AAPT2_BAU_PAKETE`), dynamisch nur gegen glibc, libstdc++ und zlib
+  (`ldd`-Prüfung). Eine neue Fassung nur mit allen Commits zusammen (das Skript nennt jeden abweichenden) und einem grünen Job
+  „aapt2 aus den Quellen“ auf beiden Prozessoren. android.googlesource.com ist aus der Entwicklungsumgebung gesperrt, der
+  GitHub-Spiegel `aosp-mirror` hat nur einen Teil der Repos und nichts nach Android 16 – gebaut wird nur in der CI; die Logik des
+  Skripts lässt sich hier mit lokalen Repos und einem Rezept als Attrappe prüfen (Code des Rezepts läuft hier nicht).
