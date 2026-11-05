@@ -47,6 +47,8 @@ const TYPEN: Record<string, string> = {
   ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf", ".otf": "font/otf",
   ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm",
   ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".xml": "application/xml", ".webmanifest": "application/manifest+json",
+  // ein APK aus dem Projekt (VKh2b) – so bietet der Browser des Handys an, es zu installieren
+  ".apk": "application/vnd.android.package-archive",
 };
 
 /** Gilt für jede Antwort: nichts erraten, nichts zwischenspeichern, keinen Verweis weitergeben. */

@@ -16,7 +16,8 @@ import { join } from "node:path";
 import { CodeLaeufe, lebt, prozessMotor } from "../src/code-motor.js";
 import { bildHinweise } from "../src/bildstrom.js";
 import {
-  GRADLE_HINWEIS, HERMES_ORDNER, STARTSKRIPT, gradleAusUmgebung, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele,
+  ANDROID_PLUGIN_FASSUNG, GRADLE_HINWEIS, HERMES_ORDNER, STARTSKRIPT, androidHinweis, androidSdkAusUmgebung, gradleAusUmgebung, hermesAusUmgebung,
+  hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele,
 } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, brueckenZiel, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { ProjektAblage } from "../src/projekte.js";
@@ -237,6 +238,36 @@ test("VKh2a: Gradle nur, wo das Bild es ablegt – ein Verweis auf eine Datei z�
   assert.equal(gradleAusUmgebung({ GRADLE: "aus" }, [join(ort, "bin", "gradle")]), null);
   assert.equal(gradleAusUmgebung({}, [join(ort, "fehlt"), join(ort, "lib")]), null, "kein Ordner, nichts Fehlendes");
   assert.equal(gradleAusUmgebung({ GRADLE: "/usr/bin/gradle" }, [join(ort, "fehlt")]), null, "kein eigener Pfad");
+});
+
+test("VKh2b: Android-SDK nur mit Plattform und Build-Tools, nur auf x86-64 (aapt2), ANDROID=aus schaltet ab; Hinweis nur mit Gradle", () => {
+  const sdk = tmp("sdk");
+  mkdirSync(join(sdk, "platforms", "android-36"), { recursive: true });
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "x64"), null, "ohne Build-Tools nicht");
+  mkdirSync(join(sdk, "build-tools", "36.0.0"), { recursive: true });
+  assert.equal(androidSdkAusUmgebung({}, [join(sdk, "fehlt"), sdk], "x64"), sdk);
+  assert.equal(androidSdkAusUmgebung({ ANDROID: "aus" }, [sdk], "x64"), null);
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "arm64"), null, "aapt2 aus Maven gibt es nur für x86-64 – bis VKh3 kein Hinweis");
+  const verweis = join(tmp("v"), "sdk");
+  symlinkSync(sdk, verweis);
+  assert.equal(androidSdkAusUmgebung({}, [verweis], "x64"), verweis, "ein Verweis auf das SDK zählt wie das SDK");
+
+  const hinweis = androidHinweis("/usr/lib/android-sdk");
+  assert.ok(hinweis.includes("`sdk.dir=/usr/lib/android-sdk`") && hinweis.includes(`version ${ANDROID_PLUGIN_FASSUNG}`) && hinweis.includes("assembleDebug"));
+  assert.ok(hinweis.includes("preview") && hinweis.includes(".gitignore"), "das APK kommt über die Vorschau, build/ nicht in den Commit");
+  assert.doesNotMatch(hinweis, /you are now|ignore (all|previous)|system prompt|curl|\| *sh/i);
+  const mit = hermesSeele(undefined, { gradle: true, androidSdk: "/usr/lib/android-sdk" });
+  assert.ok(mit.indexOf(GRADLE_HINWEIS) < mit.indexOf(hinweis), "Android nach Gradle");
+  assert.ok(!hermesSeele(undefined, { androidSdk: "/usr/lib/android-sdk" }).includes("# Android apps"), "ohne Gradle kein Android");
+  // über den Motor: SOUL.md mit beiden Absätzen
+  const ablage = new ProjektAblage(join(tmp("ablage"), "projekte"));
+  mkdirSync(ablage.ort("app"), { recursive: true });
+  const motor = hermesMotor({
+    hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: tmp("b") }, modell: () => "coder:7b", bwrap: "/gibt/es/nicht",
+    gradle: true, androidSdk: "/usr/lib/android-sdk",
+  });
+  assert.equal(killOhnePid(() => motor(ablage.ort("app")).beende()), 0);
+  assert.equal(readFileSync(join(hermesHeim(ablage, ablage.ort("app")), ".hermes", "SOUL.md"), "utf8"), mit);
 });
 
 test("VKc3: Sandbox – weitere Orte nur lesbar, nie über /arbeit", () => {

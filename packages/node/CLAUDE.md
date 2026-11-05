@@ -683,3 +683,13 @@ Bereichs unten anhängen.
   der Entwicklungsumgebung nie; die Echttests laufen hier mit dem vorhandenen `/opt/gradle` (8.14.3), in der CI mit genau der
   Fassung des Bilds (`GRADLE_TEST`). Den Hinweis in `SOUL.md` gibt es nur, wenn `gradleAusUmgebung()` Gradle findet – auch ohne
   Bild (`hermesSeele(bild, { gradle })`). Debian-slim-Bilder haben kein `/usr/share/man/man1` – ohne den Ordner scheitert das JDK.
+- **Android-SDK nur aus `android-sdk-holen.sh`, die Lizenz nur vom MENSCHEN** (seit VKh2b): Das SDK steht unter dem
+  Lizenzvertrag von Google – das Skript bricht ohne `ANDROID_SDK_LIZENZ=angenommen` ab, bevor es etwas lädt, und diesen Wert setzt
+  nie das Repo (Bild leer, Compose reicht durch, die CI baut mit dem SDK des Runners; `docker-vibecoden.test.ts` prüft das).
+  Die Werkzeuge in fester Fassung gegen die SHA-256 von developer.android.com, dann genau `platforms;android-36` und
+  `build-tools;36.0.0` über sdkmanager (prüft selbst); sdkmanager bleibt draußen. `yes | sdkmanager --licenses` endet unter
+  `pipefail` mit 141 (SIGPIPE von `yes`) – `{ yes || true; } |`. Im Knoten nur über `androidSdkAusUmgebung()` (nur
+  `/usr/lib/android-sdk` mit Plattform und Build-Tools, nur auf x86-64 – `aapt2` aus Maven gibt es nur dafür, bis VKh3), der
+  Hinweis in `SOUL.md` nur mit Gradle (`androidHinweis()`, Plugin `ANDROID_PLUGIN_FASSUNG` – dieselbe Zahl baut der Echttest).
+  Echttests mit Gradle rechnen länger als `SANDBOX_GRENZEN.cpuSek` (120 s für alle Threads): `rechenzeitSek` mitgeben – der Motor
+  selbst hat keine Grenze der Rechenzeit.

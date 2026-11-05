@@ -25,6 +25,11 @@ services:
         GIMP: "${GIMP:-0}"
         # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
         GRADLE: "${GRADLE:-0}"
+        # Android-Apps (VKh2b): ANDROID=1 baut das Android-SDK dazu (braucht GRADLE=1), rund 300 MB, bisher nur auf amd64 nutzbar.
+        # Das SDK steht unter dem Lizenzvertrag von Google (https://developer.android.com/studio/terms) – nur wer ihn annimmt,
+        # setzt ANDROID_SDK_LIZENZ=angenommen; sonst bricht der Bau ab. Ein Bild mit SDK nicht weitergeben.
+        ANDROID: "${ANDROID:-0}"
+        ANDROID_SDK_LIZENZ: "${ANDROID_SDK_LIZENZ:-}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

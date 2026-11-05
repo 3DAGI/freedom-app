@@ -150,6 +150,8 @@ export function hermesMotor(o: {
   bild?: string;
   /** Gradle ist da (VKh2a, `gradleAusUmgebung()`) – dann sagt `SOUL.md`, wie man damit baut. Ohne Bild und Gradle kein `SOUL.md`. */
   gradle?: boolean;
+  /** Das Android-SDK (VKh2b, `androidSdkAusUmgebung()`) – nur zusammen mit Gradle ein Hinweis in `SOUL.md`. */
+  androidSdk?: string;
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
@@ -181,7 +183,9 @@ export function hermesMotor(o: {
     schreibeInsHeim(heim, [".gradle", "init.d", "freedom-spiegel.gradle"], pakete.gradle);
     // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild und Gradle keine, sonst versprächen alte Hinweise
     // ein Bild oder ein Programm
-    if (o.bild !== undefined || o.gradle) schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild, { gradle: o.gradle === true }));
+    if (o.bild !== undefined || o.gradle) {
+      schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild, { gradle: o.gradle === true, ...(o.androidSdk ? { androidSdk: o.androidSdk } : {}) }));
+    }
     else rmSync(join(heim, ".hermes", "SOUL.md"), { force: true });
     return start(projekt);
   };
@@ -192,14 +196,55 @@ export function hermesMotor(o: {
  * daher steht die Rolle vorn, danach die Hinweise zum Bild. Ins Projekt schreibt der Knoten nie (dort läge eine `AGENTS.md`
  * im Commit).
  */
-export function hermesSeele(bild: string | undefined, o: { gradle?: boolean } = {}): string {
+export function hermesSeele(bild: string | undefined, o: { gradle?: boolean; androidSdk?: string } = {}): string {
   return [
     "You are Hermes Agent, a coding agent in a FreedomStack project. The project is /arbeit, a git repository; the node",
     "commits your changes. You work in a sandbox without network – use the tools you are given; npm, pip and Gradle get",
     "packages through the node's mirror (Gradle only from Google Maven and Maven Central).",
     ...(o.gradle ? ["", GRADLE_HINWEIS] : []),
+    ...(o.gradle && o.androidSdk ? ["", androidHinweis(o.androidSdk)] : []),
     ...(bild !== undefined ? ["", bild] : []),
   ].join("\n");
+}
+
+/**
+ * Das Android-Plugin, mit dem die CI ein APK baut (VKh2b, Echttest in `paket-spiegel.test.ts`) – 9.5 braucht mindestens
+ * Gradle 9.6 und die Build-Tools 36.0.0 (`scripts/android-sdk-holen.sh`). Eine neue Fassung nur zusammen mit beiden.
+ */
+export const ANDROID_PLUGIN_FASSUNG = "9.5.0";
+
+/** Was der Motor über Android wissen muss (VKh2b) – das APK kommt über die Vorschau aufs eigene Handy (VKh-W4 A). */
+export function androidHinweis(sdk: string): string {
+  return [
+    "# Android apps",
+    "",
+    `The Android SDK is at ${sdk} (platform android-36, build tools 36.0.0). Write \`sdk.dir=${sdk}\` into`,
+    `\`local.properties\`, use the plugin \`com.android.application\` version ${ANDROID_PLUGIN_FASSUNG} with \`compileSdk = 36\`, and build with`,
+    "`gradle assembleDebug`. Keep `build/`, `.gradle/` and `local.properties` in `.gitignore`. There is no emulator here: the",
+    "user downloads the APK through the preview of the project (for example `app/build/outputs/apk/debug/app-debug.apk`) and",
+    "installs it on their own phone – tell them the path.",
+  ].join("\n");
+}
+
+/** Android-SDK (VKh2b): nur, wo das Bild es ablegt (`ANDROID=1`, `scripts/android-sdk-holen.sh`) – kein eigener Pfad. */
+export const ANDROID_SDK_ORTE: readonly string[] = ["/usr/lib/android-sdk"];
+
+/**
+ * Das Android-SDK (VKh2b): der erste Ort aus `ANDROID_SDK_ORTE` mit Plattform und Build-Tools; null mit `ANDROID=aus`, ohne
+ * Fund – und bis VKh3 auf ARM64: Das Android-Plugin holt `aapt2` aus Maven, und das gibt es von Google nur für x86-64.
+ */
+export function androidSdkAusUmgebung(
+  env: { ANDROID?: string }, orte: readonly string[] = ANDROID_SDK_ORTE, arch: string = process.arch,
+): string | null {
+  if (env.ANDROID?.trim() === "aus" || arch !== "x64") return null;
+  const ordner = (p: string) => {
+    try {
+      return statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+  return orte.find((o) => ordner(join(o, "platforms", "android-36")) && ordner(join(o, "build-tools", "36.0.0"))) ?? null;
 }
 
 /** Was der Motor über Gradle wissen muss (VKh2a) – nur, wenn der Knoten es hat. */
