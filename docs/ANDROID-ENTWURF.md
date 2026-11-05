@@ -58,7 +58,9 @@ Windows. Web und Linux sind fertig (VKg2, VKk3–VKk4), Windows auch (VKi). Dies
     (aus AOSP-Quellen). Beides wären fremde Programme.
   - Ebenso möglich: selbst aus AOSP bauen, wie `whisper-cli` und die Tor-Brücken.
   - Oder FEX für x86-Programme. Das Bild hat FEX nur innerhalb von Hangover für Wine; ein FEX für Linux-Programme wäre neu.
-  - Debian hat für ARM64 nur `aapt` (Fassung 1), kein `aapt2`.
+  - ~~Debian hat für ARM64 nur `aapt` (Fassung 1), kein `aapt2`.~~ Korrektur (VKh3a): Das Paket `aapt` bringt auch `aapt2`, aus
+    den Quellen gebaut – aber alt: Debian 12 aus Android 10 (zu alt für compileSdk 36), Ubuntu 24.04 aus Android 14 (Beta 1),
+    dazu an Bibliotheken der Distribution gebunden (`android-libandroidfw` …). Für compileSdk 36 bleibt der eigene Bau (W2 A).
 - **Gradle lädt Bibliotheken aus Maven** (Google Maven, Maven Central).
   - In der Sandbox ohne Netz geht das nur über einen weiteren Weg im Spiegel der Brücke, nach denselben Regeln wie npm und
     PyPI.

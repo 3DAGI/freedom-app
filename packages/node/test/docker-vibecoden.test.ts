@@ -277,6 +277,34 @@ test("VKh2b: Android-SDK nur mit VIBECODEN=1, ANDROID=1 und GRADLE=1 – die Liz
   assert.ok(!lies("docker-compose.yml").includes("ANDROID"), "der Standard bleibt ohne");
 });
 
+test("VKh3a: aapt2 nur aus den Quellen – Rezept und jedes Repo am Commit geprüft, bevor etwas davon läuft; statisch; die CI baut es auf beiden Prozessoren", () => {
+  const skript = lies("scripts/aapt2-bauen.sh");
+  assert.match(skript, /^AAPT2_FASSUNG=35\.0\.2$/m);
+  assert.match(skript, /^AOSP=https:\/\/android\.googlesource\.com$/m);
+  assert.match(skript, /^REZEPT=https:\/\/github\.com\/lzhiyong\/android-sdk-tools$/m);
+  assert.match(skript, /^REZEPT_COMMIT=[0-9a-f]{40}$/m);
+  const staende = skript.match(/^STAENDE="\n([\s\S]*?)\n"$/m)![1].split("\n");
+  assert.equal(staende.length, 40, "alle Repos aus repository.json des Rezepts");
+  for (const z of staende) assert.match(z, /^[a-z0-9_-]+ +(platform\/[a-z0-9_/-]+|\$ZLIB) +[0-9a-f]{40}$/, z);
+  assert.ok(!staende.some((z) => / 0{40}$/.test(z)), "kein Platzhalter – jeder Commit fest");
+  // erst holen und prüfen, dann die Liste des Rezepts vergleichen – erst danach laufen dessen Skripte
+  const stelle = (t: string) => { const i = skript.indexOf(t); assert.ok(i > 0, t); return i; };
+  assert.ok(stelle('[ "$stand" != "$commit" ]') < stelle("repository.json des Rezepts nennt andere Repos"));
+  assert.ok(stelle("repository.json des Rezepts nennt andere Repos") < stelle("python3 -I get_source.py"));
+  assert.ok(stelle("python3 -I get_source.py") < stelle("python3 -I build.py"));
+  assert.match(skript, /das Rezept hat selbst geholt – Abbruch/);
+  assert.match(skript, /build\.py --toolchain host --cc clang --cxx clang\+\+ --arch "\$ARCH" --link static/);
+  assert.match(skript, /readelf -l "\$PROGRAMM" \| grep -q "program interpreter" \|\| readelf -d "\$PROGRAMM" \| grep -q NEEDED/, "statisch");
+  assert.match(skript, /Lizenztext von \$repo fehlt – Abbruch/);
+  assert.ok(!/\b(curl|wget)\b/.test(skript), "nichts Fertiges laden – nur Quellen über git");
+  const ci = lies(".github/workflows/ci.yml");
+  assert.match(ci, /- \{ arch: x86_64, runner: ubuntu-24\.04 \}\n\s+- \{ arch: aarch64, runner: ubuntu-24\.04-arm \}/);
+  assert.equal([...ci.matchAll(/key: aapt2-\$\{\{ matrix\.arch \}\}-\$\{\{ hashFiles\('scripts\/aapt2-bauen\.sh'\) \}\}/g)].length, 2, "geholt und gleich nach dem Bau gespeichert");
+  assert.match(ci, /run: bash scripts\/aapt2-bauen\.sh "\$HOME\/\.cache\/freedom-aapt2"\n/);
+  assert.match(ci, /AAPT2_TEST="\$HOME\/\.cache\/freedom-aapt2\/aapt2" AAPT2_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKh3" test\/paket-spiegel\.test\.ts\n/);
+  assert.match(ci, /echo "AAPT2_APK_PFLICHT=1" >> "\$GITHUB_ENV"/, "auf x86-64 auch das APK, nie übersprungen");
+});
+
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
   const docker = lies("docker/node.Dockerfile");
   const basen = [...docker.matchAll(/^FROM (\S+)/gm)].map((m) => m[1]);
