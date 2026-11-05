@@ -120,9 +120,17 @@ find "$ARBEIT/rezept/src" -mindepth 2 -maxdepth 2 -name .git -type d -exec rm -r
 ( cd "$ARBEIT/rezept" && python3 -I get_source.py --tags "$AOSP_TAG" --jobs 1 ) > "$ARBEIT/quellen.log"
 grep -q "already exists, skip" "$ARBEIT/quellen.log" && ! grep -q "^cloned " "$ARBEIT/quellen.log" \
   || { cat "$ARBEIT/quellen.log" >&2; echo "aapt2: das Rezept hat selbst geholt – Abbruch" >&2; exit 1; }
+# expat prüft arc4random_buf ohne, übersetzt aber mit -std=c99 – glibc (ab 2.36) verbirgt die Funktion dann; ohne nimmt expat
+# getrandom (das Rezept baut sonst nur mit NDK und zig, dort tritt es nicht auf)
 ( cd "$ARBEIT/rezept" && python3 -I build.py --toolchain host --cc clang --cxx clang++ --arch "$ARCH" --link static \
-    --build "$ARBEIT/bau" --target aapt2 --jobs "$(nproc)" ) > "$ARBEIT/bau.log" 2>&1 \
-  || { tail -n 80 "$ARBEIT/bau.log" >&2; echo "aapt2: Bau gescheitert" >&2; exit 1; }
+    --build "$ARBEIT/bau" --target aapt2 --jobs "$(nproc)" -- -DHAVE_ARC4RANDOM_BUF=0 -DHAVE_ARC4RANDOM=0 ) > "$ARBEIT/bau.log" 2>&1 \
+  || {
+    tail -n 40 "$ARBEIT/bau.log" >&2
+    # alle Fehler auf einmal, nicht nur den ersten
+    cmake --build "$ARBEIT/bau" --target aapt2 -- -k 0 2>&1 | grep -E "error:|undefined reference" | sort -u | head -n 60 >&2 || true
+    echo "aapt2: Bau gescheitert" >&2
+    exit 1
+  }
 
 PROGRAMM="$ARBEIT/bau/bin/build-tools/aapt2"
 # statisch: kein Interpreter, keine Bibliothek – sonst liefe es in der Sandbox nicht überall
