@@ -128,9 +128,10 @@ for eintrag in $GELINKT; do
   for name in NOTICE LICENSE LICENSE.txt LICENSE.md LICENSE.rst LICENCE COPYING; do
     [ -f "$R/src/$eintrag/$name" ] && { text="$R/src/$eintrag/$name"; break; }
   done
-  # Apache-2.0 ohne eigenen Text (libziparchive): der Text aus frameworks/base
+  # Apache-2.0 ohne eigenen Text (libziparchive – Android.bp nennt nur die Lizenz „Android-Apache-2.0“ aus build/soong):
+  # der Text aus frameworks/base
   if [ -z "$text" ] && { [ -f "$R/src/$eintrag/MODULE_LICENSE_APACHE2" ] \
-    || grep -qs '"SPDX-license-identifier-Apache-2.0"' "$R/src/$eintrag/Android.bp"; }; then
+    || grep -qsE '"(SPDX-license-identifier-Apache-2\.0|Android-Apache-2\.0)"' "$R/src/$eintrag/Android.bp"; }; then
     text="$R/src/base/NOTICE"
   fi
   if [ -n "$text" ]; then
@@ -138,6 +139,7 @@ for eintrag in $GELINKT; do
   else
     fehlt="$fehlt $eintrag"
     find "$R/src/$eintrag" -maxdepth 2 -type f \( -iname 'notice*' -o -iname 'licen[cs]e*' -o -iname 'copying*' \) >&2 || true
+    grep -s -i "licen" "$R/src/$eintrag/Android.bp" | head -n 5 >&2 || true
   fi
 done
 [ -z "$fehlt" ] || { echo "aapt2: Lizenztext fehlt für$fehlt – Abbruch" >&2; exit 1; }
