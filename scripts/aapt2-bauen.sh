@@ -137,11 +137,15 @@ N="$(nproc)"
   exit 1
 }
 
-PROGRAMM="$ARBEIT/bau/bin/build-tools/aapt2"
+# wo das Rezept es ablegt, sucht es selbst unter bin/ – genau ein Programm dieses Namens
+PROGRAMM="$(find "$ARBEIT/bau/bin" -type f -name aapt2 -perm -u+x)"
+[ -n "$PROGRAMM" ] && [ "$(printf '%s\n' "$PROGRAMM" | wc -l)" = 1 ] \
+  || { echo "aapt2: kein eindeutiges Programm unter bau/bin – Abbruch" >&2; find "$ARBEIT/bau/bin" -type f >&2 || true; exit 1; }
 # Nur glibc, libstdc++ und zlib – in der Sandbox liegen sie unter /usr; alles andere ist hineingelinkt
-if ldd "$PROGRAMM" | grep -vqE 'linux-vdso|ld-linux|lib(c|m|dl|rt|pthread|stdc\+\+|gcc_s|z)\.so'; then
+bibliotheken="$(ldd "$PROGRAMM")" || { echo "aapt2: ldd scheitert – Abbruch" >&2; exit 1; }
+if printf '%s\n' "$bibliotheken" | grep -vqE 'linux-vdso|ld-linux|lib(c|m|dl|rt|pthread|stdc\+\+|gcc_s|z)\.so'; then
   echo "aapt2 braucht weitere Bibliotheken:" >&2
-  ldd "$PROGRAMM" >&2
+  printf '%s\n' "$bibliotheken" >&2
   exit 1
 fi
 "$PROGRAMM" version > "$ARBEIT/fassung.txt" 2>&1 || { cat "$ARBEIT/fassung.txt" >&2; exit 1; }

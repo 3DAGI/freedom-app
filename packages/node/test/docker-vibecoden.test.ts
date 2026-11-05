@@ -295,7 +295,8 @@ test("VKh3a: aapt2 nur aus den Quellen – Rezept und jedes Repo am Commit gepr�
   assert.ok(stelle('python3 -I "$R/scripts/fetch_sources.py"') < stelle('cmake -S "$R"'));
   assert.match(skript, /grep -q ": cloned\$" "\$ARBEIT\/quellen\.log" \|\| grep -q "!!" "\$ARBEIT\/quellen\.log"/, "das Rezept holt nichts selbst, jeder Patch passt");
   assert.match(skript, /-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g\+\+/);
-  assert.match(skript, /ldd "\$PROGRAMM" \| grep -vqE 'linux-vdso\|ld-linux\|lib\(c\|m\|dl\|rt\|pthread\|stdc\\\+\\\+\|gcc_s\|z\)\\\.so'/, "nur glibc, libstdc++ und zlib");
+  assert.match(skript, /bibliotheken="\$\(ldd "\$PROGRAMM"\)" \|\| \{/, "scheitert ldd, bricht es ab – leer hieße sonst „nichts Fremdes“");
+  assert.match(skript, /grep -vqE 'linux-vdso\|ld-linux\|lib\(c\|m\|dl\|rt\|pthread\|stdc\\\+\\\+\|gcc_s\|z\)\\\.so'/, "nur glibc, libstdc++ und zlib");
   assert.match(skript, /Lizenztext von \$repo fehlt – Abbruch/);
   assert.ok(!/\b(curl|wget)\b/.test(skript), "nichts Fertiges laden – nur Quellen über git");
   const ci = lies(".github/workflows/ci.yml");
