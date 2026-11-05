@@ -3,87 +3,81 @@
 # des Android-Plugins) – für ARM64 bauen wir es selbst, nie ein fertiges Programm von anderen. Debian 12 hat nur aapt2 aus
 # Android 10, zu alt für compileSdk 36.
 #
-# Gebaut nach dem Rezept von lzhiyong/android-sdk-tools (Apache-2.0: CMake statt Soong; Commit fest) mit dem Compiler des
-# Rechners (`--toolchain host`, clang) und statisch gelinkt – in der Sandbox braucht es keine Bibliothek. Die Quellen kommen
-# beim Tag platform-tools-<fassung> von android.googlesource.com (zlib von GitHub); jedes Repo wird nach dem Holen gegen
-# seinen Commit hier geprüft (`STAENDE`), bevor etwas davon läuft. Das Rezept holt dann nichts mehr selbst: Seine Liste
-# (repository.json) muss genau unsere sein, es findet alles vor und legt nur noch seine Patches an.
+# Gebaut nach dem Rezept von Commit451/android-arm-build-tools (MIT: CMake statt Soong, für glibc und GCC 12 auf Debian 12,
+# Commit fest) aus den Quellen von Android 17 (Tag android-17.0.0_r1, aapt2 der Build-Tools 37.0.0) – mit dem GCC des
+# Rechners, für seinen Prozessor. Jedes Repo wird nach dem Holen gegen seinen Commit hier geprüft (`STAENDE`), bevor etwas
+# davon läuft. Das Rezept holt dann nichts mehr selbst: Seine Liste (repos.json) muss genau unsere sein, sein
+# `fetch_sources.py` findet jedes Repo am Tag vor und legt nur noch seine Ergänzungen und Patches an.
 #
 #   scripts/aapt2-bauen.sh <ziel>   baut <ziel>/aapt2 und legt die Lizenztexte nach <ziel>/aapt2-lizenzen/
 #
-# Braucht git, patch, python3, cmake, ninja, clang, bison, flex und go (BoringSSL); rund 5 GB Platz, 15–30 min.
+# Gebaut wird wie im Docker-Bild auf Debian 12 (die CI tut dasselbe in node:22-bookworm-slim) mit den Paketen aus
+# `AAPT2_BAU_PAKETE`; rund 6 GB Platz. Das Programm braucht danach nur glibc, libstdc++ und zlib aus /usr.
 set -euo pipefail
 
-AAPT2_FASSUNG=35.0.2
-AOSP_TAG="platform-tools-$AAPT2_FASSUNG"
+AAPT2_FASSUNG=37.0.0
+AOSP_TAG=android-17.0.0_r1
 AOSP=https://android.googlesource.com
-REZEPT=https://github.com/lzhiyong/android-sdk-tools
-REZEPT_COMMIT=fe637bf075f1b734b4b01d281f9f58899245ed92
-ZLIB=https://github.com/madler/zlib
-ZLIB_TAG=v1.3.1
+REZEPT=https://github.com/Commit451/android-arm-build-tools
+REZEPT_COMMIT=be4bf8f404bee04ffbe92e221b1ab60846a3e681
+AAPT2_BAU_PAKETE="ca-certificates git python3 build-essential cmake ninja-build bison flex gperf pkg-config zlib1g-dev"
 
-# <pfad unter src/> <repo bei AOSP> <commit des Tags> – zlib: <pfad> <url> <commit>, Tag ZLIB_TAG
+# <pfad unter src/> <repo bei AOSP> <commit des Tags>
 STAENDE="
-abseil-cpp           platform/external/abseil-cpp            8817f93011f172bbb199dacd6310d5b146e6fde9
-adb                  platform/packages/modules/adb           ce9ea51f30f69f7560db692f7cb4d5d5502c3653
-aidl                 platform/system/tools/aidl              4e2b7b3dc8c8ac9ae3fabec9460dd6d99f92a6ab
-art                  platform/art                            114291d98c93cc0e030dbb2b870dca47777a9fba
-avb                  platform/external/avb                   6eedb12491da292911a1b88911a6682fd2e827bd
-base                 platform/frameworks/base                723419df1a0769b63587722a8a0a0980f454ffd2
-boringssl            platform/external/boringssl             2a7146e5d8c55fb53d31f66f8e1351baa3fb0d4e
-brotli               platform/external/brotli                0d40cc0076003b010b2902894e3eac1d1ccffb8e
-build                platform/build                          46581c7be3390d0ecd0a037e6e6ebc2893d5768a
-core                 platform/system/core                    90e4908e776d2be9b26b87af649e63e4208cf085
-dalvik               platform/dalvik                         c7e490537adfaa04030757014e590c1b442f748a
-development          platform/development                    db0a64ff5d737accf45252d05f97320373edad34
-e2fsprogs            platform/external/e2fsprogs             81357db29373b2bab58af88dc4b747662047b7e7
-expat                platform/external/expat                 20fd404393d65d2aff6dbc79dcbf4da6e68cabb2
-extras               platform/system/extras                  d8e488a499f5a96f788eac9d5364f0b839306c57
-f2fs-tools           platform/external/f2fs-tools            f49d4274ddd9de595129741fbf0a62c5901c0223
-fmtlib               platform/external/fmtlib                c230d4f0a5a7058a6f0468cd384200ba2ed2d8c6
-googletest           platform/external/googletest            b9640af0b0a5b0e94bbef3f584763be6926b1ce3
-incremental_delivery platform/system/incremental_delivery    d5b8d81edc4a1e5a1995e1e4858cb1b340080137
-jsoncpp              platform/external/jsoncpp               4d823700a3d9c5727a039d65587ca99519f32de2
-libbase              platform/system/libbase                 328768fabb054387ad7f64c984d4afcea70d25c9
-libpng               platform/external/libpng                3f98a222b00621de0815c70bcbee9f3d19434359
-libusb               platform/external/libusb                ab84e07b9a3575bc6eddb87dba87f85f0ab8490f
-libziparchive        platform/system/libziparchive           b1d0c47e59e1a59b79f38ed0cbb94191cbf37416
-logging              platform/system/logging                 153a153f1fccc0cc6b96766d1557518303aebd5e
-lz4                  platform/external/lz4                   96cc9e92d0bdc4811d15c962ce457128d419cc80
-mdnsresponder        platform/external/mdnsresponder         3169df7f1376b098b98c3576f9f45c6d786c462e
-mkbootimg            platform/system/tools/mkbootimg         cbf4ce939fb73c0b74127c4cb5e1092b127a4f4f
-native               platform/frameworks/native              55c639d4b83235438ae431c76ffcb6e49be34f75
-openscreen           platform/external/openscreen            ced29e3d2bc4f1549738c1c2bb702a1c7232a8bb
-pcre                 platform/external/pcre                  06781197cc1b93713b9c07aebc75d9790d2d4d76
-protobuf             platform/external/protobuf              5b489930dd17777ea9173840faba912c2db1748a
-selinux              platform/external/selinux               0496d8248e0cb20d6512387f109f41f37f68f6e1
-soong                platform/build/soong                    050e044df577a106757e9df904535bde9e6f83ce
-sqlite               platform/external/sqlite                f6e15f48aceb7421bbbb515a91076c1a7e12c14f
-tinyxml2             platform/external/tinyxml2              c1a174ab5c7f50e6877d3f1c8355759890e61300
-unwinding            platform/system/unwinding               540353061e864599723d4a838d503b80ecdf61ed
-zlib                 $ZLIB                                   51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf
-zopfli               platform/external/zopfli                502a8f40590050c27a0a6259a0c08ed858f27f8e
-zstd                 platform/external/zstd                  667562a5a6e0d0296db762110e437283472cf455
+abseil-cpp           platform/external/abseil-cpp            0000000000000000000000000000000000000000
+adb                  platform/packages/modules/adb           0000000000000000000000000000000000000000
+aidl                 platform/system/tools/aidl              0000000000000000000000000000000000000000
+art                  platform/art                            0000000000000000000000000000000000000000
+avb                  platform/external/avb                   0000000000000000000000000000000000000000
+base                 platform/frameworks/base                0000000000000000000000000000000000000000
+boringssl            platform/external/boringssl             0000000000000000000000000000000000000000
+brotli               platform/external/brotli                0000000000000000000000000000000000000000
+build                platform/build                          0000000000000000000000000000000000000000
+core                 platform/system/core                    0000000000000000000000000000000000000000
+dalvik               platform/dalvik                         0000000000000000000000000000000000000000
+development          platform/development                    0000000000000000000000000000000000000000
+e2fsprogs            platform/external/e2fsprogs             0000000000000000000000000000000000000000
+expat                platform/external/expat                 0000000000000000000000000000000000000000
+extras               platform/system/extras                  0000000000000000000000000000000000000000
+f2fs-tools           platform/external/f2fs-tools            0000000000000000000000000000000000000000
+fmtlib               platform/external/fmtlib                0000000000000000000000000000000000000000
+googletest           platform/external/googletest            0000000000000000000000000000000000000000
+incremental_delivery platform/system/incremental_delivery    0000000000000000000000000000000000000000
+jsoncpp              platform/external/jsoncpp               0000000000000000000000000000000000000000
+libbase              platform/system/libbase                 0000000000000000000000000000000000000000
+libpng               platform/external/libpng                0000000000000000000000000000000000000000
+libusb               platform/external/libusb                0000000000000000000000000000000000000000
+libziparchive        platform/system/libziparchive           0000000000000000000000000000000000000000
+logging              platform/system/logging                 0000000000000000000000000000000000000000
+lz4                  platform/external/lz4                   0000000000000000000000000000000000000000
+mdnsresponder        platform/external/mdnsresponder         0000000000000000000000000000000000000000
+mkbootimg            platform/system/tools/mkbootimg         0000000000000000000000000000000000000000
+native               platform/frameworks/native              0000000000000000000000000000000000000000
+openscreen           platform/external/openscreen            0000000000000000000000000000000000000000
+pcre                 platform/external/pcre                  0000000000000000000000000000000000000000
+protobuf             platform/external/protobuf              0000000000000000000000000000000000000000
+selinux              platform/external/selinux               0000000000000000000000000000000000000000
+soong                platform/build/soong                    0000000000000000000000000000000000000000
+sqlite               platform/external/sqlite                0000000000000000000000000000000000000000
+tinyxml2             platform/external/tinyxml2              0000000000000000000000000000000000000000
+unwinding            platform/system/unwinding               0000000000000000000000000000000000000000
+zopfli               platform/external/zopfli                0000000000000000000000000000000000000000
+zstd                 platform/external/zstd                  0000000000000000000000000000000000000000
 "
-# Was aapt2 statisch enthält (aapt2.cmake des Rezepts) – je Repo ein Lizenztext, sonst Abbruch
-GELINKT="base core libbase logging libziparchive incremental_delivery soong selinux protobuf abseil-cpp boringssl expat libpng pcre fmtlib zlib"
+# Was aapt2 enthält (aapt2.cmake des Rezepts) – je Repo ein Lizenztext, sonst Abbruch
+GELINKT="base core libbase logging libziparchive incremental_delivery soong selinux protobuf abseil-cpp boringssl expat libpng pcre fmtlib"
 
 ZIEL="${1:?Ziel fehlt – scripts/aapt2-bauen.sh <ziel>}"
-case "$(uname -m)" in
-  x86_64) ARCH=x86_64 ;;
-  aarch64 | arm64) ARCH=aarch64 ;;
-  *) echo "aapt2: Prozessor $(uname -m) nicht vorgesehen – Abbruch" >&2; exit 1 ;;
-esac
-
 ARBEIT="$(mktemp -d)"
 trap 'rm -rf "$ARBEIT"' EXIT
+R="$ARBEIT/rezept"
 
-# <ordner> <url> <ref> – nur die eine Fassung, ohne Verlauf; gibt den Commit aus
+# <ordner> <url> <ref> [<refspec>] – nur die eine Fassung, ohne Verlauf; gibt den Commit aus
 hole() {
   local versuch
   git init -q "$1" || return 1
   for versuch in 1 2 3; do
-    git -C "$1" fetch -q --depth 1 "$2" "$3" && break
+    git -C "$1" fetch -q --depth 1 "$2" "${4:-$3}" && break
     [ "$versuch" = 3 ] && return 1
     sleep $((versuch * 5))
   done
@@ -91,18 +85,17 @@ hole() {
   git -C "$1" rev-parse HEAD
 }
 
-stand="$(hole "$ARBEIT/rezept" "$REZEPT" "$REZEPT_COMMIT")" || { echo "aapt2: Rezept $REZEPT_COMMIT nicht geholt – Abbruch" >&2; exit 1; }
+stand="$(hole "$R" "$REZEPT" "$REZEPT_COMMIT")" || { echo "aapt2: Rezept $REZEPT_COMMIT nicht geholt – Abbruch" >&2; exit 1; }
 [ "$stand" = "$REZEPT_COMMIT" ] || { echo "aapt2: Rezept zeigt auf $stand statt $REZEPT_COMMIT – Abbruch" >&2; exit 1; }
 
-# Alle Repos holen und prüfen – jede Abweichung nennen, dann abbrechen
+# Alle Repos holen (samt Tag, den fetch_sources.py sucht) und prüfen – jede Abweichung nennen, dann abbrechen
 falsch=0
 pfade=""
 while read -r pfad repo commit; do
   [ -n "$pfad" ] || continue
   pfade="$pfade$pfad"$'\n'
-  if [ "$pfad" = zlib ]; then url="$repo"; ref="refs/tags/$ZLIB_TAG"; else url="$AOSP/$repo"; ref="refs/tags/$AOSP_TAG"; fi
-  if ! stand="$(hole "$ARBEIT/rezept/src/$pfad" "$url" "$ref")"; then
-    echo "aapt2: $pfad nicht geholt ($url $ref)" >&2
+  if ! stand="$(hole "$R/src/$pfad" "$AOSP/$repo" "" "+refs/tags/$AOSP_TAG:refs/tags/$AOSP_TAG")"; then
+    echo "aapt2: $pfad nicht geholt ($AOSP/$repo $AOSP_TAG)" >&2
     falsch=1
   elif [ "$stand" != "$commit" ]; then
     echo "aapt2: $pfad zeigt auf $stand statt $commit" >&2
@@ -112,41 +105,55 @@ done <<< "$STAENDE"
 [ "$falsch" = 0 ] || { echo "aapt2: Quellen nicht wie erwartet – Abbruch" >&2; exit 1; }
 
 # Das Rezept darf nichts holen, was hier nicht geprüft ist: seine Liste muss genau unsere sein
-liste="$(python3 -I -c 'import json, sys; print("\n".join(sorted(r["path"].removeprefix("src/") for r in json.load(open(sys.argv[1])))))' "$ARBEIT/rezept/repository.json")"
-[ "$liste" = "$(printf '%s' "$pfade" | LC_ALL=C sort)" ] || { echo "aapt2: repository.json des Rezepts nennt andere Repos – Abbruch" >&2; exit 1; }
-find "$ARBEIT/rezept/src" -mindepth 2 -maxdepth 2 -name .git -type d -exec rm -rf {} +
+liste="$(python3 -I -c 'import json, sys; print("\n".join(sorted(r["path"].removeprefix("src/") for r in json.load(open(sys.argv[1])))))' "$R/repos.json")"
+[ "$liste" = "$(printf '%s' "$pfade" | LC_ALL=C sort)" ] || { echo "aapt2: repos.json des Rezepts nennt andere Repos – Abbruch" >&2; exit 1; }
 
-# get_source.py findet alles vor (überspringt jedes Repo) und legt nur die Patches an; build.py baut protoc, dann aapt2
-( cd "$ARBEIT/rezept" && python3 -I get_source.py --tags "$AOSP_TAG" --jobs 1 ) > "$ARBEIT/quellen.log"
-grep -q "already exists, skip" "$ARBEIT/quellen.log" && ! grep -q "^cloned " "$ARBEIT/quellen.log" \
-  || { cat "$ARBEIT/quellen.log" >&2; echo "aapt2: das Rezept hat selbst geholt – Abbruch" >&2; exit 1; }
-# expat prüft arc4random_buf ohne, übersetzt aber mit -std=c99 – glibc (ab 2.36) verbirgt die Funktion dann; ohne nimmt expat
-# getrandom (das Rezept baut sonst nur mit NDK und zig, dort tritt es nicht auf)
-( cd "$ARBEIT/rezept" && python3 -I build.py --toolchain host --cc clang --cxx clang++ --arch "$ARCH" --link static \
-    --build "$ARBEIT/bau" --target aapt2 --jobs "$(nproc)" -- -DHAVE_ARC4RANDOM_BUF=0 -DHAVE_ARC4RANDOM=0 ) > "$ARBEIT/bau.log" 2>&1 \
-  || {
-    tail -n 40 "$ARBEIT/bau.log" >&2
-    # alle Fehler auf einmal, nicht nur den ersten
-    cmake --build "$ARBEIT/bau" --target aapt2 -- -k 0 2>&1 | grep -E "error:|undefined reference" | sort -u | head -n 60 >&2 || true
-    echo "aapt2: Bau gescheitert" >&2
-    exit 1
-  }
+# fetch_sources.py findet jedes Repo am Tag vor (klont nichts) und legt Ergänzungen und Patches an – ein „!!“ heißt, etwas
+# davon fehlt oder passt nicht mehr
+AOSP_BRANCH="$AOSP_TAG" SRC_DIR="$R/src" REPOS_JSON="$R/repos.json" PATCH_DIR="$R/patches" JOBS=1 \
+  python3 -I "$R/scripts/fetch_sources.py" > "$ARBEIT/quellen.log" 2>&1 || { cat "$ARBEIT/quellen.log" >&2; exit 1; }
+if grep -q ": cloned$" "$ARBEIT/quellen.log" || grep -q "!!" "$ARBEIT/quellen.log" \
+  || [ "$(grep -c "already cloned (ref matches)" "$ARBEIT/quellen.log")" != "$(printf '%s' "$pfade" | wc -l)" ]; then
+  cat "$ARBEIT/quellen.log" >&2
+  echo "aapt2: das Rezept hat selbst geholt oder nicht alles angelegt – Abbruch" >&2
+  exit 1
+fi
+
+# protoc für diesen Rechner, dann aapt2 – mit -k 0 nennt ein gescheiterter Bau alle Fehler auf einmal
+N="$(nproc)"
+{
+  cmake -S "$R/src/protobuf" -B "$ARBEIT/protoc" -G Ninja -DCMAKE_BUILD_TYPE=Release -Dprotobuf_BUILD_TESTS=OFF \
+    -Dprotobuf_BUILD_EXAMPLES=OFF -DABSL_PROPAGATE_CXX_STD=ON
+  cmake --build "$ARBEIT/protoc" -j "$N" --target protoc
+  protoc="$(find "$ARBEIT/protoc" -type f -name protoc -perm -u+x | head -n 1)"
+  [ -n "$protoc" ] || protoc="$(find "$ARBEIT/protoc" -type f -name 'protoc-[0-9]*' -perm -u+x | head -n 1)"
+  cmake -S "$R" -B "$ARBEIT/bau" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
+    -DPROTOC_PATH="$protoc"
+  cmake --build "$ARBEIT/bau" -j "$N" --target aapt2 -- -k 0
+} > "$ARBEIT/bau.log" 2>&1 || {
+  grep -E "error:|Error |undefined reference|CMake Error" "$ARBEIT/bau.log" | sort -u | head -n 60 >&2 || true
+  tail -n 30 "$ARBEIT/bau.log" >&2
+  echo "aapt2: Bau gescheitert" >&2
+  exit 1
+}
 
 PROGRAMM="$ARBEIT/bau/bin/build-tools/aapt2"
-# statisch: kein Interpreter, keine Bibliothek – sonst liefe es in der Sandbox nicht überall
-if readelf -l "$PROGRAMM" | grep -q "program interpreter" || readelf -d "$PROGRAMM" | grep -q NEEDED; then
-  echo "aapt2 ist nicht statisch gelinkt – Abbruch" >&2
+# Nur glibc, libstdc++ und zlib – in der Sandbox liegen sie unter /usr; alles andere ist hineingelinkt
+if ldd "$PROGRAMM" | grep -vqE 'linux-vdso|ld-linux|lib(c|m|dl|rt|pthread|stdc\+\+|gcc_s|z)\.so'; then
+  echo "aapt2 braucht weitere Bibliotheken:" >&2
+  ldd "$PROGRAMM" >&2
   exit 1
 fi
 "$PROGRAMM" version > "$ARBEIT/fassung.txt" 2>&1 || { cat "$ARBEIT/fassung.txt" >&2; exit 1; }
 
 mkdir -p "$ZIEL/aapt2-lizenzen"
 install -m 0755 "$PROGRAMM" "$ZIEL/aapt2"
-install -m 0644 "$ARBEIT/rezept/LICENSE.txt" "$ZIEL/aapt2-lizenzen/android-sdk-tools"
+strip "$ZIEL/aapt2"
+install -m 0644 "$R/LICENSE" "$ZIEL/aapt2-lizenzen/android-arm-build-tools"
 for repo in $GELINKT; do
   text=""
   for name in NOTICE LICENSE LICENSE.txt LICENSE.md LICENSE.rst LICENCE COPYING; do
-    [ -f "$ARBEIT/rezept/src/$repo/$name" ] && { text="$ARBEIT/rezept/src/$repo/$name"; break; }
+    [ -f "$R/src/$repo/$name" ] && { text="$R/src/$repo/$name"; break; }
   done
   [ -n "$text" ] || { echo "aapt2: Lizenztext von $repo fehlt – Abbruch" >&2; exit 1; }
   install -m 0644 "$text" "$ZIEL/aapt2-lizenzen/$repo"
