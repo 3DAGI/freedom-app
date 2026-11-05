@@ -64,9 +64,9 @@ unwinding            platform/system/unwinding               31327c70da147fdc069
 zopfli               platform/external/zopfli                eef2dd4266802ab1b7f26cb72cb1fc9b8ed3f55b
 zstd                 platform/external/zstd                  3c0442c12d0f0b612a8869754a3fdf22bf16ef33
 "
-# Was aapt2 enthält (aapt2.cmake des Rezepts) – je Eintrag ein Lizenztext (in system/core liegen sie nur in den Ordnern der
-# Bibliotheken, libselinux und libsepol haben verschiedene Lizenzen), sonst Abbruch
-GELINKT="base core/libcutils libbase logging libziparchive incremental_delivery soong selinux/libselinux selinux/libsepol protobuf abseil-cpp boringssl expat libpng pcre fmtlib"
+# Was aapt2 enthält (aapt2.cmake des Rezepts) – je Eintrag ein Lizenztext (in system/core, logging und incremental_delivery
+# liegen sie nur in den Ordnern der Bibliotheken, libselinux und libsepol haben verschiedene Lizenzen), sonst Abbruch
+GELINKT="base core/libcutils libbase logging/liblog libziparchive incremental_delivery/incfs soong/licenses selinux/libselinux selinux/libsepol protobuf abseil-cpp boringssl expat libpng pcre fmtlib"
 
 ZIEL="${1:?Ziel fehlt – scripts/aapt2-bauen.sh <ziel>}"
 ARBEIT="$(mktemp -d)"
@@ -128,6 +128,11 @@ for eintrag in $GELINKT; do
   for name in NOTICE LICENSE LICENSE.txt LICENSE.md LICENSE.rst LICENCE COPYING; do
     [ -f "$R/src/$eintrag/$name" ] && { text="$R/src/$eintrag/$name"; break; }
   done
+  # Apache-2.0 ohne eigenen Text (libziparchive): der Text aus frameworks/base
+  if [ -z "$text" ] && { [ -f "$R/src/$eintrag/MODULE_LICENSE_APACHE2" ] \
+    || grep -qs '"SPDX-license-identifier-Apache-2.0"' "$R/src/$eintrag/Android.bp"; }; then
+    text="$R/src/base/NOTICE"
+  fi
   if [ -n "$text" ]; then
     install -m 0644 "$text" "$ARBEIT/lizenzen/${eintrag//\//-}"
   else
