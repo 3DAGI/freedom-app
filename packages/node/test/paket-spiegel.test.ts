@@ -445,7 +445,7 @@ const androidJars = [sdk && join(sdk, "platforms", "android-36", "android.jar"),
 const ohneAapt2 = (!sandbox.ok && `Sandbox geht hier nicht (${sandbox.fall})`) || (!aapt2 && "AAPT2_TEST fehlt (scripts/aapt2-bauen.sh)")
   || (androidJars.length === 0 && "kein android.jar");
 
-test("VKh3 (aapt2): aus den Quellen, statisch – übersetzt und verlinkt Ressourcen in der Sandbox ohne Netz", {
+test("VKh3 (aapt2): aus den Quellen – übersetzt und verlinkt Ressourcen in der Sandbox ohne Netz", {
   skip: process.env.AAPT2_TEST_PFLICHT === "1" ? false : ohneAapt2,
 }, async () => {
   assert.equal(ohneAapt2, false, `AAPT2_TEST_PFLICHT: ${ohneAapt2}`);

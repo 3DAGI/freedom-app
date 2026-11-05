@@ -125,6 +125,13 @@ Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
 - `./gradlew` lädt seine Gradle-Fassung von services.gradle.org und scheitert ohne Netz. Gradle selbst kommt seit VKh2a mit
   `GRADLE=1` ins Bild.
 
+**Befunde aus VKh3a:**
+- Das Rezept von lzhiyong/android-sdk-tools baut nur für Android (bionic); mit glibc scheiterte es an Dutzenden Stellen. Gebaut
+  wird nach dem Rezept von Commit451/android-arm-build-tools (MIT, für glibc und GCC 12 auf Debian 12), aus Android 17.
+- `aapt2` aus Android 17 arbeitet mit dem Android-Plugin 9.5.0 und compileSdk 36 über `android.aapt2FromMavenOverride`
+  (Echttest in der CI auf x86-64; auf ARM64 übersetzt und verlinkt es Ressourcen in der Sandbox).
+- Das Programm hängt nur an glibc, libstdc++ und zlib – im Bild (Debian 12) sind sie da.
+
 ## Proben am GX10 (MENSCH)
 
 - `ls -l /dev/kvm` – gibt es KVM für Cuttlefish (VKh4)?

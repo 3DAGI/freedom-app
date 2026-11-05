@@ -584,3 +584,49 @@ Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W1 C: erst bauen, laufen lassen auf dem e
 - Skript mit einer Attrappe für sdkmanager: ohne Annahme kein Abruf, sonst Lage unter `cmdline-tools/latest`, Lizenzen, genau
   die zwei Pakete.
 - `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+## Schritt VKh3a – aapt2 aus den AOSP-Quellen
+
+Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W2 A: `aapt2` für ARM64 selbst aus den Quellen). VKh3 ist geteilt: a baut `aapt2` und
+prüft es in der CI auf beiden Prozessoren, b bringt es ins Bild auf ARM64 und setzt den Umweg im Motor.
+
+**Änderungen:**
+- **`scripts/aapt2-bauen.sh`** (neu):
+  - Quellen von Android 17 (`android-17.0.0_r1`, `aapt2` der Build-Tools 37.0.0), 39 Repos von android.googlesource.com;
+    jedes wird nach dem Holen gegen seinen Commit im Skript geprüft (`STAENDE`), bevor etwas daraus läuft. Die Commits kamen
+    aus der CI, auf beiden Prozessoren gleich geholt.
+  - Rezept: Commit451/android-arm-build-tools (MIT, CMake statt Soong, für glibc und GCC 12 auf Debian 12), Commit fest.
+    Seine Liste (`repos.json`) muss genau unsere sein; sein `fetch_sources.py` findet jedes Repo am Tag vor und legt nur seine
+    Ergänzungen und Patches an – ein „cloned“ oder ein „!!“ in der Ausgabe bricht ab.
+  - Gebaut mit dem GCC des Rechners, dynamisch nur gegen glibc, libstdc++ und zlib (`ldd`-Prüfung, ein Fehler von `ldd` bricht
+    ab), danach `aapt2 version`. Lizenztexte der gelinkten Teile neben dem Programm, geprüft vor dem langen Bau.
+  - Die Pakete zum Bauen stehen im Skript (`AAPT2_BAU_PAKETE`); die CI und später das Bild installieren genau diese.
+- **CI** (`ci.yml`, Job „aapt2 aus den Quellen“, x86-64 und ARM64):
+  - Gebaut wie im Bild in `node:22-bookworm-slim` (Debian 12, GCC 12), einmal je Fassung des Skripts, gleich danach im
+    Zwischenspeicher.
+  - Prüft in der Sandbox: `aapt2` übersetzt und verlinkt Ressourcen gegen `android.jar` (API 36 aus dem SDK des Runners, API 23
+    aus Ubuntu, aus den Quellen gebaut). Auf x86-64 baut Gradle 9.8.2 mit dem Android-Plugin 9.5.0 ein APK über
+    `android.aapt2FromMavenOverride` – nichts aus Maven.
+- **Docs:** Fallstrick in `scripts/CLAUDE.md`, Entwurf (Korrektur: Debian hat `aapt2`, aber aus Android 10; Aufteilung
+  VKh3a/b), VIBECODEN-Entwurf, OFFEN, FORTSCHRITT, Stand.
+
+**Befunde:**
+- Das Rezept von lzhiyong (der erste Versuch) baut nur für Android (bionic): mit glibc und dem Compiler des Rechners scheiterte
+  es an Dutzenden Stellen – fehlende Includes (libc++ zieht sie mit, libstdc++ nicht), `sys/limits.h`, liblog für Geräte. Das
+  Rezept von Commit451 ist dieselbe Idee, für glibc gemacht.
+- android.googlesource.com ist aus der Entwicklungsumgebung gesperrt, der GitHub-Spiegel `aosp-mirror` hat nur einen Teil der
+  Repos und nichts nach Android 16 – gebaut wird nur in der CI. Die Logik des Skripts lief hier gegen Attrappen (lokale Repos,
+  Rezept mit kleinem CMake-Projekt); den Code des Rezepts startet die Entwicklungsumgebung nicht.
+- `aapt2` aus Android 17 arbeitet mit dem Android-Plugin 9.5.0 und compileSdk 36 (APK in 50 s, Echttest in der CI).
+
+**Tests:**
+- `paket-spiegel.test.ts` +2:
+  - `aapt2` in der Sandbox ohne Netz: Version, `compile`, `link` gegen jedes vorhandene `android.jar`, `dump badging` liest das
+    Label; mit `AAPT2_TEST_PFLICHT=1` rot statt übersprungen.
+  - APK mit dem eigenen `aapt2` (`AAPT2_APK_PFLICHT=1` auf x86-64): Gradle holt `aapt2` nicht aus Maven. Gegenprobe im Test aus
+    VKh2b: ohne Umweg liegt es im Cache von Gradle.
+- `docker-vibecoden.test.ts` +1: Fassung, Tag, Rezept, 39 Commits ohne Platzhalter, Reihenfolge (prüfen vor dem Rezept),
+  Abbruch bei „cloned“/„!!“, `ldd` laut, Lizenztexte vor dem Bau, kein curl; CI-Job mit beiden Prozessoren, Zwischenspeicher,
+  Bau in `node:22-bookworm-slim` mit den Paketen aus dem Skript, Pflicht-Variablen.
+- Skript gegen Attrappen: richtig; falscher Commit; Rezept mit anderer Liste; Patch passt nicht („!!“); fremde Bibliothek
+  (libcrypt); fehlende Lizenztexte (alle auf einmal); Apache-2.0 ohne eigenen Text nur mit Kennzeichen.
