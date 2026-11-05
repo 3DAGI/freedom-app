@@ -770,6 +770,18 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `scripts/gradle-holen.sh`); ohne Docker legst du `gradle` nach
   `/usr/local/bin/gradle`. Dann sagt `SOUL.md` dem Agenten, dass er mit `gradle`
   baut statt mit `./gradlew`. `GRADLE=aus` schaltet das ab.
+- **Android-Apps (seit VKh2b):** Mit `ANDROID=1` (dazu `GRADLE=1`) kommt das
+  Android-SDK ins Bild – Plattform 36 und Build-Tools 36.0.0 unter
+  `/usr/lib/android-sdk`, rund 300 MB. Das SDK steht unter dem Lizenzvertrag von
+  Google (https://developer.android.com/studio/terms), nicht unter einer freien
+  Lizenz: Lies ihn und setze `ANDROID_SDK_LIZENZ=angenommen`, sonst bricht der Bau
+  ab. Ein Bild mit SDK gibst du nicht weiter. Der Agent baut APKs mit
+  `gradle assembleDebug` (das Android-Plugin 9.5.0 kommt über den Spiegel);
+  einen Emulator gibt es nicht – du lädst das APK über die Vorschau aufs eigene
+  Handy (die Vorschau liefert es als `application/vnd.android.package-archive`).
+  Bisher nur auf amd64: Das Android-Plugin holt `aapt2` aus Maven, und das gibt es
+  von Google nur für x86-64; auf ARM64 (GX10) nennt `SOUL.md` Android deshalb
+  noch nicht (VKh3). `ANDROID=aus` schaltet den Hinweis ab.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

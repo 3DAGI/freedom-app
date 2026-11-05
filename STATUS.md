@@ -542,3 +542,45 @@ Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W1 C: erst bauen). VKh2 ist geteilt: a Gr
 - Gradle 9.8.2 läuft nur in der CI. Heruntergeladene Programme starten die Agenten hier nicht; lokal liefen die Echttests mit
   `/opt/gradle` (8.14.3).
 - `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer (gelesen, nicht ausgeführt).
+
+## Schritt VKh2b – Android-SDK im Bild, APKs über die Vorschau
+
+Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W1 C: erst bauen, laufen lassen auf dem eigenen Handy; VKh-W4 A: das APK über die Vorschau).
+
+- **`scripts/android-sdk-holen.sh`** (neu):
+  - Die Kommandozeilen-Werkzeuge von Google (15859902) in fester Fassung, gegen die SHA-256 von developer.android.com.
+  - Danach über deren sdkmanager genau `platforms;android-36` und `build-tools;36.0.0`; deren Summen prüft sdkmanager selbst.
+  - Das SDK steht unter dem Lizenzvertrag von Google: Ohne `ANDROID_SDK_LIZENZ=angenommen` bricht das Skript ab, bevor es etwas
+    lädt. Den Wert setzt nie das Repo.
+  - Befund beim Prüfen mit einer Attrappe: `yes | sdkmanager --licenses` endet unter `pipefail` mit 141 (SIGPIPE von `yes`) – das
+    Skript bräche ab. Jetzt `{ yes || true; } |`; Gegenprobe rot.
+- **Bild:**
+  - Eigene Stufe `android-sdk-holen`, nur mit `VIBECODEN=1` und `ANDROID=1`; ohne `GRADLE=1` bricht sie ab.
+  - curl, unzip, das JRE und sdkmanager bleiben draußen. Ins Bild kommt nur das SDK unter `/usr/lib/android-sdk`, rund 300 MB.
+  - `docker-compose.vibecoden.yml` reicht `ANDROID` und `ANDROID_SDK_LIZENZ` durch (leer vorgegeben). Ein Bild mit SDK nicht
+    weitergeben.
+- **`hermes-motor.ts`:**
+  - `androidSdkAusUmgebung()` nimmt nur `/usr/lib/android-sdk` mit Plattform und Build-Tools, nur auf x86-64 (`aapt2` aus Maven
+    gibt es nur dafür – ARM64 mit VKh3); `ANDROID=aus` schaltet ab.
+  - Mit Gradle und SDK bekommt `SOUL.md` den Absatz „Android apps“: `sdk.dir`, Plugin 9.5.0 (`ANDROID_PLUGIN_FASSUNG`),
+    `gradle assembleDebug`, `build/` nicht in den Commit, das APK über die Vorschau aufs eigene Handy.
+- **`main.ts`:** gibt das SDK an den Motor und schreibt es ins Log.
+- **`vorschau.ts`:** liefert `.apk` als `application/vnd.android.package-archive` – so bietet der Browser des Handys die
+  Installation an.
+- **Docs:** PROVIDER, Fallstrick in `packages/node/CLAUDE.md`, Entwurf, VIBECODEN-Entwurf, OFFEN (Zeile VKh, neue Probe „APK“),
+  FORTSCHRITT, Stand.
+
+**Tests:**
+- `hermes-motor.test.ts` +1: Erkennung (Plattform und Build-Tools, nur x64, Verweis, `ANDROID=aus`), Hinweis nur mit Gradle,
+  nach Gradle, über den Motor in `SOUL.md`.
+- `docker-vibecoden.test.ts` +1: Skript (Fassung, Summe, Lizenz vor dem ersten Abruf, https, genau zwei Pakete, `yes` ohne
+  SIGPIPE-Abbruch), Stufe, Compose; die Lizenz setzen weder Bild noch Compose noch CI.
+- `vorschau.test.ts`: Typ eines APK.
+- `paket-spiegel.test.ts` +1, Echttest in der CI:
+  - Gradle 9.8.2 baut mit dem Android-Plugin 9.5.0 in der Sandbox ohne Netz ein APK, mit dem SDK des Runners, nur lesbar.
+  - Plugin und Bibliotheken kommen über den Spiegel.
+  - Im APK liegen `AndroidManifest.xml` und `classes.dex`.
+  - Hier überspringt er sich (kein SDK, Google gesperrt).
+- Skript mit einer Attrappe für sdkmanager: ohne Annahme kein Abruf, sonst Lage unter `cmdline-tools/latest`, Lizenzen, genau
+  die zwei Pakete.
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.

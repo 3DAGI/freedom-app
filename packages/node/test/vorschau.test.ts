@@ -41,6 +41,7 @@ function projekt() {
   writeFileSync(join(p, "app.js"), "console.log(1)");
   writeFileSync(join(p, "seiten", "index.html"), "<p>Seiten</p>");
   writeFileSync(join(p, "spiel.wasm"), Buffer.from([0, 97, 115, 109]));
+  writeFileSync(join(p, "app-debug.apk"), Buffer.from([0x50, 0x4b, 3, 4]));
   writeFileSync(join(p, ".git", "config"), "[core]");
   writeFileSync(join(p, ".env"), "GEHEIM=1");
   const draussen = join(o, "..", "node-key");
@@ -113,6 +114,8 @@ test("VKg1a: ausgeliefert nur Dateien im Projekt – live, mit Typ, ohne .git, .
     assert.equal(start.headers.get("referrer-policy"), "no-referrer");
     assert.equal((await hole("/app.js", { cookie })).headers.get("content-type"), "text/javascript; charset=utf-8");
     assert.equal((await hole("/spiel.wasm", { cookie })).headers.get("content-type"), "application/wasm");
+    // VKh2b: ein APK aus dem Projekt – so bietet der Browser des Handys an, es zu installieren
+    assert.equal((await hole("/app-debug.apk", { cookie })).headers.get("content-type"), "application/vnd.android.package-archive");
     assert.equal(await (await hole("/seiten/", { cookie })).text(), "<p>Seiten</p>");
     assert.equal(await (await hole("/seiten", { cookie })).text(), "<p>Seiten</p>");
     assert.equal(await (await hole("/konto/einstellungen", { cookie })).text(), "<h1>Start</h1>", "eigenes Routing der Seite");

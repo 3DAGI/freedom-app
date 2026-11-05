@@ -8,10 +8,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { STARTSKRIPT, hermesHeim, hermesMotor, paketKonfiguration } from "../src/hermes-motor.js";
+import { ANDROID_PLUGIN_FASSUNG, STARTSKRIPT, hermesHeim, hermesMotor, paketKonfiguration } from "../src/hermes-motor.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { PAKET_GRENZEN, holeOderFehlt, type PaketAbruf } from "../src/pakete.js";
 import { MAVEN_REPOS, SPIEGEL_GRENZEN, SpiegelKonto, beantworteSpiegel, spiegelZiel } from "../src/paket-spiegel.js";
@@ -292,7 +293,10 @@ const googleDa = !ohneGradle && await erreichbar(`${MAVEN_REPOS.google}androidx/
  * Ein Java-Projekt bauen und starten, wie es der Agent täte: Gradle in der Sandbox ohne Netz, das Init-Skript aus
  * `paketKonfiguration()` im Home, die Brücke über `freedom_motor.py` – wie im Motor.
  */
-async function baueMitGradle(dateien: Record<string, string>, spiegel: Parameters<typeof beantworteSpiegel>[2], befehl = ["run"]) {
+async function baueMitGradle(
+  dateien: Record<string, string>, spiegel: Parameters<typeof beantworteSpiegel>[2], befehl = ["run"],
+  mehr: { nurLesbar?: Array<{ quelle: string; ziel: string }>; zeitMs?: number; rechenzeitSek?: number } = {},
+) {
   const arbeit = tmp("gradle");
   for (const [pfad, inhalt] of Object.entries(dateien)) {
     mkdirSync(dirname(join(arbeit, pfad)), { recursive: true });
@@ -303,12 +307,15 @@ async function baueMitGradle(dateien: Record<string, string>, spiegel: Parameter
   writeFileSync(join(home, ".gradle", "init.d", "freedom-spiegel.gradle"), paketKonfiguration().gradle);
   const bruecke = await oeffneModellBruecke({ art: "openai", url: "http://127.0.0.1:9/v1" }, { spiegel: (req, res) => beantworteSpiegel(req, res, spiegel) });
   try {
-    const nurLesbar = [...gradle!.nurLesbar, { quelle: STARTSKRIPT, ziel: "/freedom/motor.py" }, { quelle: bruecke.ordner, ziel: BRUECKE_IN_SANDBOX.ordner }];
-    return await fuehreAus(
+    const nurLesbar = [
+      ...gradle!.nurLesbar, ...(mehr.nurLesbar ?? []), { quelle: STARTSKRIPT, ziel: "/freedom/motor.py" }, { quelle: bruecke.ordner, ziel: BRUECKE_IN_SANDBOX.ordner },
+    ];
+    const ergebnis = await fuehreAus(
       ["python3", "/freedom/motor.py", BRUECKE_IN_SANDBOX.sockel, String(BRUECKE_IN_SANDBOX.port), "--",
         gradle!.gradle, "--no-daemon", "--console=plain", "-q", "--project-dir", "/arbeit", ...befehl],
-      { arbeit, home, nurLesbar }, 300_000,
+      { arbeit, home, nurLesbar, ...(mehr.rechenzeitSek ? { rechenzeitSek: mehr.rechenzeitSek } : {}) }, mehr.zeitMs ?? 300_000,
     );
+    return { ...ergebnis, arbeit };
   } finally {
     bruecke.schliesse();
   }
@@ -352,4 +359,62 @@ test("VKh1 (Gradle): eine Bibliothek von Google Maven – gebaut in der Sandbox 
     'public class Probe { @androidx.annotation.NonNull static String wert() { return "WERT gruen"; } public static void main(String[] a) { System.out.println(wert()); } }\n'),
   { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() });
   assert.deepEqual([r.code, r.ausgabe.trim().split("\n").at(-1)], [0, "WERT gruen"], r.ausgabe);
+});
+
+/** Ein Android-SDK für den Echttest (VKh2b): das des Runners (`ANDROID_HOME`) oder das aus dem Bild – mit Plattform und Build-Tools. */
+function findeSdk(): string | null {
+  for (const d of [process.env.ANDROID_TEST_SDK, process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT, "/usr/lib/android-sdk"]) {
+    if (d && existsSync(join(d, "platforms", "android-36")) && existsSync(join(d, "build-tools", "36.0.0"))) return realpathSync(d);
+  }
+  return null;
+}
+const sdk = findeSdk();
+
+test("VKh2b (Gradle): ein APK mit dem Android-Plugin – gebaut in der Sandbox ohne Netz, das SDK nur lesbar", {
+  skip: ohneGradle || (!sdk && "Android-SDK mit android-36 und build-tools 36.0.0 fehlt") || (!googleDa && "Google Maven nicht erreichbar"),
+}, async () => {
+  const r = await baueMitGradle({
+    "settings.gradle": 'rootProject.name = "probe"\n',
+    "gradle.properties": "org.gradle.jvmargs=-Xmx2g\n",
+    "local.properties": `sdk.dir=${sdk}\n`,
+    "build.gradle": [
+      `plugins { id "com.android.application" version "${ANDROID_PLUGIN_FASSUNG}" }`,
+      "repositories { google(); mavenCentral() }",
+      "android {",
+      '  namespace = "org.freedom.probe"',
+      "  compileSdk = 36",
+      '  defaultConfig { applicationId = "org.freedom.probe"; minSdk = 24; targetSdk = 36; versionCode = 1; versionName = "1" }',
+      "}",
+      "",
+    ].join("\n"),
+    "src/main/AndroidManifest.xml": [
+      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+      '  <application android:label="Probe">',
+      '    <activity android:name=".Probe" android:exported="true">',
+      '      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>',
+      "    </activity>",
+      "  </application>",
+      "</manifest>",
+      "",
+    ].join("\n"),
+    "src/main/java/org/freedom/probe/Probe.java": [
+      "package org.freedom.probe;",
+      "public class Probe extends android.app.Activity {",
+      "  @Override protected void onCreate(android.os.Bundle b) {",
+      "    super.onCreate(b);",
+      "    android.widget.TextView t = new android.widget.TextView(this);",
+      '    t.setText("Freedom");',
+      "    setContentView(t);",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+  }, { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() }, ["assembleDebug"], {
+    // ein SDK außerhalb von /usr nur lesbar dazu; das Android-Plugin rechnet länger als die Grenze für einen Befehl
+    nurLesbar: sdk!.startsWith("/usr/") ? [] : [{ quelle: sdk!, ziel: sdk! }], zeitMs: 900_000, rechenzeitSek: 3600,
+  });
+  assert.equal(r.code, 0, r.ausgabe);
+  const apk = join(r.arbeit, "build", "outputs", "apk", "debug", "probe-debug.apk");
+  const eintraege = execFileSync("unzip", ["-Z1", apk], { encoding: "utf8" }).split("\n");
+  assert.ok(eintraege.includes("AndroidManifest.xml") && eintraege.includes("classes.dex"), eintraege.join(", "));
 });

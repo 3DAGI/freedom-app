@@ -61,6 +61,25 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$GRADLE" = "1" ]; then apt-
       && ln -s ../lib/gradle/bin/gradle /aus/usr/local/bin/gradle; \
     fi
 
+# Android-SDK für APKs (VKh2b) – nur mit VIBECODEN=1 und ANDROID=1, dazu GRADLE=1: die Kommandozeilen-Werkzeuge von Google in
+# fester Fassung, gegen SHA-256 geprüft, eine Plattform und eine Fassung der Build-Tools (scripts/android-sdk-holen.sh). Das SDK
+# steht unter dem Lizenzvertrag von Google – annehmen kann ihn nur, wer das Bild baut (ANDROID_SDK_LIZENZ=angenommen), sonst
+# bricht der Bau ab. Ein Bild mit SDK nicht weitergeben. Eigene Stufe: curl, unzip, das JRE für sdkmanager und sdkmanager selbst
+# bleiben draußen; ins Bild kommt das SDK unter /usr/lib/android-sdk (dort sieht es die Sandbox), rund 300 MB.
+FROM node:22-bookworm-slim AS android-sdk-holen
+ARG VIBECODEN=0
+ARG GRADLE=0
+ARG ANDROID=0
+ARG ANDROID_SDK_LIZENZ=
+COPY scripts/android-sdk-holen.sh /tmp/android-sdk-holen.sh
+RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$ANDROID" = "1" ]; then \
+      if [ "$GRADLE" != "1" ]; then echo "ANDROID=1 braucht GRADLE=1" >&2; exit 1; fi; \
+      mkdir -p /usr/share/man/man1 && apt-get update \
+      && apt-get install -y --no-install-recommends curl ca-certificates unzip openjdk-17-jre-headless \
+      && ANDROID_SDK_LIZENZ="$ANDROID_SDK_LIZENZ" bash /tmp/android-sdk-holen.sh /aus/usr/lib/android-sdk \
+      && rm -rf /aus/usr/lib/android-sdk/cmdline-tools; \
+    fi
+
 FROM node:22-bookworm-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -84,6 +103,8 @@ COPY --from=whisper-bau /aus/ /
 COPY --from=godot-holen /aus/ /
 # Gradle aus der Stufe oben (nur mit VIBECODEN=1 und GRADLE=1 – sonst kommt nichts)
 COPY --from=gradle-holen /aus/ /
+# Android-SDK aus der Stufe oben (nur mit VIBECODEN=1 und ANDROID=1 – sonst kommt nichts)
+COPY --from=android-sdk-holen /aus/ /
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes

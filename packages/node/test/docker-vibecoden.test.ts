@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
-import { GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
+import { ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
 const lies = (pfad: string) => readFileSync(new URL(`../../../${pfad}`, import.meta.url), "utf8");
@@ -247,6 +247,34 @@ test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fes
   assert.match(ci, /key: gradle-\$\{\{ hashFiles\('scripts\/gradle-holen\.sh'\) \}\}\n/);
   assert.match(ci, /test "\$offiziell" = "\$summe" \|\|/, "die Summe gleich der von gradle.org");
   assert.match(ci, /\n\s+bash scripts\/gradle-holen\.sh "\$HOME\/\.cache\/freedom-gradle"\n\s+echo "GRADLE_TEST=\$HOME\/\.cache\/freedom-gradle\/gradle-\$fassung\/bin\/gradle" >> "\$GITHUB_ENV"\n/);
+});
+
+test("VKh2b: Android-SDK nur mit VIBECODEN=1, ANDROID=1 und GRADLE=1 – die Lizenz nimmt nur an, wer das Bild baut; Werkzeuge gegen SHA-256", () => {
+  const skript = lies("scripts/android-sdk-holen.sh");
+  assert.match(skript, /^WERKZEUGE_FASSUNG=15859902$/m);
+  assert.match(skript, /^WERKZEUGE_SUMME=[0-9a-f]{64}$/m);
+  assert.match(skript, /^ANDROID_PLATTFORM="platforms;android-36"$/m);
+  assert.match(skript, /^ANDROID_BUILD_TOOLS="build-tools;36\.0\.0"$/m);
+  assert.match(skript, /if \[ "\$\{ANDROID_SDK_LIZENZ:-\}" != "angenommen" \]; then[\s\S]{0,300}exit 1\nfi/, "ohne Annahme bricht es ab, bevor es etwas lädt");
+  assert.ok(skript.indexOf("ANDROID_SDK_LIZENZ:-") < skript.indexOf("curl "), "die Lizenz vor dem ersten Abruf");
+  assert.match(skript, /curl -fsSL --retry 3 --proto '=https' --proto-redir '=https' --tlsv1\.2 -o "\$ARCHIV\.teil" "\$QUELLE"/);
+  assert.match(skript, /stimmt "\$ARCHIV\.teil" \|\| \{ rm -f "\$ARCHIV\.teil";/, "erst geprüft, dann unter dem Namen");
+  assert.match(skript, /\{ yes \|\| true; \} \| "\$SDKMANAGER"/, "yes endet mit SIGPIPE – mit pipefail bräche das Skript sonst ab");
+  assert.match(skript, /"\$SDKMANAGER" --sdk_root="\$ZIEL" --install "\$ANDROID_PLATTFORM" "\$ANDROID_BUILD_TOOLS"/, "genau diese beiden Pakete");
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /FROM node:22-bookworm-slim AS android-sdk-holen\nARG VIBECODEN=0\nARG GRADLE=0\nARG ANDROID=0\nARG ANDROID_SDK_LIZENZ=\n/);
+  assert.match(docker, /if \[ "\$GRADLE" != "1" \]; then echo "ANDROID=1 braucht GRADLE=1" >&2; exit 1; fi;/);
+  assert.match(docker, /&& rm -rf \/aus\/usr\/lib\/android-sdk\/cmdline-tools; \\\n/, "sdkmanager bleibt draußen");
+  assert.match(docker, /\nCOPY --from=android-sdk-holen \/aus\/ \/\n/);
+  // die Lizenz nimmt nie das Repo an: im Bild leer vorgegeben, Compose reicht nur durch, die CI nennt sie nicht
+  assert.equal([...docker.matchAll(/^(?:ARG|ENV) ANDROID_SDK_LIZENZ.*$/gm)].map((m) => m[0]).join("|"), "ARG ANDROID_SDK_LIZENZ=");
+  assert.equal([...lies("docker-compose.vibecoden.yml").matchAll(/^\s+ANDROID_SDK_LIZENZ:.*$/gm)].map((m) => m[0].trim()).join("|"),
+    'ANDROID_SDK_LIZENZ: "${ANDROID_SDK_LIZENZ:-}"');
+  assert.ok(!lies(".github/workflows/ci.yml").includes("ANDROID_SDK_LIZENZ"), "die CI baut nur mit dem SDK des Runners");
+  assert.deepEqual(ANDROID_SDK_ORTE, ["/usr/lib/android-sdk"], "dort legt das Bild das SDK ab");
+  const compose = lies("docker-compose.vibecoden.yml");
+  assert.match(compose, /\n\s+ANDROID: "\$\{ANDROID:-0\}"\n\s+ANDROID_SDK_LIZENZ: "\$\{ANDROID_SDK_LIZENZ:-\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("ANDROID"), "der Standard bleibt ohne");
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
