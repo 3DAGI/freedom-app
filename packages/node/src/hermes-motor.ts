@@ -15,7 +15,7 @@
  *   (`paket-spiegel.ts`), nur npm und PyPI von der festen Liste; seit VKh1 auch Gradle (Init-Skript in `~/.gradle/init.d`)
  *   mit Google Maven und Maven Central.
  */
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, rmSync, statSync, writeSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { MotorStart } from "./code-motor.js";
@@ -146,8 +146,10 @@ export function hermesMotor(o: {
   mcpZeichen?: (projekt: string) => string;
   /** Bilder (VKd2b2): der Ordner mit den Bildern des Projekts – nur lesbar unter `/freedom/bilder`. */
   bilder?: (projekt: string) => string;
-  /** Hinweise zum Bild (VKk5, `bildHinweise()`) – nur, wenn der Bildstrom an ist; ohne kein `SOUL.md`. */
+  /** Hinweise zum Bild (VKk5, `bildHinweise()`) – nur, wenn der Bildstrom an ist. */
   bild?: string;
+  /** Gradle ist da (VKh2a, `gradleAusUmgebung()`) – dann sagt `SOUL.md`, wie man damit baut. Ohne Bild und Gradle kein `SOUL.md`. */
+  gradle?: boolean;
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
@@ -177,8 +179,9 @@ export function hermesMotor(o: {
     if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });
     schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
     schreibeInsHeim(heim, [".gradle", "init.d", "freedom-spiegel.gradle"], pakete.gradle);
-    // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild keine, sonst versprächen alte Hinweise ein Bild
-    if (o.bild !== undefined) schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild));
+    // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild und Gradle keine, sonst versprächen alte Hinweise
+    // ein Bild oder ein Programm
+    if (o.bild !== undefined || o.gradle) schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild, { gradle: o.gradle === true }));
     else rmSync(join(heim, ".hermes", "SOUL.md"), { force: true });
     return start(projekt);
   };
@@ -189,14 +192,37 @@ export function hermesMotor(o: {
  * daher steht die Rolle vorn, danach die Hinweise zum Bild. Ins Projekt schreibt der Knoten nie (dort läge eine `AGENTS.md`
  * im Commit).
  */
-export function hermesSeele(bild: string): string {
+export function hermesSeele(bild: string | undefined, o: { gradle?: boolean } = {}): string {
   return [
     "You are Hermes Agent, a coding agent in a FreedomStack project. The project is /arbeit, a git repository; the node",
     "commits your changes. You work in a sandbox without network – use the tools you are given; npm, pip and Gradle get",
     "packages through the node's mirror (Gradle only from Google Maven and Maven Central).",
-    "",
-    bild,
+    ...(o.gradle ? ["", GRADLE_HINWEIS] : []),
+    ...(bild !== undefined ? ["", bild] : []),
   ].join("\n");
+}
+
+/** Was der Motor über Gradle wissen muss (VKh2a) – nur, wenn der Knoten es hat. */
+export const GRADLE_HINWEIS = [
+  "# Building with Gradle",
+  "",
+  "Gradle and a JDK 17 are installed: run `gradle` (for example `gradle build`), not `./gradlew` – the wrapper downloads",
+  "Gradle itself and fails without network. Libraries and plugins come from Google Maven and Maven Central only.",
+].join("\n");
+
+/** Gradle für Java-Projekte (VKh2a): nur, wo das Bild es ablegt (`GRADLE=1`, `scripts/gradle-holen.sh`) – kein eigener Pfad. */
+export const GRADLE_ORTE: readonly string[] = ["/usr/local/bin/gradle"];
+
+/** Gradle (VKh2a): der erste aus `GRADLE_ORTE`, der auf eine Datei zeigt; null mit `GRADLE=aus` oder ohne Fund. */
+export function gradleAusUmgebung(env: { GRADLE?: string }, orte: readonly string[] = GRADLE_ORTE): string | null {
+  if (env.GRADLE?.trim() === "aus") return null;
+  return orte.find((p) => {
+    try {
+      return statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  }) ?? null;
 }
 
 /** Ein echter Ordner (0700) – nie ein Verweis: Das Home ist in der Sandbox schreibbar. */

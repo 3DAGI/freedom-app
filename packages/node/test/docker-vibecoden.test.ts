@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
-import { HERMES_ORDNER } from "../src/hermes-motor.js";
+import { GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
 const lies = (pfad: string) => readFileSync(new URL(`../../../${pfad}`, import.meta.url), "utf8");
@@ -225,6 +225,28 @@ test("VKk4f: GIMP nur mit VIBECODEN=1 und GIMP=1 aus der Distribution, dort, wo 
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+GIMP: "\$\{GIMP:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("GIMP"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends gimp\n\s+gimp --version\n/);
+});
+
+test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fester Fassung gegen SHA-256, das JDK aus Debian; die CI baut damit", () => {
+  const skript = lies("scripts/gradle-holen.sh");
+  assert.match(skript, /^GRADLE_FASSUNG=9\.8\.2$/m);
+  assert.match(skript, /^GRADLE_SUMME=[0-9a-f]{64}$/m);
+  assert.match(skript, /curl -fsSL --retry 3 --proto '=https' --proto-redir '=https' --tlsv1\.2 -o "\$ARCHIV\.teil" "\$QUELLE"/, "nur https, auch nach der Weiterleitung");
+  assert.match(skript, /stimmt "\$ARCHIV\.teil" \|\| \{ rm -f "\$ARCHIV\.teil";/, "erst geprüft, dann unter dem Namen");
+  assert.match(skript, /unzip -Z1 "\$ARCHIV" \| grep -qvE "\^\$ORDNER\//, "nur entpacken, was unter gradle-<fassung>/ liegt");
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /FROM node:22-bookworm-slim AS gradle-holen\nARG VIBECODEN=0\nARG GRADLE=0\nCOPY scripts\/gradle-holen\.sh \/tmp\/gradle-holen\.sh\n/);
+  assert.match(docker, /if \[ "\$VIBECODEN" = "1" \] && \[ "\$GRADLE" = "1" \]; then apt-get update \\\n\s+&& apt-get install -y --no-install-recommends curl ca-certificates unzip \\\n\s+&& bash \/tmp\/gradle-holen\.sh \/tmp\/gradle \\\n/);
+  assert.match(docker, /ln -s \.\.\/lib\/gradle\/bin\/gradle \/aus\/usr\/local\/bin\/gradle/);
+  assert.match(docker, /\nCOPY --from=gradle-holen \/aus\/ \/\n/);
+  assert.match(docker, /\nARG GRADLE=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$GRADLE" = "1" \]; then \\\n\s+mkdir -p \/usr\/share\/man\/man1 && apt-get update && apt-get install -y --no-install-recommends openjdk-17-jdk-headless \\\n/);
+  assert.deepEqual(GRADLE_ORTE, ["/usr/local/bin/gradle"], "dort legt das Bild den Verweis ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+GRADLE: "\$\{GRADLE:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("GRADLE"), "der Standard bleibt ohne");
+  const ci = lies(".github/workflows/ci.yml");
+  assert.match(ci, /key: gradle-\$\{\{ hashFiles\('scripts\/gradle-holen\.sh'\) \}\}\n/);
+  assert.match(ci, /test "\$offiziell" = "\$summe" \|\|/, "die Summe gleich der von gradle.org");
+  assert.match(ci, /\n\s+bash scripts\/gradle-holen\.sh "\$HOME\/\.cache\/freedom-gradle"\n\s+echo "GRADLE_TEST=\$HOME\/\.cache\/freedom-gradle\/gradle-\$fassung\/bin\/gradle" >> "\$GITHUB_ENV"\n/);
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {

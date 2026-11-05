@@ -504,3 +504,41 @@ Cuttlefish nach der Probe am GX10; das Blob-Netz erst bei Bedarf.
   - mit Init-Skript ohne Wirkung rot (Gradle fragt repo.maven.apache.org direkt);
   - ohne Grenze im Strom rot;
   - mit Zuhörern, die liegen bleiben, rot (`MaxListenersExceededWarning`).
+
+## Schritt VKh2a – Gradle und JDK im Bild
+
+Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W1 C: erst bauen). VKh2 ist geteilt: a Gradle und JDK, b das Android-SDK samt APK.
+
+- **`scripts/gradle-holen.sh`** (neu):
+  - Holt Gradle 9.8.2, die offizielle Distribution, über https, auch nach der Weiterleitung zu GitHub.
+  - Die SHA-256 steht fest im Skript. Ich habe sie aus dem geladenen Archiv gerechnet: downloads.gradle.org mit der Summe ist
+    aus der Entwicklungsumgebung gesperrt. Die CI vergleicht die feste Summe bei jedem Lauf mit der von gradle.org.
+  - Entpackt wird nur, was unter `gradle-9.8.2/` liegt, und erst nach der Prüfung. Debian 12 bringt nur Gradle 4.4, zu alt für
+    das Android-Plugin.
+- **Bild:**
+  - Eigene Stufe `gradle-holen`: curl und unzip bleiben draußen. Ins Bild kommt der Ordner `/usr/local/lib/gradle` mit dem
+    Verweis `/usr/local/bin/gradle`; dort sieht ihn die Sandbox ohne weiteren Ordner.
+  - Das JDK 17 kommt aus Debian (`openjdk-17-jdk-headless`).
+  - Beides nur mit `VIBECODEN=1` und `GRADLE=1` (`docker-compose.vibecoden.yml` reicht es durch), zusammen rund 420 MB.
+  - Den Bau des Bilds macht der MENSCH: Debian ist von hier aus gesperrt. Die Stufe habe ich ohne Docker nachgestellt.
+- **`hermes-motor.ts`:**
+  - `gradleAusUmgebung()` sucht nur `/usr/local/bin/gradle`; `GRADLE=aus` schaltet ab.
+  - Mit Gradle bekommt `SOUL.md` einen Absatz („`gradle`, nicht `./gradlew`“), auch ohne Bild.
+  - Ohne Bild und ohne Gradle gibt es weiter kein `SOUL.md`.
+- **`main.ts`:** gibt Gradle an den Motor und schreibt es ins Log.
+- **CI:** Gradle aus dem Skript, im Zwischenspeicher. Die Echttests aus VKh1 bauen damit (`GRADLE_TEST`) statt mit dem Gradle des
+  Runners.
+- **Docs:** PROVIDER, Fallstrick in `packages/node/CLAUDE.md`, Entwurf (Aufteilung VKh2a/b), VIBECODEN-Entwurf, OFFEN (Zeile VKh,
+  Probe „Vibecoden“), FORTSCHRITT, Stand.
+
+**Tests:**
+- `hermes-motor.test.ts` +2:
+  - `SOUL.md` nur mit Gradle, mit Gradle und Bild, ohne beides.
+  - Erkennung über einen Verweis; `GRADLE=aus`, Ordner und eigener Pfad zählen nicht.
+- `docker-vibecoden.test.ts` +1: Skript, Stufe, JDK, Compose und CI samt Abgleich der Summe.
+- Gegenproben, beide rot:
+  - ohne `--proto-redir`;
+  - ohne den Abgleich mit gradle.org.
+- Gradle 9.8.2 läuft nur in der CI. Heruntergeladene Programme starten die Agenten hier nicht; lokal liefen die Echttests mit
+  `/opt/gradle` (8.14.3).
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer (gelesen, nicht ausgeführt).

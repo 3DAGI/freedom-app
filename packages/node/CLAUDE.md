@@ -676,3 +676,10 @@ Bereichs unten anhängen.
   Bytes. Das JDK von Debian und Ubuntu liest `conf/security/java.security` über einen Verweis nach `/etc/java-<N>-openjdk`:
   ohne `JAVA_ETC` in der Sandbox bricht jede JVM schon beim Start ab („Error loading java.security file“), auch Gradle.
   Gradle prüft in den Echttests auch Fehler: Seine Liste „Searched in the following repositories“ zeigt, wohin es fragte.
+- **Gradle nur aus `gradle-holen.sh` und nur unter `/usr/local`** (seit VKh2a): die offizielle Distribution in fester Fassung,
+  SHA-256 fest im Skript (`GRADLE_SUMME`) – die Entwicklungsumgebung erreicht downloads.gradle.org nicht, die CI vergleicht die
+  Summe bei jedem Lauf mit der von gradle.org. Im Bild nur mit `GRADLE=1` unter `/usr/local/lib/gradle`, der Verweis
+  `/usr/local/bin/gradle` (`GRADLE_ORTE`) – dort sieht ihn die Sandbox ohne weiteren Ordner. Heruntergeladenes Gradle startet in
+  der Entwicklungsumgebung nie; die Echttests laufen hier mit dem vorhandenen `/opt/gradle` (8.14.3), in der CI mit genau der
+  Fassung des Bilds (`GRADLE_TEST`). Den Hinweis in `SOUL.md` gibt es nur, wenn `gradleAusUmgebung()` Gradle findet – auch ohne
+  Bild (`hermesSeele(bild, { gradle })`). Debian-slim-Bilder haben kein `/usr/share/man/man1` – ohne den Ordner scheitert das JDK.

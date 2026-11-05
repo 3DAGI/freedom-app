@@ -765,7 +765,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   sehen Google bzw. Maven Central die IP deines Knotens (oder den Ausgang von Tor)
   und die Namen der Bibliotheken. Gradle selbst kommt nicht über den Spiegel:
   `./gradlew` lädt seine Fassung von services.gradle.org und scheitert in der
-  Sandbox.
+  Sandbox. Ins Bild kommen Gradle 9.8.2 und das JDK 17 aus Debian seit VKh2a mit
+  `GRADLE=1` (zusammen rund 420 MB; Gradle in fester Fassung gegen SHA-256 geprüft,
+  `scripts/gradle-holen.sh`); ohne Docker legst du `gradle` nach
+  `/usr/local/bin/gradle`. Dann sagt `SOUL.md` dem Agenten, dass er mit `gradle`
+  baut statt mit `./gradlew`. `GRADLE=aus` schaltet das ab.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

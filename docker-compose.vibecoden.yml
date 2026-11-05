@@ -23,6 +23,8 @@ services:
         INKSCAPE: "${INKSCAPE:-0}"
         # Bilder im Bild (VKk4f): GIMP=1 baut GIMP dazu, rund 250 MB
         GIMP: "${GIMP:-0}"
+        # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
+        GRADLE: "${GRADLE:-0}"
     environment:
       VIBECODEN: "1"
       # Modell für Code-Läufe (Tool-Calling, langer Kontext) – leer: das erste im Angebot

@@ -122,6 +122,22 @@ jobs:
           bash scripts/godot-holen.sh "$HOME/.cache/freedom-godot"
           echo "GODOT_TEST=$HOME/.cache/freedom-godot/godot" >> "$GITHUB_ENV"
 
+      # VKh2a: Gradle in derselben Fassung wie im Bild (scripts/gradle-holen.sh) – damit bauen die Echttests mit Maven (VKh1).
+      # Die Summe im Skript vergleicht der Schritt mit der von gradle.org (aus der Entwicklungsumgebung nicht erreichbar)
+      - name: Gradle aus dem Zwischenspeicher
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/freedom-gradle
+          key: gradle-${{ hashFiles('scripts/gradle-holen.sh') }}
+      - name: Gradle fuer die Maven-Tests
+        run: |
+          fassung="$(sed -n 's/^GRADLE_FASSUNG=//p' scripts/gradle-holen.sh)"
+          summe="$(sed -n 's/^GRADLE_SUMME=//p' scripts/gradle-holen.sh)"
+          offiziell="$(curl -fsSL --retry 3 --proto '=https' "https://services.gradle.org/distributions/gradle-$fassung-bin.zip.sha256")"
+          test "$offiziell" = "$summe" || { echo "Gradle: Summe im Skript ist nicht die von gradle.org" >&2; exit 1; }
+          bash scripts/gradle-holen.sh "$HOME/.cache/freedom-gradle"
+          echo "GRADLE_TEST=$HOME/.cache/freedom-gradle/gradle-$fassung/bin/gradle" >> "$GITHUB_ENV"
+
       # VKi1: Windows-Programme zeigt Wine im Bild – der Test baut sein Programm mit mingw-w64 und startet es in Wine
       - name: Wine und mingw fuer den Bild-Test
         run: |
