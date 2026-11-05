@@ -16,8 +16,8 @@ import { join } from "node:path";
 import { CodeLaeufe, lebt, prozessMotor } from "../src/code-motor.js";
 import { bildHinweise } from "../src/bildstrom.js";
 import {
-  ANDROID_PLUGIN_FASSUNG, GRADLE_HINWEIS, HERMES_ORDNER, STARTSKRIPT, androidHinweis, androidSdkAusUmgebung, gradleAusUmgebung, hermesAusUmgebung,
-  hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele,
+  AAPT2_ORTE, ANDROID_PLUGIN_FASSUNG, GRADLE_HINWEIS, HERMES_ORDNER, STARTSKRIPT, aapt2AusUmgebung, androidHinweis, androidSdkAusUmgebung,
+  gradleAusUmgebung, gradleEigenschaften, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele,
 } from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, brueckenZiel, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { ProjektAblage } from "../src/projekte.js";
@@ -247,7 +247,7 @@ test("VKh2b: Android-SDK nur mit Plattform und Build-Tools, nur auf x86-64 (aapt
   mkdirSync(join(sdk, "build-tools", "36.0.0"), { recursive: true });
   assert.equal(androidSdkAusUmgebung({}, [join(sdk, "fehlt"), sdk], "x64"), sdk);
   assert.equal(androidSdkAusUmgebung({ ANDROID: "aus" }, [sdk], "x64"), null);
-  assert.equal(androidSdkAusUmgebung({}, [sdk], "arm64"), null, "aapt2 aus Maven gibt es nur für x86-64 – bis VKh3 kein Hinweis");
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "arm64", null), null, "aapt2 aus Maven gibt es nur für x86-64 – auf ARM64 nur mit aapt2 aus den Quellen (VKh3b)");
   const verweis = join(tmp("v"), "sdk");
   symlinkSync(sdk, verweis);
   assert.equal(androidSdkAusUmgebung({}, [verweis], "x64"), verweis, "ein Verweis auf das SDK zählt wie das SDK");
@@ -268,6 +268,61 @@ test("VKh2b: Android-SDK nur mit Plattform und Build-Tools, nur auf x86-64 (aapt
   });
   assert.equal(killOhnePid(() => motor(ablage.ort("app")).beende()), 0);
   assert.equal(readFileSync(join(hermesHeim(ablage, ablage.ort("app")), ".hermes", "SOUL.md"), "utf8"), mit);
+});
+
+test("VKh3b: aapt2 aus den Quellen – nur aus dem Bild; auf ARM64 das SDK nur damit; der Motor zeigt Gradle darauf, nie durch einen Verweis", () => {
+  // Erkennung wie bei Gradle: eine Datei (auch über einen Verweis), kein Ordner, kein eigener Pfad; ANDROID=aus schaltet ab
+  const ort = tmp("aapt2");
+  const echt = join(ort, "lib", "aapt2");
+  mkdirSync(join(ort, "lib"), { recursive: true });
+  writeFileSync(echt, "\x7fELF");
+  symlinkSync(echt, join(ort, "aapt2"));
+  assert.deepEqual(AAPT2_ORTE, ["/usr/local/bin/aapt2"], "dort legt das Bild es ab (Stufe aapt2-bauen)");
+  assert.equal(aapt2AusUmgebung({}, [join(ort, "aapt2")]), join(ort, "aapt2"));
+  assert.equal(aapt2AusUmgebung({ ANDROID: "aus" }, [join(ort, "aapt2")]), null);
+  assert.equal(aapt2AusUmgebung({}, [join(ort, "fehlt"), join(ort, "lib")]), null, "kein Ordner, nichts Fehlendes");
+  // das SDK auf ARM64 nur mit aapt2, auf x86-64 wie bisher; ANDROID=aus schlägt alles
+  const sdk = tmp("sdk");
+  mkdirSync(join(sdk, "platforms", "android-36"), { recursive: true });
+  mkdirSync(join(sdk, "build-tools", "36.0.0"), { recursive: true });
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "arm64", "/usr/local/bin/aapt2"), sdk);
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "arm64", null), null);
+  assert.equal(androidSdkAusUmgebung({ ANDROID: "aus" }, [sdk], "arm64", "/usr/local/bin/aapt2"), null);
+  assert.equal(androidSdkAusUmgebung({}, [sdk], "x64", null), sdk, "auf x86-64 kommt aapt2 aus Maven");
+  // die Datei für Gradle: genau der Umweg, nur ASCII (Java liest Properties als ISO-8859-1)
+  const eigenschaften = gradleEigenschaften("/usr/local/bin/aapt2");
+  assert.ok(eigenschaften.split("\n").includes("android.aapt2FromMavenOverride=/usr/local/bin/aapt2"));
+  assert.match(eigenschaften, /^[\x00-\x7f]*$/);
+  // der Hinweis nennt aapt2 nur, wenn es da ist – und dass die Datei vom Knoten kommt
+  const hinweis = androidHinweis("/usr/lib/android-sdk", "/usr/local/bin/aapt2");
+  assert.ok(hinweis.startsWith(androidHinweis("/usr/lib/android-sdk")) && hinweis.includes("android.aapt2FromMavenOverride"));
+  assert.ok(!androidHinweis("/usr/lib/android-sdk").includes("aapt2"), "ohne aapt2 aus den Quellen kein Wort davon");
+  assert.doesNotMatch(hinweis, /you are now|ignore (all|previous)|system prompt|curl|\| *sh/i);
+  // über den Motor: gradle.properties im Home (0600), SOUL.md mit dem Absatz; ohne aapt2 im nächsten Lauf keine Datei
+  const ablage = new ProjektAblage(join(tmp("ablage"), "projekte"));
+  mkdirSync(ablage.ort("app"), { recursive: true });
+  const motor = (aapt2?: string) => hermesMotor({
+    hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: tmp("b") }, modell: () => "coder:7b", bwrap: "/gibt/es/nicht",
+    gradle: true, androidSdk: "/usr/lib/android-sdk", ...(aapt2 ? { aapt2 } : {}),
+  });
+  const heim = hermesHeim(ablage, ablage.ort("app"));
+  const datei = join(heim, ".gradle", "gradle.properties");
+  assert.equal(killOhnePid(() => motor("/usr/local/bin/aapt2")(ablage.ort("app")).beende()), 0);
+  assert.equal(readFileSync(datei, "utf8"), eigenschaften);
+  assert.equal(statSync(datei).mode & 0o777, 0o600);
+  assert.equal(readFileSync(join(heim, ".hermes", "SOUL.md"), "utf8"),
+    hermesSeele(undefined, { gradle: true, androidSdk: "/usr/lib/android-sdk", aapt2: "/usr/local/bin/aapt2" }));
+  // ein Verweis an ihrer Stelle wird ersetzt, nie verfolgt
+  const fremd = join(tmp("fremd"), "gradle.properties");
+  writeFileSync(fremd, "bleibt\n");
+  rmSync(datei);
+  symlinkSync(fremd, datei);
+  assert.equal(killOhnePid(() => motor("/usr/local/bin/aapt2")(ablage.ort("app")).beende()), 0);
+  assert.equal(readFileSync(fremd, "utf8"), "bleibt\n");
+  assert.equal(readFileSync(datei, "utf8"), eigenschaften);
+  assert.equal(killOhnePid(() => motor()(ablage.ort("app")).beende()), 0);
+  assert.ok(!existsSync(datei), "ohne aapt2 kein Umweg, der ins Leere zeigt");
+  assert.ok(!readFileSync(join(heim, ".hermes", "SOUL.md"), "utf8").includes("aapt2"));
 });
 
 test("VKc3: Sandbox – weitere Orte nur lesbar, nie über /arbeit", () => {

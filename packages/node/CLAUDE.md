@@ -689,7 +689,12 @@ Bereichs unten anhängen.
   Die Werkzeuge in fester Fassung gegen die SHA-256 von developer.android.com, dann genau `platforms;android-36` und
   `build-tools;36.0.0` über sdkmanager (prüft selbst); sdkmanager bleibt draußen. `yes | sdkmanager --licenses` endet unter
   `pipefail` mit 141 (SIGPIPE von `yes`) – `{ yes || true; } |`. Im Knoten nur über `androidSdkAusUmgebung()` (nur
-  `/usr/lib/android-sdk` mit Plattform und Build-Tools, nur auf x86-64 – `aapt2` aus Maven gibt es nur dafür, bis VKh3), der
-  Hinweis in `SOUL.md` nur mit Gradle (`androidHinweis()`, Plugin `ANDROID_PLUGIN_FASSUNG` – dieselbe Zahl baut der Echttest).
+  `/usr/lib/android-sdk` mit Plattform und Build-Tools; außer auf x86-64 nur mit `aapt2` aus den Quellen – `aapt2` aus Maven gibt
+  es nur für x86-64), der Hinweis in `SOUL.md` nur mit Gradle (`androidHinweis()`, Plugin `ANDROID_PLUGIN_FASSUNG` – dieselbe
+  Zahl baut der Echttest). `aapt2` aus den Quellen (seit VKh3b) nur über `aapt2AusUmgebung()` (`AAPT2_ORTE`, das Bild legt es
+  auf ARM64 mit `ANDROID=1` dorthin); den Umweg sieht Gradle nur über `~/.gradle/gradle.properties` im Home des Motors
+  (`gradleEigenschaften()`, vor jedem Lauf neu über `schreibeInsHeim()`, ohne `aapt2` gelöscht – erst nach dem Init-Skript,
+  das `.gradle` als echten Ordner prüft, sonst folgte `rmSync` einem Verweis des Motors). Nie in `local.properties`: dort liest
+  das Android-Plugin den Umweg nicht; nur ASCII in der Datei (Java liest Properties als ISO-8859-1).
   Echttests mit Gradle rechnen länger als `SANDBOX_GRENZEN.cpuSek` (120 s für alle Threads): `rechenzeitSek` mitgeben – der Motor
   selbst hat keine Grenze der Rechenzeit.

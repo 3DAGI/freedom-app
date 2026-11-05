@@ -152,6 +152,8 @@ export function hermesMotor(o: {
   gradle?: boolean;
   /** Das Android-SDK (VKh2b, `androidSdkAusUmgebung()`) – nur zusammen mit Gradle ein Hinweis in `SOUL.md`. */
   androidSdk?: string;
+  /** aapt2 aus den Quellen (VKh3b, `aapt2AusUmgebung()`) – dann zeigt `~/.gradle/gradle.properties` das Android-Plugin darauf. */
+  aapt2?: string;
 }): MotorStart {
   const { ordner } = o.hermes;
   const start = sandboxMotor(
@@ -181,10 +183,16 @@ export function hermesMotor(o: {
     if (o.bilder) mkdirSync(o.bilder(basename(projekt)), { recursive: true, mode: 0o700 });
     schreibeInsHeim(heim, [".config", "pip", "pip.conf"], pakete.pip);
     schreibeInsHeim(heim, [".gradle", "init.d", "freedom-spiegel.gradle"], pakete.gradle);
+    // aapt2 aus den Quellen (VKh3b): Gradle liest den Umweg aus seinem Home – ohne aapt2 keine Datei, sie zeigte sonst ins Leere.
+    // `.gradle` ist hier schon als echter Ordner geprüft (Init-Skript) – rmSync folgt also keinem Verweis des Motors
+    if (o.aapt2) schreibeInsHeim(heim, [".gradle", "gradle.properties"], gradleEigenschaften(o.aapt2));
+    else rmSync(join(heim, ".gradle", "gradle.properties"), { force: true });
     // Hermes liest SOUL.md aus seinem Home als Identität (VKk5) – ohne Bild und Gradle keine, sonst versprächen alte Hinweise
     // ein Bild oder ein Programm
     if (o.bild !== undefined || o.gradle) {
-      schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild, { gradle: o.gradle === true, ...(o.androidSdk ? { androidSdk: o.androidSdk } : {}) }));
+      schreibeInsHeim(heim, [".hermes", "SOUL.md"], hermesSeele(o.bild, {
+        gradle: o.gradle === true, ...(o.androidSdk ? { androidSdk: o.androidSdk } : {}), ...(o.aapt2 ? { aapt2: o.aapt2 } : {}),
+      }));
     }
     else rmSync(join(heim, ".hermes", "SOUL.md"), { force: true });
     return start(projekt);
@@ -196,13 +204,13 @@ export function hermesMotor(o: {
  * daher steht die Rolle vorn, danach die Hinweise zum Bild. Ins Projekt schreibt der Knoten nie (dort läge eine `AGENTS.md`
  * im Commit).
  */
-export function hermesSeele(bild: string | undefined, o: { gradle?: boolean; androidSdk?: string } = {}): string {
+export function hermesSeele(bild: string | undefined, o: { gradle?: boolean; androidSdk?: string; aapt2?: string } = {}): string {
   return [
     "You are Hermes Agent, a coding agent in a FreedomStack project. The project is /arbeit, a git repository; the node",
     "commits your changes. You work in a sandbox without network – use the tools you are given; npm, pip and Gradle get",
     "packages through the node's mirror (Gradle only from Google Maven and Maven Central).",
     ...(o.gradle ? ["", GRADLE_HINWEIS] : []),
-    ...(o.gradle && o.androidSdk ? ["", androidHinweis(o.androidSdk)] : []),
+    ...(o.gradle && o.androidSdk ? ["", androidHinweis(o.androidSdk, o.aapt2)] : []),
     ...(bild !== undefined ? ["", bild] : []),
   ].join("\n");
 }
@@ -213,8 +221,11 @@ export function hermesSeele(bild: string | undefined, o: { gradle?: boolean; and
  */
 export const ANDROID_PLUGIN_FASSUNG = "9.5.0";
 
-/** Was der Motor über Android wissen muss (VKh2b) – das APK kommt über die Vorschau aufs eigene Handy (VKh-W4 A). */
-export function androidHinweis(sdk: string): string {
+/**
+ * Was der Motor über Android wissen muss (VKh2b) – das APK kommt über die Vorschau aufs eigene Handy (VKh-W4 A). Mit `aapt2`
+ * aus den Quellen (VKh3b, ARM64) dazu, woher es kommt: die Datei im Home schreibt der Knoten vor jedem Lauf neu.
+ */
+export function androidHinweis(sdk: string, aapt2?: string): string {
   return [
     "# Android apps",
     "",
@@ -223,6 +234,12 @@ export function androidHinweis(sdk: string): string {
     "`gradle assembleDebug`. Keep `build/`, `.gradle/` and `local.properties` in `.gitignore`. There is no emulator here: the",
     "user downloads the APK through the preview of the project (for example `app/build/outputs/apk/debug/app-debug.apk`) and",
     "installs it on their own phone – tell them the path.",
+    ...(aapt2 ? [
+      "",
+      `aapt2 for this processor is built from the Android sources (${aapt2}); \`~/.gradle/gradle.properties\` sets`,
+      "`android.aapt2FromMavenOverride` to it. The node writes that file before every run – put your own Gradle settings into",
+      "the `gradle.properties` of the project.",
+    ] : []),
   ].join("\n");
 }
 
@@ -230,13 +247,15 @@ export function androidHinweis(sdk: string): string {
 export const ANDROID_SDK_ORTE: readonly string[] = ["/usr/lib/android-sdk"];
 
 /**
- * Das Android-SDK (VKh2b): der erste Ort aus `ANDROID_SDK_ORTE` mit Plattform und Build-Tools; null mit `ANDROID=aus`, ohne
- * Fund – und bis VKh3 auf ARM64: Das Android-Plugin holt `aapt2` aus Maven, und das gibt es von Google nur für x86-64.
+ * Das Android-SDK (VKh2b): der erste Ort aus `ANDROID_SDK_ORTE` mit Plattform und Build-Tools; null mit `ANDROID=aus` oder ohne
+ * Fund. Außer auf x86-64 nur mit `aapt2` aus den Quellen (VKh3b, `aapt2AusUmgebung()`): Das Android-Plugin holt `aapt2` sonst
+ * aus Maven, und das gibt es von Google nur für x86-64.
  */
 export function androidSdkAusUmgebung(
   env: { ANDROID?: string }, orte: readonly string[] = ANDROID_SDK_ORTE, arch: string = process.arch,
+  aapt2: string | null = arch === "x64" ? null : aapt2AusUmgebung(env),
 ): string | null {
-  if (env.ANDROID?.trim() === "aus" || arch !== "x64") return null;
+  if (env.ANDROID?.trim() === "aus" || (arch !== "x64" && !aapt2)) return null;
   const ordner = (p: string) => {
     try {
       return statSync(p).isDirectory();
@@ -245,6 +264,23 @@ export function androidSdkAusUmgebung(
     }
   };
   return orte.find((o) => ordner(join(o, "platforms", "android-36")) && ordner(join(o, "build-tools", "36.0.0"))) ?? null;
+}
+
+/** aapt2 aus den Quellen (VKh3b): nur, wo das Bild es ablegt (ARM64 mit `ANDROID=1`, `scripts/aapt2-bauen.sh`) – kein eigener Pfad. */
+export const AAPT2_ORTE: readonly string[] = ["/usr/local/bin/aapt2"];
+
+/** aapt2 aus den Quellen (VKh3b): der erste aus `AAPT2_ORTE`, der auf eine Datei zeigt; null mit `ANDROID=aus` oder ohne Fund. */
+export function aapt2AusUmgebung(env: { ANDROID?: string }, orte: readonly string[] = AAPT2_ORTE): string | null {
+  return env.ANDROID?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** `~/.gradle/gradle.properties` im Home des Motors (VKh3b): das Android-Plugin nimmt `aapt2` aus den Quellen statt aus Maven. */
+export function gradleEigenschaften(aapt2: string): string {
+  return [
+    "# Vom Knoten vor jedem Lauf neu geschrieben (VKh3b) - eigene Einstellungen gehoeren in gradle.properties des Projekts.",
+    `android.aapt2FromMavenOverride=${aapt2}`,
+    "",
+  ].join("\n");
 }
 
 /** Was der Motor über Gradle wissen muss (VKh2a) – nur, wenn der Knoten es hat. */
@@ -260,7 +296,11 @@ export const GRADLE_ORTE: readonly string[] = ["/usr/local/bin/gradle"];
 
 /** Gradle (VKh2a): der erste aus `GRADLE_ORTE`, der auf eine Datei zeigt; null mit `GRADLE=aus` oder ohne Fund. */
 export function gradleAusUmgebung(env: { GRADLE?: string }, orte: readonly string[] = GRADLE_ORTE): string | null {
-  if (env.GRADLE?.trim() === "aus") return null;
+  return env.GRADLE?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Der erste Ort, der auf eine Datei zeigt (ein Verweis zählt) – kein Ordner, nichts Fehlendes. */
+function ersteDatei(orte: readonly string[]): string | null {
   return orte.find((p) => {
     try {
       return statSync(p).isFile();

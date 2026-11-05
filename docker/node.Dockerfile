@@ -80,6 +80,22 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$ANDROID" = "1" ]; then \
       && rm -rf /aus/usr/lib/android-sdk/cmdline-tools; \
     fi
 
+# aapt2 für ARM64 (VKh3b) – nur mit VIBECODEN=1, ANDROID=1 und auf arm64: aus den AOSP-Quellen gebaut (scripts/aapt2-bauen.sh –
+# jedes Repo und das Rezept am Commit, die Pakete zum Bauen aus dem Skript, wie im CI-Job „aapt2 aus den Quellen“). Google liefert
+# aapt2 nur für x86-64; dort nimmt das Android-Plugin seins aus Maven. Eigene Stufe: Compiler, cmake und die Quellen (rund 6 GB)
+# bleiben draußen, ins Bild kommen das Programm und die Lizenztexte. Rund 15–25 min auf dem GX10.
+FROM node:22-bookworm-slim AS aapt2-bauen
+ARG VIBECODEN=0
+ARG ANDROID=0
+COPY scripts/aapt2-bauen.sh /tmp/aapt2-bauen.sh
+RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$ANDROID" = "1" ] && [ "$(dpkg --print-architecture)" = "arm64" ]; then \
+      pakete="$(sed -n 's/^AAPT2_BAU_PAKETE="\(.*\)"$/\1/p' /tmp/aapt2-bauen.sh)" \
+      && apt-get update && apt-get install -y --no-install-recommends $pakete \
+      && bash /tmp/aapt2-bauen.sh /tmp/aapt2 \
+      && install -D -m 0755 /tmp/aapt2/aapt2 /aus/usr/local/bin/aapt2 \
+      && mkdir -p /aus/usr/local/share/doc/aapt2 && install -m 0644 /tmp/aapt2/aapt2-lizenzen/* /aus/usr/local/share/doc/aapt2/; \
+    fi
+
 FROM node:22-bookworm-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -105,6 +121,8 @@ COPY --from=godot-holen /aus/ /
 COPY --from=gradle-holen /aus/ /
 # Android-SDK aus der Stufe oben (nur mit VIBECODEN=1 und ANDROID=1 – sonst kommt nichts)
 COPY --from=android-sdk-holen /aus/ /
+# aapt2 aus den Quellen (nur mit VIBECODEN=1 und ANDROID=1 auf arm64 – sonst kommt nichts); braucht nur glibc, libstdc++, zlib
+COPY --from=aapt2-bauen /aus/ /
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes

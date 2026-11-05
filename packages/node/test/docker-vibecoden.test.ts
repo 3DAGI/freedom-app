@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE } from "../src/bildstrom.js";
-import { ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
+import { AAPT2_ORTE, ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
 const lies = (pfad: string) => readFileSync(new URL(`../../../${pfad}`, import.meta.url), "utf8");
@@ -309,6 +309,19 @@ test("VKh3a: aapt2 nur aus den Quellen – Rezept und jedes Repo am Commit gepr�
   assert.match(ci, /apt-get install -y -qq --no-install-recommends \$pakete > \/dev\/null && bash \/skripte\/aapt2-bauen\.sh \/aus"/);
   assert.match(ci, /AAPT2_TEST="\$HOME\/\.cache\/freedom-aapt2\/aapt2" AAPT2_TEST_PFLICHT=1 node --import tsx --test --test-name-pattern "VKh3" test\/paket-spiegel\.test\.ts\n/);
   assert.match(ci, /echo "AAPT2_APK_PFLICHT=1" >> "\$GITHUB_ENV"/, "auf x86-64 auch das APK, nie übersprungen");
+});
+
+test("VKh3b: aapt2 im Bild nur mit VIBECODEN=1, ANDROID=1 und auf arm64 – aus den Quellen mit den Paketen des Skripts, dort, wo der Motor es sucht", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /FROM node:22-bookworm-slim AS aapt2-bauen\nARG VIBECODEN=0\nARG ANDROID=0\nCOPY scripts\/aapt2-bauen\.sh \/tmp\/aapt2-bauen\.sh\n/);
+  assert.match(docker, /if \[ "\$VIBECODEN" = "1" \] && \[ "\$ANDROID" = "1" \] && \[ "\$\(dpkg --print-architecture\)" = "arm64" \]; then \\\n\s+pakete="\$\(sed -n 's\/\^AAPT2_BAU_PAKETE=/,
+    "nur auf arm64 – auf amd64 nimmt das Android-Plugin aapt2 aus Maven; die Pakete genau wie im CI-Job");
+  assert.match(docker, /&& bash \/tmp\/aapt2-bauen\.sh \/tmp\/aapt2 \\\n\s+&& install -D -m 0755 \/tmp\/aapt2\/aapt2 \/aus\/usr\/local\/bin\/aapt2 /);
+  assert.match(docker, /install -m 0644 \/tmp\/aapt2\/aapt2-lizenzen\/\* \/aus\/usr\/local\/share\/doc\/aapt2\//, "die Lizenztexte im Bild");
+  assert.match(docker, /\nCOPY --from=aapt2-bauen \/aus\/ \/\n/, "nur das Programm, Compiler und Quellen bleiben in der Stufe");
+  assert.deepEqual(AAPT2_ORTE, ["/usr/local/bin/aapt2"], "dort legt das Bild es ab");
+  // ANDROID reicht Compose schon durch (VKh2b); ARM64 braucht keinen weiteren Schalter
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+ANDROID: "\$\{ANDROID:-0\}"\n/);
 });
 
 test("B-43: Basis fest auf Debian 12 – jede Stufe node:22-bookworm-slim, Hangover für dieselbe Fassung", () => {
