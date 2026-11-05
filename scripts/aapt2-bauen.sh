@@ -64,8 +64,9 @@ unwinding            platform/system/unwinding               31327c70da147fdc069
 zopfli               platform/external/zopfli                eef2dd4266802ab1b7f26cb72cb1fc9b8ed3f55b
 zstd                 platform/external/zstd                  3c0442c12d0f0b612a8869754a3fdf22bf16ef33
 "
-# Was aapt2 enthält (aapt2.cmake des Rezepts) – je Repo ein Lizenztext, sonst Abbruch
-GELINKT="base core libbase logging libziparchive incremental_delivery soong selinux protobuf abseil-cpp boringssl expat libpng pcre fmtlib"
+# Was aapt2 enthält (aapt2.cmake des Rezepts) – je Eintrag ein Lizenztext (in system/core liegen sie nur in den Ordnern der
+# Bibliotheken, libselinux und libsepol haben verschiedene Lizenzen), sonst Abbruch
+GELINKT="base core/libcutils libbase logging libziparchive incremental_delivery soong selinux/libselinux selinux/libsepol protobuf abseil-cpp boringssl expat libpng pcre fmtlib"
 
 ZIEL="${1:?Ziel fehlt – scripts/aapt2-bauen.sh <ziel>}"
 ARBEIT="$(mktemp -d)"
@@ -119,6 +120,23 @@ if grep -q ": cloned$" "$ARBEIT/quellen.log" || grep -q "!!" "$ARBEIT/quellen.lo
   exit 1
 fi
 
+# Lizenztexte gleich nach dem Holen, vor dem langen Bau – fehlt einer, alle fehlenden auf einmal nennen
+mkdir -p "$ARBEIT/lizenzen"
+fehlt=""
+for eintrag in $GELINKT; do
+  text=""
+  for name in NOTICE LICENSE LICENSE.txt LICENSE.md LICENSE.rst LICENCE COPYING; do
+    [ -f "$R/src/$eintrag/$name" ] && { text="$R/src/$eintrag/$name"; break; }
+  done
+  if [ -n "$text" ]; then
+    install -m 0644 "$text" "$ARBEIT/lizenzen/${eintrag//\//-}"
+  else
+    fehlt="$fehlt $eintrag"
+    find "$R/src/$eintrag" -maxdepth 2 -type f \( -iname 'notice*' -o -iname 'licen[cs]e*' -o -iname 'copying*' \) >&2 || true
+  fi
+done
+[ -z "$fehlt" ] || { echo "aapt2: Lizenztext fehlt für$fehlt – Abbruch" >&2; exit 1; }
+
 # protoc für diesen Rechner, dann aapt2 – mit -k 0 nennt ein gescheiterter Bau alle Fehler auf einmal
 N="$(nproc)"
 {
@@ -154,12 +172,5 @@ mkdir -p "$ZIEL/aapt2-lizenzen"
 install -m 0755 "$PROGRAMM" "$ZIEL/aapt2"
 strip "$ZIEL/aapt2"
 install -m 0644 "$R/LICENSE" "$ZIEL/aapt2-lizenzen/android-arm-build-tools"
-for repo in $GELINKT; do
-  text=""
-  for name in NOTICE LICENSE LICENSE.txt LICENSE.md LICENSE.rst LICENCE COPYING; do
-    [ -f "$R/src/$repo/$name" ] && { text="$R/src/$repo/$name"; break; }
-  done
-  [ -n "$text" ] || { echo "aapt2: Lizenztext von $repo fehlt – Abbruch" >&2; exit 1; }
-  install -m 0644 "$text" "$ZIEL/aapt2-lizenzen/$repo"
-done
+install -m 0644 "$ARBEIT"/lizenzen/* "$ZIEL/aapt2-lizenzen/"
 echo "aapt2 $AAPT2_FASSUNG ($(head -n 1 "$ARBEIT/fassung.txt")) nach $ZIEL"

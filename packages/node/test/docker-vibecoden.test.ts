@@ -297,7 +297,8 @@ test("VKh3a: aapt2 nur aus den Quellen – Rezept und jedes Repo am Commit gepr�
   assert.match(skript, /-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g\+\+/);
   assert.match(skript, /bibliotheken="\$\(ldd "\$PROGRAMM"\)" \|\| \{/, "scheitert ldd, bricht es ab – leer hieße sonst „nichts Fremdes“");
   assert.match(skript, /grep -vqE 'linux-vdso\|ld-linux\|lib\(c\|m\|dl\|rt\|pthread\|stdc\\\+\\\+\|gcc_s\|z\)\\\.so'/, "nur glibc, libstdc++ und zlib");
-  assert.match(skript, /Lizenztext von \$repo fehlt – Abbruch/);
+  assert.match(skript, /Lizenztext fehlt für\$fehlt – Abbruch/);
+  assert.ok(stelle("Lizenztext fehlt für") < stelle('cmake -S "$R"'), "Lizenztexte vor dem langen Bau");
   assert.ok(!/\b(curl|wget)\b/.test(skript), "nichts Fertiges laden – nur Quellen über git");
   const ci = lies(".github/workflows/ci.yml");
   assert.match(ci, /- \{ arch: x86_64, runner: ubuntu-24\.04 \}\n\s+- \{ arch: aarch64, runner: ubuntu-24\.04-arm \}/);
