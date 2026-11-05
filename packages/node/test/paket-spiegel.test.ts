@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { ANDROID_PLUGIN_FASSUNG, STARTSKRIPT, hermesHeim, hermesMotor, paketKonfiguration } from "../src/hermes-motor.js";
+import { ANDROID_PLUGIN_FASSUNG, STARTSKRIPT, gradleEigenschaften, hermesHeim, hermesMotor, paketKonfiguration } from "../src/hermes-motor.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { PAKET_GRENZEN, holeOderFehlt, type PaketAbruf } from "../src/pakete.js";
 import { MAVEN_REPOS, SPIEGEL_GRENZEN, SpiegelKonto, beantworteSpiegel, spiegelZiel } from "../src/paket-spiegel.js";
@@ -295,7 +295,7 @@ const googleDa = !ohneGradle && await erreichbar(`${MAVEN_REPOS.google}androidx/
  */
 async function baueMitGradle(
   dateien: Record<string, string>, spiegel: Parameters<typeof beantworteSpiegel>[2], befehl = ["run"],
-  mehr: { nurLesbar?: Array<{ quelle: string; ziel: string }>; zeitMs?: number; rechenzeitSek?: number } = {},
+  mehr: { nurLesbar?: Array<{ quelle: string; ziel: string }>; zeitMs?: number; rechenzeitSek?: number; aapt2?: string } = {},
 ) {
   const arbeit = tmp("gradle");
   for (const [pfad, inhalt] of Object.entries(dateien)) {
@@ -305,6 +305,8 @@ async function baueMitGradle(
   const home = tmp("home");
   mkdirSync(join(home, ".gradle", "init.d"), { recursive: true });
   writeFileSync(join(home, ".gradle", "init.d", "freedom-spiegel.gradle"), paketKonfiguration().gradle);
+  // wie der Motor mit aapt2 aus den Quellen (VKh3b): der Umweg in gradle.properties im Home
+  if (mehr.aapt2) writeFileSync(join(home, ".gradle", "gradle.properties"), gradleEigenschaften(mehr.aapt2));
   const bruecke = await oeffneModellBruecke({ art: "openai", url: "http://127.0.0.1:9/v1" }, { spiegel: (req, res) => beantworteSpiegel(req, res, spiegel) });
   try {
     const nurLesbar = [
@@ -371,9 +373,9 @@ function findeSdk(): string | null {
 const sdk = findeSdk();
 
 /** Ein Android-Projekt wie das, das der Agent baut: eine Activity, das Plugin in `ANDROID_PLUGIN_FASSUNG`, compileSdk 36. */
-const ANDROID_PROJEKT = (eigenschaften: string) => ({
+const ANDROID_PROJEKT = () => ({
   "settings.gradle": 'rootProject.name = "probe"\n',
-  "gradle.properties": `org.gradle.jvmargs=-Xmx2g\n${eigenschaften}`,
+  "gradle.properties": "org.gradle.jvmargs=-Xmx2g\n",
   "local.properties": `sdk.dir=${sdk}\n`,
   "build.gradle": [
     `plugins { id "com.android.application" version "${ANDROID_PLUGIN_FASSUNG}" }`,
@@ -409,11 +411,12 @@ const ANDROID_PROJEKT = (eigenschaften: string) => ({
   ].join("\n"),
 });
 
-/** Das APK bauen und prüfen; `nurLesbar` kommt zum SDK dazu (etwa das eigene aapt2). Gibt das Home von Gradle zurück. */
-async function baueApk(eigenschaften = "", nurLesbar: Array<{ quelle: string; ziel: string }> = []) {
-  const r = await baueMitGradle(ANDROID_PROJEKT(eigenschaften), { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() }, ["assembleDebug"], {
-    // ein SDK außerhalb von /usr nur lesbar dazu; das Android-Plugin rechnet länger als die Grenze für einen Befehl
-    nurLesbar: [...(sdk!.startsWith("/usr/") ? [] : [{ quelle: sdk!, ziel: sdk! }]), ...nurLesbar], zeitMs: 900_000, rechenzeitSek: 3600,
+/** Das APK bauen und prüfen – mit `aapt2` wie der Motor über den Umweg im Home (VKh3b). Gibt das Home von Gradle zurück. */
+async function baueApk(aapt2?: string) {
+  const r = await baueMitGradle(ANDROID_PROJEKT(), { basis: BASIS, paket: { tor: null }, konto: new SpiegelKonto() }, ["assembleDebug"], {
+    // SDK und aapt2 außerhalb von /usr nur lesbar dazu; das Android-Plugin rechnet länger als die Grenze für einen Befehl
+    nurLesbar: [sdk!, ...(aapt2 ? [aapt2] : [])].filter((p) => !p.startsWith("/usr/")).map((p) => ({ quelle: p, ziel: p })),
+    zeitMs: 900_000, rechenzeitSek: 3600, ...(aapt2 ? { aapt2 } : {}),
   });
   assert.equal(r.code, 0, r.ausgabe);
   const apk = join(r.arbeit, "build", "outputs", "apk", "debug", "probe-debug.apk");
@@ -472,10 +475,10 @@ test("VKh3 (aapt2): aus den Quellen – übersetzt und verlinkt Ressourcen in de
 
 const ohneApk = ohneGradle || (!sdk && "Android-SDK mit android-36 und build-tools 36.0.0 fehlt") || (!googleDa && "Google Maven nicht erreichbar")
   || (!aapt2 && "AAPT2_TEST fehlt (scripts/aapt2-bauen.sh)");
-test("VKh3 (Gradle): ein APK mit dem eigenen aapt2 – über android.aapt2FromMavenOverride, nichts aus Maven", {
+test("VKh3 (Gradle): ein APK mit dem eigenen aapt2 – über gradle.properties im Home wie der Motor, nichts aus Maven", {
   skip: process.env.AAPT2_APK_PFLICHT === "1" ? false : ohneApk,
 }, async () => {
   assert.equal(ohneApk, false, `AAPT2_APK_PFLICHT: ${ohneApk}`);
-  const home = await baueApk(`android.aapt2FromMavenOverride=${aapt2}\n`, aapt2!.startsWith("/usr/") ? [] : [{ quelle: aapt2!, ziel: aapt2! }]);
+  const home = await baueApk(aapt2!);
   assert.equal(aapt2AusMaven(home), false, "aapt2 kam aus Maven, nicht aus den Quellen");
 });

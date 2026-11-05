@@ -779,9 +779,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   `gradle assembleDebug` (das Android-Plugin 9.5.0 kommt über den Spiegel);
   einen Emulator gibt es nicht – du lädst das APK über die Vorschau aufs eigene
   Handy (die Vorschau liefert es als `application/vnd.android.package-archive`).
-  Bisher nur auf amd64: Das Android-Plugin holt `aapt2` aus Maven, und das gibt es
-  von Google nur für x86-64; auf ARM64 (GX10) nennt `SOUL.md` Android deshalb
-  noch nicht (VKh3). `ANDROID=aus` schaltet den Hinweis ab.
+  Auf ARM64 (GX10, seit VKh3b): Das Android-Plugin holt `aapt2` aus Maven, und
+  das gibt es von Google nur für x86-64. Das Bild baut `aapt2` deshalb auf ARM64
+  selbst aus den Android-Quellen (`scripts/aapt2-bauen.sh`, jedes Repo an einem
+  festen Commit) – das kostet beim Bau des Bilds rund 15–25 Minuten und rund 6 GB
+  Platz, ins Bild kommt nur das Programm unter `/usr/local/bin/aapt2`. Der Knoten
+  schreibt dem Agenten vor jedem Lauf `~/.gradle/gradle.properties` mit
+  `android.aapt2FromMavenOverride` dorthin. `ANDROID=aus` schaltet den Hinweis ab.
 - **Vorschau (seit VKg1a, wie Replit):** Der Knoten zeigt ein Projekt live im
   Browser deines Handys – echt gerendert, durchklickbar, nach jeder Änderung des
   Agenten beim Neuladen neu. Dafür `VORSCHAU_URL` setzen: die Adresse, unter der

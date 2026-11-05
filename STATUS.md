@@ -630,3 +630,35 @@ prüft es in der CI auf beiden Prozessoren, b bringt es ins Bild auf ARM64 und s
   Bau in `node:22-bookworm-slim` mit den Paketen aus dem Skript, Pflicht-Variablen.
 - Skript gegen Attrappen: richtig; falscher Commit; Rezept mit anderer Liste; Patch passt nicht („!!“); fremde Bibliothek
   (libcrypt); fehlende Lizenztexte (alle auf einmal); Apache-2.0 ohne eigenen Text nur mit Kennzeichen.
+
+## Schritt VKh3b – aapt2 im Bild auf ARM64, der Motor setzt den Umweg
+
+Spur B, `docs/ANDROID-ENTWURF.md` (VKh-W2 A), nach VKh3a. Damit baut der Agent APKs auch auf dem GX10.
+
+**Änderungen:**
+- **Bild** (`docker/node.Dockerfile`): Stufe `aapt2-bauen` in `node:22-bookworm-slim`, nur mit `VIBECODEN=1`, `ANDROID=1` und auf
+  arm64. Sie installiert genau die Pakete aus `scripts/aapt2-bauen.sh` (`AAPT2_BAU_PAKETE`, wie der CI-Job) und baut; ins Bild
+  kommen nur `/usr/local/bin/aapt2` und die Lizenztexte unter `/usr/local/share/doc/aapt2/`. Auf amd64 bleibt die Stufe leer – dort
+  nimmt das Android-Plugin `aapt2` aus Maven.
+- **`hermes-motor.ts`:**
+  - `aapt2AusUmgebung()` sucht nur `/usr/local/bin/aapt2` (`AAPT2_ORTE`), `ANDROID=aus` schaltet ab.
+  - `androidSdkAusUmgebung()` nimmt das SDK außer auf x86-64 jetzt mit `aapt2` aus den Quellen an.
+  - Mit `aapt2` schreibt der Motor vor jedem Lauf `~/.gradle/gradle.properties` (`gradleEigenschaften()`:
+    `android.aapt2FromMavenOverride`, nur ASCII) über `schreibeInsHeim()`; ohne `aapt2` löscht er die Datei – erst nach dem
+    Init-Skript, das `.gradle` als echten Ordner prüft.
+  - `SOUL.md` sagt dann, woher `aapt2` kommt und dass eigene Einstellungen in die `gradle.properties` des Projekts gehören.
+- **`main.ts`:** gibt `aapt2` an den Motor, wenn es das SDK gibt; das Log nennt es.
+- **Docs:** PROVIDER (Android auf ARM64), Fallstrick in `packages/node/CLAUDE.md`, Entwurf, VIBECODEN-Entwurf, OFFEN (Zeile VKh,
+  Probe „APK“ jetzt auch am GX10), FORTSCHRITT, Stand.
+
+**Tests:**
+- `hermes-motor.test.ts` +1: Erkennung (Datei, Verweis, kein Ordner, `ANDROID=aus`), SDK auf ARM64 nur mit `aapt2`, die Datei
+  für Gradle (genau der Umweg, nur ASCII), der Hinweis nur mit `aapt2`; über den Motor: Datei im Home mit 0600, `SOUL.md` mit
+  dem Absatz, ein Verweis an ihrer Stelle wird ersetzt und nie verfolgt, ohne `aapt2` keine Datei. Gegenprobe: ohne das
+  Löschen rot.
+- `docker-vibecoden.test.ts` +1: Stufe, Bedingung (arm64), Pakete aus dem Skript, Programm und Lizenztexte, `COPY`.
+- `paket-spiegel.test.ts`: der APK-Echttest mit dem eigenen `aapt2` schreibt jetzt genau die Datei des Motors ins Home von
+  Gradle (`gradleEigenschaften()`), statt den Umweg ins Projekt zu legen.
+- Die Shell der Stufe unter `dash` nachgestellt: auf amd64 baut sie nichts, auf arm64 installiert sie die Pakete aus dem Skript
+  und baut. `docker buildx build --check`: keine Warnungen.
+- `SOUL.md` mit allen Hinweisen, Gradle und Android mit `aapt2` gegen die 28 Muster von Hermes 0.19: 0 Treffer.

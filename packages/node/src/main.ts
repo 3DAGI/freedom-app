@@ -46,7 +46,7 @@ import { nutzeCgroups, pruefeSandbox, SANDBOX_GRENZEN, sandboxText } from "./san
 import { CGROUP_TEXT, richteCgroupsEin } from "./cgroup.js";
 import { sandboxPlattform } from "./repo-lauf.js";
 import { CodeLaeufe } from "./code-motor.js";
-import { androidSdkAusUmgebung, gradleAusUmgebung, hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
+import { aapt2AusUmgebung, androidSdkAusUmgebung, gradleAusUmgebung, hermesAusUmgebung, hermesMotor } from "./hermes-motor.js";
 import { MCP_TEXT, browserAusUmgebung, browserLesbar, mcpAusUmgebung } from "./mcp-katalog.js";
 import { KIWIX_SERVE, McpWerkzeuge, mcpAusDatei, starteMcpServer } from "./mcp-client.js";
 import { BRUECKE_IN_SANDBOX, oeffneModellBruecke } from "./modell-bruecke.js";
@@ -618,9 +618,11 @@ async function main(): Promise<void> {
       const mcpProjekte = new McpProjekte();
       // Pakete (VKd3): npm und PyPI nur von der festen Liste, über die Brücke – mit Tor durch Tor; seit VKh1 auch Maven für Gradle
       const spiegelKonto = new SpiegelKonto();
-      // Gradle (VKh2a): aus dem Bild (GRADLE=1) – dann sagt SOUL.md dem Motor, wie er baut; dazu das Android-SDK (VKh2b, ANDROID=1)
+      // Gradle (VKh2a): aus dem Bild (GRADLE=1) – dann sagt SOUL.md dem Motor, wie er baut; dazu das Android-SDK (VKh2b, ANDROID=1),
+      // auf ARM64 nur mit aapt2 aus den Quellen (VKh3b) – der Motor zeigt das Android-Plugin darauf
       const gradle = gradleAusUmgebung(process.env);
-      const androidSdk = gradle ? androidSdkAusUmgebung(process.env) : null;
+      const aapt2 = gradle ? aapt2AusUmgebung(process.env) : null;
+      const androidSdk = gradle ? androidSdkAusUmgebung(process.env, undefined, undefined, aapt2) : null;
       const bruecke = await oeffneModellBruecke(antrieb, {
         mcp: (zeichen) => {
           const p = mcpProjekte.zu(zeichen);
@@ -636,7 +638,7 @@ async function main(): Promise<void> {
           hermes: hermesWahl.hermes, ablage: projekte, bruecke, modell: () => angebotModelle()[0], mcp: mcpWahl.server,
           mcpZeichen: (p) => mcpProjekte.zeichen(p), ...(bilder ? { bilder: (p: string) => bilderOrdner(projekte, p) } : {}),
           ...(bildText !== undefined ? { bild: bildText } : {}), ...(gradle ? { gradle: true } : {}),
-          ...(androidSdk ? { androidSdk } : {}),
+          ...(androidSdk ? { androidSdk } : {}), ...(androidSdk && aapt2 ? { aapt2 } : {}),
         }),
       });
       console.log(`[code] Motor Hermes in der Sandbox an, Modell ${hermesWahl.hermes.modell ?? "aus dem Angebot"}`);
@@ -645,6 +647,7 @@ async function main(): Promise<void> {
       if (bilder) console.log("[code] für den Motor: Bilder über die eigene ComfyUI (generate_image)");
       console.log(gradle ? "[code] für den Motor: Gradle (Bibliotheken über den Spiegel)" : "[code] ohne Gradle – Java-Projekte baut der Motor nicht");
       if (gradle) console.log(androidSdk ? "[code] für den Motor: Android-SDK (APKs über die Vorschau)" : "[code] ohne Android-SDK – APKs baut der Motor nicht");
+      if (androidSdk && aapt2) console.log("[code] für den Motor: aapt2 aus den Quellen (statt aus Maven)");
     }
   }
   // Agent auf dem Knoten (11.3d1a): eigener Schlüssel, offene Räume, „wer fragt, zahlt“ – ungültig → kein Start
