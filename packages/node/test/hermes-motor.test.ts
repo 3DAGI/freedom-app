@@ -15,7 +15,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CodeLaeufe, lebt, prozessMotor } from "../src/code-motor.js";
 import { bildHinweise } from "../src/bildstrom.js";
-import { HERMES_ORDNER, STARTSKRIPT, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele } from "../src/hermes-motor.js";
+import {
+  GRADLE_HINWEIS, HERMES_ORDNER, STARTSKRIPT, gradleAusUmgebung, hermesAusUmgebung, hermesHeim, hermesKonfiguration, hermesMotor, hermesSeele,
+} from "../src/hermes-motor.js";
 import { BRUECKE_GRENZEN, BRUECKE_IN_SANDBOX, brueckenZiel, oeffneModellBruecke } from "../src/modell-bruecke.js";
 import { ProjektAblage } from "../src/projekte.js";
 import { fuehreAus, pruefeSandbox, sandboxArgumente, sandboxMotor } from "../src/sandbox.js";
@@ -197,6 +199,44 @@ test("VKk5: SOUL.md – mit Bild Rolle und Hinweise im Home, nie durch einen Ver
   assert.equal(killOhnePid(() => motor()(ablage.ort("app")).beende()), 0);
   assert.ok(!existsSync(seele));
   assert.deepEqual(readdirSync(ablage.ort("app")), [], "nie ins Projekt");
+});
+
+test("VKh2a: SOUL.md mit Gradle – Hinweis nur, wenn der Knoten es hat, auch ohne Bild; ohne beides keine Datei", () => {
+  const ablage = new ProjektAblage(join(tmp("ablage"), "projekte"));
+  mkdirSync(ablage.ort("app"), { recursive: true });
+  const motor = (o: { bild?: string; gradle?: boolean }) => hermesMotor({
+    hermes: { ordner: "/opt/hermes" }, ablage, bruecke: { ordner: tmp("b") }, modell: () => "coder:7b", bwrap: "/gibt/es/nicht", ...o,
+  });
+  const seele = join(hermesHeim(ablage, ablage.ort("app")), ".hermes", "SOUL.md");
+  const starte = (o: { bild?: string; gradle?: boolean }) => assert.equal(killOhnePid(() => motor(o)(ablage.ort("app")).beende()), 0);
+  starte({ gradle: true });
+  const nurGradle = readFileSync(seele, "utf8");
+  assert.equal(nurGradle, hermesSeele(undefined, { gradle: true }));
+  assert.ok(nurGradle.includes(GRADLE_HINWEIS) && !nurGradle.includes("# Showing the project"), "ohne Bild kein Versprechen eines Bilds");
+  assert.match(nurGradle, /^You are Hermes Agent/, "die Rolle bleibt vorn");
+  const hinweise = bildHinweise({ openscad: true });
+  starte({ bild: hinweise, gradle: true });
+  const beides = readFileSync(seele, "utf8");
+  assert.ok(beides.indexOf(GRADLE_HINWEIS) > 0 && beides.indexOf(GRADLE_HINWEIS) < beides.indexOf("# Showing the project"));
+  starte({ bild: hinweise });
+  assert.ok(!readFileSync(seele, "utf8").includes("Building with Gradle"), "ohne Gradle kein Hinweis");
+  starte({});
+  assert.ok(!existsSync(seele));
+  // gegen die Muster von Hermes: nichts, was nach Anweisungen von außen klingt
+  assert.doesNotMatch(GRADLE_HINWEIS, /you are now|ignore|system prompt|curl|\| *sh/i);
+});
+
+test("VKh2a: Gradle nur, wo das Bild es ablegt – ein Verweis auf eine Datei zählt, GRADLE=aus schaltet ab", () => {
+  const ort = tmp("gradle");
+  const echt = join(ort, "lib", "bin", "gradle");
+  mkdirSync(join(ort, "lib", "bin"), { recursive: true });
+  writeFileSync(echt, "#!/bin/sh\n");
+  mkdirSync(join(ort, "bin"));
+  symlinkSync(echt, join(ort, "bin", "gradle"));
+  assert.equal(gradleAusUmgebung({}, [join(ort, "bin", "gradle")]), join(ort, "bin", "gradle"));
+  assert.equal(gradleAusUmgebung({ GRADLE: "aus" }, [join(ort, "bin", "gradle")]), null);
+  assert.equal(gradleAusUmgebung({}, [join(ort, "fehlt"), join(ort, "lib")]), null, "kein Ordner, nichts Fehlendes");
+  assert.equal(gradleAusUmgebung({ GRADLE: "/usr/bin/gradle" }, [join(ort, "fehlt")]), null, "kein eigener Pfad");
 });
 
 test("VKc3: Sandbox – weitere Orte nur lesbar, nie über /arbeit", () => {

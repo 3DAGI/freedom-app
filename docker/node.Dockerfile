@@ -45,6 +45,22 @@ RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$WINE" = "1" ] && [ "$(dpkg
       && mv /tmp/hangover/*.deb /aus/; \
     fi
 
+# Gradle für den Motor (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1: die offizielle Distribution in fester Fassung, gegen
+# SHA-256 geprüft (scripts/gradle-holen.sh; Apache-2.0, LICENSE und NOTICE liegen im Ordner). Eigene Stufe: curl und unzip
+# bleiben draußen, ins Bild kommt nur der Ordner (rund 170 MB) unter /usr/local – dort sieht ihn die Sandbox. Ohne beide
+# Schalter bleibt /aus leer.
+FROM node:22-bookworm-slim AS gradle-holen
+ARG VIBECODEN=0
+ARG GRADLE=0
+COPY scripts/gradle-holen.sh /tmp/gradle-holen.sh
+RUN mkdir -p /aus && if [ "$VIBECODEN" = "1" ] && [ "$GRADLE" = "1" ]; then apt-get update \
+      && apt-get install -y --no-install-recommends curl ca-certificates unzip \
+      && bash /tmp/gradle-holen.sh /tmp/gradle \
+      && mkdir -p /aus/usr/local/lib /aus/usr/local/bin \
+      && mv /tmp/gradle/gradle-*/ /aus/usr/local/lib/gradle \
+      && ln -s ../lib/gradle/bin/gradle /aus/usr/local/bin/gradle; \
+    fi
+
 FROM node:22-bookworm-slim
 
 # Nicht als root laufen. Der Knoten verarbeitet fremde Prompts; alles, was den
@@ -66,6 +82,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 bubblewra
 COPY --from=whisper-bau /aus/ /
 # Godot aus der Stufe oben (nur mit VIBECODEN=1 – sonst kommt nichts)
 COPY --from=godot-holen /aus/ /
+# Gradle aus der Stufe oben (nur mit VIBECODEN=1 und GRADLE=1 – sonst kommt nichts)
+COPY --from=gradle-holen /aus/ /
 
 # Hermes Agent für Vibecoden (VKc3b, Entscheidung VK-W1n C) – nur mit VIBECODEN=1 gebaut
 # (docker-compose.vibecoden.yml reicht es durch): eigenes venv in /opt/hermes (HERMES_ORDNER), jedes
@@ -147,6 +165,16 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$INKSCAPE" = "1" ]; then \
 ARG GIMP=0
 RUN if [ "$VIBECODEN" = "1" ] && [ "$GIMP" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends gimp && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Java-Projekte mit Gradle (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1 (docker-compose.vibecoden.yml reicht es durch). Das JDK 17
+# aus Debian (GPL-2.0 mit Classpath-Ausnahme, eigenes Programm, nur in den Sandboxen), rund 250 MB; Gradle kommt aus der Stufe
+# oben. Die Konfiguration des JDK liegt unter /etc/java-17-openjdk – die Sandbox liest sie (VKh1). Die slim-Bilder haben kein
+# /usr/share/man/man1, ohne den Ordner scheitert die Installation des JDK.
+ARG GRADLE=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$GRADLE" = "1" ]; then \
+      mkdir -p /usr/share/man/man1 && apt-get update && apt-get install -y --no-install-recommends openjdk-17-jdk-headless \
+      && rm -rf /var/lib/apt/lists/*; \
     fi
 WORKDIR /app
 

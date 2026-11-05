@@ -107,7 +107,8 @@ Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
 | Teil | Inhalt | Umfang |
 |---|---|---|
 | VKh1 ✓ | Maven über den Spiegel der Brücke (W3 A): `/maven/google/…` und `/maven/central/…`, nur Archive, POMs, Gradle-Metadaten und Prüfsummen, als Strom; Init-Skript für Gradle im Home des Motors (Plugin-Portal → Maven Central); Java in der Sandbox (`/etc/java-<N>-openjdk`). Echttest mit Gradle in der Sandbox | ~400 |
-| VKh2 | Bauen im Terminal des Motors (W1 C, W4 A): JDK, Gradle und SDK beim Bau des Bilds (`ARG ANDROID=1`, Lizenz des SDK nur lokal), auf amd64 mit Googles `aapt2`. Hinweis in `SOUL.md` („APK bauen, über die Vorschau laden“), Echttest in der CI (amd64) | ~350 |
+| VKh2a ✓ | Gradle und JDK im Bild (`GRADLE=1`): Gradle 9.8.2 in fester Fassung gegen SHA-256 (`scripts/gradle-holen.sh`, die CI vergleicht mit gradle.org), JDK 17 aus Debian; Hinweis in `SOUL.md` („`gradle`, nicht `./gradlew`“); die Echttests aus VKh1 laufen in der CI mit dieser Fassung | ~250 |
+| VKh2b | Bauen von APKs (W1 C, W4 A): SDK beim Bau des Bilds (`ARG ANDROID=1`, Lizenz des SDK nur lokal, vom MENSCHEN angenommen), auf amd64 mit Googles `aapt2`. Hinweis in `SOUL.md` („APK bauen, über die Vorschau laden“), Echttest in der CI (amd64) | ~300 |
 | VKh3 | `aapt2` für ARM64 aus den Quellen (W2 A, `scripts/aapt2-bauen.sh`, Fassung und Commit fest, `--pruefen`), im Bild über `android.aapt2FromMavenOverride` | ~250 |
 | VKh4 | Android im Bild (W1 A): Cuttlefish als eigener Dienst (Installer bzw. Compose-Profil „android“), Socket in die Sandbox des Programms, Viewer bzw. scrcpy, Installation über adb nach jeder Änderung – nur nach der Probe am GX10 | ~400 |
 | – | Das APK versiegelt über das Blob-Netz (VKh-W4 B) – erst, wenn die Vorschau von unterwegs nicht reicht | ~200 |
@@ -118,8 +119,8 @@ Maven kommt zuerst: Ohne Maven lädt Gradle nicht einmal das Android-Plugin.
 - Plugins: Ohne eigene Liste fragt Gradle das Plugin-Portal selbst. Das Init-Skript setzt deshalb Google Maven und Maven
   Central vor die Plugin-Repositories und lenkt `gradlePluginPortal()` auf Maven Central. Die Marker des Android- und des
   Kotlin-Plugins liegen auf Google Maven bzw. Maven Central. Plugins, die es nur im Portal gibt, findet Gradle nicht.
-- `./gradlew` lädt seine Gradle-Fassung von services.gradle.org und scheitert ohne Netz. Gradle selbst kommt mit VKh2 ins
-  Bild.
+- `./gradlew` lädt seine Gradle-Fassung von services.gradle.org und scheitert ohne Netz. Gradle selbst kommt seit VKh2a mit
+  `GRADLE=1` ins Bild.
 
 ## Proben am GX10 (MENSCH)
 
