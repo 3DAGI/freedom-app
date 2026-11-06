@@ -182,17 +182,28 @@ export async function refreshQuota(): Promise<void> {
   quotaExhausted = false;
 }
 
+/** KI-Guthaben (RM2d): setzt `ki-guthaben-ui.ts` beim Start – `ui.ts` lädt den Cashu-Topf nicht selbst. */
+let kiGuthaben: (() => { text: string; titel: string }) | null = null;
+export function setzeKiGuthabenAnzeige(f: () => { text: string; titel: string }): void {
+  kiGuthaben = f;
+}
+export function kiGuthabenAnzeige(): { text: string; titel: string } {
+  return kiGuthaben?.() ?? { text: "—", titel: t("cashu.ohneMint") };
+}
+
 export function updateSidebarBalances(): void {
   const satsEl = document.getElementById("nb-sats");
   const identEl = document.getElementById("nb-ident");
-  if (!satsEl && !identEl) return;
+  const bal = document.getElementById("balance");
+  if (!satsEl && !identEl && !bal) return;
   // ident
   if (identEl) identEl.textContent = escrowIdent();
-  // KI-Budget: seit RM2c3 gibt es keine Sitzung auf Kredit mehr und damit keinen Rest – „—“ wie im Kopf
-  if (satsEl) {
-    satsEl.textContent = "—";
-    satsEl.className = "nb-val";
-    satsEl.title = t("ein.budgetRest");
+  // KI-Guthaben (RM2d): seit RM2c3 ohne Sitzung auf Kredit – Kopf und Seitenleiste zeigen den Cashu-Topf
+  const a = kiGuthabenAnzeige();
+  for (const el of [satsEl, bal]) {
+    if (!el) continue;
+    el.textContent = a.text;
+    el.title = a.titel;
   }
 }
 

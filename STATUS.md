@@ -816,3 +816,31 @@ Musik als MusicXML (oder gleich als `main.mscx`), MuseScore 3 zeigt die Partitur
   - Terminal: die Befehle aus den Hinweisen wandeln MusicXML in der Sandbox in `main.mscx` (vier Noten) und geben ein PDF aus.
 - `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.mscx` am Ende.
 - `docker-vibecoden.test.ts` +1: `ARG MUSESCORE`, nur mit `MUSESCORE=1`, Compose, nicht im Standard, die CI installiert es.
+
+## Schritt RM2d – KI-Guthaben: Cashu-Topf auf der Wallet-Seite
+
+Spur C (`docs/RM2-ENTWURF.md` V9), gebaut von Spur B nach MENSCH 06.11. („danach MuseScore und dann restlichen code“).
+Seit RM2c3 gibt es keine Sitzung auf Kredit mehr; Kopf und Seitenleiste zeigten „—“, und für den Cashu-Topf gab es keine
+Oberfläche – niemand konnte eine Mint wählen oder laden, der Pfand blieb ungenutzt.
+
+**Änderungen:**
+- **`app/src/ki-guthaben.ts`** (neu, ohne DOM): `guthabenStand()` (Mint, Host, frei, im Pfand, offene Ladungen, Gebühr je
+  Token), `ladeGuthaben()` (Rechnung der Mint, über die Schienen zahlen, abholen – ohne Antwort der Mint bleibt die Ladung
+  offen, nie ein zweites Mal gezahlt), `holeOffene()`, `CASHU_TEXT` und `cashuFehlerText()` (je Kennung ein Satz).
+- **`app/src/shell/ki-guthaben-ui.ts`** (neu): Karte „KI-Guthaben“ auf der Wallet-Seite (statt „KI-Budget“) mit „Mint wählen“,
+  „Guthaben laden“ und „Offene Ladung abholen“; vorher der Tresor, vor dem Zahlen eine Rückfrage mit Mint und Gebühr.
+- **Kopf und Seitenleiste:** `ui.ts` zeigt das Guthaben über `setzeKiGuthabenAnzeige()`, Titel „verwahrt von <Mint>“.
+- **`app/src/cashu-topf.ts`** (Spur A, klein): `CASHU_FAELLE` als Liste, `offeneLadungen()`, `gebuehrPpk()`.
+- **Zweck „cashu“** im Protokoll (`payment-rail.ts`), im Zahlungsbuch und im Verlauf („KI-Guthaben geladen“).
+- **Smoke-Test:** die Wallet-Seite erwartet die Karte „KI-Guthaben“ (ohne Mint „—“, Laden gesperrt).
+- **Docs:** Fallstrick in `packages/app/CLAUDE.md`, RM2-Entwurf (RM2 fertig), OFFEN (RM2d raus, Probe „Geld“ mit KI-Guthaben),
+  FORTSCHRITT, Stand.
+
+**Befunde:**
+- Die Karte behauptet nicht selbst, was die Mint sieht – das sagt die Grenze „cashu-pfand“ im Bericht, die Karte verweist darauf.
+- Die Test-Mint läuft hier nicht (Python-Pakete von außen); der Test gegen sie läuft in der CI.
+
+**Tests:**
+- `ki-guthaben.test.ts` +5: Stand ohne und mit Mint; Laden in der richtigen Reihenfolge (Rechnung, zahlen, abholen), offen
+  ohne Antwort, nie zweimal gezahlt, nie gezahlt bei falscher Rechnung; offene Ladungen abholen; je Kennung ein Text in beiden
+  Sprachen; gegen die Test-Mint (`CASHU_TEST_MINT`): laden über `ladeGuthaben()`, offene Ladung beim Zahlen, Gebühr wie `/v1/keysets`.

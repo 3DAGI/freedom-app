@@ -58,6 +58,7 @@ import { wireWalletAktionen } from "./wallet-gesamt-ui.js";
 import { wireTauschformular } from "./tauschformular-ui.js";
 import { wireEmpfangen } from "./empfangen-ui.js";
 import { wireVerlauf } from "./verlauf-ui.js";
+import { wireKiGuthaben, zeigeKiGuthaben } from "./ki-guthaben-ui.js";
 import { wireSprachnachricht } from "./sprachnachricht-ui.js";
 import { wireDiktieren, zeigeDiktieren } from "./diktieren-ui.js";
 import { wireSpracheLokal } from "./sprache-lokal-ui.js";
@@ -556,7 +557,7 @@ export function switchTab(name: string): void {
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); zeigeDiktieren(); zeigeGratisStand(); }
-  if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
+  if (name === "wallet") { loadWallet(); void zeigeKanaele(); zeigeKiGuthaben(); }
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
@@ -1028,6 +1029,7 @@ function starte(): void {
   wireTauschformular(); // Tauschformular über den Angeboten (C-51)
   wireEmpfangen();
   wireVerlauf();
+  wireKiGuthaben();
   setupCopyButtons();
 }
 
