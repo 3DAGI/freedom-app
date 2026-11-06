@@ -725,3 +725,18 @@ Bereichs unten anhängen.
   Beim Prüfen legt Shotcut `shotcut-XXXX.mlt` kurz neben die Datei und löscht sie wieder; beim Speichern entsteht nichts daneben.
   Gerendert wird im Terminal mit `melt … -consumer avformat:film.mp4` (H.264 aus der FFmpeg der Distribution) – der Befehl in
   `bildHinweise()` ist genau der, den der Echttest ausführt (`meltBefehlAusHinweisen()`).
+- **Partituren im Bild nur über `bildBefehl()` und `musescoreBefehl()`** (seit VKk4i, `bildstrom.ts`): eine Partitur zählt nur mit MuseScore 3
+  aus `musescoreAusUmgebung()` – nur `MUSESCORE_ORTE` (`/usr/bin/mscore3`, kein eigener Pfad), `MUSESCORE=aus` schaltet ab –, nur als echte
+  Datei und nur mit einem Namen aus `MUSESCORE_DATEIEN` (`main.mscx` vor `main.mscz`), nach Web, `main.svg`, `main.xcf`, `main.qgs` und
+  `main.mlt`. Beim ersten Start zeigt MuseScore einen Assistenten über der Partitur (der Echttest misst dann nur Grau, Gegenprobe):
+  `MUSESCORE_START` schreibt `MuseScore3.ini` ins Home der Sandbox (`startup\firstStart=false`, ohne Startcenter, Touren und Suche nach
+  Aktualisierungen; QSettings schreibt Schlüssel mit Schrägstrich als Gruppe, `application/startup/firstStart` wird `[application]` und
+  `startup\firstStart`). Ohne Fenstermanager öffnet MuseScore mindestens 1024×768 – `--qwindowgeometry` setzt die Größe des Bilds; darunter
+  ohne Inspektor (`[MainWindow] showInspector=false`, sonst blieb den Noten bei 640 Pixeln ein Drittel – der Echttest misst dort, wo er
+  stünde). Neu geladen wird über `neustartSchleife()`: Nach dem Ende mit SIGTERM fragte MuseScore beim nächsten Start „Restore session?“ –
+  das Skript löscht `~/.local/share/MuseScore/MuseScore3/session` vor jedem Start (nach `kill -9` fragte es nicht, die Datei entsteht erst
+  später). Speichert jemand im Bild, legt MuseScore 3.2 die Sicherung `.main.mscx,` neben die Datei (keine Einstellung dafür) – nie versprechen,
+  dass das Projekt nur `main.mscx` enthält. Im Terminal geht MuseScore nur mit `QT_QPA_PLATFORM=offscreen` (sonst Abbruch, Exit 134); die
+  Befehle in `bildHinweise()` sind genau die, die der Echttest ausführt (`musescoreBefehleAusHinweisen()`). PNG geht dort auch (je Seite
+  `main-1.png`), steht aber nicht in den Hinweisen – der Test der Hinweise weist jedes `.png` ab (OpenSCAD kann es nicht). Ubuntu bringt
+  für MuseScore kein AppArmor-Profil mit.

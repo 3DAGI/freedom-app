@@ -25,6 +25,7 @@ import {
   WEB_DEV_START, WINE_ORTE, bildBefehl, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, blenderBefehl, browserArgumente, godotArgumente, godotAusUmgebung, kicadAusUmgebung,
   X11_UMWEG, gimpAusUmgebung, gimpBefehl, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
   meltAusUmgebung, qgisAusUmgebung, qgisBefehl, shotcutAusUmgebung, videoBefehl, wineLesbar,
+  MUSESCORE_DATEIEN, MUSESCORE_INSPEKTOR_AB, MUSESCORE_ORTE, MUSESCORE_START, musescoreAusUmgebung, musescoreBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -321,34 +322,36 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true,
+    melt: true, shotcut: true, musescore: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt",
+    "main.qgs", "main.mlt", "main.mscx",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
   assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
-  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
+  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN, ...MUSESCORE_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
+    musescore: "/usr/bin/mscore3",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
+    musescoreBefehl("/usr/bin/mscore3", "main.mscx", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -898,6 +901,103 @@ test("VKk4h: Video im Bildstrom – main.mlt in der Sandbox des Programms, nicht
   }
   const nurShotcut = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte, shotcut: "/usr/bin/shotcut" });
   await assert.rejects(nurShotcut.starte("video", ANGEBOT, { breite: 1280, hoehe: 720 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4i: Partituren – main.mscx vor main.mscz nur mit MuseScore, nach Web, main.svg, main.xcf, main.qgs und main.mlt", () => {
+  const a = ablage("noten", "gepackt", "web", "video", "verweis", "ordner");
+  const groesse = { breite: 1280, hoehe: 720 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, musescore: "/usr/bin/mscore3" };
+  for (const f of MUSESCORE_DATEIEN) writeFileSync(join(a.ort("noten"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("noten"), web, mit),
+    ["/bin/sh", "-c", MUSESCORE_START, "/usr/bin/mscore3", "/arbeit/main.mscx", "1280x720+0+0", "1280"], "die Partitur als Text geht vor");
+  writeFileSync(join(a.ort("gepackt"), "main.mscz"), "x");
+  assert.deepEqual(bildBefehl(a.ort("gepackt"), undefined, mit), musescoreBefehl("/usr/bin/mscore3", "main.mscz", groesse));
+  assert.equal(bildBefehl(a.ort("noten"), web, groesse), null, "ohne MuseScore zählt keine Partitur");
+  // Noten zu einer Seite verdrängen sie nicht, und nach dem Video
+  for (const [f, inhalt] of [["main.mscx", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.mscx", "main.mlt"]) writeFileSync(join(a.ort("video"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("video"), undefined, { ...mit, melt: "/usr/bin/melt" }), videoBefehl("/usr/bin/melt", undefined, groesse), "main.mlt geht vor");
+  symlinkSync(join(a.ort("noten"), "main.mscx"), join(a.ort("verweis"), "main.mscx"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.mscx"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4i: MuseScore aus der Distribution – nur der Ort unter /usr, MUSESCORE=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("noten");
+  const datei = join(d, "mscore3");
+  writeFileSync(datei, "");
+  assert.equal(musescoreAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(musescoreAusUmgebung({ MUSESCORE: "aus" }, [datei]), null);
+  assert.equal(musescoreAusUmgebung({ MUSESCORE: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(musescoreAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(MUSESCORE_ORTE, ["/usr/bin/mscore3"]);
+});
+
+test("VKk4i: Start – ohne Assistenten in der Größe des Bilds, schmal ohne Inspektor, ohne alte Sitzung; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  for (const breite of [MUSESCORE_INSPEKTOR_AB, MUSESCORE_INSPEKTOR_AB - 1]) {
+    const d = tmp("noten-start");
+    const heim = join(d, "heim");
+    const sitzung = join(heim, ".local", "share", "MuseScore", "MuseScore3", "session");
+    mkdirSync(dirname(sitzung), { recursive: true });
+    writeFileSync(sitzung, "alt");
+    const mscx = join(d, "main.mscx");
+    writeFileSync(mscx, "eins");
+    const aufrufe = join(d, "aufrufe.txt");
+    writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+    chmodSync(join(d, "programm"), 0o755);
+    const groesse = musescoreBefehl(join(d, "programm"), "main.mscx", { breite, hoehe: 600 }).slice(5);
+    const sh = spawn("/bin/sh", ["-c", MUSESCORE_START, join(d, "programm"), mscx, ...groesse], { stdio: "ignore", env: { ...process.env, HOME: heim } });
+    const zu = new Promise((r) => sh.once("close", r));
+    const zeilen = async (n: number) => {
+      for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+        const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+        if (z.length >= n) return z;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error(`nicht ${n} Aufrufe`);
+    };
+    try {
+      const [erste] = await zeilen(1);
+      assert.equal(erste!.replace(/ \d+$/, ""), `--qwindowgeometry ${breite}x600+0+0 ${mscx}`);
+      assert.equal(existsSync(sitzung), false, "MuseScore fragte sonst, ob es die Sitzung wiederherstellen soll");
+      const ini = readFileSync(join(heim, ".config", "MuseScore", "MuseScore3.ini"), "utf8").split("\n");
+      for (const zeile of ["[application]", "startup\\firstStart=false", "[ui]", "application\\startup\\showStartCenter=false",
+        "application\\startup\\showTours=false", "application\\startup\\checkUpdate=false", "application\\startup\\checkExtensionsUpdate=false"]) {
+        assert.ok(ini.includes(zeile), zeile);
+      }
+      assert.equal(ini.includes("showInspector=false"), breite < MUSESCORE_INSPEKTOR_AB, "nur im schmalen Bild ohne Inspektor");
+      writeFileSync(sitzung, "wieder");
+      writeFileSync(mscx, "zwei");
+      const [, zweite] = await zeilen(2);
+      assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+      assert.equal(existsSync(sitzung), false, "auch vor jedem Neustart");
+      process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+      assert.equal(await zu, 0);
+    } finally {
+      try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+    }
+  }
+});
+
+test("VKk4i: Partitur im Bildstrom – main.mscx in der Sandbox des Programms, nichts weiter eingebunden; ohne MuseScore kein Programm", async () => {
+  const a = ablage("noten");
+  writeFileSync(join(a.ort("noten"), "main.mscx"), "<museScore/>");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, musescore: "/usr/bin/mscore3" });
+  try {
+    assert.equal(await b.starte("noten", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...musescoreBefehl("/usr/bin/mscore3", "main.mscx", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("noten", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -1871,6 +1971,90 @@ test("VKk4h: im Terminal – der Befehl aus den Hinweisen rendert das Video in d
   assert.equal(film.subarray(4, 8).toString(), "ftyp", "ein MP4");
   assert.ok(film.length > 1000, `mit Inhalt (${film.length} Byte)`);
   assert.deepEqual(readdirSync(arbeit).sort(), ["film.mp4", "main.mlt"]);
+});
+
+const musescore = musescoreAusUmgebung({});
+/** Die Befehle aus den Hinweisen für den Motor (VKk5) – genau so, wie der Agent sie im Terminal abschreibt: umwandeln, ausgeben. */
+const musescoreBefehleAusHinweisen = () => [...bildHinweise({ musescore: true }).matchAll(/`(QT_QPA_PLATFORM=offscreen mscore3 -o [^`]*)`/g)].map((m) => m[1]!);
+/** Eine Partitur, wie der Agent sie schreibt: ein Takt Pause unter einem Titel mit farbigem Rahmen – groß genug zum Messen. */
+const partitur = (r: number, g: number, b: number) => [
+  `<?xml version="1.0" encoding="UTF-8"?>`,
+  `<museScore version="3.01">`,
+  `  <Score>`,
+  `    <Division>480</Division>`,
+  `    <Part>`,
+  `      <Staff id="1"><StaffType group="pitched"><name>stdNormal</name></StaffType></Staff>`,
+  `      <trackName>Klavier</trackName>`,
+  `      <Instrument><longName>Klavier</longName><Channel><program value="0"/></Channel></Instrument>`,
+  `    </Part>`,
+  `    <Staff id="1">`,
+  `      <VBox><height>25</height><Text><style>Title</style><size>48</size><frameType>1</frameType>`,
+  `        <frameBgColor r="${r}" g="${g}" b="${b}" a="255"/><framePadding>16</framePadding><text>MMMMMMMM</text></Text></VBox>`,
+  `      <Measure><voice>`,
+  `        <Clef><concertClefType>G</concertClefType><transposingClefType>G</transposingClefType></Clef>`,
+  `        <TimeSig><sigN>4</sigN><sigD>4</sigD></TimeSig>`,
+  `        <Rest><durationType>measure</durationType><duration>4/4</duration></Rest>`,
+  `      </voice></Measure>`,
+  `    </Staff>`,
+  `  </Score>`,
+  `</museScore>`, ``,
+].join("\n");
+
+test("VKk4i: Ende zu Ende – eine Partitur in MuseScore im schmalen Bild; schreibt der Agent sie neu, zeigt das Bild die neue", {
+  skip: ohne || (!musescore && "MuseScore fehlt (mscore3)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("noten");
+    const datei = join(a.ort("noten"), "main.mscx");
+    writeFileSync(datei, partitur(0, 192, 0));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, musescore: musescore! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          writeFileSync(datei, partitur(204, 0, 0));
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // im Rahmen des Titels unter dem Text, rechts – dort stünde im schmalen Bild sonst der Inspektor (Gegenprobe: nur Grau)
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("noten", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.8, 0.56] });
+      console.log(`[bild] MuseScore: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("noten")), ["main.mscx"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4i: im Terminal – die Befehle aus den Hinweisen wandeln MusicXML in der Sandbox in eine Partitur und geben sie als PDF aus", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!musescore && "MuseScore fehlt (mscore3)"), timeout: 150_000,
+}, async () => {
+  const arbeit = tmp("noten-terminal");
+  writeFileSync(join(arbeit, "lied.musicxml"), [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Klavier</part-name></score-part></part-list>`,
+    `<part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>`,
+    `<clef><sign>G</sign><line>2</line></clef></attributes>`,
+    ...["C", "D", "E", "F"].map((s) => `<note><pitch><step>${s}</step><octave>4</octave></pitch><duration>1</duration><type>quarter</type></note>`),
+    `</measure></part></score-partwise>`, ``,
+  ].join("\n"));
+  const befehle = musescoreBefehleAusHinweisen();
+  assert.equal(befehle.length, 2, "umwandeln und ausgeben");
+  for (const befehl of befehle) {
+    const r = await fuehreAus(["/bin/sh", "-c", befehl], { arbeit }, 120_000);
+    assert.equal(r.code, 0, r.ausgabe);
+  }
+  const mscx = readFileSync(join(arbeit, "main.mscx"), "utf8");
+  assert.match(mscx, /<museScore version="3\.\d+">/);
+  assert.equal((mscx.match(/<Chord>/g) ?? []).length, 4, "die vier Noten");
+  assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
+  assert.deepEqual(readdirSync(arbeit).sort(), ["lied.musicxml", "main.mscx", "main.pdf"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

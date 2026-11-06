@@ -516,6 +516,42 @@ export function videoBefehl(melt: string, shotcut: string | undefined, groesse: 
     : ["/bin/sh", "-c", MELT_START, melt, "/arbeit/main.mlt", `${breite}x${hoehe}`];
 }
 
+/** Wo der Knoten MuseScore sucht (VKk4i) – nur MuseScore 3 der Distribution unter `/usr` (mit Qt viele Dateien). */
+export const MUSESCORE_ORTE: readonly string[] = ["/usr/bin/mscore3"];
+
+/** MuseScore aus der Distribution (VKk4i): der erste aus `MUSESCORE_ORTE`; null mit `MUSESCORE=aus` oder ohne Fund. */
+export function musescoreAusUmgebung(env: { MUSESCORE?: string }, orte: readonly string[] = MUSESCORE_ORTE): string | null {
+  return env.MUSESCORE?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Partituren, die das Bild in MuseScore zeigt (VKk4i): als Text (so schreibt sie der Agent), dann gepackt – die erste echte Datei zählt. */
+export const MUSESCORE_DATEIEN: readonly string[] = ["main.mscx", "main.mscz"];
+
+/** Unter dieser Breite zeigt MuseScore keinen Inspektor (VKk4i) – Paletten und Inspektor ließen den Noten am Handy ein Drittel. */
+export const MUSESCORE_INSPEKTOR_AB = 1024;
+
+/**
+ * Eine Partitur im Bild (VKk4i): ein Projekt aus `MUSESCORE_DATEIEN` in MuseScore 3. Die Einstellungen schreibt das Skript ins Home
+ * der Sandbox (tmpfs, nie ins Projekt): ohne den Assistenten des ersten Starts – sonst zeigt das Bild nur ihn –, ohne Startcenter,
+ * Touren und Suche nach Aktualisierungen, in einem schmalen Bild ohne Inspektor. Das Fenster setzt `--qwindowgeometry` auf die Größe
+ * des Bilds (ohne Fenstermanager sonst mindestens 1024×768). Eine geänderte Datei lädt MuseScore nicht von selbst: Neustart über
+ * `neustartSchleife()`. Nach dem Ende mit SIGTERM fragte es beim nächsten Start, ob es die Sitzung wiederherstellen soll – das
+ * Skript löscht sie vor jedem Start, es gilt die Datei. `$0` ist MuseScore, `$1` die Datei, `$2` die Größe, `$3` die Breite.
+ */
+export const MUSESCORE_START = [
+  `c="$HOME/.config/MuseScore"; mkdir -p "$c"`,
+  `printf '%s\\n' '[application]' 'startup\\firstStart=false' '[ui]' 'application\\startup\\showStartCenter=false' \\`,
+  `  'application\\startup\\showTours=false' 'application\\startup\\checkUpdate=false' \\`,
+  `  'application\\startup\\checkExtensionsUpdate=false' > "$c/MuseScore3.ini"`,
+  `[ "$3" -lt ${MUSESCORE_INSPEKTOR_AB} ] && printf '%s\\n' '[MainWindow]' 'showInspector=false' >> "$c/MuseScore3.ini"`,
+  ...neustartSchleife(`rm -f "$HOME/.local/share/MuseScore/MuseScore3/session"`, `--qwindowgeometry "$2" `),
+].join("\n");
+
+export function musescoreBefehl(mscore: string, datei: string, groesse: { breite: number; hoehe: number }): string[] {
+  const { breite, hoehe } = groesse;
+  return ["/bin/sh", "-c", MUSESCORE_START, mscore, `/arbeit/${datei}`, `${breite}x${hoehe}+0+0`, String(breite)];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -523,14 +559,15 @@ export function videoBefehl(melt: string, shotcut: string | undefined, groesse: 
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
- * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) zuletzt `main.mlt`.
+ * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) zuletzt eine Partitur
+ * aus `MUSESCORE_DATEIEN`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
-    inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string;
+    inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -564,6 +601,9 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.qgis && karte) return qgisBefehl(programme.qgis, karte, programme);
   // ebenso ein Video (VKk4h) – Shotcut, wo das Bild groß genug ist, sonst spielt melt es ab
   if (programme?.melt && ist("main.mlt", "datei")) return videoBefehl(programme.melt, programme.shotcut, programme);
+  // ebenso eine Partitur (VKk4i) – Noten zu einer Seite liegen oft daneben
+  const partitur = programme?.musescore ? MUSESCORE_DATEIEN.find((d) => ist(d, "datei")) : undefined;
+  if (programme?.musescore && partitur) return musescoreBefehl(programme.musescore, partitur, programme);
   return null;
 }
 
@@ -572,11 +612,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * Reihenfolge von `bildBefehl()` und nur mit den Programmen, die der Knoten hat – sonst nennte der Agent seine Datei
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
- * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt.
+ * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt, Umwandeln und Ausgeben aus MuseScore
+ * ebenso mit `offscreen`.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
-  inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean;
+  inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -612,6 +653,10 @@ export function bildHinweise(p: {
       + (p.shotcut ? `in a view of at least ${SHOTCUT_MINDEST.breite}×${SHOTCUT_MINDEST.hoehe} pixels Shotcut shows it, in a smaller one melt plays it in a loop`
         : "melt plays it in a loop")
       + "; it restarts after every save. In the terminal, `melt main.mlt -consumer avformat:film.mp4` renders it"] : []),
+    ...(p.musescore ? ["- `main.mscx` (or `main.mscz`) – a score in MuseScore 3 (only if no web project is there); it restarts after every "
+      + "save. In the terminal, MuseScore needs `QT_QPA_PLATFORM=offscreen`: write the music as MusicXML and convert it with "
+      + "`QT_QPA_PLATFORM=offscreen mscore3 -o main.mscx lied.musicxml`, and export the score with "
+      + "`QT_QPA_PLATFORM=offscreen mscore3 -o main.pdf main.mscx` – likewise `.mid`, `.musicxml` and `.wav`"] : []),
   ];
   return [
     "# Showing the project",
@@ -682,6 +727,8 @@ export class BildStrom {
     qgis?: string;
     /** melt für Videos (VKk4h, `meltAusUmgebung()`), dazu Shotcut für große Bilder (`shotcutAusUmgebung()`) – beide unter `/usr`. */
     melt?: string; shotcut?: string;
+    /** MuseScore 3 für Partituren (VKk4i, `musescoreAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    musescore?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -716,7 +763,7 @@ export class BildStrom {
       ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
       ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
       ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
-      ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}),
+      ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
