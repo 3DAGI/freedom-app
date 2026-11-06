@@ -197,6 +197,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends shotcut melt
           melt -version | head -1
 
+      # VKk4i: Partituren zeigt MuseScore 3 – der Echttest schreibt main.mscx neu, das Skript startet neu; dazu Umwandeln und
+      # Ausgeben im Terminal
+      - name: MuseScore fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends musescore3
+          QT_QPA_PLATFORM=offscreen mscore3 --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

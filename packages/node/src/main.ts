@@ -56,7 +56,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import {
   BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, gimpAusUmgebung, godotAusUmgebung, inkscapeAusUmgebung, kicadAusUmgebung,
-  libreofficeAusUmgebung, meltAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
+  libreofficeAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
 } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
@@ -578,20 +578,22 @@ async function main(): Promise<void> {
         // Videos (VKk4h): melt der Distribution, dazu Shotcut für große Bilder (Docker-Bild mit SHOTCUT=1) – ohne melt kein main.mlt
         const melt = meltAusUmgebung(process.env);
         const shotcut = melt ? shotcutAusUmgebung(process.env) : null;
+        // Partituren (VKk4i): MuseScore 3 der Distribution (Docker-Bild mit MUSESCORE=1) – ohne zeigt das Bild main.mscx nicht
+        const musescore = musescoreAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
           ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}), ...(libreoffice ? { libreoffice } : {}),
           ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}), ...(qgis ? { qgis } : {}), ...(melt ? { melt } : {}),
-          ...(shotcut ? { shotcut } : {}),
+          ...(shotcut ? { shotcut } : {}), ...(musescore ? { musescore } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
         // was der Motor über das Bild wissen muss (VKk5) – nur die Programme, die es hier gibt
         bildText = bildHinweise({
           godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, libreoffice: !!libreoffice, browser: !!browser,
-          inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut,
+          inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut, musescore: !!musescore,
         });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

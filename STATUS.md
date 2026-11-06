@@ -767,3 +767,52 @@ neues Gebiet: Der Agent schreibt das Projekt als MLT-XML (das Format von Shotcut
 - `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.mlt` am Ende.
 - `docker-vibecoden.test.ts` +1: `ARG SHOTCUT`, nur mit `SHOTCUT=1`, Compose, nicht im Standard, die CI installiert beide.
 - `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+## Schritt VKk4i – Partituren im Bild: MuseScore
+
+Spur B, VKk (MENSCH 06.11.: „Shotcut und melt nehmen, danach MuseScore und dann restlichen code“), nach VKk4h. Der Agent schreibt die
+Musik als MusicXML (oder gleich als `main.mscx`), MuseScore 3 zeigt die Partitur im Bild und gibt im Terminal PDF, MIDI und WAV aus.
+
+**Änderungen:**
+- **`bildstrom.ts`:**
+  - `musescoreAusUmgebung()` sucht nur `/usr/bin/mscore3`; `MUSESCORE=aus` schaltet ab.
+  - `bildBefehl()` zeigt eine Partitur aus `MUSESCORE_DATEIEN` (`main.mscx` vor `main.mscz`, nur echte Datei, nur mit MuseScore) nach Web,
+    `main.svg`, `main.xcf`, `main.qgs` und `main.mlt`.
+  - `MUSESCORE_START` schreibt `MuseScore3.ini` ins Home der Sandbox: ohne Assistenten des ersten Starts, Startcenter, Touren und Suche nach
+    Aktualisierungen; unter `MUSESCORE_INSPEKTOR_AB` (1024 Pixel) ohne Inspektor. Das Fenster in Bildgröße (`--qwindowgeometry`); Neustart
+    nach jeder Änderung über `neustartSchleife()`, vorher die alte Sitzung gelöscht.
+  - `bildHinweise()` nennt `main.mscx`, das Umwandeln aus MusicXML und das Ausgeben als PDF, MIDI, MusicXML und WAV im Terminal (mit
+    `QT_QPA_PLATFORM=offscreen`).
+- **`main.ts`:** gibt MuseScore an den Bildstrom und die Hinweise, das Log nennt es.
+- **Bild:** `ARG MUSESCORE=0`, nur mit `VIBECODEN=1` und `MUSESCORE=1`: `musescore3` aus Debian (GPL-2.0, Klangbibliothek MIT), rund 100 MB.
+  Compose reicht `MUSESCORE` durch.
+- **CI:** Schritt „MuseScore fuer den Bild-Test“ im Testjob (Ubuntu 24.04: MuseScore 3.2.3), über den Zwischenspeicher.
+- **Docs:** PROVIDER (Partituren), PROTOCOL (`code-bild-kein-programm`), Fallstrick in `packages/node/CLAUDE.md`, VIBECODEN-Entwurf
+  (Tabelle, VKk), OFFEN (VKk, Probe „Vibecoden“ mit `MUSESCORE=1` und einer Partitur), FORTSCHRITT, Stand.
+
+**Befunde:**
+- Beim ersten Start zeigt MuseScore einen Assistenten (Sprache, Tastatur, Vorlieben) über der Partitur – mit `startup\firstStart=false`
+  in `MuseScore3.ini` nicht.
+- Ohne Fenstermanager öffnet MuseScore mindestens 1024×768; mit `--qwindowgeometry` passt es auch in 640×480. Bei 640 Pixeln ließen
+  Paletten und Inspektor den Noten rund 260 Pixel – ohne Inspektor 470.
+- Nach dem Ende mit SIGTERM (so beendet die Schleife) fragte MuseScore beim nächsten Start „The previous session quit unexpectedly.
+  Restore session?“ – nach `kill -9` nicht, die Sitzungsdatei entsteht erst später. Das Skript löscht sie vor jedem Start.
+- Speichert jemand im Bild (Strg+S per XTest), legt MuseScore 3.2 `.main.mscx,` als Sicherung daneben; eine Einstellung dafür gibt es in
+  3.2 nicht.
+- Im Terminal geht alles nur mit `QT_QPA_PLATFORM=offscreen` (sonst Abbruch, Exit 134): MusicXML → `main.mscx` (die Warnung „no
+  instrument found for part“ ist harmlos), PDF, MIDI, MusicXML, WAV (mit der Klangbibliothek der Distribution), MP3, PNG (je Seite eine
+  Datei). PNG steht nicht in den Hinweisen – der Test der Hinweise weist jedes `.png` ab.
+
+**Tests:**
+- `bildstrom.test.ts` +6:
+  - Partituren: `main.mscx` vor `main.mscz`, nur mit MuseScore, nach Web und `main.mlt`; Verweis und Ordner zählen nicht.
+  - Erkennung: nur `/usr/bin/mscore3`, `MUSESCORE=aus`, kein eigener Pfad.
+  - Start mit Attrappe (1024 und 1023 Pixel): Argumente, die Einstellungen, ohne Inspektor nur im schmalen Bild, die alte Sitzung vor
+    jedem Start gelöscht, Neustart nach der Änderung.
+  - Bildstrom: in der Sandbox des Programms, nur der Socket des Bildschirms; ohne MuseScore kein Programm.
+  - Ende zu Ende im schmalen Bild (640×480, bubblewrap, Xvfb, coturn): erst grün, der Test schreibt die Partitur rot neu, das Bild wird
+    rot; im Projekt nur `main.mscx`. Gemessen im Rahmen des Titels dort, wo sonst der Inspektor stünde. Gegenproben von Hand: mit
+    `firstStart=true` nur Grau (der Assistent), mit Inspektor nur Grau.
+  - Terminal: die Befehle aus den Hinweisen wandeln MusicXML in der Sandbox in `main.mscx` (vier Noten) und geben ein PDF aus.
+- `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.mscx` am Ende.
+- `docker-vibecoden.test.ts` +1: `ARG MUSESCORE`, nur mit `MUSESCORE=1`, Compose, nicht im Standard, die CI installiert es.

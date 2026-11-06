@@ -864,6 +864,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   nur mit `SHOTCUT=1`, Shotcut und melt; `SHOTCUT=aus` schaltet beide ab) – nach Web, `main.svg`,
   `main.xcf` und `main.qgs`. Schreibt der Agent das Projekt neu, startet das Bild neu. Im
   Terminal rendert er mit `melt main.mlt -consumer avformat:film.mp4`.
+  Partituren (`main.mscx`, sonst `main.mscz`, seit VKk4i) zeigt MuseScore 3 (`mscore3`, im Bild
+  nur mit `MUSESCORE=1`, rund 100 MB; `MUSESCORE=aus` schaltet es ab) – nach Web, `main.svg`,
+  `main.xcf`, `main.qgs` und `main.mlt`; das Fenster füllt das Bild, ist es schmaler als 1024
+  Pixel, ohne Inspektor. Schreibt der Agent die Partitur neu, startet das Bild neu; speichert
+  jemand im Bild, legt MuseScore die Sicherung `.main.mscx,` daneben. Im Terminal wandelt er
+  MusicXML um und gibt PDF, MIDI und WAV aus (`QT_QPA_PLATFORM=offscreen mscore3 -o …`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:
