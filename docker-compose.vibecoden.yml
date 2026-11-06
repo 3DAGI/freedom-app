@@ -25,6 +25,8 @@ services:
         GIMP: "${GIMP:-0}"
         # Karten im Bild (VKk4g): QGIS=1 baut QGIS mit GDAL, PROJ und PyQGIS dazu, bis zu 900 MB
         QGIS: "${QGIS:-0}"
+        # Videos im Bild (VKk4h): SHOTCUT=1 baut Shotcut und melt dazu, einige hundert MB
+        SHOTCUT: "${SHOTCUT:-0}"
         # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
         GRADLE: "${GRADLE:-0}"
         # Android-Apps (VKh2b): ANDROID=1 baut das Android-SDK dazu (braucht GRADLE=1), rund 300 MB, bisher nur auf amd64 nutzbar.

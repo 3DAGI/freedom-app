@@ -8,7 +8,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, OPENSCAD_ORTE, QGIS_ORTE } from "../src/bildstrom.js";
+import {
+  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SHOTCUT_ORTE,
+} from "../src/bildstrom.js";
 import { AAPT2_ORTE, ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
 
@@ -238,6 +240,19 @@ test("VKk4g: QGIS nur mit VIBECODEN=1 und QGIS=1 aus der Distribution, dort, wo 
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+QGIS: "\$\{QGIS:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("QGIS"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends qgis\n\s+QT_QPA_PLATFORM=offscreen qgis --version\n/);
+});
+
+test("VKk4h: Shotcut und melt nur mit VIBECODEN=1 und SHOTCUT=1 aus der Distribution, dort, wo der Knoten sie sucht; die CI prüft sie echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG SHOTCUT=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$SHOTCUT" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends shotcut melt && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  for (const p of ["shotcut", "melt"]) assert.ok(!immer.includes(p) && !vibecoden.includes(p), `${p} nur mit SHOTCUT=1`);
+  assert.deepEqual([MELT_ORTE, SHOTCUT_ORTE], [["/usr/bin/melt"], ["/usr/bin/shotcut"]], "dort legt Debian sie ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+SHOTCUT: "\$\{SHOTCUT:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("SHOTCUT"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends shotcut melt\n\s+melt -version \| head -1\n/);
 });
 
 test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fester Fassung gegen SHA-256, das JDK aus Debian; die CI baut damit", () => {

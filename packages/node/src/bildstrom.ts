@@ -231,16 +231,17 @@ export function openscadBefehl(openscad: string, groesse: { breite: number; hoeh
  * Neustart nach jeder Änderung (VKk4b, VKk4c, VKk4d, VKk4e) – für Programme, die eine geänderte Datei nicht selbst neu laden: startet `$0`
  * mit `$1` neu, sobald sich Zeit oder Größe der Datei geändert haben und sie eine Sekunde ruhig ist (der Agent schreibt
  * vielleicht in Stücken). Überhört das Programm das Ende (Rückfrage zum Speichern), endet es nach drei Sekunden hart. Endet es
- * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start, `argumente` stehen vor der Datei (Text für die Shell).
+ * von selbst, endet die Schleife. `vorStart` läuft vor jedem Start, `argumente` stehen vor der Datei, `danach` hinter ihr (Text
+ * für die Shell).
  */
-function neustartSchleife(vorStart?: string, argumente = ""): string[] {
+function neustartSchleife(vorStart?: string, argumente = "", danach = ""): string[] {
   return [
     `datei="$1"`,
     `stand() { stat -c '%.9Y %s' "$datei" 2>/dev/null; }`,
     `while :; do`,
     ...(vorStart ? [`  ${vorStart}`] : []),
     `  alt=$(stand)`,
-    `  "$0" ${argumente}"$datei" & pid=$!`,
+    `  "$0" ${argumente}"$datei"${danach ? ` ${danach}` : ""} & pid=$!`,
     `  while kill -0 "$pid" 2>/dev/null && [ "$(stand)" = "$alt" ]; do sleep 1; done`,
     `  kill -0 "$pid" 2>/dev/null || exit 0`,
     `  neu=$(stand); sleep 1; while [ "$(stand)" != "$neu" ]; do neu=$(stand); sleep 1; done`,
@@ -467,6 +468,54 @@ export function qgisBefehl(qgis: string, datei: string, groesse: { breite: numbe
   return ["/bin/sh", "-c", QGIS_START, qgis, `/arbeit/${datei}`, String(groesse.breite), String(groesse.hoehe)];
 }
 
+/** Wo der Knoten melt sucht (VKk4h) – nur das Paket der Distribution unter `/usr` (MLT, das Werkzeug hinter Shotcut). */
+export const MELT_ORTE: readonly string[] = ["/usr/bin/melt"];
+
+/** Wo der Knoten Shotcut sucht (VKk4h) – nur das Paket der Distribution unter `/usr` (mit Qt viele Dateien). */
+export const SHOTCUT_ORTE: readonly string[] = ["/usr/bin/shotcut"];
+
+/** melt aus der Distribution (VKk4h): der erste aus `MELT_ORTE`; null mit `SHOTCUT=aus` oder ohne Fund – ohne melt kein Video. */
+export function meltAusUmgebung(env: { SHOTCUT?: string }, orte: readonly string[] = MELT_ORTE): string | null {
+  return env.SHOTCUT?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Shotcut aus der Distribution (VKk4h): der erste aus `SHOTCUT_ORTE`; null mit `SHOTCUT=aus` oder ohne Fund. */
+export function shotcutAusUmgebung(env: { SHOTCUT?: string }, orte: readonly string[] = SHOTCUT_ORTE): string | null {
+  return env.SHOTCUT?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Ab dieser Größe zeigt das Bild Shotcut (VKk4h): Schnittfenster, Player und Zeitleiste brauchen mindestens 1000×642 Pixel
+ * (gemessen mit Shotcut 24.04, hier mit Rand). Darunter bliebe das Fenster so groß und ragte über das Bild; Shotcut übergeht
+ * dann die Größe, und kleiner skaliert (`--QT_SCALE_FACTOR`) zeichnet es ohne Fenstermanager nur Bruchstücke.
+ */
+export const SHOTCUT_MINDEST = { breite: 1024, hoehe: 700 } as const;
+
+/**
+ * Ein Video im Bild (VKk4h): `main.mlt` – MLT-XML, das Format von Shotcut. Ist das Bild groß genug (`SHOTCUT_MINDEST`), zeigt
+ * es Shotcut mit Player und Zeitleiste, sonst spielt melt das Video in einer Schleife ab (`-repeat`, so groß wie das Bild). Beide
+ * spielen den Ton über SDL – die Sandbox hat keinen, ohne `SDL_AUDIODRIVER=dummy` zeigt der Player von Shotcut kein Bild. Eine
+ * geänderte Datei laden beide nicht von selbst: Neustart über `neustartSchleife()`. Shotcut sichert Änderungen im Bild
+ * zwischendurch im Home (`autosave`) und fragte nach einem harten Ende beim nächsten Start, ob es sie wiederherstellen soll –
+ * das Skript löscht sie vor jedem Start, es gilt die Datei. `$0` ist Shotcut bzw. melt, `$1` die Datei, `$2` die Größe.
+ */
+export const SHOTCUT_START = [
+  `export SDL_AUDIODRIVER=dummy`,
+  ...neustartSchleife(`rm -rf "$HOME/.local/share/Meltytech/Shotcut/autosave"`, `--noupgrade --qwindowgeometry "$2" `),
+].join("\n");
+
+export const MELT_START = [
+  `export SDL_AUDIODRIVER=dummy`,
+  ...neustartSchleife(undefined, `-silent -consumer sdl2 resolution="$2" `, "-repeat 1000"),
+].join("\n");
+
+export function videoBefehl(melt: string, shotcut: string | undefined, groesse: { breite: number; hoehe: number }): string[] {
+  const { breite, hoehe } = groesse;
+  return shotcut && breite >= SHOTCUT_MINDEST.breite && hoehe >= SHOTCUT_MINDEST.hoehe
+    ? ["/bin/sh", "-c", SHOTCUT_START, shotcut, "/arbeit/main.mlt", `${breite}x${hoehe}+0+0`]
+    : ["/bin/sh", "-c", MELT_START, melt, "/arbeit/main.mlt", `${breite}x${hoehe}`];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -474,14 +523,14 @@ export function qgisBefehl(qgis: string, datei: string, groesse: { breite: numbe
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
- * QGIS (VKk4g) zuletzt ein Projekt aus `QGIS_DATEIEN`.
+ * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) zuletzt `main.mlt`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
-    inkscape?: string; gimp?: string; qgis?: string;
+    inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -513,6 +562,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   // ebenso eine Karte aus QGIS (VKk4g) – das Projekt hinter einer Web-Karte liegt oft daneben
   const karte = programme?.qgis ? QGIS_DATEIEN.find((d) => ist(d, "datei")) : undefined;
   if (programme?.qgis && karte) return qgisBefehl(programme.qgis, karte, programme);
+  // ebenso ein Video (VKk4h) – Shotcut, wo das Bild groß genug ist, sonst spielt melt es ab
+  if (programme?.melt && ist("main.mlt", "datei")) return videoBefehl(programme.melt, programme.shotcut, programme);
   return null;
 }
 
@@ -521,11 +572,11 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * Reihenfolge von `bildBefehl()` und nur mit den Programmen, die der Knoten hat – sonst nennte der Agent seine Datei
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
- * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`.
+ * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
-  inkscape?: boolean; gimp?: boolean; qgis?: boolean;
+  inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -555,6 +606,12 @@ export function bildHinweise(p: {
       + "p.setCrs(l.crs()); p.viewSettings().setDefaultViewExtent(QgsReferencedRectangle(l.extent(), l.crs())); p.write(\"main.qgs\"); "
       + "a.exitQgis()'`, and run processing algorithms with `QT_QPA_PLATFORM=offscreen qgis_process run native:buffer "
       + "--INPUT=karte.geojson --DISTANCE=1 --OUTPUT=puffer.geojson`"] : []),
+    ...(p.melt ? ["- `main.mlt` – a video project in MLT XML, the format Shotcut saves: a profile, producers (clips as files next to it with "
+      + "relative paths, or `color`), a playlist per track and a tractor with `<property name=\"shotcut\">1</property>` (only if no web "
+      + "project is there); "
+      + (p.shotcut ? `in a view of at least ${SHOTCUT_MINDEST.breite}×${SHOTCUT_MINDEST.hoehe} pixels Shotcut shows it, in a smaller one melt plays it in a loop`
+        : "melt plays it in a loop")
+      + "; it restarts after every save. In the terminal, `melt main.mlt -consumer avformat:film.mp4` renders it"] : []),
   ];
   return [
     "# Showing the project",
@@ -623,6 +680,8 @@ export class BildStrom {
     gimp?: string;
     /** QGIS für Karten (VKk4g, `qgisAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     qgis?: string;
+    /** melt für Videos (VKk4h, `meltAusUmgebung()`), dazu Shotcut für große Bilder (`shotcutAusUmgebung()`) – beide unter `/usr`. */
+    melt?: string; shotcut?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -656,7 +715,8 @@ export class BildStrom {
       ...(this.o.openscad ? { openscad: this.o.openscad } : {}), ...(this.o.kicad ? { kicad: this.o.kicad } : {}),
       ...(this.o.blender ? { blender: this.o.blender } : {}), ...(this.o.libreoffice ? { libreoffice: this.o.libreoffice } : {}),
       ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
-      ...(this.o.qgis ? { qgis: this.o.qgis } : {}),
+      ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
+      ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

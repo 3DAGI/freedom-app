@@ -716,3 +716,51 @@ baut der Agent als Text oder mit PyQGIS, die Ebenen liegen als Dateien daneben.
 - `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.qgs` am Ende.
 - `docker-vibecoden.test.ts` +1: `ARG QGIS`, nur mit `QGIS=1`, Compose, nicht im Standard, die CI installiert es.
 - `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+## Schritt VKk4h – Videos im Bild: Shotcut und melt
+
+Spur B, VKk („weitere grafische Programme“, MENSCH 06.11.: „Shotcut und melt nehmen, danach MuseScore“), nach VKk4g. Videos sind ein
+neues Gebiet: Der Agent schreibt das Projekt als MLT-XML (das Format von Shotcut), die Clips liegen als Dateien daneben.
+
+**Änderungen:**
+- **`bildstrom.ts`:**
+  - `meltAusUmgebung()` und `shotcutAusUmgebung()` suchen nur `/usr/bin/melt` und `/usr/bin/shotcut`; `SHOTCUT=aus` schaltet beide ab.
+  - `bildBefehl()` zeigt `main.mlt` (nur echte Datei, nur mit melt) nach Web, `main.svg`, `main.xcf` und `main.qgs`.
+  - `videoBefehl()`: ab `SHOTCUT_MINDEST` (1024×700) Shotcut mit Player und Zeitleiste in Bildgröße (`--qwindowgeometry`), darunter melt
+    mit `sdl2` in Bildgröße und `-repeat` als Schleife.
+  - `SHOTCUT_START` und `MELT_START`: Ton als Attrappe (`SDL_AUDIODRIVER=dummy`), bei Shotcut ohne Aktualisierungsfrage und ohne alte
+    Zwischenstände; Neustart nach jeder Änderung über `neustartSchleife()` – die nimmt seit VKk4h auch Argumente hinter der Datei.
+  - `bildHinweise()` nennt `main.mlt`, das Format (Tractor mit der Kennung `shotcut`), wann Shotcut und wann melt, und das Rendern mit
+    melt im Terminal.
+- **`main.ts`:** gibt melt und Shotcut an den Bildstrom und die Hinweise, das Log nennt sie.
+- **Bild:** `ARG SHOTCUT=0`, nur mit `VIBECODEN=1` und `SHOTCUT=1`: Shotcut und melt aus Debian (Shotcut GPL-3.0+, MLT LGPL-2.1+); hier
+  150 MB (Qt 6 lag teils schon). Compose reicht `SHOTCUT` durch.
+- **CI:** Schritt „Shotcut und melt fuer den Bild-Test“ im Testjob (Ubuntu 24.04: Shotcut 24.02, MLT 7.22), über den Zwischenspeicher.
+- **Docs:** PROVIDER (Videos), PROTOCOL (`code-bild-kein-programm`), Fallstrick in `packages/node/CLAUDE.md`, VIBECODEN-Entwurf (Tabelle,
+  VKk), OFFEN (VKk, Probe „Vibecoden“ mit `SHOTCUT=1` und einem Video), FORTSCHRITT, Stand.
+
+**Befunde:**
+- Shotcut braucht mindestens 1000×642 Pixel (gemessen mit 24.04): `--qwindowgeometry` wirkt erst darüber (1024×768 genau), `--fullscreen`
+  setzt Qt ohne Fenstermanager nicht um, kleinere Symbole sparen nur 30 Pixel, mit `--QT_SCALE_FACTOR 0.64` zeichnet es nur Bruchstücke.
+  Am Handy (rund 700 Pixel breit) zeigt das Bild deshalb melt.
+- Ohne Ton (SDL findet kein PulseAudio) zeigt der Player von Shotcut kein Bild; mit `SDL_AUDIODRIVER=dummy` spielt er ab. melt zeigt
+  das Bild auch ohne, meldet aber Fehler von ALSA.
+- Ein Projekt öffnet Shotcut nur mit der Kennung `shotcut` am Tractor in der Zeitleiste, sonst als Clip im Player. Beim Prüfen legt es
+  kurz `shotcut-XXXX.mlt` neben die Datei und löscht sie wieder; beim Speichern (Strg+S per XTest) entsteht nichts daneben.
+- Nach einem harten Ende fragte Shotcut beim nächsten Start nach der Wiederherstellung (`autosave` im Home) – das Skript löscht sie.
+- melt wiederholt mit `eof=loop` nicht (gemessen mit zwei Farben nacheinander), mit `-repeat` hinter der Datei schon.
+- Der Player zeigt Farben im eingeschränkten Bereich (aus `#00c000` wird 0,162,0) – der Echttest prüft Bereiche, nicht Werte.
+
+**Tests:**
+- `bildstrom.test.ts` +7:
+  - Videos: nur mit melt, nach Web und `main.qgs`; Shotcut genau ab `SHOTCUT_MINDEST`, darunter in Breite oder Höhe melt, ohne Shotcut
+    immer melt; Verweis und Ordner zählen nicht.
+  - Erkennung: nur die Orte unter `/usr`, `SHOTCUT=aus` für beide, kein eigener Pfad.
+  - Start mit Attrappe, je für Shotcut und melt: Argumente, Ton als Attrappe, Zwischenstände nur bei Shotcut gelöscht, Neustart.
+  - Bildstrom: in der Sandbox des Programms, nur der Socket des Bildschirms; im großen Bild Shotcut, im kleinen melt; ohne melt kein Programm.
+  - Ende zu Ende mit Shotcut (1024×768) und mit melt (640×480): erst grün, der Test schreibt das Video rot neu, das Bild wird rot; im
+    Projekt nur `main.mlt`. Gegenprobe: Shotcut ohne `SDL_AUDIODRIVER=dummy` – nur Grau.
+  - Terminal: der Befehl aus den Hinweisen rendert in der Sandbox ein MP4.
+- `bildstrom.test.ts` (VKk5): Reihenfolge der Hinweise und von `bildBefehl()` mit `main.mlt` am Ende.
+- `docker-vibecoden.test.ts` +1: `ARG SHOTCUT`, nur mit `SHOTCUT=1`, Compose, nicht im Standard, die CI installiert beide.
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.

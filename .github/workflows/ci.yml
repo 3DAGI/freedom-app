@@ -189,6 +189,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends qgis
           QT_QPA_PLATFORM=offscreen qgis --version
 
+      # VKk4h: Videos zeigt Shotcut im großen Bild und melt im kleinen – die Echttests schreiben main.mlt neu, das Skript startet
+      # neu; dazu das Rendern mit melt im Terminal
+      - name: Shotcut und melt fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends shotcut melt
+          melt -version | head -1
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

@@ -712,3 +712,16 @@ Bereichs unten anhängen.
   brauchen PyQGIS und `qgis_process` `QT_QPA_PLATFORM=offscreen` (sonst Abbruch ohne Bildschirm) und das Python der Distribution
   (`/usr/bin/python3`). Beim Speichern legt QGIS `main.qgs~` und (3.34 gemessen) `main_attachments.zip` daneben – nie versprechen, dass das
   Projekt nur `main.qgs` enthält. Ubuntu bringt für QGIS kein AppArmor-Profil mit.
+- **Videos im Bild nur über `bildBefehl()` und `videoBefehl()`** (seit VKk4h, `bildstrom.ts`): `main.mlt` zählt nur mit melt aus
+  `meltAusUmgebung()` – nur `MELT_ORTE`, Shotcut nur aus `SHOTCUT_ORTE` (beide unter `/usr`, kein eigener Pfad), `SHOTCUT=aus` schaltet
+  beide ab –, nur als echte Datei, nach Web, `main.svg`, `main.xcf` und `main.qgs`. Shotcut nur ab `SHOTCUT_MINDEST`: Es braucht mindestens
+  1000×642 Pixel und übergeht jede kleinere Größe (`--qwindowgeometry` wie `--fullscreen`), das Fenster ragte dann über das Bild; mit
+  `--QT_SCALE_FACTOR` verkleinert zeichnet es ohne Fenstermanager nur Bruchstücke (gemessen). Darunter spielt melt das Video über
+  `sdl2` in Bildgröße – in einer Schleife nur mit `-repeat` hinter der Datei (`eof=loop` wiederholt nicht, gemessen), deshalb hat
+  `neustartSchleife()` seit VKk4h Argumente danach. Beide bekommen `SDL_AUDIODRIVER=dummy`: Ohne Ton in der Sandbox zeigt der Player von
+  Shotcut kein Bild (Gegenprobe im Echttest: nur Grau). Shotcut sichert Änderungen im Bild unter `~/.local/share/Meltytech/Shotcut/autosave`
+  und fragte nach einem harten Ende beim nächsten Start nach der Wiederherstellung – `SHOTCUT_START` löscht den Ordner vor jedem Start.
+  Ein Projekt öffnet Shotcut nur mit `<property name="shotcut">1</property>` am Tractor in der Zeitleiste, sonst als Clip im Player.
+  Beim Prüfen legt Shotcut `shotcut-XXXX.mlt` kurz neben die Datei und löscht sie wieder; beim Speichern entsteht nichts daneben.
+  Gerendert wird im Terminal mit `melt … -consumer avformat:film.mp4` (H.264 aus der FFmpeg der Distribution) – der Befehl in
+  `bildHinweise()` ist genau der, den der Echttest ausführt (`meltBefehlAusHinweisen()`).
