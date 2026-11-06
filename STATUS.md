@@ -736,6 +736,9 @@ neues Gebiet: Der Agent schreibt das Projekt als MLT-XML (das Format von Shotcut
 - **Bild:** `ARG SHOTCUT=0`, nur mit `VIBECODEN=1` und `SHOTCUT=1`: Shotcut und melt aus Debian (Shotcut GPL-3.0+, MLT LGPL-2.1+); hier
   150 MB (Qt 6 lag teils schon). Compose reicht `SHOTCUT` durch.
 - **CI:** Schritt „Shotcut und melt fuer den Bild-Test“ im Testjob (Ubuntu 24.04: Shotcut 24.02, MLT 7.22), über den Zwischenspeicher.
+  Zeitlimit des Testjobs 50 statt 35 Minuten: Ein Lauf auf einem PR liest nur den Zwischenspeicher von main und seinen eigenen – im
+  ersten Lauf auf dem PR kamen Shotcut und melt in 20,5 Minuten vom Spiegel (im Lauf auf dem Branch aus dem Speicher in 11 s), der Job
+  endete mitten in den Tests von mls (Knoten und App grün).
 - **Docs:** PROVIDER (Videos), PROTOCOL (`code-bild-kein-programm`), Fallstrick in `packages/node/CLAUDE.md`, VIBECODEN-Entwurf (Tabelle,
   VKk), OFFEN (VKk, Probe „Vibecoden“ mit `SHOTCUT=1` und einem Video), FORTSCHRITT, Stand.
 
