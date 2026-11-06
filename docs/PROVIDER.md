@@ -859,6 +859,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   ohne Statusleiste. Baut der Agent das Projekt neu, startet QGIS im Bild neu; beim Speichern
   legt QGIS selbst `main.qgs~` und `main_attachments.zip` daneben. Im Terminal baut er das
   Projekt mit PyQGIS und rechnet mit `qgis_process` (beides mit `QT_QPA_PLATFORM=offscreen`).
+  Videos (`main.mlt`, MLT-XML wie von Shotcut, seit VKk4h) zeigt ab 1024×700 Pixeln Shotcut
+  mit Player und Zeitleiste, in kleineren Bildern spielt melt sie in einer Schleife (im Bild
+  nur mit `SHOTCUT=1`, Shotcut und melt; `SHOTCUT=aus` schaltet beide ab) – nach Web, `main.svg`,
+  `main.xcf` und `main.qgs`. Schreibt der Agent das Projekt neu, startet das Bild neu. Im
+  Terminal rendert er mit `melt main.mlt -consumer avformat:film.mp4`.
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

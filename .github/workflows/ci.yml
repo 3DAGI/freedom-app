@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     # 25 seit B-38b3: whisper-cli wird für den Sprach-Test gebaut (rund 2 min). 35 seit dem VKh-Entwurf: Ohne passenden
     # Zwischenspeicher lädt der Job alle Pakete neu (Wine, Blender, LibreOffice, GIMP …, seit der frischen Paketliste auch jede
-    # neuere Fassung) – das dauerte am 04.11.2026 rund 27 statt 14 Minuten
-    timeout-minutes: 35
+    # neuere Fassung) – das dauerte am 04.11.2026 rund 27 statt 14 Minuten. 50 seit VKk4h: Ein Lauf auf einem PR liest nur den
+    # Zwischenspeicher von main und seinem eigenen; Shotcut und melt kamen dort am 06.11.2026 in 20,5 Minuten vom Spiegel
+    timeout-minutes: 50
 
     steps:
       - uses: actions/checkout@v4
@@ -188,6 +189,13 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends qgis
           QT_QPA_PLATFORM=offscreen qgis --version
+
+      # VKk4h: Videos zeigt Shotcut im großen Bild und melt im kleinen – die Echttests schreiben main.mlt neu, das Skript startet
+      # neu; dazu das Rendern mit melt im Terminal
+      - name: Shotcut und melt fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends shotcut melt
+          melt -version | head -1
 
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
