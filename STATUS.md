@@ -829,7 +829,8 @@ Oberfläche – niemand konnte eine Mint wählen oder laden, der Pfand blieb ung
   offen, nie ein zweites Mal gezahlt), `holeOffene()`, `CASHU_TEXT` und `cashuFehlerText()` (je Kennung ein Satz).
 - **`app/src/shell/ki-guthaben-ui.ts`** (neu): Karte „KI-Guthaben“ auf der Wallet-Seite (statt „KI-Budget“) mit „Mint wählen“,
   „Guthaben laden“ und „Offene Ladung abholen“; vorher der Tresor, vor dem Zahlen eine Rückfrage mit Mint und Gebühr.
-- **Kopf und Seitenleiste:** `ui.ts` zeigt das Guthaben über `setzeKiGuthabenAnzeige()`, Titel „verwahrt von <Mint>“.
+- **Kopf und Seitenleiste:** `ui.ts` zeigt das Guthaben über `setzeKiGuthabenAnzeige()` (ohne Mint „— sats“ – im Kopf ein Knopf,
+  mobil mindestens 40 px); der Titel bleibt übersetzt, „verwahrt von <Mint>“ steht auf der Karte.
 - **`app/src/cashu-topf.ts`** (Spur A, klein): `CASHU_FAELLE` als Liste, `offeneLadungen()`, `gebuehrPpk()`.
 - **Zweck „cashu“** im Protokoll (`payment-rail.ts`), im Zahlungsbuch und im Verlauf („KI-Guthaben geladen“).
 - **Smoke-Test:** die Wallet-Seite erwartet die Karte „KI-Guthaben“ (ohne Mint „—“, Laden gesperrt).
@@ -839,6 +840,9 @@ Oberfläche – niemand konnte eine Mint wählen oder laden, der Pfand blieb ung
 **Befunde:**
 - Die Karte behauptet nicht selbst, was die Mint sieht – das sagt die Grenze „cashu-pfand“ im Bericht, die Karte verweist darauf.
 - Die Test-Mint läuft hier nicht (Python-Pakete von außen); der Test gegen sie läuft in der CI.
+- Im ersten Smoke-Lauf rot: „mobil“ (im Kopf „—“ allein war am Handy 20 px breit) und „sprache“ (der Titel des Kopfs muss
+  übersetzt bleiben); `geld-settings-klein.test.ts` und `wallet-gesamt.test.ts` hielten die Karte „KI-Budget“ fest und prüfen
+  jetzt die Karte „KI-Guthaben“.
 
 **Tests:**
 - `ki-guthaben.test.ts` +5: Stand ohne und mit Mint; Laden in der richtigen Reihenfolge (Rechnung, zahlen, abholen), offen
