@@ -6,6 +6,8 @@
  *    Verweis auf die Erwähnung mit Repo-Tag → Ablauf in der Sandbox → Patch als inneres Event, den `git am` annimmt →
  *    Antwort in der Gruppe nennt ihn; auf dem Relay nichts vom Repo (`regelRaumRepoPrivat`), nichts im Log, der
  *    Arbeitsordner ist weg
+ *  - Pakete (11.5c4, P3): ohne Schalter fragt der Knoten keine Registry; mit dem Schalter eines Admins in der Definition nur
+ *    die Sperrdatei – `paket_holen` ist dann ein gewöhnlicher Befehl in der Sandbox, die Aufgabe nennt es nicht
  *  - Abgelehnt mit Kennung, bevor gerechnet wird: Modell nicht auf diesem Rechner (P2), aus, fremdes Repo, fremdes Issue, Bundle-Verweis
  *    nur offen (zählt privat nicht), ohne Antwort in der Gruppe
  *  - verdrahtet: `modellLokal` nur aus der Adresse des Antriebs
@@ -18,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   KIND_PATCH, LocalSigner, MemoryRelay, OutboxPool, auftragsVerweisTags, buildBlob, buildGitRepoRef, buildJobRequest, buildPrivateJobRequest,
-  generateKeypair, getTag, lesePatch, openPrivateJobResponse, raumDefinition, raumNachricht, raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue,
+  generateKeypair, getTag, lesePatch, mitRepoPaketen, openPrivateJobResponse, raumDefinition, raumNachricht, raumRepoAnkuendigung, raumRepoBundle, raumRepoIssue,
   regelKeinKlartext, regelRaumRepoPrivat, repoAdresse, repoAuftragTags, signEvent, signiereId, verschluesseleDatei, type GitRepoRef,
   type InneresEvent, type InneresSenden,
 } from "@freedomstack/protocol";
@@ -46,12 +48,15 @@ class DrehbuchBackend implements InferenceBackend {
   gesehen = 0;
   /** Die Aufgabe, wie das Modell sie im ersten Schritt las. */
   aufgabe = "";
+  /** Was das Modell je Schritt zuletzt las (die Beobachtung des Befehls davor). */
+  letzte: string[] = [];
   constructor(private readonly antworten: string[]) {}
   name(): string { return "drehbuch"; }
   async available(): Promise<boolean> { return true; }
   async complete(_req: InferenceRequest): Promise<InferenceResult> { throw new Error("complete() bei einem Repo-Auftrag"); }
   async gespraech(p: { nachrichten: ReadonlyArray<{ content: string }> }): Promise<ChatAntwort> {
     if (this.gesehen === 0) this.aufgabe = p.nachrichten[1]?.content ?? "";
+    this.letzte.push(p.nachrichten[p.nachrichten.length - 1]?.content ?? "");
     const text = this.antworten[this.gesehen++];
     if (text === undefined) throw new Error("Drehbuch zu Ende");
     return { text, model: "qwen3.8:27b", promptTokens: 100, completionTokens: 40, abgeschnitten: false };
@@ -76,7 +81,7 @@ async function bundleImNetz(pool: OutboxPool): Promise<{ repo: string; ref: GitR
 }
 
 /** Privater Raum: Gründer (Admin) und der Agent auf dem Knoten; der Provider mit dem Agenten. */
-async function aufbau(o: { antworten?: string[]; basis?: string; modellLokal?: boolean; einstellungRepo?: boolean } = {}) {
+async function aufbau(o: { antworten?: string[]; basis?: string; modellLokal?: boolean; einstellungRepo?: boolean; pakete?: boolean } = {}) {
   const relay = new MemoryRelay(`wss://repo-privat-${Math.random().toString(36).slice(2)}.test`);
   const pool = new OutboxPool([relay], { minAcks: 1 });
   const ag = generateKeypair();
@@ -104,7 +109,9 @@ async function aufbau(o: { antworten?: string[]; basis?: string; modellLokal?: b
     if (r.ausstehend) await gruender.mls.bestaetigt(r.ausstehend);
     return r.inneres!;
   };
-  await sende(raumDefinition(gruppe, { name: "Werkstatt", kanaele: [{ id: "allgemein", name: "allgemein", privacy: "verschluesselt", writeRoles: [], position: 0 }] }));
+  const definition = raumDefinition(gruppe, { name: "Werkstatt", kanaele: [{ id: "allgemein", name: "allgemein", privacy: "verschluesselt", writeRoles: [], position: 0 }] });
+  // „Pakete holen“ (11.5c4): der Gründer ist Admin der Gruppe
+  await sende(o.pakete ? { ...definition, tags: mitRepoPaketen(definition.tags, true) } : definition);
   await sende(raumRepoAnkuendigung(gruppe, { id: "app", name: "App", klon: [] }));
   const erwaehne = (tags: string[][]) => {
     const s = raumNachricht({ kanal: "allgemein", text: `@Lektor bitte ${GEHEIM} auf 2 setzen`, erwaehnt: [ag.pk] });
@@ -208,6 +215,46 @@ test("11.5c2b mit bubblewrap: Repo-Auftrag im privaten Raum – Patch und Antwor
   w.mls.stoppe();
 });
 
+test("11.5c4 mit bubblewrap: „Pakete holen“ eingeschaltet – nur die Sperrdatei, paket_holen geht als Befehl in die Sandbox", { skip: ohne }, async () => {
+  const basis = mkdtempSync(join(tmpdir(), "repo-privat-basis-"));
+  const w = await aufbau({
+    basis, pakete: true,
+    antworten: [
+      bash(`ls -d /pakete && echo eingebunden`), bash("paket_holen pypi neu 1.0.0"),
+      bash("sed -i 's/= 1/= 2/' src/a.ts"), bash(`printf '%s\\n' ${ENDE_MARKE} '${GEHEIM} ist jetzt 2'`),
+    ],
+  });
+  await w.sende(raumRepoBundle(w.gruppe, (await bundleImNetz(w.pool)).ref));
+  const frage = await w.erwaehne(repoAuftragTags({ repo: w.repoAdresse }));
+  const vorher = paketeGefragt.length;
+  const sitzung = await frageNach(w.pool, w.gruppe, frage);
+  const alt = { log: console.log, warn: console.warn };
+  console.log = console.warn = () => {};
+  let jobs;
+  try {
+    jobs = await w.provider.pollOnce();
+  } finally {
+    Object.assign(console, alt);
+  }
+  assert.equal(jobs.length, 1);
+  // Gefragt nur nach dem Paket der Sperrdatei (die Attrappe kennt es nicht) – nie nach dem aus paket_holen
+  const gefragt = paketeGefragt.slice(vorher);
+  assert.deepEqual(gefragt.map((u) => new URL(u).host), ["pypi.org"]);
+  assert.match(gefragt[0]!, /\/pypi\/geheimezahl\/1\.0\.0\/json$/);
+  assert.match(w.backend.aufgabe, /## Packages\n\nThe packages listed in package-lock\.json and requirements\.txt could not all be downloaded \(paket-/);
+  assert.match(w.backend.aufgabe, /No other packages can be added\./);
+  assert.doesNotMatch(w.backend.aufgabe, /paket_holen/);
+  assert.match(w.backend.letzte[1]!, /<returncode>0<\/returncode>\n<output>\n\/pakete\neingebunden/, "der Zwischenspeicher ist eingebunden");
+  assert.match(w.backend.letzte[2]!, /<returncode>127<\/returncode>[\s\S]*paket_holen: command not found/, "paket_holen lief als Befehl in der Sandbox");
+  const innen = await w.liest();
+  const antwort = innen.find((e) => e.von === w.ag.pk && e.art === 9);
+  assert.ok(antwort);
+  assert.match(antwort.tags.find((t) => t[0] === "pakete")?.[1] ?? "", /^paket-/, "die Antwort sagt, dass die Pakete fehlten");
+  assert.ok(innen.some((e) => e.von === w.ag.pk && e.art === KIND_PATCH), "der Auftrag lief trotzdem");
+  assert.deepEqual(readdirSync(basis), [], "Arbeitsordner und Zwischenspeicher gelöscht");
+  w.mls.stoppe();
+});
+
 test("11.5c2b: abgelehnt mit Kennung, bevor gerechnet wird – Modell nicht hier, aus, fremdes Repo, Verweis nur offen", async () => {
   const faelle: Array<[string, Parameters<typeof aufbau>[0], (w: Awaited<ReturnType<typeof aufbau>>) => Promise<string>]> = [
     // P2: der Code der Gruppe geht nie an einen anderen Rechner
@@ -259,7 +306,10 @@ test("11.5c2b: verdrahtet – Modell auf diesem Rechner nur aus der Adresse des 
   const main = quelle("../src/main.ts");
   assert.match(main, /modellLokal: !!lokaleKiAdresse\(antrieb\.url\),/);
   const agent = quelle("../src/knoten-agent.ts");
-  assert.match(agent, /const repo = this\.privatesRepo\(ev, v\.raum, r\.ereignisse, r\.raum\.zustand, istAgent\);\n\s+this\.inArbeit\.add\(ev\.id\);/);
+  assert.match(agent, /const repo = this\.privatesRepo\(ev, v\.raum, r\.ereignisse, r\.raum\.zustand, istAgent\);\n(?:\s+\/\/.*\n\s+const pakete = .*\n)?\s+this\.inArbeit\.add\(ev\.id\);/);
+  // „Pakete holen“ (11.5c4): privat nur mit dem Schalter aus derselben Definition wie die Agentenketten, nur die Sperrdatei
+  assert.match(agent, /const pakete = repo && leseRepoPakete\(definition\) \? \{ paketeAusSperre: true as const \} : \{\};/);
+  assert.match(agent, /\.\.\.\(this\.p\.repo\.pakete && \(!a\.gruppe \|\| arbeit\.paketeAusSperre\)\n\s+\? \{ paketHolen: this\.p\.repo\.pakete, \.\.\.\(a\.gruppe \? \{ nurSperre: true \} : \{\}\) \} : \{\}\),/);
   assert.match(agent, /if \(!this\.p\.modellLokal\) throw new AgentAbgelehnt\("agent-repo-modell"\);/);
   assert.match(agent, /raumRepoPatch\(a\.gruppe, \{ repo, text \}\)/, "Patch privat nur als inneres Event");
 });

@@ -313,8 +313,9 @@ Bereichs unten anhängen.
   --find-links`. Nie alle Räder einer Version holen – nur `passendeDateien()` (rein, sonst Linux/glibc, Prozessor,
   Python-Fassung, sonst Quellarchiv); npm-Pakete anderer Plattformen (`os`, `cpu`, `libc`) bleiben weg wie bei npm. Nach
   außen und ins Log nur `PaketAbgelehnt.fall` – Paketnamen verraten, woran gearbeitet wird.
-  Im Repo-Auftrag (seit 11.5c3) nur über `bearbeiteRepo(…, { paketHolen })` und nur in offenen Räumen (`!a.gruppe` in
-  `bearbeiteRepoAuftrag()`, `tor` aus `main.ts`): die Sperrdateien aus der Arbeitskopie im Speicher (`sperreAus()`, nie vom
+  Im Repo-Auftrag (seit 11.5c3) nur über `bearbeiteRepo(…, { paketHolen })` – offen immer, privat (seit 11.5c4, P3) nur mit
+  dem Schalter eines Admins in der Definition (`leseRepoPakete()` in `pruefePrivat()` → `paketeAusSperre`) und dann nur mit
+  `nurSperre` (ohne `hole` gibt es kein `paket_holen`, die Zeile geht als Befehl in die Sandbox); `tor` aus `main.ts`: die Sperrdateien aus der Arbeitskopie im Speicher (`sperreAus()`, nie vom
   Ordner – dort könnte ein Verweis liegen), der Zwischenspeicher ein eigener Ordner im tmpfs, nur lesbar als `/pakete`
   (`nurLesbar`), danach `weg()`. npm braucht dann `npm_config_logs_dir` außerhalb des Caches. `paket_holen` erkennt nur
   `repoLauf()` (genau eine Zeile) und führt `paketHolen()` im Knoten aus – nie ein Werkzeug, das die Sandbox selbst aufruft;

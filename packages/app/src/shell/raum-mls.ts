@@ -16,7 +16,7 @@ import {
   type Channel, type GruppenRaum, type InneresEvent, type InneresSenden, type MeldeGrund, type NostrEvent, type RaumMeldung, type Role,
 } from "@freedomstack/protocol";
 import { t } from "../i18n.js";
-import { kettenGrenze, mitKetten, privateDefinition } from "../raum-ketten.js";
+import { mitSchaltern, privateDefinition } from "../raum-ketten.js";
 import { type EinladungsErgebnis, mlsEntferne, mlsGesperrt, mlsGruende, mlsGruppenStand, mlsLadeEin, mlsSendeEvent, mlsSendeEventId, mlsSetzeAdmins } from "./mls-konto.js";
 import { posteingangVon, state, veroeffentlicheAn } from "./state.js";
 import { geheim } from "./tresor.js";
@@ -100,13 +100,13 @@ export async function ladeInPrivatenRaum(raum: PrivaterRaum, pk: string): Promis
 }
 
 /**
- * Die Definition neu – mit dem Schalter der Agentenketten, wie er gilt (11.3e3): wer Kanäle
- * ändert oder den Raumstand sendet, schaltet ihn sonst still wieder aus. Ebenso die Kasse
- * (A-12b2a): ohne sie hätte der Raum danach keine mehr.
+ * Die Definition neu – mit den Schaltern, wie sie gelten (Agentenketten 11.3e3, „Pakete holen“ 11.5c4): wer Kanäle
+ * ändert oder den Raumstand sendet, schaltet sie sonst still wieder aus. Ebenso die Kasse (A-12b2a): ohne sie hätte
+ * der Raum danach keine mehr. `neu` ändert einen Schalter.
  */
-function definitionMitKetten(raum: PrivaterRaum, r: Parameters<typeof raumDefinition>[1]): InneresSenden {
+function definitionMitKetten(raum: PrivaterRaum, r: Parameters<typeof raumDefinition>[1], neu: Parameters<typeof mitSchaltern>[2] = {}): InneresSenden {
   const d = raumDefinition(raum.gruppe, { kasse: raum.zustand.space?.kasse, ...r });
-  return { ...d, tags: mitKetten(d.tags, kettenGrenze(privateDefinition(raum.ereignisse, raum.admins))) };
+  return { ...d, tags: mitSchaltern(d.tags, privateDefinition(raum.ereignisse, raum.admins), neu) };
 }
 
 /** Agentenketten an (mit Grenze) oder aus (`null`) – eine neue Definition in die Gruppe, nur Moderatoren (11.3e3). */
@@ -114,7 +114,17 @@ export function setzePrivateKetten(raum: PrivaterRaum, grenze: number | null): P
   const sp = raum.zustand.space;
   if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
   const d = raumDefinition(raum.gruppe, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels, kasse: sp.kasse });
-  return mlsSendeEvent(raum.gruppe, { ...d, tags: mitKetten(d.tags, grenze) });
+  return mlsSendeEvent(raum.gruppe, { ...d, tags: mitSchaltern(d.tags, privateDefinition(raum.ereignisse, raum.admins), { ketten: grenze }) });
+}
+
+/**
+ * „Pakete holen“ an oder aus (11.5c4, P3) – eine neue Definition in die Gruppe, nur Moderatoren. Der Knoten eines Agenten
+ * holt dann vor einem Repo-Auftrag die Pakete der Sperrdatei; `paket_holen` gibt es privat nie.
+ */
+export function setzePrivatePakete(raum: PrivaterRaum, an: boolean): Promise<boolean> {
+  const sp = raum.zustand.space;
+  if (!sp || !raum.admins.includes(raum.ich)) return Promise.resolve(false);
+  return mlsSendeEvent(raum.gruppe, definitionMitKetten(raum, { name: sp.name, beschreibung: sp.description, kanaele: sp.channels }, { pakete: an }));
 }
 
 /** Die Kasse in die Definition schreiben (A-12b2b) – nur Admins, über dieselbe Stelle wie Kanäle und Ketten. */

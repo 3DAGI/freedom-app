@@ -26,14 +26,14 @@
  * eines Pflegers (`holeRepoBundle()`), arbeitet im Ablauf nach mini-swe-agent (`bearbeiteRepo()`), reicht den
  * Patch ein (Kind 1617 vom Agenten) und nennt ihn in der Antwort. In privaten Räumen (11.5c2b, P1–P4) nur als
  * Mitglied, nur mit dem Modell auf diesem Rechner (`modellLokal`), Repo, Verweis, Patch und Antwort nur als innere
- * Events der Gruppe.
+ * Events der Gruppe; Pakete dort nur aus der Sperrdatei und nur, wenn ein Admin es im Raum eingeschaltet hat (11.5c4).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   AuftragsBremse, KIND_CHANNEL_MESSAGE, KIND_GIT_REPO_REF, KIND_RAUM_KANAL, KIND_REPO_ANKUENDIGUNG, KIND_ROLE_GRANT, KIND_SPACE, KIND_SPACE_ROLES,
   agentAntwortEvent, agentPromptMit, ausRaumEvent, baueAgentKarte, bauePatch, definitionDesGruenders, entscheide, gruppenRaum, istAgentIm,
-  leseIssue, lesePatchText, leseRaumAdresse, leseRepoAuftrag, neuesterBundleVerweis, raumAgentAntwort, raumAgentKarten, raumZustandFuer,
+  leseIssue, lesePatchText, leseRaumAdresse, leseRepoAuftrag, leseRepoPakete, neuesterBundleVerweis, raumAgentAntwort, raumAgentKarten, raumZustandFuer,
   raumRepoPatch, raumReposPrivat, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verifyEvent,
   type AgentKarteDaten, type AgentVerlaufGrenzen, type GelesenesRepo, type InneresEvent, type InneresSenden, type NostrEvent, type RaumNachricht,
   type RelayFilter, type SpaceState,
@@ -127,6 +127,8 @@ export interface RepoArbeit {
   repo: GelesenesRepo;
   verweis: NostrEvent;
   aufgabe: string;
+  /** Privat (11.5c4, P3): ein Admin hat „Pakete holen“ eingeschaltet (`leseRepoPakete()` der Definition) – nur die Sperrdatei. */
+  paketeAusSperre?: true;
 }
 
 /** Ein geprüfter Auftrag: die Erwähnung, der Raum, der Text für das Modell – im privaten Raum mit der Gruppe. */
@@ -322,8 +324,10 @@ export class KnotenAgent {
       if (!geholt.ok) throw new AgentAbgelehnt(geholt.fall);
       const r = await bearbeiteRepo({
         aufgabe: arbeit.aufgabe, bundle: geholt.bundle, bwrap: this.p.repo.bwrap, basis: this.p.repo.basis,
-        // Pakete nur in offenen Räumen – privat verriete schon die Wahl der Namen etwas über den Code (P3, W7)
-        ...(this.p.repo.pakete && !a.gruppe ? { paketHolen: this.p.repo.pakete } : {}),
+        // Pakete offen immer; privat nur mit Schalter des Raums und nur aus der Sperrdatei – über die Wahl neuer Namen gäbe
+        // ein Agent sonst Bits des Codes an die Registry (P3, W7, 11.5c4)
+        ...(this.p.repo.pakete && (!a.gruppe || arbeit.paketeAusSperre)
+          ? { paketHolen: this.p.repo.pakete, ...(a.gruppe ? { nurSperre: true } : {}) } : {}),
         grenzen: { ...this.p.repo.grenzen, ...(p.tokens !== undefined ? { tokens: p.tokens } : {}) },
         angaben: { name: this.p.einstellung.name, mail: `${this.pk.slice(0, 16)}@agent.freedom.invalid`, zeit: this.jetzt(), betreff: "Vorschlag des Agenten" }, // kein UI-Text
         modell: async (nachrichten) => {
@@ -394,12 +398,14 @@ export class KnotenAgent {
     });
     if (e.art !== "antworten") throw new AgentAbgelehnt(`agent-${e.grund}`);
     const repo = this.privatesRepo(ev, v.raum, r.ereignisse, r.raum.zustand, istAgent);
+    // „Pakete holen“ (11.5c4): derselbe Schalter-Ort wie die Agentenketten – die Definition eines Admins
+    const pakete = repo && leseRepoPakete(definition) ? { paketeAusSperre: true as const } : {};
     this.inArbeit.add(ev.id);
     const nachrichten = r.raum.nachrichten.map(ausRaumEvent).filter((n): n is RaumNachricht => n !== null);
     const prompt = agentPromptMit({
       agent: this.pk, persona: this.p.einstellung.persona, nachricht: e.nachricht, alle: nachrichten, istAgent, grenzen: AGENT_VERLAUF_KNOTEN,
     });
-    return { nachricht: e.nachricht, kennung: v.raum, gruppe: v.raum, prompt, ...(repo ? { repo: { ...repo, aufgabe: prompt + repo.issueText } } : {}) };
+    return { nachricht: e.nachricht, kennung: v.raum, gruppe: v.raum, prompt, ...(repo ? { repo: { ...repo, aufgabe: prompt + repo.issueText, ...pakete } } : {}) };
   }
 
   /**

@@ -7,8 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AGENT_ROLLE, agentAntwortEvent, raumAgentAntwort, baueRepoAnkuendigung, bauePatch, baueStatus, buildGitRepoRef, buildRoleGrant, buildRoles, buildSpace,
-  generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAntwort, leseRepoAuftrag, mitRaumRechten, neuesterBundleVerweis, patchStatus,
-  raumAdresse, raumZustandFuer, repoAdresse, repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verschluesseleDatei,
+  generateKeypair, istAgentIm, lesePatch, leseRepoAnkuendigung, leseRepoAntwort, leseRepoAuftrag, leseRepoPakete, mitRaumRechten, mitRepoPaketen,
+  neuesterBundleVerweis, patchStatus, raumAdresse, raumZustandFuer, repoAdresse, repoAuftragTags, repoImOffenenRaum, repoImPrivatenRaum, signEvent, verschluesseleDatei,
   type NostrEvent,
 } from "../src/index.js";
 import { gruppenRaum } from "../src/raum-gruppe.js";
@@ -201,4 +201,18 @@ test("11.5d2b: die App liest die Antwort so, wie der Knoten sie schreibt – son
     ["zweimal Pakete", [...basis, ["fall", "repo.zeit"], ["pakete", "paket-netz"], ["pakete", "paket-zeit"]]],
   ];
   for (const [name, tags] of falsch) assert.equal(leseRepoAntwort(tags), null, name);
+});
+
+test("11.5c4: Schalter „Pakete holen“ – Vorgabe aus, an nur mit genau einem Tag und genau diesem Wert, anderes bleibt", () => {
+  const def = [["d", "space:x"], ["name", "Werkstatt"], ["agentenketten", "10"]];
+  assert.equal(leseRepoPakete(def), false, "Vorgabe aus");
+  const an = mitRepoPaketen(def, true);
+  assert.deepEqual(an, [...def, ["repo_pakete", "sperrdatei"]]);
+  assert.equal(leseRepoPakete(an), true);
+  assert.deepEqual(mitRepoPaketen(an, true), an, "kein zweites Tag");
+  assert.deepEqual(mitRepoPaketen(an, false), def, "aus entfernt nur den Schalter");
+  for (const kaputt of [
+    [["repo_pakete", "1"]], [["repo_pakete", "neu"]], [["repo_pakete"]], [["repo_pakete", "sperrdatei", "x"]],
+    [["repo_pakete", "sperrdatei"], ["repo_pakete", "sperrdatei"]],
+  ]) assert.equal(leseRepoPakete(kaputt), false, JSON.stringify(kaputt));
 });

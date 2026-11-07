@@ -848,3 +848,37 @@ Oberfläche – niemand konnte eine Mint wählen oder laden, der Pfand blieb ung
 - `ki-guthaben.test.ts` +5: Stand ohne und mit Mint; Laden in der richtigen Reihenfolge (Rechnung, zahlen, abholen), offen
   ohne Antwort, nie zweimal gezahlt, nie gezahlt bei falscher Rechnung; offene Ladungen abholen; je Kennung ein Text in beiden
   Sprachen; gegen die Test-Mint (`CASHU_TEST_MINT`): laden über `ladeGuthaben()`, offene Ladung beim Zahlen, Gebühr wie `/v1/keysets`.
+
+## Schritt 11.5c4 – Pakete für Agenten im privaten Raum: Schalter eines Moderators, nur die Sperrdatei
+
+Spur A (`docs/REPO-AGENTEN-ENTWURF.md` P3), gebaut von Spur B nach MENSCH 06.11. („dann restlichen code“). Bis hier holte der
+Knoten für Repo-Aufträge aus privaten Räumen nie Pakete – auch nicht, wenn der Raum es wollte; ein Agent konnte dort ohne
+`npm ci` oder `pip install` kaum testen.
+
+**Änderungen:**
+- **Format** (`protocol/src/repo-auftrag.ts`, `docs/PROTOCOL.md` §33): `["repo_pakete", "sperrdatei"]` in der geltenden
+  Definition des privaten Raums (die neueste eines Admins, derselbe Ort wie `agentenketten`), `mitRepoPaketen()` und
+  `leseRepoPakete()` – genau ein Tag mit genau diesem Wert, sonst aus; Vorgabe aus. Offen gilt das Tag nicht.
+- **Knoten** (`knoten-agent.ts`, `repo-lauf.ts`): `pruefePrivat()` liest den Schalter, `bearbeiteRepoAuftrag()` holt dann die
+  Pakete der Sperrdatei (`nurSperre`) – ohne `hole` gibt es kein `paket_holen`, die Zeile geht als Befehl in die Sandbox, und
+  die Aufgabe sagt „No other packages can be added“.
+- **App:** Menüpunkt „Pakete für Agenten holen …“ (`shell/raum-pakete-ui.ts`) nur im privaten Raum, nur für Moderatoren, nie als
+  Gerät; der Dialog nennt, was die Registry sieht. Wer die Definition neu schreibt (Kanäle, Raumstand, Kasse, Agentenketten),
+  nimmt beide Schalter mit (`mitSchaltern()` in `raum-ketten.ts`).
+- **Datenschutz:** Die Grenze „agent-knoten-privat“ nennt es: nur mit Schalter, nur die Sperrdatei; die Registry sieht
+  Paketnamen und die IP des Knotens (über Tor nicht die IP), nie Code.
+- **Docs:** PROTOCOL §33, Entwurf (11.5c fertig), Fallstrick in `packages/node/CLAUDE.md`, OFFEN (11.5c4 raus, Probe „Repo-Agent“ neu), FORTSCHRITT, Stand.
+
+**Befunde:**
+- `setzePrivateKetten()` schrieb die Definition frisch mit nur den Ketten – ein zweiter Schalter wäre beim Umschalten der Ketten
+  still weg gewesen. Seit 11.5c4 laufen alle Stellen über `mitSchaltern()`; ein Test hält fest, dass `mitKetten(` in
+  `raum-mls.ts` nicht mehr vorkommt.
+
+**Tests:**
+- protocol +1 (`repo-auftrag.test.ts`: Vorgabe aus, an nur mit genau einem Tag und Wert, aus entfernt nur den Schalter).
+- node +2: `repo-auftrag-privat.test.ts` (mit bubblewrap, echte MDK-Engine: Schalter an → die Registry wird nur nach dem
+  Paket der Sperrdatei gefragt, `/pakete` eingebunden, `paket_holen` endet mit 127 in der Sandbox, die Antwort trägt
+  `pakete`; Gegenprobe ohne die neue Bedingung rot), `repo-pakete.test.ts` (mit bubblewrap: `nurSperre` holt die Sperrdatei,
+  nie das Paket aus `paket_holen`); dazu im Ablauf-Test ohne `hole` kein `paket_holen`.
+- app +1 (`raum-ketten.test.ts`: `mitSchaltern()` überträgt beide, `neu` ändert genau einen); Verdrahtung in `raum-ketten.test.ts`
+  und `raum-kasse.test.ts` (fünf Stellen über `definitionMitKetten()`).
