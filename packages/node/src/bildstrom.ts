@@ -724,6 +724,30 @@ export function tiledBefehl(tiled: string, groesse: { breite: number; hoehe: num
   return ["/bin/sh", "-c", TILED_START, tiled, "/arbeit/main.tmx", `${breite}x${hoehe}+0+0`, docks ? "1" : "0", TILED_ERWEITERUNG, TILED_FENSTER];
 }
 
+/** Wo der Knoten xdot sucht (VKk4n) – nur das Paket der Distribution unter `/usr`; es bringt Graphviz (`dot`) mit. */
+export const XDOT_ORTE: readonly string[] = ["/usr/bin/xdot"];
+
+/** xdot aus der Distribution (VKk4n): der erste aus `XDOT_ORTE`; null mit `XDOT=aus` oder ohne Fund. */
+export function xdotAusUmgebung(env: { XDOT?: string }, orte: readonly string[] = XDOT_ORTE): string | null {
+  return env.XDOT?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Diagramme, die das Bild in xdot zeigt (VKk4n) – die erste, die es gibt, gilt. */
+export const XDOT_DATEIEN: readonly string[] = ["main.dot", "main.gv"];
+
+/**
+ * Ein Diagramm im Bild (VKk4n): eine Datei aus `XDOT_DATEIEN` in xdot, das Layout rechnet Graphviz (`dot`). Einstellungen braucht
+ * xdot keine: `-g` setzt das Fenster auf die Größe des Bilds, das Diagramm passt es beim Öffnen ein. Eine geänderte Datei lädt
+ * xdot jede Sekunde selbst neu, passt sie dabei aber nicht neu ein; und nach einer kaputten Zwischenfassung bleibt seine
+ * Fehlermeldung offen – modal, das nächste Neuladen wartet auf sie (gemessen). Deshalb Neustart über `neustartSchleife()`. `$0` ist
+ * xdot, `$1` die Datei, `$2` die Größe.
+ */
+export const XDOT_START = neustartSchleife(undefined, `-g "$2" `).join("\n");
+
+export function xdotBefehl(xdot: string, datei: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", XDOT_START, xdot, `/arbeit/${datei}`, `${groesse.breite}x${groesse.hoehe}`];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -733,7 +757,7 @@ export function tiledBefehl(tiled: string, groesse: { breite: number; hoehe: num
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
  * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) dann eine Partitur
  * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) dann ein Gemälde aus `KRITA_DATEIEN`, mit LibreCAD (VKk4k) dann `main.dxf`, mit
- * Scribus (VKk4l) dann `main.sla`, mit Tiled (VKk4m) zuletzt `main.tmx`.
+ * Scribus (VKk4l) dann `main.sla`, mit Tiled (VKk4m) dann `main.tmx`, mit xdot (VKk4n) zuletzt ein Diagramm aus `XDOT_DATEIEN`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
@@ -741,7 +765,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
     inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string; krita?: string;
-    librecad?: string; scribus?: string; tiled?: string;
+    librecad?: string; scribus?: string; tiled?: string; xdot?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -787,6 +811,9 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.scribus && ist("main.sla", "datei")) return scribusBefehl(programme.scribus, programme);
   // ebenso eine Karte für ein Spiel (VKk4m) – die Karten eines Web-Spiels liegen oft neben der Seite
   if (programme?.tiled && ist("main.tmx", "datei")) return tiledBefehl(programme.tiled, programme);
+  // ebenso ein Diagramm (VKk4n) – die Architektur eines Web-Projekts liegt oft daneben
+  const diagramm = programme?.xdot ? XDOT_DATEIEN.find((d) => ist(d, "datei")) : undefined;
+  if (programme?.xdot && diagramm) return xdotBefehl(programme.xdot, diagramm, programme);
   return null;
 }
 
@@ -799,12 +826,13 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * ebenso mit `offscreen`. Krita braucht auch im Terminal einen Bildschirm (`offscreen` nimmt es nicht) – dort nur OpenRaster, das der
  * Agent selbst schreibt. DXF schreibt der Agent als Text, LibreCAD gibt es mit `offscreen` als PDF aus. Scribus braucht wie Krita
  * auch im Terminal einen Bildschirm – das Layout schreibt der Agent als XML selbst (SLA, mit Ebene – ohne zeigt Scribus nichts).
- * Eine Karte aus Tiled schreibt er als TMX-XML; Tiled gibt sie mit `offscreen` für Spiele-Engines aus (JSON, Lua).
+ * Eine Karte aus Tiled schreibt er als TMX-XML; Tiled gibt sie mit `offscreen` für Spiele-Engines aus (JSON, Lua). Ein Diagramm
+ * schreibt er als DOT-Text; `dot` aus Graphviz gibt es ohne Bildschirm als SVG und PDF aus.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
   inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean; krita?: boolean;
-  librecad?: boolean; scribus?: boolean; tiled?: boolean;
+  librecad?: boolean; scribus?: boolean; tiled?: boolean; xdot?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -868,6 +896,9 @@ export function bildHinweise(p: {
       + "row by row, counted from `firstgid`, 0 for empty) and objects in `<objectgroup id name><object id name x y width height/>"
       + "</objectgroup>` (in pixels). In the terminal, Tiled needs `QT_QPA_PLATFORM=offscreen`: "
       + "`QT_QPA_PLATFORM=offscreen tiled --export-map json main.tmx main.json` exports the map for game engines – likewise `lua`"] : []),
+    ...(p.xdot ? ["- `main.dot` (or `main.gv`) – a Graphviz diagram in xdot (only if no web project is there); it restarts after every save. "
+      + "Write it as DOT text, for example `digraph G { rankdir=LR; node [shape=box]; a -> b; }`, with `subgraph cluster_…` for groups. "
+      + "In the terminal, `dot -Tsvg main.dot -o diagramm.svg` renders it – likewise `-Tpdf` with `diagramm.pdf`"] : []),
   ];
   return [
     "# Showing the project",
@@ -948,6 +979,8 @@ export class BildStrom {
     scribus?: string;
     /** Tiled für Karten von Spielen (VKk4m, `tiledAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     tiled?: string;
+    /** xdot für Diagramme (VKk4n, `xdotAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    xdot?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -985,6 +1018,7 @@ export class BildStrom {
       ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
       ...(this.o.krita ? { krita: this.o.krita } : {}), ...(this.o.librecad ? { librecad: this.o.librecad } : {}),
       ...(this.o.scribus ? { scribus: this.o.scribus } : {}), ...(this.o.tiled ? { tiled: this.o.tiled } : {}),
+      ...(this.o.xdot ? { xdot: this.o.xdot } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

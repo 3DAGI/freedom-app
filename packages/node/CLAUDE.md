@@ -799,3 +799,12 @@ Bereichs unten anhängen.
   offen (gemessen) – deshalb `neustartSchleife()`. Im Terminal nur mit `QT_QPA_PLATFORM=offscreen` (sonst Exit 134); der Befehl in
   `bildHinweise()` ist genau der des Echttests (`tiledBefehleAusHinweisen()`). `tmxrasterizer` (PNG) steht nicht in den Hinweisen – deren
   Test weist jedes `.png` ab. Kein AppArmor-Profil, kein Python-Plugin im Paket.
+- **Diagramme im Bild nur über `bildBefehl()` und `xdotBefehl()`** (seit VKk4n, `bildstrom.ts`): ein Diagramm zählt nur mit xdot aus
+  `xdotAusUmgebung()` – nur `XDOT_ORTE` (`/usr/bin/xdot`, kein eigener Pfad; das Paket bringt Graphviz mit), `XDOT=aus` schaltet ab –, nur als
+  echte Datei und nur mit einem Namen aus `XDOT_DATEIEN` (`main.dot` vor `main.gv`), nach allen anderen Dateien (zuletzt `main.tmx`).
+  Einstellungen braucht xdot keine: `-g` setzt das Fenster auf die Größe des Bilds (auch 320×240), das Diagramm passt es beim Öffnen ein.
+  xdot lädt eine geänderte Datei jede Sekunde selbst neu, passt sie dabei aber nicht neu ein, und nach einer kaputten Zwischenfassung bleibt
+  seine Fehlermeldung offen – modal (`dlg.run()`), auch das nächste Neuladen wartet auf sie: deshalb `neustartSchleife()` (Gegenprobe im
+  Echttest: ohne bleibt das alte Diagramm stehen). Den Echttest nur außerhalb der Stelle messen, an der die Fehlermeldung steht (Mitte).
+  Im Terminal geht `dot` ohne Bildschirm; die Hinweise lassen nie nach `main.svg` ausgeben – das zeigte sonst Inkscape statt des
+  Diagramms. xdot selbst braucht auch für `--help` einen Bildschirm (die CI prüft `dot -V`). Kein AppArmor-Profil in den Paketen.

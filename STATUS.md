@@ -1077,3 +1077,33 @@ Karten von 2D-Spielen (Kachelebenen, Objekte), dessen TMX und JSON viele Spiele-
   zu Ende mit echtem Tiled in der Sandbox (kleines Bild: auf dem Rand rechts grün, neu geschrieben rot; großes Bild mit Docks: grün;
   sonst nichts im Projekt), im Terminal JSON und Lua aus dem Befehl der Hinweise; `docker-vibecoden.test.ts` +1; `main.tmx` im Test der
   Hinweise (VKk5).
+
+## Schritt VKk4n – Diagramme im Bild: main.dot in xdot
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKk), nach VKk4m – bei VKk waren weitere Programme frei. Diagramme (Architektur, Abläufe) schreibt
+ein Agent oft als DOT-Text; das Bild zeigt sie jetzt mit xdot und Graphviz.
+
+**Änderungen:**
+- **`node/src/bildstrom.ts`:** `XDOT_ORTE`, `xdotAusUmgebung()`, `XDOT_DATEIEN` (`main.dot` vor `main.gv`), `XDOT_START` und
+  `xdotBefehl()` – Fenster über `-g` in Bildgröße, Neustart über `neustartSchleife()`; in `bildBefehl()` nach der Karte, in
+  `bildHinweise()` an derselben Stelle (DOT als Text, SVG und PDF im Terminal), `BildStrom` mit `xdot`.
+- **`node/src/main.ts`:** `xdotAusUmgebung(process.env)` für Bild und Hinweise, im Log „Diagramme in xdot“.
+- **Docker, CI:** `ARG XDOT=0` (nur mit `VIBECODEN=1`), Compose reicht es durch; Schritt „xdot fuer den Bild-Test“.
+- **Docs:** PROVIDER, PROTOCOL (`code-bild-kein-programm`), VIBECODEN-ENTWURF, OFFEN (VKk, Probe mit `XDOT=1`), FORTSCHRITT,
+  Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- xdot braucht keine Einstellungen: `-g` setzt das Fenster genau auf die Größe des Bilds (auch 320×240), das Diagramm passt es beim
+  Öffnen ein; ins Home schreibt es nichts.
+- xdot lädt eine geänderte Datei jede Sekunde selbst neu, passt sie dabei aber nicht neu ein. Nach einer kaputten Zwischenfassung bleibt
+  seine Fehlermeldung offen (modal) – auch das nächste Neuladen wartet auf sie, das alte Diagramm bleibt stehen (gemessen; Gegenprobe im
+  Echttest ohne Neustart: grün statt erst leer, dann rot).
+- xdot braucht auch für `--help` einen Bildschirm; `dot` geht im Terminal ohne. Kein AppArmor-Profil in den Paketen. Debian 12: nicht
+  geprüft, der Spiegel ist von hier nicht erreichbar.
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+**Tests:**
+- node +9: `bildstrom.test.ts` +8 – Reihenfolge und Dateien (`main.dot` vor `main.gv`), Umgebung, Start mit Attrappe (nichts im Home,
+  Neustart), Bildstrom, Hinweise (nie nach `main.svg`), Ende zu Ende mit echtem xdot in der Sandbox (kleines Bild: grün, kaputt – kein
+  Diagramm –, dann rot, sonst nichts im Projekt; großes Bild mit `main.gv`: blau), im Terminal SVG und PDF aus dem Befehl der Hinweise;
+  `docker-vibecoden.test.ts` +1; `main.dot` im Test der Hinweise (VKk5).

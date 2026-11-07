@@ -31,6 +31,7 @@ import {
   LIBRECAD_DOCKS_AB, LIBRECAD_ORTE, LIBRECAD_START, librecadAusUmgebung, librecadBefehl,
   SCRIBUS_ORTE, SCRIBUS_START, scribusAusUmgebung, scribusBefehl,
   TILED_DOCKS_AB, TILED_ERWEITERUNG, TILED_FENSTER, TILED_ORTE, TILED_START, tiledAusUmgebung, tiledBefehl,
+  XDOT_DATEIEN, XDOT_ORTE, XDOT_START, xdotAusUmgebung, xdotBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -327,29 +328,29 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx", "main.dot"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true, musescore: true, krita: true, librecad: true, scribus: true, tiled: true,
+    melt: true, shotcut: true, musescore: true, krita: true, librecad: true, scribus: true, tiled: true, xdot: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx",
+    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx", "main.dot",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
   assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
-  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN, ...MUSESCORE_DATEIEN, ...KRITA_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
+  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN, ...MUSESCORE_DATEIEN, ...KRITA_DATEIEN, ...XDOT_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
-    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad", scribus: "/usr/bin/scribus", tiled: "/usr/bin/tiled",
+    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad", scribus: "/usr/bin/scribus", tiled: "/usr/bin/tiled", xdot: "/usr/bin/xdot",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
@@ -358,6 +359,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
     musescoreBefehl("/usr/bin/mscore3", "main.mscx", g), kritaBefehl("/usr/bin/krita", "main.kra", g),
     librecadBefehl("/usr/bin/librecad", g), scribusBefehl("/usr/bin/scribus", g), tiledBefehl("/usr/bin/tiled", g),
+    xdotBefehl("/usr/bin/xdot", "main.dot", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -1382,6 +1384,93 @@ test("VKk4m: Karte im Bildstrom – main.tmx in der Sandbox des Programms, nicht
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("karte", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4n: Diagramm – main.dot vor main.gv nur mit xdot, nach Web und allen anderen Dateien (zuletzt main.tmx)", () => {
+  const a = ablage("diagramm", "gv", "web", "karte", "verweis", "ordner");
+  const groesse = { breite: 640, hoehe: 480 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, xdot: "/usr/bin/xdot" };
+  for (const f of XDOT_DATEIEN) writeFileSync(join(a.ort("diagramm"), f), "digraph G {}");
+  assert.deepEqual(bildBefehl(a.ort("diagramm"), web, mit), ["/bin/sh", "-c", XDOT_START, "/usr/bin/xdot", "/arbeit/main.dot", "640x480"]);
+  writeFileSync(join(a.ort("gv"), "main.gv"), "digraph G {}");
+  assert.deepEqual(bildBefehl(a.ort("gv"), web, mit), xdotBefehl("/usr/bin/xdot", "main.gv", groesse), "auch main.gv");
+  assert.equal(bildBefehl(a.ort("diagramm"), web, groesse), null, "ohne xdot zählt kein Diagramm");
+  // die Architektur eines Web-Projekts verdrängt die Seite nicht, und nach der Karte
+  for (const [f, inhalt] of [["main.dot", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.dot", "main.tmx"]) writeFileSync(join(a.ort("karte"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("karte"), undefined, { ...mit, tiled: "/usr/bin/tiled" }), tiledBefehl("/usr/bin/tiled", groesse),
+    "main.tmx geht vor");
+  symlinkSync(join(a.ort("diagramm"), "main.dot"), join(a.ort("verweis"), "main.dot"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.dot"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+  assert.deepEqual(XDOT_DATEIEN, ["main.dot", "main.gv"]);
+});
+
+test("VKk4n: xdot aus der Distribution – nur der Ort unter /usr, XDOT=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("xdot");
+  const datei = join(d, "xdot");
+  writeFileSync(datei, "");
+  assert.equal(xdotAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(xdotAusUmgebung({ XDOT: "aus" }, [datei]), null);
+  assert.equal(xdotAusUmgebung({ XDOT: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(xdotAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(XDOT_ORTE, ["/usr/bin/xdot"]);
+});
+
+test("VKk4n: Start – Fenster in Bildgröße, ohne Einstellungen im Home; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("xdot-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const dot = join(d, "main.dot");
+  writeFileSync(dot, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "programm"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", XDOT_START, join(d, "programm"), dot, ...xdotBefehl(join(d, "programm"), "main.dot", { breite: 640, hoehe: 480 }).slice(5)],
+    { stdio: "ignore", env: { ...process.env, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.equal(erste!.replace(/ \d+$/, ""), `-g 640x480 ${dot}`);
+    assert.deepEqual(readdirSync(heim), [], "xdot braucht keine Einstellungen");
+    // xdot lädt selbst neu, ließe nach einer kaputten Zwischenfassung aber seine Fehlermeldung offen (gemessen) – neu starten
+    writeFileSync(dot, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4n: Diagramm im Bildstrom – main.dot in der Sandbox des Programms, nichts weiter eingebunden; ohne xdot kein Programm", async () => {
+  const a = ablage("diagramm");
+  writeFileSync(join(a.ort("diagramm"), "main.dot"), "digraph G {}");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, xdot: "/usr/bin/xdot" });
+  try {
+    assert.equal(await b.starte("diagramm", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...xdotBefehl("/usr/bin/xdot", "main.dot", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("diagramm", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -2802,6 +2891,103 @@ test("VKk4m: im Terminal – der Befehl aus den Hinweisen gibt die Karte in der 
   assert.deepEqual(json.layers[0]!.data!.slice(34, 38), [1, 1, 2, 2], "die Kacheln aus der Karte");
   assert.match(readFileSync(join(arbeit, "main.lua"), "utf8"), /^return \{/);
   assert.deepEqual(readdirSync(arbeit).sort(), ["kacheln.png", "main.json", "main.lua", "main.tmx"]);
+});
+
+const xdot = xdotAusUmgebung({});
+/**
+ * Ein Diagramm, wie der Agent es nach den Hinweisen schreibt (VKk5): DOT als Text – ein großer Knoten in der Farbe links, ein
+ * kleiner daneben. Gemessen wird links im großen Knoten, außerhalb der Stelle, an der xdot seine Fehlermeldung zeigt.
+ */
+const dotDiagramm = (farbe: string) => [
+  "digraph G {",
+  "  rankdir=LR;",
+  `  node [shape=box, style=filled, fontname="Sans", fontcolor=white];`,
+  `  Freedom [fillcolor="${farbe}", width=3, height=3, fixedsize=true];`,
+  `  Knoten [fillcolor="#808080"];`,
+  "  Freedom -> Knoten;",
+  "}", "",
+].join("\n");
+
+test("VKk4n: die Hinweise nennen, was das Diagramm im Echttest braucht", () => {
+  const h = bildHinweise({ xdot: true });
+  for (const teil of ["`main.dot` (or `main.gv`)", "digraph G { rankdir=LR; node [shape=box]; a -> b; }", "subgraph cluster_", "`-Tpdf`"]) {
+    assert.ok(h.includes(teil), teil);
+  }
+  assert.ok(!h.includes("-o main.svg"), "nie nach main.svg – das zeigte sonst Inkscape statt des Diagramms");
+});
+
+test("VKk4n: Ende zu Ende – ein Diagramm in xdot im kleinen Bild; nach einer kaputten Zwischenfassung zeigt das Bild das neue", {
+  skip: ohne || (!xdot && "xdot fehlt (xdot)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("diagramm");
+    const datei = join(a.ort("diagramm"), "main.dot");
+    writeFileSync(datei, dotDiagramm("#00c000"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, xdot: xdot! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      // grün, dann kaputt – das Bild zeigt kein Diagramm mehr –, dann rot. Ohne Neustart bliebe es grün: xdot läse die kaputte
+      // Fassung selbst und ließe seine Fehlermeldung offen, auch das nächste Neuladen wartete auf sie (Gegenprobe)
+      let schritt = 0;
+      const gewirkt = (f: number[] | null) => {
+        if (schritt === 0 && gruen(f)) {
+          writeFileSync(datei, "digraph G { Freedom -> \n");
+          schritt = 1;
+        } else if (schritt === 1 && f && !gruen(f) && !rot(f)) {
+          writeFileSync(datei, dotDiagramm("#cc0000"));
+          schritt = 2;
+        }
+        return schritt === 2 && rot(f);
+      };
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("diagramm", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.1, 0.5] });
+      console.log(`[bild] xdot: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.equal(schritt, 2, `erst grün, dann ohne Diagramm (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("diagramm")), ["main.dot"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4n: Ende zu Ende – main.gv in xdot im großen Bild", {
+  skip: ohne || (!xdot && "xdot fehlt (xdot)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("diagramm");
+    writeFileSync(join(a.ort("diagramm"), "main.gv"), dotDiagramm("#0040c8"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, xdot: xdot! });
+    try {
+      const blau = (f: number[] | null) => !!f && f[2]! > 150 && f[0]! < 60 && f[1]! < 110;
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("diagramm", angebot, { breite: 1280, hoehe: 800 }), blau,
+        { frist: 90, stelle: [0.2, 0.5] });
+      console.log(`[bild] xdot (groß): Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(blau(e.farbe), `blau (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("diagramm")), ["main.gv"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const dotBefehleAusHinweisen = () => [...bildHinweise({ xdot: true }).matchAll(/`(dot -T[^`]*)`/g)].map((m) => m[1]!);
+
+test("VKk4n: im Terminal – der Befehl aus den Hinweisen gibt das Diagramm in der Sandbox als SVG aus, ebenso als PDF", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!xdot && "xdot fehlt (xdot)"), timeout: 120_000,
+}, async () => {
+  const arbeit = tmp("diagramm-terminal");
+  writeFileSync(join(arbeit, "main.dot"), dotDiagramm("#0040c8"));
+  const befehle = dotBefehleAusHinweisen();
+  assert.deepEqual(befehle, ["dot -Tsvg main.dot -o diagramm.svg"]);
+  for (const befehl of [befehle[0]!, befehle[0]!.replaceAll("svg", "pdf")]) {
+    const r = await fuehreAus(["/bin/sh", "-c", befehl], { arbeit }, 90_000);
+    assert.equal(r.code, 0, r.ausgabe);
+  }
+  assert.match(readFileSync(join(arbeit, "diagramm.svg"), "utf8"), /<svg[\s\S]*fill="#0040c8"[\s\S]*>Freedom</);
+  assert.equal(readFileSync(join(arbeit, "diagramm.pdf")).subarray(0, 5).toString(), "%PDF-");
+  assert.deepEqual(readdirSync(arbeit).sort(), ["diagramm.pdf", "diagramm.svg", "main.dot"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */
