@@ -552,6 +552,34 @@ export function musescoreBefehl(mscore: string, datei: string, groesse: { breite
   return ["/bin/sh", "-c", MUSESCORE_START, mscore, `/arbeit/${datei}`, `${breite}x${hoehe}+0+0`, String(breite)];
 }
 
+/** Wo der Knoten Krita sucht (VKk4j) – nur das Paket der Distribution unter `/usr` (mit Qt und KDE Frameworks viele Dateien). */
+export const KRITA_ORTE: readonly string[] = ["/usr/bin/krita"];
+
+/** Krita aus der Distribution (VKk4j): der erste aus `KRITA_ORTE`; null mit `KRITA=aus` oder ohne Fund. */
+export function kritaAusUmgebung(env: { KRITA?: string }, orte: readonly string[] = KRITA_ORTE): string | null {
+  return env.KRITA?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Gemälde, die das Bild in Krita zeigt (VKk4j): Kritas eigenes Format, dann OpenRaster (das kann der Agent selbst schreiben). */
+export const KRITA_DATEIEN: readonly string[] = ["main.kra", "main.ora"];
+
+/**
+ * Ein Gemälde im Bild (VKk4j): ein Bild aus `KRITA_DATEIEN` in Krita – es öffnet die Datei ohne Begrüßung. Die Einstellungen
+ * schreibt das Skript ins Home der Sandbox (tmpfs, nie ins Projekt): ohne automatisches Sichern und ohne Sicherungsdatei – sonst
+ * legte Krita `main.kra-autosave.kra` und beim Speichern `main.kra~` neben die Datei (gemessen, Gegenprobe). Das Fenster setzt
+ * `--qwindowgeometry` auf die Größe des Bilds. Eine geänderte Datei lädt Krita nicht von selbst: Neustart über
+ * `neustartSchleife()`. `$0` ist Krita, `$1` die Datei, `$2` die Größe.
+ */
+export const KRITA_START = [
+  `mkdir -p "$HOME/.config"`,
+  `printf '%s\\n' 'AutoSaveInterval=0' 'CreateBackupFile=false' > "$HOME/.config/kritarc"`,
+  ...neustartSchleife(undefined, `--nosplash --qwindowgeometry "$2" `),
+].join("\n");
+
+export function kritaBefehl(krita: string, datei: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", KRITA_START, krita, `/arbeit/${datei}`, `${groesse.breite}x${groesse.hoehe}+0+0`];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -559,15 +587,15 @@ export function musescoreBefehl(mscore: string, datei: string, groesse: { breite
  * `main.blend`, mit LibreOffice (VKk4d) dann ein Dokument aus `LIBREOFFICE_DATEIEN`. Mit Browser (VKg2c1) dann ein
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
- * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) zuletzt eine Partitur
- * aus `MUSESCORE_DATEIEN`.
+ * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) dann eine Partitur
+ * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) zuletzt ein Gemälde aus `KRITA_DATEIEN`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
 export function bildBefehl(projektOrdner: string, web?: { browser: string; breite: number; hoehe: number },
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
-    inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string;
+    inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string; krita?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -604,6 +632,9 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   // ebenso eine Partitur (VKk4i) – Noten zu einer Seite liegen oft daneben
   const partitur = programme?.musescore ? MUSESCORE_DATEIEN.find((d) => ist(d, "datei")) : undefined;
   if (programme?.musescore && partitur) return musescoreBefehl(programme.musescore, partitur, programme);
+  // ebenso ein Gemälde (VKk4j) – die Quelle eines Bilds liegt oft neben der Seite
+  const gemaelde = programme?.krita ? KRITA_DATEIEN.find((d) => ist(d, "datei")) : undefined;
+  if (programme?.krita && gemaelde) return kritaBefehl(programme.krita, gemaelde, programme);
   return null;
 }
 
@@ -613,11 +644,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * `zahnrad.scad`, und das Bild fände nichts. Englisch wie die Anweisungen in `repo-lauf.ts`. Nur, was geprüft ist: STL aus
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
  * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt, Umwandeln und Ausgeben aus MuseScore
- * ebenso mit `offscreen`.
+ * ebenso mit `offscreen`. Krita braucht auch im Terminal einen Bildschirm (`offscreen` nimmt es nicht) – dort nur OpenRaster, das der
+ * Agent selbst schreibt.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
-  inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean;
+  inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean; krita?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -657,6 +689,10 @@ export function bildHinweise(p: {
       + "save. In the terminal, MuseScore needs `QT_QPA_PLATFORM=offscreen`: write the music as MusicXML and convert it with "
       + "`QT_QPA_PLATFORM=offscreen mscore3 -o main.mscx lied.musicxml`, and export the score with "
       + "`QT_QPA_PLATFORM=offscreen mscore3 -o main.pdf main.mscx` – likewise `.mid`, `.musicxml` and `.wav`"] : []),
+    ...(p.krita ? ["- `main.kra` (or `main.ora`) – a painting in Krita (only if no web project is there); it restarts after every save. "
+      + "Krita needs the screen, also for exports. To start from your own layers, write OpenRaster `main.ora` yourself: a zip with "
+      + "`mimetype` first and uncompressed (`image/openraster`), `stack.xml` (`<image w h><stack><layer name src x y/>…</stack></image>`, "
+      + "topmost layer first) and the layers as PNG files under `data/`"] : []),
   ];
   return [
     "# Showing the project",
@@ -729,6 +765,8 @@ export class BildStrom {
     melt?: string; shotcut?: string;
     /** MuseScore 3 für Partituren (VKk4i, `musescoreAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     musescore?: string;
+    /** Krita für Gemälde (VKk4j, `kritaAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    krita?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -764,6 +802,7 @@ export class BildStrom {
       ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
       ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
       ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
+      ...(this.o.krita ? { krita: this.o.krita } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

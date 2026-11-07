@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFile, spawn } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { connect, createServer, type AddressInfo } from "node:net";
@@ -26,6 +26,7 @@ import {
   X11_UMWEG, gimpAusUmgebung, gimpBefehl, inkscapeAusUmgebung, inkscapeBefehl, kicadBefehl, libreofficeAusUmgebung, libreofficeBefehl, nvencDa, openscadAusUmgebung, openscadBefehl, wineAusUmgebung, wineBefehl,
   meltAusUmgebung, qgisAusUmgebung, qgisBefehl, shotcutAusUmgebung, videoBefehl, wineLesbar,
   MUSESCORE_DATEIEN, MUSESCORE_INSPEKTOR_AB, MUSESCORE_ORTE, MUSESCORE_START, musescoreAusUmgebung, musescoreBefehl,
+  KRITA_DATEIEN, KRITA_ORTE, KRITA_START, kritaAusUmgebung, kritaBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -322,36 +323,36 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true, musescore: true,
+    melt: true, shotcut: true, musescore: true, krita: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt", "main.mscx",
+    "main.qgs", "main.mlt", "main.mscx", "main.kra",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
   assert.deepEqual([...stellen].sort((x, y) => x - y), stellen, "in der genannten Reihenfolge");
   assert.ok(!/\.png|screenshot/i.test(alles), "keine Bilder aus dem Terminal versprechen");
-  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN, ...MUSESCORE_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
+  for (const d of [...LIBREOFFICE_DATEIEN, ...QGIS_DATEIEN, ...MUSESCORE_DATEIEN, ...KRITA_DATEIEN]) assert.ok(alles.includes(`\`${d}\``), `${d} genannt`);
   // Liegen alle Dateien ab der i-ten im Projekt, startet das Bild die i-te – wie die Hinweise sagen
   const g = { breite: 640, hoehe: 480 };
   const web = { browser: "/usr/lib/chromium/chromium", ...g };
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
-    musescore: "/usr/bin/mscore3",
+    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
     wineBefehl("/usr/bin/wine", g), openscadBefehl("/usr/bin/openscad", g), kicadBefehl("/usr/bin/eeschema"), blenderBefehl("/usr/bin/blender"),
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
-    musescoreBefehl("/usr/bin/mscore3", "main.mscx", g),
+    musescoreBefehl("/usr/bin/mscore3", "main.mscx", g), kritaBefehl("/usr/bin/krita", "main.kra", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -998,6 +999,93 @@ test("VKk4i: Partitur im Bildstrom – main.mscx in der Sandbox des Programms, n
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("noten", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4j: Gemälde – main.kra vor main.ora nur mit Krita, nach Web, main.svg, main.xcf, main.qgs, main.mlt und main.mscx", () => {
+  const a = ablage("bild", "offen", "web", "noten", "verweis", "ordner");
+  const groesse = { breite: 1280, hoehe: 720 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, krita: "/usr/bin/krita" };
+  for (const f of KRITA_DATEIEN) writeFileSync(join(a.ort("bild"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("bild"), web, mit), ["/bin/sh", "-c", KRITA_START, "/usr/bin/krita", "/arbeit/main.kra", "1280x720+0+0"],
+    "Kritas eigenes Format geht vor");
+  writeFileSync(join(a.ort("offen"), "main.ora"), "x");
+  assert.deepEqual(bildBefehl(a.ort("offen"), undefined, mit), kritaBefehl("/usr/bin/krita", "main.ora", groesse));
+  assert.equal(bildBefehl(a.ort("bild"), web, groesse), null, "ohne Krita zählt kein Gemälde");
+  // die Quelle eines Bilds verdrängt keine Seite, und nach der Partitur
+  for (const [f, inhalt] of [["main.kra", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.kra", "main.mscx"]) writeFileSync(join(a.ort("noten"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("noten"), undefined, { ...mit, musescore: "/usr/bin/mscore3" }),
+    musescoreBefehl("/usr/bin/mscore3", "main.mscx", groesse), "main.mscx geht vor");
+  symlinkSync(join(a.ort("bild"), "main.kra"), join(a.ort("verweis"), "main.kra"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.kra"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4j: Krita aus der Distribution – nur der Ort unter /usr, KRITA=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("krita");
+  const datei = join(d, "krita");
+  writeFileSync(datei, "");
+  assert.equal(kritaAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(kritaAusUmgebung({ KRITA: "aus" }, [datei]), null);
+  assert.equal(kritaAusUmgebung({ KRITA: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(kritaAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(KRITA_ORTE, ["/usr/bin/krita"]);
+});
+
+test("VKk4j: Start – ohne automatisches Sichern und ohne Sicherungsdatei, in der Größe des Bilds; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("krita-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const kra = join(d, "main.kra");
+  writeFileSync(kra, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "programm"), 0o755);
+  const groesse = kritaBefehl(join(d, "programm"), "main.kra", { breite: 640, hoehe: 480 }).slice(5);
+  const sh = spawn("/bin/sh", ["-c", KRITA_START, join(d, "programm"), kra, ...groesse], { stdio: "ignore", env: { ...process.env, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    assert.equal(erste!.replace(/ \d+$/, ""), `--nosplash --qwindowgeometry 640x480+0+0 ${kra}`);
+    // ohne diese beiden legte Krita main.kra-autosave.kra und main.kra~ ins Projekt (gemessen mit Krita 5.2, Gegenprobe)
+    assert.deepEqual(readFileSync(join(heim, ".config", "kritarc"), "utf8").split("\n"), ["AutoSaveInterval=0", "CreateBackupFile=false", ""]);
+    writeFileSync(kra, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4j: Gemälde im Bildstrom – main.kra in der Sandbox des Programms, nichts weiter eingebunden; ohne Krita kein Programm", async () => {
+  const a = ablage("bild");
+  writeFileSync(join(a.ort("bild"), "main.kra"), "PK");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, krita: "/usr/bin/krita" });
+  try {
+    assert.equal(await b.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...kritaBefehl("/usr/bin/krita", "main.kra", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -2055,6 +2143,83 @@ test("VKk4i: im Terminal – die Befehle aus den Hinweisen wandeln MusicXML in d
   assert.equal((mscx.match(/<Chord>/g) ?? []).length, 4, "die vier Noten");
   assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
   assert.deepEqual(readdirSync(arbeit).sort(), ["lied.musicxml", "main.mscx", "main.pdf"]);
+});
+
+const krita = kritaAusUmgebung({});
+/**
+ * Ein Gemälde, wie der Agent es nach den Hinweisen schreibt (VKk5): OpenRaster – `mimetype` zuerst und ungepackt, `stack.xml`, die
+ * Ebene als PNG unter `data/` (kein `mergedimage.png`). Gebaut mit dem Python der Distribution ohne PIL, eine Ebene in einer Farbe.
+ */
+const ORA_BAUEN = [
+  "import struct, sys, zipfile, zlib",
+  "ziel, w, h, r, g, b = sys.argv[1], *map(int, sys.argv[2:7])",
+  "teil = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))",
+  "roh = b''.join(b'\\x00' + bytes([r, g, b, 255]) * w for _ in range(h))",
+  "png = b'\\x89PNG\\r\\n\\x1a\\n' + teil(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)) + teil(b'IDAT', zlib.compress(roh)) + teil(b'IEND', b'')",
+  "with zipfile.ZipFile(ziel, 'w') as z:",
+  "    z.writestr(zipfile.ZipInfo('mimetype'), 'image/openraster')",
+  "    z.writestr('stack.xml', f'<image w=\"{w}\" h=\"{h}\"><stack><layer name=\"Ebene\" src=\"data/ebene.png\" x=\"0\" y=\"0\"/></stack></image>', zipfile.ZIP_DEFLATED)",
+  "    z.writestr('data/ebene.png', png, zipfile.ZIP_DEFLATED)",
+].join("\n");
+const gemaelde = (datei: string, [r, g, b]: number[]) => {
+  execFileSync("/usr/bin/python3", ["-I", "-c", ORA_BAUEN, datei, "320", "240", String(r), String(g), String(b)]);
+};
+
+test("VKk4j: Ende zu Ende – ein Gemälde aus OpenRaster, wie der Agent es schreibt, in Krita im kleinen Bild; neu geschrieben, zeigt das Bild das neue", {
+  skip: ohne || (!krita && "Krita fehlt (krita)"), timeout: 240_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("bild");
+    const datei = join(a.ort("bild"), "main.ora");
+    gemaelde(datei, [0, 192, 0]);
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, krita: krita! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          gemaelde(datei, [204, 0, 0]);
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // links in der Leinwand – rechts stehen im kleinen Bild Farbwähler und Ebenen
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("bild", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 150, stelle: [0.3, 0.5] });
+      console.log(`[bild] Krita: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("bild")), ["main.ora"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4j: Ende zu Ende – main.kra in Krita im großen Bild", {
+  skip: ohne || (!krita && "Krita fehlt (krita)"), timeout: 240_000,
+}, async () => {
+  // main.kra schreibt Krita selbst – auch umwandeln geht nur mit Bildschirm (hier außerhalb der Sandbox, nur für den Test)
+  const d = tmp("krita-kra");
+  gemaelde(join(d, "blau.ora"), [0, 64, 200]);
+  execFileSync("xvfb-run", ["-a", krita!, join(d, "blau.ora"), "--export", "--export-filename", join(d, "main.kra")],
+    { env: { ...process.env, HOME: d }, stdio: "ignore", timeout: 120_000 });
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("bild");
+    copyFileSync(join(d, "main.kra"), join(a.ort("bild"), "main.kra"));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, krita: krita! });
+    try {
+      const blau = (f: number[] | null) => !!f && f[2]! > 150 && f[0]! < 60 && f[1]! < 110;
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("bild", angebot, { breite: 1280, hoehe: 720 }), blau,
+        { frist: 150, stelle: [0.3, 0.5] });
+      console.log(`[bild] Krita (kra): Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(blau(e.farbe), `blau (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("bild")), ["main.kra"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

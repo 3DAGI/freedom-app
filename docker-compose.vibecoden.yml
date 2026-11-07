@@ -29,6 +29,8 @@ services:
         SHOTCUT: "${SHOTCUT:-0}"
         # Partituren im Bild (VKk4i): MUSESCORE=1 baut MuseScore 3 dazu, rund 100 MB
         MUSESCORE: "${MUSESCORE:-0}"
+        # Gemälde im Bild (VKk4j): KRITA=1 baut Krita dazu, rund 300 MB
+        KRITA: "${KRITA:-0}"
         # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
         GRADLE: "${GRADLE:-0}"
         # Android-Apps (VKh2b): ANDROID=1 baut das Android-SDK dazu (braucht GRADLE=1), rund 300 MB, bisher nur auf amd64 nutzbar.
