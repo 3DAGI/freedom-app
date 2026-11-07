@@ -787,3 +787,15 @@ Bereichs unten anhängen.
   den Knoten an), unter Linux der echte Ort über `/proc/self/fd`, höchstens `TON_BYTES`, angenommen nur nach `pruefeWav()` – nie
   `readFile` auf einen Pfad des Agenten. Wie Bilder (VKd2b2) nicht über die `ToolRegistry` (es braucht das Projekt). Ton und Text sind
   Inhalt: nie ins Log; Ablehnungen nur als feste Texte, nie der Text eines Fehlers (er trüge den Pfad).
+- **Karten für Spiele im Bild nur über `bildBefehl()` und `tiledBefehl()`** (seit VKk4m, `bildstrom.ts`): eine Karte zählt nur mit Tiled aus
+  `tiledAusUmgebung()` – nur `TILED_ORTE` (`/usr/bin/tiled`, kein eigener Pfad), `TILED=aus` schaltet ab –, nur als echte Datei `main.tmx`,
+  nach allen anderen Dateien (zuletzt `main.sla`). `TILED_START` schreibt `tiled.conf` ins Home der Sandbox: `DisplayNews=false` (sonst
+  fragt Tiled beim Start im Netz nach Neuigkeiten). Unter `TILED_DOCKS_AB` (1280×720; bei 1024×768 blieben der Karte neben den Docks rund
+  190 Pixel) ohne Docks über `TILED_ERWEITERUNG` (`~/.config/tiled/extensions`, „Clear View“). Tiled macht sein Fenster nie kleiner als mit
+  Docks (758×494, auch mit `--qwindowgeometry` und nach Clear View): Vor jedem Start setzt `TILED_FENSTER` (python-xlib, `-I`) ein Fenster,
+  das über den Bildschirm ragt, auf dessen Größe – ohne Fenstermanager darf das ein anderer Client –, und die Erweiterung passt die Karte bei
+  `viewRectChanged` neu ein, wenn die Ansicht eine neue Größe hat (Tiled tut es nur beim Öffnen). Ohne eins der drei lag der Rand der Karte im
+  kleinen Bild außerhalb (Gegenproben im Echttest). Tiled lädt selbst neu, nach einer kaputten Zwischenfassung bleibt aber die Fehlermeldung
+  offen (gemessen) – deshalb `neustartSchleife()`. Im Terminal nur mit `QT_QPA_PLATFORM=offscreen` (sonst Exit 134); der Befehl in
+  `bildHinweise()` ist genau der des Echttests (`tiledBefehleAusHinweisen()`). `tmxrasterizer` (PNG) steht nicht in den Hinweisen – deren
+  Test weist jedes `.png` ab. Kein AppArmor-Profil, kein Python-Plugin im Paket.

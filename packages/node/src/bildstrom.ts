@@ -647,6 +647,83 @@ export function scribusBefehl(scribus: string, groesse: { breite: number; hoehe:
   return ["/bin/sh", "-c", SCRIBUS_START, scribus, "/arbeit/main.sla", String(groesse.breite), String(groesse.hoehe)];
 }
 
+/** Wo der Knoten Tiled sucht (VKk4m) – nur das Paket der Distribution unter `/usr`. */
+export const TILED_ORTE: readonly string[] = ["/usr/bin/tiled"];
+
+/** Tiled aus der Distribution (VKk4m): der erste aus `TILED_ORTE`; null mit `TILED=aus` oder ohne Fund. */
+export function tiledAusUmgebung(env: { TILED?: string }, orte: readonly string[] = TILED_ORTE): string | null {
+  return env.TILED?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Ab dieser Größe zeigt Tiled seine Docks (VKk4m) – bei 1024×768 blieben der Karte daneben rund 190 Pixel Breite (gemessen). */
+export const TILED_DOCKS_AB = { breite: 1280, hoehe: 720 } as const;
+
+/**
+ * Die Erweiterung für Tiled im kleineren Bild (VKk4m, JavaScript, `~/.config/tiled/extensions`): ohne Docks und Werkzeugleisten
+ * („Clear View“) und die Karte neu eingepasst, sobald die Ansicht eine neue Größe hat – Tiled passt sie nur beim Öffnen ein, das
+ * Fenster bekommt seine Größe erst danach (`TILED_FENSTER`). Zoomt oder verschiebt jemand im Bild, bleibt die Größe gleich.
+ */
+export const TILED_ERWEITERUNG = [
+  `tiled.trigger("ClearView");`,
+  `tiled.activeAssetChanged.connect(function (a) {`,
+  `  var v = tiled.mapEditor.currentMapView, b = 0, h = 0;`,
+  `  if (!a || !a.isTileMap || !v) return;`,
+  `  v.viewRectChanged.connect(function () {`,
+  `    if (v.width === b && v.height === h) return;`,
+  `    b = v.width; h = v.height;`,
+  `    tiled.trigger("FitInView");`,
+  `  });`,
+  `});`,
+].join("\n");
+
+/**
+ * Das Fenster auf den Bildschirm (VKk4m, Python mit python-xlib, in der Sandbox des Programms): Tiled öffnet sein Fenster
+ * mindestens so groß wie mit Docks (758×494, gemessen) und verkleinert es nicht, auch ohne Docks nicht. Ohne Fenstermanager darf
+ * ein anderer Client es setzen – das Skript setzt das erste Fenster, das über den Bildschirm ragt, auf dessen Größe, und wartet
+ * darauf höchstens 30 Sekunden. Mit `-I`: nichts aus dem Ordner, in dem es läuft (dem Projekt).
+ */
+export const TILED_FENSTER = [
+  "import sys, time",
+  "from Xlib import display, X",
+  "d = display.Display()",
+  "s = d.screen()",
+  "breite, hoehe = s.width_in_pixels, s.height_in_pixels",
+  "bis = time.time() + 30",
+  "while time.time() < bis:",
+  "    for w in s.root.query_tree().children:",
+  "        try:",
+  "            g = w.get_geometry()",
+  "            if w.get_attributes().map_state == X.IsViewable and (g.width > breite or g.height > hoehe):",
+  "                w.configure(x=0, y=0, width=min(g.width, breite), height=min(g.height, hoehe))",
+  "                d.sync()",
+  "                sys.exit(0)",
+  "        except Exception:",
+  "            pass",
+  "    time.sleep(0.1)",
+].join("\n");
+
+/**
+ * Eine Karte für 2D-Spiele im Bild (VKk4m): `main.tmx` in Tiled. Die Einstellungen schreibt das Skript ins Home der Sandbox
+ * (tmpfs, nie ins Projekt): ohne Neuigkeiten aus dem Netz (`DisplayNews` – sonst fragt Tiled beim Start danach). Das Fenster setzt
+ * `--qwindowgeometry` auf die Größe des Bilds; die Karte passt Tiled beim Öffnen selbst ein. In einem Bild unter `TILED_DOCKS_AB`
+ * ohne Docks über die Erweiterung (`TILED_ERWEITERUNG`, `$4`), und weil Tiled sein Fenster nicht kleiner macht als mit Docks, läuft
+ * vor jedem Start `TILED_FENSTER` (`$5`) und setzt es auf die Größe des Bildschirms. Tiled lädt eine geänderte Datei zwar selbst neu, eine
+ * kaputte Zwischenfassung ließe aber eine Fehlermeldung offen, auch wenn die Datei wieder stimmt (gemessen): Neustart über
+ * `neustartSchleife()`. `$0` ist Tiled, `$1` die Datei, `$2` die Größe, `$3` 1 mit Docks, sonst 0.
+ */
+export const TILED_START = [
+  `c="$HOME/.config/mapeditor.org"; mkdir -p "$c"`,
+  `printf '%s\\n' '[Install]' 'DisplayNews=false' > "$c/tiled.conf"`,
+  `if [ "$3" != 1 ]; then e="$HOME/.config/tiled/extensions"; mkdir -p "$e"; printf '%s\\n' "$4" > "$e/freedom.js"; fi`,
+  ...neustartSchleife(`[ "$3" = 1 ] || /usr/bin/python3 -I -c "$5" &`, `--qwindowgeometry "$2" `),
+].join("\n");
+
+export function tiledBefehl(tiled: string, groesse: { breite: number; hoehe: number }): string[] {
+  const { breite, hoehe } = groesse;
+  const docks = breite >= TILED_DOCKS_AB.breite && hoehe >= TILED_DOCKS_AB.hoehe;
+  return ["/bin/sh", "-c", TILED_START, tiled, "/arbeit/main.tmx", `${breite}x${hoehe}+0+0`, docks ? "1" : "0", TILED_ERWEITERUNG, TILED_FENSTER];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -656,7 +733,7 @@ export function scribusBefehl(scribus: string, groesse: { breite: number; hoehe:
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
  * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) dann eine Partitur
  * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) dann ein Gemälde aus `KRITA_DATEIEN`, mit LibreCAD (VKk4k) dann `main.dxf`, mit
- * Scribus (VKk4l) zuletzt `main.sla`.
+ * Scribus (VKk4l) dann `main.sla`, mit Tiled (VKk4m) zuletzt `main.tmx`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
@@ -664,7 +741,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
     inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string; krita?: string;
-    librecad?: string; scribus?: string;
+    librecad?: string; scribus?: string; tiled?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -708,6 +785,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.librecad && ist("main.dxf", "datei")) return librecadBefehl(programme.librecad, programme);
   // ebenso ein Layout aus Scribus (VKk4l) – ein Flyer zu einer Seite liegt oft daneben
   if (programme?.scribus && ist("main.sla", "datei")) return scribusBefehl(programme.scribus, programme);
+  // ebenso eine Karte für ein Spiel (VKk4m) – die Karten eines Web-Spiels liegen oft neben der Seite
+  if (programme?.tiled && ist("main.tmx", "datei")) return tiledBefehl(programme.tiled, programme);
   return null;
 }
 
@@ -720,11 +799,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * ebenso mit `offscreen`. Krita braucht auch im Terminal einen Bildschirm (`offscreen` nimmt es nicht) – dort nur OpenRaster, das der
  * Agent selbst schreibt. DXF schreibt der Agent als Text, LibreCAD gibt es mit `offscreen` als PDF aus. Scribus braucht wie Krita
  * auch im Terminal einen Bildschirm – das Layout schreibt der Agent als XML selbst (SLA, mit Ebene – ohne zeigt Scribus nichts).
+ * Eine Karte aus Tiled schreibt er als TMX-XML; Tiled gibt sie mit `offscreen` für Spiele-Engines aus (JSON, Lua).
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
   inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean; krita?: boolean;
-  librecad?: boolean; scribus?: boolean;
+  librecad?: boolean; scribus?: boolean; tiled?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -780,6 +860,14 @@ export function bildHinweise(p: {
       + "size, `NUM` and `MNAM=\"Normal\"` per page, and frames `<PAGEOBJECT PTYPE XPOS YPOS WIDTH HEIGHT OwnPage path>` – positions "
       + "count from the canvas (the first page starts at 100, 20), `path` outlines the frame (`M0 0 L<w> 0 L<w> <h> L0 <h> Z`), "
       + "`PTYPE=\"6\"` is a shape filled with `PCOLOR`, `PTYPE=\"4\"` a text frame with `<StoryText><ITEXT CH=\"…\"/><trail/></StoryText>`"] : []),
+    ...(p.tiled ? ["- `main.tmx` – a 2D game map in Tiled (only if no web project is there); it restarts after every save. Write the TMX "
+      + "yourself as XML: `<map version=\"1.8\" orientation=\"orthogonal\" renderorder=\"right-down\" width height tilewidth tileheight "
+      + "infinite=\"0\" nextlayerid nextobjectid>` (the size in tiles, tile sizes in pixels), a tileset `<tileset firstgid=\"1\" name "
+      + "tilewidth tileheight tilecount columns><image source width height/></tileset>` with its tile image as a PNG file next to it "
+      + "(relative path), tile layers `<layer id name width height><data encoding=\"csv\">…</data></layer>` (one tile number per cell, "
+      + "row by row, counted from `firstgid`, 0 for empty) and objects in `<objectgroup id name><object id name x y width height/>"
+      + "</objectgroup>` (in pixels). In the terminal, Tiled needs `QT_QPA_PLATFORM=offscreen`: "
+      + "`QT_QPA_PLATFORM=offscreen tiled --export-map json main.tmx main.json` exports the map for game engines – likewise `lua`"] : []),
   ];
   return [
     "# Showing the project",
@@ -858,6 +946,8 @@ export class BildStrom {
     librecad?: string;
     /** Scribus für Layouts (VKk4l, `scribusAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     scribus?: string;
+    /** Tiled für Karten von Spielen (VKk4m, `tiledAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    tiled?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -894,7 +984,7 @@ export class BildStrom {
       ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
       ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
       ...(this.o.krita ? { krita: this.o.krita } : {}), ...(this.o.librecad ? { librecad: this.o.librecad } : {}),
-      ...(this.o.scribus ? { scribus: this.o.scribus } : {}),
+      ...(this.o.scribus ? { scribus: this.o.scribus } : {}), ...(this.o.tiled ? { tiled: this.o.tiled } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");

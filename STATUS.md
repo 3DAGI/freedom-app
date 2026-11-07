@@ -1044,3 +1044,36 @@ offene Teil von VKd2 (Bilder über fremde Provider bleiben „später“).
   die `ToolRegistry`; Ende zu Ende mit einem nachgebauten `whisper-cli` in echtem bubblewrap (Text zurück, das Projekt unverändert,
   der Arbeitsordner danach leer, Ablehnungen nur als feste Texte, eine falsche Datei erreicht Whisper nie); verdrahtet in `main.ts`.
   Der Verdrahtungstest aus VKd (`freedom-mcp.test.ts`) prüft die Zeilen der Brücke jetzt samt `ton`.
+
+## Schritt VKk4m – Karten für 2D-Spiele im Bild: main.tmx in Tiled
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKk), nach VKd2c – bei VKk waren weitere grafische Programme frei. Zu Godot jetzt der Editor für
+Karten von 2D-Spielen (Kachelebenen, Objekte), dessen TMX und JSON viele Spiele-Engines lesen.
+
+**Änderungen:**
+- **`node/src/bildstrom.ts`:** `TILED_ORTE`, `tiledAusUmgebung()`, `TILED_DOCKS_AB`, `TILED_ERWEITERUNG`, `TILED_FENSTER`, `TILED_START`,
+  `tiledBefehl()` – ohne Neuigkeiten aus dem Netz, unter 1280×720 ohne Docks (Erweiterung: Clear View, neu einpassen bei neuer Größe)
+  und das Fenster per python-xlib auf den Bildschirm, Neustart über `neustartSchleife()`; in `bildBefehl()` nach dem Layout, in
+  `bildHinweise()` an derselben Stelle (TMX als XML, Kachelsatz mit PNG, JSON und Lua im Terminal), `BildStrom` mit `tiled`.
+- **`node/src/main.ts`:** `tiledAusUmgebung(process.env)` für Bild und Hinweise, im Log „Karten in Tiled“.
+- **Docker, CI:** `ARG TILED=0` (nur mit `VIBECODEN=1`), Compose reicht es durch; Schritt „Tiled fuer den Bild-Test“.
+- **Docs:** PROVIDER, PROTOCOL (`code-bild-kein-programm`), VIBECODEN-ENTWURF, OFFEN (VKk, Probe mit `TILED=1`), FORTSCHRITT,
+  Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- Kein Dialog beim ersten Start, die Karte passt Tiled beim Öffnen selbst ein. `DisplayNews=false` stellt die Abfrage nach Neuigkeiten
+  ab (vorher im Log „Proxy denied connection“); `CheckForUpdates=false` allein änderte nichts.
+- Mit Docks verlangt das Fenster mindestens 758×627 Pixel, bei 1024×768 blieben der Karte rund 190 Pixel – Docks erst ab 1280×720. Clear
+  View blendet sie aus, das Fenster bleibt aber 758×494, auch mit `--qwindowgeometry`. Ohne Fenstermanager lässt es sich von außen
+  setzen; neu eingepasst wird bei `viewRectChanged`. Gegenproben im Echttest: ohne Clear View Grau, ohne das Setzen des Fensters oder
+  ohne das neue Einpassen lag der Rand der Karte außerhalb.
+- Tiled lädt selbst neu, nach einer kaputten Zwischenfassung bleibt aber „Not a map file“ offen – deshalb der Neustart. Speichern im
+  Bild legt nichts daneben, automatisches Sichern hat Tiled 1.8 nicht. `--export-map` nur mit `offscreen` (sonst Exit 134). Debian 12:
+  nach dem Stand von Ubuntu (1.8.2, aus Debian übernommen) dieselbe Fassung – nicht geprüft.
+- `SOUL.md` mit allen Hinweisen gegen die 28 Muster von Hermes 0.19: 0 Treffer.
+
+**Tests:**
+- node +9: `bildstrom.test.ts` +8 – Reihenfolge und Dateien (Docks ab 1280×720), Umgebung, Start mit Attrappe, Bildstrom, Hinweise, Ende
+  zu Ende mit echtem Tiled in der Sandbox (kleines Bild: auf dem Rand rechts grün, neu geschrieben rot; großes Bild mit Docks: grün;
+  sonst nichts im Projekt), im Terminal JSON und Lua aus dem Befehl der Hinweise; `docker-vibecoden.test.ts` +1; `main.tmx` im Test der
+  Hinweise (VKk5).
