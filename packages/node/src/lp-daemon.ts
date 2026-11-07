@@ -26,6 +26,12 @@
  * cltv_limit und loest mit dem Preimage die SOL ein – nur bis T_sol − 10
  * Minuten. Sitzungen werden gespeichert, BEVOR gezahlt wird: Nach einem
  * Neustart holt `nachholen()` das Preimage bei LND und loest trotzdem ein.
+ * Meldet LND die Zahlung sicher als gescheitert, gibt der LP die SOL vor Ablauf
+ * zurueck (A-28b, Anweisung `zurueckgeben`) und sagt es mit ["zurueckgegeben", "1"]
+ * neben ["status", "GESCHEITERT"] – nie bei offenem Ausgang (ohne Auskunft von LND,
+ * „laeuft“, „unbekannt“): Sonst zahlte er die Rechnung und gaebe die SOL zurueck.
+ * Lehnt das Programm ab (vor dem Upgrade an `FVb19s…`), bleibt es wie bisher: Der
+ * Kunde holt nach Ablauf zurueck.
  *
  * Versiegelt (Schritt 4.9): Dieselben Anfragen kommen im Umschlag (NIP-59,
  * `swap-versiegelt.ts`) von einem Wegwerf-Schluessel des Kunden; der LP
@@ -150,6 +156,8 @@ const ANTWORT: Record<RueckSitzung["phase"], string> = {
   GESCHEITERT: "Zahlung gescheitert – SOL nach Ablauf der Sperre zurückholen",
   ZU_SPAET: "zu spät bezahlt – SOL nach Ablauf der Sperre zurückholen",
 };
+/** Antwort, wenn der LP die SOL vor Ablauf zurueckgegeben hat (A-28b) – Status bleibt GESCHEITERT, dazu das Tag. */
+const ANTWORT_ZURUECKGEGEBEN = "Zahlung gescheitert – SOL zurückgegeben";
 
 /** Gegenrichtung (buy-sol): Kunde gibt SOL, LP zahlt seine Rechnung. */
 export interface RueckSitzung {
@@ -167,6 +175,10 @@ export interface RueckSitzung {
   preimageHex?: string;
   phase: "ZAHLT" | "BEZAHLT" | "EINGELOEST" | "GESCHEITERT" | "ZU_SPAET";
   grund?: string;
+  /** LND meldete die Zahlung sicher als gescheitert (A-28b) – nur dann darf der LP zurueckgeben. */
+  sicherGescheitert?: true;
+  /** Die SOL gingen vor Ablauf an den Kunden zurueck (A-28b, bestaetigt auf der Kette). */
+  zurueckgegeben?: true;
   /** Anfrage kam im Umschlag – Antworten gehen ebenso versiegelt (4.9). */
   versiegelt?: boolean;
 }
@@ -575,6 +587,7 @@ export class LpDaemon {
       else await this.stand(s);
     }
     if (s.phase === "BEZAHLT") await this.loeseEin(s);
+    await this.gibZurueck(s);
     this.speichern();
     if (s.phase !== "ZAHLT") await this.antworte(s);
   }
@@ -595,10 +608,26 @@ export class LpDaemon {
     else if (st.status === "gescheitert") {
       s.phase = "GESCHEITERT";
       s.grund = "Zahlung gescheitert";
+      s.sicherGescheitert = true;
     } else if (st.status === "unbekannt" && this.jetzt() >= s.timelockUnix - EINLOESE_ABSTAND_SECS) {
       // Nie bei LND angekommen, und die Frist ist ohnehin vorbei.
       s.phase = "GESCHEITERT";
       s.grund = "Zahlung bei LND unbekannt";
+    }
+  }
+
+  /**
+   * Rueckgabe vor Ablauf (A-28b): nur nach „gescheitert“ von LND (`sicherGescheitert`), nur vor der Frist (danach holt der
+   * Kunde selbst zurueck), nur einmal je Sitzung. Lehnt das Programm ab oder antwortet die Kette nicht, bleibt es bei
+   * GESCHEITERT ohne Rueckgabe – ins Log nur der Fehlername.
+   */
+  private async gibZurueck(s: RueckSitzung): Promise<void> {
+    if (s.phase !== "GESCHEITERT" || !s.sicherGescheitert || s.zurueckgegeben || this.jetzt() >= s.timelockUnix) return;
+    try {
+      await this.sol.zurueckgeben(s.swapId, s.kundeSol);
+      s.zurueckgegeben = true;
+    } catch (e) {
+      console.error(`[lp] Rueckgabe ${s.swapId.slice(0, 8)}:`, (e as Error).name);
     }
   }
 
@@ -631,6 +660,7 @@ export class LpDaemon {
       try {
         if (s.phase === "ZAHLT" && this.ln.zahlungsstand) await this.stand(s);
         if (s.phase === "BEZAHLT") await this.loeseEin(s);
+        if (s.phase !== vorher) await this.gibZurueck(s);
       } catch (e) {
         s.grund = (e as Error).message.slice(0, 200);
       }
@@ -653,12 +683,13 @@ export class LpDaemon {
   }
 
   private async antworte(s: RueckSitzung): Promise<void> {
-    await this.sende(s.requestId, s.customerPubkey, s.versiegelt, s.phase, ANTWORT[s.phase], s.swapId);
+    if (s.zurueckgegeben) await this.sende(s.requestId, s.customerPubkey, s.versiegelt, s.phase, ANTWORT_ZURUECKGEGEBEN, s.swapId, [["zurueckgegeben", "1"]]);
+    else await this.sende(s.requestId, s.customerPubkey, s.versiegelt, s.phase, ANTWORT[s.phase], s.swapId);
   }
 
-  private async sende(requestId: string, kunde: string, versiegelt: boolean | undefined, status: string, text: string, swapId?: string): Promise<void> {
+  private async sende(requestId: string, kunde: string, versiegelt: boolean | undefined, status: string, text: string, swapId?: string, mehr: string[][] = []): Promise<void> {
     try {
-      await this.antwortSenden(requestId, kunde, versiegelt, [...(swapId ? [["swap_id", swapId]] : []), ["status", status]], text);
+      await this.antwortSenden(requestId, kunde, versiegelt, [...(swapId ? [["swap_id", swapId]] : []), ["status", status], ...mehr], text);
     } catch { /* Antwort ist best-effort; der Kunde sieht den Stand auch auf der Kette */ }
   }
 

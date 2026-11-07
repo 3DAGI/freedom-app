@@ -515,6 +515,14 @@ export async function startRueckSwap(lpPubkey: string, offer: LpOffer, betrag?: 
   void warteAufRueckAntwort(post, plan);
 }
 
+/** Zeigt die Kette die Sperre nicht mehr offen, ist sie abgeschlossen (A-28b) – gelesen über den Pool, ohne Wallet-Dialog. */
+async function sperreZu(swapId: string): Promise<boolean> {
+  const signer = htlcSigner();
+  if (!signer) return false;
+  const { schliesseWennZu, walletRefundRunner } = await sperren();
+  return schliesseWennZu(walletRefundRunner(signer, await solRpc()), swapId).catch(() => false);
+}
+
 /** Antwort des LP abwarten (er prueft bis zu 10 Minuten nach der Anfrage). */
 async function warteAufRueckAntwort(post: SwapPost, plan: RueckPlan): Promise<void> {
   const { leseRueckAntwort, rueckText } = await import("../../rueck-swap.js");
@@ -526,9 +534,11 @@ async function warteAufRueckAntwort(post: SwapPost, plan: RueckPlan): Promise<vo
     if (antwort) {
       // Die Sperre bleibt gemerkt, auch bei EINGELOEST: Ob der LP wirklich
       // eingeloest hat, sagt die Kette – der Waechter schliesst sie dann ab.
-      statusEl.textContent = rueckText(antwort, plan);
+      // Gab der LP zurueck (A-28b), zaehlt es erst, wenn die Kette die Sperre geschlossen zeigt – dann gleich abschliessen.
+      const geschlossen = antwort.zurueckgegeben ? await sperreZu(plan.swapId) : false;
+      statusEl.textContent = rueckText(antwort, plan, geschlossen);
       statusEl.className = `mono-sm ${antwort.status === "EINGELOEST" ? "ok" : "warn"}`;
-      if (antwort.status === "EINGELOEST") updateSidebarBalances();
+      if (antwort.status === "EINGELOEST" || geschlossen) updateSidebarBalances();
       return;
     }
     await new Promise((r) => setTimeout(r, 5000));

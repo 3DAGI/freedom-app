@@ -68,7 +68,12 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
   prüft der LP sie noch 10 Minuten lang bei jedem Durchlauf erneut.
 - **Antwort** (Kind 25002, `e` = Anfrage): `["status", …]` mit `EINGELOEST`,
   `GESCHEITERT`, `ZU_SPAET` oder `ABGELEHNT` (dann steht der Grund im Inhalt).
-  Bei allem außer `EINGELOEST` holt der Kunde seine SOL nach T_sol zurück.
+  Bei allem außer `EINGELOEST` holt der Kunde seine SOL nach T_sol zurück –
+  außer der LP gab sie schon zurück (seit A-28b): dann steht neben
+  `["status", "GESCHEITERT"]` auch `["zurueckgegeben", "1"]`. Der Status bleibt
+  `GESCHEITERT`, damit ältere Apps ihn weiter lesen; die App sagt „schon
+  zurück“ erst, wenn die Kette die Sperre nicht mehr offen zeigt (sonst ist es
+  nur eine Behauptung des LP), und schließt die gemerkte Sperre dann gleich ab.
   Öffentlich stehen nur feste Texte des LP, nie Meldungen von LND.
 - **Rückgabe vor Ablauf (A-28, Programm seit A-28a):** Das HTLC-Programm kennt
   die Anweisung `zurueckgeben`. Nur der Empfänger der Sperre (hier der LP)
@@ -78,9 +83,12 @@ fremder Empfänger, zu kurze Frist → LP zahlt gar nicht erst.
   umleiten, ein Fremder nichts auslösen. Einlösen und Rückholen bleiben, wie
   sie sind. Wirksam erst nach dem Upgrade an `FVb19s…` durch den MENSCHEN
   (`docs/SOLANA-UPGRADE-AUTHORITY.md`); bis dahin lehnt das Programm die
-  Anweisung ab. Der LP ruft sie ab A-28b nach einer Zahlung, die LND sicher
-  als gescheitert meldet – nie bei einem offenen Ausgang (sonst zahlte er die
-  Rechnung und gäbe die SOL zurück).
+  Anweisung ab. Der LP ruft sie seit A-28b nach einer Zahlung, die LND sicher
+  als gescheitert meldet (`/v2/router/track`: „gescheitert“) – nie bei einem
+  offenen Ausgang (ohne Auskunft von LND, „läuft“, „unbekannt“), sonst zahlte
+  er die Rechnung und gäbe die SOL zurück. Nur vor T_sol, einmal je Sitzung
+  (`zurueckgegeben` im Speicher); lehnt das Programm ab, bleibt es beim
+  Rückholen nach Ablauf.
 - **`cltv_limit`** = kleinstes von `lnCltvDeltaBlocks` des Angebots und
   `maxCltvLimitFuer(T_sol − jetzt)`.
 - **Neustart:** Der LP speichert jede Sitzung, **bevor** er zahlt

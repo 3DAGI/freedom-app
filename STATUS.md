@@ -882,3 +882,34 @@ Knoten für Repo-Aufträge aus privaten Räumen nie Pakete – auch nicht, wenn 
   nie das Paket aus `paket_holen`); dazu im Ablauf-Test ohne `hole` kein `paket_holen`.
 - app +1 (`raum-ketten.test.ts`: `mitSchaltern()` überträgt beide, `neu` ändert genau einen); Verdrahtung in `raum-ketten.test.ts`
   und `raum-kasse.test.ts` (fünf Stellen über `definitionMitKetten()`).
+
+## Schritt A-28b – Swap SOL → Lightning: Rückgabe vor Ablauf im LP und in der App
+
+Spur A (`docs/BOLTZ-VERGLEICH.md` B2, Entscheidung 11.10. „A-28 ja mit 0.G“), gebaut von Spur B nach MENSCH 06.11. („dann
+restlichen code“). Scheiterte die Zahlung des LP, wartete der Kunde bis T_sol auf seine SOL – oft Stunden. Das Programm kennt
+`zurueckgeben` seit A-28a; jetzt ruft der LP es, und die App sagt es.
+
+**Änderungen:**
+- **LP** (`node/src/lp-daemon.ts`): `gibZurueck()` nach `zahleUndLoeseEin()` und in `nachholen()` – nur, wenn LND die
+  Zahlung sicher als gescheitert meldet (`sicherGescheitert` aus `zahlungsstand()`), nie ohne Auskunft, bei „läuft“ oder
+  „unbekannt“; nur vor T_sol, einmal je Sitzung (`zurueckgegeben` im Speicher). Die Antwort bleibt `GESCHEITERT`, dazu
+  `["zurueckgegeben", "1"]` und der Text „Zahlung gescheitert – SOL zurückgegeben“. Lehnt das Programm ab (vor dem Upgrade an
+  `FVb19s…`), bleibt alles wie bisher; ins Log nur der Fehlername.
+- **App:** `leseRueckAntwort()` liest das Tag (nur neben `GESCHEITERT`, nur „1“); `rueckText(…, geschlossen)` sagt „schon
+  zurückgegeben“ nur, wenn die Kette die Sperre nicht mehr offen zeigt; `schliesseWennZu()` (`refund-watcher.ts`) schließt die
+  gemerkte Sperre dann gleich ab, ohne Transaktion – sonst stünde sie bis T_sol in der Liste.
+- **Format:** Der Status bleibt `GESCHEITERT` (ältere Apps lesen ihn weiter und holen nach T_sol zurück – der Wächter findet
+  die Sperre geschlossen und schließt ohne Transaktion ab), das Tag ist neu (`docs/SWAPS.md`).
+- **Docs:** SWAPS (Antwort, Rückgabe), Upgrade-Liste, Fallstrick „Swaps“ in der Wurzel, OFFEN (A-28b raus), FORTSCHRITT, Stand.
+
+**Befunde:**
+- Ohne `zahlungsstand` setzte der LP schon immer `GESCHEITERT` („ohne Auskunft: gescheitert“) – das ist kein sicheres
+  Scheitern; dort gibt er nie zurück. Darum die eigene Marke `sicherGescheitert` statt der Phase allein.
+
+**Tests:**
+- node +4 (`lp-rueck.test.ts`): sicher gescheitert → genau eine Rückgabe an den Initiator, Kunde sofort wieder voll, Antwort mit
+  Tag, nach einem Neustart nichts doppelt; ohne Auskunft, „läuft“, „unbekannt“ nie; Programm lehnt ab → Antwort wie bisher, SOL
+  bleiben gesperrt, ins Log nur der Fehlername; nach einem Neustart sicher gescheitert → zurückgegeben. Gegenprobe ohne
+  `sicherGescheitert`: rot.
+- app +2 (`refund-watcher.test.ts`: abgeschlossen nur, wenn die Kette sie nicht offen zeigt; `rueck-swap.test.ts`: verdrahtet),
+  dazu Antwort und Text in den bestehenden Tests.

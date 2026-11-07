@@ -3,6 +3,10 @@
  * dessen Rechnung). Der LP zahlt echtes Geld, bevor er die SOL hat – geprueft
  * wird deshalb vor allem, wann er NICHT zahlt, und dass ein Neustart oder ein
  * Verbindungsabbruch ihn nicht um die SOL bringt.
+ *
+ * A-28b: Meldet LND die Zahlung sicher als gescheitert, gibt der LP die SOL vor
+ * Ablauf zurueck (`zurueckgeben`) und sagt es mit ["zurueckgegeben", "1"] – nie bei
+ * offenem Ausgang, nie zweimal; lehnt das Programm ab, bleibt es beim Rueckholen.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -97,6 +101,18 @@ async function kunde(a: ReturnType<typeof aufbau>, o: { prefix?: string; lamport
 
 async function antworten(a: ReturnType<typeof aufbau>, mitText = false) {
   return (await a.pool.query({ kinds: [KIND_SWAP_RESPONSE], authors: [LP.pk] })).map((e) => (mitText ? `${getTag(e, "status")}: ${e.content}` : getTag(e, "status")));
+}
+
+/** Zaehlt Rueckgaben (A-28b); `lehntAb` spielt das Programm vor dem Upgrade an `FVb19s…`. */
+function zaehleRueckgaben(sol: MockSolana, o: { lehntAb?: boolean } = {}) {
+  const aufrufe: Array<[string, string]> = [];
+  const echt = sol.zurueckgeben.bind(sol);
+  sol.zurueckgeben = async (swapId: string, initiator: string) => {
+    aufrufe.push([swapId, initiator]);
+    if (o.lehntAb) throw new Error("InstructionFallbackNotFound");
+    return echt(swapId, initiator);
+  };
+  return aufrufe;
 }
 
 test("Gegenrichtung: gueltige Sperre – LP zahlt mit cltv_limit und loest die SOL ein", async () => {
@@ -270,6 +286,97 @@ test("Zahlung scheitert: nichts eingeloest, Kunde holt nach T_sol zurueck", asyn
   assert.equal(a.sol.lpLamports, 50_000_000, "Kunde wieder voll");
   assert.deepEqual(await antworten(a, true), ["GESCHEITERT: Zahlung gescheitert – SOL nach Ablauf der Sperre zurückholen"], "keine Meldung von LND nach aussen");
   assert.match(a.sp.daten()[0].grund!, /NO_ROUTE/, "der Grund bleibt beim LP");
+});
+
+test("A-28b: LND meldet sicher gescheitert – LP gibt die SOL vor Ablauf zurueck und sagt es", async () => {
+  const sp = speicher();
+  const a = aufbau(lightning({ scheitert: "FAILURE_REASON_NO_ROUTE", stand: async () => ({ status: "gescheitert" }) }), { sp });
+  const rueckgaben = zaehleRueckgaben(a.sol);
+  const { bolt11 } = await kunde(a);
+  const [s] = await a.lp.pollOnce(JETZT) as RueckSitzung[];
+  await a.lp.warteAufZahlungen();
+  assert.equal(s.phase, "GESCHEITERT");
+  assert.deepEqual(rueckgaben, [[rueckSwapId(bolt11), KUNDE_SOL]], "genau einmal, an den Initiator der Sperre");
+  assert.equal(a.sol.lpLamports, 50_000_000, "Kunde sofort wieder voll – ohne auf T_sol zu warten");
+  assert.equal(a.sol.userLamports, 0, "der LP behaelt nichts");
+  assert.equal(sp.daten()[0].zurueckgegeben, true, "gemerkt");
+  const [ev] = await a.pool.query({ kinds: [KIND_SWAP_RESPONSE], authors: [LP.pk] });
+  assert.deepEqual(ev!.tags.filter((t) => t[0] !== "e" && t[0] !== "p"), [["swap_id", s.swapId], ["status", "GESCHEITERT"], ["zurueckgegeben", "1"]]);
+  assert.equal(ev!.content, "Zahlung gescheitert – SOL zurückgegeben");
+  // Nach einem Neustart nichts doppelt
+  const b = aufbau(lightning({ stand: async () => ({ status: "gescheitert" }) }), { sp, sol: a.sol });
+  zaehleRueckgaben(b.sol);
+  assert.deepEqual(await b.lp.nachholen(), []);
+  assert.equal(rueckgaben.length, 1);
+});
+
+test("A-28b: nie bei offenem Ausgang – ohne Auskunft von LND, „laeuft“ oder „unbekannt“ gibt der LP nichts zurueck", async () => {
+  // Ohne zahlungsstand: GESCHEITERT wie bisher, aber nicht sicher
+  const ohne = aufbau(lightning({ scheitert: "fetch failed" }));
+  const r1 = zaehleRueckgaben(ohne.sol);
+  await kunde(ohne);
+  const [s1] = await ohne.lp.pollOnce(JETZT) as RueckSitzung[];
+  await ohne.lp.warteAufZahlungen();
+  assert.equal(s1.phase, "GESCHEITERT");
+  assert.deepEqual(r1, []);
+  assert.deepEqual(await antworten(ohne, true), ["GESCHEITERT: Zahlung gescheitert – SOL nach Ablauf der Sperre zurückholen"]);
+  // „laeuft“: bleibt offen
+  const laeuft = aufbau(lightning({ scheitert: "fetch failed", stand: async () => ({ status: "laeuft" }) }));
+  const r2 = zaehleRueckgaben(laeuft.sol);
+  await kunde(laeuft);
+  const [s2] = await laeuft.lp.pollOnce(JETZT) as RueckSitzung[];
+  await laeuft.lp.warteAufZahlungen();
+  assert.equal(s2.phase, "ZAHLT");
+  assert.deepEqual(r2, []);
+  // „unbekannt“ kurz vor der Frist: abgeschlossen, aber nicht zurueckgegeben
+  const uhr = { t: JETZT };
+  const unbekannt = aufbau(lightning({ scheitert: "fetch failed", stand: async () => ({ status: "unbekannt" }) }), { uhr });
+  const r3 = zaehleRueckgaben(unbekannt.sol);
+  await kunde(unbekannt);
+  const [s3] = await unbekannt.lp.pollOnce(JETZT) as RueckSitzung[];
+  await unbekannt.lp.warteAufZahlungen();
+  uhr.t = s3.timelockUnix - 600;
+  await unbekannt.lp.nachholen();
+  assert.equal(s3.phase, "GESCHEITERT");
+  assert.deepEqual(r3, []);
+});
+
+test("A-28b: lehnt das Programm ab (vor dem Upgrade), bleibt es beim Rueckholen nach Ablauf – Antwort wie bisher", async () => {
+  const sp = speicher();
+  const a = aufbau(lightning({ scheitert: "FAILURE_REASON_NO_ROUTE", stand: async () => ({ status: "gescheitert" }) }), { sp });
+  const rueckgaben = zaehleRueckgaben(a.sol, { lehntAb: true });
+  await kunde(a);
+  const log: string[] = [];
+  const alt = console.error;
+  console.error = (...x: unknown[]) => void log.push(x.map(String).join(" "));
+  try {
+    await a.lp.pollOnce(JETZT);
+    await a.lp.warteAufZahlungen();
+  } finally {
+    console.error = alt;
+  }
+  assert.equal(sp.daten()[0].phase, "GESCHEITERT");
+  assert.equal(rueckgaben.length, 1, "einmal versucht");
+  assert.equal(a.sol.lpLamports, 50_000_000 - PREIS, "die SOL liegen weiter in der Sperre");
+  assert.equal(sp.daten()[0].zurueckgegeben, undefined);
+  assert.deepEqual(await antworten(a, true), ["GESCHEITERT: Zahlung gescheitert – SOL nach Ablauf der Sperre zurückholen"]);
+  assert.deepEqual(log, [`[lp] Rueckgabe ${sp.daten()[0].swapId.slice(0, 8)}: Error`], "ins Log nur der Fehlername");
+});
+
+test("A-28b: nach einem Neustart sicher gescheitert – zurueckgegeben, solange die Frist laeuft", async () => {
+  const sp = speicher();
+  const uhr = { t: JETZT };
+  const sol = new MockSolana(50_000_000, () => uhr.t);
+  const a = aufbau(lightning({ haengt: true }), { sp, sol, uhr });
+  await kunde(a);
+  await a.lp.pollOnce(JETZT);
+  const b = aufbau(lightning({ stand: async () => ({ status: "gescheitert" }) }), { sp, sol, uhr });
+  const rueckgaben = zaehleRueckgaben(sol);
+  const [s] = await b.lp.nachholen();
+  assert.equal(s.phase, "GESCHEITERT");
+  assert.equal(rueckgaben.length, 1);
+  assert.equal(sol.lpLamports, 50_000_000);
+  assert.deepEqual(await antworten(b), ["GESCHEITERT"]);
 });
 
 test("Zu spaet bezahlt: LP loest nicht mehr ein, wenn T_sol minus 10 Minuten erreicht ist", async () => {
