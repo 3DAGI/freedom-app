@@ -765,3 +765,17 @@ Bereichs unten anhängen.
   `dxf2png` gibt es in 2.2 nicht – LibreCAD nimmt es als Dateinamen und startet die Oberfläche (ohne Bildschirm hängt sie). Der Befehl
   in `bildHinweise()` ist genau der, den der Echttest ausführt (`librecadBefehleAusHinweisen()`). Das Paket bringt kein
   AppArmor-Profil mit (`dpkg -L librecad librecad-data`).
+- **Layouts im Bild nur über `bildBefehl()` und `scribusBefehl()`** (seit VKk4l, `bildstrom.ts`): ein Layout zählt nur mit Scribus aus
+  `scribusAusUmgebung()` – nur `SCRIBUS_ORTE` (`/usr/bin/scribus`, kein eigener Pfad), `SCRIBUS=aus` schaltet ab –, nur als echte Datei
+  `main.sla`, nach allen anderen Dateien (zuletzt `main.dxf`). `SCRIBUS_START` schreibt `scribus150.rc` ins Home der Sandbox:
+  `<UI ShowStartupDialog="0"/>` und `<MainWindow …/>` mit 0,0 und der Größe des Bilds – `--qwindowgeometry` nimmt Scribus nicht, es
+  setzt die Größe aus dieser Zeile (ohne sie 80 % des Bildschirms). Eine knappe Datei reicht: Scribus ergänzt fehlende Werte selbst. Die
+  Seite passt ein Skript beim Start ein (`-py "$HOME/.freedom-scribus.py"` als letzte Angabe, `zoomDocument(-100)`) – ohne zeigt
+  Scribus 100 %, im kleinen Bild nur die obere Ecke (der Echttest misst unten auf der Seite, Gegenprobe: Weiß). Automatisches Sichern
+  ist keine Einstellung, sondern eine Angabe der Datei (`AutoSave` am `DOCUMENT`, ohne Angabe aus; `DocumentSetup` im rc gilt nur für
+  neue Dokumente): Mit `AutoSave="1"` – so speichert Scribus eigene Dateien – legt es nach Änderungen im Bild `main_autosave_<Datum>.sla`
+  ins Projekt und nach SIGTERM bleibt sie liegen (gemessen mit `AutoSaveTime="60000"`, Gegenprobe mit `"0"`); die Skript-Schnittstelle
+  kann es nicht abschalten – nie versprechen, dass das Projekt nur `main.sla` enthält. Speichern legt keine Sicherung daneben. Ohne
+  `<LAYERS …/>` zeigt Scribus keinen Rahmen. Scribus nimmt `QT_QPA_PLATFORM=offscreen` nicht – auch `--version` und `-g -py` brauchen
+  einen Bildschirm (`xvfb-run`); der Agent schreibt das SLA darum selbst, wie es `bildHinweise()` beschreibt (`Version="1.5.0"` – Debian
+  12 hat Scribus 1.5.8). Das Paket bringt kein AppArmor-Profil mit (`dpkg -L scribus scribus-data`).

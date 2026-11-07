@@ -981,3 +981,38 @@ weitere grafische Programme waren unter OFFEN frei. FreeCAD fehlt in Ubuntu 24.0
   eine Zeichnung, wie der Agent sie nach den Hinweisen schreibt, im kleinen Bild (grün, neu geschrieben rot, sonst nichts im Projekt)
   und im großen Bild mit Docks (blau); im Terminal der Befehl aus den Hinweisen in der Sandbox (PDF, sonst nichts);
   `docker-vibecoden.test.ts` +1. Dazu im Test der Hinweise (VKk5) `main.dxf` in der Reihenfolge.
+
+## Schritt VKk4l – Layouts im Bild: main.sla in Scribus
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKk, Tabelle „MCP für gängige Programme“), nach MENSCH 06.11. („dann restlichen code“) –
+weitere grafische Programme waren unter OFFEN frei. Nach Krita (malen) und LibreCAD (2D-CAD) jetzt Satz und Layout.
+
+**Änderungen:**
+- **`node/src/bildstrom.ts`:** `SCRIBUS_ORTE`, `scribusAusUmgebung()`, `SCRIBUS_START` und `scribusBefehl()` – `scribus150.rc` ins Home
+  der Sandbox (ohne Startdialog, Fenster auf 0,0 in Bildgröße), ein Skript beim Start passt die Seite ein, Neustart nach jeder Änderung
+  über `neustartSchleife()`; in `bildBefehl()` nach der CAD-Zeichnung, in `bildHinweise()` an derselben Stelle (SLA als XML, mit
+  `AutoSave="0"` und Ebene, kein Befehl im Terminal), `BildStrom` mit `scribus`.
+- **`node/src/main.ts`:** `scribusAusUmgebung(process.env)` für Bild und Hinweise, im Log „Layouts in Scribus“.
+- **Docker:** `ARG SCRIBUS=0`, `scribus` nur mit `VIBECODEN=1` und `SCRIBUS=1`; `docker-compose.vibecoden.yml` reicht es durch.
+- **CI:** Schritt „Scribus fuer den Bild-Test“ (`xvfb-run -a scribus --version`).
+- **Docs:** PROVIDER, PROTOCOL (`code-bild-kein-programm`), VIBECODEN-ENTWURF (Scribus in der Tabelle, VKk4l fertig), OFFEN (VKk,
+  Probe „Vibecoden“ mit `SCRIBUS=1`), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- Scribus nimmt `QT_QPA_PLATFORM=offscreen` nicht (wie Krita) – auch `--version` und `-g -py` brauchen einen Bildschirm.
+- `--qwindowgeometry` nimmt Scribus nicht; die Größe kommt aus `<MainWindow>` in `scribus150.rc` (ohne: 80 % des Bildschirms, 512×384
+  im Bild von 640×480). Ohne Datei zeigt es den Startdialog; eine knappe rc reicht.
+- Ohne Einpassen zeigt Scribus die Seite in 100 % – im kleinen Bild nur die obere Ecke. `-py` mit `zoomDocument(-100)` als letzte
+  Angabe passt sie nach dem Laden ein (Gegenprobe im Echttest: unten auf der Seite Weiß statt der Fläche).
+- Automatisches Sichern ist eine Angabe der Datei (`AutoSave`, Quelltext des Laders: ohne Angabe aus), keine Einstellung: Mit
+  `AutoSave="1" AutoSaveTime="60000"` lag nach einer Minute `main_autosave_07_11_2026_06_07.sla` im Projekt, mit `"0"` nichts
+  (gleichzeitig, gleich lang). Nach SIGTERM bleibt die Datei liegen. Speichern legt keine Sicherung an und behält `AutoSave="0"`.
+- Ohne `<LAYERS>` öffnet Scribus das Layout, zeigt aber keinen Rahmen. `Version="1.5.0"` öffnet auch 1.6.1 (Debian 12 hat 1.5.8 –
+  dort nicht geprüft).
+
+**Tests:**
+- node +8: `bildstrom.test.ts` +7 – Reihenfolge und Dateien, Umgebung, Start mit Attrappe (`scribus150.rc` Zeile für Zeile, Skript,
+  `-py` zuletzt, Neustart), Bildstrom (nichts weiter eingebunden), die Hinweise nennen, was das Layout braucht (und keinen Befehl im
+  Terminal), Ende zu Ende mit echtem Scribus in der Sandbox: ein Layout, wie der Agent es nach den Hinweisen schreibt, im kleinen Bild
+  (grün, neu geschrieben rot, sonst nichts im Projekt) und im großen Bild (blau); `docker-vibecoden.test.ts` +1. Dazu im Test der
+  Hinweise (VKk5) `main.sla` in der Reihenfolge.

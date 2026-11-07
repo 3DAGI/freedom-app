@@ -28,6 +28,7 @@ import {
   MUSESCORE_DATEIEN, MUSESCORE_INSPEKTOR_AB, MUSESCORE_ORTE, MUSESCORE_START, musescoreAusUmgebung, musescoreBefehl,
   KRITA_DATEIEN, KRITA_ORTE, KRITA_START, kritaAusUmgebung, kritaBefehl,
   LIBRECAD_DOCKS_AB, LIBRECAD_ORTE, LIBRECAD_START, librecadAusUmgebung, librecadBefehl,
+  SCRIBUS_ORTE, SCRIBUS_START, scribusAusUmgebung, scribusBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -324,16 +325,16 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true, musescore: true, krita: true, librecad: true,
+    melt: true, shotcut: true, musescore: true, krita: true, librecad: true, scribus: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf",
+    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
@@ -346,7 +347,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
-    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad",
+    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad", scribus: "/usr/bin/scribus",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
@@ -354,7 +355,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
     musescoreBefehl("/usr/bin/mscore3", "main.mscx", g), kritaBefehl("/usr/bin/krita", "main.kra", g),
-    librecadBefehl("/usr/bin/librecad", g),
+    librecadBefehl("/usr/bin/librecad", g), scribusBefehl("/usr/bin/scribus", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -1187,6 +1188,96 @@ test("VKk4k: CAD-Zeichnung im Bildstrom – main.dxf in der Sandbox des Programm
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("plan", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4l: Layout – main.sla nur mit Scribus, nach Web und allen anderen Dateien (zuletzt main.dxf)", () => {
+  const a = ablage("layout", "web", "plan", "verweis", "ordner");
+  const groesse = { breite: 1280, hoehe: 720 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, scribus: "/usr/bin/scribus" };
+  writeFileSync(join(a.ort("layout"), "main.sla"), "<SCRIBUSUTF8NEW/>");
+  assert.deepEqual(bildBefehl(a.ort("layout"), web, mit), ["/bin/sh", "-c", SCRIBUS_START, "/usr/bin/scribus", "/arbeit/main.sla", "1280", "720"]);
+  assert.equal(bildBefehl(a.ort("layout"), web, groesse), null, "ohne Scribus zählt kein Layout");
+  // ein Flyer verdrängt keine Seite, und nach der CAD-Zeichnung
+  for (const [f, inhalt] of [["main.sla", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.sla", "main.dxf"]) writeFileSync(join(a.ort("plan"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("plan"), undefined, { ...mit, librecad: "/usr/bin/librecad" }), librecadBefehl("/usr/bin/librecad", groesse),
+    "main.dxf geht vor");
+  symlinkSync(join(a.ort("layout"), "main.sla"), join(a.ort("verweis"), "main.sla"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.sla"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+});
+
+test("VKk4l: Scribus aus der Distribution – nur der Ort unter /usr, SCRIBUS=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("scribus");
+  const datei = join(d, "scribus");
+  writeFileSync(datei, "");
+  assert.equal(scribusAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(scribusAusUmgebung({ SCRIBUS: "aus" }, [datei]), null);
+  assert.equal(scribusAusUmgebung({ SCRIBUS: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(scribusAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(SCRIBUS_ORTE, ["/usr/bin/scribus"]);
+});
+
+test("VKk4l: Start – ohne Startdialog, Fenster in Bildgröße, Seite eingepasst per Skript; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("scribus-start");
+  const heim = join(d, "heim");
+  mkdirSync(heim);
+  const sla = join(d, "main.sla");
+  writeFileSync(sla, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "programm"), 0o755);
+  const sh = spawn("/bin/sh", ["-c", SCRIBUS_START, join(d, "programm"), sla, ...scribusBefehl(join(d, "programm"), { breite: 640, hoehe: 480 }).slice(5)],
+    { stdio: "ignore", env: { ...process.env, HOME: heim } });
+  const zu = new Promise((r) => sh.once("close", r));
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  try {
+    const [erste] = await zeilen(1);
+    const skript = join(heim, ".freedom-scribus.py");
+    assert.equal(erste!.replace(/ \d+$/, ""), `-ns ${sla} -py ${skript}`, "das Skript zuletzt – Scribus nimmt -py nur als letzte Angabe");
+    // ohne ShowStartupDialog zeigte das Bild nur den Dialog; die Größe nimmt Scribus nur aus MainWindow, nicht aus --qwindowgeometry
+    assert.deepEqual(readFileSync(join(heim, ".config", "scribus", "scribus150.rc"), "utf8").split("\n"), [
+      `<SCRIBUSRC VERSION="1.5.0">`, ` <UI ShowStartupDialog="0"/>`,
+      ` <MainWindow XPosition="0" YPosition="0" Width="640" Height="480" Maximized="0" ScreenNumber="0"/>`, `</SCRIBUSRC>`, "",
+    ]);
+    // ohne das zeigt Scribus die Seite in 100 % – im kleinen Bild nur eine Ecke (gemessen mit Scribus 1.6, Gegenprobe)
+    assert.equal(readFileSync(skript, "utf8"), "import scribus\nscribus.zoomDocument(-100)\n");
+    writeFileSync(sla, "zwei");
+    const [, zweite] = await zeilen(2);
+    assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+    process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+    assert.equal(await zu, 0);
+  } finally {
+    try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+  }
+});
+
+test("VKk4l: Layout im Bildstrom – main.sla in der Sandbox des Programms, nichts weiter eingebunden; ohne Scribus kein Programm", async () => {
+  const a = ablage("layout");
+  writeFileSync(join(a.ort("layout"), "main.sla"), "<SCRIBUSUTF8NEW/>");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, scribus: "/usr/bin/scribus" });
+  try {
+    assert.equal(await b.starte("layout", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...scribusBefehl("/usr/bin/scribus", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("layout", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -2405,6 +2496,88 @@ test("VKk4k: im Terminal – der Befehl aus den Hinweisen gibt eine CAD-Zeichnun
   assert.equal(r.code, 0, r.ausgabe);
   assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
   assert.deepEqual(readdirSync(arbeit).sort(), ["main.dxf", "main.pdf"]);
+});
+
+const scribus = scribusAusUmgebung({});
+/**
+ * Ein Layout, wie der Agent es nach den Hinweisen schreibt (VKk5): SLA als XML – ein A4-Dokument mit `AutoSave="0"`, eine Farbe, die
+ * Ebene (ohne sie zeigt Scribus nichts), Musterseite und Seite ab 100, 20, oben ein Textrahmen und unten eine Fläche in der Farbe –
+ * so weit unten, dass sie ohne Einpassen der Seite nicht im Bild stünde (Gegenprobe: dort Weiß).
+ */
+const slaLayout = ([r, g, b]: number[]) => [
+  `<?xml version="1.0" encoding="UTF-8"?>`,
+  `<SCRIBUSUTF8NEW Version="1.5.0">`,
+  `<DOCUMENT ANZPAGES="1" PAGEWIDTH="595.28" PAGEHEIGHT="841.89" UNITS="1" AutoSave="0">`,
+  `<COLOR NAME="Farbe" SPACE="RGB" R="${r}" G="${g}" B="${b}"/>`,
+  `<LAYERS NUMMER="0" NAME="Hintergrund" SICHTBAR="1" DRUCKEN="1" EDIT="1"/>`,
+  `<MASTERPAGE PAGEXPOS="100" PAGEYPOS="20" PAGEWIDTH="595.28" PAGEHEIGHT="841.89" NUM="0" NAM="Normal"/>`,
+  `<PAGE PAGEXPOS="100" PAGEYPOS="20" PAGEWIDTH="595.28" PAGEHEIGHT="841.89" NUM="0" MNAM="Normal"/>`,
+  `<PAGEOBJECT PTYPE="4" XPOS="120" YPOS="60" WIDTH="400" HEIGHT="100" OwnPage="0" path="M0 0 L400 0 L400 100 L0 100 Z">`
+    + `<StoryText><ITEXT CH="Freedom"/><trail/></StoryText></PAGEOBJECT>`,
+  `<PAGEOBJECT PTYPE="6" XPOS="120" YPOS="620" WIDTH="555" HEIGHT="180" OwnPage="0" PCOLOR="Farbe" path="M0 0 L555 0 L555 180 L0 180 Z"/>`,
+  `</DOCUMENT>`,
+  `</SCRIBUSUTF8NEW>`, ``,
+].join("\n");
+
+test("VKk4l: die Hinweise nennen, was das Layout im Echttest braucht", () => {
+  const h = bildHinweise({ scribus: true });
+  for (const teil of [`<SCRIBUSUTF8NEW Version="1.5.0">`, `AutoSave="0"`, `<LAYERS NUMMER="0" NAME SICHTBAR="1" DRUCKEN="1" EDIT="1"/>`,
+    `PAGEXPOS="100" PAGEYPOS="20"`, `MNAM="Normal"`, `PTYPE="6"`, `PTYPE="4"`, `<StoryText><ITEXT CH=`, "M0 0 L<w> 0 L<w> <h> L0 <h> Z"]) {
+    assert.ok(h.includes(teil), teil);
+  }
+  assert.ok(!/QT_QPA_PLATFORM=offscreen scribus|scribus -g/.test(h), "kein Befehl im Terminal – Scribus braucht dort einen Bildschirm");
+});
+
+test("VKk4l: Ende zu Ende – ein Layout, wie der Agent es schreibt, in Scribus im kleinen Bild; neu geschrieben, zeigt das Bild das neue", {
+  skip: ohne || (!scribus && "Scribus fehlt (scribus)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("layout");
+    const datei = join(a.ort("layout"), "main.sla");
+    writeFileSync(datei, slaLayout([0, 192, 0]));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, scribus: scribus! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          writeFileSync(datei, slaLayout([204, 0, 0]));
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // in der Fläche unten auf der eingepassten Seite – ohne Einpassen zeigt Scribus nur die obere Ecke der Seite
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("layout", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.55, 0.75] });
+      console.log(`[bild] Scribus: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("layout")), ["main.sla"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4l: Ende zu Ende – main.sla in Scribus im großen Bild", {
+  skip: ohne || (!scribus && "Scribus fehlt (scribus)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("layout");
+    writeFileSync(join(a.ort("layout"), "main.sla"), slaLayout([0, 64, 200]));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, scribus: scribus! });
+    try {
+      const blau = (f: number[] | null) => !!f && f[2]! > 150 && f[0]! < 60 && f[1]! < 110;
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("layout", angebot, { breite: 1280, hoehe: 800 }), blau,
+        { frist: 90, stelle: [0.55, 0.75] });
+      console.log(`[bild] Scribus (groß): Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(blau(e.farbe), `blau (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("layout")), ["main.sla"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

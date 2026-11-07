@@ -218,6 +218,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends librecad
           QT_QPA_PLATFORM=offscreen librecad dxf2pdf --version
 
+      # VKk4l: Layouts zeigt Scribus – der Echttest schreibt main.sla als XML, das Skript startet neu. Scribus braucht auch für
+      # --version einen Bildschirm
+      - name: Scribus fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends scribus
+          xvfb-run -a scribus --version | grep Version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |
