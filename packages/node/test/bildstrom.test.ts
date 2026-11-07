@@ -1344,7 +1344,7 @@ test("VKk4m: Start – ohne Neuigkeiten aus dem Netz, im kleinen Bild ohne Docks
     try {
       const [erste] = await zeilen(1);
       assert.equal(erste!.replace(/ \d+$/, ""), `--qwindowgeometry ${g.breite}x${g.hoehe}+0+0 ${tmx}`);
-      // ohne DisplayNews fragt Tiled beim Start im Netz nach Neuigkeiten (gemessen mit Tiled 1.8; CheckForUpdates gibt es unter Linux nicht)
+      // ohne DisplayNews fragt Tiled beim Start im Netz nach Neuigkeiten (gemessen mit Tiled 1.8; CheckForUpdates=false allein änderte nichts)
       assert.equal(readFileSync(join(heim, ".config", "mapeditor.org", "tiled.conf"), "utf8"), "[Install]\nDisplayNews=false\n");
       // im kleinen Bild ohne Docks: mit ihnen ragte das Fenster über den Rand, und die Karte bekäme rund 190 Pixel
       const erweiterung = join(heim, ".config", "tiled", "extensions", "freedom.js");
