@@ -913,3 +913,33 @@ restlichen code“). Scheiterte die Zahlung des LP, wartete der Kunde bis T_sol 
   `sicherGescheitert`: rot.
 - app +2 (`refund-watcher.test.ts`: abgeschlossen nur, wenn die Kette sie nicht offen zeigt; `rueck-swap.test.ts`: verdrahtet),
   dazu Antwort und Text in den bestehenden Tests.
+
+## Schritt VKk4j – Gemälde im Bild: main.kra und OpenRaster in Krita
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKk, Tabelle „MCP für gängige Programme“), nach MENSCH 06.11. („dann restlichen code“) –
+weitere grafische Programme waren unter OFFEN frei, Krita stand dort als Erstes.
+
+**Änderungen:**
+- **`node/src/bildstrom.ts`:** `KRITA_ORTE`, `kritaAusUmgebung()`, `KRITA_DATEIEN` (`main.kra` vor `main.ora`), `KRITA_START` und
+  `kritaBefehl()` – `kritarc` ohne automatisches Sichern und ohne Sicherungsdatei ins Home der Sandbox, das Fenster in Bildgröße über
+  `--qwindowgeometry`, Neustart nach jeder Änderung über `neustartSchleife()`; in `bildBefehl()` nach der Partitur, in `bildHinweise()`
+  an derselben Stelle (OpenRaster für den Agenten beschrieben, kein Befehl im Terminal), `BildStrom` mit `krita`.
+- **`node/src/main.ts`:** `kritaAusUmgebung(process.env)` für Bild und Hinweise, im Log „Gemälde in Krita“.
+- **Docker:** `ARG KRITA=0`, `krita` nur mit `VIBECODEN=1` und `KRITA=1`; `docker-compose.vibecoden.yml` reicht es durch.
+- **CI:** Schritt „Krita fuer den Bild-Test“ (`xvfb-run -a krita --version` – Krita braucht auch dafür einen Bildschirm).
+- **Docs:** PROVIDER, PROTOCOL (`code-bild-kein-programm`), VIBECODEN-ENTWURF (Krita in der Tabelle, VKk4j fertig), OFFEN (VKk, Probe
+  „Vibecoden“ mit `KRITA=1`), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- Krita legt nach einer Änderung im Bild `main.kra-autosave.kra` neben die Datei (mit `AutoSaveInterval=10` nach 30 s gemessen) und beim
+  Speichern `main.kra~` – mit `AutoSaveInterval=0` und `CreateBackupFile=false` nichts (Strich per XTest, Strg+S; Gegenprobe ohne).
+- Krita nimmt `QT_QPA_PLATFORM=offscreen` nicht – auch `--export` und `--version` brechen ohne Bildschirm ab. Darum verspricht der
+  Hinweis keinen Befehl im Terminal; der Agent schreibt OpenRaster selbst. Krita öffnet es auch ohne `mergedimage.png` und Vorschau.
+- Im Bild von 640×480 bekommt die Leinwand knapp die Hälfte der Breite (Farbwähler und Ebenen rechts) – die Docker auszublenden hieße
+  auch die Werkzeuge auszublenden, darum bleibt es so.
+
+**Tests:**
+- node +7: `bildstrom.test.ts` +6 – Reihenfolge und Dateien, Umgebung, Start mit Attrappe (`kritarc`, Größe, Neustart), Bildstrom
+  (nichts weiter eingebunden), Ende zu Ende mit echtem Krita in der Sandbox: ein ORA, wie der Agent es nach den Hinweisen schreibt, im
+  kleinen Bild (grün, neu geschrieben rot, sonst nichts im Projekt) und `main.kra` im großen Bild; `docker-vibecoden.test.ts` +1.
+  Dazu im Test der Hinweise (VKk5) `main.kra` in der Reihenfolge.

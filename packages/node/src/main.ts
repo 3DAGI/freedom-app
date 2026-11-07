@@ -56,7 +56,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import {
   BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, gimpAusUmgebung, godotAusUmgebung, inkscapeAusUmgebung, kicadAusUmgebung,
-  libreofficeAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
+  kritaAusUmgebung, libreofficeAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
 } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
@@ -580,20 +580,22 @@ async function main(): Promise<void> {
         const shotcut = melt ? shotcutAusUmgebung(process.env) : null;
         // Partituren (VKk4i): MuseScore 3 der Distribution (Docker-Bild mit MUSESCORE=1) – ohne zeigt das Bild main.mscx nicht
         const musescore = musescoreAusUmgebung(process.env);
+        // Gemälde (VKk4j): Krita der Distribution (Docker-Bild mit KRITA=1) – ohne zeigt das Bild main.kra und main.ora nicht
+        const krita = kritaAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
           ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}), ...(libreoffice ? { libreoffice } : {}),
           ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}), ...(qgis ? { qgis } : {}), ...(melt ? { melt } : {}),
-          ...(shotcut ? { shotcut } : {}), ...(musescore ? { musescore } : {}),
+          ...(shotcut ? { shotcut } : {}), ...(musescore ? { musescore } : {}), ...(krita ? { krita } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
         // was der Motor über das Bild wissen muss (VKk5) – nur die Programme, die es hier gibt
         bildText = bildHinweise({
           godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, libreoffice: !!libreoffice, browser: !!browser,
-          inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut, musescore: !!musescore,
+          inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut, musescore: !!musescore, krita: !!krita,
         });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"}${krita ? ", Gemälde in Krita" : ", ohne Krita"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

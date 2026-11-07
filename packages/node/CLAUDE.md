@@ -741,3 +741,14 @@ Bereichs unten anhängen.
   Befehle in `bildHinweise()` sind genau die, die der Echttest ausführt (`musescoreBefehleAusHinweisen()`). PNG geht dort auch (je Seite
   `main-1.png`), steht aber nicht in den Hinweisen – der Test der Hinweise weist jedes `.png` ab (OpenSCAD kann es nicht). Ubuntu bringt
   für MuseScore kein AppArmor-Profil mit.
+- **Gemälde im Bild nur über `bildBefehl()` und `kritaBefehl()`** (seit VKk4j, `bildstrom.ts`): ein Bild zählt nur mit Krita aus
+  `kritaAusUmgebung()` – nur `KRITA_ORTE` (`/usr/bin/krita`, kein eigener Pfad), `KRITA=aus` schaltet ab –, nur als echte Datei und nur
+  mit einem Namen aus `KRITA_DATEIEN` (`main.kra` vor `main.ora`), nach Web, `main.svg`, `main.xcf`, `main.qgs`, `main.mlt` und
+  `main.mscx`. `KRITA_START` schreibt `kritarc` ins Home der Sandbox: `AutoSaveInterval=0` (Sekunden – sonst legt Krita nach einer
+  Änderung im Bild `main.kra-autosave.kra` neben die Datei) und
+  `CreateBackupFile=false` (sonst `main.kra~` beim Speichern) – beides gemessen, Gegenprobe. Die Größe setzt `--qwindowgeometry`; neu
+  geladen wird über `neustartSchleife()`, nach SIGTERM fragt Krita nichts. Krita nimmt `QT_QPA_PLATFORM=offscreen` nicht (es will
+  xcb) – auch `--export` und `--version` brauchen einen Bildschirm (`xvfb-run`). Der Agent bekommt darum im Terminal nur OpenRaster, das
+  er selbst schreibt: ein Zip mit `mimetype` zuerst und ungepackt, `stack.xml` und PNG-Ebenen unter `data/` – `mergedimage.png` braucht
+  Krita nicht (der Test der Hinweise weist jedes `.png` ab). Der erste Start im frischen Home kopiert rund 75 MB Ressourcen dorthin
+  (tmpfs) und dauert einige Sekunden länger. Das Paket bringt kein AppArmor-Profil mit (`dpkg -L krita`).

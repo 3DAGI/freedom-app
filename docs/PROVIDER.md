@@ -870,6 +870,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Pixel, ohne Inspektor. Schreibt der Agent die Partitur neu, startet das Bild neu; speichert
   jemand im Bild, legt MuseScore die Sicherung `.main.mscx,` daneben. Im Terminal wandelt er
   MusicXML um und gibt PDF, MIDI und WAV aus (`QT_QPA_PLATFORM=offscreen mscore3 -o …`).
+  Gemälde (`main.kra`, sonst OpenRaster `main.ora`, seit VKk4j) zeigt Krita (im Bild nur mit
+  `KRITA=1`, rund 300 MB; `KRITA=aus` schaltet es ab) – nach Web, `main.svg`, `main.xcf`,
+  `main.qgs`, `main.mlt` und `main.mscx`; das Fenster füllt das Bild, Krita sichert nicht
+  selbst und legt beim Speichern keine Sicherung daneben. Schreibt der Agent das Bild neu,
+  startet das Bild neu. Krita braucht auch zum Ausgeben einen Bildschirm – im Terminal
+  schreibt der Agent OpenRaster selbst (ein Zip mit `stack.xml` und PNG-Ebenen).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

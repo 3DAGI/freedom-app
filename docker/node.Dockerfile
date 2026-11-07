@@ -230,6 +230,13 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$MUSESCORE" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends musescore3 && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Gemälde im Bild (VKk4j) – nur mit VIBECODEN=1 und KRITA=1 (docker-compose.vibecoden.yml reicht es durch). Krita aus Debian
+# (GPL-3.0+, eigenes Programm, nur in den Sandboxen), mit Qt und KDE Frameworks rund 300 MB – zeigt main.kra und main.ora im Bild.
+ARG KRITA=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$KRITA" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends krita && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Java-Projekte mit Gradle (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1 (docker-compose.vibecoden.yml reicht es durch). Das JDK 17
 # aus Debian (GPL-2.0 mit Classpath-Ausnahme, eigenes Programm, nur in den Sandboxen), rund 250 MB; Gradle kommt aus der Stufe
 # oben. Die Konfiguration des JDK liegt unter /etc/java-17-openjdk – die Sandbox liest sie (VKh1). Die slim-Bilder haben kein
