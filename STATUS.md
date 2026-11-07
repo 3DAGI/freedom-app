@@ -1016,3 +1016,31 @@ weitere grafische Programme waren unter OFFEN frei. Nach Krita (malen) und Libre
   Terminal), Ende zu Ende mit echtem Scribus in der Sandbox: ein Layout, wie der Agent es nach den Hinweisen schreibt, im kleinen Bild
   (grün, neu geschrieben rot, sonst nichts im Projekt) und im großen Bild (blau); `docker-vibecoden.test.ts` +1. Dazu im Test der
   Hinweise (VKk5) `main.sla` in der Reihenfolge.
+
+## Schritt VKd2c – Sprache für den Motor: transcribe_audio über Freedom-MCP
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKd, `docs/SPRACHE-ENTWURF.md` SP-W6 A „MCP später“), nach B-38 und VKk4l – der letzte
+offene Teil von VKd2 (Bilder über fremde Provider bleiben „später“).
+
+**Änderungen:**
+- **`node/src/sprache-motor.ts` (neu):** `tonPfad()` (relativ oder unter `/arbeit/`, nichts Verstecktes, kein `..`),
+  `leseTonImProjekt()` (nur eine echte Datei im Projekt, begrenzt auf `TON_BYTES`, genau die Form von `pruefeWav()`) und
+  `transkribiereImProjekt()` (Whisper aus B-38 in der Sandbox, feste Texte für das Modell).
+- **`node/src/freedom-mcp.ts`:** Werkzeug `transcribe_audio` (`path`, `language` de/en/auto) – nur mit `ton`, wie `generate_image`
+  nicht über die `ToolRegistry`.
+- **`node/src/main.ts`:** `ton` je Anfrage nur, wenn `sprache?.bereit()`, mit dem Ordner des Projekts; im Log, dass der Motor es hat.
+- **Docs:** PROVIDER (Sprache für den Motor), VIBECODEN-ENTWURF (VKd2c fertig), SPRACHE-ENTWURF (SP-W6 umgesetzt), OFFEN (VKd2),
+  FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- Der Agent schreibt im Projekt – auch Verweise auf `~/.freedom` oder einen FIFO. Gelesen wird deshalb wie in der Vorschau (`finde()`):
+  jeder Teil mit `lstat`, `O_NOFOLLOW | O_NONBLOCK`, danach der echte Ort über `/proc/self/fd`.
+- Umwandeln (andere Abtastrate, Stereo) macht der Knoten nicht (SP-W5 A, kein ffmpeg im Knoten): Das Werkzeug nennt die verlangte
+  Form in seiner Beschreibung und in jeder Ablehnung (`TON_FORM`).
+
+**Tests:**
+- node +5 (`sprache-motor.test.ts`): Pfade; Lesen nur echter Dateien (Verweis auf die Datei und im Pfad, Ordner, FIFO, zu groß, keine
+  WAV, andere Abtastrate, leer, `..`); Freedom-MCP nennt das Werkzeug nur mit Whisper, Pfad und Sprache gehen an das Projekt, nie an
+  die `ToolRegistry`; Ende zu Ende mit einem nachgebauten `whisper-cli` in echtem bubblewrap (Text zurück, das Projekt unverändert,
+  der Arbeitsordner danach leer, Ablehnungen nur als feste Texte, eine falsche Datei erreicht Whisper nie); verdrahtet in `main.ts`.
+  Der Verdrahtungstest aus VKd (`freedom-mcp.test.ts`) prüft die Zeilen der Brücke jetzt samt `ton`.

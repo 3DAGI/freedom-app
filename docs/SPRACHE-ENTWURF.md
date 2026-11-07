@@ -83,7 +83,8 @@ Weitere Befunde:
 
 SP-W1 **A** (eigener Knoten und „Dieses Gerät“; fremde Provider mit A-11), SP-W2 **A** (Vorlesen nur mit den lokalen
 Stimmen des Geräts), SP-W3 **A** (Piper als eigenes Programm – wirkt erst, wenn Piper später doch kommt), SP-W4 **C**
-(large-v3-turbo-q5_0 auf dem GX10, base ohne GPU), SP-W5 **A** (Ton im Browser wandeln), SP-W6 **A** (MCP später).
+(large-v3-turbo-q5_0 auf dem GX10, base ohne GPU), SP-W5 **A** (Ton im Browser wandeln), SP-W6 **A** (MCP später – seit
+VKd2c, 07.11.2026, gibt es `transcribe_audio` für den Agenten: eine WAV-Datei im Projekt, dieselbe Form wie für die App).
 Damit ist B-38 frei; B-38a als Nächstes, B-38d entfällt vorerst. Quelle: Antwort des MENSCHEN im Chat von Spur B (19.10.2026): „Die offenen Entscheidungen alle nach deinen Empfehlungen.“
 
 ## Aufteilung (nach Freigabe, Empfehlungen)

@@ -779,3 +779,11 @@ Bereichs unten anhängen.
   `<LAYERS …/>` zeigt Scribus keinen Rahmen. Scribus nimmt `QT_QPA_PLATFORM=offscreen` nicht – auch `--version` und `-g -py` brauchen
   einen Bildschirm (`xvfb-run`); der Agent schreibt das SLA darum selbst, wie es `bildHinweise()` beschreibt (`Version="1.5.0"` – Debian
   12 hat Scribus 1.5.8). Das Paket bringt kein AppArmor-Profil mit (`dpkg -L scribus scribus-data`).
+- **Sprache für den Motor nur über `sprache-motor.ts`** (seit VKd2c, SP-W6 A): `transcribe_audio` bietet Freedom-MCP nur an, solange
+  Whisper ein Modell hat (`sprache?.bereit()` je Anfrage in `main.ts`) – Whisper ist derselbe aus B-38, ein Auftrag zur Zeit für App
+  und Motor zusammen (`sprache-belegt` → fester Text). Den Ton liest der Knoten selbst aus dem Ordner des Projekts – dort schreibt der
+  Agent, also nur über `leseTonImProjekt()`: Pfad nur relativ oder unter `/arbeit/` (`tonPfad()`, kein Teil mit Punkt am Anfang, kein
+  `..`), jeder Teil mit `lstat` (ein Verweis irgendwo heißt „gibt es nicht“), geöffnet mit `O_NOFOLLOW | O_NONBLOCK` (ein FIFO hielte
+  den Knoten an), unter Linux der echte Ort über `/proc/self/fd`, höchstens `TON_BYTES`, angenommen nur nach `pruefeWav()` – nie
+  `readFile` auf einen Pfad des Agenten. Wie Bilder (VKd2b2) nicht über die `ToolRegistry` (es braucht das Projekt). Ton und Text sind
+  Inhalt: nie ins Log; Ablehnungen nur als feste Texte, nie der Text eines Fehlers (er trüge den Pfad).

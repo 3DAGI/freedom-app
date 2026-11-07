@@ -31,6 +31,7 @@ import {
   gratisAusUmgebung,
   ANGEBOT_TAKT_SEK,
   lokaleKiAdresse,
+  type SpracheWahl,
 } from "@freedomstack/protocol";
 import { DvmProvider, DEFAULT_PROVIDER_CONFIG } from "./dvm-provider.js";
 import { kanalKasseAusUmgebung, kanalOrte } from "./kanal-kasse.js";
@@ -40,6 +41,7 @@ import { WECKEN_KONTAKT, WECKEN_TAKT_MS, WeckBuch, WeckDienst, ladeVapid, vapidD
 import { turnAusUmgebung } from "./turn.js";
 import { livekitAusUmgebung } from "./livekit.js";
 import { Whisper, whisperAusUmgebung } from "./whisper.js";
+import { transkribiereImProjekt } from "./sprache-motor.js";
 import { SignalWeiterleitung, direktVerbinden } from "./signal-weiterleitung.js";
 import { projekteAusUmgebung } from "./projekte.js";
 import { nutzeCgroups, pruefeSandbox, SANDBOX_GRENZEN, sandboxText } from "./sandbox.js";
@@ -643,7 +645,10 @@ async function main(): Promise<void> {
         mcp: (zeichen) => {
           const p = mcpProjekte.zu(zeichen);
           const bild = p && bilder ? (prompt: string) => erzeugeBild(bilder, bilderOrdner(projekte, p.projekt), prompt) : undefined;
-          return p && ((n) => mcpAntwort(n, werkzeuge, p.freigaben, bild));
+          // Sprache (VKd2c): Whisper aus B-38 – nur, solange ein Modell bereit ist; der Ton kommt aus dem Ordner des Projekts
+          const w = sprache?.bereit() ? sprache : undefined;
+          const ton = p && w ? (pfad: string, spr: SpracheWahl) => transkribiereImProjekt(w, projekte.ort(p.projekt), pfad, spr) : undefined;
+          return p && ((n) => mcpAntwort(n, werkzeuge, p.freigaben, bild, ton));
         },
         spiegel: (req, res) => beantworteSpiegel(req, res, { basis: `http://127.0.0.1:${BRUECKE_IN_SANDBOX.port}`, paket: { tor: torProxy ?? null }, konto: spiegelKonto }),
       });
@@ -661,6 +666,7 @@ async function main(): Promise<void> {
       for (const s of mcpWahl.server) console.log(`[code] für den Motor: ${s.name} (MCP, in der Sandbox)`);
       for (const f of mcpWahl.fehlt) console.log(`[code] ${MCP_TEXT[f]}`);
       if (bilder) console.log("[code] für den Motor: Bilder über die eigene ComfyUI (generate_image)");
+      if (sprache) console.log("[code] für den Motor: Text aus Sprache über Whisper (transcribe_audio, WAV im Projekt)");
       console.log(gradle ? "[code] für den Motor: Gradle (Bibliotheken über den Spiegel)" : "[code] ohne Gradle – Java-Projekte baut der Motor nicht");
       if (gradle) console.log(androidSdk ? "[code] für den Motor: Android-SDK (APKs über die Vorschau)" : "[code] ohne Android-SDK – APKs baut der Motor nicht");
       if (androidSdk && aapt2) console.log("[code] für den Motor: aapt2 aus den Quellen (statt aus Maven)");
