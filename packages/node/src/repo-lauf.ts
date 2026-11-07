@@ -21,6 +21,8 @@
  * die Sandbox sieht ihn nur lesbar als `/pakete`, npm und pip sind darauf eingestellt. Ein neues Paket fragt das Modell
  * mit der Zeile `paket_holen <npm|pypi> <name> <version>` an – die führt der Knoten aus (`paketHolen()`), nie die
  * Sandbox. Scheitert das Holen, läuft der Auftrag ohne Pakete; das Modell und die Antwort erfahren es.
+ * Im privaten Raum (11.5c4, P3) nur die Sperrdatei und nur mit dem Schalter des Raums – ohne `hole` gibt es kein
+ * `paket_holen`, und der Auftrag nennt es nicht.
  *
  * Teile davon nach mini-swe-agent (https://github.com/SWE-agent/mini-swe-agent):
  *
@@ -88,11 +90,11 @@ export interface RepoLaufOpts {
   /** Einen Befehl ausführen – im Knoten nur über `fuehreAus()` mit dem Arbeitsordner. */
   fuehre: (befehl: readonly string[], zeitMs: number) => Promise<SandboxErgebnis>;
   /**
-   * Pakete (11.5c3, nur offene Räume): `/pakete` ist eingebunden, `hole` führt `paket_holen` im Knoten aus; `fehlt`, wenn
-   * die Pakete der Sperrdatei nicht zu holen waren. Ohne diese Angabe gibt es kein `paket_holen` – die Zeile ginge als
-   * gewöhnlicher Befehl in die Sandbox.
+   * Pakete (11.5c3): `/pakete` ist eingebunden, `hole` führt `paket_holen` im Knoten aus (nur offene Räume); `fehlt`, wenn
+   * die Pakete der Sperrdatei nicht zu holen waren. Ohne `hole` (privat, 11.5c4) oder ohne diese Angabe gibt es kein
+   * `paket_holen` – die Zeile ginge als gewöhnlicher Befehl in die Sandbox.
    */
-  pakete?: { hole: (registry: PaketRegistry, name: string, version: string) => Promise<Array<{ url: string; pruefsumme: string }>>; fehlt?: PaketFall };
+  pakete?: { hole?: (registry: PaketRegistry, name: string, version: string) => Promise<Array<{ url: string; pruefsumme: string }>>; fehlt?: PaketFall };
   grenzen?: Partial<RepoLaufGrenzen>;
   jetzt?: () => number;
 }
@@ -119,7 +121,7 @@ const PAKET_UMGEBUNG = `npm_config_cache=${PAKETE_IN_SANDBOX}/npm npm_config_off
   + "npm_config_logs_dir=/tmp/npm-logs npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false "
   + `PIP_NO_INDEX=1 PIP_FIND_LINKS=${PAKETE_IN_SANDBOX}/pypi PIP_DISABLE_PIP_VERSION_CHECK=1`;
 
-const paketText = (fehlt: PaketFall | undefined): string => `
+const paketText = (fehlt: PaketFall | undefined, neu: boolean): string => `
 ## Packages
 
 ${fehlt
@@ -127,7 +129,9 @@ ${fehlt
     : "The packages listed in package-lock.json and requirements.txt (with --hash) were downloaded before you started."}
 They are in ${PAKETE_IN_SANDBOX} (read-only), and npm and pip are configured to use them without network:
 \`npm ci\` and \`pip install --target <dir> --require-hashes -r requirements.txt\` work offline. Install scripts do not run.
-To add a new package, issue \`paket_holen npm <name> <exact-version>\` or \`paket_holen pypi <name> <exact-version>\`
+${neu ? paketNeuText : "No other packages can be added.\n"}`;
+
+const paketNeuText = `To add a new package, issue \`paket_holen npm <name> <exact-version>\` or \`paket_holen pypi <name> <exact-version>\`
 as the only command. It prints the download URL and checksum of each file. Add them yourself to package-lock.json
 (\`resolved\`, \`integrity\`) and package.json, or to requirements.txt (\`name==version --hash=sha256:...\`), then install as above.
 Dependencies of a new package are not fetched with it - request them one by one.
@@ -138,7 +142,7 @@ const auftragText = (aufgabe: string, pakete?: RepoLaufOpts["pakete"]): string =
 You can execute bash commands and edit files to implement the necessary changes.
 The repository is checked out in the current directory (/arbeit). There is no network and no git:
 the changes are taken from the files when you finish.
-${pakete ? paketText(pakete.fehlt) : ""}
+${pakete ? paketText(pakete.fehlt, !!pakete.hole) : ""}
 ## Recommended Workflow
 
 This workflow should be done step-by-step so that you can iterate on your changes and any possible problems.
@@ -256,9 +260,9 @@ function beobachtung(befehl: string, e: SandboxErgebnis): string {
 }
 
 /** `paket_holen` im Knoten: je Datei Adresse und Prüfsumme – oder nur die Kennung, warum nicht (nie Text der Registry). */
-async function paketBeobachtung(p: NonNullable<RepoLaufOpts["pakete"]>, registry: PaketRegistry, name: string, version: string): Promise<SandboxErgebnis> {
+async function paketBeobachtung(hole: NonNullable<NonNullable<RepoLaufOpts["pakete"]>["hole"]>, registry: PaketRegistry, name: string, version: string): Promise<SandboxErgebnis> {
   try {
-    const dateien = await p.hole(registry, name, version);
+    const dateien = await hole(registry, name, version);
     return { code: 0, ausgabe: dateien.map((d) => `${d.url} ${d.pruefsumme}\n`).join(""), gekuerzt: false, zeitUm: false };
   } catch (e) {
     return { code: 1, ausgabe: `paket_holen: ${e instanceof PaketAbgelehnt ? e.fall : "paket-netz"}\n`, gekuerzt: false, zeitUm: false };
@@ -309,10 +313,11 @@ export async function repoLauf(o: RepoLaufOpts): Promise<RepoLaufErgebnis> {
     const bleibt = rest();
     if (bleibt <= 0) return ende("zeit");
     const befehl = befehle[0];
-    // Ein neues Paket holt der Knoten, nie die Sandbox – nur mit `pakete`
-    const holen = o.pakete && /^paket_holen[ \t]+(npm|pypi)[ \t]+(\S+)[ \t]+(\S+)$/.exec(befehl);
-    if (holen && o.pakete) {
-      nachrichten.push({ role: "user", content: beobachtung(befehl, await paketBeobachtung(o.pakete, holen[1] as PaketRegistry, holen[2], holen[3])) });
+    // Ein neues Paket holt der Knoten, nie die Sandbox – nur mit `pakete.hole` (offene Räume)
+    const hole = o.pakete?.hole;
+    const holen = hole && /^paket_holen[ \t]+(npm|pypi)[ \t]+(\S+)[ \t]+(\S+)$/.exec(befehl);
+    if (holen && hole) {
+      nachrichten.push({ role: "user", content: beobachtung(befehl, await paketBeobachtung(hole, holen[1] as PaketRegistry, holen[2], holen[3])) });
       continue;
     }
     let e: SandboxErgebnis;
@@ -362,8 +367,8 @@ function sperreAus(kopie: Arbeitskopie): { npm?: string; pip?: string } {
  * Einen Repo-Auftrag bearbeiten: Arbeitskopie am Kopf des Bundles (`arbeitskopie()` – wirft, wenn das Bundle sie nicht
  * hergibt) in einen neuen Arbeitsordner, der Ablauf darin in der Sandbox, danach der Patch aus dem Ordner. Den Ordner
  * löscht `weg()` immer, auch wenn etwas scheitert. Ohne `fertig` gibt es keinen Patch. Betreff vom Modell, sonst `betreff`.
- * Mit `paketHolen` (nur offene Räume, 11.5c3) zuerst die Pakete der Sperrdateien in einen zweiten Ordner im tmpfs, den die
- * Sandbox nur lesbar sieht; auch er ist danach weg.
+ * Mit `paketHolen` (11.5c3) zuerst die Pakete der Sperrdateien in einen zweiten Ordner im tmpfs, den die Sandbox nur lesbar
+ * sieht; auch er ist danach weg. `nurSperre` (privater Raum mit Schalter, 11.5c4): nur die Sperrdatei, kein `paket_holen`.
  */
 export async function bearbeiteRepo(o: Omit<RepoLaufOpts, "fuehre" | "pakete"> & {
   bundle: GelesenesBundle;
@@ -371,6 +376,7 @@ export async function bearbeiteRepo(o: Omit<RepoLaufOpts, "fuehre" | "pakete"> &
   bwrap?: string;
   basis?: string;
   paketHolen?: PaketOptionen;
+  nurSperre?: boolean;
 }): Promise<RepoAuftragErgebnis> {
   const kopie = arbeitskopie(o.bundle);
   const { ordner, weg } = neuerArbeitsordner(o.basis);
@@ -387,7 +393,10 @@ export async function bearbeiteRepo(o: Omit<RepoLaufOpts, "fuehre" | "pakete"> &
       } catch (e) {
         fehlt = e instanceof PaketAbgelehnt ? e.fall : "paket-netz";
       }
-      pakete = { hole: (registry, name, version) => paketHolen(registry, name, version, z, konto, opt), ...(fehlt ? { fehlt } : {}) };
+      pakete = {
+        ...(o.nurSperre ? {} : { hole: (registry: PaketRegistry, name: string, version: string) => paketHolen(registry, name, version, z, konto, opt) }),
+        ...(fehlt ? { fehlt } : {}),
+      };
     }
     const nurLesbar = zwischen ? [{ quelle: zwischen.ordner, ziel: PAKETE_IN_SANDBOX }] : undefined;
     const { abschluss, ...ablauf } = await repoLauf({

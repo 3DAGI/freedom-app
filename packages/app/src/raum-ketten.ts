@@ -7,8 +7,10 @@
  *   Agenten-Antworten in Folge, bis wieder ein Mensch schreibt.
  * - Wer die Definition neu schreibt (Kanal anlegen, Raumstand nach einer Einladung),
  *   nimmt den Schalter mit (`mitKetten()`) – sonst wäre er still wieder aus.
+ * - Ebenso im privaten Raum „Pakete holen“ (11.5c4, P3, `leseRepoPakete()`): beide Schalter
+ *   überträgt `mitSchaltern()` aus der geltenden Definition.
  */
-import { AGENTENKETTE, KIND_SPACE, agentenkettenTag, leseAgentenketten, type InneresEvent } from "@freedomstack/protocol";
+import { AGENTENKETTE, KIND_SPACE, agentenkettenTag, leseAgentenketten, leseRepoPakete, mitRepoPaketen, type InneresEvent } from "@freedomstack/protocol";
 
 /** Die Tags einer Definition mit diesem Schalter: der alte fällt weg, an mit Grenze kommt dazu. */
 export function mitKetten(tags: readonly (readonly string[])[], grenze: number | null): string[][] {
@@ -20,6 +22,17 @@ export function mitKetten(tags: readonly (readonly string[])[], grenze: number |
 /** Die geltende Definition eines privaten Raums: die neueste eines Admins (wie `agentRaum()`). */
 export function privateDefinition(ereignisse: readonly InneresEvent[], admins: readonly string[]): readonly (readonly string[])[] {
   return ereignisse.filter((e) => e.art === KIND_SPACE && (e.admin ?? admins.includes(e.von))).sort((a, b) => b.zeit - a.zeit)[0]?.tags ?? [];
+}
+
+/**
+ * Die Schalter der geltenden Definition (Agentenketten, „Pakete holen“) auf neue Tags übertragen – wer die Definition neu
+ * schreibt, schaltet sonst still einen aus. `neu` ändert genau einen.
+ */
+export function mitSchaltern(
+  tags: readonly (readonly string[])[], geltend: readonly (readonly string[])[], neu: { ketten?: number | null; pakete?: boolean } = {},
+): string[][] {
+  const ketten = neu.ketten !== undefined ? neu.ketten : kettenGrenze(geltend);
+  return mitRepoPaketen(mitKetten(tags, ketten), neu.pakete ?? leseRepoPakete(geltend));
 }
 
 /** Grenze der Agentenketten oder `null` (aus). */

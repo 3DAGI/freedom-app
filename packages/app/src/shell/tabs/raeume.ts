@@ -422,6 +422,8 @@ function zeigeRaumArt(spaceId: string): void {
   document.getElementById("space-agent-neu")?.classList.toggle("hidden", !agenten);
   // Agentenketten (11.3e3): offen der Gründer, privat ein Moderator – nur als Hauptidentität
   document.getElementById("space-ketten")?.classList.toggle("hidden", !verwalten || alsGeraet() || !agentOrt());
+  // Pakete für Agenten holen (11.5c4, P3): nur privat und nur ein Moderator – offen holt der Knoten immer
+  document.getElementById("space-pakete")?.classList.toggle("hidden", !privat || !moderator || alsGeraet());
   // Kasse (A-12b2a): die eigene Adresse nennen – mit dem Recht „kasse“, nur als Hauptidentität
   const st = spacesUi.state as SpaceState | null;
   const kasse = !!agentOrt() && !alsGeraet() && !!state.keypair && !!st && darf(state.keypair.pk, RAUM_KASSEN_RECHT, st);
@@ -1637,6 +1639,11 @@ export async function wireSpacesTab(): Promise<void> {
   document.getElementById("space-ketten")?.addEventListener("click", () => {
     const ort = agentOrt();
     if (ort) void import("../raum-ketten-ui.js").then(async (m) => { if ((await m.stelleKettenEin(ort)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
+  });
+  // Pakete für Agenten holen (11.5c4): Schalter in der Definition des privaten Raums
+  document.getElementById("space-pakete")?.addEventListener("click", () => {
+    const raum = spacesUi.privat;
+    if (raum) void import("../raum-pakete-ui.js").then(async (m) => { if ((await m.stellePaketeEin(raum)) && spacesUi.spaceId) await oeffneRaum(spacesUi.spaceId); });
   });
   // Kasse im Raum (A-12b2a): die eigene Adresse nennen – danach den Raum neu, damit sie im Stand steht
   document.getElementById("space-kasse-adresse")?.addEventListener("click", () => {

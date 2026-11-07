@@ -116,3 +116,25 @@ export function neuesterBundleVerweis(
   }
   return beste;
 }
+
+// ------------------------------------------------------------ Pakete im privaten Raum (11.5c4, P3)
+
+/**
+ * Schalter „Pakete holen“ in der Definition eines privaten Raums (inneres Event 34700, die neueste eines Admins): an
+ * heißt, der Knoten holt vor einem Repo-Auftrag, was `package-lock.json` und `requirements.txt` mit Prüfsumme nennen –
+ * die Registry sieht dann Paketnamen und die IP des Knotens, nie Code. Vorgabe aus (kein Tag); `paket_holen` gibt es
+ * privat nie. In offenen Räumen gilt der Schalter nicht: Dort ist der Code öffentlich, und der Knoten holt immer.
+ */
+export const REPO_PAKETE = ["repo_pakete", "sperrdatei"] as const;
+
+/** Die Tags einer Definition mit diesem Schalter: der alte fällt weg, an kommt dazu. */
+export function mitRepoPaketen(tags: readonly (readonly string[])[], an: boolean): string[][] {
+  const ohne = tags.filter((t) => t[0] !== REPO_PAKETE[0]).map((t) => [...t]);
+  return an ? [...ohne, [...REPO_PAKETE]] : ohne;
+}
+
+/** Schalter lesen: an nur mit genau einem Tag und genau diesem Wert – Unsinn heißt aus. */
+export function leseRepoPakete(tags: readonly (readonly string[])[]): boolean {
+  const l = tags.filter((t) => t[0] === REPO_PAKETE[0]);
+  return l.length === 1 && l[0]!.length === 2 && l[0]![1] === REPO_PAKETE[1];
+}

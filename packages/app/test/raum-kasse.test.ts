@@ -91,7 +91,7 @@ test("A-12b2a: Verdrahtet – Menü nur mit „kasse“ und als Person, erst fra
 test("A-12b2a: wer die private Definition neu schreibt, gibt die Kasse mit – Raumstand, Kanäle, Agentenketten", () => {
   const mls = lies("shell/raum-mls.ts");
   assert.match(mls, /raumDefinition\(raum\.gruppe, \{ kasse: raum\.zustand\.space\?\.kasse, \.\.\.r \}\)/);
-  assert.equal((mls.match(/definitionMitKetten\(raum, \{/g) ?? []).length, 4, "Raumstand, Kanal anlegen, Kanal ändern, Kasse – alle über die Stelle mit der Kasse");
+  assert.equal((mls.match(/definitionMitKetten\(raum, \{/g) ?? []).length, 5, "Raumstand, Kanal anlegen, Kanal ändern, Kasse, Pakete (11.5c4) – alle über die Stelle mit der Kasse");
   const setze = mls.slice(mls.indexOf("export function setzePrivateKetten("), mls.indexOf("/** Den Raumstand"));
   assert.match(setze, /raumDefinition\(raum\.gruppe, \{ name: sp\.name, beschreibung: sp\.description, kanaele: sp\.channels, kasse: sp\.kasse \}\)/);
   assert.equal((mls.match(/raumDefinition\(/g) ?? []).length, 3, "Anlegen (ohne Kasse), definitionMitKetten, setzePrivateKetten – keine weitere Stelle");

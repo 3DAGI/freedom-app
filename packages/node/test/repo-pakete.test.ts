@@ -8,6 +8,8 @@
  *  - mit bubblewrap: was die Sperrdateien des Bundles nennen, liegt vor dem ersten Schritt nur lesbar in `/pakete`, pip
  *    installiert ohne Netz daraus, ein neues Paket ist danach dort; beide Ordner sind am Ende weg
  *  - Scheitert das Holen, läuft der Auftrag ohne Pakete – das Modell und das Ergebnis erfahren die Kennung
+ *  - Privater Raum mit Schalter (11.5c4, `nurSperre`): die Pakete der Sperrdatei liegen in `/pakete`, `paket_holen` gibt es
+ *    nicht – die Zeile ist ein gewöhnlicher Befehl, die Aufgabe nennt nur „No other packages can be added“
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -82,6 +84,16 @@ test("11.5c3: paket_holen führt der Knoten aus – Adresse und Prüfsumme, sons
   const m3 = drehbuch([bash(`printf '%s\\n' ${ENDE_MARKE} 'x'`)]);
   await repoLauf({ aufgabe: "x", modell: m3.modell, pakete: { hole, fehlt: "paket-pruefsumme" }, fuehre: async () => ok(`${ENDE_MARKE}\nx\n`) });
   assert.match(m3.gesehen[0]![1]!.content, /could not all be downloaded \(paket-pruefsumme\); do not rely on them/);
+
+  // Privat mit Schalter (11.5c4): /pakete und npm/pip darauf, aber ohne `hole` kein paket_holen – die Zeile geht in die Sandbox
+  const privat: string[] = [];
+  const m4 = drehbuch([bash("paket_holen npm left-pad 1.3.0"), bash(`printf '%s\\n' ${ENDE_MARKE} 'x'`)]);
+  await repoLauf({ aufgabe: "x", modell: m4.modell, pakete: {}, fuehre: async (b) => { privat.push(b[2]!); return ok(privat.length === 2 ? `${ENDE_MARKE}\nx\n` : ""); } });
+  assert.match(privat[0]!, /\npaket_holen npm left-pad 1\.3\.0$/);
+  for (const b of privat) assert.match(b.split("\n")[0]!, /npm_config_cache=\/pakete\/npm .*PIP_FIND_LINKS=\/pakete\/pypi/);
+  assert.match(m4.gesehen[0]![1]!.content, /## Packages\n\nThe packages listed in package-lock\.json and requirements\.txt \(with --hash\) were downloaded/);
+  assert.match(m4.gesehen[0]![1]!.content, /work offline\. Install scripts do not run\.\nNo other packages can be added\.\n\n## Recommended Workflow/);
+  assert.doesNotMatch(m4.gesehen[0]![1]!.content, /paket_holen/);
 });
 
 /** Ein kleinstes Rad (`py3-none-any`), gebaut mit zipfile – ohne Netz und ohne Werkzeuge. */
@@ -158,6 +170,26 @@ test("11.5c3 mit bubblewrap: Pakete der Sperrdatei nur lesbar in /pakete, pip in
   assert.match(letzte(m.gesehen[4]!), /neu_probe-2\.0\.0-py3-none-any\.whl/, "das neue Paket liegt danach in /pakete");
   // Nur GET von der Liste, nur was Sperrdatei und paket_holen nannten
   assert.deepEqual(a.gefragt.map((x) => new URL(x).host), ["pypi.org", "files.pythonhosted.org", "pypi.org", "files.pythonhosted.org"]);
+  assert.deepEqual(readdirSync(basis), [], "Arbeitsordner und Zwischenspeicher gelöscht");
+});
+
+test("11.5c4 mit bubblewrap: nur die Sperrdatei – Pakete in /pakete, paket_holen ist ein Befehl wie jeder, die Registry hört nichts davon", { skip: ohneSandbox }, async () => {
+  const basis = mkdtempSync(join(tmpdir(), "repo-pakete-basis-"));
+  const a = await aufbau();
+  const m = drehbuch([
+    bash(`ls ${PAKETE_IN_SANDBOX}/pypi`),
+    bash("paket_holen pypi neu_probe 2.0.0"),
+    bash(`printf '%s\\n' ${ENDE_MARKE} 'nichts'`),
+  ]);
+  const r = await bearbeiteRepo({
+    aufgabe: "x", modell: m.modell, bundle: a.bundle, basis, angaben: { name: "Agent", mail: "a@agent.freedom.invalid", zeit: 1_700_000_000, betreff: "x" },
+    paketHolen: { tor: null, abruf: a.abruf, plattform: { cpu: "x64" } }, nurSperre: true,
+  });
+  assert.equal(r.ende, "fertig");
+  assert.equal(r.pakete, undefined, "die Sperrdatei ist geholt");
+  assert.match(letzte(m.gesehen[1]!), /freedom_probe-1\.0\.0-py3-none-any\.whl/);
+  assert.match(letzte(m.gesehen[2]!), /<returncode>127<\/returncode>[\s\S]*paket_holen: command not found/);
+  assert.deepEqual(a.gefragt.map((x) => new URL(x).host), ["pypi.org", "files.pythonhosted.org"], "nur die Sperrdatei, nie neu_probe");
   assert.deepEqual(readdirSync(basis), [], "Arbeitsordner und Zwischenspeicher gelöscht");
 });
 

@@ -1185,10 +1185,13 @@ zeigt. Offen steht das an der Raum-Nachricht (Kind 42), privat am inneren Event
   Events der Gruppe (`raumReposPrivat()`) – ein offener Verweis zählt dort nicht. Patch
   (`raumRepoPatch()`) und Antwort (Kind 9, `raumAgentAntwort(…, { patch, fall })`) gehen
   nur als innere Events in die Gruppe; `e` nennt die Id des inneren Patches.
-- **Pakete** (seit 11.5c3, nur offene Räume): Konnte der Knoten die Pakete aus `package-lock.json` oder
+- **Pakete** (seit 11.5c3): Konnte der Knoten die Pakete aus `package-lock.json` oder
   `requirements.txt` des Repos nicht holen, lief der Auftrag ohne sie; die Antwort trägt dann zusätzlich
-  `["pakete", <kennung>]` (`paket-…`, etwa `paket-pruefsumme`, `paket-netz`). Im privaten Raum holt der Knoten keine
-  Pakete (P3).
+  `["pakete", <kennung>]` (`paket-…`, etwa `paket-pruefsumme`, `paket-netz`). Im offenen Raum holt er immer, dazu neue
+  Pakete über `paket_holen`. Im privaten Raum (seit 11.5c4, P3) nur mit dem Schalter in der geltenden Definition (die
+  neueste eines Admins, wie `agentenketten`): `["repo_pakete", "sperrdatei"]` (`mitRepoPaketen()`, `leseRepoPakete()` –
+  genau ein Tag mit genau diesem Wert, sonst aus; Vorgabe aus). Dann nur die Sperrdatei; `paket_holen` gibt es privat
+  nie. In der Definition eines offenen Raums gilt das Tag nicht.
 
 | `fall` | Bedeutung |
 |---|---|
