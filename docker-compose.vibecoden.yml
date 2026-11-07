@@ -37,6 +37,8 @@ services:
         SCRIBUS: "${SCRIBUS:-0}"
         # Karten für 2D-Spiele im Bild (VKk4m): TILED=1 baut Tiled dazu, mit Qt 5 rund 50 MB
         TILED: "${TILED:-0}"
+        # Diagramme im Bild (VKk4n): XDOT=1 baut xdot mit Graphviz dazu, rund 40 MB
+        XDOT: "${XDOT:-0}"
         # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
         GRADLE: "${GRADLE:-0}"
         # Android-Apps (VKh2b): ANDROID=1 baut das Android-SDK dazu (braucht GRADLE=1), rund 300 MB, bisher nur auf amd64 nutzbar.

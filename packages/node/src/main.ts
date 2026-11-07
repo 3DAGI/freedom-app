@@ -58,7 +58,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import {
   BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, gimpAusUmgebung, godotAusUmgebung, inkscapeAusUmgebung, kicadAusUmgebung,
-  kritaAusUmgebung, librecadAusUmgebung, libreofficeAusUmgebung, scribusAusUmgebung, tiledAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
+  kritaAusUmgebung, librecadAusUmgebung, libreofficeAusUmgebung, scribusAusUmgebung, tiledAusUmgebung, xdotAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
 } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
@@ -590,12 +590,15 @@ async function main(): Promise<void> {
         const scribus = scribusAusUmgebung(process.env);
         // Karten für Spiele (VKk4m): Tiled der Distribution (Docker-Bild mit TILED=1) – ohne zeigt das Bild main.tmx nicht
         const tiled = tiledAusUmgebung(process.env);
+        // Diagramme (VKk4n): xdot der Distribution (Docker-Bild mit XDOT=1) – ohne zeigt das Bild main.dot nicht
+        const xdot = xdotAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
           ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}), ...(libreoffice ? { libreoffice } : {}),
           ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}), ...(qgis ? { qgis } : {}), ...(melt ? { melt } : {}),
           ...(shotcut ? { shotcut } : {}), ...(musescore ? { musescore } : {}), ...(krita ? { krita } : {}),
           ...(librecad ? { librecad } : {}), ...(scribus ? { scribus } : {}), ...(tiled ? { tiled } : {}),
+          ...(xdot ? { xdot } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
@@ -603,9 +606,9 @@ async function main(): Promise<void> {
         bildText = bildHinweise({
           godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, libreoffice: !!libreoffice, browser: !!browser,
           inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut, musescore: !!musescore, krita: !!krita,
-          librecad: !!librecad, scribus: !!scribus, tiled: !!tiled,
+          librecad: !!librecad, scribus: !!scribus, tiled: !!tiled, xdot: !!xdot,
         });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"}${krita ? ", Gemälde in Krita" : ", ohne Krita"}${librecad ? ", CAD-Zeichnungen in LibreCAD" : ", ohne LibreCAD"}${scribus ? ", Layouts in Scribus" : ", ohne Scribus"}${tiled ? ", Karten in Tiled" : ", ohne Tiled"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"}${krita ? ", Gemälde in Krita" : ", ohne Krita"}${librecad ? ", CAD-Zeichnungen in LibreCAD" : ", ohne LibreCAD"}${scribus ? ", Layouts in Scribus" : ", ohne Scribus"}${tiled ? ", Karten in Tiled" : ", ohne Tiled"}${xdot ? ", Diagramme in xdot" : ", ohne xdot"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

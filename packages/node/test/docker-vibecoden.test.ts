@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBRECAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SCRIBUS_ORTE, TILED_ORTE,
+  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBRECAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SCRIBUS_ORTE, TILED_ORTE, XDOT_ORTE,
   SHOTCUT_ORTE,
 } from "../src/bildstrom.js";
 import { AAPT2_ORTE, ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
@@ -320,6 +320,19 @@ test("VKk4m: Tiled nur mit VIBECODEN=1 und TILED=1 aus der Distribution, dort, w
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+TILED: "\$\{TILED:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("TILED"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends tiled\n\s+QT_QPA_PLATFORM=offscreen tiled --version\n/);
+});
+
+test("VKk4n: xdot nur mit VIBECODEN=1 und XDOT=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG XDOT=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$XDOT" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends xdot && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("xdot") && !vibecoden.includes("xdot"), "xdot nur mit XDOT=1");
+  assert.deepEqual(XDOT_ORTE, ["/usr/bin/xdot"], "dort legt Debian es ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+XDOT: "\$\{XDOT:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("XDOT"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends xdot\n\s+dot -V\n/);
 });
 
 test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fester Fassung gegen SHA-256, das JDK aus Debian; die CI baut damit", () => {

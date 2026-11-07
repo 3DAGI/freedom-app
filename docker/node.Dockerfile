@@ -259,6 +259,14 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$TILED" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends tiled && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Diagramme im Bild (VKk4n) – nur mit VIBECODEN=1 und XDOT=1 (docker-compose.vibecoden.yml reicht es durch). xdot aus Debian
+# (LGPL-3+, eigenes Programm, nur in den Sandboxen) mit Graphviz (`dot`, EPL-1.0), rund 40 MB – zeigt main.dot im Bild; `dot` gibt
+# es im Terminal als SVG und PDF aus.
+ARG XDOT=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$XDOT" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends xdot && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Java-Projekte mit Gradle (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1 (docker-compose.vibecoden.yml reicht es durch). Das JDK 17
 # aus Debian (GPL-2.0 mit Classpath-Ausnahme, eigenes Programm, nur in den Sandboxen), rund 250 MB; Gradle kommt aus der Stufe
 # oben. Die Konfiguration des JDK liegt unter /etc/java-17-openjdk – die Sandbox liest sie (VKh1). Die slim-Bilder haben kein

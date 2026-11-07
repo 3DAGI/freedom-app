@@ -232,6 +232,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends tiled
           QT_QPA_PLATFORM=offscreen tiled --version
 
+      # VKk4n: Diagramme zeigt xdot – der Echttest schreibt main.dot als Text, auch eine kaputte Zwischenfassung; das Skript startet
+      # neu. Im Terminal gibt Graphviz (dot) es als SVG und PDF aus
+      - name: xdot fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends xdot
+          dot -V
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

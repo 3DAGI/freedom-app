@@ -903,6 +903,11 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   Agent die Karte neu, startet das Bild neu; Speichern im Bild legt nichts daneben. Im
   Terminal gibt er sie für Spiele-Engines aus
   (`QT_QPA_PLATFORM=offscreen tiled --export-map json main.tmx main.json`, ebenso `lua`).
+  Diagramme (`main.dot` vor `main.gv`, seit VKk4n) zeigt xdot mit Graphviz (im Bild nur mit
+  `XDOT=1`, rund 40 MB; `XDOT=aus` schaltet es ab) – nach allen Dateien oben; das Fenster füllt
+  das Bild, das Diagramm ist eingepasst. Schreibt der Agent es neu, startet das Bild neu – auch
+  nach einer kaputten Zwischenfassung zeigt es danach das neue. Im Terminal gibt er es als SVG
+  und PDF aus (`dot -Tsvg main.dot -o diagramm.svg`, ebenso `-Tpdf`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:
