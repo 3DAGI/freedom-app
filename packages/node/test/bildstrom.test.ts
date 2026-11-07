@@ -27,6 +27,7 @@ import {
   meltAusUmgebung, qgisAusUmgebung, qgisBefehl, shotcutAusUmgebung, videoBefehl, wineLesbar,
   MUSESCORE_DATEIEN, MUSESCORE_INSPEKTOR_AB, MUSESCORE_ORTE, MUSESCORE_START, musescoreAusUmgebung, musescoreBefehl,
   KRITA_DATEIEN, KRITA_ORTE, KRITA_START, kritaAusUmgebung, kritaBefehl,
+  LIBRECAD_DOCKS_AB, LIBRECAD_ORTE, LIBRECAD_START, librecadAusUmgebung, librecadBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -323,16 +324,16 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true, musescore: true, krita: true,
+    melt: true, shotcut: true, musescore: true, krita: true, librecad: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt", "main.mscx", "main.kra",
+    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
@@ -345,7 +346,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
-    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita",
+    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
@@ -353,6 +354,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
     musescoreBefehl("/usr/bin/mscore3", "main.mscx", g), kritaBefehl("/usr/bin/krita", "main.kra", g),
+    librecadBefehl("/usr/bin/librecad", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -1086,6 +1088,105 @@ test("VKk4j: Gemälde im Bildstrom – main.kra in der Sandbox des Programms, ni
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("bild", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4k: CAD-Zeichnung – main.dxf nur mit LibreCAD, nach Web, main.svg, main.xcf, main.qgs, main.mlt, main.mscx und main.kra", () => {
+  const a = ablage("plan", "web", "bild", "verweis", "ordner");
+  const groesse = { breite: 1280, hoehe: 720 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, librecad: "/usr/bin/librecad" };
+  writeFileSync(join(a.ort("plan"), "main.dxf"), "0\nEOF\n");
+  assert.deepEqual(bildBefehl(a.ort("plan"), web, mit), ["/bin/sh", "-c", LIBRECAD_START, "/usr/bin/librecad", "/arbeit/main.dxf", "1280x720+0+0", "0"],
+    "720 Pixel hoch: ohne Docks");
+  assert.equal(bildBefehl(a.ort("plan"), web, groesse), null, "ohne LibreCAD zählt keine Zeichnung");
+  // Zuschnitte verdrängen keine Seite, und nach dem Gemälde
+  for (const [f, inhalt] of [["main.dxf", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.dxf", "main.kra"]) writeFileSync(join(a.ort("bild"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("bild"), undefined, { ...mit, krita: "/usr/bin/krita" }), kritaBefehl("/usr/bin/krita", "main.kra", groesse),
+    "main.kra geht vor");
+  symlinkSync(join(a.ort("plan"), "main.dxf"), join(a.ort("verweis"), "main.dxf"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.dxf"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+  // die Docks rechts nur, wo das Fenster mit ihnen passt (mindestens 525×717, gemessen)
+  assert.deepEqual(LIBRECAD_DOCKS_AB, { breite: 1024, hoehe: 768 });
+  const docks = (breite: number, hoehe: number) => librecadBefehl("/usr/bin/librecad", { breite, hoehe }).at(-1);
+  assert.deepEqual([docks(1024, 768), docks(1920, 1080), docks(1023, 768), docks(1024, 767), docks(640, 480)], ["1", "1", "0", "0", "0"]);
+});
+
+test("VKk4k: LibreCAD aus der Distribution – nur der Ort unter /usr, LIBRECAD=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("librecad");
+  const datei = join(d, "librecad");
+  writeFileSync(datei, "");
+  assert.equal(librecadAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(librecadAusUmgebung({ LIBRECAD: "aus" }, [datei]), null);
+  assert.equal(librecadAusUmgebung({ LIBRECAD: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(librecadAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(LIBRECAD_ORTE, ["/usr/bin/librecad"]);
+});
+
+test("VKk4k: Start – ohne Dialog des ersten Starts und automatisches Sichern, Docks nur im großen Bild, in dessen Größe; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("librecad-start");
+  const dxf = join(d, "main.dxf");
+  writeFileSync(dxf, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "programm"), 0o755);
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  const mitDocks = [
+    "[General]", "AutoBackupDocument=0", "[Startup]", "FirstLoad=0", "[Defaults]", "AutoBackupDocument=0", "[CADPreferences]", "AutoZoomDrawing=1",
+  ];
+  for (const [g, einstellungen] of [
+    [{ breite: 1280, hoehe: 800 }, [...mitDocks, ""]], [{ breite: 640, hoehe: 480 }, [...mitDocks, "[Geometry]", "RightDockArea=0", ""]],
+  ] as const) {
+    const heim = join(d, `heim-${g.breite}`);
+    mkdirSync(heim);
+    rmSync(aufrufe, { force: true });
+    const sh = spawn("/bin/sh", ["-c", LIBRECAD_START, join(d, "programm"), dxf, ...librecadBefehl(join(d, "programm"), g).slice(5)],
+      { stdio: "ignore", env: { ...process.env, HOME: heim } });
+    const zu = new Promise((r) => sh.once("close", r));
+    try {
+      const [erste] = await zeilen(1);
+      assert.equal(erste!.replace(/ \d+$/, ""), `--qwindowgeometry ${g.breite}x${g.hoehe}+0+0 ${dxf}`);
+      // ohne FirstLoad zeigte das Bild nur den Dialog des ersten Starts; ohne AutoBackupDocument (ohne Gruppe) legte LibreCAD beim
+      // Speichern main.dxf~ ins Projekt, ohne Defaults/AutoBackupDocument nach einer Änderung #main.dxf; ohne AutoZoomDrawing ragte
+      // eine größere Zeichnung über den Rand (gemessen mit LibreCAD 2.2, Gegenprobe)
+      assert.deepEqual(readFileSync(join(heim, ".config", "LibreCAD", "LibreCAD.conf"), "utf8").split("\n"), einstellungen);
+      writeFileSync(dxf, `zwei ${g.breite}`);
+      const [, zweite] = await zeilen(2);
+      assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+      process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+      assert.equal(await zu, 0);
+    } finally {
+      try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+    }
+  }
+});
+
+test("VKk4k: CAD-Zeichnung im Bildstrom – main.dxf in der Sandbox des Programms, nichts weiter eingebunden; ohne LibreCAD kein Programm", async () => {
+  const a = ablage("plan");
+  writeFileSync(join(a.ort("plan"), "main.dxf"), "0\nEOF\n");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, librecad: "/usr/bin/librecad" });
+  try {
+    assert.equal(await b.starte("plan", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...librecadBefehl("/usr/bin/librecad", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("plan", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -2220,6 +2321,90 @@ test("VKk4j: Ende zu Ende – main.kra in Krita im großen Bild", {
       b.beendeAlle();
     }
   });
+});
+
+const librecad = librecadAusUmgebung({});
+/**
+ * Eine CAD-Zeichnung, wie der Agent sie nach den Hinweisen schreibt (VKk5): DXF als Text, Gruppencode und Wert im Wechsel – eine
+ * Fläche (`SOLID`) in einer Farbe aus der Palette von AutoCAD (1 rot, 3 grün, 5 blau), daneben Linie, Kreis, Bogen und Text.
+ */
+const cadZeichnung = (farbe: number) => [
+  "0", "SECTION", "2", "ENTITIES",
+  "0", "SOLID", "8", "0", "62", String(farbe), "10", "0", "20", "0", "11", "400", "21", "0", "12", "0", "22", "300", "13", "400", "23", "300",
+  "0", "LINE", "8", "0", "62", "7", "10", "420", "20", "0", "11", "520", "21", "300",
+  "0", "CIRCLE", "8", "0", "62", "7", "10", "470", "20", "250", "40", "40",
+  "0", "ARC", "8", "0", "62", "7", "10", "470", "20", "100", "40", "40", "50", "0", "51", "180",
+  "0", "TEXT", "8", "0", "62", "7", "10", "420", "20", "20", "40", "20", "1", "Freedom",
+  "0", "ENDSEC", "0", "EOF", "",
+].join("\n");
+
+test("VKk4k: Ende zu Ende – eine CAD-Zeichnung, wie der Agent sie schreibt, in LibreCAD im kleinen Bild; neu geschrieben, zeigt das Bild die neue", {
+  skip: ohne || (!librecad && "LibreCAD fehlt (librecad)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("plan");
+    const datei = join(a.ort("plan"), "main.dxf");
+    writeFileSync(datei, cadZeichnung(3));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, librecad: librecad! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          writeFileSync(datei, cadZeichnung(1));
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // links in der eingepassten Fläche – die Linien und der Text stehen rechts daneben
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("plan", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.3, 0.5] });
+      console.log(`[bild] LibreCAD: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("plan")), ["main.dxf"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4k: Ende zu Ende – main.dxf in LibreCAD im großen Bild, mit den Docks", {
+  skip: ohne || (!librecad && "LibreCAD fehlt (librecad)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("plan");
+    writeFileSync(join(a.ort("plan"), "main.dxf"), cadZeichnung(5));
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, librecad: librecad! });
+    try {
+      const blau = (f: number[] | null) => !!f && f[2]! > 150 && f[0]! < 60 && f[1]! < 110;
+      // links in der Leinwand – rechts stehen im großen Bild die Docks
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("plan", angebot, { breite: 1280, hoehe: 800 }), blau,
+        { frist: 90, stelle: [0.3, 0.5] });
+      console.log(`[bild] LibreCAD (groß): Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(blau(e.farbe), `blau (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("plan")), ["main.dxf"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const librecadBefehleAusHinweisen = () =>
+  [...bildHinweise({ librecad: true }).matchAll(/`(QT_QPA_PLATFORM=offscreen librecad [^`]*)`/g)].map((m) => m[1]!);
+
+test("VKk4k: im Terminal – der Befehl aus den Hinweisen gibt eine CAD-Zeichnung in der Sandbox als PDF aus", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!librecad && "LibreCAD fehlt (librecad)"), timeout: 120_000,
+}, async () => {
+  const arbeit = tmp("plan-terminal");
+  writeFileSync(join(arbeit, "main.dxf"), cadZeichnung(5));
+  const befehle = librecadBefehleAusHinweisen();
+  assert.deepEqual(befehle, ["QT_QPA_PLATFORM=offscreen librecad dxf2pdf -a main.dxf"]);
+  const r = await fuehreAus(["/bin/sh", "-c", befehle[0]!], { arbeit }, 90_000);
+  assert.equal(r.code, 0, r.ausgabe);
+  assert.equal(readFileSync(join(arbeit, "main.pdf")).subarray(0, 5).toString(), "%PDF-");
+  assert.deepEqual(readdirSync(arbeit).sort(), ["main.dxf", "main.pdf"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

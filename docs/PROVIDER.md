@@ -876,6 +876,12 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   selbst und legt beim Speichern keine Sicherung daneben. Schreibt der Agent das Bild neu,
   startet das Bild neu. Krita braucht auch zum Ausgeben einen Bildschirm – im Terminal
   schreibt der Agent OpenRaster selbst (ein Zip mit `stack.xml` und PNG-Ebenen).
+  CAD-Zeichnungen (`main.dxf`, seit VKk4k) zeigt LibreCAD (im Bild nur mit `LIBRECAD=1`,
+  rund 70 MB; `LIBRECAD=aus` schaltet es ab) – nach Web und allen Dateien oben; die
+  Zeichnung eingepasst, in einem Bild schmaler als 1024 oder niedriger als 768 Pixel ohne
+  die Leisten rechts; LibreCAD sichert nicht selbst und legt beim Speichern keine Sicherung
+  daneben. Schreibt der Agent die Zeichnung neu, startet das Bild neu. Im Terminal gibt er
+  sie als PDF aus (`QT_QPA_PLATFORM=offscreen librecad dxf2pdf -a main.dxf`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

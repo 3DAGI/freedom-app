@@ -943,3 +943,41 @@ weitere grafische Programme waren unter OFFEN frei, Krita stand dort als Erstes.
   (nichts weiter eingebunden), Ende zu Ende mit echtem Krita in der Sandbox: ein ORA, wie der Agent es nach den Hinweisen schreibt, im
   kleinen Bild (grün, neu geschrieben rot, sonst nichts im Projekt) und `main.kra` im großen Bild; `docker-vibecoden.test.ts` +1.
   Dazu im Test der Hinweise (VKk5) `main.kra` in der Reihenfolge.
+
+## Schritt VKk4k – CAD-Zeichnungen im Bild: main.dxf in LibreCAD
+
+Spur B (`docs/VIBECODEN-ENTWURF.md` VKk, Tabelle „MCP für gängige Programme“), nach MENSCH 06.11. („dann restlichen code“) –
+weitere grafische Programme waren unter OFFEN frei. FreeCAD fehlt in Ubuntu 24.04 (die CI könnte es nicht prüfen); LibreCAD deckt
+2D-CAD ab, und DXF kann der Agent als Text schreiben.
+
+**Änderungen:**
+- **`node/src/bildstrom.ts`:** `LIBRECAD_ORTE`, `librecadAusUmgebung()`, `LIBRECAD_DOCKS_AB`, `LIBRECAD_START` und `librecadBefehl()` –
+  `LibreCAD.conf` ins Home der Sandbox (ohne Dialog des ersten Starts, ohne automatisches Sichern und Sicherungsdatei, Zeichnung beim
+  Öffnen eingepasst,
+  unter 1024×768 ohne die Docks rechts), das Fenster in Bildgröße über `--qwindowgeometry`, Neustart nach jeder Änderung über
+  `neustartSchleife()`; in `bildBefehl()` nach dem Gemälde, in `bildHinweise()` an derselben Stelle (DXF als Text, PDF im Terminal),
+  `BildStrom` mit `librecad`.
+- **`node/src/main.ts`:** `librecadAusUmgebung(process.env)` für Bild und Hinweise, im Log „CAD-Zeichnungen in LibreCAD“.
+- **Docker:** `ARG LIBRECAD=0`, `librecad` nur mit `VIBECODEN=1` und `LIBRECAD=1`; `docker-compose.vibecoden.yml` reicht es durch.
+- **CI:** Schritt „LibreCAD fuer den Bild-Test“ (`QT_QPA_PLATFORM=offscreen librecad dxf2pdf --version`).
+- **Docs:** PROVIDER, PROTOCOL (`code-bild-kein-programm`), VIBECODEN-ENTWURF (LibreCAD in der Tabelle, VKk4k fertig), OFFEN (VKk,
+  Probe „Vibecoden“ mit `LIBRECAD=1`), FORTSCHRITT, Fallstrick in `packages/node/CLAUDE.md`, Stand.
+
+**Befunde:**
+- Im frischen Home zeigt LibreCAD erst einen Dialog (Einheit, Sprache) – mit `[Startup] FirstLoad=0` nicht.
+- Nach einer Änderung im Bild legt LibreCAD `#main.dxf` neben die Datei (mit `AutoSaveTime=1` nach einer Minute gemessen) – mit
+  `[Defaults] AutoBackupDocument=0` nichts (Gegenprobe gleichzeitig, gleich lang). Beim Speichern legt es `main.dxf~` daneben, auch
+  mit dieser Einstellung: `RS_Graphic::save()` (Quelltext 2.2.0.2) liest `AutoBackupDocument` ohne Gruppe – mit `[General]
+  AutoBackupDocument=0` dazu nichts (Strich per XTest, Strg+S; Gegenprobe ohne die Zeile: `main.dxf~`).
+- Ohne `AutoZoomDrawing=1` zeigt LibreCAD eine Zeichnung in fester Größe – eine Fläche von 400 mm ragte im großen wie im kleinen Bild
+  über den Rand; mit ihr passt sie samt Linie, Kreis, Bogen und Text.
+- Mit den Docks rechts ist das Fenster mindestens 525×717 Pixel groß und ragte im Bild von 640×480 unten hinaus; `RightDockArea=0`
+  blendet sie aus (`MainWindowX::toggleRightDockArea()`), dann passt es ab 300×270.
+- Im Terminal geht `librecad dxf2pdf` mit `QT_QPA_PLATFORM=offscreen` ohne Bildschirm; `dxf2png` gibt es in 2.2 nicht.
+
+**Tests:**
+- node +8: `bildstrom.test.ts` +7 – Reihenfolge, Dateien und Docks nach Größe, Umgebung, Start mit Attrappe (`LibreCAD.conf` im
+  großen und kleinen Bild, Größe, Neustart), Bildstrom (nichts weiter eingebunden), Ende zu Ende mit echtem LibreCAD in der Sandbox:
+  eine Zeichnung, wie der Agent sie nach den Hinweisen schreibt, im kleinen Bild (grün, neu geschrieben rot, sonst nichts im Projekt)
+  und im großen Bild mit Docks (blau); im Terminal der Befehl aus den Hinweisen in der Sandbox (PDF, sonst nichts);
+  `docker-vibecoden.test.ts` +1. Dazu im Test der Hinweise (VKk5) `main.dxf` in der Reihenfolge.
