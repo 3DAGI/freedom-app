@@ -882,6 +882,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   die Leisten rechts; LibreCAD sichert nicht selbst und legt beim Speichern keine Sicherung
   daneben. Schreibt der Agent die Zeichnung neu, startet das Bild neu. Im Terminal gibt er
   sie als PDF aus (`QT_QPA_PLATFORM=offscreen librecad dxf2pdf -a main.dxf`).
+  Layouts (`main.sla`, seit VKk4l) zeigt Scribus (im Bild nur mit `SCRIBUS=1`, rund 130 MB;
+  `SCRIBUS=aus` schaltet es ab) – nach allen Dateien oben; das Fenster füllt das Bild, die
+  Seite ist eingepasst. Ob Scribus selbst sichert, steht in der Datei: Mit `AutoSave="1"` (so
+  speichert Scribus eigene Dateien) legt es nach Änderungen im Bild `main_autosave_…sla`
+  daneben; der Agent schreibt `AutoSave="0"`. Schreibt er das Layout neu, startet das Bild
+  neu. Scribus braucht auch zum Ausgeben einen Bildschirm – im Terminal schreibt der Agent
+  das Layout als XML selbst.
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

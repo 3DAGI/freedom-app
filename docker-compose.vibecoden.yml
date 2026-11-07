@@ -33,6 +33,8 @@ services:
         KRITA: "${KRITA:-0}"
         # CAD-Zeichnungen im Bild (VKk4k): LIBRECAD=1 baut LibreCAD dazu, rund 70 MB
         LIBRECAD: "${LIBRECAD:-0}"
+        # Layouts im Bild (VKk4l): SCRIBUS=1 baut Scribus dazu, rund 130 MB
+        SCRIBUS: "${SCRIBUS:-0}"
         # Java-Projekte (VKh2a): GRADLE=1 baut das JDK 17 und Gradle dazu, rund 420 MB – Bibliotheken über den Spiegel (VKh1)
         GRADLE: "${GRADLE:-0}"
         # Android-Apps (VKh2b): ANDROID=1 baut das Android-SDK dazu (braucht GRADLE=1), rund 300 MB, bisher nur auf amd64 nutzbar.

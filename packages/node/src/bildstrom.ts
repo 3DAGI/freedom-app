@@ -616,6 +616,37 @@ export function librecadBefehl(librecad: string, groesse: { breite: number; hoeh
   return ["/bin/sh", "-c", LIBRECAD_START, librecad, "/arbeit/main.dxf", `${breite}x${hoehe}+0+0`, docks ? "1" : "0"];
 }
 
+/** Wo der Knoten Scribus sucht (VKk4l) – nur das Paket der Distribution unter `/usr`. */
+export const SCRIBUS_ORTE: readonly string[] = ["/usr/bin/scribus"];
+
+/** Scribus aus der Distribution (VKk4l): der erste aus `SCRIBUS_ORTE`; null mit `SCRIBUS=aus` oder ohne Fund. */
+export function scribusAusUmgebung(env: { SCRIBUS?: string }, orte: readonly string[] = SCRIBUS_ORTE): string | null {
+  return env.SCRIBUS?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/**
+ * Ein Layout im Bild (VKk4l): `main.sla` in Scribus. Die Einstellungen schreibt das Skript ins Home der Sandbox (tmpfs, nie ins
+ * Projekt): ohne Startdialog und das Fenster auf 0,0 in der Größe des Bilds (`MainWindow` – `--qwindowgeometry` nimmt Scribus
+ * nicht, es setzt seine eigene Größe). Ein Skript beim Start (`-py`, Python in Scribus) passt die Seite ins Fenster – sonst zeigt
+ * Scribus sie in 100 % und im kleinen Bild nur eine Ecke. Automatisches Sichern ist eine Angabe der Datei (`AutoSave` im
+ * `DOCUMENT`, ohne Angabe aus) und keine Einstellung: Trägt die Datei `AutoSave="1"` – so speichert Scribus selbst –, legt es nach
+ * Änderungen im Bild `main_autosave_<Datum>.sla` daneben (gemessen, Gegenprobe); die Hinweise lassen den Agenten `AutoSave="0"`
+ * schreiben. Eine geänderte Datei lädt Scribus nicht von selbst: Neustart über `neustartSchleife()`. `$0` ist Scribus, `$1` die
+ * Datei, `$2` und `$3` die Größe.
+ */
+export const SCRIBUS_START = [
+  `c="$HOME/.config/scribus"; mkdir -p "$c"`,
+  `printf '%s\\n' '<SCRIBUSRC VERSION="1.5.0">' ' <UI ShowStartupDialog="0"/>' \\`,
+  `  " <MainWindow XPosition=\\"0\\" YPosition=\\"0\\" Width=\\"$2\\" Height=\\"$3\\" Maximized=\\"0\\" ScreenNumber=\\"0\\"/>" '</SCRIBUSRC>' \\`,
+  `  > "$c/scribus150.rc"`,
+  `printf '%s\\n' 'import scribus' 'scribus.zoomDocument(-100)' > "$HOME/.freedom-scribus.py"`,
+  ...neustartSchleife(undefined, "-ns ", `-py "$HOME/.freedom-scribus.py"`),
+].join("\n");
+
+export function scribusBefehl(scribus: string, groesse: { breite: number; hoehe: number }): string[] {
+  return ["/bin/sh", "-c", SCRIBUS_START, scribus, "/arbeit/main.sla", String(groesse.breite), String(groesse.hoehe)];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -624,7 +655,8 @@ export function librecadBefehl(librecad: string, groesse: { breite: number; hoeh
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
  * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) dann eine Partitur
- * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) dann ein Gemälde aus `KRITA_DATEIEN`, mit LibreCAD (VKk4k) zuletzt `main.dxf`.
+ * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) dann ein Gemälde aus `KRITA_DATEIEN`, mit LibreCAD (VKk4k) dann `main.dxf`, mit
+ * Scribus (VKk4l) zuletzt `main.sla`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
@@ -632,7 +664,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
     inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string; krita?: string;
-    librecad?: string;
+    librecad?: string; scribus?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -674,6 +706,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   if (programme?.krita && gemaelde) return kritaBefehl(programme.krita, gemaelde, programme);
   // ebenso eine CAD-Zeichnung aus LibreCAD (VKk4k) – Zuschnitte zu einer Seite liegen oft daneben
   if (programme?.librecad && ist("main.dxf", "datei")) return librecadBefehl(programme.librecad, programme);
+  // ebenso ein Layout aus Scribus (VKk4l) – ein Flyer zu einer Seite liegt oft daneben
+  if (programme?.scribus && ist("main.sla", "datei")) return scribusBefehl(programme.scribus, programme);
   return null;
 }
 
@@ -684,12 +718,13 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
  * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt, Umwandeln und Ausgeben aus MuseScore
  * ebenso mit `offscreen`. Krita braucht auch im Terminal einen Bildschirm (`offscreen` nimmt es nicht) – dort nur OpenRaster, das der
- * Agent selbst schreibt. DXF schreibt der Agent als Text, LibreCAD gibt es mit `offscreen` als PDF aus.
+ * Agent selbst schreibt. DXF schreibt der Agent als Text, LibreCAD gibt es mit `offscreen` als PDF aus. Scribus braucht wie Krita
+ * auch im Terminal einen Bildschirm – das Layout schreibt der Agent als XML selbst (SLA, mit Ebene – ohne zeigt Scribus nichts).
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
   inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean; krita?: boolean;
-  librecad?: boolean;
+  librecad?: boolean; scribus?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -737,6 +772,14 @@ export function bildHinweise(p: {
       + "Write the DXF as text yourself: group code and value on alternating lines, an `ENTITIES` section with `LINE`, `CIRCLE`, "
       + "`ARC`, `TEXT` and so on, ending with `EOF`. In the terminal, LibreCAD needs `QT_QPA_PLATFORM=offscreen`: "
       + "`QT_QPA_PLATFORM=offscreen librecad dxf2pdf -a main.dxf` prints the drawing to `main.pdf`, fitted to the page"] : []),
+    ...(p.scribus ? ["- `main.sla` – a layout in Scribus (only if no web project is there); it restarts after every save. Scribus needs "
+      + "the screen, also for exports. Write the SLA yourself as XML: `<SCRIBUSUTF8NEW Version=\"1.5.0\">` with one `<DOCUMENT "
+      + "ANZPAGES PAGEWIDTH PAGEHEIGHT UNITS=\"1\" AutoSave=\"0\">` (sizes in points), colors as `<COLOR NAME SPACE=\"RGB\" R G B/>`, one "
+      + "layer `<LAYERS NUMMER=\"0\" NAME SICHTBAR=\"1\" DRUCKEN=\"1\" EDIT=\"1\"/>` (without it nothing shows), `<MASTERPAGE "
+      + "PAGEXPOS=\"100\" PAGEYPOS=\"20\" PAGEWIDTH PAGEHEIGHT NUM=\"0\" NAM=\"Normal\"/>`, a `<PAGE>` with the same position and "
+      + "size, `NUM` and `MNAM=\"Normal\"` per page, and frames `<PAGEOBJECT PTYPE XPOS YPOS WIDTH HEIGHT OwnPage path>` – positions "
+      + "count from the canvas (the first page starts at 100, 20), `path` outlines the frame (`M0 0 L<w> 0 L<w> <h> L0 <h> Z`), "
+      + "`PTYPE=\"6\"` is a shape filled with `PCOLOR`, `PTYPE=\"4\"` a text frame with `<StoryText><ITEXT CH=\"…\"/><trail/></StoryText>`"] : []),
   ];
   return [
     "# Showing the project",
@@ -813,6 +856,8 @@ export class BildStrom {
     krita?: string;
     /** LibreCAD für CAD-Zeichnungen (VKk4k, `librecadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     librecad?: string;
+    /** Scribus für Layouts (VKk4l, `scribusAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    scribus?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -849,6 +894,7 @@ export class BildStrom {
       ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
       ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
       ...(this.o.krita ? { krita: this.o.krita } : {}), ...(this.o.librecad ? { librecad: this.o.librecad } : {}),
+      ...(this.o.scribus ? { scribus: this.o.scribus } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
