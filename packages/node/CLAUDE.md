@@ -752,3 +752,16 @@ Bereichs unten anhängen.
   er selbst schreibt: ein Zip mit `mimetype` zuerst und ungepackt, `stack.xml` und PNG-Ebenen unter `data/` – `mergedimage.png` braucht
   Krita nicht (der Test der Hinweise weist jedes `.png` ab). Der erste Start im frischen Home kopiert rund 75 MB Ressourcen dorthin
   (tmpfs) und dauert einige Sekunden länger. Das Paket bringt kein AppArmor-Profil mit (`dpkg -L krita`).
+- **CAD-Zeichnungen im Bild nur über `bildBefehl()` und `librecadBefehl()`** (seit VKk4k, `bildstrom.ts`): eine Zeichnung zählt nur mit
+  LibreCAD aus `librecadAusUmgebung()` – nur `LIBRECAD_ORTE` (`/usr/bin/librecad`, kein eigener Pfad), `LIBRECAD=aus` schaltet ab –, nur
+  als echte Datei `main.dxf`, nach allen anderen Dateien (zuletzt `main.kra`). `LIBRECAD_START` schreibt `LibreCAD.conf` ins Home der
+  Sandbox: `[Startup] FirstLoad=0` (sonst zeigt das Bild nur den Dialog zu Einheit und Sprache), `AutoBackupDocument=0` zweimal – unter
+  `[General]` (sonst legt LibreCAD beim Speichern `main.dxf~` daneben; `RS_Graphic::save()` liest den Schlüssel ohne Gruppe) und unter
+  `[Defaults]` (sonst nach einer Änderung im Bild `#main.dxf` – gemessen mit `AutoSaveTime=1`), beides mit Gegenprobe – und
+  `[CADPreferences] AutoZoomDrawing=1` (sonst zeigt LibreCAD die Zeichnung in fester Größe, 400 mm ragten über den Rand). Die Docks
+  rechts (Stifte, Ebenen, Blöcke, Befehlszeile) machen das Fenster mindestens 525×717 Pixel groß – unter `LIBRECAD_DOCKS_AB` (1024×768)
+  blendet `[Geometry] RightDockArea=0` sie aus (das Fenster dann ab 300×270). Die Größe setzt `--qwindowgeometry`; neu geladen wird über
+  `neustartSchleife()`. Im Terminal geht nur `librecad dxf2pdf` (mit `QT_QPA_PLATFORM=offscreen`, ohne Bildschirm);
+  `dxf2png` gibt es in 2.2 nicht – LibreCAD nimmt es als Dateinamen und startet die Oberfläche (ohne Bildschirm hängt sie). Der Befehl
+  in `bildHinweise()` ist genau der, den der Echttest ausführt (`librecadBefehleAusHinweisen()`). Das Paket bringt kein
+  AppArmor-Profil mit (`dpkg -L librecad librecad-data`).

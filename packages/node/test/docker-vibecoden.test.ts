@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SHOTCUT_ORTE,
+  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBRECAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SHOTCUT_ORTE,
 } from "../src/bildstrom.js";
 import { AAPT2_ORTE, ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -279,6 +279,19 @@ test("VKk4j: Krita nur mit VIBECODEN=1 und KRITA=1 aus der Distribution, dort, w
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+KRITA: "\$\{KRITA:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("KRITA"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends krita\n\s+xvfb-run -a krita --version \| tail -1\n/);
+});
+
+test("VKk4k: LibreCAD nur mit VIBECODEN=1 und LIBRECAD=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG LIBRECAD=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$LIBRECAD" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends librecad && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("librecad") && !vibecoden.includes("librecad"), "librecad nur mit LIBRECAD=1");
+  assert.deepEqual(LIBRECAD_ORTE, ["/usr/bin/librecad"], "dort legt Debian es ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+LIBRECAD: "\$\{LIBRECAD:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("LIBRECAD"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends librecad\n\s+QT_QPA_PLATFORM=offscreen librecad dxf2pdf --version\n/);
 });
 
 test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fester Fassung gegen SHA-256, das JDK aus Debian; die CI baut damit", () => {

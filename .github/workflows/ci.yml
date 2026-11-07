@@ -211,6 +211,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends krita
           xvfb-run -a krita --version | tail -1
 
+      # VKk4k: CAD-Zeichnungen zeigt LibreCAD – der Echttest schreibt main.dxf als Text, das Skript startet neu; im Terminal gibt
+      # LibreCAD sie mit offscreen als PDF aus
+      - name: LibreCAD fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends librecad
+          QT_QPA_PLATFORM=offscreen librecad dxf2pdf --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |

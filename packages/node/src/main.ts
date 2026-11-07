@@ -56,7 +56,7 @@ import { VorschauServer, vorschauAusUmgebung } from "./vorschau.js";
 import { DevServer } from "./dev-server.js";
 import {
   BildStrom, bildFehlt, bildHinweise, bildKodierer, blenderAusUmgebung, gimpAusUmgebung, godotAusUmgebung, inkscapeAusUmgebung, kicadAusUmgebung,
-  kritaAusUmgebung, libreofficeAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
+  kritaAusUmgebung, librecadAusUmgebung, libreofficeAusUmgebung, meltAusUmgebung, musescoreAusUmgebung, nvencDa, openscadAusUmgebung, qgisAusUmgebung, shotcutAusUmgebung, wineAusUmgebung,
 } from "./bildstrom.js";
 import { turnZiel } from "./turn-tunnel.js";
 import { SpiegelKonto, beantworteSpiegel } from "./paket-spiegel.js";
@@ -582,11 +582,14 @@ async function main(): Promise<void> {
         const musescore = musescoreAusUmgebung(process.env);
         // Gemälde (VKk4j): Krita der Distribution (Docker-Bild mit KRITA=1) – ohne zeigt das Bild main.kra und main.ora nicht
         const krita = kritaAusUmgebung(process.env);
+        // CAD-Zeichnungen (VKk4k): LibreCAD der Distribution (Docker-Bild mit LIBRECAD=1) – ohne zeigt das Bild main.dxf nicht
+        const librecad = librecadAusUmgebung(process.env);
         const b = new BildStrom(projekte, {
           turn, ziel, kodierer, gpu: kodierer === "h264", ...(browser ? { browser } : {}), ...(godot ? { godot } : {}), ...(wine ? { wine } : {}),
           ...(openscad ? { openscad } : {}), ...(kicad ? { kicad } : {}), ...(blender ? { blender } : {}), ...(libreoffice ? { libreoffice } : {}),
           ...(inkscape ? { inkscape } : {}), ...(gimp ? { gimp } : {}), ...(qgis ? { qgis } : {}), ...(melt ? { melt } : {}),
           ...(shotcut ? { shotcut } : {}), ...(musescore ? { musescore } : {}), ...(krita ? { krita } : {}),
+          ...(librecad ? { librecad } : {}),
         });
         process.on("exit", () => b.beendeAlle());
         bild = b;
@@ -594,8 +597,9 @@ async function main(): Promise<void> {
         bildText = bildHinweise({
           godot: !!godot, wine: !!wine, openscad: !!openscad, kicad: !!kicad, blender: !!blender, libreoffice: !!libreoffice, browser: !!browser,
           inkscape: !!inkscape, gimp: !!gimp, qgis: !!qgis, melt: !!melt, shotcut: !!shotcut, musescore: !!musescore, krita: !!krita,
+          librecad: !!librecad,
         });
-        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"}${krita ? ", Gemälde in Krita" : ", ohne Krita"})`);
+        console.log(`[bild] Bildstrom an (über den eigenen TURN, ${kodierer === "h264" ? "H.264 über NVENC" : "VP8"}${browser ? ", Web-Projekte in Chromium" : ", ohne Chromium nur Programme"}${godot ? ", Godot-Projekte" : ", ohne Godot"}${wine ? ", Windows-Programme in Wine" : ", ohne Wine"}${openscad ? ", OpenSCAD-Modelle" : ", ohne OpenSCAD"}${kicad ? ", Schaltpläne in KiCad" : ", ohne KiCad"}${blender ? ", Szenen in Blender" : ", ohne Blender"}${libreoffice ? ", Dokumente in LibreOffice" : ", ohne LibreOffice"}${inkscape ? ", Zeichnungen in Inkscape" : ", ohne Inkscape"}${gimp ? ", Bilder in GIMP" : ", ohne GIMP"}${qgis ? ", Karten in QGIS" : ", ohne QGIS"}${melt ? (shotcut ? ", Videos in Shotcut und melt" : ", Videos mit melt") : ", ohne melt"}${musescore ? ", Partituren in MuseScore" : ", ohne MuseScore"}${krita ? ", Gemälde in Krita" : ", ohne Krita"}${librecad ? ", CAD-Zeichnungen in LibreCAD" : ", ohne LibreCAD"})`);
       }
     }
     const hermesWahl = hermesAusUmgebung(process.env);

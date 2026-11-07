@@ -580,6 +580,42 @@ export function kritaBefehl(krita: string, datei: string, groesse: { breite: num
   return ["/bin/sh", "-c", KRITA_START, krita, `/arbeit/${datei}`, `${groesse.breite}x${groesse.hoehe}+0+0`];
 }
 
+/** Wo der Knoten LibreCAD sucht (VKk4k) – nur das Paket der Distribution unter `/usr`. */
+export const LIBRECAD_ORTE: readonly string[] = ["/usr/bin/librecad"];
+
+/** LibreCAD aus der Distribution (VKk4k): der erste aus `LIBRECAD_ORTE`; null mit `LIBRECAD=aus` oder ohne Fund. */
+export function librecadAusUmgebung(env: { LIBRECAD?: string }, orte: readonly string[] = LIBRECAD_ORTE): string | null {
+  return env.LIBRECAD?.trim() === "aus" ? null : ersteDatei(orte);
+}
+
+/** Ab dieser Größe zeigt LibreCAD die Docks rechts (VKk4k) – mit ihnen ist das Fenster mindestens 525×717 Pixel groß (gemessen). */
+export const LIBRECAD_DOCKS_AB = { breite: 1024, hoehe: 768 } as const;
+
+/**
+ * Eine CAD-Zeichnung im Bild (VKk4k): `main.dxf` in LibreCAD (2D). Die Einstellungen schreibt das Skript ins Home der Sandbox
+ * (tmpfs, nie ins Projekt): ohne den Dialog des ersten Starts (Einheit, Sprache) – sonst zeigt das Bild nur ihn –, ohne
+ * Sicherungsdatei beim Speichern (`AutoBackupDocument` ohne Gruppe, so liest es `RS_Graphic::save()`) und ohne automatisches
+ * Sichern (dieselbe Einstellung unter `Defaults`) – sonst legte LibreCAD `main.dxf~` und nach einer Änderung im Bild `#main.dxf`
+ * neben die Datei (beides gemessen, Gegenprobe) –, die Zeichnung beim Öffnen eingepasst – sonst zeigt LibreCAD sie in fester
+ * Größe, ein Teil von 400 mm ragte über den Rand – und in einem Bild unter `LIBRECAD_DOCKS_AB` ohne die Docks rechts (Stifte,
+ * Ebenen, Blöcke, Befehlszeile), sonst ragte das Fenster über den Rand. Das Fenster setzt `--qwindowgeometry` auf die Größe des
+ * Bilds. Eine geänderte Datei lädt LibreCAD nicht von selbst: Neustart über `neustartSchleife()`. `$0` ist LibreCAD, `$1` die
+ * Datei, `$2` die Größe, `$3` 1 mit Docks, sonst 0.
+ */
+export const LIBRECAD_START = [
+  `c="$HOME/.config/LibreCAD"; mkdir -p "$c"`,
+  `printf '%s\\n' '[General]' 'AutoBackupDocument=0' '[Startup]' 'FirstLoad=0' '[Defaults]' 'AutoBackupDocument=0' \\`,
+  `  '[CADPreferences]' 'AutoZoomDrawing=1' > "$c/LibreCAD.conf"`,
+  `[ "$3" = 1 ] || printf '%s\\n' '[Geometry]' 'RightDockArea=0' >> "$c/LibreCAD.conf"`,
+  ...neustartSchleife(undefined, `--qwindowgeometry "$2" `),
+].join("\n");
+
+export function librecadBefehl(librecad: string, groesse: { breite: number; hoehe: number }): string[] {
+  const { breite, hoehe } = groesse;
+  const docks = breite >= LIBRECAD_DOCKS_AB.breite && hoehe >= LIBRECAD_DOCKS_AB.hoehe;
+  return ["/bin/sh", "-c", LIBRECAD_START, librecad, "/arbeit/main.dxf", `${breite}x${hoehe}+0+0`, docks ? "1" : "0"];
+}
+
 /**
  * Was gezeigt wird: `.freedom/start` (eine echte Datei in einem echten Ordner, mit `sh`), mit Godot (VKk3a) dann ein
  * Godot-Projekt (`project.godot`), sonst `main.py` (mit dem Python aus `.venv`, wo es eins gibt), mit Wine (VKi1) dann
@@ -588,7 +624,7 @@ export function kritaBefehl(krita: string, datei: string, groesse: { breite: num
  * Web-Projekt: mit Skript `dev` in
  * `package.json` der Dev-Server, sonst `index.html`. Mit Inkscape (VKk4e) dann `main.svg`, mit GIMP (VKk4f) dann `main.xcf`, mit
  * QGIS (VKk4g) dann ein Projekt aus `QGIS_DATEIEN`, mit melt (VKk4h) dann `main.mlt`, mit MuseScore (VKk4i) dann eine Partitur
- * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) zuletzt ein Gemälde aus `KRITA_DATEIEN`.
+ * aus `MUSESCORE_DATEIEN`, mit Krita (VKk4j) dann ein Gemälde aus `KRITA_DATEIEN`, mit LibreCAD (VKk4k) zuletzt `main.dxf`.
  * Sonst null – dann sagt die App,
  * wie man ein Programm nennt.
  */
@@ -596,6 +632,7 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   programme?: {
     breite: number; hoehe: number; godot?: boolean; wine?: string; openscad?: string; kicad?: string; blender?: string; libreoffice?: string;
     inkscape?: string; gimp?: string; qgis?: string; melt?: string; shotcut?: string; musescore?: string; krita?: string;
+    librecad?: string;
   },
 ): string[] | null {
   const ist = (pfad: string, art: "datei" | "ordner") => {
@@ -635,6 +672,8 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
   // ebenso ein Gemälde (VKk4j) – die Quelle eines Bilds liegt oft neben der Seite
   const gemaelde = programme?.krita ? KRITA_DATEIEN.find((d) => ist(d, "datei")) : undefined;
   if (programme?.krita && gemaelde) return kritaBefehl(programme.krita, gemaelde, programme);
+  // ebenso eine CAD-Zeichnung aus LibreCAD (VKk4k) – Zuschnitte zu einer Seite liegen oft daneben
+  if (programme?.librecad && ist("main.dxf", "datei")) return librecadBefehl(programme.librecad, programme);
   return null;
 }
 
@@ -645,11 +684,12 @@ export function bildBefehl(projektOrdner: string, web?: { browser: string; breit
  * OpenSCAD und Exporte aus `kicad-cli` gehen im Terminal ohne Bildschirm, ein PNG aus OpenSCAD nicht; Script-Fu aus GIMP geht,
  * PyQGIS und `qgis_process` aus QGIS mit `QT_QPA_PLATFORM=offscreen`, ein Video aus melt, Umwandeln und Ausgeben aus MuseScore
  * ebenso mit `offscreen`. Krita braucht auch im Terminal einen Bildschirm (`offscreen` nimmt es nicht) – dort nur OpenRaster, das der
- * Agent selbst schreibt.
+ * Agent selbst schreibt. DXF schreibt der Agent als Text, LibreCAD gibt es mit `offscreen` als PDF aus.
  */
 export function bildHinweise(p: {
   godot?: boolean; wine?: boolean; openscad?: boolean; kicad?: boolean; blender?: boolean; libreoffice?: boolean; browser?: boolean;
   inkscape?: boolean; gimp?: boolean; qgis?: boolean; melt?: boolean; shotcut?: boolean; musescore?: boolean; krita?: boolean;
+  librecad?: boolean;
 }): string {
   const dateien = [
     "- `.freedom/start` – your own start command (a shell script, run with sh in /arbeit)",
@@ -693,6 +733,10 @@ export function bildHinweise(p: {
       + "Krita needs the screen, also for exports. To start from your own layers, write OpenRaster `main.ora` yourself: a zip with "
       + "`mimetype` first and uncompressed (`image/openraster`), `stack.xml` (`<image w h><stack><layer name src x y/>…</stack></image>`, "
       + "topmost layer first) and the layers as PNG files under `data/`"] : []),
+    ...(p.librecad ? ["- `main.dxf` – a 2D CAD drawing in LibreCAD (only if no web project is there); it restarts after every save. "
+      + "Write the DXF as text yourself: group code and value on alternating lines, an `ENTITIES` section with `LINE`, `CIRCLE`, "
+      + "`ARC`, `TEXT` and so on, ending with `EOF`. In the terminal, LibreCAD needs `QT_QPA_PLATFORM=offscreen`: "
+      + "`QT_QPA_PLATFORM=offscreen librecad dxf2pdf -a main.dxf` prints the drawing to `main.pdf`, fitted to the page"] : []),
   ];
   return [
     "# Showing the project",
@@ -767,6 +811,8 @@ export class BildStrom {
     musescore?: string;
     /** Krita für Gemälde (VKk4j, `kritaAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
     krita?: string;
+    /** LibreCAD für CAD-Zeichnungen (VKk4k, `librecadAusUmgebung()`) – unter `/usr`, das die Sandbox ohnehin sieht. */
+    librecad?: string;
     /** Nur für Tests: statt `process.arch` (VKi2 – auf ARM64 braucht Wine die Angaben zum Prozessor). */
     arch?: string;
     /** Zusätzlich nur lesbar für das Programm (Tests: Node außerhalb von `/usr` für `npm run dev`). */
@@ -802,7 +848,7 @@ export class BildStrom {
       ...(this.o.inkscape ? { inkscape: this.o.inkscape } : {}), ...(this.o.gimp ? { gimp: this.o.gimp } : {}),
       ...(this.o.qgis ? { qgis: this.o.qgis } : {}), ...(this.o.melt ? { melt: this.o.melt } : {}),
       ...(this.o.melt && this.o.shotcut ? { shotcut: this.o.shotcut } : {}), ...(this.o.musescore ? { musescore: this.o.musescore } : {}),
-      ...(this.o.krita ? { krita: this.o.krita } : {}),
+      ...(this.o.krita ? { krita: this.o.krita } : {}), ...(this.o.librecad ? { librecad: this.o.librecad } : {}),
     };
     const befehl = this.o.befehl ? this.o.befehl(ort) : bildBefehl(ort, browser ? { browser, ...groesse } : undefined, programme);
     if (!befehl) throw new CodeAbgelehnt("code-bild-kein-programm");
