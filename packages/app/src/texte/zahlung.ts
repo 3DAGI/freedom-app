@@ -146,6 +146,10 @@ export const zahlung: Texte = {
   "zahl.rueckZuSpaet": { de: "Der LP hat deine Rechnung bezahlt ({sats} sats), die SOL aber nicht rechtzeitig eingelöst. {zurueck}", en: "The LP paid your invoice ({sats} sats) but didn't claim the SOL in time. {zurueck}" },
   "zahl.rueckAbgelehnt": { de: "abgelehnt: {text}", en: "declined: {text}" },
   "zahl.rueckGescheitert": { de: "Zahlung gescheitert", en: "payment failed" },
+  "zahl.rueckZurueckgegeben": {
+    de: "Der LP hat nicht getauscht (Zahlung gescheitert) und deine SOL schon zurückgegeben – die Sperre ist geschlossen.",
+    en: "The LP didn't swap (payment failed) and has already returned your SOL – the lock is closed.",
+  },
   "zahl.rueckNichtGetauscht": { de: "Der LP hat nicht getauscht ({warum}). {zurueck}", en: "The LP didn't swap ({warum}). {zurueck}" },
   // Relay-Zugang kaufen (relay-kauf.ts)
   "zahl.relayAntwortet": { de: "Relay antwortet {status}", en: "Relay answers {status}" },

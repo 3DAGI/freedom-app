@@ -19,6 +19,7 @@ import {
   PendingLock,
   RefundRunner,
   setzeSperrSpeicher,
+  schliesseWennZu,
 } from "../src/refund-watcher.js";
 import { setLang } from "../src/i18n.js";
 
@@ -280,6 +281,22 @@ test("Kette zuerst: nur die offenen Sperren kommen in die Rueckholung", async ()
     const r = runner();
     await sweepPendingRefunds({ ...r, offen: async (ids) => ids.filter((i) => i === "rest") }, NOW);
     assert.deepEqual(r.aufrufe, [["rest"]]);
+  });
+});
+
+test("A-28b: vor Ablauf zurueckgegeben – abgeschlossen, sobald die Kette sie nicht mehr offen zeigt, nie vorher", async () => {
+  await withStorage(async () => {
+    await rememberLock(lock({ reference: "rueck-1", swapIds: ["rueck-1"] }));
+    await rememberLock(lock({ reference: "andere" }));
+    // Noch offen auf der Kette (der LP behauptet es nur) – bleibt gemerkt
+    assert.equal(await schliesseWennZu({ offen: async (ids) => ids }, "rueck-1"), false);
+    assert.equal(listPendingLocks().length, 2);
+    // Ohne Blick auf die Kette nie
+    assert.equal(await schliesseWennZu({}, "rueck-1"), false);
+    assert.equal(await schliesseWennZu({ offen: async () => [] }, "unbekannt"), false);
+    // Die Kette zeigt sie geschlossen: abgeschlossen, ohne Transaktion, die andere bleibt
+    assert.equal(await schliesseWennZu({ offen: async () => [] }, "rueck-1"), true);
+    assert.deepEqual(listPendingLocks().map((l) => l.reference), ["andere"]);
   });
 });
 

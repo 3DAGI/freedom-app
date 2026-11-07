@@ -11,7 +11,9 @@
  *     versiegelt von einem Wegwerf-Schluessel (`rueckAnfrage()` in
  *     `swap-umschlag.ts`, seit 4.9b), nicht von der eigenen Identitaet.
  *   4 Antwort lesen: `EINGELOEST` → die sats sind da. Alles andere: die SOL
- *     kommen nach Ablauf der Sperre zurueck (Rueckhol-Waechter).
+ *     kommen nach Ablauf der Sperre zurueck (Rueckhol-Waechter) – oder schon
+ *     vorher, wenn der LP sie zurueckgab (A-28b, ["zurueckgegeben", "1"] neben
+ *     `GESCHEITERT`); das zeigt die App nur, wenn die Kette die Sperre geschlossen zeigt.
  *
  * Verlieren kann der Kunde dabei nichts: Zahlt der LP nicht, holt er nach der
  * Frist zurueck; zahlt der LP, kennt er das Preimage erst durch die Zahlung.
@@ -73,16 +75,26 @@ export function planeRueckSwap(o: LpOffer, bolt11: string, sats: number, jetzt: 
 }
 
 export type RueckStatus = "EINGELOEST" | "GESCHEITERT" | "ZU_SPAET" | "ABGELEHNT";
-
-/** Antwort des LP lesen – nur bekannte Stati, Text gekuerzt (Anzeige nur als Text). */
-export function leseRueckAntwort(ev: { tags: string[][]; content: string }): { status: RueckStatus; text: string } | undefined {
-  const s = ev.tags.find((t) => t[0] === "status")?.[1];
-  if (s !== "EINGELOEST" && s !== "GESCHEITERT" && s !== "ZU_SPAET" && s !== "ABGELEHNT") return undefined;
-  return { status: s, text: ev.content.slice(0, 200) };
+export interface RueckAntwort {
+  status: RueckStatus;
+  text: string;
+  /** Nur bei `GESCHEITERT`: Der LP sagt, er habe die SOL vor Ablauf zurueckgegeben (A-28b) – eine Behauptung, die Kette zaehlt. */
+  zurueckgegeben?: true;
 }
 
-/** Was der Nutzer zum Stand erfaehrt. */
-export function rueckText(a: { status: RueckStatus; text: string } | undefined, plan: RueckPlan): string {
+/** Antwort des LP lesen – nur bekannte Stati, Text gekuerzt (Anzeige nur als Text). */
+export function leseRueckAntwort(ev: { tags: string[][]; content: string }): RueckAntwort | undefined {
+  const s = ev.tags.find((t) => t[0] === "status")?.[1];
+  if (s !== "EINGELOEST" && s !== "GESCHEITERT" && s !== "ZU_SPAET" && s !== "ABGELEHNT") return undefined;
+  const zurueck = s === "GESCHEITERT" && ev.tags.some((t) => t[0] === "zurueckgegeben" && t[1] === "1");
+  return { status: s, text: ev.content.slice(0, 200), ...(zurueck ? { zurueckgegeben: true as const } : {}) };
+}
+
+/**
+ * Was der Nutzer zum Stand erfaehrt. `geschlossen`: Die Kette zeigt die Sperre nicht mehr offen – nur dann heisst eine
+ * Rueckgabe des LP „schon zurueck“, sonst bleibt es beim Rueckholen nach Ablauf.
+ */
+export function rueckText(a: RueckAntwort | undefined, plan: RueckPlan, geschlossen = false): string {
   const ab = new Date(plan.timelockUnix * 1000).toLocaleString(gebietsschema());
   const zurueck = t("zahl.solKommenZurueck", { ab });
   if (!a) return t("zahl.gesperrtWarte", { ab });
@@ -90,6 +102,7 @@ export function rueckText(a: { status: RueckStatus; text: string } | undefined, 
   // Der LP hat gezahlt, aber die SOL nicht mehr vor der Frist eingeloest: Nach
   // den Regeln der Sperre gehen sie an den zurueck, der gesperrt hat.
   if (a.status === "ZU_SPAET") return t("zahl.rueckZuSpaet", { sats: plan.sats, zurueck });
+  if (a.status === "GESCHEITERT" && a.zurueckgegeben && geschlossen) return t("zahl.rueckZurueckgegeben");
   const warum = a.status === "ABGELEHNT" ? t("zahl.rueckAbgelehnt", { text: a.text }) : t("zahl.rueckGescheitert");
   return t("zahl.rueckNichtGetauscht", { warum, zurueck });
 }

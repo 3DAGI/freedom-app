@@ -84,6 +84,10 @@ test("Antwort: nur bekannte Stati; Text gekuerzt", () => {
   assert.equal(leseRueckAntwort({ tags: [["status", "ALLES_GUT"]], content: "" }), undefined);
   assert.equal(leseRueckAntwort({ tags: [], content: "lnbc…" }), undefined, "Antworten der Hinrichtung (Rechnung im Inhalt) sind keine");
   assert.equal(leseRueckAntwort({ tags: [["status", "ABGELEHNT"]], content: "x".repeat(500) })!.text.length, 200);
+  // A-28b: zurueckgegeben nur neben GESCHEITERT und nur mit genau „1“
+  assert.deepEqual(leseRueckAntwort({ tags: [["status", "GESCHEITERT"], ["zurueckgegeben", "1"]], content: "" }), { status: "GESCHEITERT", text: "", zurueckgegeben: true });
+  assert.equal(leseRueckAntwort({ tags: [["status", "GESCHEITERT"], ["zurueckgegeben", "ja"]], content: "" })!.zurueckgegeben, undefined);
+  assert.equal(leseRueckAntwort({ tags: [["status", "EINGELOEST"], ["zurueckgegeben", "1"]], content: "" })!.zurueckgegeben, undefined);
 });
 
 test("Texte: ehrlich, wo das Geld ist", () => {
@@ -96,6 +100,17 @@ test("Texte: ehrlich, wo das Geld ist", () => {
   assert.match(spaet, /hat deine Rechnung bezahlt/);
   assert.doesNotMatch(spaet, /nicht getauscht/);
   assert.match(rueckText(undefined, p), /Warte auf den LP.*Zahlt er nicht/);
+  // A-28b: „schon zurück“ nur, wenn die Kette die Sperre geschlossen zeigt – sonst wie bisher nach Ablauf
+  const zurueck = { status: "GESCHEITERT" as const, text: "", zurueckgegeben: true as const };
+  assert.equal(rueckText(zurueck, p, true), "Der LP hat nicht getauscht (Zahlung gescheitert) und deine SOL schon zurückgegeben – die Sperre ist geschlossen.");
+  assert.equal(rueckText(zurueck, p, false), rueckText({ status: "GESCHEITERT", text: "" }, p), "nur die Behauptung des LP: Rückholen nach Ablauf");
+  assert.equal(rueckText({ status: "GESCHEITERT", text: "" }, p, true), rueckText({ status: "GESCHEITERT", text: "" }, p), "ohne Rückgabe des LP nie „schon zurück“");
+});
+
+test("A-28b verdrahtet: „zurückgegeben“ nur nach einem Blick auf die Kette, dann gleich abgeschlossen", () => {
+  const tausch = readFileSync(new URL("../src/shell/tabs/tausch.ts", import.meta.url), "utf8");
+  assert.match(tausch, /const geschlossen = antwort\.zurueckgegeben \? await sperreZu\(plan\.swapId\) : false;\n\s+statusEl\.textContent = rueckText\(antwort, plan, geschlossen\);/);
+  assert.match(tausch, /return schliesseWennZu\(walletRefundRunner\(signer, await solRpc\(\)\), swapId\)\.catch\(\(\) => false\);/);
 });
 
 test("Verdrahtung (4.6c): Angebotsliste, Ablauf, Waechter, Deposit", () => {

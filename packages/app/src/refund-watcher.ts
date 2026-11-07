@@ -235,6 +235,18 @@ export function startRefundWatcher(
 }
 
 /**
+ * Eine gemerkte Sperre sofort abschliessen, wenn die Kette sie nicht mehr offen zeigt (A-28b: der LP gab sie vor Ablauf
+ * zurueck) – ohne Transaktion, nur ueber `runner.offen`. `true` heisst: abgeschlossen. Ohne `offen` oder ohne Eintrag nie.
+ */
+export async function schliesseWennZu(runner: Pick<RefundRunner, "offen">, reference: string): Promise<boolean> {
+  const lock = listPendingLocks().find((l) => l.reference === reference);
+  if (!lock || !runner.offen) return false;
+  if ((await runner.offen(lock.swapIds, lock.kind)).length > 0) return false;
+  await rememberLock({ ...lock, settled: true });
+  return true;
+}
+
+/**
  * Erzeugt einen Runner auf Basis der Wallet-Anbindung; Sperren liest er über kit auf dem Pool (`rpc`, A-21c).
  * Zurückgeholt wird seit A-21d3b ebenso über den Pool, je Transaktion ein Vorgang (`vorgang()`, sonst `rpc`) –
  * Senden und Nachfragen beim selben Anbieter.

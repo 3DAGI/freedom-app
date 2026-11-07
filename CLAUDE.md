@@ -160,6 +160,10 @@ Claude Code lädt sie, sobald eine Datei darin gelesen wird: `packages/app`,
   zahlt nie ein zweites Mal; nach außen nur feste Texte, nie Meldungen von LND.
   Relayer (seit 4.6e) signieren nur, was `pruefeRelayAuftrag()` durchlässt (Einlösung +
   Erstattung); Aufträge nur versiegelt – sie tragen das Preimage.
+  Zurückgeben vor Ablauf (seit A-28b) nur über `gibZurueck()` im LP: nur, wenn LND die Zahlung
+  sicher als gescheitert meldet (`sicherGescheitert` aus `zahlungsstand()`), nie ohne Auskunft,
+  bei „läuft“ oder „unbekannt“; nur vor T_sol, einmal je Sitzung. Die App glaubt
+  `["zurueckgegeben", "1"]` erst, wenn die Kette die Sperre nicht mehr offen zeigt (`schliesseWennZu()`).
 - **HTLC-Programm-ID `FVb19s…`** (0.G, seit 13.10.2026): Code, `declare_id!` und
   `Anchor.toml` nennen `FVb19sZ4jfTropLmSvm3xxVv7bZc95ai5GU96zxhXCJD` – neu auf Devnet
   deployt mit dem Schlüssel des MENSCHEN (Upgrade-Recht `FsUyQ…`, dasselbe wie beim
