@@ -79,10 +79,11 @@ test("C-50b: Konten als Zeilen mit Stand – die Verbindung dahinter, offen nur 
   assert.match(w, /merkeStand\("ln", undefined\);\n\s+document\.getElementById\("ln-verwalten"\)\?\.setAttribute\("open", ""\);/);
   assert.match(w, /document\.getElementById\("sol-verwalten"\)\?\.removeAttribute\("open"\);/);
   assert.match(quelle("../src/shell/eingebaute-wallet.ts"), /document\.getElementById\("sol-verwalten"\)\?\.removeAttribute\("open"\);/);
-  // Der Kopf der Seite ohne „Wallet verbinden“; das KI-Budget als eigene Karte
+  // Der Kopf der Seite ohne „Wallet verbinden“; das KI-Guthaben als eigene Karte (seit RM2d)
   assert.doesNotMatch(html, /id="nb-wallet"/);
   assert.equal((html.match(/data-i18n="waehr\.walletVerbinden"/g) ?? []).length, 1, "nur noch an der Lightning-Verbindung");
-  assert.match(html, /<div class="card ki-budget-karte nav-balances" id="nav-balances">\s*<div class="nb-row">/);
+  // seit RM2d das KI-Guthaben (Cashu-Topf) als Konto wie Lightning und Solana
+  assert.match(html, /<div class="card konto-karte" id="nav-balances">\s*<div class="konto-kopf">/);
 });
 
 test("C-50c: ohne Konto die Einrichtung als Assistent – drei Wege zu dem, was es schon gibt; die eingebaute nur ohne Bunker", async () => {

@@ -183,12 +183,13 @@ export async function refreshQuota(): Promise<void> {
 }
 
 /** KI-Guthaben (RM2d): setzt `ki-guthaben-ui.ts` beim Start – `ui.ts` lädt den Cashu-Topf nicht selbst. */
-let kiGuthaben: (() => { text: string; titel: string }) | null = null;
-export function setzeKiGuthabenAnzeige(f: () => { text: string; titel: string }): void {
+let kiGuthaben: (() => string) | null = null;
+export function setzeKiGuthabenAnzeige(f: () => string): void {
   kiGuthaben = f;
 }
-export function kiGuthabenAnzeige(): { text: string; titel: string } {
-  return kiGuthaben?.() ?? { text: "—", titel: t("cashu.ohneMint") };
+/** Ohne Mint „— sats“ – im Kopf ist es ein Knopf, mobil mindestens 40 px breit. */
+export function kiGuthabenAnzeige(): string {
+  return kiGuthaben?.() ?? "— sats";
 }
 
 export function updateSidebarBalances(): void {
@@ -198,13 +199,9 @@ export function updateSidebarBalances(): void {
   if (!satsEl && !identEl && !bal) return;
   // ident
   if (identEl) identEl.textContent = escrowIdent();
-  // KI-Guthaben (RM2d): seit RM2c3 ohne Sitzung auf Kredit – Kopf und Seitenleiste zeigen den Cashu-Topf
-  const a = kiGuthabenAnzeige();
-  for (const el of [satsEl, bal]) {
-    if (!el) continue;
-    el.textContent = a.text;
-    el.title = a.titel;
-  }
+  // KI-Guthaben (RM2d): seit RM2c3 ohne Sitzung auf Kredit – Kopf und Seitenleiste zeigen den Cashu-Topf (der Titel bleibt übersetzt)
+  const text = kiGuthabenAnzeige();
+  for (const el of [satsEl, bal]) if (el) el.textContent = text;
 }
 
 // -------------------------------------------------- Neuer Aufbau: Hilfslogik

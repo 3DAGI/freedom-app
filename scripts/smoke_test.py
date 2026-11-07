@@ -4702,7 +4702,7 @@ def geld_settings_klein_pruefen(browser, url: str) -> dict:
         }; }""")
     wa = erg["waehrung"]
     # RM2d: das KI-Guthaben (Cashu-Topf) – ohne Mint „—“, Laden gesperrt
-    if wa["kopf"] != ["KI-Guthaben"] or wa["sol"] or wa["mint"] != "Noch keine Mint gewählt" or not wa["laden"] or wa["stand"] != "—":
+    if wa["kopf"] != ["KI-Guthaben"] or wa["sol"] or wa["mint"] != "Noch keine Mint gewählt" or not wa["laden"] or wa["stand"] != "— sats":
         erg["fehler"].append(f"KI-Guthaben {wa}")
     if wa["haken"] != "none":
         erg["fehler"].append(f"Häkchen-Satz {wa['haken']}")

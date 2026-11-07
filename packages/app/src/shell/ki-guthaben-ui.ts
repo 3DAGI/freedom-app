@@ -18,11 +18,10 @@ import { zahlschienen } from "./zahlschienen.js";
 
 const stand = () => guthabenStand(cashuTopf);
 
-/** Was Kopf und Seitenleiste zeigen: ohne Mint oder Tresor „—“, sonst das freie Guthaben. */
-function anzeige(): { text: string; titel: string } {
+/** Was Kopf und Karte zeigen: ohne Mint oder Tresor „— sats“, sonst das freie Guthaben. */
+function anzeige(): string {
   const s = stand();
-  if (!s.mint || !tresorOffen()) return { text: "—", titel: t("cashu.ohneMint") };
-  return { text: satsText(s.sats * 1000), titel: t("cashu.verwahrtVon", { mint: s.host! }) };
+  return s.mint && tresorOffen() ? satsText(s.sats * 1000) : "— sats";
 }
 
 /** Die Karte auf der Wallet-Seite neu zeichnen – nur Text. */
@@ -30,7 +29,6 @@ export function zeigeKiGuthaben(): void {
   const s = stand();
   const offen = !!s.mint && tresorOffen();
   const setze = (id: string, text: string) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  setze("cashu-stand", offen ? satsText(s.sats * 1000) : "—");
   setze("cashu-mint", offen ? t("cashu.verwahrtVon", { mint: s.host! }) : t("cashu.ohneMint"));
   const teile = [
     ...(offen && s.imPfand > 0 ? [t("cashu.imPfand", { sats: satsText(s.imPfand * 1000) })] : []),

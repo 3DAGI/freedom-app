@@ -557,7 +557,8 @@ export function switchTab(name: string): void {
   if (name === "settings") { void zeigeSicherung(); void zeigeGeraete(); void zeigeDatenschutz(); void aktualisiereSicherheitsStand(); }
   // Verlauf und Budget neu zeichnen – so folgen sie auch einem Sprachwechsel (8.16d1)
   if (name === "ai") { zeigeVerlaeufe(); updateBudgetBar(); void refreshModelDropdown(); void refreshQuota(); zeigeDiktieren(); zeigeGratisStand(); }
-  if (name === "wallet") { loadWallet(); void zeigeKanaele(); zeigeKiGuthaben(); }
+  if (name === "wallet") { loadWallet(); void zeigeKanaele(); }
+  if (name === "wallet") zeigeKiGuthaben();
   if (name === "earn") { loadEarnings(); loadTrust(); updateReferralLink(); void zeigeSolEinnahmen(); }
   // Karte und Mesh stehen seit C.1b auf der Seite „Netz“
   if (name === "netz") { void ladeAbdeckung(); void zeigeMeshWeg(); }
