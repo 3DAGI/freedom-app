@@ -741,6 +741,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   ins Projekt kopiert der Agent das Bild selbst. Der Prompt verlässt dein Netz nicht.
   Je Bild höchstens 20 MB, je Projekt die letzten 50. Ohne `COMFYUI_URL` gibt es das
   Werkzeug nicht; eine Adresse außerhalb des Heimnetzes heißt kein Start.
+- **Sprache (seit VKd2c):** Hat der Knoten Whisper („Text aus Sprache“ oben, mit Modell
+  und Sandbox), bekommt Hermes `transcribe_audio`: Der Agent nennt eine WAV-Datei im
+  Projekt (16 kHz, mono, 16 Bit, höchstens 120 Sekunden – dieselbe Form wie für die App),
+  der Knoten liest sie selbst – nur eine echte Datei, keinem Verweis folgend – und
+  Whisper wandelt sie wie für die App in der Sandbox in Text. Ton und Text verlassen
+  den Rechner nicht und stehen in keinem Log. Ein Auftrag zur Zeit; ohne Modell gibt es
+  das Werkzeug nicht.
 - **Kiwix (seit VKd2a):** Stehen in `mcp.json` ZIM-Dateien (oben, „Wikipedia ohne
   Internet“), bekommt Hermes sie von selbst – dieselben Dateien und dieselbe Brücke,
   als Kind des Motors in dessen Sandbox, ohne Netz, die Ordner nur lesbar. Der Agent

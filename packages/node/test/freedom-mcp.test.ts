@@ -165,7 +165,8 @@ test("VKd: Hermes findet Freedom-MCP über die Konfiguration – dieselbe Brück
   // verdrahtet: main.ts gibt der Brücke Freedom-MCP mit den Werkzeugen des Knotens, je Projekt unter seinem Zeichen
   const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
   // seit VKd3 dazu der Spiegel für Pakete an derselben Brücke
-  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(zeichen\) => \{\s*const p = mcpProjekte\.zu\(zeichen\);\s*const bild = [^\n]+\n\s*return p && \(\(n\) => mcpAntwort\(n, werkzeuge, p\.freigaben, bild\)\);\s*\},\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
+  // seit VKd2c mit Sprache (`ton`) – dieselbe Brücke, dasselbe Zeichen, nur die Zeilen für Whisper dazwischen
+  assert.match(main, /oeffneModellBruecke\(antrieb, \{\s*mcp: \(zeichen\) => \{\s*const p = mcpProjekte\.zu\(zeichen\);\s*const bild = [^\n]+\n(?:\s*\/\/[^\n]*\n)?\s*const w = [^\n]+\n\s*const ton = [^\n]+\n\s*return p && \(\(n\) => mcpAntwort\(n, werkzeuge, p\.freigaben, bild, ton\)\);\s*\},\s*spiegel: \(req, res\) => beantworteSpiegel\(req, res, \{/);
   assert.match(main, /beimAuftrag: \(t, p\) => mcpProjekte\.freigaben\(p\)\.ausAuftrag\(t\)/);
   assert.match(main, /mcpZeichen: \(p\) => mcpProjekte\.zeichen\(p\)/);
   assert.match(main, /werkzeuge\.register\(new WebSearchExecutor\(\)\);\n\s+werkzeuge\.register\(new BrowserExecutor\(\)\);/);

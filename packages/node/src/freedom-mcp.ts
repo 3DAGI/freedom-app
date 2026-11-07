@@ -6,7 +6,7 @@
  *
  * Ausgeführt wird nur über die `ToolRegistry` (Grenzen aus `WERKZEUG_GRENZEN`, Netz nur über `safeFetch`): heute Websuche und
  * Seite lesen, seit VKd2b2 Bilder (`generate_image`, wenn der Knoten eine ComfyUI hat – nicht über die `ToolRegistry`, das Bild
- * gehört ins Projekt); Sprache kommt dazu, wenn der Knoten sie hat. Kiwix bekommt der Motor seit VKd2a als eigenen
+ * gehört ins Projekt), seit VKd2c Sprache (`transcribe_audio`, wenn der Knoten Whisper hat – `sprache-motor.ts`). Kiwix bekommt der Motor seit VKd2a als eigenen
  * Server aus dem Katalog (`mcp-katalog.ts`, in seiner Sandbox). Was durchfließt, ist Inhalt des eigenen Projekts: nie ins Log.
  *
  * Gefragt wird nie (VKd-W1, MENSCH 18.10.: „wie Claude und OpenAI“). Lesen darf der Motor nur Adressen, die im Auftrag
@@ -15,7 +15,8 @@
  * nicht (`LeseFreigaben`).
  */
 import { randomBytes } from "node:crypto";
-import { KIND_DVM_BROWSER, KIND_DVM_WEB_SEARCH } from "@freedomstack/protocol";
+import { KIND_DVM_BROWSER, KIND_DVM_WEB_SEARCH, SPRACHE_WAHL, type SpracheWahl } from "@freedomstack/protocol";
+import { TON_FORM } from "./sprache-motor.js";
 import { WERKZEUG_GRENZEN, type ToolRegistry } from "./tools.js";
 
 /** Fassungen von MCP, die der Server spricht – die neueste zuletzt. */
@@ -39,6 +40,17 @@ const BILD_WERKZEUG = {
   name: "generate_image",
   description: "Generate an image (PNG) from a text prompt on the owner's Freedom node (ComfyUI on the owner's own machine – the prompt does not leave the home network). The image is saved read-only under /freedom/bilder; copy it into the project to use it.",
   feld: "prompt",
+} as const;
+
+/** Sprache (VKd2c) – nur, wenn der Knoten Whisper hat (`sprache-motor.ts`); gelesen wird eine WAV-Datei im Projekt. */
+const TON_WERKZEUG = {
+  name: "transcribe_audio",
+  description: `Transcribe speech in an audio file of the project to text on the owner's Freedom node (Whisper on the owner's own machine – the audio does not leave it). The file must be ${TON_FORM}; give its path in the project, e.g. audio/note.wav. language: de, en or auto (default).`,
+  inputSchema: {
+    type: "object",
+    properties: { path: { type: "string", maxLength: 500 }, language: { type: "string", enum: [...SPRACHE_WAHL] } },
+    required: ["path"], additionalProperties: false,
+  },
 } as const;
 
 /** Höchstens so viele freigegebene Adressen – die ältesten fallen heraus. */
@@ -143,6 +155,8 @@ export async function mcpAntwort(
   nachricht: unknown, werkzeuge: Pick<ToolRegistry, "run">, freigaben: LeseFreigaben,
   /** Bilder für dieses Projekt (VKd2b2) – ohne kein `generate_image`. */
   bild?: (prompt: string) => Promise<{ ok: boolean; output: string }>,
+  /** Text aus einer WAV-Datei dieses Projekts (VKd2c) – ohne kein `transcribe_audio`. */
+  ton?: (pfad: string, sprache: SpracheWahl) => Promise<{ ok: boolean; output: string }>,
 ): Promise<object | null> {
   if (typeof nachricht !== "object" || nachricht === null || Array.isArray(nachricht)) return fehler(null, -32600, "invalid request");
   const m = nachricht as JsonRpc;
@@ -160,12 +174,23 @@ export async function mcpAntwort(
       return antwort(m.id, {});
     case "tools/list":
       return antwort(m.id, {
-        tools: [...WERKZEUGE, ...(bild ? [BILD_WERKZEUG] : [])].map((w) => ({
-          name: w.name, description: w.description,
-          inputSchema: { type: "object", properties: { [w.feld]: { type: "string", maxLength: WERKZEUG_GRENZEN.eingabeZeichen } }, required: [w.feld], additionalProperties: false },
-        })),
+        tools: [
+          ...[...WERKZEUGE, ...(bild ? [BILD_WERKZEUG] : [])].map((w) => ({
+            name: w.name, description: w.description,
+            inputSchema: { type: "object", properties: { [w.feld]: { type: "string", maxLength: WERKZEUG_GRENZEN.eingabeZeichen } }, required: [w.feld], additionalProperties: false },
+          })),
+          ...(ton ? [TON_WERKZEUG] : []),
+        ],
       });
     case "tools/call": {
+      if (ton && p.name === TON_WERKZEUG.name) {
+        const args = (p.arguments as Record<string, unknown> | null | undefined) ?? {};
+        if (typeof args.path !== "string" || args.path.trim() === "") return fehler(m.id, -32602, "path missing");
+        const sprache = args.language ?? "auto";
+        if (!(SPRACHE_WAHL as readonly unknown[]).includes(sprache)) return fehler(m.id, -32602, "language: de, en or auto");
+        const r = await ton(args.path, sprache as SpracheWahl).catch((e: unknown) => ({ ok: false, output: `error: ${(e as Error).name}` }));
+        return antwort(m.id, { content: [{ type: "text", text: r.output }], isError: !r.ok });
+      }
       if (bild && p.name === BILD_WERKZEUG.name) {
         const prompt = (p.arguments as Record<string, unknown> | null | undefined)?.prompt;
         if (typeof prompt !== "string" || prompt.trim() === "") return fehler(m.id, -32602, "prompt missing");
