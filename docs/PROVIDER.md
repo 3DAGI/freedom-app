@@ -896,6 +896,13 @@ listet sie auf; den Agenten, der darin arbeitet, bringt VKc2.
   daneben; der Agent schreibt `AutoSave="0"`. Schreibt er das Layout neu, startet das Bild
   neu. Scribus braucht auch zum Ausgeben einen Bildschirm – im Terminal schreibt der Agent
   das Layout als XML selbst.
+  Karten für 2D-Spiele (`main.tmx`, seit VKk4m) zeigt Tiled (im Bild nur mit `TILED=1`, mit
+  Qt 5 rund 50 MB; `TILED=aus` schaltet es ab) – nach allen Dateien oben; das Fenster füllt
+  das Bild, die Karte ist eingepasst, ab 1280×720 mit den Docks (Ebenen, Kachelsätze,
+  Eigenschaften), darunter ohne. Neuigkeiten aus dem Netz holt Tiled dort nicht. Schreibt der
+  Agent die Karte neu, startet das Bild neu; Speichern im Bild legt nichts daneben. Im
+  Terminal gibt er sie für Spiele-Engines aus
+  (`QT_QPA_PLATFORM=offscreen tiled --export-map json main.tmx main.json`, ebenso `lua`).
   Welche Datei das Bild startet, sagt der Knoten dem Agenten selbst (seit VKk5, `SOUL.md`
   im Home von Hermes) – nur mit den Programmen, die er hat.
   Es läuft in einer Sandbox ohne Netz auf einem virtuellen Bildschirm (ohne MIT-SHM:

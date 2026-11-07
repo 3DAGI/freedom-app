@@ -12,6 +12,7 @@ import { connect, createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
+import { crc32, deflateSync } from "node:zlib";
 import {
   KIND_DVM_KNOTEN_CODE, LocalSigner, MemoryRelay, OutboxPool, baueCodeAuftrag, generateKeypair, getTag, istBildSdp,
   leseCodeAntwort, neueKopplung, openPrivateJobResponse, type CodeAktion,
@@ -29,6 +30,7 @@ import {
   KRITA_DATEIEN, KRITA_ORTE, KRITA_START, kritaAusUmgebung, kritaBefehl,
   LIBRECAD_DOCKS_AB, LIBRECAD_ORTE, LIBRECAD_START, librecadAusUmgebung, librecadBefehl,
   SCRIBUS_ORTE, SCRIBUS_START, scribusAusUmgebung, scribusBefehl,
+  TILED_DOCKS_AB, TILED_ERWEITERUNG, TILED_FENSTER, TILED_ORTE, TILED_START, tiledAusUmgebung, tiledBefehl,
 } from "../src/bildstrom.js";
 import { DEV_PORT } from "../src/dev-server.js";
 import { BROWSER_ORTE } from "../src/mcp-katalog.js";
@@ -325,16 +327,16 @@ test("VKk4b: Start – Einstellungen im Home, Sperrdatei weg, Neustart nach eine
 test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Reihenfolge von bildBefehl()", () => {
   const wenig = bildHinweise({});
   for (const d of [".freedom/start", "main.py"]) assert.ok(wenig.includes(`\`${d}\``), d);
-  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla"]) {
+  for (const d of ["project.godot", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf", "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx"]) {
     assert.ok(!wenig.includes(d), `${d} nur mit dem Programm`);
   }
   const alles = bildHinweise({
     godot: true, wine: true, openscad: true, kicad: true, blender: true, libreoffice: true, browser: true, inkscape: true, gimp: true, qgis: true,
-    melt: true, shotcut: true, musescore: true, krita: true, librecad: true, scribus: true,
+    melt: true, shotcut: true, musescore: true, krita: true, librecad: true, scribus: true, tiled: true,
   });
   const reihe = [
     ".freedom/start", "project.godot", "main.py", "main.exe", "main.scad", "main.kicad_sch", "main.blend", "main.odt", "index.html", "main.svg", "main.xcf",
-    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla",
+    "main.qgs", "main.mlt", "main.mscx", "main.kra", "main.dxf", "main.sla", "main.tmx",
   ];
   const stellen = reihe.map((d) => alles.indexOf(`\`${d}\``));
   assert.ok(stellen.every((s) => s >= 0), "alle genannt");
@@ -347,7 +349,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
   const programme = {
     ...g, godot: true, wine: "/usr/bin/wine", openscad: "/usr/bin/openscad", kicad: "/usr/bin/eeschema", blender: "/usr/bin/blender", libreoffice: "/usr/bin/soffice",
     inkscape: "/usr/bin/inkscape", gimp: "/usr/bin/gimp", qgis: "/usr/bin/qgis", melt: "/usr/bin/melt", shotcut: "/usr/bin/shotcut",
-    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad", scribus: "/usr/bin/scribus",
+    musescore: "/usr/bin/mscore3", krita: "/usr/bin/krita", librecad: "/usr/bin/librecad", scribus: "/usr/bin/scribus", tiled: "/usr/bin/tiled",
   };
   const erwartet = [
     ["/bin/sh", "/arbeit/.freedom/start"], ["/bin/sh", "-c", GODOT_START, GODOT_IN_SANDBOX, ...godotArgumente(g)], ["python3", "/arbeit/main.py"],
@@ -355,7 +357,7 @@ test("VKk5: Hinweise für den Motor – nur die Programme des Knotens, in der Re
     libreofficeBefehl("/usr/bin/soffice", "main.odt"), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], inkscapeBefehl("/usr/bin/inkscape"),
     gimpBefehl("/usr/bin/gimp", g), qgisBefehl("/usr/bin/qgis", "main.qgs", g), videoBefehl("/usr/bin/melt", "/usr/bin/shotcut", g),
     musescoreBefehl("/usr/bin/mscore3", "main.mscx", g), kritaBefehl("/usr/bin/krita", "main.kra", g),
-    librecadBefehl("/usr/bin/librecad", g), scribusBefehl("/usr/bin/scribus", g),
+    librecadBefehl("/usr/bin/librecad", g), scribusBefehl("/usr/bin/scribus", g), tiledBefehl("/usr/bin/tiled", g),
   ];
   for (let i = 0; i < reihe.length; i++) {
     const a = ablage("reihe");
@@ -1278,6 +1280,108 @@ test("VKk4l: Layout im Bildstrom – main.sla in der Sandbox des Programms, nich
   }
   const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
   await assert.rejects(ohne.starte("layout", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
+});
+
+test("VKk4m: Karte – main.tmx nur mit Tiled, nach Web und allen anderen Dateien (zuletzt main.sla)", () => {
+  const a = ablage("karte", "web", "layout", "verweis", "ordner");
+  const groesse = { breite: 1280, hoehe: 720 };
+  const web = { browser: "/usr/lib/chromium/chromium", ...groesse };
+  const mit = { ...groesse, tiled: "/usr/bin/tiled" };
+  writeFileSync(join(a.ort("karte"), "main.tmx"), "<map/>");
+  assert.deepEqual(bildBefehl(a.ort("karte"), web, mit), [
+    "/bin/sh", "-c", TILED_START, "/usr/bin/tiled", "/arbeit/main.tmx", "1280x720+0+0", "1", TILED_ERWEITERUNG, TILED_FENSTER,
+  ]);
+  assert.equal(bildBefehl(a.ort("karte"), web, groesse), null, "ohne Tiled zählt keine Karte");
+  // die Karte eines Web-Spiels verdrängt die Seite nicht, und nach dem Layout
+  for (const [f, inhalt] of [["main.tmx", "x"], ["index.html", "<p>"]]) writeFileSync(join(a.ort("web"), f!), inhalt!);
+  assert.deepEqual(bildBefehl(a.ort("web"), web, mit), [web.browser, ...browserArgumente(web, "file:///arbeit/index.html")], "index.html geht vor");
+  for (const f of ["main.tmx", "main.sla"]) writeFileSync(join(a.ort("layout"), f), "x");
+  assert.deepEqual(bildBefehl(a.ort("layout"), undefined, { ...mit, scribus: "/usr/bin/scribus" }), scribusBefehl("/usr/bin/scribus", groesse),
+    "main.sla geht vor");
+  symlinkSync(join(a.ort("karte"), "main.tmx"), join(a.ort("verweis"), "main.tmx"));
+  assert.equal(bildBefehl(a.ort("verweis"), undefined, mit), null, "ein Verweis zählt nicht");
+  mkdirSync(join(a.ort("ordner"), "main.tmx"));
+  assert.equal(bildBefehl(a.ort("ordner"), undefined, mit), null, "ein Ordner auch nicht");
+  // die Docks erst ab TILED_DOCKS_AB – in beiden Richtungen
+  assert.equal(tiledBefehl("/usr/bin/tiled", { breite: 1279, hoehe: 1080 })[6], "0");
+  assert.equal(tiledBefehl("/usr/bin/tiled", { breite: 1920, hoehe: 719 })[6], "0");
+  assert.equal(tiledBefehl("/usr/bin/tiled", TILED_DOCKS_AB)[6], "1");
+});
+
+test("VKk4m: Tiled aus der Distribution – nur der Ort unter /usr, TILED=aus schaltet ab, ein eigener Pfad zählt nicht", () => {
+  const d = tmp("tiled");
+  const datei = join(d, "tiled");
+  writeFileSync(datei, "");
+  assert.equal(tiledAusUmgebung({}, [join(d, "fehlt"), datei]), datei);
+  assert.equal(tiledAusUmgebung({ TILED: "aus" }, [datei]), null);
+  assert.equal(tiledAusUmgebung({ TILED: datei }, [join(d, "fehlt")]), null, "kein eigener Pfad");
+  assert.equal(tiledAusUmgebung({}, [d]), null, "ein Ordner ist kein Programm");
+  assert.deepEqual(TILED_ORTE, ["/usr/bin/tiled"]);
+});
+
+test("VKk4m: Start – ohne Neuigkeiten aus dem Netz, im kleinen Bild ohne Docks und mit dem Fenster auf dem Bildschirm; neu nach jeder Änderung", { timeout: 60_000 }, async () => {
+  const d = tmp("tiled-start");
+  const tmx = join(d, "main.tmx");
+  writeFileSync(tmx, "eins");
+  const aufrufe = join(d, "aufrufe.txt");
+  writeFileSync(join(d, "programm"), `#!/bin/sh\necho "$* $$" >> "${aufrufe}"\nexec sleep 600\n`);
+  chmodSync(join(d, "programm"), 0o755);
+  const zeilen = async (n: number) => {
+    for (const bis = Date.now() + 20_000; Date.now() < bis;) {
+      const z = existsSync(aufrufe) ? readFileSync(aufrufe, "utf8").trim().split("\n") : [];
+      if (z.length >= n) return z;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`nicht ${n} Aufrufe`);
+  };
+  for (const [g, docks] of [[{ breite: 640, hoehe: 480 }, false], [{ breite: 1280, hoehe: 800 }, true]] as const) {
+    const heim = join(d, `heim-${g.breite}`);
+    mkdirSync(heim);
+    rmSync(aufrufe, { force: true });
+    const sh = spawn("/bin/sh", ["-c", TILED_START, join(d, "programm"), tmx, ...tiledBefehl(join(d, "programm"), g).slice(5)],
+      { stdio: "ignore", env: { ...process.env, HOME: heim, DISPLAY: "" } });
+    const zu = new Promise((r) => sh.once("close", r));
+    try {
+      const [erste] = await zeilen(1);
+      assert.equal(erste!.replace(/ \d+$/, ""), `--qwindowgeometry ${g.breite}x${g.hoehe}+0+0 ${tmx}`);
+      // ohne DisplayNews fragt Tiled beim Start im Netz nach Neuigkeiten (gemessen mit Tiled 1.8; CheckForUpdates=false allein änderte nichts)
+      assert.equal(readFileSync(join(heim, ".config", "mapeditor.org", "tiled.conf"), "utf8"), "[Install]\nDisplayNews=false\n");
+      // im kleinen Bild ohne Docks: mit ihnen ragte das Fenster über den Rand, und die Karte bekäme rund 190 Pixel
+      const erweiterung = join(heim, ".config", "tiled", "extensions", "freedom.js");
+      if (docks) assert.ok(!existsSync(erweiterung), "mit Docks keine Erweiterung");
+      else assert.equal(readFileSync(erweiterung, "utf8"), `${TILED_ERWEITERUNG}\n`);
+      writeFileSync(tmx, `zwei ${g.breite}`);
+      const [, zweite] = await zeilen(2);
+      assert.notEqual(zweite!.split(" ").at(-1), erste!.split(" ").at(-1), "neu gestartet");
+      process.kill(Number(zweite!.split(" ").at(-1)), "SIGKILL");
+      assert.equal(await zu, 0);
+    } finally {
+      try { process.kill(sh.pid!, "SIGKILL"); } catch { /* schon weg */ }
+    }
+  }
+  // die Erweiterung und das Skript für das Fenster: Clear View, neu einpassen nur bei neuer Größe; nur Fenster, die über den Rand ragen
+  assert.match(TILED_ERWEITERUNG, /^tiled\.trigger\("ClearView"\);$/m);
+  assert.match(TILED_ERWEITERUNG, /if \(v\.width === b && v\.height === h\) return;[\s\S]*tiled\.trigger\("FitInView"\);/);
+  assert.match(TILED_FENSTER, /g\.width > breite or g\.height > hoehe/);
+  assert.match(TILED_START, /\/usr\/bin\/python3 -I -c "\$5" &/, "das Python der Distribution (python-xlib), nichts aus dem Projekt");
+});
+
+test("VKk4m: Karte im Bildstrom – main.tmx in der Sandbox des Programms, nichts weiter eingebunden; ohne Tiled kein Programm", async () => {
+  const a = ablage("karte");
+  writeFileSync(join(a.ort("karte"), "main.tmx"), "<map/>");
+  const { starte, starts } = attrappe(() => JSON.stringify({ antwort: ANTWORT }));
+  const b = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte, tiled: "/usr/bin/tiled" });
+  try {
+    assert.equal(await b.starte("karte", ANGEBOT, { breite: 640, hoehe: 480 }), ANTWORT);
+    const programm = starts[1]!;
+    assert.deepEqual(programm.befehl, ["/usr/bin/env", "DISPLAY=:99", ...tiledBefehl("/usr/bin/tiled", { breite: 640, hoehe: 480 })]);
+    assert.deepEqual(programm.ort.nurLesbar!.map((s) => s.ziel), [BILD_IN_SANDBOX.x11], "nur der Socket des Bildschirms");
+    assert.equal(programm.ort.gpu, undefined);
+  } finally {
+    b.beendeAlle();
+  }
+  const ohne = new BildStrom(a, { turn: TURN, ziel: ZIEL, starte: attrappe(() => JSON.stringify({ antwort: ANTWORT })).starte });
+  await assert.rejects(ohne.starte("karte", ANGEBOT, { breite: 640, hoehe: 480 }), abgelehnt("code-bild-kein-programm"));
 });
 
 test("VKk4b: KiCad im Bildstrom – main.kicad_sch in der Sandbox des Programms, nichts weiter eingebunden; ohne KiCad kein Programm", async () => {
@@ -2578,6 +2682,126 @@ test("VKk4l: Ende zu Ende – main.sla in Scribus im großen Bild", {
       b.beendeAlle();
     }
   });
+});
+
+const tiled = tiledAusUmgebung({});
+/** Ein PNG mit einer Zeile Kacheln (16×16, je eine Farbe) – wie der Agent es ohne PIL schreibt, mit zlib. */
+const kachelBild = (farben: number[][]) => {
+  const zahl = (n: number) => Buffer.from([n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]);
+  const teil = (art: string, daten: Buffer) => {
+    const td = Buffer.concat([Buffer.from(art, "latin1"), daten]);
+    return Buffer.concat([zahl(daten.length), td, zahl(crc32(td))]);
+  };
+  const zeile = Buffer.concat([Buffer.from([0]), ...farben.flatMap((f) => Array<Buffer>(16).fill(Buffer.from([...f, 255])))]);
+  const kopf = Buffer.concat([zahl(16 * farben.length), zahl(16), Buffer.from([8, 6, 0, 0, 0])]);
+  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), teil("IHDR", kopf),
+    teil("IDAT", deflateSync(Buffer.concat(Array<Buffer>(16).fill(zeile)))), teil("IEND", Buffer.alloc(0))]);
+};
+/**
+ * Eine Karte, wie der Agent sie nach den Hinweisen schreibt (VKk5): TMX als XML – ein Kachelsatz mit dem Bild als PNG daneben (drei
+ * Kacheln: 1 grün, 2 rot, 3 blau), eine Kachelebene 40×20 aus 16 Pixeln und ein Objekt. Die letzten vier Spalten tragen `rand`, der
+ * Rest `flaeche`: Der Rand steht nur im kleinen Bild, wenn die ganze Karte eingepasst ist – ohne die Größe des Fensters
+ * (`TILED_FENSTER`) ragte die Karte über den Rand des Bilds (Gegenprobe: dort Blau), ohne die Erweiterung zeigte die Stelle Grau.
+ */
+const tmxKarte = (ordner: string, rand: number, flaeche: number) => {
+  writeFileSync(join(ordner, "kacheln.png"), kachelBild([[0, 192, 0], [204, 0, 0], [0, 64, 200]]));
+  const daten = Array.from({ length: 20 }, () => Array.from({ length: 40 }, (_, x) => (x >= 36 ? rand : flaeche)).join(",")).join(",\n");
+  writeFileSync(join(ordner, "main.tmx"), [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<map version="1.8" orientation="orthogonal" renderorder="right-down" width="40" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="2">`,
+    ` <tileset firstgid="1" name="Kacheln" tilewidth="16" tileheight="16" tilecount="3" columns="3">`,
+    `  <image source="kacheln.png" width="48" height="16"/>`,
+    ` </tileset>`,
+    ` <layer id="1" name="Boden" width="40" height="20">`,
+    `  <data encoding="csv">`, daten, `</data>`,
+    ` </layer>`,
+    ` <objectgroup id="2" name="Dinge">`,
+    `  <object id="1" name="Start" x="32" y="32" width="64" height="32"/>`,
+    ` </objectgroup>`,
+    `</map>`, ``,
+  ].join("\n"));
+};
+
+test("VKk4m: die Hinweise nennen, was die Karte im Echttest braucht", () => {
+  const h = bildHinweise({ tiled: true });
+  for (const teil of [`<map version="1.8" orientation="orthogonal" renderorder="right-down"`, `infinite="0"`, `<tileset firstgid="1"`,
+    "<image source width height/>", "as a PNG file next to it", `<data encoding="csv">`, "counted from `firstgid`, 0 for empty",
+    "<objectgroup id name><object id name x y width height/></objectgroup>"]) {
+    assert.ok(h.includes(teil), teil);
+  }
+});
+
+test("VKk4m: Ende zu Ende – eine Karte, wie der Agent sie schreibt, in Tiled im kleinen Bild; neu geschrieben, zeigt das Bild die neue", {
+  skip: ohne || (!tiled && "Tiled fehlt (tiled)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("karte");
+    tmxKarte(a.ort("karte"), 1, 3);
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, tiled: tiled! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      const rot = (f: number[] | null) => !!f && f[0]! > 100 && f[1]! < 80 && f[2]! < 80;
+      let geaendert = false;
+      const gewirkt = (f: number[] | null) => {
+        if (!geaendert && gruen(f)) {
+          tmxKarte(a.ort("karte"), 2, 3);
+          geaendert = true;
+        }
+        return geaendert && rot(f);
+      };
+      // auf dem Rand rechts in der eingepassten Karte
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("karte", angebot, { breite: 640, hoehe: 480 }), gewirkt,
+        { frist: 90, stelle: [0.9, 0.5] });
+      console.log(`[bild] Tiled: Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(geaendert, `erst grün (${JSON.stringify(e.farbe)})`);
+      assert.ok(rot(e.farbe), `nach dem Neuschreiben rot (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("karte")).sort(), ["kacheln.png", "main.tmx"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+test("VKk4m: Ende zu Ende – main.tmx in Tiled im großen Bild, mit den Docks", {
+  skip: ohne || (!tiled && "Tiled fehlt (tiled)"), timeout: 180_000,
+}, async () => {
+  await mitCoturn(async (turn, turnPort) => {
+    const a = ablage("karte");
+    tmxKarte(a.ort("karte"), 2, 1);
+    const b = new BildStrom(a, { turn, ziel: { host: "127.0.0.1", port: turnPort, tls: false }, python, tiled: tiled! });
+    try {
+      const gruen = (f: number[] | null) => !!f && f[1]! > 100 && f[0]! < 80 && f[2]! < 80;
+      // mitten in der Karte – links und rechts stehen im großen Bild die Docks
+      const e = await empfange(turn, turnPort, [], (angebot) => b.starte("karte", angebot, { breite: 1280, hoehe: 800 }), gruen,
+        { frist: 90, stelle: [0.55, 0.5] });
+      console.log(`[bild] Tiled (groß): Antwort nach ${e.antwortMs} ms, ${e.bilder} Bilder, Farbe zuletzt ${JSON.stringify(e.farbe)}`);
+      assert.ok(gruen(e.farbe), `grün (${JSON.stringify(e.farbe)})`);
+      assert.deepEqual(readdirSync(a.ort("karte")).sort(), ["kacheln.png", "main.tmx"], "sonst nichts im Projekt");
+    } finally {
+      b.beendeAlle();
+    }
+  });
+});
+
+const tiledBefehleAusHinweisen = () =>
+  [...bildHinweise({ tiled: true }).matchAll(/`(QT_QPA_PLATFORM=offscreen tiled [^`]*)`/g)].map((m) => m[1]!);
+
+test("VKk4m: im Terminal – der Befehl aus den Hinweisen gibt die Karte in der Sandbox für Spiele-Engines aus (JSON, ebenso Lua)", {
+  skip: (!pruefung.ok && `Sandbox geht hier nicht (${pruefung.fall})`) || (!tiled && "Tiled fehlt (tiled)"), timeout: 120_000,
+}, async () => {
+  const arbeit = tmp("karte-terminal");
+  tmxKarte(arbeit, 2, 1);
+  const befehle = tiledBefehleAusHinweisen();
+  assert.deepEqual(befehle, ["QT_QPA_PLATFORM=offscreen tiled --export-map json main.tmx main.json"]);
+  for (const befehl of [befehle[0]!, befehle[0]!.replaceAll("json", "lua")]) {
+    const r = await fuehreAus(["/bin/sh", "-c", befehl], { arbeit }, 90_000);
+    assert.equal(r.code, 0, r.ausgabe);
+  }
+  const json = JSON.parse(readFileSync(join(arbeit, "main.json"), "utf8")) as { width: number; layers: Array<{ data?: number[] }> };
+  assert.equal(json.width, 40);
+  assert.deepEqual(json.layers[0]!.data!.slice(34, 38), [1, 1, 2, 2], "die Kacheln aus der Karte");
+  assert.match(readFileSync(join(arbeit, "main.lua"), "utf8"), /^return \{/);
+  assert.deepEqual(readdirSync(arbeit).sort(), ["kacheln.png", "main.json", "main.lua", "main.tmx"]);
 });
 
 /** Die Wahl im Skript selbst: `formate()` und `pipeline_text()` aus `motor/freedom_bild.py`, mit dem Python der Tests. */

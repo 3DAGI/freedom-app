@@ -251,6 +251,14 @@ RUN if [ "$VIBECODEN" = "1" ] && [ "$SCRIBUS" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends scribus && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Karten für 2D-Spiele im Bild (VKk4m) – nur mit VIBECODEN=1 und TILED=1 (docker-compose.vibecoden.yml reicht es durch). Tiled aus
+# Debian (GPL-2+, eigenes Programm, nur in den Sandboxen), mit Qt 5 rund 50 MB – zeigt main.tmx im Bild und gibt sie im Terminal
+# für Spiele-Engines aus (JSON, Lua).
+ARG TILED=0
+RUN if [ "$VIBECODEN" = "1" ] && [ "$TILED" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends tiled && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Java-Projekte mit Gradle (VKh2a) – nur mit VIBECODEN=1 und GRADLE=1 (docker-compose.vibecoden.yml reicht es durch). Das JDK 17
 # aus Debian (GPL-2.0 mit Classpath-Ausnahme, eigenes Programm, nur in den Sandboxen), rund 250 MB; Gradle kommt aus der Stufe
 # oben. Die Konfiguration des JDK liegt unter /etc/java-17-openjdk – die Sandbox liest sie (VKh1). Die slim-Bilder haben kein

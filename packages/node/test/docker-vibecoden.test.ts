@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBRECAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SCRIBUS_ORTE,
+  BLENDER_ORTE, GIMP_ORTE, GODOT_ORTE, INKSCAPE_ORTE, KICAD_ORTE, KRITA_ORTE, LIBRECAD_ORTE, LIBREOFFICE_ORTE, MELT_ORTE, MUSESCORE_ORTE, OPENSCAD_ORTE, QGIS_ORTE, SCRIBUS_ORTE, TILED_ORTE,
   SHOTCUT_ORTE,
 } from "../src/bildstrom.js";
 import { AAPT2_ORTE, ANDROID_SDK_ORTE, GRADLE_ORTE, HERMES_ORDNER } from "../src/hermes-motor.js";
@@ -306,6 +306,20 @@ test("VKk4l: Scribus nur mit VIBECODEN=1 und SCRIBUS=1 aus der Distribution, dor
   assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+SCRIBUS: "\$\{SCRIBUS:-0\}"\n/);
   assert.ok(!lies("docker-compose.yml").includes("SCRIBUS"), "der Standard bleibt ohne");
   assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends scribus\n\s+xvfb-run -a scribus --version \| grep Version\n/);
+});
+
+test("VKk4m: Tiled nur mit VIBECODEN=1 und TILED=1 aus der Distribution, dort, wo der Knoten es sucht; die CI prüft es echt", () => {
+  const docker = lies("docker/node.Dockerfile");
+  assert.match(docker, /\nARG TILED=0\nRUN if \[ "\$VIBECODEN" = "1" \] && \[ "\$TILED" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends tiled && rm -rf \/var\/lib\/apt\/lists\/\*; \\\n/);
+  const pakete = (m: RegExpExecArray | null) => (m?.[1] ?? "").trim().split(/\s+/).filter((p) => p !== "\\");
+  const immer = pakete(/\nRUN apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  const vibecoden = pakete(/if \[ "\$VIBECODEN" = "1" \]; then \\\n\s+apt-get update && apt-get install -y --no-install-recommends ([^&]+)/.exec(docker));
+  assert.ok(!immer.includes("tiled") && !vibecoden.includes("tiled"), "tiled nur mit TILED=1");
+  assert.ok(vibecoden.includes("python3-xlib"), "python-xlib setzt im kleinen Bild das Fenster (TILED_FENSTER)");
+  assert.deepEqual(TILED_ORTE, ["/usr/bin/tiled"], "dort legt Debian es ab");
+  assert.match(lies("docker-compose.vibecoden.yml"), /\n\s+TILED: "\$\{TILED:-0\}"\n/);
+  assert.ok(!lies("docker-compose.yml").includes("TILED"), "der Standard bleibt ohne");
+  assert.match(lies(".github/workflows/ci.yml"), /apt-get install -y --no-install-recommends tiled\n\s+QT_QPA_PLATFORM=offscreen tiled --version\n/);
 });
 
 test("VKh2a: Gradle nur mit VIBECODEN=1 und GRADLE=1 – die Distribution in fester Fassung gegen SHA-256, das JDK aus Debian; die CI baut damit", () => {

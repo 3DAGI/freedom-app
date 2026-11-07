@@ -225,6 +225,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends scribus
           xvfb-run -a scribus --version | grep Version
 
+      # VKk4m: Karten für 2D-Spiele zeigt Tiled – der Echttest schreibt main.tmx als XML, das Skript startet neu; im kleinen Bild
+      # ohne Docks (Erweiterung) und das Fenster per python-xlib auf den Bildschirm. Im Terminal gibt Tiled sie mit offscreen aus
+      - name: Tiled fuer den Bild-Test
+        run: |
+          sudo apt-get install -y --no-install-recommends tiled
+          QT_QPA_PLATFORM=offscreen tiled --version
+
       # B-42: was apt als root abgelegt hat, für das Speichern des Caches am Ende lesbar machen (lock ist 0640)
       - name: Paket-Zwischenspeicher lesbar machen
         run: |
