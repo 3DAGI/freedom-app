@@ -187,13 +187,13 @@ Spark-Wallet, dazu Cashu für kleine Beträge (NUT-11, NUT-12), immer mit der Mi
 | RM2c3 | App: die Sitzung auf Kredit fällt weg (38021 ohne Zahlung, Fenster ohne Deckung) – ohne Pfand Gebot je Auftrag, bezahlt nach der Antwort | A | ~150 – **fertig** (16.10.: `app/src/session-client.ts` nur noch das Konto je Provider und Schlüssel) |
 | RM2c4a | Knoten: keine Sitzung auf Kredit mehr – eine Anfrage mit `session` ohne SOL-Hinterlegung wird abgesagt („bitte mit Gebot fragen“) oder nach G1 gratis bedient; `validateSession()` und das Merken versiegelter Sitzungen und Belege fallen | A | ~150 – **fertig** (17.10.: `node/src/dvm-provider.ts`) |
 | RM2c4b | Protokoll: die Bausteine der Sitzung fallen – `stream.ts` (`buildSessionOpen()`, `parseSessionOpen()`, `buildSessionPayment()`, `parseSessionPayment()`, `checkSessionLedger()`, `amountDue()`), `buildPrivateSessionEvent()`, Ausnahmen in `wiring-ausnahmen.txt`; 38020–38022 nicht wiederverwenden; Aussage „ki-zahlung“ ohne Sitzungen und Belege | A | ~250 (meist Löschungen) – **fertig** (17.10.: `protocol/src/stream.ts` entfernt) |
-| RM2d | Oberfläche: „Guthaben laden“ statt Budget-Sitzung, Mint und „verwahrt“ sichtbar | C | ~200 |
+| RM2d | Oberfläche: „Guthaben laden“ statt Budget-Sitzung, Mint und „verwahrt“ sichtbar | C | ~200 – **fertig** (06.11., von Spur B: `app/src/ki-guthaben.ts`, `shell/ki-guthaben-ui.ts`) |
 
 - **Reihenfolge:** nach A-17c (Cashu-Baustein).
 - **Neue Abhängigkeit im Knoten:** `@cashu/cashu-ts` 4.11.0, MIT oder Apache-2.0, rund 2 MB
   entpackt, Abhängigkeiten `@noble`/`@scure`. Für die App ist sie schon mit E4b freigegeben.
 - **Die Prüfung ohne Mint (RM2a)** geht mit `@noble/curves`, das schon im Protokoll ist.
-- **Seit RM2c3** eröffnet die App keine Sitzung mehr, **seit RM2c4a** bedient auch der Knoten keine mehr, **seit RM2c4b** gibt es die Bausteine nicht mehr. Offen ist nur noch RM2d (Spur C).
+- **Seit RM2c3** eröffnet die App keine Sitzung mehr, **seit RM2c4a** bedient auch der Knoten keine mehr, **seit RM2c4b** gibt es die Bausteine nicht mehr. Seit RM2d (06.11.) zeigt die Wallet-Seite das KI-Guthaben – RM2 ist fertig.
 
 ## Fragen an den MENSCHEN
 

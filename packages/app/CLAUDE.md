@@ -1059,3 +1059,13 @@ Fallstricke dieses Bereichs unten anhängen.
   Raums (`reposVonRaum()`), nie eine Kennung aus der Nachricht allein.
   Im Raum (seit 11.5d3) nur über `beauftrageAgentImRaum()` mit den Repos aus `reposVonRaum()` – derselbe Weg wie auf der
   Repo-Seite, nie ein zweiter; der Menüpunkt `#space-repo-agent` folgt der Liste unter den Kanälen (`zeigeRaumRepos()`).
+- **KI-Guthaben nur über `shell/ki-guthaben-ui.ts`** (seit RM2d, `docs/RM2-ENTWURF.md` V3/V6): Mint wählen, laden und
+  abholen nur über den einen `cashuTopf` aus `ki-pfand.ts`, erst nach `verlangeTresor()` (der Topf schreibt nur mit offenem
+  Tresor). Laden nur über `ladeGuthaben()` (`ki-guthaben.ts`): die Rechnung kommt aus `ladeAnfrage()` (auf den Betrag
+  geprüft), bezahlt nur über `zahle(zahlschienen(), … zweck: "cashu")` nach `bestaetige()` mit Mint und Gebühr je Token
+  (`gebuehrPpk()`), dann `abholen()`. Antwortet die Mint danach nicht oder sieht die Zahlung noch nicht, bleibt die Ladung
+  offen (`offeneLadungen()`) und wird über „Offene Ladung abholen“ geholt – nie von selbst noch einmal zahlen. Kopf
+  (`#balance`) und Seitenleiste (`#nb-sats`) zeigen das Guthaben über `setzeKiGuthabenAnzeige()` – `ui.ts` importiert den
+  Topf nie selbst (er entsteht beim Laden des Moduls aus `geheim`). Fehler des Topfs nur über `CASHU_TEXT` (je Kennung aus
+  `CASHU_FAELLE` ein Satz, `Record` hält die Liste vollständig). Was die Mint sieht, sagt nur die Grenze „cashu-pfand“ im
+  Bericht – die Karte verweist darauf, statt es selbst zu behaupten.

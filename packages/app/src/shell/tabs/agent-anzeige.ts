@@ -130,17 +130,12 @@ export function showAiError(e: unknown, retryPrompt: string, retryBid: number, r
 
 /**
  * Nach einer Antwort: die Zeile unter der Eingabe leeren (dort stand bis RM2c3 das Budget der
- * Sitzung auf Kredit – die gibt es nicht mehr; ein Guthaben zeigt der Kopf erst mit dem Cashu-Topf, RM2d).
+ * Sitzung auf Kredit – die gibt es nicht mehr); Kopf und Seitenleiste zeigen seit RM2d das KI-Guthaben.
  */
 export function updateBudgetBar(): void {
   const el = $("#ai-budget");
   el.textContent = "";
   el.className = "mono-sm";
-  const bal = $("#balance");
-  if (bal) {
-    bal.textContent = "— sats";
-    bal.className = "balance";
-  }
   updateSidebarBalances();
 }
 

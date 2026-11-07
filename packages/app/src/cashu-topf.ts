@@ -43,10 +43,13 @@ export const PFAND_FRIST_SEK = 3600;
 /** Spielraum über der Mindestfrist des Providers (`PFAND_GRENZEN.restSek`) für Uhr und Weg. */
 export const PFAND_SPIELRAUM_SEK = 5 * 60;
 
-export type CashuFall =
-  | "tresor" | "mint-adresse" | "mint-netz" | "mint-ohne-nut11" | "mint-ohne-nut12" | "mint-ohne-sat" | "mint-wechsel"
-  | "keine-mint" | "betrag" | "zu-viel" | "zu-wenig" | "rechnung" | "unbezahlt" | "token" | "fremde-mint" | "ohne-dleq"
-  | "nicht-gesperrt" | "ausgegeben" | "laufend" | "pfand-schluessel";
+/** Alle Kennungen von `CashuFehler` – die Oberfläche hat je eine einen Satz (RM2d, `cashu.fall.*`). */
+export const CASHU_FAELLE = [
+  "tresor", "mint-adresse", "mint-netz", "mint-ohne-nut11", "mint-ohne-nut12", "mint-ohne-sat", "mint-wechsel",
+  "keine-mint", "betrag", "zu-viel", "zu-wenig", "rechnung", "unbezahlt", "token", "fremde-mint", "ohne-dleq",
+  "nicht-gesperrt", "ausgegeben", "laufend", "pfand-schluessel",
+] as const;
+export type CashuFall = (typeof CASHU_FAELLE)[number];
 
 export class CashuFehler extends Error {
   constructor(readonly fall: CashuFall) {
@@ -157,6 +160,17 @@ export class CashuTopf {
   /** Guthaben in sat (ohne gesperrt Empfangenes). */
   guthaben(): number {
     return summe(deserializeProofs(this.lies().proofs));
+  }
+
+  /** Ladungen, die noch nicht abgeholt sind und noch gelten (RM2d: „abholen“, wenn nach dem Zahlen die Mint nicht antwortete). */
+  offeneLadungen(): Array<{ quote: string; betrag: number }> {
+    return this.lies().offen.filter((x) => x.bis === null || x.bis > this.jetzt()).map(({ quote, betrag }) => ({ quote, betrag }));
+  }
+
+  /** Gebühr der Mint je Token in ppk (NUT-02, `input_fee_ppk`) – die höchste ihrer Schlüsselsätze in sat, 0 ohne (RM2 V6: vor dem Laden zeigen). */
+  gebuehrPpk(): number {
+    const saetze = this.lies().schluesselbund?.keysets.filter((k) => k.unit === "sat") ?? [];
+    return Math.max(0, ...saetze.map((k) => k.input_fee_ppk ?? 0));
   }
 
   /** Ohne Netz empfangen, noch einzulösen. */

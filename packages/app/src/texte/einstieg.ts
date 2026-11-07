@@ -224,7 +224,6 @@ export const einstieg: Texte = {
   "ein.endpunkteGespeichert": { de: "Endpunkte gespeichert", en: "Endpoints saved" },
   "ein.keineAntwortRpc": { de: "keine Antwort", en: "no answer" },
   "ein.keineIdentitaetKurz": { de: "nicht verbunden", en: "not connected" },
-  "ein.budgetRest": { de: "Kein Budget auf Kredit mehr: Die App zahlt jede Antwort aus deiner Wallet, sobald ein ganzer sat fällig ist", en: "No budget on credit any more: the app pays each answer from your wallet once a whole sat is due" },
   "ein.kopiert": { de: "kopiert", en: "copied" },
   // Bunker (shell/bunker.ts)
   "ein.bunkerAngemeldet": { de: "Angemeldet über den Bunker {signer} ({relays}). Jede Unterschrift fragt die App dort an.", en: "Signed in via the bunker {signer} ({relays}). The app requests every signature there." },

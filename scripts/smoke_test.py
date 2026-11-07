@@ -4691,15 +4691,19 @@ def geld_settings_klein_pruefen(browser, url: str) -> dict:
         const haken = document.getElementById('nwc-privat').closest('label');
         const kurs = document.getElementById('kurs-info');
         return {
-          kopf: [...document.querySelectorAll('#nav-balances .nb-label')].map(l => l.textContent),
+          kopf: [...document.querySelectorAll('#nav-balances h3')].map(l => l.textContent),
+          mint: document.getElementById('cashu-mint').textContent,
+          laden: document.getElementById('cashu-laden').disabled,
+          stand: document.getElementById('nb-sats').textContent,
           sol: !!document.getElementById('nb-sol'),
           haken: getComputedStyle(haken).textTransform,
           kursAbstand: kurs.textContent ? getComputedStyle(kurs).marginBottom : 'leer',
           verbundenAbstand: getComputedStyle(document.getElementById('sol-pubkey')).marginBottom,
         }; }""")
     wa = erg["waehrung"]
-    if wa["kopf"] != ["KI-Budget"] or wa["sol"]:
-        erg["fehler"].append(f"Kopf {wa['kopf']} sol={wa['sol']}")
+    # RM2d: das KI-Guthaben (Cashu-Topf) – ohne Mint „—“, Laden gesperrt
+    if wa["kopf"] != ["KI-Guthaben"] or wa["sol"] or wa["mint"] != "Noch keine Mint gewählt" or not wa["laden"] or wa["stand"] != "— sats":
+        erg["fehler"].append(f"KI-Guthaben {wa}")
     if wa["haken"] != "none":
         erg["fehler"].append(f"Häkchen-Satz {wa['haken']}")
     if wa["kursAbstand"] not in ("8px", "leer") or wa["verbundenAbstand"] != "8px":

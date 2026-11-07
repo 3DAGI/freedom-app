@@ -513,9 +513,6 @@ nav button.active { color: var(--accent); }
 .weg-pfeil { flex: none; font-size: 20px; color: var(--text-muted); }
 .konto-eingebaut { color: var(--accent); }
 .wallet-verwahrt { text-align: center; margin: 4px 0 0; }
-.ki-budget-karte .nb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.ki-budget-karte .nb-label { font-size: 14px; font-weight: 600; }
-.ki-budget-karte .nb-val { font: 600 15px var(--font-mono); color: var(--text); }
 
 .stat { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .stat:last-child { border-bottom: none; }

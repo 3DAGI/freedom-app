@@ -17,7 +17,7 @@ export const LS_ZAHLUNGEN = "freedom.zahlungen";
 export const ZAHLUNGEN_MAX = 500;
 /** So viele Buchungen fragt die App bei der Wallet an. */
 export const NWC_VERLAUF_MAX = 50;
-const ZWECKE: readonly Zweck[] = ["zap", "job", "sitzung", "deposit", "trinkgeld", "gebuehr", "swap", "relay", "anforderung", "senden"];
+const ZWECKE: readonly Zweck[] = ["zap", "job", "sitzung", "deposit", "trinkgeld", "gebuehr", "swap", "relay", "anforderung", "senden", "cashu"];
 
 export interface Zahlung {
   /** Unix-Sekunden. */
