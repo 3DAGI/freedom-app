@@ -12,7 +12,7 @@ und **KI-Anfragen**, die Provider gegen Bezahlung ausführen (NIP-90).
 | Protokoll (`packages/protocol`) | über 75 Module: Nostr, DVM, NIP-44/NIP-17, HTLC, Gebühren, Mesh, Nachfolge u. v. m. |
 | Knoten (`packages/node`) | Provider-Daemon: KI-Aufträge, Abrechnung, Liquidität für Swaps, Relay- und Speicherrolle |
 | Solana-Programm (`contracts/solana-htlc`) | Hash-Zeitschloss für Swaps Lightning ↔ SOL und SOL-Deposits |
-| Website (`packages/website`) | Startseite, Whitepaper, FAQ, Roadmap, Dashboard – live unter https://3dagi.github.io/freedom-app/ |
+| Website (`packages/website`) | Startseite, Whitepaper, FAQ, Roadmap, Dashboard – live unter https://freedomstack.io/ |
 
 ## Die vier Ziele des Ausbaus
 

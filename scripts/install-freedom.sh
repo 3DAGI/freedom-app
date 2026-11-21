@@ -2,7 +2,7 @@
 # ============================================================
 # FreedomStack Provider-Installer
 #
-#   bash <(curl -fsSL https://3dagi.github.io/freedom-app/install.sh)
+#   bash <(curl -fsSL https://freedomstack.io/install.sh)
 #   (Pruefsumme daneben: install.sh.sha256 – oder aus dem Repo: bash scripts/install-freedom.sh)
 #
 # Macht aus einem Linux-Rechner (GX10, VPS, Laptop) einen Provider:
@@ -29,6 +29,9 @@ FREEDOM_DIR="${FREEDOM_DIR:-$HOME/freedomstack}"
 FREEDOM_REPO="${FREEDOM_REPO:-https://github.com/3DAGI/freedom-app.git}"
 BRANCH="${BRANCH:-main}"
 STATE_DIR="$HOME/.freedom"
+# Wohin die Status-Seite verweist: dieselbe Auslieferung, aus der dieses Skript kommt.
+# Ueberschreibbar fuer eigene Spiegel (FREEDOM_BASIS_URL=https://…/).
+BASIS_URL="${FREEDOM_BASIS_URL:-https://freedomstack.io}"
 KEY_FILE="$STATE_DIR/node-key"
 ENV_FILE="$STATE_DIR/node.env"
 QUOTA_API_PORT="${QUOTA_API_PORT:-3602}"
@@ -462,7 +465,7 @@ if [ "$MODE" = "systemd" ]; then
   say "  Logs   : journalctl -u freedom-node -f"
   say "  Stoppen: sudo systemctl stop freedom-node"
 fi
-say "  Status : https://3dagi.github.io/freedom-app/dashboard.html  (Suche nach deinem pubkey)"
+say "  Status : $BASIS_URL/dashboard.html  (Suche nach deinem pubkey)"
 say ""
 
 if [ "$MODE" = "vordergrund" ]; then

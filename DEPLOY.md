@@ -13,8 +13,8 @@
   (Code vom Juli, Upgrade-Recht `8DhKPv…`).
 
 ## Website
-- **URL**: https://3dagi.github.io/freedom-app/
-- **Veröffentlichung**: nur über `.github/workflows/pages.yml` (bei jedem Merge nach `main`, nur mit grünen Tests)
+- **URL**: https://freedomstack.io (`freedomstack.eu` → 301 auf `.io`)
+- **Auslieferung**: zwei Wege, gleicher Build — `.github/workflows/pages.yml` (GitHub Pages, bei jedem Merge nach `main` mit grünen Tests) und der eigene Server (`/usr/local/bin/freedom-update` auf dem Hetzner-CPX32, Caddy `file_server`)
 - **SHA256 freedom.html**: ef5a0aec4a9e88268c066d0391cfe1c58efc63d59abb60084ece7e73f60695dc (Stand 24.09., nach 2.1;
   der aktuelle Wert steht immer in `freedom.html.sha256` und auf der Startseite)
 

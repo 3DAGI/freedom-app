@@ -205,13 +205,38 @@ export function pitchFor(intent: Intent): { headline: string; points: string[] }
 }
 
 /**
- * Woher der Provider-Installer kommt (C-21): von der Pages-Auslieferung dieses
- * Repositorys, gebaut aus demselben Stand wie die App (`build-site.sh`, mit
- * `install.sh.sha256` daneben). Bis 07.10.2026 stand hier `freedomstack.io` –
- * eine Domain, die niemand von uns besitzt: Wer sie registriert, hätte jedem,
- * der den Befehl kopiert, beliebigen Code untergeschoben.
+ * Woher der Provider-Installer kommt (C-21): aus derselben Auslieferung wie die
+ * App selbst (`build-site.sh` legt `install.sh` und `install.sh.sha256` daneben).
+ *
+ * Deshalb bewusst **relativ zur geladenen Seite**: ein absoluter Host hier würde
+ * jede Spiegelung (IPFS, Arweave, Tor, eigene Domain) auf fremden Code zeigen
+ * lassen und die Prüfsummen-Kette entwerten. Der Befehl wird ohnehin kopiert und
+ * in einer Shell ausgeführt, braucht also eine absolute Adresse — die entsteht
+ * erst hier, aus der Herkunft, unter der die App tatsächlich läuft.
+ *
+ * Bis 07.10.2026 stand hier `https://freedomstack.io` – damals war die Domain
+ * nicht unsere und wer sie registriert hätte, hätte jedem, der den Befehl
+ * kopiert, beliebigen Code untergeschoben. Seit 21.11.2026 gehört sie uns
+ * (`freedomstack.io`, Auslieferung dieses Repositorys), die Sperre ist damit
+ * gegenstandslos – die relative Auflösung bleibt trotzdem die robustere Lösung.
  */
-export const INSTALLER_URL = "https://3dagi.github.io/freedom-app/install.sh"; // kein UI-Text
+const INSTALLER_FALLBACK_BASIS = "https://freedomstack.io/freedom.html";
+
+/**
+ * Installer-Adresse derselben Auslieferung. `herkunft` ist die Adresse der
+ * geladenen Seite; ohne Angabe die des Browsers, im Test die offizielle Adresse.
+ */
+export function installerUrl(herkunft?: string): string {
+  const basis =
+    herkunft ??
+    (typeof globalThis.location !== "undefined" && globalThis.location.href
+      ? globalThis.location.href
+      : INSTALLER_FALLBACK_BASIS);
+  return new URL("install.sh", basis).href;
+}
+
+export const INSTALLER_URL = installerUrl(); // kein UI-Text
+
 
 /**
  * Der Befehl, mit dem ein Linux-Rechner zum Knoten wird (C-24) – gezeigt in

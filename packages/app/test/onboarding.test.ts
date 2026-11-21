@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { INSTALLER_URL, hinweisSeite, nextStep, pitchFor, providerBefehl, Readiness } from "../src/onboarding.js";
+import { INSTALLER_URL, installerUrl, hinweisSeite, nextStep, pitchFor, providerBefehl, Readiness } from "../src/onboarding.js";
 import { setLang, t } from "../src/i18n.js";
 
 // Meldungen hier auf Deutsch prüfen (seit 8.16g1 über Schlüssel in der Sprache der Oberfläche)
@@ -206,14 +206,23 @@ test("8.16g1: Erklaerung verspricht keinen Aufschlag – den Knappheitsbonus gib
 
 const quelle = (pfad: string) => readFileSync(fileURLToPath(new URL(pfad, import.meta.url)), "utf8");
 
-test("Provider: der Befehl holt den Installer des Projekts", () => {
-  // Bis C-21 zeigte der Befehl auf freedomstack.io – eine Domain, die nicht zum
-  // Projekt gehört.
+test("Provider: der Befehl holt den Installer derselben Auslieferung", () => {
+  // Früher stand hier eine absolute Adresse (zuletzt 3dagi.github.io, davor
+  // freedomstack.io, als die Domain noch nicht uns gehörte): jede Spiegelung
+  // hätte damit auf fremden Code gezeigt. Jetzt wird relativ zur geladenen
+  // Seite aufgelöst; ohne Browser greift die offizielle Adresse.
   assert.equal(providerBefehl(), `bash <(curl -fsSL ${INSTALLER_URL})`);
   const u = new URL(INSTALLER_URL);
   assert.equal(u.protocol, "https:");
-  assert.equal(u.hostname, "3dagi.github.io", "die Pages-Auslieferung des Projekts (build-site.sh legt install.sh dorthin)");
-  assert.equal(u.pathname, "/freedom-app/install.sh");
+  assert.equal(u.hostname, "freedomstack.io", "Rückfall ohne Browser: die eigene Auslieferung");
+  assert.equal(u.pathname, "/install.sh");
+});
+
+test("Provider: Installer-Adresse folgt der Herkunft der Seite", () => {
+  assert.equal(installerUrl("https://freedomstack.io/freedom.html"), "https://freedomstack.io/install.sh");
+  assert.equal(installerUrl("https://freedomstack.eu/"), "https://freedomstack.eu/install.sh");
+  // Gespiegelte Auslieferung in einem Unterordner bleibt im selben Ordner
+  assert.equal(installerUrl("https://spiegel.example/app/freedom.html"), "https://spiegel.example/app/install.sh");
 });
 
 test("Provider: im Befehl steht keine Beispieladresse", () => {
@@ -255,11 +264,23 @@ test("Provider: ohne GPU wird vorher gesagt, dass es sich kaum lohnt", () => {
 });
 
 test("Provider: keine fremden Adressen im Code der App (C-21)", () => {
-  // freedomstack.io gehört niemandem von uns (NXDOMAIN), wallet.cash verwahrt Geld.
+  // C-21 verbietet Adressen, die jemand anderes kontrolliert: damals war
+  // freedomstack.io NXDOMAIN (wer sie registriert, schiebt Code unter) und
+  // wallet.cash verwahrt fremdes Geld. freedomstack.io/.eu gehören seit
+  // 21.11.2026 dem Projekt und sind damit erlaubt – fremde Hosts bleiben es nicht.
   const ohneKommentare = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const dateien = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? dateien(join(dir, e.name)) : /\.(ts|html)$/.test(e.name) ? [join(dir, e.name)] : []);
-  const treffer = dateien(fileURLToPath(new URL("../src", import.meta.url))).filter((f) =>
-    /freedomstack\.io|wallet\.cash/.test(ohneKommentare(readFileSync(f, "utf8"))));
-  assert.deepEqual(treffer, []);
+  const quellen = dateien(fileURLToPath(new URL("../src", import.meta.url)));
+  const treffer = quellen.filter((f) =>
+    /wallet\.cash/.test(ohneKommentare(readFileSync(f, "utf8"))));
+  assert.deepEqual(treffer, [], "wallet.cash ist fremd");
+
+  // Jede freedomstack-Adresse muss die eigene Domain sein (.io oder .eu) –
+  // freedomstack.xyz, freedom-stack.io o. Ä. wären wieder fremd.
+  const fremde = quellen.flatMap((f) =>
+    [...ohneKommentare(readFileSync(f, "utf8")).matchAll(/https?:\/\/([a-z0-9.-]*freedomstack[a-z0-9.-]*)/gi)]
+      .map((m) => m[1])
+      .filter((host) => !/^freedomstack\.(io|eu)$/i.test(host)));
+  assert.deepEqual(fremde, [], "nur freedomstack.io/.eu sind eigene Adressen");
 });
