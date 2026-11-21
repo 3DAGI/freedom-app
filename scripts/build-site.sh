@@ -49,6 +49,15 @@ fi
 cp "$ROOT/scripts/install-freedom.sh" "$OUT"/install.sh
 (cd "$OUT" && sha256sum install.sh | cut -d' ' -f1) > "$OUT/install.sh.sha256"
 
+# Keine Fremdhosts in der Auslieferung: wer diese Seite spiegelt (IPFS, Arweave,
+# Tor, eigene Domain), muss beim Installer auf die eigene Kopie zeigen und nicht
+# auf eine fremde Adresse. Absolute Hosts brechen genau das — deshalb Abbruch.
+if grep -rIl '3dagi\.github\.io' "$OUT" >/dev/null 2>&1; then
+  echo "ABBRUCH: absolute GitHub-Pages-Adresse in der Auslieferung:" >&2
+  grep -rIn '3dagi\.github\.io' "$OUT" >&2
+  exit 1
+fi
+
 # Die Pruefsumme auch in die Startseite schreiben. Vorher stand dort ein fest
 # eingetragener alter Wert — wer ihn nachrechnete, bekam einen Widerspruch.
 python3 - "$OUT/index.html" "$SUM" <<'PYEOF'
