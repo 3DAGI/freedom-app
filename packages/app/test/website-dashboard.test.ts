@@ -16,13 +16,16 @@ import {
 
 interface Daten {
   ereignisse: number;
-  angebote: { pubkey: string; stufe: string; modelle: string[]; satsJe1k: number | null; lamportsJe1k: number | null; lightning: boolean; solKanal: boolean; funkGateway: boolean }[];
+  angebote: { pubkey: string; stufe: string; modelle: string[]; satsJe1k: number | null; lamportsJe1k: number | null; lightning: boolean; solKanal: boolean; funkGateway: boolean; speicher: { kapazitaet: number; preisMb: number; bootstrap: boolean; gratis: number } | null; werkzeuge: number }[];
   angebote7Tage: number;
   modelle: { name: string; anbieter: number }[];
   kataloge: { kurator: string; titel: string; modelle: number }[];
   kuratoren: number;
   abdeckung: Record<"online" | "lora" | "bluetooth", { zellen: number; knoten: number }> & { verdeckt: number };
   nennungen: { nennungen: number; werber: number };
+  speicher: { knoten: number; kapazitaet: number; gratis: number; bootstrap: number; preisMinMb: number | null; preisMaxMb: number | null };
+  preise: { anbieter: number; gratis: number; minSats: number | null; medSats: number | null; maxSats: number | null };
+  alter: { unter1h: number; unter24h: number; siebenTage: number };
 }
 interface Modul {
   KIND_ANGEBOT: number; KIND_KATALOG: number; KIND_ABDECKUNG: number; KIND_NENNUNG: number; K_SCHWELLE: number;
@@ -129,4 +132,43 @@ test("C-3: Preise in sats und SOL – SOL nur aus dem Kurs im Angebot, ohne Kurs
   const seite = readFileSync(new URL("../../website/dashboard.html", import.meta.url), "utf8");
   assert.match(seite, /p\.lamportsJe1k === null \? `\$\{sats\} · SOL: kein Kurs` : `\$\{sats\} · ≈ \$\{solFmt\(p\.lamportsJe1k\)\} SOL`/);
   assert.match(seite, /"Preis je 1\.000 Tokens"/);
+});
+
+test("E9-2: Speicher-Angebote und Preisspanne – nur was im Angebot steht", () => {
+  const mitSpeicher = generateKeypair();
+  const ohneSpeicher = generateKeypair();
+  const alt = generateKeypair();
+  const angebotMit = (k: { pk: string; sk: Uint8Array }, createdAt: number, storage?: { capacityBytes: number; priceMsatPerMB: number; bootstrap: boolean; gratisBytes?: number }, preis = 2000) =>
+    signEvent(buildCapabilities({
+      pubkey: k.pk, tier: "classic", models: ["m:1"], textRatePerKTokenMsat: preis, tools: [], currentlyFree: false,
+      ...(storage ? { storage } : {}),
+    }, createdAt), k.sk);
+
+  const d = m.werteAus([
+    angebotMit(mitSpeicher, JETZT - 60, { capacityBytes: 500_000_000_000, priceMsatPerMB: 2, bootstrap: true, gratisBytes: 10_000_000 }, 900),
+    angebotMit(ohneSpeicher, JETZT - 120, undefined, 5000),
+    // älter als 24 h: zählt für die 7 Tage, nicht für Speicher oder Preisspanne
+    angebotMit(alt, JETZT - 2 * 86400, { capacityBytes: 1_000_000_000, priceMsatPerMB: 7, bootstrap: false }),
+  ], JETZT);
+
+  assert.deepEqual(d.angebote.map((a) => a.pubkey), [mitSpeicher.pk, ohneSpeicher.pk]);
+  assert.deepEqual(d.angebote[0].speicher, { kapazitaet: 500_000_000_000, preisMb: 2, bootstrap: true, gratis: 10_000_000 });
+  assert.equal(d.angebote[1].speicher, null, "ohne storage-Tag keine Kapazität");
+  assert.deepEqual(d.speicher, { knoten: 1, kapazitaet: 500_000_000_000, gratis: 10_000_000, bootstrap: 1, preisMinMb: 2, preisMaxMb: 2 });
+  assert.deepEqual(d.preise, { anbieter: 2, gratis: 0, minSats: 0.9, medSats: 2.95, maxSats: 5 });
+  assert.deepEqual(d.alter, { unter1h: 2, unter24h: 2, siebenTage: 3 });
+
+  // Ein Angebot ohne verwertbare Zahlen zählt nicht als Speicherknoten.
+  const roh = buildCapabilities({
+    pubkey: alt.pk, tier: "classic", models: [], textRatePerKTokenMsat: 0, tools: [], currentlyFree: false,
+  }, JETZT - 30);
+  const kaputt = signEvent({ ...roh, tags: [["d", alt.pk], ["tier", "classic"], ["text_rate_msat", "0"], ["storage", "viel", "2", "0"]] } as never, alt.sk);
+  const ohne = m.werteAus([kaputt], JETZT);
+  assert.equal(ohne.speicher.knoten, 0, "„viel“ ist keine Kapazität");
+  assert.equal(ohne.speicher.preisMinMb, null);
+
+  const seite = readFileSync(new URL("../../website/dashboard.html", import.meta.url), "utf8");
+  assert.match(seite, /<h2>Speicher<\/h2>/);
+  assert.match(seite, /renderStorage\(d\)/);
+  assert.match(seite, /"Bootstrap", "erneuert"/);
 });
