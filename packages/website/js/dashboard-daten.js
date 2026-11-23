@@ -60,6 +60,18 @@ function angebote(events, jetzt) {
     if (jetzt - ev.created_at > ZEITRAUM_SECS || (je.get(ev.pubkey)?.zeit ?? -1) >= ev.created_at) continue;
     const rate = Number(tag(ev, "text_rate_msat"));
     const preisOk = Number.isFinite(rate) && rate >= 0;
+    // Speicher-Rolle (storage-Tag: Kapazität, Preis je MB, Bootstrap, gratis bis)
+    const st = ev.tags.find((t) => Array.isArray(t) && t[0] === "storage");
+    const zahl = (v) => (typeof v === "string" && /^\d{1,15}$/.test(v) ? Number(v) : null);
+    const kapazitaet = st ? zahl(st[1]) : null;
+    const speicher = st && kapazitaet !== null && kapazitaet > 0
+      ? {
+        kapazitaet,
+        preisMb: zahl(st[2]) ?? 0,
+        bootstrap: st[3] === "1",
+        gratis: zahl(st[4]) ?? 0,
+      }
+      : null;
     je.set(ev.pubkey, {
       pubkey: ev.pubkey,
       zeit: ev.created_at,
@@ -72,6 +84,8 @@ function angebote(events, jetzt) {
       lightning: !!tag(ev, "lud16"),
       solKanal: ev.tags.some((t) => t[0] === "kanal" && t[1] && t[2]),
       funkGateway: ev.tags.some((t) => t[0] === "funk" && t[1] === "gateway"),
+      speicher,
+      werkzeuge: ev.tags.filter((t) => t[0] === "tool").length,
     });
   }
   return [...je.values()].sort((a, b) => b.zeit - a.zeit || (a.pubkey < b.pubkey ? -1 : 1));
@@ -140,6 +154,23 @@ export function werteAus(roh, jetzt) {
   const modelle = new Map();
   for (const a of frisch) for (const m of a.modelle) modelle.set(m, (modelle.get(m) ?? 0) + 1);
   const k = kataloge(events);
+
+  // Speicher: nur frische Angebote mit gültigem storage-Tag. Wer nichts angibt,
+  // zählt nicht mit – eine fehlende Angabe ist keine Kapazität von null.
+  const speicherKnoten = frisch.filter((a) => a.speicher);
+  const speicher = {
+    knoten: speicherKnoten.length,
+    kapazitaet: speicherKnoten.reduce((s, a) => s + a.speicher.kapazitaet, 0),
+    gratis: speicherKnoten.reduce((s, a) => s + a.speicher.gratis, 0),
+    bootstrap: speicherKnoten.filter((a) => a.speicher.bootstrap).length,
+    preisMinMb: speicherKnoten.length ? Math.min(...speicherKnoten.map((a) => a.speicher.preisMb)) : null,
+    preisMaxMb: speicherKnoten.length ? Math.max(...speicherKnoten.map((a) => a.speicher.preisMb)) : null,
+  };
+
+  // Preisspanne der Text-Rate (msat je 1k Tokens, in sats umgerechnet).
+  const preise = frisch.map((a) => a.satsJe1k).filter((p) => p !== null).sort((a, b) => a - b);
+  const mitMedian = preise.length ? (preise.length % 2 ? preise[(preise.length - 1) / 2] : (preise[preise.length / 2 - 1] + preise[preise.length / 2]) / 2) : null;
+
   return {
     ereignisse: events.length,
     angebote: frisch,
@@ -149,5 +180,18 @@ export function werteAus(roh, jetzt) {
     kuratoren: new Set(k.map((x) => x.kurator)).size,
     abdeckung: abdeckung(events, jetzt),
     nennungen: nennungen(events),
+    speicher,
+    preise: {
+      anbieter: preise.length,
+      gratis: frisch.filter((a) => a.gratis).length,
+      minSats: preise.length ? preise[0] : null,
+      medSats: mitMedian,
+      maxSats: preise.length ? preise[preise.length - 1] : null,
+    },
+    alter: {
+      unter1h: frisch.filter((a) => jetzt - a.zeit < 3600).length,
+      unter24h: frisch.length,
+      siebenTage: alle.length,
+    },
   };
 }

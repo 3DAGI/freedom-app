@@ -86,6 +86,8 @@
     <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">verschiedene Modelle</div></div>
     <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Modellkataloge</div></div>
     <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Zellen mit Abdeckung</div></div>
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Speicher angeboten</div></div>
+    <div class="kpi"><div class="num"><span class="laedt"></span></div><div class="lbl">Preis je 1.000 Tokens</div></div>
   </div>
 
   <div class="dash-raster">
@@ -100,6 +102,17 @@
     was jemand über sich selbst veröffentlicht.
   </p>
   <div id="providers"><p class="muted">lade …</p></div>
+  </div>
+
+  <div class="dash-teil breit">
+  <h2>Speicher</h2>
+  <p class="muted" style="font-size:13px;max-width:60ch">
+    Wer neben Rechenzeit auch Speicher anbietet: Kapazität, Preis je MB und die
+    Grenze, bis zu der eine Datei gratis gehalten wird. Bootstrap-Knoten halten
+    fremde Dateien, auch wenn der Einsteller offline ist. Nur Angaben aus
+    frischen Angeboten – wer nichts angibt, erscheint hier nicht.
+  </p>
+  <div id="storage"><p class="muted">lade …</p></div>
   </div>
 
   <div class="dash-teil">
@@ -170,16 +183,26 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const short = (pk) => pk.slice(0, 8) + "…" + pk.slice(-4);
 const fmt = (n) => n.toLocaleString("de-DE");
 const solFmt = (lamports) => (lamports / 1e9).toLocaleString("de-DE", { maximumFractionDigits: 9 });
+/** Bytes in eine lesbare Größe: dezimal (1 KB = 1000 B), wie die App rechnet. */
+const bFmt = (b) => {
+  if (!b) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let v = b, i = 0;
+  while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+  return `${v.toLocaleString("de-DE", { maximumFractionDigits: 1 })} ${u[i]}`;
+};
+const satsFmt = (s) => (s === null ? "—" : `${s.toLocaleString("de-DE", { maximumFractionDigits: 3 })} sats`);
 
 /** Eine Abfrage an einen Relay. Bewusst mit Timeout: ein hängender Relay darf
  *  die Seite nicht blockieren, das Ergebnis wird aus dem Rest gebildet. */
 function queryRelay(url, filters, timeoutMs = 9000) {
   return new Promise((resolve) => {
     const events = [];
+    const t0 = Date.now();
     let ws;
     const done = (state) => {
       try { ws && ws.close(); } catch { /* egal */ }
-      resolve({ url, events, state });
+      resolve({ url, events, state, ms: Date.now() - t0 });
     };
     const timer = setTimeout(() => done("timeout"), timeoutMs);
     try {
@@ -209,12 +232,16 @@ const tabelle = (kopf, zeilen) => `
 
 function renderKpis(d) {
   const a = d.abdeckung;
+  const s = d.speicher;
+  const pr = d.preise;
   const zellen = a.online.zellen + a.lora.zellen + a.bluetooth.zellen;
   const cards = [
     { num: fmt(d.angebote.length), lbl: "Provider mit frischem Angebot", sub: `erneuert in 24 h · ${fmt(d.angebote7Tage)} in 7 Tagen` },
     { num: fmt(d.modelle.length), lbl: "verschiedene Modelle", sub: "in diesen Angeboten" },
     { num: fmt(d.kataloge.length), lbl: "Modellkataloge", sub: `von ${fmt(d.kuratoren)} Kuratoren` },
     { num: fmt(zellen), lbl: "Zellen mit Abdeckung", sub: `${fmt(a.verdeckt)} unter der Schwelle nicht gezeigt` },
+    { num: bFmt(s.kapazitaet), lbl: "Speicher angeboten", sub: `${fmt(s.knoten)} Knoten · ${fmt(s.bootstrap)} Bootstrap` },
+    { num: pr.medSats === null ? "—" : satsFmt(pr.medSats), lbl: "Preis je 1.000 Tokens (Median)", sub: `${fmt(pr.anbieter)} Anbieter · ${fmt(pr.gratis)} gratis` },
   ];
   el("kpis").innerHTML = cards.map((c) => `
     <div class="kpi">
@@ -231,21 +258,43 @@ function renderProviders(liste) {
     el("providers").innerHTML = `<p class="muted">Kein Angebot in den letzten 24 Stunden erneuert.</p>`;
     return;
   }
-  el("providers").innerHTML = tabelle(["Provider", "Stufe (angeboten)", "Modelle", "Preis je 1.000 Tokens", "Zahlwege", "erneuert"],
+  el("providers").innerHTML = tabelle(["Provider", "Stufe (angeboten)", "Modelle", "Preis je 1.000 Tokens", "Speicher", "Zahlwege", "erneuert"],
     liste.slice(0, 40).map((p) => {
       const wege = [p.lightning ? "Lightning" : "", p.solKanal ? "SOL-Kanal" : "", p.funkGateway ? "Funk-Gateway" : ""].filter(Boolean).join(" · ") || "—";
       // sats und SOL (C-3) – SOL nur aus dem Kurs im Angebot, ohne Kurs keiner
       const sats = p.satsJe1k === null ? null : `${fmt(Math.round(p.satsJe1k * 1000) / 1000)} sats`;
       const preis = p.gratis ? "gratis" : sats === null ? "—" : p.lamportsJe1k === null ? `${sats} · SOL: kein Kurs` : `${sats} · ≈ ${solFmt(p.lamportsJe1k)} SOL`;
+      const speicher = p.speicher ? bFmt(p.speicher.kapazitaet) : "—";
       return `<tr>
         <td class="mono">${esc(short(p.pubkey))}</td>
         <td>${esc(STUFE[p.stufe])}</td>
         <td class="muted">${esc(p.modelle.slice(0, 2).join(", ") || "—")}</td>
         <td>${esc(preis)}</td>
+        <td class="muted">${esc(speicher)}</td>
         <td class="muted">${esc(wege)}</td>
         <td class="muted">${esc(ago(p.zeit))}</td>
       </tr>`;
     }));
+}
+
+/** Speicher-Knoten: nur Angebote mit gültigem storage-Tag, nach Erneuerung sortiert. */
+function renderStorage(d) {
+  const liste = d.angebote.filter((a) => a.speicher);
+  if (!liste.length) {
+    el("storage").innerHTML = `<p class="muted">Kein frisches Angebot mit Speicher in den letzten 24 Stunden.</p>`;
+    return;
+  }
+  const s = d.speicher;
+  el("storage").innerHTML = `<p class="muted" style="font-size:13px">${fmt(s.knoten)} Knoten · ${bFmt(s.kapazitaet)} zusammen · gratis je Datei ${bFmt(s.gratis)} · Preis ${s.preisMinMb === null ? "—" : `${fmt(s.preisMinMb)}–${fmt(s.preisMaxMb)} msat/MB`}</p>` +
+    tabelle(["Provider", "Kapazität", "Preis je MB", "gratis bis", "Bootstrap", "erneuert"],
+      liste.slice(0, 40).map((p) => `<tr>
+        <td class="mono">${esc(short(p.pubkey))}</td>
+        <td>${esc(bFmt(p.speicher.kapazitaet))}</td>
+        <td>${esc(p.speicher.preisMb === 0 ? "gratis" : `${fmt(p.speicher.preisMb)} msat`)}</td>
+        <td class="muted">${esc(p.speicher.gratis ? bFmt(p.speicher.gratis) : "—")}</td>
+        <td>${p.speicher.bootstrap ? '<span class="ok">ja</span>' : '<span class="muted">nein</span>'}</td>
+        <td class="muted">${esc(ago(p.zeit))}</td>
+      </tr>`));
 }
 
 function renderModels(modelle) {
@@ -286,7 +335,8 @@ async function load() {
 
   el("relays").innerHTML = results.map((r) => {
     const cls = r.state === "ok" ? "ok" : r.state === "timeout" ? "warn" : "";
-    return `<span><i class="punkt ${cls}" aria-hidden="true"></i>${esc(r.url.replace("wss://", ""))} · ${esc(r.state)} · ${r.events.length}</span>`;
+    const ms = r.state === "ok" ? ` · ${r.ms} ms` : "";
+    return `<span><i class="punkt ${cls}" aria-hidden="true"></i>${esc(r.url.replace("wss://", ""))} · ${esc(r.state)}${esc(ms)} · ${r.events.length}</span>`;
   }).join("");
 
   const d = werteAus(results.flatMap((r) => r.events), jetzt);
@@ -300,12 +350,13 @@ async function load() {
       <button type="button" id="neu-laden">Jetzt erneut versuchen</button></div>`;
     el("neu-laden").addEventListener("click", () => { el("status").textContent = "verbinde …"; load().catch(() => {}); });
     el("kpis").querySelectorAll(".num").forEach((n) => { n.textContent = "—"; });
-    for (const id of ["providers", "models", "catalogs", "coverage", "referrers"]) el(id).innerHTML = `<p class="muted">Ohne Verbindung keine Zahlen.</p>`;
+    for (const id of ["providers", "models", "catalogs", "coverage", "referrers", "storage"]) el(id).innerHTML = `<p class="muted">Ohne Verbindung keine Zahlen.</p>`;
     return;
   }
 
   renderKpis(d);
   renderProviders(d.angebote);
+  renderStorage(d);
   renderModels(d.modelle);
   renderCatalogs(d.kataloge);
   renderCoverage(d.abdeckung);
